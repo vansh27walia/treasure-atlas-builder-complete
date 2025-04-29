@@ -9,7 +9,216 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      "1": {
+        Row: {
+          created_at: string
+          id: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+        }
+        Relationships: []
+      }
+      addresses: {
+        Row: {
+          city: string
+          country: string
+          id: number
+          is_default_from: boolean | null
+          is_default_to: boolean | null
+          name: string | null
+          state: string
+          street1: string
+          street2: string | null
+          user_id: string | null
+          zip: string
+        }
+        Insert: {
+          city: string
+          country: string
+          id?: number
+          is_default_from?: boolean | null
+          is_default_to?: boolean | null
+          name?: string | null
+          state: string
+          street1: string
+          street2?: string | null
+          user_id?: string | null
+          zip: string
+        }
+        Update: {
+          city?: string
+          country?: string
+          id?: number
+          is_default_from?: boolean | null
+          is_default_to?: boolean | null
+          name?: string | null
+          state?: string
+          street1?: string
+          street2?: string | null
+          user_id?: string | null
+          zip?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "addresses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_parcels: {
+        Row: {
+          height: number
+          id: number
+          length: number
+          name: string | null
+          user_id: string | null
+          weight: number
+          width: number
+        }
+        Insert: {
+          height: number
+          id?: number
+          length: number
+          name?: string | null
+          user_id?: string | null
+          weight: number
+          width: number
+        }
+        Update: {
+          height?: number
+          id?: number
+          length?: number
+          name?: string | null
+          user_id?: string | null
+          weight?: number
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_parcels_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipment_records: {
+        Row: {
+          carrier: string | null
+          charged_rate: number | null
+          contents_description: string | null
+          contents_type: string | null
+          created_at: string | null
+          currency: string | null
+          customs_certify: boolean | null
+          customs_items_json: Json | null
+          customs_signer: string | null
+          delivery_days: number | null
+          document_urls_json: Json | null
+          easypost_rate: number | null
+          from_address_json: Json | null
+          id: number
+          label_url: string | null
+          non_delivery_option: string | null
+          parcel_json: Json | null
+          rate_id: string | null
+          service: string | null
+          shipment_id: string | null
+          status: string | null
+          to_address_json: Json | null
+          tracking_code: string | null
+          user_id: string | null
+        }
+        Insert: {
+          carrier?: string | null
+          charged_rate?: number | null
+          contents_description?: string | null
+          contents_type?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customs_certify?: boolean | null
+          customs_items_json?: Json | null
+          customs_signer?: string | null
+          delivery_days?: number | null
+          document_urls_json?: Json | null
+          easypost_rate?: number | null
+          from_address_json?: Json | null
+          id?: number
+          label_url?: string | null
+          non_delivery_option?: string | null
+          parcel_json?: Json | null
+          rate_id?: string | null
+          service?: string | null
+          shipment_id?: string | null
+          status?: string | null
+          to_address_json?: Json | null
+          tracking_code?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          carrier?: string | null
+          charged_rate?: number | null
+          contents_description?: string | null
+          contents_type?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customs_certify?: boolean | null
+          customs_items_json?: Json | null
+          customs_signer?: string | null
+          delivery_days?: number | null
+          document_urls_json?: Json | null
+          easypost_rate?: number | null
+          from_address_json?: Json | null
+          id?: number
+          label_url?: string | null
+          non_delivery_option?: string | null
+          parcel_json?: Json | null
+          rate_id?: string | null
+          service?: string | null
+          shipment_id?: string | null
+          status?: string | null
+          to_address_json?: Json | null
+          tracking_code?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_records_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
