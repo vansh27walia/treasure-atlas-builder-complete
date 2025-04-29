@@ -36,7 +36,7 @@ const ShippingRates: React.FC = () => {
 
   // Listen for rates from the shipping form component
   useEffect(() => {
-    const handleRatesReceived = (event: CustomEvent<EasyPostRatesEvent>) => {
+    const handleRatesReceived = (event: CustomEvent<EasyPostRatesEvent['detail']>) => {
       if (event.detail && event.detail.rates) {
         setRates(event.detail.rates);
         setShipmentId(event.detail.shipmentId);
