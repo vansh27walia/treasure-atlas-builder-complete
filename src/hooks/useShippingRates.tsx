@@ -1,0 +1,128 @@
+
+import { useState, useEffect } from 'react';
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from '@/components/ui/sonner';
+
+interface ShippingRate {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: string;
+  currency: string;
+  delivery_days: number;
+  delivery_date: string;
+  list_rate?: string;
+  retail_rate?: string;
+  est_delivery_days?: number;
+}
+
+interface EasyPostRatesEvent {
+  detail: {
+    rates: ShippingRate[];
+    shipmentId: string;
+  }
+}
+
+export const useShippingRates = () => {
+  const [rates, setRates] = useState<ShippingRate[]>([]);
+  const [shipmentId, setShipmentId] = useState<string | null>(null);
+  const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [labelUrl, setLabelUrl] = useState<string | null>(null);
+  const [trackingCode, setTrackingCode] = useState<string | null>(null);
+
+  // Listen for rates from the shipping form component
+  useEffect(() => {
+    const handleRatesReceived = (event: CustomEvent<EasyPostRatesEvent['detail']>) => {
+      if (event.detail && event.detail.rates) {
+        setRates(event.detail.rates);
+        setShipmentId(event.detail.shipmentId);
+        setSelectedRateId(null);
+        setLabelUrl(null);
+        setTrackingCode(null);
+      }
+    };
+
+    document.addEventListener('easypost-rates-received', handleRatesReceived as EventListener);
+    
+    return () => {
+      document.removeEventListener('easypost-rates-received', handleRatesReceived as EventListener);
+    };
+  }, []);
+
+  const handleSelectRate = (rateId: string) => {
+    setSelectedRateId(rateId);
+  };
+
+  const handleCreateLabel = async () => {
+    if (!selectedRateId || !shipmentId) {
+      toast.error("Please select a shipping rate first");
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-label', {
+        body: { shipmentId, rateId: selectedRateId }
+      });
+
+      if (error) {
+        throw new Error(`Error creating label: ${error.message}`);
+      }
+
+      setLabelUrl(data.labelUrl);
+      setTrackingCode(data.trackingCode);
+      toast.success("Shipping label generated successfully");
+    } catch (error) {
+      console.error('Error creating label:', error);
+      toast.error("Failed to generate shipping label");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to determine the best value rate
+  const getBestValueRate = () => {
+    if (rates.length === 0) return null;
+    
+    // Sort by price and delivery days to find the best value
+    const sortedRates = [...rates].sort((a, b) => {
+      // First compare price
+      const aPrice = parseFloat(a.rate);
+      const bPrice = parseFloat(b.rate);
+      if (aPrice !== bPrice) return aPrice - bPrice;
+      
+      // If price is the same, compare delivery days
+      return (a.delivery_days || 999) - (b.delivery_days || 999);
+    });
+    
+    return sortedRates[0]?.id;
+  };
+
+  // Function to determine the fastest rate
+  const getFastestRate = () => {
+    if (rates.length === 0) return null;
+    
+    // Sort by delivery days to find the fastest
+    const sortedRates = [...rates].sort((a, b) => 
+      (a.delivery_days || 999) - (b.delivery_days || 999)
+    );
+    
+    return sortedRates[0]?.id;
+  };
+
+  const bestValueRateId = getBestValueRate();
+  const fastestRateId = getFastestRate();
+
+  return {
+    rates,
+    isLoading,
+    selectedRateId,
+    labelUrl,
+    trackingCode,
+    bestValueRateId,
+    fastestRateId,
+    handleSelectRate,
+    handleCreateLabel
+  };
+};
