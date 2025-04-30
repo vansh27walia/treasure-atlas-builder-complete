@@ -1,6 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
+import { useNavigate } from 'react-router-dom';
 
 interface ShippingRate {
   id: string;
@@ -24,10 +26,12 @@ interface EasyPostRatesEvent {
 }
 
 export const useShippingRates = () => {
+  const navigate = useNavigate();
   const [rates, setRates] = useState<ShippingRate[]>([]);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
 
@@ -87,6 +91,42 @@ export const useShippingRates = () => {
     }
   };
 
+  const handleProceedToPayment = async () => {
+    if (!selectedRateId || !shipmentId) {
+      toast.error("Please select a shipping rate first");
+      return;
+    }
+
+    const selectedRate = rates.find(rate => rate.id === selectedRateId);
+    if (!selectedRate) {
+      toast.error("Selected rate not found");
+      return;
+    }
+
+    setIsProcessingPayment(true);
+
+    try {
+      // Create a Stripe checkout session for the shipping label
+      const amount = Math.round(parseFloat(selectedRate.rate) * 100); // Convert to cents
+      const { data, error } = await supabase.functions.invoke('create-bulk-checkout', {
+        body: {
+          amount: amount,
+          quantity: 1,
+          description: `Shipping Label - ${selectedRate.carrier} ${selectedRate.service}`
+        }
+      });
+
+      if (error) throw new Error(error.message);
+
+      // Redirect to Stripe checkout
+      window.location.href = data.url;
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Failed to process payment');
+      setIsProcessingPayment(false);
+    }
+  };
+
   // Function to determine the best value rate
   const getBestValueRate = () => {
     if (rates.length === 0) return null;
@@ -123,12 +163,14 @@ export const useShippingRates = () => {
   return {
     rates,
     isLoading,
+    isProcessingPayment,
     selectedRateId,
     labelUrl,
     trackingCode,
     bestValueRateId,
     fastestRateId,
     handleSelectRate,
-    handleCreateLabel
+    handleCreateLabel,
+    handleProceedToPayment
   };
 };

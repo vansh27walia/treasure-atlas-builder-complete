@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import PaymentPage from "./pages/PaymentPage";
 import LabelSuccessPage from "./pages/LabelSuccessPage";
+import SidebarNavigation from "./components/SidebarNavigation";
 
 const queryClient = new QueryClient();
 
@@ -18,14 +19,16 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/payment" element={<PaymentPage />} />
-          <Route path="/label-success" element={<LabelSuccessPage />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <SidebarNavigation>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/payment" element={<PaymentPage />} />
+            <Route path="/label-success" element={<LabelSuccessPage />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </SidebarNavigation>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
