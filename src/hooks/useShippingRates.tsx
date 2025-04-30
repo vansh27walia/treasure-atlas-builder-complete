@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -14,6 +13,7 @@ interface ShippingRate {
   list_rate?: string;
   retail_rate?: string;
   est_delivery_days?: number;
+  shipment_id?: string; // Added the missing property
 }
 
 interface EasyPostRatesEvent {
@@ -35,7 +35,13 @@ export const useShippingRates = () => {
   useEffect(() => {
     const handleRatesReceived = (event: CustomEvent<EasyPostRatesEvent['detail']>) => {
       if (event.detail && event.detail.rates) {
-        setRates(event.detail.rates);
+        // Add shipmentId to each rate object
+        const ratesWithShipmentId = event.detail.rates.map(rate => ({
+          ...rate,
+          shipment_id: event.detail.shipmentId
+        }));
+        
+        setRates(ratesWithShipmentId);
         setShipmentId(event.detail.shipmentId);
         setSelectedRateId(null);
         setLabelUrl(null);
