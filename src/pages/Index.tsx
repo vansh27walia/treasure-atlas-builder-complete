@@ -1,10 +1,13 @@
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import ShippingForm from '@/components/ShippingForm';
 import ShippingRates from '@/components/ShippingRates';
 import FeatureBanner from '@/components/FeatureBanner';
 import { toast } from '@/components/ui/sonner';
+import { Button } from '@/components/ui/button';
+import { ChartBar, Upload } from 'lucide-react';
 
 const Index = () => {
   // We could show a welcome toast when the page loads
@@ -19,9 +22,29 @@ const Index = () => {
       <Header />
       <FeatureBanner />
       
-      <main className="flex-1 shipping-container py-8">
-        <ShippingForm />
-        <ShippingRates />
+      <main className="flex-1 py-8">
+        <div className="shipping-container">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-bold">Shipping Center</h1>
+            <div className="flex gap-4">
+              <Button asChild variant="outline" className="flex items-center gap-2">
+                <Link to="/dashboard">
+                  <ChartBar className="h-4 w-4" />
+                  View Dashboard
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="flex items-center gap-2">
+                <Link to="/dashboard?tab=bulk">
+                  <Upload className="h-4 w-4" />
+                  Bulk Upload
+                </Link>
+              </Button>
+            </div>
+          </div>
+          
+          <ShippingForm />
+          <ShippingRates />
+        </div>
       </main>
       
       <footer className="bg-gray-50 border-t">
