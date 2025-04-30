@@ -17,14 +17,19 @@ import {
   Upload, 
   History, 
   CreditCard, 
-  Layout
+  Layout,
+  Settings,
+  Search
 } from 'lucide-react';
 
 const SidebarNavigation = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   
   const isActive = (path: string) => {
-    return location.pathname === path;
+    if (path === '/') {
+      return location.pathname === '/';
+    }
+    return location.pathname.startsWith(path);
   };
   
   return (
@@ -45,22 +50,9 @@ const SidebarNavigation = ({ children }: { children: React.ReactNode }) => {
                 <SidebarMenuButton 
                   isActive={isActive("/")} 
                   asChild 
-                  tooltip="Create Shipping Label"
-                >
-                  <Link to="/">
-                    <Package className="h-5 w-5" />
-                    <span>Create Label</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              
-              <SidebarMenuItem>
-                <SidebarMenuButton 
-                  isActive={isActive("/dashboard")} 
-                  asChild 
                   tooltip="Dashboard"
                 >
-                  <Link to="/dashboard">
+                  <Link to="/">
                     <Layout className="h-5 w-5" />
                     <span>Dashboard</span>
                   </Link>
@@ -69,7 +61,20 @@ const SidebarNavigation = ({ children }: { children: React.ReactNode }) => {
               
               <SidebarMenuItem>
                 <SidebarMenuButton 
-                  isActive={false} 
+                  isActive={isActive("/create-label")} 
+                  asChild 
+                  tooltip="Create Label"
+                >
+                  <Link to="/create-label">
+                    <Package className="h-5 w-5" />
+                    <span>Create Label</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  isActive={location.pathname === "/dashboard" && location.search.includes("tab=tracking")} 
                   asChild 
                   tooltip="Tracking"
                 >
@@ -82,7 +87,7 @@ const SidebarNavigation = ({ children }: { children: React.ReactNode }) => {
               
               <SidebarMenuItem>
                 <SidebarMenuButton 
-                  isActive={false} 
+                  isActive={location.pathname === "/dashboard" && location.search.includes("tab=bulk")} 
                   asChild 
                   tooltip="Bulk Upload"
                 >
@@ -95,7 +100,7 @@ const SidebarNavigation = ({ children }: { children: React.ReactNode }) => {
               
               <SidebarMenuItem>
                 <SidebarMenuButton 
-                  isActive={false} 
+                  isActive={location.pathname === "/dashboard" && location.search.includes("tab=history")} 
                   asChild 
                   tooltip="History"
                 >
@@ -115,6 +120,32 @@ const SidebarNavigation = ({ children }: { children: React.ReactNode }) => {
                   <Link to="/payment">
                     <CreditCard className="h-5 w-5" />
                     <span>Payment Methods</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  isActive={false} 
+                  asChild 
+                  tooltip="Settings"
+                >
+                  <Link to="/settings">
+                    <Settings className="h-5 w-5" />
+                    <span>Carrier Settings</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  isActive={false} 
+                  asChild 
+                  tooltip="Search"
+                >
+                  <Link to="/search">
+                    <Search className="h-5 w-5" />
+                    <span>Search Shipments</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

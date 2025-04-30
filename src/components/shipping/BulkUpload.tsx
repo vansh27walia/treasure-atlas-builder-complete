@@ -3,16 +3,35 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Upload, FileText, Check, AlertCircle, CreditCard, Loader } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Upload, FileText, Check, AlertCircle, CreditCard, Loader, Download, Package } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+
+interface ProcessedShipment {
+  id: string;
+  tracking_code: string;
+  label_url: string;
+  status: string;
+  row: number;
+  recipient: string;
+  carrier: string;
+}
+
+interface FailedShipment {
+  row: number;
+  error: string;
+  details: string;
+}
 
 interface ProcessingResult {
   total: number;
   successful: number;
   failed: number;
   totalCost: number;
+  processedShipments: ProcessedShipment[];
+  failedShipments: FailedShipment[];
 }
 
 const BulkUpload: React.FC = () => {
@@ -59,7 +78,7 @@ const BulkUpload: React.FC = () => {
         throw new Error('CSV file must have at least a header row and one data row');
       }
       
-      // Process file (in a real app, this would be handled by the backend)
+      // Process file and generate labels via the API
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
         body: { csvContent: text }
       });
@@ -70,11 +89,13 @@ const BulkUpload: React.FC = () => {
         total: data.total,
         successful: data.successful,
         failed: data.failed,
-        totalCost: data.total * 4.99 // Assuming $4.99 per label
+        totalCost: data.totalCost,
+        processedShipments: data.processedShipments || [],
+        failedShipments: data.failedShipments || []
       });
       
       setUploadStatus('success');
-      toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments`);
+      toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments and generated labels`);
     } catch (error) {
       console.error('Bulk upload error:', error);
       setUploadStatus('error');
@@ -125,12 +146,24 @@ const BulkUpload: React.FC = () => {
     
     setIsCreatingLabels(true);
     
-    // Simulate label creation
+    // Labels are already generated, just simulate completion
     setTimeout(() => {
       setIsCreatingLabels(false);
       toast.success(`${results.successful} shipping labels have been generated`);
       navigate('/dashboard?tab=tracking');
-    }, 2000);
+    }, 1000);
+  };
+
+  const handleDownloadAllLabels = () => {
+    if (!results || !results.processedShipments.length) {
+      toast.error('No labels available to download');
+      return;
+    }
+    
+    // In a real app, this would download a ZIP file with all labels
+    // For this demo, we'll open the first label URL as an example
+    toast.success(`Preparing ${results.successful} labels for download`);
+    window.open(results.processedShipments[0].label_url, '_blank');
   };
 
   const handleDownloadTemplate = () => {
@@ -144,6 +177,10 @@ const BulkUpload: React.FC = () => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  };
+
+  const handleDownloadSingleLabel = (labelUrl: string) => {
+    window.open(labelUrl, '_blank');
   };
 
   return (
@@ -186,62 +223,137 @@ const BulkUpload: React.FC = () => {
       </div>
       
       {uploadStatus === 'success' && results && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-md mb-6">
-          <div className="flex items-center mb-2">
-            <Check className="h-5 w-5 text-green-600 mr-2" />
-            <h4 className="font-semibold text-green-800">Upload Successful</h4>
-          </div>
-          <p className="text-green-700 mb-3">
-            Successfully processed {results.successful} out of {results.total} shipments.
-            {results.failed > 0 && ` (${results.failed} failed)`}
-          </p>
+        <div className="bg-green-50 border border-green-200 rounded-md mb-6">
+          <div className="p-4">
+            <div className="flex items-center mb-2">
+              <Check className="h-5 w-5 text-green-600 mr-2" />
+              <h4 className="font-semibold text-green-800">Upload Successful</h4>
+            </div>
+            <p className="text-green-700 mb-3">
+              Successfully processed {results.successful} out of {results.total} shipments and generated labels.
+              {results.failed > 0 && ` (${results.failed} failed)`}
+            </p>
           
-          <div className="bg-white p-4 rounded-md border border-green-100">
-            <h5 className="font-medium mb-2">Order Summary</h5>
-            <div className="flex justify-between mb-1 text-sm">
-              <span>Number of labels:</span>
-              <span>{results.successful}</span>
-            </div>
-            <div className="flex justify-between mb-1 text-sm">
-              <span>Price per label:</span>
-              <span>$4.99</span>
-            </div>
-            <div className="flex justify-between font-medium mt-2 pt-2 border-t border-green-100">
-              <span>Total:</span>
-              <span>${results.totalCost.toFixed(2)}</span>
-            </div>
+            <div className="bg-white p-4 rounded-md border border-green-100">
+              <h5 className="font-medium mb-2">Order Summary</h5>
+              <div className="flex justify-between mb-1 text-sm">
+                <span>Number of labels:</span>
+                <span>{results.successful}</span>
+              </div>
+              <div className="flex justify-between mb-1 text-sm">
+                <span>Price per label:</span>
+                <span>$4.99</span>
+              </div>
+              <div className="flex justify-between font-medium mt-2 pt-2 border-t border-green-100">
+                <span>Total:</span>
+                <span>${results.totalCost.toFixed(2)}</span>
+              </div>
             
-            <div className="flex justify-end gap-3 mt-4">
-              <Button 
-                variant="outline" 
-                onClick={handleCreateLabels}
-                disabled={isCreatingLabels}
-              >
-                {isCreatingLabels ? (
-                  <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Labels...
-                  </>
-                ) : 'Create Labels'}
-              </Button>
-              <Button 
-                onClick={handleProceedToPayment}
-                disabled={isPaying}
-              >
-                {isPaying ? (
-                  <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Pay ${results.totalCost.toFixed(2)}
-                  </>
-                )}
-              </Button>
+              <div className="flex justify-end gap-3 mt-4">
+                <Button 
+                  variant="outline" 
+                  onClick={handleDownloadAllLabels}
+                  disabled={isCreatingLabels}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download All Labels
+                </Button>
+                <Button 
+                  onClick={handleProceedToPayment}
+                  disabled={isPaying}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isPaying ? (
+                    <>
+                      <Loader className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      Pay ${results.totalCost.toFixed(2)}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
+          
+          {/* Successful shipments table */}
+          {results.processedShipments.length > 0 && (
+            <div className="p-4">
+              <h5 className="font-medium text-green-800 mb-3">Successfully Processed Shipments</h5>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Row</TableHead>
+                      <TableHead>Recipient</TableHead>
+                      <TableHead>Carrier</TableHead>
+                      <TableHead>Tracking #</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {results.processedShipments.map((shipment) => (
+                      <TableRow key={shipment.id}>
+                        <TableCell>{shipment.row}</TableCell>
+                        <TableCell>{shipment.recipient}</TableCell>
+                        <TableCell>{shipment.carrier}</TableCell>
+                        <TableCell>{shipment.tracking_code}</TableCell>
+                        <TableCell>
+                          <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                            Label Generated
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Button 
+                            size="sm" 
+                            variant="ghost"
+                            onClick={() => handleDownloadSingleLabel(shipment.label_url)}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+          
+          {/* Failed shipments table */}
+          {results.failedShipments.length > 0 && (
+            <div className="p-4 border-t border-green-100">
+              <h5 className="font-medium text-red-800 mb-3">Failed Shipments</h5>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Row</TableHead>
+                      <TableHead>Error Type</TableHead>
+                      <TableHead>Details</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {results.failedShipments.map((shipment, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{shipment.row}</TableCell>
+                        <TableCell>
+                          <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                            {shipment.error}
+                          </span>
+                        </TableCell>
+                        <TableCell>{shipment.details}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
         </div>
       )}
       

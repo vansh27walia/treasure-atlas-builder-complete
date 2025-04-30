@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound";
 import Dashboard from "./pages/Dashboard";
 import PaymentPage from "./pages/PaymentPage";
 import LabelSuccessPage from "./pages/LabelSuccessPage";
+import CreateLabelPage from "./pages/CreateLabelPage";
 import SidebarNavigation from "./components/SidebarNavigation";
 
 const queryClient = new QueryClient();
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/label-success" element={<LabelSuccessPage />} />
+            <Route path="/create-label" element={<CreateLabelPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
