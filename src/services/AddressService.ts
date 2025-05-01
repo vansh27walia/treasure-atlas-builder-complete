@@ -2,7 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
-  id: string;
+  id: number; // Changed from string to number to match Supabase table structure
   user_id: string;
   name: string;
   company?: string;
@@ -80,7 +80,7 @@ export class AddressService {
   /**
    * Delete a saved address
    */
-  public async deleteAddress(addressId: string): Promise<boolean> {
+  public async deleteAddress(addressId: number): Promise<boolean> { // Changed parameter type from string to number
     try {
       const { error } = await supabase
         .from('addresses')
@@ -101,7 +101,7 @@ export class AddressService {
   /**
    * Set an address as the default shipping from address
    */
-  public async setDefaultFromAddress(addressId: string): Promise<boolean> {
+  public async setDefaultFromAddress(addressId: number): Promise<boolean> { // Changed parameter type from string to number
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
@@ -135,7 +135,7 @@ export class AddressService {
   /**
    * Set an address as the default shipping to address
    */
-  public async setDefaultToAddress(addressId: string): Promise<boolean> {
+  public async setDefaultToAddress(addressId: number): Promise<boolean> { // Changed parameter type from string to number
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
