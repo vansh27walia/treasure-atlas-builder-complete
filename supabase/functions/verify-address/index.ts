@@ -25,6 +25,14 @@ interface VerifyAddressRequest {
   carrier: string;
 }
 
+interface VerificationResponse {
+  verifiedAddress: AddressData;
+  verification: any;
+  success: boolean;
+  deliverable: boolean;
+  messages: string[];
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -77,13 +85,39 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
       );
     }
+    
+    // Process verification results
+    let deliverable = true;
+    const messages: string[] = [];
+    
+    if (data.verifications && data.verifications.delivery) {
+      const verification = data.verifications.delivery;
+      
+      if (verification.success === false) {
+        deliverable = false;
+        
+        // Extract error messages
+        if (verification.errors && verification.errors.length > 0) {
+          verification.errors.forEach((error: any) => {
+            messages.push(error.message);
+          });
+        } else {
+          messages.push("Address couldn't be verified");
+        }
+      }
+    }
+
+    const result: VerificationResponse = {
+      verifiedAddress: data.address,
+      verification: data.verifications,
+      success: data.verifications?.delivery?.success ?? false,
+      deliverable,
+      messages
+    };
 
     // Return the verified address from the response
     return new Response(
-      JSON.stringify({ 
-        verifiedAddress: data.address,
-        verification: data.verifications,
-      }),
+      JSON.stringify(result),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

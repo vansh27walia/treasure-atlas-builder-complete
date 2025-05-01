@@ -35,6 +35,35 @@ interface ShippingRequestData {
   carrier?: string;
 }
 
+// Get markup percentage from environment variable or use default value
+const getMarkupPercentage = (): number => {
+  const markupStr = Deno.env.get('SHIPPING_MARKUP_PERCENTAGE');
+  if (!markupStr) return 2; // Default 2% markup if not set
+  
+  const markup = parseFloat(markupStr);
+  return isNaN(markup) ? 2 : markup;
+};
+
+// Apply markup to rates
+const applyMarkup = (rates: any[], markupPercentage: number): any[] => {
+  return rates.map(rate => {
+    // Store original rate
+    const originalRate = rate.rate;
+    
+    // Calculate markup
+    const rateValue = parseFloat(rate.rate);
+    const markupAmount = rateValue * (markupPercentage / 100);
+    const markedUpRate = (rateValue + markupAmount).toFixed(2);
+    
+    // Return rate with markup applied
+    return {
+      ...rate,
+      original_rate: originalRate, // Store original rate
+      rate: markedUpRate.toString() // Update rate with markup
+    };
+  });
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -102,11 +131,16 @@ serve(async (req) => {
     
     // Sort rates by price (cheapest first)
     rates.sort((a: any, b: any) => parseFloat(a.rate) - parseFloat(b.rate));
+    
+    // Get markup percentage and apply to rates
+    const markupPercentage = getMarkupPercentage();
+    console.log(`Applying ${markupPercentage}% markup to shipping rates`);
+    const markedUpRates = applyMarkup(rates, markupPercentage);
 
     // Return the rates from the response
     return new Response(
       JSON.stringify({ 
-        rates: rates,
+        rates: markedUpRates,
         shipmentId: data.id,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

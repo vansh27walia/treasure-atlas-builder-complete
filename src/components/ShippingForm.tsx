@@ -1,16 +1,17 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Box, ArrowRight, Scale } from 'lucide-react';
+import { Package, Box, ArrowRight, Scale, AlertCircle, Check } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { carrierService } from '@/services/CarrierService';
 
 interface FormValues {
   fromName: string;
@@ -41,8 +42,29 @@ interface FormValues {
   insurance: boolean;
 }
 
+interface AddressVerificationState {
+  isVerifying: boolean;
+  isVerified: boolean;
+  messages: string[];
+  verifiedAddress?: {
+    name?: string;
+    company?: string;
+    street1?: string;
+    street2?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+  };
+}
+
 const ShippingForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [toAddressVerification, setToAddressVerification] = useState<AddressVerificationState>({
+    isVerifying: false,
+    isVerified: false,
+    messages: []
+  });
   
   // Using react-hook-form to manage form state
   const form = useForm<FormValues>({
@@ -75,6 +97,101 @@ const ShippingForm: React.FC = () => {
       insurance: false,
     }
   });
+  
+  // Handle address verification
+  const handleVerifyAddress = async () => {
+    const values = form.getValues();
+    
+    // Check if we have the minimum required address fields
+    if (!values.toAddress1 || !values.toCity || !values.toState || !values.toZip) {
+      toast.error("Please fill in all required address fields before verification");
+      return;
+    }
+    
+    setToAddressVerification({
+      ...toAddressVerification,
+      isVerifying: true,
+      isVerified: false,
+      messages: []
+    });
+    
+    try {
+      const addressToVerify = {
+        name: values.toName,
+        company: values.toCompany || undefined,
+        street1: values.toAddress1,
+        street2: values.toAddress2 || undefined,
+        city: values.toCity,
+        state: values.toState,
+        zip: values.toZip,
+        country: values.toCountry,
+      };
+      
+      const result = await carrierService.verifyAddress(addressToVerify);
+      
+      // Get the verification response
+      const { data, error } = await supabase.functions.invoke('verify-address', {
+        body: { address: addressToVerify, carrier: 'easypost' }
+      });
+      
+      if (error) {
+        throw new Error(`Error verifying address: ${error.message}`);
+      }
+      
+      if (data.success) {
+        // Address is valid
+        setToAddressVerification({
+          isVerifying: false,
+          isVerified: true,
+          messages: ['Address is valid'],
+          verifiedAddress: data.verifiedAddress
+        });
+        
+        // Update form with verified address
+        form.setValue('toAddress1', data.verifiedAddress.street1 || values.toAddress1);
+        form.setValue('toAddress2', data.verifiedAddress.street2 || values.toAddress2 || '');
+        form.setValue('toCity', data.verifiedAddress.city || values.toCity);
+        form.setValue('toState', data.verifiedAddress.state || values.toState);
+        form.setValue('toZip', data.verifiedAddress.zip || values.toZip);
+        
+        toast.success("Address verified successfully");
+      } else {
+        // Address has issues
+        setToAddressVerification({
+          isVerifying: false,
+          isVerified: false,
+          messages: data.messages || ['Unable to verify this address'],
+          verifiedAddress: data.verifiedAddress
+        });
+        
+        toast.warning("Address verification found issues");
+      }
+    } catch (error) {
+      console.error('Error verifying address:', error);
+      setToAddressVerification({
+        isVerifying: false,
+        isVerified: false,
+        messages: ['Failed to verify address. Please check the address and try again.']
+      });
+      
+      toast.error("Address verification failed");
+    }
+  };
+
+  // Use verified address when available
+  const useVerifiedAddress = () => {
+    if (!toAddressVerification.verifiedAddress) return;
+    
+    const verified = toAddressVerification.verifiedAddress;
+    
+    if (verified.street1) form.setValue('toAddress1', verified.street1);
+    if (verified.street2) form.setValue('toAddress2', verified.street2 || '');
+    if (verified.city) form.setValue('toCity', verified.city);
+    if (verified.state) form.setValue('toState', verified.state);
+    if (verified.zip) form.setValue('toZip', verified.zip);
+    
+    toast.success("Using verified address");
+  };
 
   const handleGetRates = async (values: FormValues) => {
     setIsLoading(true);
@@ -280,6 +397,36 @@ const ShippingForm: React.FC = () => {
                     
                     <div>
                       <h3 className="text-lg font-medium mb-4">Destination Address</h3>
+                      
+                      {/* Address verification status */}
+                      {toAddressVerification.messages.length > 0 && (
+                        <Alert className="mb-4" variant={toAddressVerification.isVerified ? "default" : "destructive"}>
+                          {toAddressVerification.isVerified ? (
+                            <Check className="h-4 w-4" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4" />
+                          )}
+                          <AlertTitle>{toAddressVerification.isVerified ? "Address Verified" : "Address Issues"}</AlertTitle>
+                          <AlertDescription>
+                            <ul className="list-disc pl-4 mt-2">
+                              {toAddressVerification.messages.map((message, i) => (
+                                <li key={i}>{message}</li>
+                              ))}
+                            </ul>
+                            {!toAddressVerification.isVerified && toAddressVerification.verifiedAddress && (
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="mt-2"
+                                onClick={useVerifiedAddress}
+                              >
+                                Use Suggested Address
+                              </Button>
+                            )}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      
                       <div className="space-y-4">
                         <FormField
                           control={form.control}
@@ -398,6 +545,17 @@ const ShippingForm: React.FC = () => {
                             </FormItem>
                           )}
                         />
+                        
+                        <div className="mt-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleVerifyAddress}
+                            disabled={toAddressVerification.isVerifying}
+                          >
+                            {toAddressVerification.isVerifying ? 'Verifying...' : 'Verify Address'}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
