@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { useMedia } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { 
   LayoutDashboard, 
   Package, 
@@ -52,7 +52,7 @@ const secondaryNavItems: NavigationItem[] = [
 
 const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
-  const isMobile = useMedia('(max-width: 768px)');
+  const isMobile = useIsMobile();
   const location = useLocation();
   const { user, signOut } = useAuth();
   

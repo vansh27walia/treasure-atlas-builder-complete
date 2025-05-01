@@ -13,8 +13,9 @@ export interface SavedAddress {
   zip: string;
   country: string;
   phone?: string;
-  is_default: boolean;
-  created_at: string;
+  is_default_from: boolean;
+  is_default_to: boolean;
+  created_at?: string;
 }
 
 export class AddressService {
@@ -29,16 +30,17 @@ export class AddressService {
       }
       
       const { data, error } = await supabase
-        .from('saved_addresses')
+        .from('addresses')
         .select('*')
-        .order('is_default', { ascending: false })
+        .eq('user_id', session.session.user.id)
+        .order('is_default_from', { ascending: false })
         .order('created_at', { ascending: false });
       
       if (error) {
         throw error;
       }
       
-      return data || [];
+      return data as unknown as SavedAddress[] || [];
     } catch (error) {
       console.error('Error fetching saved addresses:', error);
       return [];
@@ -56,7 +58,7 @@ export class AddressService {
       }
       
       const { data, error } = await supabase
-        .from('saved_addresses')
+        .from('addresses')
         .insert({
           ...address,
           user_id: session.session.user.id
@@ -68,7 +70,7 @@ export class AddressService {
         throw error;
       }
       
-      return data;
+      return data as unknown as SavedAddress;
     } catch (error) {
       console.error('Error creating saved address:', error);
       return null;
@@ -81,7 +83,7 @@ export class AddressService {
   public async deleteAddress(addressId: string): Promise<boolean> {
     try {
       const { error } = await supabase
-        .from('saved_addresses')
+        .from('addresses')
         .delete()
         .eq('id', addressId);
       
@@ -97,9 +99,9 @@ export class AddressService {
   }
   
   /**
-   * Set an address as the default
+   * Set an address as the default shipping from address
    */
-  public async setDefaultAddress(addressId: string): Promise<boolean> {
+  public async setDefaultFromAddress(addressId: string): Promise<boolean> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
@@ -108,15 +110,15 @@ export class AddressService {
       
       // First, unset any existing default
       await supabase
-        .from('saved_addresses')
-        .update({ is_default: false })
+        .from('addresses')
+        .update({ is_default_from: false })
         .eq('user_id', session.session.user.id)
-        .eq('is_default', true);
+        .eq('is_default_from', true);
       
       // Then set the new default
       const { error } = await supabase
-        .from('saved_addresses')
-        .update({ is_default: true })
+        .from('addresses')
+        .update({ is_default_from: true })
         .eq('id', addressId);
       
       if (error) {
@@ -125,7 +127,41 @@ export class AddressService {
       
       return true;
     } catch (error) {
-      console.error('Error setting default address:', error);
+      console.error('Error setting default from address:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Set an address as the default shipping to address
+   */
+  public async setDefaultToAddress(addressId: string): Promise<boolean> {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) {
+        throw new Error('User is not authenticated');
+      }
+      
+      // First, unset any existing default
+      await supabase
+        .from('addresses')
+        .update({ is_default_to: false })
+        .eq('user_id', session.session.user.id)
+        .eq('is_default_to', true);
+      
+      // Then set the new default
+      const { error } = await supabase
+        .from('addresses')
+        .update({ is_default_to: true })
+        .eq('id', addressId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error setting default to address:', error);
       return false;
     }
   }
