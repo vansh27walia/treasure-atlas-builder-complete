@@ -10,9 +10,18 @@ import Dashboard from "./pages/Dashboard";
 import PaymentPage from "./pages/PaymentPage";
 import LabelSuccessPage from "./pages/LabelSuccessPage";
 import CreateLabelPage from "./pages/CreateLabelPage";
+import InternationalShippingPage from "./pages/InternationalShippingPage";
+import PickupPage from "./pages/PickupPage";
 import SidebarNavigation from "./components/SidebarNavigation";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -27,6 +36,8 @@ const App = () => (
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/label-success" element={<LabelSuccessPage />} />
             <Route path="/create-label" element={<CreateLabelPage />} />
+            <Route path="/international" element={<InternationalShippingPage />} />
+            <Route path="/pickup" element={<PickupPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
