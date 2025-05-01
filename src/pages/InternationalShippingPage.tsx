@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
@@ -389,7 +388,7 @@ const InternationalShippingPage: React.FC = () => {
             
             <TabsContent value="package">
               <div className="flex items-center mb-6 bg-amber-50 p-4 rounded-md">
-                <Box className="h-6 w-6 text-amber-600 mr-3" />
+                <Package className="h-6 w-6 text-amber-600 mr-3" />
                 <div>
                   <h2 className="text-xl font-medium text-amber-800 mb-1">Ship Packages Internationally</h2>
                   <p className="text-amber-600">Use this option for shipping boxes and parcels that aren't flat documents.</p>
