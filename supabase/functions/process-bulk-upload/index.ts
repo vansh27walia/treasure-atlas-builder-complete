@@ -7,6 +7,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface ShipmentResult {
+  id: string;
+  tracking_code: string;
+  label_url: string;
+  status: string;
+  row: number;
+  recipient: string;
+  carrier: string;
+}
+
+interface ProcessingError {
+  row: number;
+  error: string;
+  details: string;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -45,17 +61,22 @@ serve(async (req) => {
       );
     }
     
-    // In a real application, this would process each row, create shipments via EasyPost
-    // and also generate labels for each shipment
+    // In a real implementation, we would:
+    // 1. Parse each row to extract address and package details
+    // 2. Create shipments via EasyPost API for each row
+    // 3. Purchase and generate labels for each shipment
+    // 4. Return the results with tracking codes and label URLs
+    
+    // For this demo, we'll generate mock data
     const total = rows.length - 1; // Exclude header row
     const successful = Math.floor(total * 0.9); // 90% success rate
     const failed = total - successful;
     
     // Generate mock tracking info and label URLs for successfully processed shipments
-    const processedShipments = [];
+    const processedShipments: ShipmentResult[] = [];
     for (let i = 1; i <= successful; i++) {
       const rowData = rows[i].split(',');
-      // Create a mock processed shipment result
+      // Create a mock processed shipment result with label URL
       processedShipments.push({
         id: `ship_${crypto.randomUUID().substring(0, 8)}`,
         tracking_code: `EZ${Math.floor(Math.random() * 10000000).toString().padStart(8, '0')}`,
@@ -68,7 +89,7 @@ serve(async (req) => {
     }
     
     // Generate error information for failed shipments
-    const failedShipments = [];
+    const failedShipments: ProcessingError[] = [];
     for (let i = successful + 1; i <= total; i++) {
       const errorType = Math.random() > 0.5 ? 'Invalid address' : 
                          Math.random() > 0.5 ? 'Missing zip code' : 'Invalid weight';

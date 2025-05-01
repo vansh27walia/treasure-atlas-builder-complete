@@ -46,24 +46,25 @@ interface TrackingListItemProps {
   onSelect: (trackingCode: string) => void;
 }
 
+// Helper function for getting status icon
+const getStatusIcon = (status: string) => {
+  switch(status) {
+    case 'delivered': 
+      return <CheckCircle className="h-5 w-5 text-green-500" />;
+    case 'in_transit': 
+      return <Truck className="h-5 w-5 text-blue-500" />;
+    case 'out_for_delivery': 
+      return <MapPin className="h-5 w-5 text-purple-500" />;
+    default: 
+      return <Clock className="h-5 w-5 text-gray-500" />;
+  }
+};
+
 const TrackingListItem: React.FC<TrackingListItemProps> = ({ 
   item, 
   isSelected, 
   onSelect 
 }) => {
-  const getStatusIcon = (status: string) => {
-    switch(status) {
-      case 'delivered': 
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
-      case 'in_transit': 
-        return <Truck className="h-5 w-5 text-blue-500" />;
-      case 'out_for_delivery': 
-        return <MapPin className="h-5 w-5 text-purple-500" />;
-      default: 
-        return <Clock className="h-5 w-5 text-gray-500" />;
-    }
-  };
-
   const getStatusBadge = (status: string) => {
     switch(status) {
       case 'delivered': 
