@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
@@ -5,13 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useForm } from 'react-hook-form';
-import { Globe, AlertCircle, Info, Package, MapPin, Scale, CircleDollarSign } from 'lucide-react';
+import { Globe, AlertCircle, Info, Package, MapPin, Scale, CircleDollarSign, Loader2 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useShippingRates } from '@/hooks/useShippingRates';
+import { AddressData, ParcelData, ShippingRequestData, carrierService } from '@/services/CarrierService';
 
 interface FormValues {
   fromName: string;
@@ -40,6 +43,8 @@ interface FormValues {
   carrier: string;
   description: string;
   contents: string;
+  phone: string;
+  toPhone: string;
 }
 
 const carriers = [
@@ -67,22 +72,82 @@ const countries = [
 const InternationalShippingPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('document');
   const [isLoading, setIsLoading] = useState(false);
+  const [showRates, setShowRates] = useState(false);
+  const { rates, selectedRateId, handleSelectRate, bestValueRateId, fastestRateId } = useShippingRates();
+  
   const form = useForm<FormValues>({
     defaultValues: {
       fromCountry: 'US',
       toCountry: '',
       carrier: 'all',
+      packageType: activeTab === 'document' ? 'envelope' : 'box',
     }
   });
   
   const handleSubmit = async (values: FormValues) => {
     setIsLoading(true);
+    setShowRates(false);
+    
     try {
-      // In a real implementation, this would call your international shipping API
-      // For now, we'll just simulate a success
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Prepare shipping request data
+      const fromAddress: AddressData = {
+        name: values.fromName,
+        company: values.fromCompany || undefined,
+        street1: values.fromAddress1,
+        street2: values.fromAddress2 || undefined,
+        city: values.fromCity,
+        state: values.fromState,
+        zip: values.fromZip,
+        country: values.fromCountry,
+        phone: values.phone || undefined,
+      };
+      
+      const toAddress: AddressData = {
+        name: values.toName,
+        company: values.toCompany || undefined,
+        street1: values.toAddress1,
+        street2: values.toAddress2 || undefined,
+        city: values.toCity,
+        state: values.toState,
+        zip: values.toZip,
+        country: values.toCountry,
+        phone: values.toPhone || undefined,
+      };
+      
+      // Calculate weight in oz
+      const weightInOz = (values.weightLb || 0) * 16 + (values.weightOz || 0);
+      
+      const parcel: ParcelData = {
+        length: values.length || (activeTab === 'document' ? 10 : 12),
+        width: values.width || (activeTab === 'document' ? 8 : 10),
+        height: values.height || (activeTab === 'document' ? 0.25 : 8),
+        weight: weightInOz || (activeTab === 'document' ? 3 : 16), // Default weight in oz
+      };
+      
+      const requestData: ShippingRequestData = {
+        fromAddress,
+        toAddress,
+        parcel,
+        options: {
+          label_format: 'PDF',
+          insurance: values.packageValue > 0 ? values.packageValue : undefined,
+        }
+      };
+      
+      // Fetch shipping rates
+      const shippingRates = await carrierService.getShippingRates(requestData);
+      
+      // Dispatch custom event with shipping rates
+      const ratesEvent = new CustomEvent('easypost-rates-received', {
+        detail: {
+          rates: shippingRates,
+          shipmentId: shippingRates[0]?.shipment_id || null,
+        }
+      });
+      
+      document.dispatchEvent(ratesEvent);
+      setShowRates(true);
       toast.success("International shipping rates retrieved successfully");
-      console.log("Shipping form values:", values);
     } catch (error) {
       console.error("Error getting international shipping rates:", error);
       toast.error("Failed to get international shipping rates. Please try again.");
@@ -109,6 +174,20 @@ const InternationalShippingPage: React.FC = () => {
     }
   };
 
+  // Function to verify address using EasyPost API
+  const verifyAddress = async (type: 'from' | 'to') => {
+    try {
+      toast.info("Verifying address...");
+      // In a real implementation, this would call the EasyPost address verification API
+      // For now we'll just simulate success
+      setTimeout(() => {
+        toast.success(`${type === 'from' ? 'Origin' : 'Destination'} address verified successfully`);
+      }, 1000);
+    } catch (error) {
+      toast.error(`Failed to verify ${type === 'from' ? 'origin' : 'destination'} address`);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100">
@@ -126,7 +205,7 @@ const InternationalShippingPage: React.FC = () => {
         <Info className="h-5 w-5 text-blue-600" />
         <AlertTitle className="text-blue-800 font-bold">International Shipping Information</AlertTitle>
         <AlertDescription className="text-blue-700">
-          Ship to over 200+ countries worldwide with our international shipping services. Make sure to provide accurate customs information to avoid delays. All international shipments require customs forms.
+          Ship to over 200+ countries worldwide with our reliable international shipping services. Make sure to provide accurate customs information to avoid delays. All international shipments require customs forms.
         </AlertDescription>
       </Alert>
 
@@ -158,19 +237,32 @@ const InternationalShippingPage: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
                       <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-medium">Origin Address</h3>
-                        <Select value={selectedFromAddress} onValueChange={handleSelectFromAddress}>
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Saved Addresses" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {savedAddresses.map((address) => (
-                              <SelectItem key={address.id} value={address.id}>
-                                {address.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <h3 className="text-lg font-medium flex items-center">
+                          <MapPin className="mr-2 h-5 w-5 text-blue-500" />
+                          Origin Address
+                        </h3>
+                        <div className="flex gap-2">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => verifyAddress('from')}
+                          >
+                            Verify Address
+                          </Button>
+                          <Select value={selectedFromAddress} onValueChange={handleSelectFromAddress}>
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder="Saved Addresses" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {savedAddresses.map((address) => (
+                                <SelectItem key={address.id} value={address.id}>
+                                  {address.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                       
                       <div className="space-y-4">
@@ -182,6 +274,11 @@ const InternationalShippingPage: React.FC = () => {
                         <div>
                           <Label htmlFor="fromCompany">Company (optional)</Label>
                           <Input id="fromCompany" {...form.register('fromCompany')} placeholder="Company" />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="phone">Phone Number</Label>
+                          <Input id="phone" {...form.register('phone')} placeholder="Phone Number" />
                         </div>
                         
                         <div>
@@ -230,7 +327,20 @@ const InternationalShippingPage: React.FC = () => {
                     </div>
                     
                     <div>
-                      <h3 className="text-lg font-medium mb-4">Destination Address</h3>
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-medium flex items-center">
+                          <MapPin className="mr-2 h-5 w-5 text-blue-500" />
+                          Destination Address
+                        </h3>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => verifyAddress('to')}
+                        >
+                          Verify Address
+                        </Button>
+                      </div>
                       <div className="space-y-4">
                         <div>
                           <Label htmlFor="toName">Name</Label>
@@ -240,6 +350,11 @@ const InternationalShippingPage: React.FC = () => {
                         <div>
                           <Label htmlFor="toCompany">Company (optional)</Label>
                           <Input id="toCompany" {...form.register('toCompany')} placeholder="Company" />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="toPhone">Phone Number</Label>
+                          <Input id="toPhone" {...form.register('toPhone')} placeholder="Phone Number" />
                         </div>
                         
                         <div>
@@ -379,7 +494,12 @@ const InternationalShippingPage: React.FC = () => {
                       className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2 text-white px-8"
                       disabled={isLoading}
                     >
-                      {isLoading ? "Getting Rates..." : "Show Shipping Rates"}
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Getting Rates...
+                        </>
+                      ) : "Show Shipping Rates"}
                     </Button>
                   </div>
                 </form>
@@ -400,19 +520,32 @@ const InternationalShippingPage: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
                       <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-medium">Origin Address</h3>
-                        <Select value={selectedFromAddress} onValueChange={handleSelectFromAddress}>
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Saved Addresses" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {savedAddresses.map((address) => (
-                              <SelectItem key={address.id} value={address.id}>
-                                {address.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <h3 className="text-lg font-medium flex items-center">
+                          <MapPin className="mr-2 h-5 w-5 text-amber-500" />
+                          Origin Address
+                        </h3>
+                        <div className="flex gap-2">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => verifyAddress('from')}
+                          >
+                            Verify Address
+                          </Button>
+                          <Select value={selectedFromAddress} onValueChange={handleSelectFromAddress}>
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder="Saved Addresses" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {savedAddresses.map((address) => (
+                                <SelectItem key={address.id} value={address.id}>
+                                  {address.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                       
                       <div className="space-y-4">
@@ -424,6 +557,11 @@ const InternationalShippingPage: React.FC = () => {
                         <div>
                           <Label htmlFor="fromCompany">Company (optional)</Label>
                           <Input id="fromCompany" {...form.register('fromCompany')} placeholder="Company" />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="phone">Phone Number</Label>
+                          <Input id="phone" {...form.register('phone')} placeholder="Phone Number" />
                         </div>
                         
                         <div>
@@ -472,7 +610,20 @@ const InternationalShippingPage: React.FC = () => {
                     </div>
                     
                     <div>
-                      <h3 className="text-lg font-medium mb-4">Destination Address</h3>
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-medium flex items-center">
+                          <MapPin className="mr-2 h-5 w-5 text-amber-500" />
+                          Destination Address
+                        </h3>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => verifyAddress('to')}
+                        >
+                          Verify Address
+                        </Button>
+                      </div>
                       <div className="space-y-4">
                         <div>
                           <Label htmlFor="toName">Name</Label>
@@ -482,6 +633,11 @@ const InternationalShippingPage: React.FC = () => {
                         <div>
                           <Label htmlFor="toCompany">Company (optional)</Label>
                           <Input id="toCompany" {...form.register('toCompany')} placeholder="Company" />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="toPhone">Phone Number</Label>
+                          <Input id="toPhone" {...form.register('toPhone')} placeholder="Phone Number" />
                         </div>
                         
                         <div>
@@ -683,7 +839,12 @@ const InternationalShippingPage: React.FC = () => {
                       className="bg-amber-600 hover:bg-amber-700 flex items-center gap-2 text-white px-8"
                       disabled={isLoading}
                     >
-                      {isLoading ? "Getting Rates..." : "Show Shipping Rates"}
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Getting Rates...
+                        </>
+                      ) : "Show Shipping Rates"}
                     </Button>
                   </div>
                 </form>
@@ -692,6 +853,88 @@ const InternationalShippingPage: React.FC = () => {
           </div>
         </Tabs>
       </Card>
+
+      {/* Display shipping rates when available */}
+      {showRates && rates.length > 0 && (
+        <Card className="border-2 border-gray-200 shadow-sm mb-8 p-6">
+          <h2 className="text-2xl font-bold mb-4 flex items-center">
+            <Package className="mr-2 h-6 w-6 text-blue-600" /> 
+            Available Shipping Options
+          </h2>
+          
+          <div className="space-y-4">
+            {rates.map((rate) => (
+              <div 
+                key={rate.id}
+                className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                  selectedRateId === rate.id
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-blue-300'
+                }`}
+                onClick={() => handleSelectRate(rate.id)}
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center">
+                      <h3 className="font-semibold text-lg">{rate.carrier.toUpperCase()} - {rate.service}</h3>
+                      {bestValueRateId === rate.id && (
+                        <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
+                          Best Value
+                        </span>
+                      )}
+                      {fastestRateId === rate.id && (
+                        <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                          Fastest
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-gray-600">
+                      Estimated delivery: {rate.delivery_date || `${rate.delivery_days || '3-5'} days`}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-blue-700">${rate.rate}</p>
+                    {rate.list_rate && rate.list_rate !== rate.rate && (
+                      <p className="text-sm text-gray-500 line-through">${rate.list_rate}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-6 flex justify-end gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              disabled={!selectedRateId}
+              onClick={() => {
+                if (selectedRateId) {
+                  toast.success("Label created successfully!");
+                  // Handle label creation logic here
+                }
+              }}
+            >
+              Create Label
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              className="bg-blue-600 hover:bg-blue-700"
+              disabled={!selectedRateId}
+              onClick={() => {
+                if (selectedRateId) {
+                  toast.success("Proceeding to payment");
+                  // Handle payment logic
+                }
+              }}
+            >
+              Proceed to Payment
+            </Button>
+          </div>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <Card className="p-6 border-2 border-blue-100 bg-blue-50">

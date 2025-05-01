@@ -1,250 +1,227 @@
 
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { 
-  Package,
-  Truck, 
-  Upload, 
-  History, 
-  CreditCard, 
-  Home, 
-  Settings, 
-  Search, 
-  Globe, 
-  MapPin, 
-  Calendar,
-  Users,
-  ShieldCheck,
-  BarChart3,
-  Boxes,
-  Menu,
-  CircleDollarSign
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useMedia } from '@/hooks/use-mobile';
+import { 
+  LayoutDashboard, 
+  Package, 
+  CreditCard, 
+  Settings, 
+  ChevronLeft, 
+  ChevronRight,
+  Gauge,
+  Globe,
+  Truck,
+  Home,
+  PackageOpen,
+  FileText,
+  LogOut,
+  User
+} from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/contexts/AuthContext';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { toast } from '@/components/ui/sonner';
 
-const SidebarNavigation = ({
-  children
-}: {
+interface SidebarNavigationProps {
   children: React.ReactNode;
-}) => {
+}
+
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: React.ElementType;
+}
+
+const mainNavItems: NavigationItem[] = [
+  { name: 'Home', href: '/', icon: Home },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Create Label', href: '/create-label', icon: PackageOpen },
+  { name: 'International', href: '/international', icon: Globe },
+  { name: 'Schedule Pickup', href: '/pickup', icon: Truck },
+  { name: 'Payment', href: '/payment', icon: CreditCard },
+];
+
+const secondaryNavItems: NavigationItem[] = [
+  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Tracking', href: '/tracking', icon: Gauge },
+  { name: 'Reports', href: '/reports', icon: FileText },
+];
+
+const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
+  const [collapsed, setCollapsed] = useState(false);
+  const isMobile = useMedia('(max-width: 768px)');
   const location = useLocation();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, signOut } = useAuth();
   
-  const isActive = (path: string) => {
-    if (path === '/') {
-      return location.pathname === '/';
+  // Handle sidebar collapse toggle
+  const toggleSidebar = () => {
+    setCollapsed(!collapsed);
+  };
+  
+  // Handle sign out
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast.success('Signed out successfully');
+    } catch (error) {
+      console.error('Error signing out:', error);
     }
-    return location.pathname.startsWith(path);
+  };
+  
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user) return 'G';
+    
+    const name = user.user_metadata?.full_name || user.email || '';
+    if (!name) return 'U';
+    
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    
+    return name.substring(0, 2).toUpperCase();
   };
 
-  const menuItems = [
-    {
-      title: 'Main',
-      items: [
-        {
-          name: 'Dashboard',
-          path: '/',
-          icon: <Home className="h-5 w-5" />,
-          exact: true
-        },
-        {
-          name: 'Create Label',
-          path: '/create-label',
-          icon: <Package className="h-5 w-5" />
-        },
-        {
-          name: 'International',
-          path: '/international',
-          icon: <Globe className="h-5 w-5" />
-        }
-      ]
-    },
-    {
-      title: 'Shipping',
-      items: [
-        {
-          name: 'Tracking',
-          path: '/dashboard?tab=tracking',
-          icon: <Truck className="h-5 w-5" />
-        },
-        {
-          name: 'Bulk Shipping',
-          path: '/dashboard?tab=bulk',
-          icon: <Boxes className="h-5 w-5" />,
-          badge: 'New'
-        },
-        {
-          name: 'Shipping History',
-          path: '/dashboard?tab=history',
-          icon: <History className="h-5 w-5" />
-        },
-        {
-          name: 'Schedule Pickup',
-          path: '/pickup',
-          icon: <Calendar className="h-5 w-5" />
-        }
-      ]
-    },
-    {
-      title: 'Account',
-      items: [
-        {
-          name: 'Payment Methods',
-          path: '/payment',
-          icon: <CreditCard className="h-5 w-5" />
-        },
-        {
-          name: 'Address Book',
-          path: '/address-book',
-          icon: <MapPin className="h-5 w-5" />
-        },
-        {
-          name: 'Carrier Settings',
-          path: '/settings',
-          icon: <Settings className="h-5 w-5" />
-        },
-        {
-          name: 'User Management',
-          path: '/team',
-          icon: <Users className="h-5 w-5" />
-        },
-        {
-          name: 'Search Shipments',
-          path: '/search',
-          icon: <Search className="h-5 w-5" />
-        }
-      ]
-    }
-  ];
-
-  return <SidebarProvider>
-      <div className="flex min-h-screen w-full">
-        <Sidebar className="border-r bg-gradient-to-b from-white to-blue-50">
-          <SidebarHeader className="flex items-center justify-between px-4 py-3 bg-white shadow-sm">
-            <div className="flex items-center space-x-2">
-              <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-md p-2 shadow-md">
-                <Package className="h-6 w-6 text-white" />
-              </div>
-              <h2 className="text-xl font-bold text-blue-900">ShipQuick</h2>
-            </div>
-            <SidebarTrigger>
-              <Menu className="h-5 w-5 text-gray-600" />
-            </SidebarTrigger>
-          </SidebarHeader>
-          
-          <SidebarContent>
-            <div className="mt-2">
-              <div className="px-3 py-2 bg-blue-600 text-white m-2 rounded-lg shadow-sm">
-                <Button
-                  variant="ghost"
-                  className="w-full bg-white/10 hover:bg-white/20 text-white flex justify-center py-5"
-                  onClick={() => window.location.href = '/create-label'}
-                >
-                  <Package className="mr-2 h-5 w-5" />
-                  Create New Label
-                </Button>
-              </div>
-            </div>
-
-            {menuItems.map((section, idx) => (
-              <div key={section.title} className="px-3 py-2">
-                <h3 className="text-xs font-semibold text-blue-800 uppercase tracking-wider px-2 mb-2">
-                  {section.title}
-                </h3>
-                <SidebarMenu>
-                  {section.items.map((item) => (
-                    <SidebarMenuItem key={item.path}>
-                      <SidebarMenuButton 
-                        isActive={
-                          item.exact 
-                            ? location.pathname === item.path
-                            : item.path.includes('?') 
-                              ? location.pathname + location.search === item.path
-                              : isActive(item.path)
-                        } 
-                        asChild 
-                        className={cn(
-                          "hover:bg-blue-50 group transition-all duration-200 hover:translate-x-1",
-                          isActive(item.path) && "bg-blue-100 text-blue-700 font-medium"
-                        )}
-                      >
-                        <Link to={item.path} className="flex items-center justify-between py-2 px-3 rounded-lg">
-                          <span className="flex items-center">
-                            <span className={cn(
-                              "text-gray-500 group-hover:text-blue-600 transition-colors",
-                              isActive(item.path) && "text-blue-600"
-                            )}>
-                              {item.icon}
-                            </span>
-                            <span className="ml-3">{item.name}</span>
-                          </span>
-                          {item.badge && (
-                            <Badge className="bg-blue-600 text-white text-[10px]">
-                              {item.badge}
-                            </Badge>
-                          )}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-                {idx < menuItems.length - 1 && (
-                  <Separator className="my-2 bg-gray-200" />
-                )}
-              </div>
-            ))}
-
-            <div className="mt-auto px-3 py-2">
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <div className="flex items-center mb-2">
-                  <CircleDollarSign className="h-5 w-5 text-blue-600 mr-2" />
-                  <h3 className="font-medium text-blue-800">Shipping Balance</h3>
-                </div>
-                <p className="text-lg font-bold text-blue-700">$235.50</p>
-                <Button size="sm" variant="outline" className="w-full mt-2 border-blue-300 text-blue-700 hover:bg-blue-100">
-                  Add Funds
-                </Button>
-              </div>
-            </div>
-            
-            <div className="mt-4 px-4 py-3">
-              <div className="flex items-center">
-                <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white">
-                  JD
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-700">John Doe</p>
-                  <p className="text-xs text-gray-500">Administrator</p>
-                </div>
-              </div>
-            </div>
-          </SidebarContent>
-        </Sidebar>
-        
-        <div className="flex-1 overflow-auto">
-          <div className="lg:hidden bg-white border-b flex justify-between items-center px-4 py-2">
-            <div className="flex items-center">
-              <div className="bg-blue-600 rounded-md p-1.5 shadow-sm">
-                <Package className="h-5 w-5 text-white" />
-              </div>
-              <h2 className="text-lg font-bold text-blue-900 ml-2">ShipQuick</h2>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
+  return (
+    <div className="flex h-screen">
+      {/* Sidebar */}
+      <div
+        className={cn(
+          'bg-blue-950 text-white transition-all duration-300 h-full flex flex-col relative',
+          collapsed ? 'w-20' : 'w-64'
+        )}
+      >
+        {/* Logo */}
+        <div className="p-4 flex items-center justify-between">
+          <div className="flex items-center">
+            <Package className="h-8 w-8 text-blue-400" />
+            {!collapsed && (
+              <span className="ml-3 font-bold text-xl text-white">ShipEase</span>
+            )}
           </div>
-          {children}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="text-white hover:bg-blue-800 ml-auto"
+          >
+            {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+          </Button>
+        </div>
+
+        <Separator className="bg-blue-800 my-2" />
+        
+        {/* User profile */}
+        {user && (
+          <div className={cn(
+            "px-4 py-3 flex items-center",
+            collapsed ? "justify-center" : "justify-start"
+          )}>
+            <Avatar className="h-9 w-9 border-2 border-blue-400">
+              <AvatarFallback className="bg-blue-700 text-white font-medium">
+                {getUserInitials()}
+              </AvatarFallback>
+            </Avatar>
+            
+            {!collapsed && (
+              <div className="ml-3 overflow-hidden">
+                <p className="text-sm font-medium truncate">
+                  {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                </p>
+                <p className="text-xs text-blue-300 truncate">
+                  {user.email}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <Separator className="bg-blue-800 mb-2" />
+
+        {/* Main Navigation */}
+        <div className="flex-1 overflow-y-auto py-2 px-2">
+          <div className="space-y-1">
+            {mainNavItems.map((item) => (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={cn(
+                  'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  location.pathname === item.href
+                    ? 'bg-blue-800 text-white'
+                    : 'text-blue-200 hover:bg-blue-800 hover:text-white',
+                  collapsed ? 'justify-center' : ''
+                )}
+              >
+                <item.icon className={cn('h-5 w-5 flex-shrink-0', collapsed ? '' : 'mr-3')} />
+                {!collapsed && <span>{item.name}</span>}
+              </Link>
+            ))}
+          </div>
+          
+          <Separator className="bg-blue-800 my-4" />
+          
+          {/* Secondary Navigation */}
+          <div className="space-y-1">
+            {secondaryNavItems.map((item) => (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={cn(
+                  'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  location.pathname === item.href
+                    ? 'bg-blue-800 text-white'
+                    : 'text-blue-200 hover:bg-blue-800 hover:text-white',
+                  collapsed ? 'justify-center' : ''
+                )}
+              >
+                <item.icon className={cn('h-5 w-5 flex-shrink-0', collapsed ? '' : 'mr-3')} />
+                {!collapsed && <span>{item.name}</span>}
+              </Link>
+            ))}
+          </div>
+        </div>
+        
+        {/* Auth Links */}
+        <div className="p-2">
+          {user ? (
+            <button
+              onClick={handleSignOut}
+              className={cn(
+                'w-full flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                'text-red-300 hover:bg-red-900/40 hover:text-white',
+                collapsed ? 'justify-center' : ''
+              )}
+            >
+              <LogOut className={cn('h-5 w-5 flex-shrink-0', collapsed ? '' : 'mr-3')} />
+              {!collapsed && <span>Sign Out</span>}
+            </button>
+          ) : (
+            <Link
+              to="/auth"
+              className={cn(
+                'w-full flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                'text-green-300 hover:bg-green-900/40 hover:text-white',
+                collapsed ? 'justify-center' : ''
+              )}
+            >
+              <User className={cn('h-5 w-5 flex-shrink-0', collapsed ? '' : 'mr-3')} />
+              {!collapsed && <span>Sign In</span>}
+            </Link>
+          )}
         </div>
       </div>
-    </SidebarProvider>;
+
+      {/* Main Content */}
+      <div className="flex-1 overflow-y-auto bg-gray-50">
+        {children}
+      </div>
+    </div>
+  );
 };
 
 export default SidebarNavigation;

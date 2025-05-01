@@ -54,25 +54,36 @@ export interface PickupRequestData {
   packageCount: number;
 }
 
-export type CarrierType = 'easypost' | 'ups';
+export type CarrierType = 'easypost' | 'ups' | 'dhl';
 
 // Common carrier service interface
 class CarrierService {
   /**
-   * Fetches shipping rates from EasyPost and UPS and combines them
+   * Fetches shipping rates from EasyPost, UPS and DHL and combines them
    */
   public async getShippingRates(requestData: ShippingRequestData): Promise<ShippingOption[]> {
     try {
       // First get EasyPost rates
       const easyPostRates = await this.getEasyPostRates(requestData);
       
-      // Then get UPS rates (to be implemented)
-      // For now, we'll just return the EasyPost rates
-      // const upsRates = await this.getUPSRates(requestData);
+      // Try to get UPS rates if available
+      let upsRates: ShippingOption[] = [];
+      try {
+        upsRates = await this.getUPSRates(requestData);
+      } catch (error) {
+        console.log('UPS API may not be configured yet:', error);
+      }
+      
+      // Try to get DHL rates if available
+      let dhlRates: ShippingOption[] = [];
+      try {
+        dhlRates = await this.getDHLRates(requestData);
+      } catch (error) {
+        console.log('DHL API may not be configured yet:', error);
+      }
       
       // Return combined rates
-      // return [...easyPostRates, ...upsRates];
-      return easyPostRates;
+      return [...easyPostRates, ...upsRates, ...dhlRates];
     } catch (error) {
       console.error('Error fetching shipping rates:', error);
       throw new Error('Failed to get shipping rates');
@@ -85,7 +96,7 @@ class CarrierService {
   private async getEasyPostRates(requestData: ShippingRequestData): Promise<ShippingOption[]> {
     try {
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: requestData,
+        body: { ...requestData, carrier: 'easypost' }
       });
 
       if (error) {
@@ -100,12 +111,45 @@ class CarrierService {
   }
   
   /**
-   * Fetches shipping rates from UPS (to be implemented)
+   * Fetches shipping rates from UPS
    */
   private async getUPSRates(requestData: ShippingRequestData): Promise<ShippingOption[]> {
-    // This will be implemented when UPS API integration is ready
-    // For now, return an empty array
-    return [];
+    try {
+      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
+        body: { ...requestData, carrier: 'ups' }
+      });
+
+      if (error) {
+        throw new Error(`Error fetching UPS rates: ${error.message}`);
+      }
+
+      return data.rates || [];
+    } catch (error) {
+      console.error('UPS API error:', error);
+      // For now, return empty array instead of throwing
+      return [];
+    }
+  }
+  
+  /**
+   * Fetches shipping rates from DHL
+   */
+  private async getDHLRates(requestData: ShippingRequestData): Promise<ShippingOption[]> {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
+        body: { ...requestData, carrier: 'dhl' }
+      });
+
+      if (error) {
+        throw new Error(`Error fetching DHL rates: ${error.message}`);
+      }
+
+      return data.rates || [];
+    } catch (error) {
+      console.error('DHL API error:', error);
+      // For now, return empty array instead of throwing
+      return [];
+    }
   }
   
   /**
@@ -116,10 +160,10 @@ class CarrierService {
     trackingCode: string;
   }> {
     try {
-      // For now, only EasyPost is implemented
+      // Handle different carrier APIs
       if (carrier === 'easypost') {
         const { data, error } = await supabase.functions.invoke('create-label', {
-          body: { shipmentId, rateId }
+          body: { shipmentId, rateId, carrier: 'easypost' }
         });
 
         if (error) {
@@ -130,9 +174,35 @@ class CarrierService {
           labelUrl: data.labelUrl,
           trackingCode: data.trackingCode
         };
+      } else if (carrier === 'ups') {
+        const { data, error } = await supabase.functions.invoke('create-label', {
+          body: { shipmentId, rateId, carrier: 'ups' }
+        });
+
+        if (error) {
+          throw new Error(`Error creating UPS label: ${error.message}`);
+        }
+
+        return {
+          labelUrl: data.labelUrl,
+          trackingCode: data.trackingCode
+        };
+      } else if (carrier === 'dhl') {
+        const { data, error } = await supabase.functions.invoke('create-label', {
+          body: { shipmentId, rateId, carrier: 'dhl' }
+        });
+
+        if (error) {
+          throw new Error(`Error creating DHL label: ${error.message}`);
+        }
+
+        return {
+          labelUrl: data.labelUrl,
+          trackingCode: data.trackingCode
+        };
       }
       
-      // UPS implementation will be added later
+      // Fallback for unsupported carrier
       throw new Error('Selected carrier is not supported yet');
     } catch (error) {
       console.error('Error creating label:', error);
@@ -163,6 +233,26 @@ class CarrierService {
     } catch (error) {
       console.error('Error scheduling pickup:', error);
       throw new Error('Failed to schedule pickup');
+    }
+  }
+  
+  /**
+   * Verify an address using the carrier's API
+   */
+  public async verifyAddress(address: AddressData, carrier: CarrierType = 'easypost'): Promise<AddressData> {
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-address', {
+        body: { address, carrier }
+      });
+
+      if (error) {
+        throw new Error(`Error verifying address: ${error.message}`);
+      }
+
+      return data.verifiedAddress;
+    } catch (error) {
+      console.error('Error verifying address:', error);
+      throw new Error('Failed to verify address');
     }
   }
 }

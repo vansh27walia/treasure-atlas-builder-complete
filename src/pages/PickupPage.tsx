@@ -1,28 +1,19 @@
 
 import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from '@/components/ui/form';
-import { MapPin, Calendar as CalendarIcon, Clock, Truck } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Loader2, Calendar, Clock, Truck, PackageCheck, MapPin, CheckCircle } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { carrierService, PickupRequestData } from '@/services/CarrierService';
+import { AddressData, PickupRequestData, carrierService } from '@/services/CarrierService';
+import { useNavigate } from 'react-router-dom';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
-interface PickupFormValues {
-  carrier: string;
-  shipmentIds: string;
-  pickupDate: Date;
-  pickupTimeStart: string;
-  pickupTimeEnd: string;
+interface FormValues {
   name: string;
   company: string;
   street1: string;
@@ -32,88 +23,110 @@ interface PickupFormValues {
   zip: string;
   country: string;
   phone: string;
+  carrierCode: string;
+  pickupDate: string;
+  timeStart: string;
+  timeEnd: string;
   packageCount: number;
+  shipmentIds: string;
   instructions: string;
 }
 
-const PickupPage: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [pickupConfirmed, setPickupConfirmed] = useState(false);
-  const [confirmation, setConfirmation] = useState<{
-    id: string;
-    confirmation: string;
-    date: string;
-    carrier: string;
-  } | null>(null);
-  
-  const form = useForm<PickupFormValues>({
-    defaultValues: {
-      carrier: 'usps',
-      shipmentIds: '',
-      pickupDate: new Date(),
-      pickupTimeStart: '09:00',
-      pickupTimeEnd: '17:00',
-      name: '',
-      company: '',
-      street1: '',
-      street2: '',
-      city: '',
-      state: '',
-      zip: '',
-      country: 'US',
-      phone: '',
-      packageCount: 1,
-      instructions: ''
-    }
-  });
+const pickupCarriers = [
+  { value: 'usps', label: 'USPS' },
+  { value: 'ups', label: 'UPS' },
+  { value: 'fedex', label: 'FedEx' },
+];
 
-  const handleSubmit = async (values: PickupFormValues) => {
+interface SavedAddress {
+  id: string;
+  name: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  country?: string;
+  company?: string;
+  phone?: string;
+}
+
+const PickupPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const [pickupConfirmation, setPickupConfirmation] = useState<any>(null);
+  const form = useForm<FormValues>({
+    defaultValues: {
+      country: 'US',
+      carrierCode: 'usps',
+      packageCount: 1,
+      pickupDate: new Date().toISOString().split('T')[0],
+      timeStart: '09:00',
+      timeEnd: '17:00',
+    },
+  });
+  
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([
+    { id: '1', name: 'Home Office', street: '123 Main St', city: 'Boston', state: 'MA', zip: '02101', country: 'US', company: 'My Company', phone: '555-1234' },
+    { id: '2', name: 'Warehouse', street: '456 Storage Ave', city: 'Chicago', state: 'IL', zip: '60007', country: 'US', company: 'Storage Inc.', phone: '555-5678' },
+  ]);
+  
+  const [selectedAddress, setSelectedAddress] = useState<string>('');
+  
+  const handleSelectAddress = (addressId: string) => {
+    const address = savedAddresses.find(addr => addr.id === addressId);
+    if (address) {
+      form.setValue('name', address.name);
+      form.setValue('company', address.company || '');
+      form.setValue('street1', address.street);
+      form.setValue('city', address.city);
+      form.setValue('state', address.state);
+      form.setValue('zip', address.zip);
+      form.setValue('country', address.country || 'US');
+      form.setValue('phone', address.phone || '');
+      setSelectedAddress(addressId);
+    }
+  };
+  
+  const handleSubmit = async (values: FormValues) => {
     setIsLoading(true);
     try {
-      // Prepare the pickup request data
-      const pickupData: PickupRequestData = {
-        carrierCode: values.carrier,
-        shipmentIds: values.shipmentIds.split(',').map(id => id.trim()),
-        pickupAddress: {
-          name: values.name,
-          company: values.company,
-          street1: values.street1,
-          street2: values.street2,
-          city: values.city,
-          state: values.state,
-          zip: values.zip,
-          country: values.country,
-          phone: values.phone
-        },
-        pickupDate: format(values.pickupDate, 'yyyy-MM-dd'),
+      // Parse shipment IDs from comma-separated string
+      const shipmentIdArray = values.shipmentIds
+        ? values.shipmentIds.split(',').map(id => id.trim())
+        : [];
+      
+      if (shipmentIdArray.length === 0) {
+        throw new Error('At least one shipment ID is required');
+      }
+      
+      const pickupAddress: AddressData = {
+        name: values.name,
+        company: values.company || undefined,
+        street1: values.street1,
+        street2: values.street2 || undefined,
+        city: values.city,
+        state: values.state,
+        zip: values.zip,
+        country: values.country,
+        phone: values.phone || undefined,
+      };
+      
+      const requestData: PickupRequestData = {
+        carrierCode: values.carrierCode,
+        shipmentIds: shipmentIdArray,
+        pickupAddress,
+        pickupDate: values.pickupDate,
         pickupTimeWindow: {
-          start: values.pickupTimeStart,
-          end: values.pickupTimeEnd
+          start: values.timeStart,
+          end: values.timeEnd,
         },
         instructions: values.instructions,
-        packageCount: values.packageCount
+        packageCount: values.packageCount,
       };
-
-      // In a real implementation, we would call the carrier service
-      // For demo purposes, we'll simulate a successful response
-      // const result = await carrierService.schedulePickup(pickupData);
       
-      // Simulate API response
-      const result = {
-        pickupId: 'PU_' + Math.random().toString(36).substring(2, 10),
-        confirmation: 'PC' + Math.floor(Math.random() * 10000000).toString().padStart(8, '0'),
-        scheduledDate: format(values.pickupDate, 'yyyy-MM-dd'),
-        carrier: values.carrier.toUpperCase()
-      };
-
-      setConfirmation({
-        id: result.pickupId,
-        confirmation: result.confirmation,
-        date: result.scheduledDate,
-        carrier: result.carrier
-      });
-      setPickupConfirmed(true);
+      const response = await carrierService.schedulePickup(requestData);
       
+      setPickupConfirmation(response);
       toast.success('Pickup scheduled successfully!');
     } catch (error) {
       console.error('Error scheduling pickup:', error);
@@ -123,398 +136,348 @@ const PickupPage: React.FC = () => {
     }
   };
 
-  const resetForm = () => {
-    form.reset();
-    setPickupConfirmed(false);
-    setConfirmation(null);
-  };
-
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold flex items-center">
-          <MapPin className="mr-3 h-8 w-8 text-purple-600" /> 
+    <div className="container mx-auto px-4 py-6">
+      <div className="flex items-center justify-between mb-6 bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-100">
+        <h1 className="text-3xl font-bold text-purple-800 flex items-center">
+          <Truck className="mr-3 h-8 w-8 text-purple-600" /> 
           Schedule a Pickup
         </h1>
       </div>
-
-      <Card className="p-6 border-2 border-gray-200 mb-8">
-        {pickupConfirmed && confirmation ? (
-          <div className="text-center py-8">
-            <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <Truck className="h-8 w-8 text-green-600" />
-            </div>
-            
-            <h2 className="text-2xl font-bold mb-2 text-green-700">Pickup Scheduled!</h2>
-            <p className="text-lg mb-6">Your pickup has been confirmed.</p>
-            
-            <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 max-w-md mx-auto mb-6">
-              <div className="grid grid-cols-2 gap-4 text-left">
-                <div className="text-gray-500">Confirmation #:</div>
-                <div className="font-semibold">{confirmation.confirmation}</div>
-                
-                <div className="text-gray-500">Pickup Date:</div>
-                <div className="font-semibold">{format(new Date(confirmation.date), 'MMMM d, yyyy')}</div>
-                
-                <div className="text-gray-500">Carrier:</div>
-                <div className="font-semibold">{confirmation.carrier}</div>
-                
-                <div className="text-gray-500">Pickup ID:</div>
-                <div className="font-semibold">{confirmation.id}</div>
-              </div>
-            </div>
-            
-            <Button onClick={resetForm} variant="outline" className="mr-2">Schedule Another Pickup</Button>
-            <Button asChild>
-              <a href="/dashboard?tab=tracking">View Tracking</a>
-            </Button>
-          </div>
-        ) : (
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-              <div className="mb-6">
-                <h2 className="text-xl font-medium mb-2">Pickup Details</h2>
-                <p className="text-gray-600">Schedule a carrier pickup for your prepared shipments.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <FormField
-                    control={form.control}
-                    name="carrier"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Carrier</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select carrier" />
-                            </SelectTrigger>
-                          </FormControl>
+      
+      <Tabs defaultValue="schedule" className="w-full">
+        <TabsList className="mb-6 grid w-full grid-cols-2 p-2 bg-purple-50">
+          <TabsTrigger value="schedule" className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-sm">
+            <Calendar className="mr-2 h-5 w-5" />
+            Schedule New Pickup
+          </TabsTrigger>
+          <TabsTrigger value="manage" className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-sm">
+            <Clock className="mr-2 h-5 w-5" />
+            Manage Pickups
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="schedule">
+          {!pickupConfirmation ? (
+            <Card className="border-2 border-gray-200 shadow-sm p-6 mb-8">
+              <h2 className="text-2xl font-semibold mb-6 flex items-center">
+                <PackageCheck className="mr-2 h-6 w-6 text-purple-600" />
+                Schedule Carrier Pickup
+              </h2>
+              
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-medium flex items-center">
+                        <MapPin className="mr-2 h-5 w-5 text-purple-500" />
+                        Pickup Address
+                      </h3>
+                      <Select value={selectedAddress} onValueChange={handleSelectAddress}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Saved Addresses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {savedAddresses.map((address) => (
+                            <SelectItem key={address.id} value={address.id}>
+                              {address.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="name">Name</Label>
+                        <Input id="name" {...form.register('name')} placeholder="Name" required />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="company">Company (optional)</Label>
+                        <Input id="company" {...form.register('company')} placeholder="Company" />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="phone">Phone Number</Label>
+                        <Input id="phone" {...form.register('phone')} placeholder="Phone Number" required />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="street1">Address Line 1</Label>
+                        <Input id="street1" {...form.register('street1')} placeholder="Street address" required />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="street2">Address Line 2 (optional)</Label>
+                        <Input id="street2" {...form.register('street2')} placeholder="Apt, Suite, Unit, etc." />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="city">City</Label>
+                          <Input id="city" {...form.register('city')} placeholder="City" required />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="state">State</Label>
+                          <Input id="state" {...form.register('state')} placeholder="State" required />
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="zip">ZIP Code</Label>
+                          <Input id="zip" {...form.register('zip')} placeholder="ZIP Code" required />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="country">Country</Label>
+                          <Input id="country" {...form.register('country')} placeholder="Country" required />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-medium mb-4 flex items-center">
+                      <Truck className="mr-2 h-5 w-5 text-purple-500" />
+                      Pickup Details
+                    </h3>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="carrierCode">Carrier</Label>
+                        <Select defaultValue="usps" onValueChange={(value) => form.setValue('carrierCode', value)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Carrier" />
+                          </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="usps">USPS</SelectItem>
-                            <SelectItem value="ups">UPS</SelectItem>
-                            <SelectItem value="fedex">FedEx</SelectItem>
-                            <SelectItem value="dhl">DHL</SelectItem>
+                            {pickupCarriers.map((carrier) => (
+                              <SelectItem key={carrier.value} value={carrier.value}>
+                                {carrier.label}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
-                        <FormDescription>
-                          Select the carrier for your pickup
-                        </FormDescription>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="shipmentIds"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Shipment ID(s)</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Enter shipment IDs (comma-separated)" />
-                        </FormControl>
-                        <FormDescription>
-                          Enter shipment IDs that will be picked up
-                        </FormDescription>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="packageCount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Number of Packages</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number" 
-                            min="1" 
-                            {...field} 
-                            onChange={e => field.onChange(parseInt(e.target.value))}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="pickupDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Pickup Date</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(field.value, "PPP")
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              disabled={(date) => 
-                                date < new Date() || 
-                                date > new Date(new Date().setDate(new Date().getDate() + 14))
-                              }
-                              initialFocus
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormDescription>
-                          Select a date for pickup (up to 14 days in advance)
-                        </FormDescription>
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="pickupTimeStart"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Earliest Pickup Time</FormLabel>
-                          <FormControl>
-                            <Input type="time" {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="pickupTimeEnd"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Latest Pickup Time</FormLabel>
-                          <FormControl>
-                            <Input type="time" {...field} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-lg font-medium mb-4">Pickup Address</h3>
-
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Contact Name</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="John Doe" />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="company"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Company (optional)</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Company Name" />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="(555) 123-4567" />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="street1"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Address Line 1</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="123 Main St" />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="street2"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Address Line 2 (optional)</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Apt 4B" />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>City</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="City" />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="state"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>State</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="State" />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="zip"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Zip Code</FormLabel>
-                          <FormControl>
-                            <Input {...field} placeholder="12345" />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="country"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Country</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select Country" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="US">United States</SelectItem>
-                              <SelectItem value="CA">Canada</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <FormField
-                  control={form.control}
-                  name="instructions"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Special Instructions (optional)</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          {...field} 
-                          placeholder="Any special instructions for the driver"
-                          className="min-h-24"
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="shipmentIds">Shipment ID(s)</Label>
+                        <Input 
+                          id="shipmentIds" 
+                          {...form.register('shipmentIds')} 
+                          placeholder="Comma-separated shipment IDs" 
+                          required 
                         />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
+                        <p className="text-sm text-gray-500 mt-1">Enter one or more shipment IDs separated by commas</p>
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="col-span-1">
+                          <Label htmlFor="packageCount">Package Count</Label>
+                          <Input 
+                            id="packageCount" 
+                            type="number" 
+                            min="1"
+                            {...form.register('packageCount', { valueAsNumber: true })}
+                            required
+                          />
+                        </div>
+                        
+                        <div className="col-span-2">
+                          <Label htmlFor="pickupDate">Pickup Date</Label>
+                          <Input 
+                            id="pickupDate" 
+                            type="date" 
+                            {...form.register('pickupDate')} 
+                            required
+                            min={new Date().toISOString().split('T')[0]}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="timeStart">Start Time</Label>
+                          <Input 
+                            id="timeStart" 
+                            type="time" 
+                            {...form.register('timeStart')} 
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="timeEnd">End Time</Label>
+                          <Input 
+                            id="timeEnd" 
+                            type="time" 
+                            {...form.register('timeEnd')} 
+                            required
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="instructions">Special Instructions (optional)</Label>
+                        <Input 
+                          id="instructions" 
+                          {...form.register('instructions')} 
+                          placeholder="Ring doorbell, leave at dock, etc."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <Separator className="my-8" />
+                
+                <div className="flex justify-end">
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="bg-purple-600 hover:bg-purple-700 flex items-center gap-2 text-white px-8"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Scheduling Pickup...
+                      </>
+                    ) : (
+                      <>
+                        <Truck className="h-5 w-5" />
+                        Schedule Pickup
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </Card>
+          ) : (
+            <Card className="border-2 border-green-200 bg-green-50 shadow-sm p-6 mb-8">
+              <div className="flex items-center mb-6">
+                <CheckCircle className="h-10 w-10 text-green-600 mr-4" />
+                <h2 className="text-2xl font-bold text-green-800">Pickup Scheduled Successfully!</h2>
               </div>
-
-              <Alert className="bg-blue-50 border border-blue-200 text-blue-800">
-                <Clock className="h-4 w-4 text-blue-500" />
-                <AlertDescription>
-                  Pickups must be scheduled before carrier cutoff times. Same-day pickups may not be available in all areas.
-                </AlertDescription>
-              </Alert>
-
-              <div className="flex justify-end pt-4">
-                <Button 
-                  type="submit" 
-                  disabled={isLoading}
-                  className="min-w-32"
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Confirmation Number</h3>
+                    <p className="text-xl font-mono bg-white border border-green-200 rounded p-2 mt-1">
+                      {pickupConfirmation.confirmation}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Carrier</h3>
+                    <p className="text-lg">{pickupConfirmation.carrier}</p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Pickup Date</h3>
+                    <p className="text-lg">{new Date(pickupConfirmation.scheduledDate).toLocaleDateString()}</p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Pickup Time</h3>
+                    <p className="text-lg">
+                      {pickupConfirmation.timeWindow.start} - {pickupConfirmation.timeWindow.end}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Pickup Location</h3>
+                    <div className="bg-white border border-green-200 rounded p-3 mt-1">
+                      <p>{pickupConfirmation.address.name}</p>
+                      <p>{pickupConfirmation.address.street1}</p>
+                      {pickupConfirmation.address.street2 && <p>{pickupConfirmation.address.street2}</p>}
+                      <p>
+                        {pickupConfirmation.address.city}, {pickupConfirmation.address.state} {pickupConfirmation.address.zip}
+                      </p>
+                      <p>{pickupConfirmation.address.country}</p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Package Count</h3>
+                    <p className="text-lg">{pickupConfirmation.packageCount}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-8 flex justify-end gap-4">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/dashboard')}
                 >
-                  {isLoading ? 'Scheduling...' : 'Schedule Pickup'}
+                  Go to Dashboard
+                </Button>
+                <Button
+                  onClick={() => setPickupConfirmation(null)}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  Schedule Another Pickup
                 </Button>
               </div>
-            </form>
-          </Form>
-        )}
-      </Card>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold mb-3">Carrier Pickup Times</h3>
-          <p className="text-gray-600 mb-2">Each carrier has different cutoff times for scheduling same-day pickups.</p>
-          <ul className="text-sm space-y-1">
-            <li>USPS: Before 2:00 PM local time</li>
-            <li>UPS: Before 3:00 PM local time</li>
-            <li>FedEx: Before 12:00 PM local time</li>
-          </ul>
+            </Card>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="manage">
+          <Card className="border-2 border-gray-200 shadow-sm p-6 mb-8">
+            <h2 className="text-2xl font-semibold mb-6 flex items-center">
+              <Clock className="mr-2 h-6 w-6 text-purple-600" />
+              Manage Scheduled Pickups
+            </h2>
+            
+            <div className="bg-gray-50 p-4 rounded-lg text-center">
+              <p className="text-gray-600">You have no scheduled pickups at this time.</p>
+            </div>
+            
+            <div className="mt-8 flex justify-end">
+              <Button
+                variant="default"
+                className="bg-purple-600 hover:bg-purple-700"
+                onClick={() => document.querySelector('[data-value="schedule"]')?.dispatchEvent(
+                  new MouseEvent('click', { bubbles: true })
+                )}
+              >
+                <Truck className="mr-2 h-5 w-5" />
+                Schedule New Pickup
+              </Button>
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <Card className="p-6 border-2 border-purple-100 bg-purple-50">
+          <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
+            <Calendar className="mr-2 h-5 w-5 text-purple-600" />
+            Flexible Scheduling
+          </h3>
+          <p className="text-purple-700 mb-2">Schedule pickups on your terms with flexible timeframes and same-day service available in many areas.</p>
         </Card>
         
-        <Card className="p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold mb-3">Package Requirements</h3>
-          <p className="text-gray-600 mb-2">All packages must be properly sealed and labeled before pickup.</p>
+        <Card className="p-6 border-2 border-green-100 bg-green-50">
+          <h3 className="text-lg font-semibold mb-3 text-green-800 flex items-center">
+            <Truck className="mr-2 h-5 w-5 text-green-600" />
+            Multiple Carriers
+          </h3>
+          <p className="text-green-700 mb-2">Choose from multiple carriers including USPS, UPS, and FedEx for your shipping pickup needs.</p>
         </Card>
         
-        <Card className="p-6 border border-gray-200">
-          <h3 className="text-lg font-semibold mb-3">Need Help?</h3>
-          <p className="text-gray-600 mb-2">Contact our support team for assistance with scheduling a pickup.</p>
-          <Button variant="outline" size="sm">
-            Contact Support
-          </Button>
+        <Card className="p-6 border-2 border-blue-100 bg-blue-50">
+          <h3 className="text-lg font-semibold mb-3 text-blue-800 flex items-center">
+            <CheckCircle className="mr-2 h-5 w-5 text-blue-600" />
+            Pickup Confirmations
+          </h3>
+          <p className="text-blue-700 mb-2">Receive instant confirmations and notifications for all your scheduled pickups.</p>
         </Card>
       </div>
     </div>

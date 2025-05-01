@@ -20,19 +20,9 @@ interface AddressData {
   phone?: string;
 }
 
-interface ParcelData {
-  length: number;
-  width: number;
-  height: number;
-  weight: number;
-}
-
-interface ShippingRequestData {
-  fromAddress: AddressData;
-  toAddress: AddressData;
-  parcel: ParcelData;
-  options?: Record<string, any>;
-  carrier?: string;
+interface VerifyAddressRequest {
+  address: AddressData;
+  carrier: string;
 }
 
 serve(async (req) => {
@@ -52,32 +42,28 @@ serve(async (req) => {
     }
 
     // Parse the request body
-    const requestData: ShippingRequestData = await req.json();
+    const requestData: VerifyAddressRequest = await req.json();
     
-    // Add carrier specific options if requested
-    const carrierAccounts: string[] = [];
-    let specificCarrier = '';
-    
-    if (requestData.carrier && requestData.carrier !== 'all' && requestData.carrier !== 'easypost') {
-      // Filter to specific carrier if requested
-      specificCarrier = requestData.carrier.toLowerCase();
-    }
-    
-    // Create a shipment with EasyPost API
-    const response = await fetch('https://api.easypost.com/v2/shipments', {
+    // Create an address verification request with EasyPost API
+    const response = await fetch('https://api.easypost.com/v2/addresses', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        shipment: {
-          from_address: requestData.fromAddress,
-          to_address: requestData.toAddress,
-          parcel: requestData.parcel,
-          options: requestData.options || {},
-          carrier_accounts: carrierAccounts.length > 0 ? carrierAccounts : undefined,
-        }
+        address: {
+          name: requestData.address.name,
+          company: requestData.address.company,
+          street1: requestData.address.street1,
+          street2: requestData.address.street2,
+          city: requestData.address.city,
+          state: requestData.address.state,
+          zip: requestData.address.zip,
+          country: requestData.address.country,
+          phone: requestData.address.phone,
+          verify: ['delivery'],
+        },
       }),
     });
 
@@ -87,32 +73,21 @@ serve(async (req) => {
     if (!response.ok) {
       console.error('EasyPost API error:', data);
       return new Response(
-        JSON.stringify({ error: 'Failed to get shipping rates', details: data }),
+        JSON.stringify({ error: 'Failed to verify address', details: data }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
       );
     }
 
-    // Filter rates by carrier if specified
-    let rates = data.rates;
-    if (specificCarrier) {
-      rates = rates.filter((rate: any) => 
-        rate.carrier.toLowerCase().includes(specificCarrier)
-      );
-    }
-    
-    // Sort rates by price (cheapest first)
-    rates.sort((a: any, b: any) => parseFloat(a.rate) - parseFloat(b.rate));
-
-    // Return the rates from the response
+    // Return the verified address from the response
     return new Response(
       JSON.stringify({ 
-        rates: rates,
-        shipmentId: data.id,
+        verifiedAddress: data.address,
+        verification: data.verifications,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error in get-shipping-rates function:', error);
+    console.error('Error in verify-address function:', error);
     return new Response(
       JSON.stringify({ error: 'Internal Server Error', message: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }

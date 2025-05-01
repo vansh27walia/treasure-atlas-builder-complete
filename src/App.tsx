@@ -13,6 +13,9 @@ import CreateLabelPage from "./pages/CreateLabelPage";
 import InternationalShippingPage from "./pages/InternationalShippingPage";
 import PickupPage from "./pages/PickupPage";
 import SidebarNavigation from "./components/SidebarNavigation";
+import AuthPage from "./pages/AuthPage";
+import AuthProvider from "./contexts/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,21 +31,55 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <SidebarNavigation>
+      <AuthProvider>
+        <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/payment" element={<PaymentPage />} />
-            <Route path="/label-success" element={<LabelSuccessPage />} />
-            <Route path="/create-label" element={<CreateLabelPage />} />
-            <Route path="/international" element={<InternationalShippingPage />} />
-            <Route path="/pickup" element={<PickupPage />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route
+              path="/*"
+              element={
+                <SidebarNavigation>
+                  <Routes>
+                    <Route path="/" element={<Index />} />
+                    <Route path="/dashboard" element={
+                      <ProtectedRoute>
+                        <Dashboard />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/payment" element={
+                      <ProtectedRoute>
+                        <PaymentPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/label-success" element={
+                      <ProtectedRoute>
+                        <LabelSuccessPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/create-label" element={
+                      <ProtectedRoute>
+                        <CreateLabelPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/international" element={
+                      <ProtectedRoute>
+                        <InternationalShippingPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/pickup" element={
+                      <ProtectedRoute>
+                        <PickupPage />
+                      </ProtectedRoute>
+                    } />
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </SidebarNavigation>
+              }
+            />
           </Routes>
-        </SidebarNavigation>
-      </BrowserRouter>
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
