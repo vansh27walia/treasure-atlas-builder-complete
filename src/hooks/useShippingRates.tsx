@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -98,6 +99,37 @@ export const useShippingRates = () => {
       toast.error("Failed to generate shipping label. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // New function to handle payment process
+  const handleProceedToPayment = () => {
+    if (!selectedRateId || !shipmentId) {
+      toast.error("Please select a shipping rate first");
+      return;
+    }
+    
+    setIsProcessingPayment(true);
+    
+    try {
+      // Get the selected rate to determine the amount
+      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      
+      if (!selectedRate) {
+        throw new Error("Selected rate not found");
+      }
+      
+      // Convert rate to cents for payment processing
+      const amountInCents = Math.round(parseFloat(selectedRate.rate) * 100);
+      
+      // Navigate to payment page with necessary information
+      navigate(`/payment?amount=${amountInCents}&shipmentId=${shipmentId}&rateId=${selectedRateId}`);
+      
+    } catch (error) {
+      console.error('Error proceeding to payment:', error);
+      toast.error("Failed to process payment. Please try again.");
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
