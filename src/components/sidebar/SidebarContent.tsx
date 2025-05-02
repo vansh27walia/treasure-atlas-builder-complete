@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { NavLink } from 'react-router-dom';
 import { 
   Home, Package, CreditCard, Settings, ShoppingBag, Truck, MapPin, 
   BarChart3, Globe, HelpCircle, Tag
@@ -23,7 +22,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
 
       {/* Main Navigation */}
       <div className="mt-8 flex-1">
-        <SidebarNavSection title={collapsed ? "" : "Main"}>
+        <SidebarNavSection title="Main" collapsed={collapsed}>
           <SidebarNavItem
             icon={<Home size={18} />}
             title="Dashboard"
@@ -50,7 +49,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
           />
         </SidebarNavSection>
 
-        <SidebarNavSection title={collapsed ? "" : "Shipping"}>
+        <SidebarNavSection title="Shipping" collapsed={collapsed}>
           <SidebarNavItem
             icon={<MapPin size={18} />}
             title="Pickup Service"
@@ -71,7 +70,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
           />
         </SidebarNavSection>
         
-        <SidebarNavSection title={collapsed ? "" : "More"}>
+        <SidebarNavSection title="More" collapsed={collapsed}>
           <SidebarNavItem
             icon={<Settings size={18} />}
             title="Settings"

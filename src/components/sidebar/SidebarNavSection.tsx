@@ -1,31 +1,27 @@
 
 import React from 'react';
-import { LucideIcon } from 'lucide-react';
-import SidebarNavItem from './SidebarNavItem';
-
-interface NavigationItem {
-  name: string;
-  href: string;
-  icon: LucideIcon;
-}
 
 interface SidebarNavSectionProps {
-  items: NavigationItem[];
+  title: string;
   collapsed: boolean;
+  children: React.ReactNode;
 }
 
-const SidebarNavSection: React.FC<SidebarNavSectionProps> = ({ items, collapsed }) => {
+const SidebarNavSection: React.FC<SidebarNavSectionProps> = ({ 
+  title, 
+  collapsed,
+  children 
+}) => {
   return (
-    <div className="space-y-1">
-      {items.map((item) => (
-        <SidebarNavItem
-          key={item.name}
-          href={item.href}
-          icon={item.icon}
-          name={item.name}
-          collapsed={collapsed}
-        />
-      ))}
+    <div className="mb-6">
+      {!collapsed && title && (
+        <h3 className="mb-2 px-4 text-xs font-semibold text-blue-300 uppercase">
+          {title}
+        </h3>
+      )}
+      <div className="space-y-1">
+        {children}
+      </div>
     </div>
   );
 };

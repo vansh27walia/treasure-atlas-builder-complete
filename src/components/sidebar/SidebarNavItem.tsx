@@ -1,23 +1,22 @@
 
-import React from 'react';
+import React, { ReactElement } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { LucideIcon } from 'lucide-react';
 
 interface SidebarNavItemProps {
-  href: string;
-  icon: LucideIcon;
-  name: string;
+  icon: ReactElement;
+  title: string;
+  to: string;
   collapsed: boolean;
 }
 
-const SidebarNavItem: React.FC<SidebarNavItemProps> = ({ href, icon: Icon, name, collapsed }) => {
+const SidebarNavItem: React.FC<SidebarNavItemProps> = ({ icon, title, to, collapsed }) => {
   const location = useLocation();
-  const isActive = location.pathname === href;
+  const isActive = location.pathname === to || location.pathname + location.search === to;
   
   return (
     <Link
-      to={href}
+      to={to}
       className={cn(
         'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors',
         isActive
@@ -26,8 +25,10 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({ href, icon: Icon, name,
         collapsed ? 'justify-center' : ''
       )}
     >
-      <Icon className={cn('h-5 w-5 flex-shrink-0', collapsed ? '' : 'mr-3')} />
-      {!collapsed && <span>{name}</span>}
+      <div className={cn('h-5 w-5 flex-shrink-0', collapsed ? '' : 'mr-3')}>
+        {icon}
+      </div>
+      {!collapsed && <span>{title}</span>}
     </Link>
   );
 };
