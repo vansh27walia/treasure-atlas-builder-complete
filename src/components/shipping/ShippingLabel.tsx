@@ -2,9 +2,10 @@
 import React, { useState } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ShippingLabelProps {
-  labelUrl: string;
+  labelUrl: string | null;
   trackingCode: string | null;
   shipmentId?: string | null;
 }
@@ -13,7 +14,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [localLabelUrl, setLocalLabelUrl] = useState(labelUrl);
   
-  if (!labelUrl) return null;
+  if (!labelUrl && !localLabelUrl) return null;
   
   const handleRefreshLabel = async () => {
     if (!shipmentId) return;
@@ -21,16 +22,20 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     setIsRefreshing(true);
     
     try {
-      // Use the get-stored-label endpoint to fetch the label URL
-      const response = await fetch(`/api/get-stored-label?shipment_id=${shipmentId}`);
-      if (!response.ok) {
-        throw new Error('Failed to refresh label');
+      // Use the Supabase edge function to fetch the stored label
+      const { data, error } = await supabase.functions.invoke('get-stored-label', {
+        body: { shipment_id: shipmentId }
+      });
+      
+      if (error) {
+        throw new Error('Failed to refresh label: ' + error.message);
       }
       
-      const data = await response.json();
       if (data.labelUrl) {
         setLocalLabelUrl(data.labelUrl);
         toast.success('Label refreshed successfully');
+      } else {
+        throw new Error('No label URL found');
       }
     } catch (error) {
       console.error('Error refreshing label:', error);
@@ -38,6 +43,25 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     } finally {
       setIsRefreshing(false);
     }
+  };
+
+  const handleDownload = () => {
+    const url = localLabelUrl || labelUrl;
+    if (!url) {
+      toast.error('No label URL available');
+      return;
+    }
+    
+    // Create an anchor element and trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `shipping_label_${trackingCode || 'download'}.pdf`);
+    link.setAttribute('target', '_blank');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success('Downloading shipping label');
   };
   
   return (
@@ -58,14 +82,12 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
               Refresh
             </button>
           )}
-          <a 
-            href={localLabelUrl} 
-            target="_blank" 
-            rel="noopener noreferrer" 
+          <button 
+            onClick={handleDownload}
             className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
           >
             <Download className="mr-2 h-4 w-4" /> Download Label
-          </a>
+          </button>
         </div>
       </div>
     </div>

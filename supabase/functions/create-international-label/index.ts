@@ -18,7 +18,6 @@ serve(async (req) => {
     // Get the EasyPost API key from Supabase secrets
     const apiKey = Deno.env.get('EASYPOST_API_KEY');
     if (!apiKey) {
-      console.error('API key not configured');
       return new Response(
         JSON.stringify({ error: 'API key not configured' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
@@ -30,7 +29,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Supabase configuration not found');
       return new Response(
         JSON.stringify({ error: 'Supabase configuration not found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
@@ -43,14 +41,13 @@ serve(async (req) => {
     const { shipmentId, rateId } = await req.json();
     
     if (!shipmentId || !rateId) {
-      console.error('Missing required parameters', { shipmentId, rateId });
       return new Response(
         JSON.stringify({ error: 'Missing required parameters' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
-    console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
+    console.log(`Creating international label for shipment ${shipmentId} with rate ${rateId}`);
 
     try {
       // Check if storage bucket exists, create if not
@@ -140,11 +137,8 @@ serve(async (req) => {
 
     // Download the label PDF from EasyPost
     const labelURL = data.postage_label.label_url;
-    console.log(`Label URL from EasyPost: ${labelURL}`);
-    
     const labelResponse = await fetch(labelURL);
     if (!labelResponse.ok) {
-      console.error('Failed to download label from EasyPost');
       throw new Error('Failed to download label from EasyPost');
     }
     
@@ -229,14 +223,14 @@ serve(async (req) => {
     // Return the label information with our internally stored URL
     return new Response(
       JSON.stringify({
-        labelUrl: signedURLData.signedUrl || labelURL, // Fall back to EasyPost URL if needed
+        labelUrl: signedURLData.signedUrl,
         trackingCode: data.tracking_code,
         shipmentId: data.id,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Error in create-label function:', error);
+    console.error('Error in create-international-label function:', error);
     return new Response(
       JSON.stringify({ error: 'Internal Server Error', message: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }

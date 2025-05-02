@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
@@ -188,6 +187,47 @@ const InternationalShippingPage: React.FC = () => {
     }
   };
 
+  // Add this for label-related functionality
+  const [labelUrl, setLabelUrl] = useState<string | null>(null);
+  const [trackingCode, setTrackingCode] = useState<string | null>(null);
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  
+  const handleCreateLabel = async (rateId: string, shipmentId: string | undefined) => {
+    if (!rateId || !shipmentId) {
+      toast.error("Cannot create label: Missing rate or shipment information");
+      return;
+    }
+    
+    setIsCreatingLabel(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('create-international-label', {
+        body: { shipmentId, rateId }
+      });
+      
+      if (error || !data) {
+        console.error("Error creating international label:", error);
+        throw new Error(error?.message || "Failed to create international shipping label");
+      }
+      
+      if (!data.labelUrl) {
+        throw new Error("No label URL returned");
+      }
+      
+      setLabelUrl(data.labelUrl);
+      setTrackingCode(data.trackingCode);
+      toast.success("International shipping label created successfully");
+      
+      // Navigate to success page
+      navigate(`/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}`);
+    } catch (error) {
+      console.error("Label creation error:", error);
+      toast.error("Failed to create international label. Please try again.");
+    } finally {
+      setIsCreatingLabel(false);
+    }
+  };
+  
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100">
@@ -908,15 +948,26 @@ const InternationalShippingPage: React.FC = () => {
               type="button"
               variant="outline"
               size="lg"
-              disabled={!selectedRateId}
+              disabled={!selectedRateId || isCreatingLabel}
               onClick={() => {
                 if (selectedRateId) {
-                  toast.success("Label created successfully!");
-                  // Handle label creation logic here
+                  const rate = rates.find(r => r.id === selectedRateId);
+                  if (rate && rate.shipment_id) {
+                    handleCreateLabel(selectedRateId, rate.shipment_id);
+                  } else {
+                    toast.error("Missing shipment information");
+                  }
                 }
               }}
             >
-              Create Label
+              {isCreatingLabel ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Creating Label...
+                </>
+              ) : (
+                "Create Label"
+              )}
             </Button>
             <Button
               type="button"
@@ -925,8 +976,8 @@ const InternationalShippingPage: React.FC = () => {
               disabled={!selectedRateId}
               onClick={() => {
                 if (selectedRateId) {
+                  // Payment handling code
                   toast.success("Proceeding to payment");
-                  // Handle payment logic
                 }
               }}
             >

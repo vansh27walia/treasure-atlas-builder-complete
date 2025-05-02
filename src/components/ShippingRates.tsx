@@ -7,7 +7,8 @@ import ShippingLabel from './shipping/ShippingLabel';
 import EmptyRatesState from './shipping/EmptyRatesState';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { toast } from '@/components/ui/sonner';
-import { CreditCard, Loader } from 'lucide-react';
+import { CreditCard, Loader, Download, Upload } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const ShippingRates: React.FC = () => {
   const {
@@ -27,14 +28,34 @@ const ShippingRates: React.FC = () => {
 
   // Show empty state if no rates available
   if (rates.length === 0) {
-    return <div className="mt-8"><EmptyRatesState /></div>;
+    return (
+      <div className="mt-8">
+        <EmptyRatesState />
+        <div className="mt-4 flex justify-end">
+          <Link to="/bulk-upload">
+            <Button variant="outline" className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              Bulk Upload
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="mt-8">
       <Card className="border-2 border-gray-200">
         <div className="p-6">
-          <h2 className="text-2xl font-semibold mb-6">Available Shipping Rates</h2>
+          <div className="flex justify-between mb-6">
+            <h2 className="text-2xl font-semibold">Available Shipping Rates</h2>
+            <Link to="/bulk-upload">
+              <Button variant="outline" className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                Bulk Upload
+              </Button>
+            </Link>
+          </div>
           
           <ShippingLabel 
             labelUrl={labelUrl} 
@@ -66,7 +87,12 @@ const ShippingRates: React.FC = () => {
                   <Loader className="h-4 w-4 animate-spin" />
                   Creating Label...
                 </>
-              ) : 'Buy & Print Label'}
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  Buy & Print Label
+                </>
+              )}
             </Button>
 
             <Button 

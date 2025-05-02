@@ -76,17 +76,26 @@ export const useShippingRates = () => {
     try {
       console.log("Creating label with shipmentId:", shipmentId, "and rateId:", selectedRateId);
       
-      const { data, error } = await supabase.functions.invoke('create-label', {
+      // Get the selected rate to determine if it's international
+      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      const isInternational = selectedRate?.service?.toLowerCase().includes('international');
+      
+      // Choose the appropriate endpoint based on whether it's international
+      const endpoint = isInternational ? 'create-international-label' : 'create-label';
+      
+      console.log(`Using ${endpoint} endpoint for label creation`);
+      
+      const { data, error } = await supabase.functions.invoke(endpoint, {
         body: { shipmentId, rateId: selectedRateId }
       });
 
       if (error) {
-        console.error("Error from create-label function:", error);
+        console.error(`Error from ${endpoint} function:`, error);
         throw new Error(`Error creating label: ${error.message}`);
       }
 
       if (!data || !data.labelUrl) {
-        console.error("No data returned from create-label function");
+        console.error(`No data returned from ${endpoint} function`);
         throw new Error("No label data returned from server");
       }
 
@@ -94,6 +103,9 @@ export const useShippingRates = () => {
       setLabelUrl(data.labelUrl);
       setTrackingCode(data.trackingCode);
       toast.success("Shipping label generated successfully");
+      
+      // Navigate to success page with label info
+      navigate(`/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}`);
     } catch (error) {
       console.error('Error creating label:', error);
       toast.error("Failed to generate shipping label. Please try again.");
