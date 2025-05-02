@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useForm } from 'react-hook-form';
-import { Globe, AlertCircle, Info, Package, MapPin, Scale, CircleDollarSign, Loader2 } from 'lucide-react';
+import { Globe, AlertCircle, Info, Package, MapPin, Scale, CircleDollarSign, Loader2, Download } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,7 @@ import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { AddressData, ParcelData, ShippingRequestData, carrierService } from '@/services/CarrierService';
+import ShippingLabel from '@/components/shipping/ShippingLabel';
 
 interface FormValues {
   fromName: string;
@@ -138,6 +139,11 @@ const InternationalShippingPage: React.FC = () => {
       // Fetch shipping rates
       const shippingRates = await carrierService.getShippingRates(requestData);
       
+      // Store shipment ID for label creation
+      if (shippingRates.length > 0 && shippingRates[0]?.shipment_id) {
+        setShipmentId(shippingRates[0].shipment_id);
+      }
+      
       // Dispatch custom event with shipping rates
       const ratesEvent = new CustomEvent('easypost-rates-received', {
         detail: {
@@ -193,6 +199,7 @@ const InternationalShippingPage: React.FC = () => {
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  const [shipmentId, setShipmentId] = useState<string | null>(null);
   
   const handleCreateLabel = async (rateId: string, shipmentId: string | undefined) => {
     if (!rateId || !shipmentId) {
@@ -220,6 +227,17 @@ const InternationalShippingPage: React.FC = () => {
       setTrackingCode(data.trackingCode);
       toast.success("International shipping label created successfully");
       
+      // Download the label automatically
+      setTimeout(() => {
+        const link = document.createElement('a');
+        link.href = data.labelUrl;
+        link.setAttribute('download', `international_shipping_label_${data.trackingCode || 'download'}.pdf`);
+        link.setAttribute('target', '_blank');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }, 1000);
+      
       // Navigate to success page
       navigate(`/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}`);
     } catch (error) {
@@ -232,33 +250,33 @@ const InternationalShippingPage: React.FC = () => {
   
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100">
-        <h1 className="text-3xl font-bold flex items-center text-blue-800">
-          <Globe className="mr-3 h-8 w-8 text-blue-600" /> 
+      <div className="flex items-center justify-between mb-6 bg-gradient-to-r from-indigo-50 to-blue-50 p-4 rounded-lg border border-indigo-100 shadow-sm">
+        <h1 className="text-3xl font-bold flex items-center text-indigo-800">
+          <Globe className="mr-3 h-8 w-8 text-indigo-600" /> 
           International Shipping
         </h1>
         
-        <Button variant="outline" className="bg-white hover:bg-blue-50 border-blue-200">
-          <Info className="mr-2 h-5 w-5 text-blue-500" /> Shipping Guidelines
+        <Button variant="outline" className="bg-white hover:bg-indigo-50 border-indigo-200">
+          <Info className="mr-2 h-5 w-5 text-indigo-500" /> Shipping Guidelines
         </Button>
       </div>
 
-      <Alert className="mb-6 bg-blue-50 border-2 border-blue-200">
-        <Info className="h-5 w-5 text-blue-600" />
-        <AlertTitle className="text-blue-800 font-bold">International Shipping Information</AlertTitle>
-        <AlertDescription className="text-blue-700">
+      <Alert className="mb-6 bg-indigo-50 border-2 border-indigo-200">
+        <Info className="h-5 w-5 text-indigo-600" />
+        <AlertTitle className="text-indigo-800 font-bold">International Shipping Information</AlertTitle>
+        <AlertDescription className="text-indigo-700">
           Ship to over 200+ countries worldwide with our reliable international shipping services. Make sure to provide accurate customs information to avoid delays. All international shipments require customs forms.
         </AlertDescription>
       </Alert>
 
       <Card className="border-2 border-gray-200 shadow-sm mb-8">
         <Tabs defaultValue="document" onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-6 grid w-full grid-cols-2 p-2 bg-blue-50">
-            <TabsTrigger value="document" className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">
+          <TabsList className="mb-6 grid w-full grid-cols-2 p-2 bg-indigo-50">
+            <TabsTrigger value="document" className="data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm">
               <Package className="mr-2 h-5 w-5" />
               Ship Documents
             </TabsTrigger>
-            <TabsTrigger value="package" className="data-[state=active]:bg-white data-[state=active]:text-blue-600 data-[state=active]:shadow-sm">
+            <TabsTrigger value="package" className="data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-sm">
               <Package className="mr-2 h-5 w-5" />
               Ship Packages
             </TabsTrigger>
@@ -266,11 +284,11 @@ const InternationalShippingPage: React.FC = () => {
           
           <div className="p-6">
             <TabsContent value="document">
-              <div className="flex items-center mb-6 bg-blue-50 p-4 rounded-md">
-                <Package className="h-6 w-6 text-blue-600 mr-3" />
+              <div className="flex items-center mb-6 bg-indigo-50 p-4 rounded-md">
+                <Package className="h-6 w-6 text-indigo-600 mr-3" />
                 <div>
-                  <h2 className="text-xl font-medium text-blue-800 mb-1">Ship Documents Internationally</h2>
-                  <p className="text-blue-600">Use this option for shipping letters, documents, and flat envelopes up to 1/4" thick.</p>
+                  <h2 className="text-xl font-medium text-indigo-800 mb-1">Ship Documents Internationally</h2>
+                  <p className="text-indigo-600">Use this option for shipping letters, documents, and flat envelopes up to 1/4" thick.</p>
                 </div>
               </div>
 
@@ -280,7 +298,7 @@ const InternationalShippingPage: React.FC = () => {
                     <div>
                       <div className="flex justify-between items-center mb-4">
                         <h3 className="text-lg font-medium flex items-center">
-                          <MapPin className="mr-2 h-5 w-5 text-blue-500" />
+                          <MapPin className="mr-2 h-5 w-5 text-indigo-500" />
                           Origin Address
                         </h3>
                         <div className="flex gap-2">
@@ -371,7 +389,7 @@ const InternationalShippingPage: React.FC = () => {
                     <div>
                       <div className="flex justify-between items-center mb-4">
                         <h3 className="text-lg font-medium flex items-center">
-                          <MapPin className="mr-2 h-5 w-5 text-blue-500" />
+                          <MapPin className="mr-2 h-5 w-5 text-indigo-500" />
                           Destination Address
                         </h3>
                         <Button 
@@ -450,7 +468,7 @@ const InternationalShippingPage: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
                       <h3 className="text-lg font-medium mb-4 flex items-center">
-                        <CircleDollarSign className="mr-2 h-5 w-5 text-blue-500" />
+                        <CircleDollarSign className="mr-2 h-5 w-5 text-indigo-500" />
                         Customs Information
                       </h3>
                       
@@ -477,7 +495,7 @@ const InternationalShippingPage: React.FC = () => {
                     
                     <div>
                       <h3 className="text-lg font-medium mb-4 flex items-center">
-                        <Package className="mr-2 h-5 w-5 text-blue-500" />
+                        <Package className="mr-2 h-5 w-5 text-indigo-500" />
                         Carrier &amp; Package Info
                       </h3>
                       
@@ -533,7 +551,7 @@ const InternationalShippingPage: React.FC = () => {
                     <Button 
                       type="submit" 
                       size="lg" 
-                      className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2 text-white px-8"
+                      className="bg-indigo-600 hover:bg-indigo-700 flex items-center gap-2 text-white px-8"
                       disabled={isLoading}
                     >
                       {isLoading ? (
@@ -896,11 +914,20 @@ const InternationalShippingPage: React.FC = () => {
         </Tabs>
       </Card>
 
+      {/* Display label if available */}
+      {labelUrl && (
+        <ShippingLabel 
+          labelUrl={labelUrl} 
+          trackingCode={trackingCode} 
+          shipmentId={shipmentId}
+        />
+      )}
+
       {/* Display shipping rates when available */}
       {showRates && rates.length > 0 && (
-        <Card className="border-2 border-gray-200 shadow-sm mb-8 p-6">
-          <h2 className="text-2xl font-bold mb-4 flex items-center">
-            <Package className="mr-2 h-6 w-6 text-blue-600" /> 
+        <Card className="border-2 border-indigo-200 shadow-sm mb-8 p-6 bg-white rounded-xl">
+          <h2 className="text-2xl font-bold mb-4 flex items-center text-indigo-800">
+            <Package className="mr-2 h-6 w-6 text-indigo-600" /> 
             Available Shipping Options
           </h2>
           
@@ -910,8 +937,8 @@ const InternationalShippingPage: React.FC = () => {
                 key={rate.id}
                 className={`p-4 border rounded-lg cursor-pointer transition-all ${
                   selectedRateId === rate.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-blue-300'
+                    ? 'border-indigo-500 bg-indigo-50 shadow-sm'
+                    : 'border-gray-200 hover:border-indigo-300'
                 }`}
                 onClick={() => handleSelectRate(rate.id)}
               >
@@ -935,7 +962,7 @@ const InternationalShippingPage: React.FC = () => {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-bold text-blue-700">${rate.rate}</p>
+                    <p className="text-xl font-bold text-indigo-700">${rate.rate}</p>
                     {rate.list_rate && rate.list_rate !== rate.rate && (
                       <p className="text-sm text-gray-500 line-through">${rate.list_rate}</p>
                     )}
@@ -961,6 +988,7 @@ const InternationalShippingPage: React.FC = () => {
                   }
                 }
               }}
+              className="border-indigo-200 hover:bg-indigo-50"
             >
               {isCreatingLabel ? (
                 <>
@@ -968,18 +996,25 @@ const InternationalShippingPage: React.FC = () => {
                   Creating Label...
                 </>
               ) : (
-                "Create Label"
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  Create & Download Label
+                </>
               )}
             </Button>
             <Button
               type="button"
               size="lg"
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-indigo-600 hover:bg-indigo-700"
               disabled={!selectedRateId}
               onClick={() => {
                 if (selectedRateId) {
-                  // Payment handling code
-                  toast.success("Proceeding to payment");
+                  const rate = rates.find(r => r.id === selectedRateId);
+                  if (rate && rate.shipment_id) {
+                    navigate(`/payment?amount=${Math.round(parseFloat(rate.rate) * 100)}&shipmentId=${rate.shipment_id}&rateId=${selectedRateId}`);
+                  } else {
+                    toast.error("Missing shipment information");
+                  }
                 }
               }}
             >

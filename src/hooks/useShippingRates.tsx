@@ -104,6 +104,17 @@ export const useShippingRates = () => {
       setTrackingCode(data.trackingCode);
       toast.success("Shipping label generated successfully");
       
+      // Download the label automatically
+      setTimeout(() => {
+        const link = document.createElement('a');
+        link.href = data.labelUrl;
+        link.setAttribute('download', `shipping_label_${data.trackingCode || 'download'}.pdf`);
+        link.setAttribute('target', '_blank');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }, 1000);
+      
       // Navigate to success page with label info
       navigate(`/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}`);
     } catch (error) {
@@ -114,7 +125,7 @@ export const useShippingRates = () => {
     }
   };
 
-  // New function to handle payment process
+  // Function to handle payment process
   const handleProceedToPayment = () => {
     if (!selectedRateId || !shipmentId) {
       toast.error("Please select a shipping rate first");
