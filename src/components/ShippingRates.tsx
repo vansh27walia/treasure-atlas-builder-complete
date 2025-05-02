@@ -17,6 +17,7 @@ const ShippingRates: React.FC = () => {
     selectedRateId,
     labelUrl,
     trackingCode,
+    shipmentId,
     bestValueRateId,
     fastestRateId,
     handleSelectRate,
@@ -35,7 +36,11 @@ const ShippingRates: React.FC = () => {
         <div className="p-6">
           <h2 className="text-2xl font-semibold mb-6">Available Shipping Rates</h2>
           
-          <ShippingLabel labelUrl={labelUrl} trackingCode={trackingCode} />
+          <ShippingLabel 
+            labelUrl={labelUrl} 
+            trackingCode={trackingCode} 
+            shipmentId={shipmentId}
+          />
           
           <div className="space-y-4">
             {rates.map((rate) => (
@@ -85,7 +90,7 @@ const ShippingRates: React.FC = () => {
           </div>
           
           <div className="mt-6 text-center text-sm text-gray-600">
-            <p>* Actual rates provided by EasyPost.</p>
+            <p>* All rates include handling fees.</p>
           </div>
         </div>
       </Card>

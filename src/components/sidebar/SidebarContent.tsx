@@ -1,82 +1,101 @@
 
 import React from 'react';
-import { Separator } from '@/components/ui/separator';
-import SidebarUserProfile from './SidebarUserProfile';
-import SidebarNavSection from './SidebarNavSection';
-import SidebarAuthButton from './SidebarAuthButton';
-import { useAuth } from '@/contexts/AuthContext';
+import { NavLink } from 'react-router-dom';
 import { 
-  LayoutDashboard, 
-  Package, 
-  Globe,
-  Truck,
-  Home,
-  PackageOpen,
-  FileText,
-  CreditCard, 
-  Settings, 
-  Gauge,
+  Home, Package, CreditCard, Settings, ShoppingBag, Truck, MapPin, 
+  BarChart3, Globe, HelpCircle, Tag
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import SidebarNavSection from './SidebarNavSection';
+import SidebarNavItem from './SidebarNavItem';
+import SidebarUserProfile from './SidebarUserProfile';
+import SidebarAuthButton from './SidebarAuthButton';
 
 interface SidebarContentProps {
   collapsed: boolean;
 }
 
-const mainNavItems = [
-  { name: 'Home', href: '/', icon: Home },
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Create Label', href: '/create-label', icon: PackageOpen },
-  { name: 'International', href: '/international', icon: Globe },
-  { name: 'Schedule Pickup', href: '/pickup', icon: Truck },
-  { name: 'Payment', href: '/payment', icon: CreditCard },
-];
-
-const secondaryNavItems = [
-  { name: 'Settings', href: '/settings', icon: Settings },
-  { name: 'Tracking', href: '/tracking', icon: Gauge },
-  { name: 'Reports', href: '/reports', icon: FileText },
-];
-
 const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
-  const { user } = useAuth();
-  
   return (
-    <>
-      {/* Logo */}
-      <div className="p-4 flex items-center justify-between">
-        <div className="flex items-center">
-          <Package className="h-8 w-8 text-blue-400" />
-          {!collapsed && (
-            <span className="ml-3 font-bold text-xl text-white">ShipEase</span>
-          )}
-        </div>
-      </div>
-
-      <Separator className="bg-blue-800 my-2" />
-      
-      {/* User profile */}
-      {user && (
-        <>
-          <SidebarUserProfile collapsed={collapsed} />
-          <Separator className="bg-blue-800 mb-2" />
-        </>
-      )}
+    <div className="flex flex-col flex-1 overflow-y-auto py-4">
+      {/* User Profile */}
+      <SidebarUserProfile collapsed={collapsed} />
 
       {/* Main Navigation */}
-      <div className="flex-1 overflow-y-auto py-2 px-2">
-        <SidebarNavSection items={mainNavItems} collapsed={collapsed} />
+      <div className="mt-8 flex-1">
+        <SidebarNavSection title={collapsed ? "" : "Main"}>
+          <SidebarNavItem
+            icon={<Home size={18} />}
+            title="Dashboard"
+            to="/"
+            collapsed={collapsed}
+          />
+          <SidebarNavItem
+            icon={<Package size={18} />}
+            title="Create Label"
+            to="/create-label"
+            collapsed={collapsed}
+          />
+          <SidebarNavItem
+            icon={<Truck size={18} />}
+            title="Tracking"
+            to="/dashboard?tab=tracking"
+            collapsed={collapsed}
+          />
+          <SidebarNavItem
+            icon={<BarChart3 size={18} />}
+            title="Reports"
+            to="/dashboard?tab=history"
+            collapsed={collapsed}
+          />
+        </SidebarNavSection>
+
+        <SidebarNavSection title={collapsed ? "" : "Shipping"}>
+          <SidebarNavItem
+            icon={<MapPin size={18} />}
+            title="Pickup Service"
+            to="/pickup"
+            collapsed={collapsed}
+          />
+          <SidebarNavItem
+            icon={<Globe size={18} />}
+            title="International"
+            to="/international"
+            collapsed={collapsed}
+          />
+          <SidebarNavItem
+            icon={<CreditCard size={18} />}
+            title="Payment"
+            to="/payment"
+            collapsed={collapsed}
+          />
+        </SidebarNavSection>
         
-        <Separator className="bg-blue-800 my-4" />
-        
-        {/* Secondary Navigation */}
-        <SidebarNavSection items={secondaryNavItems} collapsed={collapsed} />
+        <SidebarNavSection title={collapsed ? "" : "More"}>
+          <SidebarNavItem
+            icon={<Settings size={18} />}
+            title="Settings"
+            to="/settings"
+            collapsed={collapsed}
+          />
+          <SidebarNavItem
+            icon={<HelpCircle size={18} />}
+            title="Help Center"
+            to="/help"
+            collapsed={collapsed}
+          />
+          <SidebarNavItem
+            icon={<Tag size={18} />}
+            title="Pricing"
+            to="/pricing"
+            collapsed={collapsed}
+          />
+        </SidebarNavSection>
       </div>
-      
-      {/* Auth Links */}
-      <div className="p-2">
-        <SidebarAuthButton collapsed={collapsed} />
-      </div>
-    </>
+
+      {/* Authentication Button */}
+      <SidebarAuthButton collapsed={collapsed} />
+    </div>
   );
 };
 

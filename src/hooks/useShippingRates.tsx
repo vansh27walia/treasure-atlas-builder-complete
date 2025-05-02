@@ -15,7 +15,8 @@ interface ShippingRate {
   list_rate?: string;
   retail_rate?: string;
   est_delivery_days?: number;
-  shipment_id?: string; // Added the missing property
+  shipment_id?: string; 
+  original_rate?: string;
 }
 
 interface EasyPostRatesEvent {
@@ -167,6 +168,7 @@ export const useShippingRates = () => {
     selectedRateId,
     labelUrl,
     trackingCode,
+    shipmentId,
     bestValueRateId,
     fastestRateId,
     handleSelectRate,

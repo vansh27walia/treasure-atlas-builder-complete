@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Clock } from 'lucide-react';
+import { Clock, Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ShippingRate {
   id: string;
@@ -67,13 +68,21 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
       
       <div className="mt-4 md:mt-0 flex items-center">
         <div className="mr-6 text-right">
-          <div className="text-2xl font-bold bg-gray-50 rounded-none">${parseFloat(rate.rate).toFixed(2)}</div>
+          <div className="text-2xl font-bold">${parseFloat(rate.rate).toFixed(2)}</div>
           
-          {/* Show original rate if available */}
+          {/* Show original rate if available with tooltip explaining the markup */}
           {rate.original_rate && rate.original_rate !== rate.rate && (
-            <div className="text-xs text-gray-500">
-              Base rate: ${parseFloat(rate.original_rate).toFixed(2)}
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger className="text-xs text-gray-500 flex items-center">
+                  Base rate: ${parseFloat(rate.original_rate).toFixed(2)}
+                  <Info className="h-3 w-3 ml-1" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">Rate includes shipping markup for handling fees</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
           
           {/* Show retail rate if available */}
