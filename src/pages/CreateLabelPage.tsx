@@ -29,23 +29,23 @@ const CreateLabelPage: React.FC = () => {
               Domestic
             </TabsTrigger>
             <TabsTrigger 
-              value="bulk" 
-              className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-            >
-              <Upload className="h-4 w-4" />
-              Bulk Shipping
-            </TabsTrigger>
-            <TabsTrigger 
               value="international" 
-              className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+              className="flex items-center gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
             >
               <Globe className="h-4 w-4" />
               International
             </TabsTrigger>
+            <TabsTrigger 
+              value="bulk" 
+              className="flex items-center gap-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white"
+            >
+              <Upload className="h-4 w-4" />
+              Bulk Shipping
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="domestic">
-            <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-6 border border-blue-100">
+            <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-6 border border-blue-100 shadow-sm">
               <h2 className="text-xl font-semibold text-blue-800 flex items-center mb-2">
                 <Truck className="h-5 w-5 mr-2 text-blue-600" />
                 Domestic Shipping
@@ -55,8 +55,33 @@ const CreateLabelPage: React.FC = () => {
             <ShippingForm />
           </TabsContent>
           
+          <TabsContent value="international">
+            <div className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg mb-6 border border-indigo-100 shadow-sm">
+              <h2 className="text-xl font-semibold text-indigo-800 flex items-center mb-2">
+                <Globe className="h-5 w-5 mr-2 text-indigo-600" />
+                International Shipping
+              </h2>
+              <p className="text-indigo-700">Send packages worldwide with customs forms automatically generated.</p>
+            </div>
+            
+            <div className="flex justify-center items-center py-10 px-4">
+              <div className="text-center max-w-md">
+                <Globe className="h-16 w-16 mx-auto text-indigo-500 mb-4" />
+                <h3 className="text-xl font-semibold mb-2">International Shipping</h3>
+                <p className="text-gray-600 mb-6">
+                  Ship to over 200+ countries with our international shipping service, including automated customs documentation.
+                </p>
+                <Link to="/international">
+                  <Button className="bg-indigo-600 hover:bg-indigo-700">
+                    Go to International Shipping
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </TabsContent>
+          
           <TabsContent value="bulk">
-            <div className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg mb-6 border border-amber-100">
+            <div className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg mb-6 border border-amber-100 shadow-sm">
               <h2 className="text-xl font-semibold text-amber-800 flex items-center mb-2">
                 <Upload className="h-5 w-5 mr-2 text-amber-600" />
                 Bulk Shipping
@@ -74,31 +99,6 @@ const CreateLabelPage: React.FC = () => {
                 <Link to="/bulk-upload">
                   <Button className="bg-amber-600 hover:bg-amber-700">
                     Go to Bulk Upload
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="international">
-            <div className="p-6 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg mb-6 border border-indigo-100">
-              <h2 className="text-xl font-semibold text-indigo-800 flex items-center mb-2">
-                <Globe className="h-5 w-5 mr-2 text-indigo-600" />
-                International Shipping
-              </h2>
-              <p className="text-indigo-700">Send packages worldwide with customs forms automatically generated.</p>
-            </div>
-            
-            <div className="flex justify-center items-center py-10 px-4">
-              <div className="text-center max-w-md">
-                <Globe className="h-16 w-16 mx-auto text-indigo-500 mb-4" />
-                <h3 className="text-xl font-semibold mb-2">International Shipping</h3>
-                <p className="text-gray-600 mb-6">
-                  Ship to over 200+ countries with our international shipping service, including automated customs documentation.
-                </p>
-                <Link to="/international-shipping">
-                  <Button className="bg-indigo-600 hover:bg-indigo-700">
-                    Go to International Shipping
                   </Button>
                 </Link>
               </div>

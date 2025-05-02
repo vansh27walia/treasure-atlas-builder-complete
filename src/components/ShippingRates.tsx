@@ -45,10 +45,10 @@ const ShippingRates: React.FC = () => {
 
   return (
     <div className="mt-8">
-      <Card className="border-2 border-gray-200">
+      <Card className="border-2 border-gray-200 shadow-sm rounded-xl overflow-hidden">
         <div className="p-6">
           <div className="flex justify-between mb-6">
-            <h2 className="text-2xl font-semibold">Available Shipping Rates</h2>
+            <h2 className="text-2xl font-semibold text-gray-800">Available Shipping Rates</h2>
             <Link to="/bulk-upload">
               <Button variant="outline" className="flex items-center gap-2">
                 <Upload className="h-4 w-4" />
@@ -63,7 +63,7 @@ const ShippingRates: React.FC = () => {
             shipmentId={shipmentId}
           />
           
-          <div className="space-y-4">
+          <div className="space-y-4 mt-6">
             {rates.map((rate) => (
               <ShippingRateCard
                 key={rate.id}
@@ -76,11 +76,11 @@ const ShippingRates: React.FC = () => {
             ))}
           </div>
           
-          <div className="mt-6 flex justify-end space-x-4">
+          <div className="mt-6 flex flex-wrap justify-end gap-4">
             <Button 
               onClick={handleCreateLabel}
               disabled={!selectedRateId || isLoading}
-              className="flex items-center gap-2"
+              className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
             >
               {isLoading ? (
                 <>
@@ -99,7 +99,7 @@ const ShippingRates: React.FC = () => {
               onClick={handleProceedToPayment}
               disabled={!selectedRateId || isProcessingPayment}
               variant="outline"
-              className="flex items-center gap-2"
+              className="border-gray-300 hover:bg-gray-50 flex items-center gap-2"
             >
               {isProcessingPayment ? (
                 <>
@@ -115,8 +115,8 @@ const ShippingRates: React.FC = () => {
             </Button>
           </div>
           
-          <div className="mt-6 text-center text-sm text-gray-600">
-            <p>* All rates include handling fees.</p>
+          <div className="mt-6 text-center text-sm text-gray-500">
+            <p>* All rates include handling fees and applicable taxes</p>
           </div>
         </div>
       </Card>

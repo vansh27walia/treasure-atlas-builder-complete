@@ -229,13 +229,25 @@ const InternationalShippingPage: React.FC = () => {
       
       // Download the label automatically
       setTimeout(() => {
-        const link = document.createElement('a');
-        link.href = data.labelUrl;
-        link.setAttribute('download', `international_shipping_label_${data.trackingCode || 'download'}.pdf`);
-        link.setAttribute('target', '_blank');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        try {
+          // Method 1: Using anchor element
+          const link = document.createElement('a');
+          link.href = data.labelUrl;
+          link.setAttribute('download', `international_shipping_label_${data.trackingCode || 'download'}.pdf`);
+          link.setAttribute('target', '_blank');
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Method 2: Fallback to window.open
+          setTimeout(() => {
+            window.open(data.labelUrl, '_blank');
+          }, 500);
+        } catch (downloadError) {
+          console.error("Download error:", downloadError);
+          // Last resort: Just open the URL in a new tab
+          window.open(data.labelUrl, '_blank');
+        }
       }, 1000);
       
       // Navigate to success page
