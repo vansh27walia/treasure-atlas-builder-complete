@@ -2,28 +2,7 @@
 project_id = "adhegezdzqlnqqnymvps"
 
 [functions.create-label]
-verify_jwt = true
+verify_jwt = false
 
 [functions.get-stored-label]
-verify_jwt = true
-
-[functions.get-shipping-rates]
-verify_jwt = true
-
-[functions.get-tracking-info]
-verify_jwt = true
-
-[functions.verify-address]
-verify_jwt = true
-
-[functions.create-bulk-checkout]
-verify_jwt = true
-
-[functions.get-shipping-history]
-verify_jwt = true
-
-[functions.schedule-pickup]
-verify_jwt = true
-
-[functions.process-bulk-upload]
-verify_jwt = true
+verify_jwt = false

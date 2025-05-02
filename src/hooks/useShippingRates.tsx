@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -72,59 +71,33 @@ export const useShippingRates = () => {
     }
     
     setIsLoading(true);
+    
     try {
+      console.log("Creating label with shipmentId:", shipmentId, "and rateId:", selectedRateId);
+      
       const { data, error } = await supabase.functions.invoke('create-label', {
         body: { shipmentId, rateId: selectedRateId }
       });
 
       if (error) {
+        console.error("Error from create-label function:", error);
         throw new Error(`Error creating label: ${error.message}`);
       }
 
+      if (!data || !data.labelUrl) {
+        console.error("No data returned from create-label function");
+        throw new Error("No label data returned from server");
+      }
+
+      console.log("Label created successfully:", data);
       setLabelUrl(data.labelUrl);
       setTrackingCode(data.trackingCode);
       toast.success("Shipping label generated successfully");
     } catch (error) {
       console.error('Error creating label:', error);
-      toast.error("Failed to generate shipping label");
+      toast.error("Failed to generate shipping label. Please try again.");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleProceedToPayment = async () => {
-    if (!selectedRateId || !shipmentId) {
-      toast.error("Please select a shipping rate first");
-      return;
-    }
-
-    const selectedRate = rates.find(rate => rate.id === selectedRateId);
-    if (!selectedRate) {
-      toast.error("Selected rate not found");
-      return;
-    }
-
-    setIsProcessingPayment(true);
-
-    try {
-      // Create a Stripe checkout session for the shipping label
-      const amount = Math.round(parseFloat(selectedRate.rate) * 100); // Convert to cents
-      const { data, error } = await supabase.functions.invoke('create-bulk-checkout', {
-        body: {
-          amount: amount,
-          quantity: 1,
-          description: `Shipping Label - ${selectedRate.carrier} ${selectedRate.service}`
-        }
-      });
-
-      if (error) throw new Error(error.message);
-
-      // Redirect to Stripe checkout
-      window.location.href = data.url;
-    } catch (error) {
-      console.error('Payment error:', error);
-      toast.error('Failed to process payment');
-      setIsProcessingPayment(false);
     }
   };
 

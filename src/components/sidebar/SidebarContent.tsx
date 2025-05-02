@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   Home, Package, CreditCard, Settings, ShoppingBag, Truck, MapPin, 
-  BarChart3, Globe, HelpCircle, Tag
+  BarChart3, Globe, HelpCircle, Tag, Upload
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import SidebarNavSection from './SidebarNavSection';
@@ -36,9 +36,9 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
             collapsed={collapsed}
           />
           <SidebarNavItem
-            icon={<Truck size={18} />}
-            title="Tracking"
-            to="/dashboard?tab=tracking"
+            icon={<Upload size={18} />}
+            title="Bulk Upload"
+            to="/dashboard?tab=bulk"
             collapsed={collapsed}
           />
           <SidebarNavItem
@@ -54,6 +54,12 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
             icon={<MapPin size={18} />}
             title="Pickup Service"
             to="/pickup"
+            collapsed={collapsed}
+          />
+          <SidebarNavItem
+            icon={<Truck size={18} />}
+            title="Tracking"
+            to="/dashboard?tab=tracking"
             collapsed={collapsed}
           />
           <SidebarNavItem

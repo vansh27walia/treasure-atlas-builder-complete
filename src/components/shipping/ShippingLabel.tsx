@@ -11,6 +11,7 @@ interface ShippingLabelProps {
 
 const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, shipmentId }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [localLabelUrl, setLocalLabelUrl] = useState(labelUrl);
   
   if (!labelUrl) return null;
   
@@ -20,6 +21,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     setIsRefreshing(true);
     
     try {
+      // Use the get-stored-label endpoint to fetch the label URL
       const response = await fetch(`/api/get-stored-label?shipment_id=${shipmentId}`);
       if (!response.ok) {
         throw new Error('Failed to refresh label');
@@ -27,13 +29,8 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       
       const data = await response.json();
       if (data.labelUrl) {
-        // We'd use this data to update the URL in the parent component
-        // For now, just notify the user
+        setLocalLabelUrl(data.labelUrl);
         toast.success('Label refreshed successfully');
-        
-        // In a real implementation, we'd update the URL:
-        // updateLabelUrl(data.labelUrl);
-        window.open(data.labelUrl, '_blank');
       }
     } catch (error) {
       console.error('Error refreshing label:', error);
@@ -62,7 +59,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
             </button>
           )}
           <a 
-            href={labelUrl} 
+            href={localLabelUrl} 
             target="_blank" 
             rel="noopener noreferrer" 
             className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
