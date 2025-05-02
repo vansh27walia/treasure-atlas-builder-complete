@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Form } from '@/components/ui/form';
 import { Button } from '@/components/ui/button';
@@ -69,6 +70,7 @@ const countries = [
 ];
 
 const InternationalShippingPage: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('document');
   const [isLoading, setIsLoading] = useState(false);
   const [showRates, setShowRates] = useState(false);
