@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Download, RefreshCw, ExternalLink, Mail, Save } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,7 +16,48 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   const [localLabelUrl, setLocalLabelUrl] = useState(labelUrl);
   const [isEmailSending, setIsEmailSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const downloadLinkRef = useRef<HTMLAnchorElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  
+  // Effect to fetch and cache the label as a blob when URL changes
+  useEffect(() => {
+    const fetchAndCacheLabel = async () => {
+      const url = localLabelUrl || labelUrl;
+      if (!url) return;
+      
+      try {
+        console.log("Fetching label to cache as blob:", url);
+        const response = await fetch(url, { 
+          method: 'GET',
+          headers: { 'Accept': 'application/pdf' },
+          cache: 'force-cache'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch label: ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        setBlobUrl(blobUrl);
+        console.log("Label cached as blob URL:", blobUrl);
+      } catch (error) {
+        console.error("Error caching label:", error);
+      }
+    };
+    
+    if (labelUrl || localLabelUrl) {
+      fetchAndCacheLabel();
+    }
+    
+    // Clean up blob URL on unmount
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [labelUrl, localLabelUrl]);
   
   if (!labelUrl && !localLabelUrl) return null;
   
@@ -53,6 +94,32 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   };
 
   const handleDirectDownload = () => {
+    if (blobUrl) {
+      try {
+        console.log("Starting direct download with blob URL:", blobUrl);
+        
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `shipping_label_${trackingCode || 'download'}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(link);
+          toast.success('Your label has been downloaded');
+        }, 100);
+      } catch (error) {
+        console.error('Direct download error:', error);
+        toast.error('Failed to download directly');
+        tryFallbackDownload();
+      }
+    } else {
+      tryFallbackDownload();
+    }
+  };
+  
+  const tryFallbackDownload = () => {
     const url = localLabelUrl || labelUrl;
     if (!url) {
       toast.error('No label URL available');
@@ -60,32 +127,46 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     }
     
     try {
-      console.log("Starting direct download with URL:", url);
+      console.log("Trying fallback download with URL:", url);
       
-      // Create a hidden anchor element with download attribute
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `shipping_label_${trackingCode || 'download'}.pdf`;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
+      // Create a hidden iframe to download without navigating away
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = url;
+      document.body.appendChild(iframe);
       
-      console.log("Triggering click on download link");
-      link.click();
-      
-      // Clean up
+      // Clean up after a moment
       setTimeout(() => {
-        document.body.removeChild(link);
-        toast.success('Your label download has started');
-      }, 100);
+        document.body.removeChild(iframe);
+        toast.success('Starting download through fallback method');
+      }, 1000);
     } catch (error) {
-      console.error('Direct download error:', error);
-      toast.error('Failed to download directly. Trying alternative method...');
-      handleOpenInNewTab();
+      console.error('Fallback download error:', error);
+      toast.error('All download methods failed. Try the "Open in New Tab" option');
     }
   };
 
   const handleOpenInNewTab = () => {
+    if (blobUrl) {
+      try {
+        const newWindow = window.open(blobUrl, '_blank', 'noopener,noreferrer');
+        
+        if (newWindow) {
+          newWindow.focus();
+          toast.success('Label opened in new tab');
+        } else {
+          throw new Error('Popup blocked or failed to open');
+        }
+      } catch (error) {
+        console.error('Blob URL open error:', error);
+        fallbackOpenInNewTab();
+      }
+    } else {
+      fallbackOpenInNewTab();
+    }
+  };
+  
+  const fallbackOpenInNewTab = () => {
     const url = localLabelUrl || labelUrl;
     if (!url) {
       toast.error('No label URL available');
@@ -93,7 +174,6 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     }
     
     try {
-      console.log("Opening URL in new tab:", url);
       const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
       
       if (newWindow) {
@@ -109,19 +189,20 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   };
 
   const handleEmailLabel = async () => {
-    const url = localLabelUrl || labelUrl;
-    if (!url || !trackingCode) {
-      toast.error('Missing label URL or tracking information');
+    if (!blobUrl && !labelUrl && !localLabelUrl) {
+      toast.error('No label available to email');
       return;
     }
-    
+
     setIsEmailSending(true);
     try {
-      // In a real implementation, this would call an edge function
-      // For now, we'll simulate the email sending
       toast.loading('Sending label to your email...');
+      
+      // For now, we'll simulate the email sending
+      // In a real implementation, this would call a backend function
       await new Promise(resolve => setTimeout(resolve, 1500));
       
+      toast.dismiss();
       toast.success('Label sent to your registered email');
     } catch (error) {
       console.error('Email label error:', error);
@@ -132,18 +213,19 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   };
 
   const handleSaveToAccount = async () => {
-    const url = localLabelUrl || labelUrl;
+    const url = blobUrl || localLabelUrl || labelUrl;
     if (!url || !trackingCode) {
-      toast.error('Missing label URL or tracking information');
+      toast.error('Missing label data or tracking information');
       return;
     }
     
     setIsSaving(true);
     try {
-      // In a real implementation, this would call an edge function to save the label
       toast.loading('Saving label to your account...');
+      // Simulate saving to account
       await new Promise(resolve => setTimeout(resolve, 1000));
       
+      toast.dismiss();
       toast.success('Label saved to your account');
     } catch (error) {
       console.error('Save label error:', error);
@@ -151,6 +233,20 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     } finally {
       setIsSaving(false);
     }
+  };
+  
+  // Hidden iframe for previewing PDF (not visible to user)
+  const renderHiddenPreviewFrame = () => {
+    if (!blobUrl) return null;
+    
+    return (
+      <iframe 
+        ref={iframeRef}
+        src={blobUrl}
+        style={{ display: 'none' }}
+        title="PDF Preview"
+      />
+    );
   };
   
   return (
@@ -216,16 +312,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
             </Button>
           </div>
 
-          {/* Invisible download link for fallback */}
-          <a 
-            ref={downloadLinkRef} 
-            href={localLabelUrl || labelUrl || '#'} 
-            download={`shipping_label_${trackingCode || 'download'}.pdf`}
-            style={{ display: 'none' }} 
-            rel="noopener noreferrer"
-          >
-            Download Label
-          </a>
+          {renderHiddenPreviewFrame()}
         </div>
 
         <div className="text-sm text-center text-green-600">

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -112,28 +111,8 @@ export const useShippingRates = () => {
       setTrackingCode(data.trackingCode);
       toast.success("Shipping label generated successfully");
       
-      // Initialize direct download attempt with a slight delay
-      setTimeout(() => {
-        try {
-          // Create a temporary link element
-          const link = document.createElement('a');
-          link.href = data.labelUrl;
-          link.setAttribute('download', `shipping_label_${data.trackingCode || 'download'}.pdf`);
-          link.setAttribute('target', '_blank');
-          document.body.appendChild(link);
-          link.click();
-          
-          // Clean up
-          setTimeout(() => {
-            document.body.removeChild(link);
-          }, 100);
-          
-          console.log('Initial download attempt triggered');
-        } catch (downloadError) {
-          console.error('Initial download error:', downloadError);
-          // We'll let the component handle retry options
-        }
-      }, 500);
+      // We don't attempt to download directly here anymore
+      // This prevents the automatic redirect/refresh
       
     } catch (error) {
       console.error('Error creating label:', error);
