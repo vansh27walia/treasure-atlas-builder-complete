@@ -83,10 +83,18 @@ export const useShippingRates = () => {
       // Choose the appropriate endpoint based on whether it's international
       const endpoint = isInternational ? 'create-international-label' : 'create-label';
       
-      console.log(`Using ${endpoint} endpoint for label creation`);
+      console.log(`Using ${endpoint} endpoint for label creation with options`);
       
+      // Add label format and size to options
       const { data, error } = await supabase.functions.invoke(endpoint, {
-        body: { shipmentId, rateId: selectedRateId }
+        body: { 
+          shipmentId, 
+          rateId: selectedRateId,
+          options: {
+            label_format: "PDF",
+            label_size: "4x6"
+          }
+        }
       });
 
       if (error) {
@@ -104,19 +112,29 @@ export const useShippingRates = () => {
       setTrackingCode(data.trackingCode);
       toast.success("Shipping label generated successfully");
       
-      // Download the label automatically
+      // Initialize direct download attempt with a slight delay
       setTimeout(() => {
-        const link = document.createElement('a');
-        link.href = data.labelUrl;
-        link.setAttribute('download', `shipping_label_${data.trackingCode || 'download'}.pdf`);
-        link.setAttribute('target', '_blank');
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }, 1000);
+        try {
+          // Create a temporary link element
+          const link = document.createElement('a');
+          link.href = data.labelUrl;
+          link.setAttribute('download', `shipping_label_${data.trackingCode || 'download'}.pdf`);
+          link.setAttribute('target', '_blank');
+          document.body.appendChild(link);
+          link.click();
+          
+          // Clean up
+          setTimeout(() => {
+            document.body.removeChild(link);
+          }, 100);
+          
+          console.log('Initial download attempt triggered');
+        } catch (downloadError) {
+          console.error('Initial download error:', downloadError);
+          // We'll let the component handle retry options
+        }
+      }, 500);
       
-      // Navigate to success page with label info
-      navigate(`/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}`);
     } catch (error) {
       console.error('Error creating label:', error);
       toast.error("Failed to generate shipping label. Please try again.");

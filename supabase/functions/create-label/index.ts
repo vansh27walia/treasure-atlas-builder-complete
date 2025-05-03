@@ -39,8 +39,9 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse the request body to get shipment id and rate id
-    const { shipmentId, rateId } = await req.json();
+    // Parse the request body
+    const requestData = await req.json();
+    const { shipmentId, rateId, options = {} } = requestData;
     
     if (!shipmentId || !rateId) {
       console.error('Missing required parameters', { shipmentId, rateId });
@@ -51,6 +52,7 @@ serve(async (req) => {
     }
 
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
+    console.log(`Label options:`, options);
 
     try {
       // Check if storage bucket exists, create if not
@@ -79,6 +81,17 @@ serve(async (req) => {
       // Continue anyway, the bucket might exist but we might not have permission to list buckets
     }
 
+    // Create request body for EasyPost with label format options
+    const buyOptions = {
+      rate: { id: rateId }
+    };
+    
+    // If label format and size are specified, add them to the request
+    if (options.label_format || options.label_size) {
+      buyOptions.label_format = options.label_format || "PDF";
+      buyOptions.label_size = options.label_size || "4x6";
+    }
+
     // Buy the label with EasyPost API
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
       method: 'POST',
@@ -86,9 +99,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        rate: { id: rateId }
-      }),
+      body: JSON.stringify(buyOptions),
     });
 
     const data = await response.json();
@@ -218,6 +229,8 @@ serve(async (req) => {
         charged_rate: data.selected_rate?.rate || null,
         easypost_rate: data.selected_rate?.rate || null,
         currency: data.selected_rate?.currency || 'USD',
+        label_format: options.label_format || "PDF",
+        label_size: options.label_size || "4x6",
         created_at: new Date().toISOString()
       });
       

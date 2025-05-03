@@ -44,7 +44,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
           <SidebarNavItem
             icon={<Upload size={18} />}
             title="Bulk Upload"
-            to="/dashboard?tab=bulk"
+            to="/bulk-upload"
             collapsed={collapsed}
           />
         </SidebarNavSection>
@@ -59,7 +59,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
           <SidebarNavItem
             icon={<Truck size={18} />}
             title="Tracking"
-            to="/dashboard?tab=tracking"
+            to="/tracking"
             collapsed={collapsed}
           />
           <SidebarNavItem

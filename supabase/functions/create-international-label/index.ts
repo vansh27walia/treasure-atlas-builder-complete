@@ -18,6 +18,7 @@ serve(async (req) => {
     // Get the EasyPost API key from Supabase secrets
     const apiKey = Deno.env.get('EASYPOST_API_KEY');
     if (!apiKey) {
+      console.error('API key not configured');
       return new Response(
         JSON.stringify({ error: 'API key not configured' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
@@ -29,6 +30,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Supabase configuration not found');
       return new Response(
         JSON.stringify({ error: 'Supabase configuration not found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
@@ -37,10 +39,12 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse the request body to get shipment id and rate id
-    const { shipmentId, rateId } = await req.json();
+    // Parse the request body
+    const requestData = await req.json();
+    const { shipmentId, rateId, options = {} } = requestData;
     
     if (!shipmentId || !rateId) {
+      console.error('Missing required parameters', { shipmentId, rateId });
       return new Response(
         JSON.stringify({ error: 'Missing required parameters' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -48,6 +52,7 @@ serve(async (req) => {
     }
 
     console.log(`Creating international label for shipment ${shipmentId} with rate ${rateId}`);
+    console.log(`Label options:`, options);
 
     try {
       // Check if storage bucket exists, create if not
@@ -76,6 +81,17 @@ serve(async (req) => {
       // Continue anyway, the bucket might exist but we might not have permission to list buckets
     }
 
+    // Create request body for EasyPost with label format options
+    const buyOptions = {
+      rate: { id: rateId }
+    };
+    
+    // If label format and size are specified, add them to the request
+    if (options.label_format || options.label_size) {
+      buyOptions.label_format = options.label_format || "PDF";
+      buyOptions.label_size = options.label_size || "4x6";
+    }
+
     // Buy the label with EasyPost API
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
       method: 'POST',
@@ -83,9 +99,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        rate: { id: rateId }
-      }),
+      body: JSON.stringify(buyOptions),
     });
 
     const data = await response.json();
@@ -137,8 +151,11 @@ serve(async (req) => {
 
     // Download the label PDF from EasyPost
     const labelURL = data.postage_label.label_url;
+    console.log(`Label URL from EasyPost: ${labelURL}`);
+    
     const labelResponse = await fetch(labelURL);
     if (!labelResponse.ok) {
+      console.error('Failed to download label from EasyPost');
       throw new Error('Failed to download label from EasyPost');
     }
     
@@ -148,7 +165,7 @@ serve(async (req) => {
     const labelBuffer = new Uint8Array(labelArrayBuffer);
     
     // Generate a unique filename for the label
-    const fileName = `label_${shipmentId}_${Date.now()}.pdf`;
+    const fileName = `intl_label_${shipmentId}_${Date.now()}.pdf`;
     
     // Upload the label to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase
@@ -212,6 +229,9 @@ serve(async (req) => {
         charged_rate: data.selected_rate?.rate || null,
         easypost_rate: data.selected_rate?.rate || null,
         currency: data.selected_rate?.currency || 'USD',
+        label_format: options.label_format || "PDF",
+        label_size: options.label_size || "4x6",
+        is_international: true,
         created_at: new Date().toISOString()
       });
       
@@ -223,7 +243,7 @@ serve(async (req) => {
     // Return the label information with our internally stored URL
     return new Response(
       JSON.stringify({
-        labelUrl: signedURLData.signedUrl,
+        labelUrl: signedURLData.signedUrl || labelURL, // Fall back to EasyPost URL if needed
         trackingCode: data.tracking_code,
         shipmentId: data.id,
       }),

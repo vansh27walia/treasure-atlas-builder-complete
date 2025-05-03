@@ -18,7 +18,7 @@ const CreateLabelPage: React.FC = () => {
         Create a Shipping Label
       </h1>
       
-      <Card className="border-2 border-gray-200 shadow-md p-6 mb-8 bg-white rounded-xl">
+      <Card className="border-2 border-gray-200 shadow-lg p-6 mb-8 bg-white rounded-xl">
         <Tabs defaultValue="domestic" onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-6 bg-blue-50 p-1 rounded-lg">
             <TabsTrigger 
