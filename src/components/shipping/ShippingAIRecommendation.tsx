@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Lightbulb, Loader } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Lightbulb, Loader, Award, Clock, DollarSign, Shield } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AIRecommendation {
   bestOverall: string | null;
@@ -18,52 +18,113 @@ interface ShippingAIRecommendationProps {
   onSelectRecommendation: (rateId: string) => void;
 }
 
-const ShippingAIRecommendation: React.FC<ShippingAIRecommendationProps> = ({ 
-  aiRecommendation, 
+const ShippingAIRecommendation: React.FC<ShippingAIRecommendationProps> = ({
+  aiRecommendation,
   isLoading,
   onSelectRecommendation
 }) => {
   if (isLoading) {
     return (
-      <Card className="p-4 mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
-        <div className="flex items-center">
-          <div className="mr-4 bg-blue-100 p-2 rounded-full">
-            <Loader className="h-5 w-5 text-blue-600 animate-spin" />
-          </div>
-          <div>
-            <h3 className="font-medium text-blue-800">Analyzing your shipping options...</h3>
-            <p className="text-sm text-blue-600">Our AI is finding the best rate for your package</p>
-          </div>
-        </div>
+      <Card className="border-2 border-amber-200 bg-amber-50 mb-4">
+        <CardContent className="p-4 flex items-center justify-center">
+          <Loader className="animate-spin h-5 w-5 mr-2 text-amber-600" />
+          <p className="text-amber-800">AI is analyzing shipping options...</p>
+        </CardContent>
       </Card>
     );
   }
-  
-  if (!aiRecommendation || !aiRecommendation.bestOverall) {
+
+  if (!aiRecommendation) {
     return null;
   }
 
   return (
-    <Card className="p-4 mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100">
-      <div className="flex items-start">
-        <div className="mr-4 bg-blue-100 p-2 rounded-full mt-1">
-          <Lightbulb className="h-5 w-5 text-blue-600" />
+    <Card className="border-2 border-amber-200 bg-amber-50 mb-6">
+      <CardContent className="p-4">
+        <div className="flex items-center mb-3">
+          <Award className="h-6 w-6 text-amber-600 mr-2" />
+          <h3 className="text-lg font-semibold text-amber-800">AI Shipping Recommendations</h3>
         </div>
-        <div className="flex-1">
-          <h3 className="font-medium text-blue-800 mb-1">AI Shipping Recommendation</h3>
-          <p className="text-sm text-blue-600 mb-3">{aiRecommendation.analysisText}</p>
-          
-          <Button 
-            size="sm"
-            onClick={() => onSelectRecommendation(aiRecommendation.bestOverall!)}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-          >
-            Use Recommended Option
-          </Button>
+
+        <p className="text-sm text-amber-900 mb-4">{aiRecommendation.analysisText}</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {aiRecommendation.bestOverall && (
+            <RecommendationButton
+              label="Best Overall"
+              description="Balanced combination of cost, speed and reliability"
+              color="bg-purple-600"
+              icon={<Award className="h-4 w-4" />}
+              onClick={() => onSelectRecommendation(aiRecommendation.bestOverall!)}
+            />
+          )}
+
+          {aiRecommendation.bestValue && (
+            <RecommendationButton
+              label="Best Value"
+              description="Most economical option for the service level"
+              color="bg-green-600"
+              icon={<DollarSign className="h-4 w-4" />}
+              onClick={() => onSelectRecommendation(aiRecommendation.bestValue!)}
+            />
+          )}
+
+          {aiRecommendation.fastest && (
+            <RecommendationButton
+              label="Fastest Delivery"
+              description="Quickest estimated delivery time"
+              color="bg-blue-600"
+              icon={<Clock className="h-4 w-4" />}
+              onClick={() => onSelectRecommendation(aiRecommendation.fastest!)}
+            />
+          )}
+
+          {aiRecommendation.mostReliable && (
+            <RecommendationButton
+              label="Most Reliable"
+              description="Highest carrier reliability rating"
+              color="bg-amber-600"
+              icon={<Shield className="h-4 w-4" />}
+              onClick={() => onSelectRecommendation(aiRecommendation.mostReliable!)}
+            />
+          )}
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 };
+
+interface RecommendationButtonProps {
+  label: string;
+  description: string;
+  color: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+}
+
+const RecommendationButton: React.FC<RecommendationButtonProps> = ({
+  label,
+  description,
+  color,
+  icon,
+  onClick
+}) => (
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button 
+          onClick={onClick}
+          className={`${color} hover:opacity-90 text-white py-2 px-4 rounded-md flex items-center justify-center transition-all`}
+        >
+          {icon}
+          <span className="ml-2">{label}</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{description}</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+);
 
 export default ShippingAIRecommendation;

@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { Clock, Check, TrendingUp, Award } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Clock, Check, DollarSign, Award, Shield } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ShippingRate {
   id: string;
@@ -11,163 +11,165 @@ interface ShippingRate {
   service: string;
   rate: string;
   currency: string;
-  delivery_days: number;
-  delivery_date: string;
+  delivery_days?: number;
+  delivery_date?: string;
   list_rate?: string;
   retail_rate?: string;
-  est_delivery_days?: number;
-  shipment_id?: string;
-  original_rate?: string;
+}
+
+interface AIRecommendation {
+  bestOverall: string | null;
+  bestValue: string | null;
+  fastest: string | null;
+  mostReliable: string | null;
+  analysisText?: string;
 }
 
 interface ShippingRateCardProps {
   rate: ShippingRate;
   isSelected: boolean;
-  onSelect: (rateId: string) => void;
-  isBestValue: boolean;
-  isFastest: boolean;
-  aiRecommendation?: {
-    bestOverall: string | null;
-    bestValue: string | null;
-    fastest: string | null;
-    mostReliable: string | null;
-    analysisText: string;
-  };
+  onSelect: (id: string) => void;
+  isBestValue?: boolean;
+  isFastest?: boolean;
+  aiRecommendation?: AIRecommendation;
 }
 
-const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
-  rate,
-  isSelected,
-  onSelect,
+const getCarrierLogo = (carrier: string) => {
+  const carrierLower = carrier.toLowerCase();
+  
+  if (carrierLower.includes('usps')) {
+    return '/assets/carriers/usps-logo.png';
+  } else if (carrierLower.includes('ups')) {
+    return '/assets/carriers/ups-logo.png';
+  } else if (carrierLower.includes('fedex')) {
+    return '/assets/carriers/fedex-logo.png';
+  } else if (carrierLower.includes('dhl')) {
+    return '/assets/carriers/dhl-logo.png';
+  }
+  
+  // Default logo
+  return null;
+};
+
+const ShippingRateCard: React.FC<ShippingRateCardProps> = ({ 
+  rate, 
+  isSelected, 
+  onSelect, 
   isBestValue,
   isFastest,
-  aiRecommendation,
+  aiRecommendation 
 }) => {
-  const formattedRate = parseFloat(rate.rate).toFixed(2);
-  const formattedOriginalRate = rate.list_rate 
-    ? parseFloat(rate.list_rate).toFixed(2) 
-    : null;
-  const discount = formattedOriginalRate 
-    ? ((parseFloat(rate.list_rate!) - parseFloat(rate.rate)) / parseFloat(rate.list_rate!) * 100).toFixed(0)
-    : null;
-    
-  const isRecommended = aiRecommendation?.bestOverall === rate.id;
+  const formattedRate = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: rate.currency || 'USD'
+  }).format(parseFloat(rate.rate));
   
-  // Get carrier logo
-  const getCarrierLogo = (carrier: string) => {
-    // Normalize carrier name to lowercase for comparison
-    const carrierLower = carrier.toLowerCase();
-    
-    if (carrierLower.includes('usps')) {
-      return '/assets/carriers/usps-logo.png';
-    } else if (carrierLower.includes('ups')) {
-      return '/assets/carriers/ups-logo.png';
-    } else if (carrierLower.includes('fedex')) {
-      return '/assets/carriers/fedex-logo.png';
-    } else if (carrierLower.includes('dhl')) {
-      return '/assets/carriers/dhl-logo.png';
-    }
-    
-    return null;
+  const formatDeliveryDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric' 
+    });
   };
   
-  const carrierLogo = getCarrierLogo(rate.carrier);
+  const logo = getCarrierLogo(rate.carrier);
+  const isAiBestOverall = aiRecommendation?.bestOverall === rate.id;
+  const isAiBestValue = aiRecommendation?.bestValue === rate.id;
+  const isAiFastest = aiRecommendation?.fastest === rate.id;
+  const isAiMostReliable = aiRecommendation?.mostReliable === rate.id;
 
   return (
-    <div
+    <Card 
       className={cn(
-        "border rounded-lg overflow-hidden transition-all duration-200",
-        isSelected 
-          ? "border-2 border-blue-500 shadow-md bg-blue-50" 
-          : "border-gray-200 hover:border-gray-300 hover:shadow-sm",
+        "border p-4 transition-all",
+        isSelected ? "border-blue-500 bg-blue-50 shadow-md" : "border-gray-200 hover:border-blue-300",
+        isAiBestOverall ? "border-purple-300 bg-purple-50" : "",
       )}
+      onClick={() => onSelect(rate.id)}
       data-rate-id={rate.id}
     >
-      <div className="p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {/* Carrier logo */}
-            {carrierLogo && (
-              <div className="w-14 h-10 flex items-center justify-center bg-white rounded border border-gray-100 p-1">
-                <img 
-                  src={carrierLogo} 
-                  alt={`${rate.carrier} logo`} 
-                  className="max-w-full max-h-full object-contain" 
-                />
-              </div>
-            )}
-            
-            <div>
-              <h3 className="font-medium text-gray-900">{rate.carrier}</h3>
-              <p className="text-sm text-gray-600">{rate.service}</p>
-              
-              {/* Badges */}
-              <div className="flex flex-wrap gap-2 mt-1">
-                {isRecommended && (
-                  <Badge className="bg-green-100 text-green-800 border-green-200">
-                    AI Recommended
-                  </Badge>
-                )}
-                {isBestValue && !isRecommended && (
-                  <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                    Best Value
-                  </Badge>
-                )}
-                {isFastest && !isRecommended && (
-                  <Badge className="bg-purple-100 text-purple-800 border-purple-200">
-                    Fastest
-                  </Badge>
-                )}
-                {discount && parseFloat(discount) > 0 && (
-                  <Badge className="bg-red-100 text-red-800 border-red-200">
-                    Save {discount}%
-                  </Badge>
-                )}
-              </div>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 flex-1">
+          {logo ? (
+            <div className="w-16 h-16 flex items-center justify-center bg-white rounded-md p-2 border">
+              <img 
+                src={logo} 
+                alt={`${rate.carrier} logo`} 
+                className="max-w-full max-h-full object-contain" 
+              />
             </div>
-          </div>
+          ) : (
+            <div className="w-16 h-16 flex items-center justify-center bg-gray-100 rounded-md">
+              <span className="text-sm font-medium text-center">{rate.carrier}</span>
+            </div>
+          )}
           
-          <div className="flex items-center gap-6 ml-auto">
-            <div className="text-right">
-              <div className="flex items-center justify-end">
-                <Clock className="w-4 h-4 text-gray-500 mr-1" />
-                <span className="text-sm text-gray-600">
-                  {rate.delivery_days === 1 
-                    ? '1 day' 
-                    : `${rate.delivery_days} days`}
-                </span>
-              </div>
-              <div className="mt-1">
-                {formattedOriginalRate && parseFloat(formattedOriginalRate) > parseFloat(formattedRate) && (
-                  <span className="text-sm text-gray-400 line-through mr-1">
-                    ${formattedOriginalRate}
-                  </span>
-                )}
-                <span className="text-xl font-semibold text-gray-900">
-                  ${formattedRate}
-                </span>
-              </div>
-            </div>
+          <div className="flex-1">
+            <h3 className="font-medium text-gray-900">{rate.service}</h3>
+            <p className="text-sm text-gray-600">{rate.carrier}</p>
             
-            <Button
-              variant={isSelected ? "default" : "outline"}
-              size="sm"
-              className={cn(
-                "min-w-[100px]",
-                isSelected ? "bg-blue-600 hover:bg-blue-700" : ""
+            <div className="mt-1 flex flex-wrap gap-2">
+              {isBestValue && (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  <DollarSign className="h-3 w-3 mr-1" />
+                  Best Value
+                </Badge>
               )}
-              onClick={() => onSelect(rate.id)}
-            >
-              {isSelected ? (
-                <>
-                  <Check className="mr-1 h-4 w-4" /> Selected
-                </>
-              ) : "Select"}
-            </Button>
+              
+              {isFastest && (
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  <Clock className="h-3 w-3 mr-1" />
+                  Fastest
+                </Badge>
+              )}
+              
+              {isAiBestOverall && (
+                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                  <Award className="h-3 w-3 mr-1" />
+                  AI Recommended
+                </Badge>
+              )}
+              
+              {isAiMostReliable && !isAiBestOverall && (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                  <Shield className="h-3 w-3 mr-1" />
+                  Most Reliable
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
+        
+        <div className="flex flex-col items-end">
+          <div className="text-xl font-semibold text-blue-700">{formattedRate}</div>
+          
+          <div className="text-sm text-gray-600 flex items-center mt-1">
+            {rate.delivery_days ? (
+              <>
+                <Clock className="h-4 w-4 mr-1" />
+                {rate.delivery_days === 1 
+                  ? '1 day delivery' 
+                  : `${rate.delivery_days} days`}
+              </>
+            ) : rate.delivery_date ? (
+              <>
+                <Clock className="h-4 w-4 mr-1" />
+                {formatDeliveryDate(rate.delivery_date)}
+              </>
+            ) : null}
+          </div>
+          
+          {isSelected && (
+            <Badge className="mt-2 bg-blue-500">
+              <Check className="h-3.5 w-3.5 mr-1" />
+              Selected
+            </Badge>
+          )}
+        </div>
       </div>
-    </div>
+    </Card>
   );
 };
 
