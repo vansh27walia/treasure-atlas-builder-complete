@@ -11,6 +11,9 @@ import * as z from 'zod';
 import { Loader, Search } from 'lucide-react';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { useNavigate } from 'react-router-dom';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 const rateFormSchema = z.object({
   fromZip: z.string().min(3, { message: 'ZIP/Postal code is required' }),
@@ -21,11 +24,24 @@ const rateFormSchema = z.object({
   length: z.coerce.number().min(0.1, { message: 'Length must be greater than 0' }),
   width: z.coerce.number().min(0.1, { message: 'Width must be greater than 0' }),
   height: z.coerce.number().min(0.1, { message: 'Height must be greater than 0' }),
-  weightUnit: z.enum(['lb', 'kg']),
+  weightUnit: z.enum(['lb', 'kg', 'oz']),
   dimensionUnit: z.enum(['in', 'cm']),
+  packageType: z.string().optional(),
+  comments: z.string().optional(),
+  signatureRequired: z.boolean().default(false),
+  insurance: z.boolean().default(false),
 });
 
 type RateFormValues = z.infer<typeof rateFormSchema>;
+
+const packageOptions = [
+  { value: 'custom', label: 'Custom Package' },
+  { value: 'usps_medium_flat_rate_box', label: 'USPS Medium Flat Rate Box' },
+  { value: 'usps_small_flat_rate_box', label: 'USPS Small Flat Rate Box' },
+  { value: 'usps_flat_rate_envelope', label: 'USPS Flat Rate Envelope' },
+  { value: 'usps_priority_mail', label: 'USPS Priority Mail' },
+  { value: 'usps_first_class_mail', label: 'USPS First Class Mail' },
+];
 
 const RateCalculator: React.FC = () => {
   const navigate = useNavigate();
@@ -45,6 +61,10 @@ const RateCalculator: React.FC = () => {
       height: 2,
       weightUnit: 'lb',
       dimensionUnit: 'in',
+      packageType: 'custom',
+      comments: '',
+      signatureRequired: false,
+      insurance: false,
     },
   });
 
@@ -56,15 +76,30 @@ const RateCalculator: React.FC = () => {
     setIsInternational(value !== 'US' || otherCountry !== 'US');
   };
 
+  const convertWeight = (weight: number, unit: string): number => {
+    // Convert to ounces for EasyPost API
+    switch (unit) {
+      case 'lb': return weight * 16; // 1 lb = 16 oz
+      case 'kg': return weight * 35.274; // 1 kg = 35.274 oz
+      case 'oz': return weight; // Already in ounces
+      default: return weight;
+    }
+  };
+
+  const convertDimension = (value: number, unit: string): number => {
+    // Convert to inches for EasyPost API
+    return unit === 'cm' ? value * 0.393701 : value;
+  };
+
   const onSubmit = async (data: RateFormValues) => {
     try {
-      // Calculate weight in ounces or grams based on selected unit
-      const weightInOz = data.weightUnit === 'lb' 
-        ? data.weight * 16  // Convert pounds to ounces
-        : data.weight * 35.274;  // Convert kg to ounces
+      // Convert weight to ounces
+      const weightInOz = convertWeight(data.weight, data.weightUnit);
       
-      // Convert dimensions to inches if in cm
-      const conversionFactor = data.dimensionUnit === 'cm' ? 0.393701 : 1;
+      // Convert dimensions to inches
+      const lengthInInches = convertDimension(data.length, data.dimensionUnit);
+      const widthInInches = convertDimension(data.width, data.dimensionUnit);
+      const heightInInches = convertDimension(data.height, data.dimensionUnit);
       
       // Prepare the request data for the API
       const requestData = {
@@ -78,9 +113,15 @@ const RateCalculator: React.FC = () => {
         },
         parcel: {
           weight: weightInOz,
-          length: data.length * conversionFactor,
-          width: data.width * conversionFactor,
-          height: data.height * conversionFactor,
+          length: lengthInInches,
+          width: widthInInches,
+          height: heightInInches,
+        },
+        options: {
+          packageType: data.packageType,
+          comments: data.comments,
+          signatureRequired: data.signatureRequired,
+          insurance: data.insurance
         }
       };
 
@@ -130,6 +171,10 @@ const RateCalculator: React.FC = () => {
                           <SelectItem value="GB">United Kingdom</SelectItem>
                           <SelectItem value="AU">Australia</SelectItem>
                           <SelectItem value="DE">Germany</SelectItem>
+                          <SelectItem value="JP">Japan</SelectItem>
+                          <SelectItem value="FR">France</SelectItem>
+                          <SelectItem value="IT">Italy</SelectItem>
+                          <SelectItem value="ES">Spain</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -177,6 +222,10 @@ const RateCalculator: React.FC = () => {
                           <SelectItem value="GB">United Kingdom</SelectItem>
                           <SelectItem value="AU">Australia</SelectItem>
                           <SelectItem value="DE">Germany</SelectItem>
+                          <SelectItem value="JP">Japan</SelectItem>
+                          <SelectItem value="FR">France</SelectItem>
+                          <SelectItem value="IT">Italy</SelectItem>
+                          <SelectItem value="ES">Spain</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -202,6 +251,34 @@ const RateCalculator: React.FC = () => {
             
             <div className="border-t border-gray-200 pt-6">
               <h3 className="text-lg font-semibold text-blue-700 mb-4">Package Details</h3>
+              
+              <FormField
+                control={form.control}
+                name="packageType"
+                render={({ field }) => (
+                  <FormItem className="mb-4">
+                    <FormLabel>Package Type</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select package type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {packageOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
@@ -237,6 +314,7 @@ const RateCalculator: React.FC = () => {
                             <SelectContent>
                               <SelectItem value="lb">lb</SelectItem>
                               <SelectItem value="kg">kg</SelectItem>
+                              <SelectItem value="oz">oz</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -311,6 +389,60 @@ const RateCalculator: React.FC = () => {
                       <FormLabel>Height</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.1" min="0.1" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="mt-6 space-y-4">
+                <h3 className="text-lg font-semibold text-blue-700">Additional Options</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="signatureRequired"
+                    render={({ field }) => (
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="signatureRequired" 
+                          checked={field.value} 
+                          onCheckedChange={field.onChange} 
+                        />
+                        <Label htmlFor="signatureRequired">Signature Required</Label>
+                      </div>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="insurance"
+                    render={({ field }) => (
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="insurance" 
+                          checked={field.value} 
+                          onCheckedChange={field.onChange} 
+                        />
+                        <Label htmlFor="insurance">Add Insurance</Label>
+                      </div>
+                    )}
+                  />
+                </div>
+                
+                <FormField
+                  control={form.control}
+                  name="comments"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Special Instructions</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Add any special instructions here" 
+                          className="resize-none" 
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

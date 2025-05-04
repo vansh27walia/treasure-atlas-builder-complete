@@ -9,6 +9,8 @@ import { Card } from '@/components/ui/card';
 import { Package, Globe, Upload, Truck, Calculator } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import ShippingLabel from '@/components/shipping/ShippingLabel';
+import { useShippingRates } from '@/hooks/useShippingRates';
 
 const CreateLabelPage: React.FC = () => {
   const location = useLocation();
@@ -16,6 +18,7 @@ const CreateLabelPage: React.FC = () => {
   const queryParams = new URLSearchParams(location.search);
   const tabFromQuery = queryParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
+  const { labelUrl, trackingCode, shipmentId } = useShippingRates();
 
   // Update the URL when tab changes
   useEffect(() => {
@@ -50,18 +53,18 @@ const CreateLabelPage: React.FC = () => {
               Domestic
             </TabsTrigger>
             <TabsTrigger 
-              value="international" 
-              className="flex items-center gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
-            >
-              <Globe className="h-4 w-4" />
-              International
-            </TabsTrigger>
-            <TabsTrigger 
               value="calculator" 
               className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
             >
               <Calculator className="h-4 w-4" />
               Rate Calculator
+            </TabsTrigger>
+            <TabsTrigger 
+              value="international" 
+              className="flex items-center gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
+            >
+              <Globe className="h-4 w-4" />
+              International
             </TabsTrigger>
             <TabsTrigger 
               value="bulk" 
@@ -80,7 +83,30 @@ const CreateLabelPage: React.FC = () => {
               </h2>
               <p className="text-blue-700">Ship packages within the country with our various carrier options.</p>
             </div>
+            
+            {labelUrl && trackingCode && (
+              <div className="mb-6">
+                <ShippingLabel 
+                  labelUrl={labelUrl} 
+                  trackingCode={trackingCode} 
+                  shipmentId={shipmentId}
+                />
+              </div>
+            )}
+            
             <ShippingForm />
+          </TabsContent>
+          
+          <TabsContent value="calculator">
+            <div className="p-6 bg-gradient-to-r from-green-50 to-teal-50 rounded-lg mb-6 border border-green-100 shadow-sm">
+              <h2 className="text-xl font-semibold text-green-800 flex items-center mb-2">
+                <Calculator className="h-5 w-5 mr-2 text-green-600" />
+                Shipping Rate Calculator
+              </h2>
+              <p className="text-green-700">Calculate shipping rates for different carriers without creating a shipment.</p>
+            </div>
+            
+            <RateCalculator />
           </TabsContent>
           
           <TabsContent value="international">
@@ -106,18 +132,6 @@ const CreateLabelPage: React.FC = () => {
                 </Link>
               </div>
             </div>
-          </TabsContent>
-          
-          <TabsContent value="calculator">
-            <div className="p-6 bg-gradient-to-r from-green-50 to-teal-50 rounded-lg mb-6 border border-green-100 shadow-sm">
-              <h2 className="text-xl font-semibold text-green-800 flex items-center mb-2">
-                <Calculator className="h-5 w-5 mr-2 text-green-600" />
-                Shipping Rate Calculator
-              </h2>
-              <p className="text-green-700">Calculate shipping rates for different carriers without creating a shipment.</p>
-            </div>
-            
-            <RateCalculator />
           </TabsContent>
           
           <TabsContent value="bulk">
