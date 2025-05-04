@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import ShippingForm from '@/components/ShippingForm';
 import ShippingRates from '@/components/ShippingRates';
 import RateCalculator from '@/components/shipping/RateCalculator';
@@ -10,7 +11,26 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
 const CreateLabelPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('domestic');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryParams = new URLSearchParams(location.search);
+  const tabFromQuery = queryParams.get('tab');
+  const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
+
+  // Update the URL when tab changes
+  useEffect(() => {
+    if (activeTab) {
+      queryParams.set('tab', activeTab);
+      navigate(`${location.pathname}?${queryParams.toString()}`, { replace: true });
+    }
+  }, [activeTab, location.pathname, navigate]);
+
+  // Handle tab change from URL
+  useEffect(() => {
+    if (tabFromQuery && tabFromQuery !== activeTab) {
+      setActiveTab(tabFromQuery);
+    }
+  }, [tabFromQuery]);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -20,7 +40,7 @@ const CreateLabelPage: React.FC = () => {
       </h1>
       
       <Card className="border-2 border-gray-200 shadow-lg p-6 mb-8 bg-white rounded-xl">
-        <Tabs defaultValue="domestic" onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-6 bg-blue-50 p-1 rounded-lg">
             <TabsTrigger 
               value="domestic" 

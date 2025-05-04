@@ -2,7 +2,8 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// Set up CORS headers
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') || '';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -17,200 +18,201 @@ serve(async (req) => {
   try {
     const { rates } = await req.json();
     
-    // Get the API key from environment variables
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    
-    if (!openAIApiKey) {
-      console.error('OpenAI API key not configured');
-      return new Response(
-        JSON.stringify({
-          bestValueRateId: findBestValueRate(rates)?.id,
-          fastestRateId: findFastestRate(rates)?.id,
-          analysis: "AI analysis not available. Using algorithm-based recommendations."
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    if (!rates || rates.length === 0) {
+    if (!rates || !Array.isArray(rates) || rates.length === 0) {
       return new Response(
         JSON.stringify({ error: 'No rates provided for analysis' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Prepare the data for AI analysis
-    const ratesForAnalysis = rates.map((rate: any) => ({
-      id: rate.id,
-      carrier: rate.carrier,
-      service: rate.service,
-      rate: parseFloat(rate.rate),
-      delivery_days: rate.delivery_days || "unknown",
-      original_rate: rate.original_rate ? parseFloat(rate.original_rate) : null
-    }));
-
-    // Use OpenAI to analyze the shipping options
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an AI specialized in shipping logistics. Analyze shipping rate options and provide recommendations based on cost, delivery time, and carrier reliability. Respond in JSON format only.'
-          },
-          {
-            role: 'user',
-            content: `Analyze these shipping rate options and recommend the best overall option, best value option, fastest option, and most reliable option. Also provide a brief analysis explaining the recommendations. Here are the shipping rates: ${JSON.stringify(ratesForAnalysis)}`
-          }
-        ],
-        response_format: { type: "json_object" }
-      }),
-    });
-
-    const aiData = await response.json();
     
-    if (!aiData.choices || aiData.choices.length === 0) {
-      console.error('Invalid response from OpenAI API:', aiData);
-      
-      // Fall back to algorithmic recommendations
-      return new Response(
-        JSON.stringify({
-          bestOverallRateId: findBestOverallRate(rates)?.id,
-          bestValueRateId: findBestValueRate(rates)?.id,
-          fastestRateId: findFastestRate(rates)?.id,
-          mostReliableRateId: findMostReliableRate(rates)?.id,
-          analysis: "Using algorithm-based recommendations due to AI service limitations."
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // If OpenAI key is not configured, provide a basic analysis
+    if (!OPENAI_API_KEY) {
+      console.log('No OpenAI API key found. Providing basic analysis.');
+      return provideBasicAnalysis(rates);
     }
-
-    // Parse the AI response
-    const aiContent = aiData.choices[0].message.content;
-    let aiRecommendations;
     
-    try {
-      aiRecommendations = JSON.parse(aiContent);
-    } catch (error) {
-      console.error('Failed to parse AI response:', error);
-      aiRecommendations = {
-        bestOverallRateId: findBestOverallRate(rates)?.id,
-        bestValueRateId: findBestValueRate(rates)?.id,
-        fastestRateId: findFastestRate(rates)?.id,
-        mostReliableRateId: findMostReliableRate(rates)?.id,
-        analysis: "Using algorithm-based recommendations due to parsing error."
-      };
-    }
-
-    return new Response(
-      JSON.stringify(aiRecommendations),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // Get detailed analysis from OpenAI
+    return await getAIAnalysis(rates);
     
   } catch (error) {
-    console.error('Error in analyze-shipping-rates function:', error);
+    console.error('Error processing request:', error);
+    
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
 
-// Helper functions for algorithmic recommendations
+// Function to get AI analysis from OpenAI
+async function getAIAnalysis(rates) {
+  try {
+    // Prepare data for OpenAI prompt
+    const formattedRates = rates.map((rate) => ({
+      id: rate.id,
+      carrier: rate.carrier,
+      service: rate.service,
+      rate: parseFloat(rate.rate),
+      currency: rate.currency,
+      delivery_days: rate.delivery_days || 'unknown',
+      delivery_date: rate.delivery_date || 'unknown'
+    }));
 
-function findBestValueRate(rates: any[]) {
-  if (!rates || rates.length === 0) return null;
-  
-  // Sort by a combination of price and delivery days
-  return [...rates].sort((a, b) => {
-    const aPrice = parseFloat(a.rate);
-    const bPrice = parseFloat(b.rate);
-    const aDays = a.delivery_days || 7; // Default to 7 days if unknown
-    const bDays = b.delivery_days || 7;
-    
-    // Create a score that combines price and delivery time
-    // Lower is better
-    const aScore = aPrice * (aDays * 0.1);
-    const bScore = bPrice * (bDays * 0.1);
-    
-    return aScore - bScore;
-  })[0];
-}
+    // Create the prompt for OpenAI
+    const prompt = `
+      Analyze the following shipping rate options and recommend:
+      1. The best overall option (balanced for price and speed)
+      2. The best value option (most economical)
+      3. The fastest delivery option
+      4. The most reliable carrier option
+      
+      Also provide a brief analysis of the options in 2-3 sentences.
+      
+      Here are the shipping rates:
+      ${JSON.stringify(formattedRates, null, 2)}
+      
+      Respond with a JSON object containing:
+      {
+        "bestOverallRateId": "id of the best overall rate",
+        "bestValueRateId": "id of the best value rate",
+        "fastestRateId": "id of the fastest rate",
+        "mostReliableRateId": "id of the most reliable carrier rate",
+        "analysis": "brief analysis of the options"
+      }
+    `;
 
-function findFastestRate(rates: any[]) {
-  if (!rates || rates.length === 0) return null;
-  
-  // Sort by delivery days (ascending)
-  return [...rates].sort((a, b) => {
-    const aDays = a.delivery_days || 999;
-    const bDays = b.delivery_days || 999;
-    return aDays - bDays;
-  })[0];
-}
+    // Call OpenAI API
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are a shipping logistics expert assistant that analyzes shipping options and provides recommendations."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        max_tokens: 800,
+        temperature: 0.3
+      }),
+    });
 
-function findBestOverallRate(rates: any[]) {
-  if (!rates || rates.length === 0) return null;
-  
-  // Best overall is a balance between price and speed
-  return [...rates].sort((a, b) => {
-    const aPrice = parseFloat(a.rate);
-    const bPrice = parseFloat(b.rate);
-    const aDays = a.delivery_days || 7;
-    const bDays = b.delivery_days || 7;
+    const data = await response.json();
     
-    // Normalize price (0-1 scale)
-    const maxPrice = Math.max(...rates.map(r => parseFloat(r.rate)));
-    const aPriceNorm = aPrice / maxPrice;
-    const bPriceNorm = bPrice / maxPrice;
-    
-    // Normalize days (0-1 scale)
-    const maxDays = Math.max(...rates.map(r => r.delivery_days || 7));
-    const aDaysNorm = aDays / maxDays;
-    const bDaysNorm = bDays / maxDays;
-    
-    // Combined score (lower is better)
-    const aScore = aPriceNorm * 0.6 + aDaysNorm * 0.4;
-    const bScore = bPriceNorm * 0.6 + bDaysNorm * 0.4;
-    
-    return aScore - bScore;
-  })[0];
-}
-
-function findMostReliableRate(rates: any[]) {
-  if (!rates || rates.length === 0) return null;
-  
-  // For reliability, we favor established carriers
-  const reliabilityRanking = {
-    'UPS': 5,
-    'USPS': 4,
-    'FedEx': 5, 
-    'DHL': 4,
-    'DHL Express': 5
-  };
-  
-  return [...rates].sort((a, b) => {
-    const aCarrier = a.carrier.toUpperCase();
-    const bCarrier = b.carrier.toUpperCase();
-    
-    const aReliability = Object.keys(reliabilityRanking).some(carrier => 
-      aCarrier.includes(carrier)) ? reliabilityRanking[aCarrier] || 3 : 3;
-    
-    const bReliability = Object.keys(reliabilityRanking).some(carrier => 
-      bCarrier.includes(carrier)) ? reliabilityRanking[bCarrier] || 3 : 3;
-    
-    // If reliability is the same, consider delivery days as a tiebreaker
-    if (aReliability === bReliability) {
-      const aDays = a.delivery_days || 999;
-      const bDays = b.delivery_days || 999;
-      return aDays - bDays;
+    if (!response.ok) {
+      console.error('OpenAI API error:', data);
+      return provideBasicAnalysis(rates);
     }
     
-    // Higher reliability scores come first
-    return bReliability - aReliability;
-  })[0];
+    try {
+      // Parse the response from OpenAI
+      const content = data.choices[0].message.content;
+      // Extract JSON from the response (in case it's wrapped in markdown or other text)
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      const jsonString = jsonMatch ? jsonMatch[0] : content;
+      const recommendations = JSON.parse(jsonString);
+      
+      return new Response(
+        JSON.stringify(recommendations),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (parseError) {
+      console.error('Error parsing OpenAI response:', parseError, data);
+      return provideBasicAnalysis(rates);
+    }
+  } catch (error) {
+    console.error('Error calling OpenAI:', error);
+    return provideBasicAnalysis(rates);
+  }
+}
+
+// Fallback function for basic analysis without AI
+function provideBasicAnalysis(rates) {
+  // Sort rates by price to find best value
+  const sortedByPrice = [...rates].sort((a, b) => 
+    parseFloat(a.rate) - parseFloat(b.rate)
+  );
+  
+  // Sort rates by delivery time to find fastest
+  const sortedBySpeed = [...rates].filter(r => r.delivery_days)
+    .sort((a, b) => a.delivery_days - b.delivery_days);
+  
+  // Maps of carrier reliability based on general market perception
+  const carrierReliabilityScores = {
+    'UPS': 4.7,
+    'USPS': 4.3,
+    'FedEx': 4.6,
+    'DHL': 4.5
+  };
+  
+  // Find the most reliable carrier
+  let mostReliableRate = rates[0];
+  let highestReliability = 0;
+  
+  for (const rate of rates) {
+    const carrier = rate.carrier.toUpperCase();
+    let reliabilityScore = 0;
+    
+    // Check if carrier exists in our reliability scores
+    Object.keys(carrierReliabilityScores).forEach(key => {
+      if (carrier.includes(key)) {
+        reliabilityScore = carrierReliabilityScores[key];
+      }
+    });
+    
+    if (reliabilityScore > highestReliability) {
+      highestReliability = reliabilityScore;
+      mostReliableRate = rate;
+    }
+  }
+  
+  // Determine best overall (balance between price and speed)
+  // Use a simple scoring system based on normalized price and delivery time
+  let bestOverallRate = rates[0];
+  let bestOverallScore = -1;
+  
+  const maxPrice = Math.max(...rates.map(r => parseFloat(r.rate)));
+  const minPrice = Math.min(...rates.map(r => parseFloat(r.rate)));
+  const priceRange = maxPrice - minPrice || 1;
+  
+  const ratesWithDays = rates.filter(r => r.delivery_days);
+  const maxDays = Math.max(...ratesWithDays.map(r => r.delivery_days));
+  const minDays = Math.min(...ratesWithDays.map(r => r.delivery_days));
+  const daysRange = maxDays - minDays || 1;
+  
+  for (const rate of rates) {
+    // Skip rates without delivery days for this calculation
+    if (!rate.delivery_days) continue;
+    
+    const priceScore = 1 - ((parseFloat(rate.rate) - minPrice) / priceRange);
+    const speedScore = 1 - ((rate.delivery_days - minDays) / daysRange);
+    const overallScore = priceScore * 0.6 + speedScore * 0.4; // Weight price slightly more
+    
+    if (overallScore > bestOverallScore) {
+      bestOverallScore = overallScore;
+      bestOverallRate = rate;
+    }
+  }
+  
+  // Create response object
+  const analysis = {
+    bestOverallRateId: bestOverallRate.id,
+    bestValueRateId: sortedByPrice[0]?.id,
+    fastestRateId: sortedBySpeed[0]?.id,
+    mostReliableRateId: mostReliableRate?.id,
+    analysis: `Found ${rates.length} shipping options. The cheapest is ${sortedByPrice[0]?.carrier} ${sortedByPrice[0]?.service} at $${sortedByPrice[0]?.rate}, while the fastest is ${sortedBySpeed[0]?.carrier} ${sortedBySpeed[0]?.service} with delivery in ${sortedBySpeed[0]?.delivery_days} days. For the best balance of cost and delivery time, consider ${bestOverallRate.carrier} ${bestOverallRate.service}.`
+  };
+  
+  return new Response(
+    JSON.stringify(analysis),
+    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
 }

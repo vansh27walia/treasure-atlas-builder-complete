@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Lightbulb, Loader } from 'lucide-react';
+import { Lightbulb, Loader, Award, Clock, DollarSign, Shield } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface AIRecommendation {
@@ -42,7 +42,7 @@ const ShippingAIRecommendation: React.FC<ShippingAIRecommendationProps> = ({
     <Card className="border-2 border-amber-200 bg-amber-50 mb-6">
       <CardContent className="p-4">
         <div className="flex items-center mb-3">
-          <Lightbulb className="h-6 w-6 text-amber-600 mr-2" />
+          <Award className="h-6 w-6 text-amber-600 mr-2" />
           <h3 className="text-lg font-semibold text-amber-800">AI Shipping Recommendations</h3>
         </div>
 
@@ -54,6 +54,7 @@ const ShippingAIRecommendation: React.FC<ShippingAIRecommendationProps> = ({
               label="Best Overall"
               description="Balanced combination of cost, speed and reliability"
               color="bg-purple-600"
+              icon={<Award className="h-4 w-4" />}
               onClick={() => onSelectRecommendation(aiRecommendation.bestOverall!)}
             />
           )}
@@ -63,6 +64,7 @@ const ShippingAIRecommendation: React.FC<ShippingAIRecommendationProps> = ({
               label="Best Value"
               description="Most economical option for the service level"
               color="bg-green-600"
+              icon={<DollarSign className="h-4 w-4" />}
               onClick={() => onSelectRecommendation(aiRecommendation.bestValue!)}
             />
           )}
@@ -72,6 +74,7 @@ const ShippingAIRecommendation: React.FC<ShippingAIRecommendationProps> = ({
               label="Fastest Delivery"
               description="Quickest estimated delivery time"
               color="bg-blue-600"
+              icon={<Clock className="h-4 w-4" />}
               onClick={() => onSelectRecommendation(aiRecommendation.fastest!)}
             />
           )}
@@ -81,6 +84,7 @@ const ShippingAIRecommendation: React.FC<ShippingAIRecommendationProps> = ({
               label="Most Reliable"
               description="Highest carrier reliability rating"
               color="bg-amber-600"
+              icon={<Shield className="h-4 w-4" />}
               onClick={() => onSelectRecommendation(aiRecommendation.mostReliable!)}
             />
           )}
@@ -94,6 +98,7 @@ interface RecommendationButtonProps {
   label: string;
   description: string;
   color: string;
+  icon: React.ReactNode;
   onClick: () => void;
 }
 
@@ -101,6 +106,7 @@ const RecommendationButton: React.FC<RecommendationButtonProps> = ({
   label,
   description,
   color,
+  icon,
   onClick
 }) => (
   <TooltipProvider>
@@ -110,8 +116,8 @@ const RecommendationButton: React.FC<RecommendationButtonProps> = ({
           onClick={onClick}
           className={`${color} hover:opacity-90 text-white py-2 px-4 rounded-md flex items-center justify-center transition-all`}
         >
-          <Lightbulb className="h-4 w-4 mr-2" />
-          {label}
+          {icon}
+          <span className="ml-2">{label}</span>
         </button>
       </TooltipTrigger>
       <TooltipContent>

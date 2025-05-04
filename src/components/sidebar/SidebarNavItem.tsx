@@ -12,7 +12,30 @@ interface SidebarNavItemProps {
 
 const SidebarNavItem: React.FC<SidebarNavItemProps> = ({ icon, title, to, collapsed }) => {
   const location = useLocation();
-  const isActive = location.pathname === to || location.pathname + location.search === to;
+  
+  // Check if the route includes query parameters
+  const hasQueryParams = to.includes('?');
+  const path = hasQueryParams ? to.split('?')[0] : to;
+  const queryParams = hasQueryParams ? to.split('?')[1] : '';
+  
+  // Check if this is the current active route
+  let isActive = false;
+  
+  if (hasQueryParams) {
+    // For routes with query params, check both path and specific parameter
+    const currentQueryParams = new URLSearchParams(location.search);
+    const targetParams = new URLSearchParams(queryParams);
+    
+    // Get the first parameter name and value from the target URL
+    const key = Array.from(targetParams.keys())[0];
+    const value = targetParams.get(key);
+    
+    // Check if both path and query param match
+    isActive = location.pathname === path && currentQueryParams.get(key) === value;
+  } else {
+    // For routes without query params, just check the path
+    isActive = location.pathname === to;
+  }
   
   return (
     <Link

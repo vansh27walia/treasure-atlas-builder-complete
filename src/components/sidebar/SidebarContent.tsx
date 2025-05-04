@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   Home, Package, CreditCard, Settings, ShoppingBag, Truck, MapPin, 
-  BarChart3, Globe, HelpCircle, Tag, Upload
+  BarChart3, Globe, HelpCircle, Tag, Upload, Calculator
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import SidebarNavSection from './SidebarNavSection';
@@ -36,15 +36,15 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
             collapsed={collapsed}
           />
           <SidebarNavItem
-            icon={<Globe size={18} />}
-            title="International"
-            to="/international"
+            icon={<Calculator size={18} />}
+            title="Rate Calculator"
+            to="/create-label?tab=calculator"
             collapsed={collapsed}
           />
           <SidebarNavItem
-            icon={<Upload size={18} />}
-            title="Bulk Upload"
-            to="/bulk-upload"
+            icon={<Globe size={18} />}
+            title="International"
+            to="/international"
             collapsed={collapsed}
           />
         </SidebarNavSection>
@@ -66,6 +66,12 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
             icon={<BarChart3 size={18} />}
             title="Reports"
             to="/dashboard?tab=history"
+            collapsed={collapsed}
+          />
+          <SidebarNavItem
+            icon={<Upload size={18} />}
+            title="Bulk Upload"
+            to="/bulk-upload"
             collapsed={collapsed}
           />
           <SidebarNavItem

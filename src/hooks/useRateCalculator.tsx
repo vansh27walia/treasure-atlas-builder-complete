@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { useShippingRates } from '@/hooks/useShippingRates';
+import { useNavigate } from 'react-router-dom';
 
 interface AddressData {
   zip: string;
@@ -31,6 +32,7 @@ interface AIRecommendation {
 }
 
 const useRateCalculator = () => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [aiRecommendation, setAiRecommendation] = useState<AIRecommendation | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -99,6 +101,12 @@ const useRateCalculator = () => {
       
       toast.success(`Found ${rates.length} shipping options!`);
       
+      // Switch to the rates view after successful rate calculation
+      const ratesSection = document.getElementById('shipping-rates-section');
+      if (ratesSection) {
+        ratesSection.scrollIntoView({ behavior: 'smooth' });
+      }
+      
     } catch (error) {
       console.error('Error in rate calculation:', error);
       toast.error("An error occurred while calculating shipping rates.");
@@ -139,11 +147,32 @@ const useRateCalculator = () => {
     }
   };
 
+  // Function to navigate to shipping tab with selected rate
+  const selectRateAndProceed = (rateId: string) => {
+    const rate = rates.find(r => r.id === rateId);
+    if (!rate) {
+      toast.error("Selected rate not found");
+      return;
+    }
+    
+    // Navigate to domestic shipping tab and select the rate
+    navigate('/create-label?tab=domestic');
+    
+    // Wait for component to mount before selecting the rate
+    setTimeout(() => {
+      const customEvent = new CustomEvent('select-shipping-rate', {
+        detail: { rateId }
+      });
+      document.dispatchEvent(customEvent);
+    }, 300);
+  };
+
   return {
     fetchRates,
     aiRecommendation,
     isLoading,
-    isAiLoading
+    isAiLoading,
+    selectRateAndProceed
   };
 };
 
