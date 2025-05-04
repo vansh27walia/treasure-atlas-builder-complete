@@ -2,9 +2,10 @@
 import React, { useState } from 'react';
 import ShippingForm from '@/components/ShippingForm';
 import ShippingRates from '@/components/ShippingRates';
+import RateCalculator from '@/components/shipping/RateCalculator';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
-import { Package, Globe, Upload, Truck } from 'lucide-react';
+import { Package, Globe, Upload, Truck, Calculator } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
@@ -20,7 +21,7 @@ const CreateLabelPage: React.FC = () => {
       
       <Card className="border-2 border-gray-200 shadow-lg p-6 mb-8 bg-white rounded-xl">
         <Tabs defaultValue="domestic" onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6 bg-blue-50 p-1 rounded-lg">
+          <TabsList className="grid w-full grid-cols-4 mb-6 bg-blue-50 p-1 rounded-lg">
             <TabsTrigger 
               value="domestic" 
               className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
@@ -34,6 +35,13 @@ const CreateLabelPage: React.FC = () => {
             >
               <Globe className="h-4 w-4" />
               International
+            </TabsTrigger>
+            <TabsTrigger 
+              value="calculator" 
+              className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
+            >
+              <Calculator className="h-4 w-4" />
+              Rate Calculator
             </TabsTrigger>
             <TabsTrigger 
               value="bulk" 
@@ -80,6 +88,18 @@ const CreateLabelPage: React.FC = () => {
             </div>
           </TabsContent>
           
+          <TabsContent value="calculator">
+            <div className="p-6 bg-gradient-to-r from-green-50 to-teal-50 rounded-lg mb-6 border border-green-100 shadow-sm">
+              <h2 className="text-xl font-semibold text-green-800 flex items-center mb-2">
+                <Calculator className="h-5 w-5 mr-2 text-green-600" />
+                Shipping Rate Calculator
+              </h2>
+              <p className="text-green-700">Calculate shipping rates for different carriers without creating a shipment.</p>
+            </div>
+            
+            <RateCalculator />
+          </TabsContent>
+          
           <TabsContent value="bulk">
             <div className="p-6 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg mb-6 border border-amber-100 shadow-sm">
               <h2 className="text-xl font-semibold text-amber-800 flex items-center mb-2">
@@ -108,6 +128,7 @@ const CreateLabelPage: React.FC = () => {
       </Card>
 
       {activeTab === 'domestic' && <ShippingRates />}
+      {activeTab === 'calculator' && <ShippingRates />}
     </div>
   );
 };

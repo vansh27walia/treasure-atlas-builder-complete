@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -62,6 +63,14 @@ export const useShippingRates = () => {
 
   const handleSelectRate = (rateId: string) => {
     setSelectedRateId(rateId);
+    
+    // Scroll to the selected rate
+    setTimeout(() => {
+      const selectedRateElement = document.querySelector(`[data-rate-id="${rateId}"]`);
+      if (selectedRateElement) {
+        selectedRateElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
   };
 
   const handleCreateLabel = async () => {

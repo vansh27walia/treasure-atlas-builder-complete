@@ -1,14 +1,17 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import ShippingRateCard from './shipping/ShippingRateCard';
 import ShippingLabel from './shipping/ShippingLabel';
 import EmptyRatesState from './shipping/EmptyRatesState';
+import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import { useShippingRates } from '@/hooks/useShippingRates';
+import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
-import { CreditCard, Loader, Download, Upload, Truck } from 'lucide-react';
+import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const ShippingRates: React.FC = () => {
   const {
@@ -25,11 +28,15 @@ const ShippingRates: React.FC = () => {
     handleCreateLabel,
     handleProceedToPayment
   } = useShippingRates();
-
+  
+  const { aiRecommendation, isAiLoading } = useRateCalculator();
+  const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
+  const [filterCarrier, setFilterCarrier] = useState<string | null>(null);
+  
   // Show empty state if no rates available
   if (rates.length === 0) {
     return (
-      <div className="mt-8">
+      <div className="mt-8" id="shipping-rates-section">
         <EmptyRatesState />
         <div className="mt-4 flex justify-end">
           <Link to="/bulk-upload">
@@ -43,8 +50,29 @@ const ShippingRates: React.FC = () => {
     );
   }
 
+  // Sort the rates based on the selected sorting option
+  const sortedRates = [...rates].sort((a, b) => {
+    if (sortOrder === 'price') {
+      return parseFloat(a.rate) - parseFloat(b.rate);
+    } else if (sortOrder === 'speed') {
+      const aDays = a.delivery_days || 999;
+      const bDays = b.delivery_days || 999;
+      return aDays - bDays;
+    } else {
+      return a.carrier.localeCompare(b.carrier);
+    }
+  });
+
+  // Apply carrier filter if selected
+  const filteredRates = filterCarrier 
+    ? sortedRates.filter(rate => rate.carrier.toLowerCase().includes(filterCarrier.toLowerCase()))
+    : sortedRates;
+
+  // Get unique carriers for filtering
+  const carriers = [...new Set(rates.map(rate => rate.carrier))];
+
   return (
-    <div className="mt-8">
+    <div className="mt-8" id="shipping-rates-section">
       <Card className="border-2 border-gray-200 shadow-md rounded-xl overflow-hidden">
         <div className="p-6">
           <div className="flex justify-between mb-6">
@@ -52,12 +80,55 @@ const ShippingRates: React.FC = () => {
               <Truck className="mr-2 h-6 w-6 text-blue-600" />
               Available Shipping Rates
             </h2>
-            <Link to="/bulk-upload">
-              <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
-                <Upload className="h-4 w-4" />
-                Bulk Upload
-              </Button>
-            </Link>
+            <div className="flex gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
+                    <Filter className="h-4 w-4" />
+                    Filter
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setFilterCarrier(null)}>
+                    All Carriers
+                  </DropdownMenuItem>
+                  {carriers.map((carrier) => (
+                    <DropdownMenuItem 
+                      key={carrier} 
+                      onClick={() => setFilterCarrier(carrier)}
+                    >
+                      {carrier}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
+                    Sort by: {sortOrder === 'price' ? 'Price' : sortOrder === 'speed' ? 'Speed' : 'Carrier'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setSortOrder('price')}>
+                    Price (Lowest First)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder('speed')}>
+                    Speed (Fastest First)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder('carrier')}>
+                    Carrier (A-Z)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              <Link to="/bulk-upload">
+                <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
+                  <Upload className="h-4 w-4" />
+                  Bulk Upload
+                </Button>
+              </Link>
+            </div>
           </div>
           
           <ShippingLabel 
@@ -68,8 +139,17 @@ const ShippingRates: React.FC = () => {
           
           {!labelUrl && (
             <>
+              {/* AI Recommendations */}
+              {(aiRecommendation || isAiLoading) && (
+                <ShippingAIRecommendation 
+                  aiRecommendation={aiRecommendation}
+                  isLoading={isAiLoading}
+                  onSelectRecommendation={handleSelectRate}
+                />
+              )}
+              
               <div className="space-y-4 mt-6">
-                {rates.map((rate) => (
+                {filteredRates.map((rate) => (
                   <ShippingRateCard
                     key={rate.id}
                     rate={rate}
@@ -77,8 +157,22 @@ const ShippingRates: React.FC = () => {
                     onSelect={handleSelectRate}
                     isBestValue={rate.id === bestValueRateId}
                     isFastest={rate.id === fastestRateId}
+                    aiRecommendation={aiRecommendation || undefined}
                   />
                 ))}
+
+                {filteredRates.length === 0 && (
+                  <div className="p-8 text-center">
+                    <p className="text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setFilterCarrier(null)} 
+                      className="mt-4"
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                )}
               </div>
               
               <div className="mt-8 flex flex-wrap justify-end gap-4">

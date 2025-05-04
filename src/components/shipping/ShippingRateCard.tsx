@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Clock, Info } from 'lucide-react';
+import { Clock, Info, Award, AlertTriangle } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ShippingRate {
@@ -24,44 +24,119 @@ interface ShippingRateCardProps {
   onSelect: (rateId: string) => void;
   isBestValue: boolean;
   isFastest: boolean;
+  aiRecommendation?: {
+    bestOverall?: string;
+    bestValue?: string;
+    fastest?: string;
+    mostReliable?: string;
+  };
 }
+
+const CarrierLogo: React.FC<{ carrier: string }> = ({ carrier }) => {
+  const carrierLower = carrier.toLowerCase();
+  
+  // Return the appropriate logo based on carrier name
+  if (carrierLower.includes('ups')) {
+    return (
+      <div className="flex items-center justify-center bg-[#351C15] h-8 w-16 rounded">
+        <span className="text-white font-bold">UPS</span>
+      </div>
+    );
+  } 
+  
+  if (carrierLower.includes('fedex')) {
+    return (
+      <div className="flex items-center justify-center bg-[#4D148C] h-8 w-16 rounded">
+        <span className="text-white font-bold">FedEx</span>
+      </div>
+    );
+  }
+  
+  if (carrierLower.includes('dhl')) {
+    return (
+      <div className="flex items-center justify-center bg-[#FFCC00] h-8 w-16 rounded">
+        <span className="text-black font-bold">DHL</span>
+      </div>
+    );
+  }
+  
+  if (carrierLower.includes('usps')) {
+    return (
+      <div className="flex items-center justify-center bg-[#333366] h-8 w-16 rounded">
+        <span className="text-white font-bold">USPS</span>
+      </div>
+    );
+  }
+  
+  // Default for other carriers
+  return (
+    <div className="flex items-center justify-center bg-gray-200 h-8 w-16 rounded">
+      <span className="text-gray-800 font-bold text-xs">{carrier}</span>
+    </div>
+  );
+};
 
 const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   rate,
   isSelected,
   onSelect,
   isBestValue,
-  isFastest
+  isFastest,
+  aiRecommendation
 }) => {
+  const isAIBestOverall = aiRecommendation?.bestOverall === rate.id;
+  const isAIBestValue = aiRecommendation?.bestValue === rate.id;
+  const isAIFastest = aiRecommendation?.fastest === rate.id;
+  const isAIMostReliable = aiRecommendation?.mostReliable === rate.id;
+  
   return (
     <div 
       className={`border rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between hover:bg-gray-50 ${
         isSelected ? 'border-2 border-primary bg-primary/5' : ''
       }`}
     >
-      <div className="flex-1">
-        <div className="flex items-center">
-          <div className="font-semibold text-lg">{rate.carrier} {rate.service}</div>
-          {isBestValue && (
-            <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-              Best Value
-            </span>
-          )}
-          {isFastest && (
-            <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-              Fastest
-            </span>
-          )}
+      <div className="flex flex-1">
+        <div className="mr-4">
+          <CarrierLogo carrier={rate.carrier} />
         </div>
         
-        <div className="mt-2 text-sm text-gray-600">
-          <div className="flex items-center">
-            <Clock className="h-4 w-4 mr-1" />
-            <span>
-              {rate.delivery_days 
-                ? `Est. delivery: ${rate.delivery_days} business days` 
-                : 'Delivery estimate not available'}
-            </span>
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="font-semibold text-lg">{rate.service}</div>
+            
+            <div className="flex flex-wrap gap-1">
+              {isBestValue && (
+                <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                  Best Value
+                </span>
+              )}
+              {isFastest && (
+                <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                  Fastest
+                </span>
+              )}
+              {isAIBestOverall && (
+                <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 rounded-full flex items-center">
+                  <Award className="h-3 w-3 mr-1" /> AI Pick
+                </span>
+              )}
+              {isAIMostReliable && (
+                <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 rounded-full">
+                  Most Reliable
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <div className="mt-2 text-sm text-gray-600">
+            <div className="flex items-center">
+              <Clock className="h-4 w-4 mr-1" />
+              <span>
+                {rate.delivery_days 
+                  ? `Est. delivery: ${rate.delivery_days} business days` 
+                  : 'Delivery estimate not available'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
