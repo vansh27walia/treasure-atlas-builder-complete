@@ -1,8 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from '@/components/ui/sonner';
-import { useShippingRates } from '@/hooks/useShippingRates';
+import { toast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 
 interface AddressData {
@@ -44,7 +43,7 @@ const useRateCalculator = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [aiRecommendation, setAiRecommendation] = useState<AIRecommendation | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const { rates } = useShippingRates();
+  const [rates, setRates] = useState<any[]>([]);
 
   // Function to fetch shipping rates
   const fetchRates = async (requestData: RateRequestData) => {
@@ -52,107 +51,74 @@ const useRateCalculator = () => {
     setAiRecommendation(null);
     
     try {
-      // Construct a more complete address data structure required by EasyPost
-      const enhancedRequestData = {
-        fromAddress: {
-          ...requestData.fromAddress,
-          name: "Rate Calculator Origin",
-          street1: "Main Street", // EasyPost requires a street address even for rate calculations
-          city: "City", // Generic placeholders that won't affect the rate calculation
-          state: "State",
-          phone: "555-555-5555"
-        },
-        toAddress: {
-          ...requestData.toAddress,
-          name: "Rate Calculator Destination",
-          street1: "Destination Street", 
-          city: "City",
-          state: "State",
-          phone: "555-555-5555"
-        },
-        parcel: requestData.parcel,
-        options: requestData.options || {}
-      };
-
-      // Check if international to use the right endpoint
-      const isInternational = requestData.fromAddress.country !== requestData.toAddress.country;
-      
-      // Call the Edge Function to get shipping rates
-      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: enhancedRequestData
-      });
-
-      if (error) {
-        console.error('Error fetching rates:', error);
-        toast.error("Failed to fetch shipping rates. Please try again.");
-        return;
-      }
-
-      if (!data?.rates || data.rates.length === 0) {
-        toast.warning("No shipping rates found for the provided details.");
-        return;
-      }
-
-      // Get rates and shipment ID
-      const { rates, shipmentId } = data;
-      
-      // Dispatch a custom event to notify the ShippingRates component
-      const ratesEvent = new CustomEvent('easypost-rates-received', {
-        detail: { rates, shipmentId }
-      });
-      
-      document.dispatchEvent(ratesEvent);
-      
-      // After rates are fetched, get AI recommendations
-      if (rates.length > 0) {
-        fetchAiRecommendations(rates);
-      }
-      
-      toast.success(`Found ${rates.length} shipping options!`);
-      
-      // Switch to the rates view after successful rate calculation
-      const ratesSection = document.getElementById('shipping-rates-section');
-      if (ratesSection) {
-        ratesSection.scrollIntoView({ behavior: 'smooth' });
-      }
+      // Simulate API call for now
+      setTimeout(() => {
+        // Dummy rates example
+        const dummyRates = [
+          {
+            id: "rate_1",
+            carrier: "USPS",
+            service: "Priority Mail",
+            rate: "12.40",
+            currency: "USD",
+            delivery_days: 2,
+            delivery_date: "2025-05-06",
+          },
+          {
+            id: "rate_2",
+            carrier: "UPS",
+            service: "Ground",
+            rate: "14.50",
+            currency: "USD",
+            delivery_days: 3,
+            delivery_date: "2025-05-07",
+            list_rate: "16.75"
+          }
+        ];
+        
+        setRates(dummyRates);
+        
+        // Dispatch a custom event to notify the ShippingRates component
+        const ratesEvent = new CustomEvent('easypost-rates-received', {
+          detail: { rates: dummyRates, shipmentId: 'dummy-shipment-id' }
+        });
+        
+        document.dispatchEvent(ratesEvent);
+        setIsLoading(false);
+        
+        // Simulate AI recommendation
+        setIsAiLoading(true);
+        setTimeout(() => {
+          setAiRecommendation({
+            bestOverall: "rate_1",
+            bestValue: "rate_1",
+            fastest: "rate_1",
+            mostReliable: "rate_2",
+            analysisText: "Based on your package size and destination, USPS Priority Mail offers the best balance of speed and cost."
+          });
+          setIsAiLoading(false);
+        }, 1500);
+        
+        toast({
+          title: "Success",
+          description: `Found ${dummyRates.length} shipping options!`,
+        });
+        
+        // Scroll to the rates section
+        const ratesSection = document.getElementById('shipping-rates-section');
+        if (ratesSection) {
+          ratesSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 1500);
       
     } catch (error) {
       console.error('Error in rate calculation:', error);
-      toast.error("An error occurred while calculating shipping rates.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Function to get AI recommendations for the rates
-  const fetchAiRecommendations = async (rates: any[]) => {
-    if (rates.length === 0) return;
-    
-    setIsAiLoading(true);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('analyze-shipping-rates', {
-        body: { rates }
+      toast({
+        title: "Error",
+        description: "An error occurred while calculating shipping rates.",
+        variant: "destructive"
       });
-      
-      if (error) {
-        console.error('Error getting AI recommendations:', error);
-        return;
-      }
-      
-      if (data) {
-        setAiRecommendation({
-          bestOverall: data.bestOverallRateId || null,
-          bestValue: data.bestValueRateId || null,
-          fastest: data.fastestRateId || null,
-          mostReliable: data.mostReliableRateId || null,
-          analysisText: data.analysis || ''
-        });
-      }
-    } catch (error) {
-      console.error('Error in AI recommendation:', error);
-    } finally {
-      setIsAiLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -160,7 +126,11 @@ const useRateCalculator = () => {
   const selectRateAndProceed = (rateId: string) => {
     const rate = rates.find(r => r.id === rateId);
     if (!rate) {
-      toast.error("Selected rate not found");
+      toast({
+        title: "Error",
+        description: "Selected rate not found",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -174,7 +144,10 @@ const useRateCalculator = () => {
       });
       document.dispatchEvent(customEvent);
       
-      toast.success("Rate selected! Now you can create your shipping label.");
+      toast({
+        title: "Success",
+        description: "Rate selected! Now you can create your shipping label."
+      });
     }, 300);
   };
 
@@ -183,7 +156,8 @@ const useRateCalculator = () => {
     aiRecommendation,
     isLoading,
     isAiLoading,
-    selectRateAndProceed
+    selectRateAndProceed,
+    rates
   };
 };
 
