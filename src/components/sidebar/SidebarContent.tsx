@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   Home, Package, CreditCard, Settings, ShoppingBag, Truck, MapPin, 
-  BarChart3, Globe, HelpCircle, Tag, Upload, Calculator, MessageCircle
+  BarChart3, Globe, HelpCircle, Tag, Upload, Calculator
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import SidebarNavSection from './SidebarNavSection';
@@ -40,12 +40,11 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
             title="Rate Calculator"
             to="/create-label?tab=calculator"
             collapsed={collapsed}
-            highlight={true}
           />
           <SidebarNavItem
-            icon={<MessageCircle size={18} />}
-            title="Shipping Assistant"
-            to="/shipping-assistant"
+            icon={<Globe size={18} />}
+            title="International"
+            to="/international"
             collapsed={collapsed}
           />
         </SidebarNavSection>
@@ -61,12 +60,6 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
             icon={<Truck size={18} />}
             title="Tracking"
             to="/tracking"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Globe size={18} />}
-            title="International"
-            to="/international"
             collapsed={collapsed}
           />
           <SidebarNavItem

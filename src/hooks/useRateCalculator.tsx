@@ -17,18 +17,10 @@ interface ParcelData {
   height: number;
 }
 
-interface OptionsData {
-  packageType?: string;
-  comments?: string;
-  signatureRequired?: boolean;
-  insurance?: boolean;
-}
-
 interface RateRequestData {
   fromAddress: AddressData;
   toAddress: AddressData;
   parcel: ParcelData;
-  options?: OptionsData;
 }
 
 interface AIRecommendation {
@@ -71,7 +63,6 @@ const useRateCalculator = () => {
           phone: "555-555-5555"
         },
         parcel: requestData.parcel,
-        options: requestData.options || {}
       };
 
       // Check if international to use the right endpoint
@@ -173,8 +164,6 @@ const useRateCalculator = () => {
         detail: { rateId }
       });
       document.dispatchEvent(customEvent);
-      
-      toast.success("Rate selected! Now you can create your shipping label.");
     }, 300);
   };
 

@@ -8,16 +8,9 @@ interface SidebarNavItemProps {
   title: string;
   to: string;
   collapsed: boolean;
-  highlight?: boolean;
 }
 
-const SidebarNavItem: React.FC<SidebarNavItemProps> = ({ 
-  icon, 
-  title, 
-  to, 
-  collapsed,
-  highlight = false 
-}) => {
+const SidebarNavItem: React.FC<SidebarNavItemProps> = ({ icon, title, to, collapsed }) => {
   const location = useLocation();
   
   // Check if the route includes query parameters
@@ -51,16 +44,14 @@ const SidebarNavItem: React.FC<SidebarNavItemProps> = ({
         'flex items-center rounded-lg px-3 py-2 text-sm font-medium transition-colors',
         isActive
           ? 'bg-blue-800 text-white'
-          : highlight 
-            ? 'text-green-200 hover:bg-blue-800 hover:text-white'
-            : 'text-blue-200 hover:bg-blue-800 hover:text-white',
+          : 'text-blue-200 hover:bg-blue-800 hover:text-white',
         collapsed ? 'justify-center' : ''
       )}
     >
       <div className={cn('h-5 w-5 flex-shrink-0', collapsed ? '' : 'mr-3')}>
         {icon}
       </div>
-      {!collapsed && <span>{highlight && !isActive ? "✨ " + title : title}</span>}
+      {!collapsed && <span>{title}</span>}
     </Link>
   );
 };
