@@ -12,6 +12,7 @@ import LabelSuccessPage from "./pages/LabelSuccessPage";
 import CreateLabelPage from "./pages/CreateLabelPage";
 import InternationalShippingPage from "./pages/InternationalShippingPage";
 import PickupPage from "./pages/PickupPage";
+import SettingsPage from "./pages/SettingsPage";
 import SidebarNavigation from "./components/SidebarNavigation";
 import AuthPage from "./pages/AuthPage";
 import AuthProvider from "./contexts/AuthContext";
@@ -69,6 +70,11 @@ const App = () => (
                     <Route path="/pickup" element={
                       <ProtectedRoute>
                         <PickupPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/settings" element={
+                      <ProtectedRoute>
+                        <SettingsPage />
                       </ProtectedRoute>
                     } />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

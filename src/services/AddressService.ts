@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
@@ -78,9 +77,53 @@ export class AddressService {
   }
   
   /**
+   * Update an existing address
+   */
+  public async updateAddress(addressId: number, address: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'>): Promise<SavedAddress | null> {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) {
+        throw new Error('User is not authenticated');
+      }
+      
+      // First verify that the address belongs to the user
+      const { data: existingAddress, error: fetchError } = await supabase
+        .from('addresses')
+        .select('*')
+        .eq('id', addressId)
+        .eq('user_id', session.session.user.id)
+        .single();
+      
+      if (fetchError || !existingAddress) {
+        throw new Error('Address not found or you do not have permission to update it');
+      }
+      
+      const { data, error } = await supabase
+        .from('addresses')
+        .update({
+          ...address,
+          // Ensure user_id remains unchanged
+          user_id: session.session.user.id
+        })
+        .eq('id', addressId)
+        .select()
+        .single();
+      
+      if (error) {
+        throw error;
+      }
+      
+      return data as unknown as SavedAddress;
+    } catch (error) {
+      console.error('Error updating saved address:', error);
+      return null;
+    }
+  }
+  
+  /**
    * Delete a saved address
    */
-  public async deleteAddress(addressId: number): Promise<boolean> { // Changed parameter type from string to number
+  public async deleteAddress(addressId: number): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('addresses')
@@ -101,7 +144,7 @@ export class AddressService {
   /**
    * Set an address as the default shipping from address
    */
-  public async setDefaultFromAddress(addressId: number): Promise<boolean> { // Changed parameter type from string to number
+  public async setDefaultFromAddress(addressId: number): Promise<boolean> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
@@ -135,7 +178,7 @@ export class AddressService {
   /**
    * Set an address as the default shipping to address
    */
-  public async setDefaultToAddress(addressId: number): Promise<boolean> { // Changed parameter type from string to number
+  public async setDefaultToAddress(addressId: number): Promise<boolean> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
@@ -163,6 +206,62 @@ export class AddressService {
     } catch (error) {
       console.error('Error setting default to address:', error);
       return false;
+    }
+  }
+  
+  /**
+   * Get the default shipping from address for the current user
+   */
+  public async getDefaultFromAddress(): Promise<SavedAddress | null> {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) {
+        return null;
+      }
+      
+      const { data, error } = await supabase
+        .from('addresses')
+        .select('*')
+        .eq('user_id', session.session.user.id)
+        .eq('is_default_from', true)
+        .maybeSingle();
+      
+      if (error) {
+        throw error;
+      }
+      
+      return data as unknown as SavedAddress | null;
+    } catch (error) {
+      console.error('Error fetching default from address:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Get the default shipping to address for the current user
+   */
+  public async getDefaultToAddress(): Promise<SavedAddress | null> {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) {
+        return null;
+      }
+      
+      const { data, error } = await supabase
+        .from('addresses')
+        .select('*')
+        .eq('user_id', session.session.user.id)
+        .eq('is_default_to', true)
+        .maybeSingle();
+      
+      if (error) {
+        throw error;
+      }
+      
+      return data as unknown as SavedAddress | null;
+    } catch (error) {
+      console.error('Error fetching default to address:', error);
+      return null;
     }
   }
 }
