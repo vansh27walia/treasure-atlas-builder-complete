@@ -64,8 +64,9 @@ const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
   
   const handleOnboardingComplete = () => {
-    setHasCompletedOnboarding(true);
-    setShowOnboardingModal(false);
+    completeOnboarding().catch(error => {
+      console.error('Error in handleOnboardingComplete:', error);
+    });
   };
   
   return (

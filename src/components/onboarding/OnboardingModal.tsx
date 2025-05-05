@@ -8,6 +8,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -22,8 +23,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/sonner';
-import { Loader2 } from 'lucide-react';
-import { HomeAddress, PaymentInfo, userProfileService } from '@/services/UserProfileService';
+import { Loader2, X } from 'lucide-react';
+import { PaymentInfo, userProfileService } from '@/services/UserProfileService';
 import { addressService, SavedAddress } from '@/services/AddressService';
 
 interface OnboardingModalProps {
@@ -32,16 +33,6 @@ interface OnboardingModalProps {
 }
 
 interface OnboardingFormValues {
-  // Home Address
-  homeName: string;
-  homeStreet1: string;
-  homeStreet2: string;
-  homeCity: string;
-  homeState: string;
-  homeZip: string;
-  homeCountry: string;
-  homePhone: string;
-  
   // Pickup Address
   pickupName: string;
   pickupCompany: string;
@@ -63,19 +54,10 @@ interface OnboardingFormValues {
 
 const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTab] = useState('pickup');
   
   const form = useForm<OnboardingFormValues>({
     defaultValues: {
-      homeName: '',
-      homeStreet1: '',
-      homeStreet2: '',
-      homeCity: '',
-      homeState: '',
-      homeZip: '',
-      homeCountry: 'US',
-      homePhone: '',
-      
       pickupName: '',
       pickupCompany: '',
       pickupStreet1: '',
@@ -95,44 +77,27 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
   });
   
   const handleNext = () => {
-    if (activeTab === 'home') {
-      setActiveTab('pickup');
-    } else if (activeTab === 'pickup') {
+    if (activeTab === 'pickup') {
       setActiveTab('payment');
     }
   };
   
   const handleBack = () => {
-    if (activeTab === 'pickup') {
-      setActiveTab('home');
-    } else if (activeTab === 'payment') {
+    if (activeTab === 'payment') {
       setActiveTab('pickup');
     }
+  };
+  
+  const handleCancel = () => {
+    form.reset();
+    onComplete(); // Close the modal
   };
   
   const onSubmit = async (values: OnboardingFormValues) => {
     setIsLoading(true);
     
     try {
-      // 1. Save home address
-      const homeAddress: HomeAddress = {
-        name: values.homeName,
-        street1: values.homeStreet1,
-        street2: values.homeStreet2 || undefined,
-        city: values.homeCity,
-        state: values.homeState,
-        zip: values.homeZip,
-        country: values.homeCountry,
-        phone: values.homePhone || undefined,
-      };
-      
-      const homeAddressSaved = await userProfileService.updateHomeAddress(homeAddress);
-      
-      if (!homeAddressSaved) {
-        throw new Error('Failed to save home address');
-      }
-      
-      // 2. Save pickup address
+      // 1. Save pickup address
       const pickupAddress: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'> = {
         name: values.pickupName,
         company: values.pickupCompany || undefined,
@@ -153,7 +118,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
         throw new Error('Failed to save pickup address');
       }
       
-      // 3. Save payment information
+      // 2. Save payment information
       const paymentInfo: PaymentInfo = {
         card_number: values.cardNumber,
         exp_month: values.expiryMonth,
@@ -168,10 +133,10 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
         throw new Error('Failed to save payment information');
       }
       
-      // 4. Set the default pickup address ID in the user profile
+      // 3. Set the default pickup address ID in the user profile
       await userProfileService.updateDefaultPickupAddressId(savedAddress.id);
       
-      // 5. Mark onboarding as complete
+      // 4. Mark onboarding as complete
       await userProfileService.completeOnboarding();
       
       toast.success('Your profile has been set up successfully!');
@@ -184,7 +149,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
     }
   };
   
-  const validateAddress = (formPart: 'home' | 'pickup') => {
+  const validateAddress = (formPart: 'pickup') => {
     const requiredFields = [
       `${formPart}Street1`,
       `${formPart}City`,
@@ -221,16 +186,14 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
   };
   
   const isNextDisabled = () => {
-    if (activeTab === 'home') {
-      return !validateAddress('home');
-    } else if (activeTab === 'pickup') {
+    if (activeTab === 'pickup') {
       return !validateAddress('pickup');
     }
     return true;
   };
   
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
+    <Dialog open={isOpen} onOpenChange={handleCancel}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">Welcome! Let's set up your account</DialogTitle>
@@ -238,134 +201,22 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
             Please provide your details to get started. This information will help us streamline your shipping experience.
           </DialogDescription>
         </DialogHeader>
+        <DialogClose 
+          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100"
+          onClick={handleCancel}
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </DialogClose>
         
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-3 mb-4">
-            <TabsTrigger value="home">Home Address</TabsTrigger>
+          <TabsList className="grid grid-cols-2 mb-4">
             <TabsTrigger value="pickup">Pickup Location</TabsTrigger>
             <TabsTrigger value="payment">Payment Info</TabsTrigger>
           </TabsList>
           
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <TabsContent value="home" className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="homeName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Your name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="homeStreet1"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Address Line 1 *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Street address" required {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="homeStreet2"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Address Line 2</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Apartment, suite, unit, etc." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="homeCity"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="City" required {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="homeState"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>State *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="State" required {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="homeZip"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ZIP Code *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="ZIP code" required {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="homeCountry"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Country *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Country" required {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <FormField
-                  control={form.control}
-                  name="homePhone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Phone number" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </TabsContent>
-              
               <TabsContent value="pickup" className="space-y-4">
                 <div className="bg-blue-50 p-4 rounded-md mb-4">
                   <p className="text-sm text-blue-700">
@@ -609,7 +460,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
               </TabsContent>
               
               <DialogFooter className="pt-4">
-                {activeTab !== 'home' && (
+                {activeTab !== 'pickup' && (
                   <Button
                     type="button"
                     variant="outline"
