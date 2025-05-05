@@ -57,9 +57,9 @@ export class UserProfileService {
       if (data) {
         return {
           id: data.id,
-          home_address: data.home_address as HomeAddress,
+          home_address: data.home_address as HomeAddress | undefined,
           default_pickup_address_id: data.default_pickup_address_id,
-          payment_info: data.payment_info as PaymentInfo,
+          payment_info: data.payment_info as PaymentInfo | undefined,
           onboarding_completed: data.onboarding_completed || false,
           created_at: data.created_at,
           updated_at: data.updated_at
