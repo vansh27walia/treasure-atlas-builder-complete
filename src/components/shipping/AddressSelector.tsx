@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addressService, SavedAddress } from '@/services/AddressService';
+import { userProfileService } from '@/services/UserProfileService';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -27,25 +28,51 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
 }) => {
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [defaultAddressId, setDefaultAddressId] = useState<number | null>(null);
   const navigate = useNavigate();
   
-  // Load saved addresses
-  const loadAddresses = async () => {
+  // Load saved addresses and default address from user profile
+  const loadAddressData = async () => {
     setIsLoading(true);
     try {
+      // Load all saved addresses
       const savedAddresses = await addressService.getSavedAddresses();
       setAddresses(savedAddresses);
       
-      // If we don't have a selected address yet and we have a default, select it
+      // Get the user profile to check for default pickup address
+      if (type === 'from') {
+        const userProfile = await userProfileService.getUserProfile();
+        if (userProfile?.default_pickup_address_id) {
+          setDefaultAddressId(userProfile.default_pickup_address_id);
+        }
+      }
+      
+      // Select default address if no address is already selected
       if (!selectedAddressId && savedAddresses.length > 0) {
-        const defaultAddress = savedAddresses.find(addr => 
-          type === 'from' ? addr.is_default_from : addr.is_default_to
-        );
+        let addressToSelect: SavedAddress | undefined;
         
-        if (defaultAddress) {
-          onAddressSelect(defaultAddress);
-        } else if (savedAddresses.length > 0) {
-          onAddressSelect(savedAddresses[0]);
+        if (type === 'from') {
+          // First try the default from user profile
+          if (defaultAddressId) {
+            addressToSelect = savedAddresses.find(addr => addr.id === defaultAddressId);
+          }
+          
+          // Then try default_from flag
+          if (!addressToSelect) {
+            addressToSelect = savedAddresses.find(addr => addr.is_default_from);
+          }
+        } else {
+          // For 'to' addresses, check for default_to flag
+          addressToSelect = savedAddresses.find(addr => addr.is_default_to);
+        }
+        
+        // If still no address found, use the first one
+        if (!addressToSelect && savedAddresses.length > 0) {
+          addressToSelect = savedAddresses[0];
+        }
+        
+        if (addressToSelect) {
+          onAddressSelect(addressToSelect);
         }
       }
     } catch (error) {
@@ -56,8 +83,8 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   };
   
   useEffect(() => {
-    loadAddresses();
-  }, []);
+    loadAddressData();
+  }, [type, selectedAddressId]);
   
   const handleAddressChange = (addressId: string) => {
     const selectedAddress = addresses.find(addr => addr.id === parseInt(addressId));
@@ -135,7 +162,8 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                 <div className="flex items-center">
                   <span>{formatAddressForDisplay(address)}</span>
                   {(type === 'from' && address.is_default_from) || 
-                   (type === 'to' && address.is_default_to) ? (
+                   (type === 'to' && address.is_default_to) || 
+                   (type === 'from' && defaultAddressId === address.id) ? (
                     <span className="ml-2 bg-green-100 text-green-800 text-xs px-1.5 py-0.5 rounded-full">
                       Default
                     </span>
