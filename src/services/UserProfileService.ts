@@ -53,7 +53,20 @@ export class UserProfileService {
         throw error;
       }
       
-      return data as UserProfile;
+      // Cast and transform the data to match our UserProfile interface
+      if (data) {
+        return {
+          id: data.id,
+          home_address: data.home_address as HomeAddress,
+          default_pickup_address_id: data.default_pickup_address_id,
+          payment_info: data.payment_info as PaymentInfo,
+          onboarding_completed: data.onboarding_completed || false,
+          created_at: data.created_at,
+          updated_at: data.updated_at
+        };
+      }
+      
+      return null;
     } catch (error) {
       console.error('Error fetching user profile:', error);
       return null;
@@ -86,7 +99,7 @@ export class UserProfileService {
       const { error } = await supabase
         .from('user_profiles')
         .update({
-          home_address: homeAddress,
+          home_address: homeAddress as any,
           updated_at: new Date().toISOString()
         })
         .eq('id', session.session.user.id);
@@ -124,7 +137,7 @@ export class UserProfileService {
       const { error } = await supabase
         .from('user_profiles')
         .update({
-          payment_info: paymentData,
+          payment_info: paymentData as any,
           updated_at: new Date().toISOString()
         })
         .eq('id', session.session.user.id);
