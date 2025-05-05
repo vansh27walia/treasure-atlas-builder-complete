@@ -55,11 +55,18 @@ export class UserProfileService {
       
       // Cast and transform the data to match our UserProfile interface
       if (data) {
+        // Safely cast the JSON fields by first checking if they exist and are objects
+        const homeAddress = data.home_address ? 
+          data.home_address as Record<string, any> : undefined;
+        
+        const paymentInfo = data.payment_info ? 
+          data.payment_info as Record<string, any> : undefined;
+        
         return {
           id: data.id,
-          home_address: data.home_address as HomeAddress | undefined,
+          home_address: homeAddress as HomeAddress | undefined,
           default_pickup_address_id: data.default_pickup_address_id,
-          payment_info: data.payment_info as PaymentInfo | undefined,
+          payment_info: paymentInfo as PaymentInfo | undefined,
           onboarding_completed: data.onboarding_completed || false,
           created_at: data.created_at,
           updated_at: data.updated_at
