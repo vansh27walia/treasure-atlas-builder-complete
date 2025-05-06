@@ -1,10 +1,11 @@
+
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Box, ArrowRight, Scale, AlertCircle, Check } from 'lucide-react';
+import { Package, Box, ArrowRight, Scale, AlertCircle, Check, ArrowDown } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
@@ -69,7 +70,8 @@ const ShippingForm: React.FC = () => {
   });
   const [selectedFromAddressId, setSelectedFromAddressId] = useState<number | undefined>(undefined);
   const [selectedToAddressId, setSelectedToAddressId] = useState<number | undefined>(undefined);
-  const [useAddressSelector, setUseAddressSelector] = useState(true);
+  const [useFromAddressSelector, setUseFromAddressSelector] = useState(true);
+  const [useToAddressSelector, setUseToAddressSelector] = useState(true);
   
   // Using react-hook-form to manage form state
   const form = useForm<FormValues>({
@@ -118,6 +120,7 @@ const ShippingForm: React.FC = () => {
     form.setValue('fromCountry', address.country);
     
     toast.success(`Pickup address set to ${address.name || address.city}`);
+    console.log("From address selected:", address);
   };
   
   // Handle delivery address selection
@@ -135,11 +138,17 @@ const ShippingForm: React.FC = () => {
     form.setValue('toCountry', address.country);
     
     toast.success(`Delivery address set to ${address.name || address.city}`);
+    console.log("To address selected:", address);
   };
 
   // Toggle between address selector and manual entry
-  const toggleAddressSelector = () => {
-    setUseAddressSelector(!useAddressSelector);
+  const toggleFromAddressSelector = () => {
+    setUseFromAddressSelector(!useFromAddressSelector);
+  };
+  
+  // Toggle between address selector and manual entry for destination
+  const toggleToAddressSelector = () => {
+    setUseToAddressSelector(!useToAddressSelector);
   };
   
   // Handle address verification
@@ -170,8 +179,6 @@ const ShippingForm: React.FC = () => {
         zip: values.toZip,
         country: values.toCountry,
       };
-      
-      const result = await carrierService.verifyAddress(addressToVerify);
       
       // Get the verification response
       const { data, error } = await supabase.functions.invoke('verify-address', {
@@ -239,6 +246,9 @@ const ShippingForm: React.FC = () => {
 
   const handleGetRates = async (values: FormValues) => {
     setIsLoading(true);
+    
+    console.log("Submitting form values:", values);
+    
     try {
       // Calculate total weight in ounces
       const weightOz = (values.weightLb * 16) + (values.weightOz || 0);
@@ -315,21 +325,23 @@ const ShippingForm: React.FC = () => {
                 </TabsList>
                 
                 <TabsContent value="domestic" className="pt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
+                  {/* Redesigned layout with clear From -> To flow */}
+                  <div className="space-y-8">
+                    {/* Origin Address Section */}
+                    <div className="bg-blue-50 rounded-lg p-6 border border-blue-100">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-medium">Origin Address</h3>
+                        <h3 className="text-lg font-medium text-blue-800">Origin Address</h3>
                         <Button 
                           type="button" 
                           variant="outline" 
                           size="sm"
-                          onClick={toggleAddressSelector}
+                          onClick={toggleFromAddressSelector}
                         >
-                          {useAddressSelector ? "Manual Entry" : "Saved Addresses"}
+                          {useFromAddressSelector ? "Manual Entry" : "Saved Addresses"}
                         </Button>
                       </div>
                       
-                      {useAddressSelector ? (
+                      {useFromAddressSelector ? (
                         <AddressSelector 
                           type="from"
                           onAddressSelect={handleFromAddressSelect}
@@ -458,10 +470,25 @@ const ShippingForm: React.FC = () => {
                       )}
                     </div>
                     
-                    <div>
+                    {/* Direction Arrow */}
+                    <div className="flex justify-center">
+                      <div className="bg-blue-100 rounded-full p-3">
+                        <ArrowDown className="h-6 w-6 text-blue-600" />
+                      </div>
+                    </div>
+                    
+                    {/* Destination Address Section */}
+                    <div className="bg-indigo-50 rounded-lg p-6 border border-indigo-100">
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-medium">Destination Address</h3>
-                        {/* Optional: Add a similar toggle for destination address if needed */}
+                        <h3 className="text-lg font-medium text-indigo-800">Destination Address</h3>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={toggleToAddressSelector}
+                        >
+                          {useToAddressSelector ? "Manual Entry" : "Saved Addresses"}
+                        </Button>
                       </div>
                       
                       {/* Address verification status */}
@@ -493,68 +520,22 @@ const ShippingForm: React.FC = () => {
                         </Alert>
                       )}
                       
-                      <div className="space-y-4">
-                        <FormField
-                          control={form.control}
-                          name="toName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Name" />
-                              </FormControl>
-                            </FormItem>
-                          )}
+                      {useToAddressSelector ? (
+                        <AddressSelector 
+                          type="to"
+                          onAddressSelect={handleToAddressSelect}
+                          selectedAddressId={selectedToAddressId}
                         />
-                        
-                        <FormField
-                          control={form.control}
-                          name="toCompany"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Company (optional)</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Company" />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="toAddress1"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Address Line 1</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Street address" />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="toAddress2"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Address Line 2 (optional)</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Apt, Suite, Unit, etc." />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <div className="grid grid-cols-2 gap-4">
+                      ) : (
+                        <div className="space-y-4">
                           <FormField
                             control={form.control}
-                            name="toCity"
+                            name="toName"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>City</FormLabel>
+                                <FormLabel>Name</FormLabel>
                                 <FormControl>
-                                  <Input {...field} placeholder="City" />
+                                  <Input {...field} placeholder="Name" />
                                 </FormControl>
                               </FormItem>
                             )}
@@ -562,67 +543,121 @@ const ShippingForm: React.FC = () => {
                           
                           <FormField
                             control={form.control}
-                            name="toState"
+                            name="toCompany"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>State</FormLabel>
+                                <FormLabel>Company (optional)</FormLabel>
                                 <FormControl>
-                                  <Input {...field} placeholder="State" />
+                                  <Input {...field} placeholder="Company" />
                                 </FormControl>
                               </FormItem>
                             )}
                           />
-                        </div>
-                        
-                        <FormField
-                          control={form.control}
-                          name="toZip"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>ZIP Code</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="ZIP Code" />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="toCountry"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Country</FormLabel>
-                              <Select 
-                                onValueChange={field.onChange} 
-                                defaultValue={field.value}
-                              >
+                          
+                          <FormField
+                            control={form.control}
+                            name="toAddress1"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Address Line 1</FormLabel>
                                 <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select Country" />
-                                  </SelectTrigger>
+                                  <Input {...field} placeholder="Street address" />
                                 </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="US">United States</SelectItem>
-                                  <SelectItem value="CA">Canada</SelectItem>
-                                  <SelectItem value="MX">Mexico</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <div className="mt-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleVerifyAddress}
-                            disabled={toAddressVerification.isVerifying}
-                          >
-                            {toAddressVerification.isVerifying ? 'Verifying...' : 'Verify Address'}
-                          </Button>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="toAddress2"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Address Line 2 (optional)</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="Apt, Suite, Unit, etc." />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="toCity"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>City</FormLabel>
+                                  <FormControl>
+                                    <Input {...field} placeholder="City" />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="toState"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>State</FormLabel>
+                                  <FormControl>
+                                    <Input {...field} placeholder="State" />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          
+                          <FormField
+                            control={form.control}
+                            name="toZip"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>ZIP Code</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="ZIP Code" />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="toCountry"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Country</FormLabel>
+                                <Select 
+                                  onValueChange={field.onChange} 
+                                  defaultValue={field.value}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select Country" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="US">United States</SelectItem>
+                                    <SelectItem value="CA">Canada</SelectItem>
+                                    <SelectItem value="MX">Mexico</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <div className="mt-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={handleVerifyAddress}
+                              disabled={toAddressVerification.isVerifying}
+                            >
+                              {toAddressVerification.isVerifying ? 'Verifying...' : 'Verify Address'}
+                            </Button>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </TabsContent>
@@ -884,11 +919,11 @@ const ShippingForm: React.FC = () => {
                 </div>
               </div>
               
-              <div className="mt-8 flex justify-end">
+              <div className="mt-8 flex justify-center">
                 <Button 
                   type="submit" 
                   size="lg" 
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 px-8"
                   disabled={isLoading}
                 >
                   <span>{isLoading ? 'Getting Rates...' : 'Show Shipping Rates'}</span>

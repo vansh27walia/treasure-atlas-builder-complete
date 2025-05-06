@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Settings } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 
 interface AddressSelectorProps {
   type: 'from' | 'to';
@@ -44,12 +45,22 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
         
         if (defaultAddress) {
           onAddressSelect(defaultAddress);
+          console.log(`Selected default ${type} address:`, defaultAddress);
         } else if (savedAddresses.length > 0) {
           onAddressSelect(savedAddresses[0]);
+          console.log(`No default found, selected first ${type} address:`, savedAddresses[0]);
+        }
+      } else if (selectedAddressId) {
+        // If we already have a selected address ID, make sure it exists in our loaded addresses
+        const selectedAddress = savedAddresses.find(addr => addr.id === selectedAddressId);
+        if (selectedAddress) {
+          onAddressSelect(selectedAddress);
+          console.log(`Using pre-selected ${type} address:`, selectedAddress);
         }
       }
     } catch (error) {
       console.error('Error loading addresses:', error);
+      toast.error("Failed to load saved addresses");
     } finally {
       setIsLoading(false);
     }
@@ -63,6 +74,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     const selectedAddress = addresses.find(addr => addr.id === parseInt(addressId));
     if (selectedAddress) {
       onAddressSelect(selectedAddress);
+      console.log(`Selected ${type} address changed to:`, selectedAddress);
     }
   };
   
@@ -125,11 +137,12 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
         <Select 
           value={selectedAddressId?.toString()} 
           onValueChange={handleAddressChange}
+          defaultValue={selectedAddressId?.toString()}
         >
-          <SelectTrigger>
+          <SelectTrigger className="bg-white">
             <SelectValue placeholder="Select an address" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-white">
             {addresses.map((address) => (
               <SelectItem key={address.id} value={address.id.toString()}>
                 <div className="flex items-center">
