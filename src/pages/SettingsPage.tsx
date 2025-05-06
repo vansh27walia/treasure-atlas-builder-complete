@@ -122,9 +122,14 @@ const SettingsPage: React.FC = () => {
       let newAddress;
       
       if (editingAddress) {
-        // Update existing address 
-        // Note: The AddressService would need an update method, which we'll add
-        toast.error('Edit functionality not yet implemented in AddressService');
+        // Update existing address
+        await addressService.updateAddress(editingAddress.id, addressData);
+        
+        if (values.is_default_from) {
+          await addressService.setDefaultFromAddress(editingAddress.id);
+        }
+        
+        toast.success('Pickup location updated successfully');
         // Reset editing state
         setEditingAddress(null);
       } else {
@@ -137,10 +142,11 @@ const SettingsPage: React.FC = () => {
           }
           
           toast.success('Pickup location added successfully');
-          loadAddresses(); // Refresh the address list
-          form.reset(); // Clear the form
         }
       }
+      
+      loadAddresses(); // Refresh the address list
+      form.reset(); // Clear the form
     } catch (error) {
       console.error('Error saving address:', error);
       toast.error('Failed to save pickup location');

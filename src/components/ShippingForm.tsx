@@ -12,6 +12,8 @@ import { toast } from '@/components/ui/sonner';
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { carrierService } from '@/services/CarrierService';
+import AddressSelector from '@/components/shipping/AddressSelector';
+import { SavedAddress } from '@/services/AddressService';
 
 interface FormValues {
   fromName: string;
@@ -65,6 +67,9 @@ const ShippingForm: React.FC = () => {
     isVerified: false,
     messages: []
   });
+  const [selectedFromAddressId, setSelectedFromAddressId] = useState<number | undefined>(undefined);
+  const [selectedToAddressId, setSelectedToAddressId] = useState<number | undefined>(undefined);
+  const [useAddressSelector, setUseAddressSelector] = useState(true);
   
   // Using react-hook-form to manage form state
   const form = useForm<FormValues>({
@@ -97,6 +102,45 @@ const ShippingForm: React.FC = () => {
       insurance: false,
     }
   });
+  
+  // Handle pickup address selection
+  const handleFromAddressSelect = (address: SavedAddress) => {
+    setSelectedFromAddressId(address.id);
+    
+    // Update form values with selected address
+    form.setValue('fromName', address.name || '');
+    form.setValue('fromCompany', address.company || '');
+    form.setValue('fromAddress1', address.street1);
+    form.setValue('fromAddress2', address.street2 || '');
+    form.setValue('fromCity', address.city);
+    form.setValue('fromState', address.state);
+    form.setValue('fromZip', address.zip);
+    form.setValue('fromCountry', address.country);
+    
+    toast.success(`Pickup address set to ${address.name || address.city}`);
+  };
+  
+  // Handle delivery address selection
+  const handleToAddressSelect = (address: SavedAddress) => {
+    setSelectedToAddressId(address.id);
+    
+    // Update form values with selected address
+    form.setValue('toName', address.name || '');
+    form.setValue('toCompany', address.company || '');
+    form.setValue('toAddress1', address.street1);
+    form.setValue('toAddress2', address.street2 || '');
+    form.setValue('toCity', address.city);
+    form.setValue('toState', address.state);
+    form.setValue('toZip', address.zip);
+    form.setValue('toCountry', address.country);
+    
+    toast.success(`Delivery address set to ${address.name || address.city}`);
+  };
+
+  // Toggle between address selector and manual entry
+  const toggleAddressSelector = () => {
+    setUseAddressSelector(!useAddressSelector);
+  };
   
   // Handle address verification
   const handleVerifyAddress = async () => {
@@ -273,69 +317,34 @@ const ShippingForm: React.FC = () => {
                 <TabsContent value="domestic" className="pt-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
-                      <h3 className="text-lg font-medium mb-4">Origin Address</h3>
-                      <div className="space-y-4">
-                        <FormField
-                          control={form.control}
-                          name="fromName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Name" />
-                              </FormControl>
-                            </FormItem>
-                          )}
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium">Origin Address</h3>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={toggleAddressSelector}
+                        >
+                          {useAddressSelector ? "Manual Entry" : "Saved Addresses"}
+                        </Button>
+                      </div>
+                      
+                      {useAddressSelector ? (
+                        <AddressSelector 
+                          type="from"
+                          onAddressSelect={handleFromAddressSelect}
+                          selectedAddressId={selectedFromAddressId}
                         />
-                        
-                        <FormField
-                          control={form.control}
-                          name="fromCompany"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Company (optional)</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Company" />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="fromAddress1"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Address Line 1</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Street address" />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="fromAddress2"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Address Line 2 (optional)</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Apt, Suite, Unit, etc." />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <div className="grid grid-cols-2 gap-4">
+                      ) : (
+                        <div className="space-y-4">
                           <FormField
                             control={form.control}
-                            name="fromCity"
+                            name="fromName"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>City</FormLabel>
+                                <FormLabel>Name</FormLabel>
                                 <FormControl>
-                                  <Input {...field} placeholder="City" />
+                                  <Input {...field} placeholder="Name" />
                                 </FormControl>
                               </FormItem>
                             )}
@@ -343,60 +352,117 @@ const ShippingForm: React.FC = () => {
                           
                           <FormField
                             control={form.control}
-                            name="fromState"
+                            name="fromCompany"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>State</FormLabel>
+                                <FormLabel>Company (optional)</FormLabel>
                                 <FormControl>
-                                  <Input {...field} placeholder="State" />
+                                  <Input {...field} placeholder="Company" />
                                 </FormControl>
                               </FormItem>
                             )}
                           />
-                        </div>
-                        
-                        <FormField
-                          control={form.control}
-                          name="fromZip"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>ZIP Code</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="ZIP Code" />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="fromCountry"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Country</FormLabel>
-                              <Select 
-                                onValueChange={field.onChange} 
-                                defaultValue={field.value}
-                              >
+                          
+                          <FormField
+                            control={form.control}
+                            name="fromAddress1"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Address Line 1</FormLabel>
                                 <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select Country" />
-                                  </SelectTrigger>
+                                  <Input {...field} placeholder="Street address" />
                                 </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="US">United States</SelectItem>
-                                  <SelectItem value="CA">Canada</SelectItem>
-                                  <SelectItem value="MX">Mexico</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="fromAddress2"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Address Line 2 (optional)</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="Apt, Suite, Unit, etc." />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="fromCity"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>City</FormLabel>
+                                  <FormControl>
+                                    <Input {...field} placeholder="City" />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="fromState"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>State</FormLabel>
+                                  <FormControl>
+                                    <Input {...field} placeholder="State" />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          
+                          <FormField
+                            control={form.control}
+                            name="fromZip"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>ZIP Code</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="ZIP Code" />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="fromCountry"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Country</FormLabel>
+                                <Select 
+                                  onValueChange={field.onChange} 
+                                  defaultValue={field.value}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select Country" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="US">United States</SelectItem>
+                                    <SelectItem value="CA">Canada</SelectItem>
+                                    <SelectItem value="MX">Mexico</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
                     </div>
                     
                     <div>
-                      <h3 className="text-lg font-medium mb-4">Destination Address</h3>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium">Destination Address</h3>
+                        {/* Optional: Add a similar toggle for destination address if needed */}
+                      </div>
                       
                       {/* Address verification status */}
                       {toAddressVerification.messages.length > 0 && (
