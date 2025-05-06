@@ -66,4 +66,4 @@ export class AddressService {
 }
 
 export const addressService = new AddressService();
-export type { SavedAddress };
+export type { SavedAddress }; // Use 'export type' instead of just 'export'

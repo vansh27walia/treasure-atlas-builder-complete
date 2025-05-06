@@ -1,4 +1,6 @@
 
-import { addressService, SavedAddress } from './address';
+import { addressService } from './address';
+import type { SavedAddress } from './address/AddressTypes';
 
-export { addressService, SavedAddress };
+export { addressService };
+export type { SavedAddress };
