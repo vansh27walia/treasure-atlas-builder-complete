@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Settings } from 'lucide-react';
+import { Plus, Settings, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
 interface AddressSelectorProps {
@@ -89,9 +89,10 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     }
   };
   
+  // Load address data on mount and when type changes
   useEffect(() => {
     loadAddressData();
-  }, [type]); // Remove selectedAddressId dependency to prevent infinite loops
+  }, [type]); 
   
   // Refresh addresses when selectedAddressId changes externally
   useEffect(() => {
@@ -169,6 +170,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
         <Select 
           value={selectedAddressId?.toString()} 
           onValueChange={handleAddressChange}
+          defaultValue={defaultAddressId?.toString()}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select an address" />
@@ -200,6 +202,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
           className="h-6 px-2 text-xs" 
           onClick={() => loadAddressData()}
         >
+          <RefreshCw className="h-3 w-3 mr-1" />
           Refresh Addresses
         </Button>
       </div>

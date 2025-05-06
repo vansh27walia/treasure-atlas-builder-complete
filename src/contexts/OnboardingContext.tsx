@@ -23,6 +23,7 @@ const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(true);
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
+  const [hasShownModalThisSession, setHasShownModalThisSession] = useState(false);
   
   useEffect(() => {
     const checkOnboardingStatus = async () => {
@@ -40,8 +41,9 @@ const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Only show the onboarding modal if:
         // 1. The user hasn't completed onboarding
         // 2. We haven't shown it yet during this session
-        if (!completed && user) {
+        if (!completed && user && !hasShownModalThisSession) {
           setShowOnboardingModal(true);
+          setHasShownModalThisSession(true); // Mark as shown for this session
         }
       } catch (error) {
         console.error('Error checking onboarding status:', error);
@@ -53,7 +55,7 @@ const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!authLoading) {
       checkOnboardingStatus();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, hasShownModalThisSession]);
   
   const completeOnboarding = async () => {
     try {
