@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Settings } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 
 interface AddressSelectorProps {
   type: 'from' | 'to';
@@ -37,6 +38,11 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     try {
       // Load all saved addresses
       const savedAddresses = await addressService.getSavedAddresses();
+      
+      if (savedAddresses.length === 0) {
+        toast.info('No saved addresses found. Please add an address.');
+      }
+      
       setAddresses(savedAddresses);
       
       // Get the user profile to check for default pickup address
@@ -77,6 +83,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       }
     } catch (error) {
       console.error('Error loading addresses:', error);
+      toast.error('Failed to load saved addresses. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -84,7 +91,17 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   
   useEffect(() => {
     loadAddressData();
-  }, [type, selectedAddressId]);
+  }, [type]); // Remove selectedAddressId dependency to prevent infinite loops
+  
+  // Refresh addresses when selectedAddressId changes externally
+  useEffect(() => {
+    if (selectedAddressId && addresses.length > 0) {
+      const selected = addresses.find(addr => addr.id === selectedAddressId);
+      if (!selected) {
+        loadAddressData();
+      }
+    }
+  }, [selectedAddressId]);
   
   const handleAddressChange = (addressId: string) => {
     const selectedAddress = addresses.find(addr => addr.id === parseInt(addressId));
@@ -174,6 +191,18 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
           </SelectContent>
         </Select>
       )}
+      
+      {/* Add a refresh button to manually reload addresses */}
+      <div className="flex justify-end">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-6 px-2 text-xs" 
+          onClick={() => loadAddressData()}
+        >
+          Refresh Addresses
+        </Button>
+      </div>
     </div>
   );
 };

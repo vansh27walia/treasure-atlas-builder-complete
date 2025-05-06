@@ -37,8 +37,10 @@ const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const completed = await userProfileService.hasCompletedOnboarding();
         setHasCompletedOnboarding(completed);
         
-        // Show the onboarding modal if the user hasn't completed onboarding
-        if (!completed) {
+        // Only show the onboarding modal if:
+        // 1. The user hasn't completed onboarding
+        // 2. We haven't shown it yet during this session
+        if (!completed && user) {
           setShowOnboardingModal(true);
         }
       } catch (error) {
@@ -60,12 +62,20 @@ const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setShowOnboardingModal(false);
     } catch (error) {
       console.error('Error completing onboarding:', error);
+      throw error; // Rethrow to allow handling in the component
     }
   };
   
   const handleOnboardingComplete = () => {
     completeOnboarding().catch(error => {
       console.error('Error in handleOnboardingComplete:', error);
+    });
+  };
+  
+  const handleOnboardingCancel = () => {
+    // Mark onboarding as complete even when cancelled
+    completeOnboarding().catch(error => {
+      console.error('Error in handleOnboardingCancel:', error);
     });
   };
   
@@ -82,6 +92,7 @@ const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         <OnboardingModal
           isOpen={showOnboardingModal}
           onComplete={handleOnboardingComplete}
+          onCancel={handleOnboardingCancel}
         />
       )}
     </OnboardingContext.Provider>

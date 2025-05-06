@@ -24,9 +24,10 @@ import { OnboardingFormValues } from './OnboardingTypes';
 interface OnboardingModalProps {
   isOpen: boolean;
   onComplete: () => void;
+  onCancel: () => void;
 }
 
-const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete }) => {
+const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete, onCancel }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('pickup');
   
@@ -64,7 +65,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
   
   const handleCancel = () => {
     form.reset();
-    onComplete(); // Close the modal
+    onCancel(); // Close the modal and mark onboarding as complete
   };
   
   const onSubmit = async (values: OnboardingFormValues) => {
@@ -210,6 +211,15 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen, onComplete })
                     Back
                   </Button>
                 )}
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancel}
+                  className="mr-auto"
+                >
+                  Skip for now
+                </Button>
                 
                 {activeTab !== 'payment' ? (
                   <Button
