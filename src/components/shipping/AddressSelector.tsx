@@ -3,16 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { userProfileService } from '@/services/UserProfileService';
-import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Plus, Settings, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
+
+import AddressSelectorHeader from './address/AddressSelectorHeader';
+import AddressEmptyState from './address/AddressEmptyState';
+import AddressDropdown from './address/AddressDropdown';
+import AddressActions from './address/AddressActions';
 
 interface AddressSelectorProps {
   type: 'from' | 'to';
@@ -111,101 +107,35 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     }
   };
   
-  const formatAddressForDisplay = (address: SavedAddress) => {
-    const name = address.name || 'Unnamed Location';
-    return `${name} - ${address.city}, ${address.state}`;
-  };
-  
   const goToAddressSettings = () => {
     navigate('/settings');
   };
-  
+
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">
-          {type === 'from' ? 'Pickup' : 'Delivery'} Address
-        </h3>
-        
-        <div className="flex items-center gap-2">
-          {allowAddNew && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 px-2 text-xs" 
-              onClick={goToAddressSettings}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1" />
-              Add New
-            </Button>
-          )}
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-8 px-2 text-xs" 
-            onClick={goToAddressSettings}
-          >
-            <Settings className="h-3.5 w-3.5 mr-1" />
-            Manage
-          </Button>
-        </div>
-      </div>
+      <AddressSelectorHeader type={type} allowAddNew={allowAddNew} />
       
       {isLoading ? (
-        <Select disabled>
-          <SelectTrigger>
-            <SelectValue placeholder="Loading addresses..." />
-          </SelectTrigger>
-        </Select>
+        <AddressDropdown 
+          addresses={[]}
+          selectedAddressId={undefined}
+          defaultAddressId={null}
+          type={type}
+          onAddressChange={() => {}}
+        />
       ) : addresses.length === 0 ? (
-        <div className="text-sm text-gray-500 flex items-center justify-between bg-gray-50 border rounded-md p-3">
-          <span>No saved addresses</span>
-          <Button size="sm" variant="default" onClick={goToAddressSettings}>
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            Add Address
-          </Button>
-        </div>
+        <AddressEmptyState onAddClick={goToAddressSettings} />
       ) : (
-        <Select 
-          value={selectedAddressId?.toString()} 
-          onValueChange={handleAddressChange}
-          defaultValue={defaultAddressId?.toString()}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select an address" />
-          </SelectTrigger>
-          <SelectContent>
-            {addresses.map((address) => (
-              <SelectItem key={address.id} value={address.id.toString()}>
-                <div className="flex items-center">
-                  <span>{formatAddressForDisplay(address)}</span>
-                  {(type === 'from' && address.is_default_from) || 
-                   (type === 'to' && address.is_default_to) || 
-                   (type === 'from' && defaultAddressId === address.id) ? (
-                    <span className="ml-2 bg-green-100 text-green-800 text-xs px-1.5 py-0.5 rounded-full">
-                      Default
-                    </span>
-                  ) : null}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <AddressDropdown 
+          addresses={addresses}
+          selectedAddressId={selectedAddressId}
+          defaultAddressId={defaultAddressId}
+          type={type}
+          onAddressChange={handleAddressChange}
+        />
       )}
       
-      {/* Add a refresh button to manually reload addresses */}
-      <div className="flex justify-end">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="h-6 px-2 text-xs" 
-          onClick={() => loadAddressData()}
-        >
-          <RefreshCw className="h-3 w-3 mr-1" />
-          Refresh Addresses
-        </Button>
-      </div>
+      <AddressActions onRefresh={loadAddressData} />
     </div>
   );
 };
