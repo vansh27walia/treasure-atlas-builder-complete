@@ -2,13 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addressService, SavedAddress } from '@/services/AddressService';
-import { userProfileService } from '@/services/UserProfileService';
-import { toast } from '@/components/ui/sonner';
-
-import AddressSelectorHeader from './address/AddressSelectorHeader';
-import AddressEmptyState from './address/AddressEmptyState';
-import AddressDropdown from './address/AddressDropdown';
-import AddressActions from './address/AddressActions';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Plus, Settings } from 'lucide-react';
 
 interface AddressSelectorProps {
   type: 'from' | 'to';
@@ -25,80 +27,37 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
 }) => {
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [defaultAddressId, setDefaultAddressId] = useState<number | null>(null);
   const navigate = useNavigate();
   
-  // Load saved addresses and default address from user profile
-  const loadAddressData = async () => {
+  // Load saved addresses
+  const loadAddresses = async () => {
     setIsLoading(true);
     try {
-      // Load all saved addresses
       const savedAddresses = await addressService.getSavedAddresses();
-      
-      if (savedAddresses.length === 0) {
-        toast.info('No saved addresses found. Please add an address.');
-      }
-      
       setAddresses(savedAddresses);
       
-      // Get the user profile to check for default pickup address
-      if (type === 'from') {
-        const userProfile = await userProfileService.getUserProfile();
-        if (userProfile?.default_pickup_address_id) {
-          setDefaultAddressId(userProfile.default_pickup_address_id);
-        }
-      }
-      
-      // Select default address if no address is already selected
+      // If we don't have a selected address yet and we have a default, select it
       if (!selectedAddressId && savedAddresses.length > 0) {
-        let addressToSelect: SavedAddress | undefined;
+        const defaultAddress = savedAddresses.find(addr => 
+          type === 'from' ? addr.is_default_from : addr.is_default_to
+        );
         
-        if (type === 'from') {
-          // First try the default from user profile
-          if (defaultAddressId) {
-            addressToSelect = savedAddresses.find(addr => addr.id === defaultAddressId);
-          }
-          
-          // Then try default_from flag
-          if (!addressToSelect) {
-            addressToSelect = savedAddresses.find(addr => addr.is_default_from);
-          }
-        } else {
-          // For 'to' addresses, check for default_to flag
-          addressToSelect = savedAddresses.find(addr => addr.is_default_to);
-        }
-        
-        // If still no address found, use the first one
-        if (!addressToSelect && savedAddresses.length > 0) {
-          addressToSelect = savedAddresses[0];
-        }
-        
-        if (addressToSelect) {
-          onAddressSelect(addressToSelect);
+        if (defaultAddress) {
+          onAddressSelect(defaultAddress);
+        } else if (savedAddresses.length > 0) {
+          onAddressSelect(savedAddresses[0]);
         }
       }
     } catch (error) {
       console.error('Error loading addresses:', error);
-      toast.error('Failed to load saved addresses. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
   
-  // Load address data on mount and when type changes
   useEffect(() => {
-    loadAddressData();
-  }, [type]); 
-  
-  // Refresh addresses when selectedAddressId changes externally
-  useEffect(() => {
-    if (selectedAddressId && addresses.length > 0) {
-      const selected = addresses.find(addr => addr.id === selectedAddressId);
-      if (!selected) {
-        loadAddressData();
-      }
-    }
-  }, [selectedAddressId]);
+    loadAddresses();
+  }, []);
   
   const handleAddressChange = (addressId: string) => {
     const selectedAddress = addresses.find(addr => addr.id === parseInt(addressId));
@@ -107,35 +66,86 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     }
   };
   
+  const formatAddressForDisplay = (address: SavedAddress) => {
+    const name = address.name || 'Unnamed Location';
+    return `${name} - ${address.city}, ${address.state}`;
+  };
+  
   const goToAddressSettings = () => {
     navigate('/settings');
   };
-
+  
   return (
     <div className="space-y-2">
-      <AddressSelectorHeader type={type} allowAddNew={allowAddNew} />
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium">
+          {type === 'from' ? 'Pickup' : 'Delivery'} Address
+        </h3>
+        
+        <div className="flex items-center gap-2">
+          {allowAddNew && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-8 px-2 text-xs" 
+              onClick={goToAddressSettings}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add New
+            </Button>
+          )}
+          
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-8 px-2 text-xs" 
+            onClick={goToAddressSettings}
+          >
+            <Settings className="h-3.5 w-3.5 mr-1" />
+            Manage
+          </Button>
+        </div>
+      </div>
       
       {isLoading ? (
-        <AddressDropdown 
-          addresses={[]}
-          selectedAddressId={undefined}
-          defaultAddressId={null}
-          type={type}
-          onAddressChange={() => {}}
-        />
+        <Select disabled>
+          <SelectTrigger>
+            <SelectValue placeholder="Loading addresses..." />
+          </SelectTrigger>
+        </Select>
       ) : addresses.length === 0 ? (
-        <AddressEmptyState onAddClick={goToAddressSettings} />
+        <div className="text-sm text-gray-500 flex items-center justify-between bg-gray-50 border rounded-md p-3">
+          <span>No saved addresses</span>
+          <Button size="sm" variant="default" onClick={goToAddressSettings}>
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Add Address
+          </Button>
+        </div>
       ) : (
-        <AddressDropdown 
-          addresses={addresses}
-          selectedAddressId={selectedAddressId}
-          defaultAddressId={defaultAddressId}
-          type={type}
-          onAddressChange={handleAddressChange}
-        />
+        <Select 
+          value={selectedAddressId?.toString()} 
+          onValueChange={handleAddressChange}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select an address" />
+          </SelectTrigger>
+          <SelectContent>
+            {addresses.map((address) => (
+              <SelectItem key={address.id} value={address.id.toString()}>
+                <div className="flex items-center">
+                  <span>{formatAddressForDisplay(address)}</span>
+                  {(type === 'from' && address.is_default_from) || 
+                   (type === 'to' && address.is_default_to) ? (
+                    <span className="ml-2 bg-green-100 text-green-800 text-xs px-1.5 py-0.5 rounded-full">
+                      Default
+                    </span>
+                  ) : null}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
-      
-      <AddressActions onRefresh={loadAddressData} />
     </div>
   );
 };

@@ -26,8 +26,7 @@ import { toast } from '@/components/ui/sonner';
 import { Separator } from '@/components/ui/separator';
 import { useNavigate } from 'react-router-dom';
 import { addressService, SavedAddress } from '@/services/AddressService';
-import { HomeAddress, PaymentInfo, userProfileService, UserProfile } from '@/services/UserProfileService';
-import { MapPin, Plus, Edit, Trash2, Check, CreditCard, Home, UserCircle } from 'lucide-react';
+import { MapPin, Plus, Edit, Trash2, Check } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 
 interface AddressFormValues {
@@ -43,35 +42,13 @@ interface AddressFormValues {
   is_default_from: boolean;
 }
 
-interface HomeAddressFormValues {
-  name: string;
-  street1: string;
-  street2: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  phone: string;
-}
-
-interface PaymentInfoFormValues {
-  cardholderName: string;
-  cardNumber: string;
-  expiryMonth: string;
-  expiryYear: string;
-  cvv: string;
-}
-
 const SettingsPage: React.FC = () => {
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [activeTab, setActiveTab] = useState('locations');
   const navigate = useNavigate();
   
-  // Setup form for pickup addresses
-  const addressForm = useForm<AddressFormValues>({
+  const form = useForm<AddressFormValues>({
     defaultValues: {
       name: '',
       company: '',
@@ -86,32 +63,7 @@ const SettingsPage: React.FC = () => {
     }
   });
   
-  // Setup form for home address
-  const homeAddressForm = useForm<HomeAddressFormValues>({
-    defaultValues: {
-      name: '',
-      street1: '',
-      street2: '',
-      city: '',
-      state: '',
-      zip: '',
-      country: 'US',
-      phone: '',
-    }
-  });
-  
-  // Setup form for payment info
-  const paymentForm = useForm<PaymentInfoFormValues>({
-    defaultValues: {
-      cardholderName: '',
-      cardNumber: '',
-      expiryMonth: '',
-      expiryYear: '',
-      cvv: '',
-    }
-  });
-  
-  // Load saved addresses and user profile data
+  // Load saved addresses
   const loadAddresses = async () => {
     try {
       const savedAddresses = await addressService.getSavedAddresses();
@@ -122,50 +74,14 @@ const SettingsPage: React.FC = () => {
     }
   };
   
-  const loadUserProfile = async () => {
-    try {
-      const profile = await userProfileService.getUserProfile();
-      setUserProfile(profile);
-      
-      // If user has a home address, populate the form
-      if (profile?.home_address) {
-        homeAddressForm.reset({
-          name: profile.home_address.name || '',
-          street1: profile.home_address.street1,
-          street2: profile.home_address.street2 || '',
-          city: profile.home_address.city,
-          state: profile.home_address.state,
-          zip: profile.home_address.zip,
-          country: profile.home_address.country || 'US',
-          phone: profile.home_address.phone || '',
-        });
-      }
-      
-      // If user has payment info, populate the form (partially, for security)
-      if (profile?.payment_info) {
-        paymentForm.reset({
-          cardholderName: profile.payment_info.cardholder_name,
-          cardNumber: '', // Don't populate for security reasons
-          expiryMonth: profile.payment_info.exp_month,
-          expiryYear: profile.payment_info.exp_year,
-          cvv: '',
-        });
-      }
-    } catch (error) {
-      console.error('Error loading user profile:', error);
-      toast.error('Failed to load user profile');
-    }
-  };
-  
   useEffect(() => {
     loadAddresses();
-    loadUserProfile();
   }, []);
   
   // Reset form when editing address changes
   useEffect(() => {
     if (editingAddress) {
-      addressForm.reset({
+      form.reset({
         name: editingAddress.name || '',
         company: editingAddress.company || '',
         street1: editingAddress.street1,
@@ -178,7 +94,7 @@ const SettingsPage: React.FC = () => {
         is_default_from: editingAddress.is_default_from,
       });
     } else {
-      addressForm.reset({
+      form.reset({
         name: '',
         company: '',
         street1: '',
@@ -191,10 +107,9 @@ const SettingsPage: React.FC = () => {
         is_default_from: false,
       });
     }
-  }, [editingAddress, addressForm]);
+  }, [editingAddress, form]);
   
-  // Handle pickup address form submission
-  const handleAddressSubmit = async (values: AddressFormValues) => {
+  const handleSubmit = async (values: AddressFormValues) => {
     setIsLoading(true);
     
     try {
@@ -204,133 +119,31 @@ const SettingsPage: React.FC = () => {
         is_default_to: false, // We're only managing pickup (from) addresses in this page
       };
       
+      let newAddress;
+      
       if (editingAddress) {
-        // Update existing address
-        const updated = await addressService.updateAddress(editingAddress.id, addressData);
-        
-        if (updated) {
-          if (values.is_default_from) {
-            await addressService.setDefaultFromAddress(editingAddress.id);
-          }
-          
-          // Update default pickup address in user profile if this is the default from address
-          if (values.is_default_from) {
-            await userProfileService.updateDefaultPickupAddressId(editingAddress.id);
-          }
-          
-          toast.success('Pickup location updated successfully');
-          loadAddresses(); // Refresh the address list
-          setEditingAddress(null); // Reset editing state
-        }
+        // Update existing address 
+        // Note: The AddressService would need an update method, which we'll add
+        toast.error('Edit functionality not yet implemented in AddressService');
+        // Reset editing state
+        setEditingAddress(null);
       } else {
         // Create new address
-        const newAddress = await addressService.createAddress(addressData);
+        newAddress = await addressService.createAddress(addressData);
         
         if (newAddress) {
           if (values.is_default_from) {
             await addressService.setDefaultFromAddress(newAddress.id);
-            
-            // Update default pickup address in user profile
-            await userProfileService.updateDefaultPickupAddressId(newAddress.id);
           }
           
           toast.success('Pickup location added successfully');
           loadAddresses(); // Refresh the address list
-          addressForm.reset(); // Clear the form
+          form.reset(); // Clear the form
         }
       }
     } catch (error) {
       console.error('Error saving address:', error);
       toast.error('Failed to save pickup location');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Handle home address form submission
-  const handleHomeAddressSubmit = async (values: HomeAddressFormValues) => {
-    setIsLoading(true);
-    
-    try {
-      const homeAddress: HomeAddress = {
-        name: values.name || undefined,
-        street1: values.street1,
-        street2: values.street2 || undefined,
-        city: values.city,
-        state: values.state,
-        zip: values.zip,
-        country: values.country,
-        phone: values.phone || undefined,
-      };
-      
-      const success = await userProfileService.updateHomeAddress(homeAddress);
-      
-      if (success) {
-        toast.success('Home address updated successfully');
-        loadUserProfile(); // Refresh user profile data
-      } else {
-        throw new Error('Failed to update home address');
-      }
-    } catch (error) {
-      console.error('Error saving home address:', error);
-      toast.error('Failed to save home address');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Handle payment form submission
-  const handlePaymentSubmit = async (values: PaymentInfoFormValues) => {
-    setIsLoading(true);
-    
-    try {
-      // Only update if card number is provided (otherwise user might just be updating name)
-      if (values.cardNumber && values.cardNumber.length >= 13) {
-        const paymentInfo: PaymentInfo = {
-          card_number: values.cardNumber.replace(/\s/g, ''),
-          exp_month: values.expiryMonth,
-          exp_year: values.expiryYear,
-          cardholder_name: values.cardholderName,
-          last4: values.cardNumber.slice(-4),
-        };
-        
-        const success = await userProfileService.updatePaymentInfo(paymentInfo);
-        
-        if (success) {
-          toast.success('Payment information updated successfully');
-          loadUserProfile(); // Refresh user profile data
-          
-          // Reset sensitive fields
-          paymentForm.setValue('cardNumber', '');
-          paymentForm.setValue('cvv', '');
-        } else {
-          throw new Error('Failed to update payment information');
-        }
-      } else if (!values.cardNumber && userProfile?.payment_info) {
-        // Just updating cardholder name or expiry
-        const paymentInfo: PaymentInfo = {
-          card_number: `XXXX-XXXX-XXXX-${userProfile.payment_info.last4}`,
-          exp_month: values.expiryMonth,
-          exp_year: values.expiryYear,
-          cardholder_name: values.cardholderName,
-          last4: userProfile.payment_info.last4,
-        };
-        
-        const success = await userProfileService.updatePaymentInfo(paymentInfo);
-        
-        if (success) {
-          toast.success('Payment information updated successfully');
-          loadUserProfile(); // Refresh user profile data
-        } else {
-          throw new Error('Failed to update payment information');
-        }
-      } else {
-        toast.error('Please enter a valid card number');
-        return;
-      }
-    } catch (error) {
-      console.error('Error saving payment info:', error);
-      toast.error('Failed to save payment information');
     } finally {
       setIsLoading(false);
     }
@@ -343,12 +156,6 @@ const SettingsPage: React.FC = () => {
         
         if (success) {
           toast.success('Pickup location deleted successfully');
-          
-          // If this was the default pickup address in user profile, remove it
-          if (userProfile?.default_pickup_address_id === addressId) {
-            await userProfileService.updateDefaultPickupAddressId(0); // 0 means no default
-          }
-          
           loadAddresses(); // Refresh the address list
           
           // If we're editing the address that was deleted, reset the form
@@ -365,13 +172,9 @@ const SettingsPage: React.FC = () => {
   
   const handleSetDefault = async (addressId: number) => {
     try {
-      // Update both the address record and the user profile
       const success = await addressService.setDefaultFromAddress(addressId);
       
       if (success) {
-        // Update user profile with the new default address
-        await userProfileService.updateDefaultPickupAddressId(addressId);
-        
         toast.success('Default pickup location updated');
         loadAddresses(); // Refresh the address list
       }
@@ -379,22 +182,6 @@ const SettingsPage: React.FC = () => {
       console.error('Error setting default address:', error);
       toast.error('Failed to update default pickup location');
     }
-  };
-  
-  // Render masked card number for display
-  const renderMaskedCardNumber = () => {
-    if (!userProfile?.payment_info) return 'No card saved';
-    return `•••• •••• •••• ${userProfile.payment_info.last4}`;
-  };
-  
-  // Determine card brand from number
-  const getCardBrand = (cardNumber: string): string => {
-    // Simple card brand detection
-    if (cardNumber.startsWith('4')) return 'Visa';
-    if (/^5[1-5]/.test(cardNumber)) return 'Mastercard';
-    if (/^3[47]/.test(cardNumber)) return 'American Express';
-    if (/^6(?:011|5)/.test(cardNumber)) return 'Discover';
-    return 'Card';
   };
   
   return (
@@ -408,27 +195,20 @@ const SettingsPage: React.FC = () => {
             </Button>
           </div>
           
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs defaultValue="locations" className="w-full">
             <TabsList className="mb-4">
               <TabsTrigger value="locations" className="flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
                 Pickup Locations
               </TabsTrigger>
-              <TabsTrigger value="home" className="flex items-center gap-2">
-                <Home className="h-4 w-4" />
-                Home Address
-              </TabsTrigger>
-              <TabsTrigger value="payment" className="flex items-center gap-2">
-                <CreditCard className="h-4 w-4" />
-                Payment
-              </TabsTrigger>
               <TabsTrigger value="account" disabled className="flex items-center gap-2">
-                <UserCircle className="h-4 w-4" />
                 Account
+              </TabsTrigger>
+              <TabsTrigger value="preferences" disabled className="flex items-center gap-2">
+                Preferences
               </TabsTrigger>
             </TabsList>
             
-            {/* Pickup Locations Tab */}
             <TabsContent value="locations">
               <Card className="mb-8">
                 <CardHeader>
@@ -447,17 +227,13 @@ const SettingsPage: React.FC = () => {
                       </div>
                     ) : (
                       addresses.map((address) => (
-                        <Card key={address.id} className={`border ${
-                          (address.is_default_from || userProfile?.default_pickup_address_id === address.id) 
-                            ? 'border-green-500' 
-                            : 'border-gray-200'
-                        }`}>
+                        <Card key={address.id} className={`border ${address.is_default_from ? 'border-green-500' : 'border-gray-200'}`}>
                           <CardContent className="p-4">
                             <div className="flex justify-between items-start">
                               <div className="space-y-1">
                                 <div className="flex items-center gap-2">
                                   <h3 className="font-semibold text-lg">{address.name || 'Unnamed Location'}</h3>
-                                  {(address.is_default_from || userProfile?.default_pickup_address_id === address.id) && (
+                                  {address.is_default_from && (
                                     <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
                                       Default
                                     </span>
@@ -488,7 +264,7 @@ const SettingsPage: React.FC = () => {
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
-                                {(!address.is_default_from || userProfile?.default_pickup_address_id !== address.id) && (
+                                {!address.is_default_from && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
@@ -519,11 +295,11 @@ const SettingsPage: React.FC = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Form {...addressForm}>
-                    <form onSubmit={addressForm.handleSubmit(handleAddressSubmit)} className="space-y-6">
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <FormField
-                          control={addressForm.control}
+                          control={form.control}
                           name="name"
                           render={({ field }) => (
                             <FormItem>
@@ -540,7 +316,7 @@ const SettingsPage: React.FC = () => {
                         />
                         
                         <FormField
-                          control={addressForm.control}
+                          control={form.control}
                           name="company"
                           render={({ field }) => (
                             <FormItem>
@@ -555,7 +331,7 @@ const SettingsPage: React.FC = () => {
                       </div>
                       
                       <FormField
-                        control={addressForm.control}
+                        control={form.control}
                         name="street1"
                         render={({ field }) => (
                           <FormItem>
@@ -569,7 +345,7 @@ const SettingsPage: React.FC = () => {
                       />
                       
                       <FormField
-                        control={addressForm.control}
+                        control={form.control}
                         name="street2"
                         render={({ field }) => (
                           <FormItem>
@@ -584,7 +360,7 @@ const SettingsPage: React.FC = () => {
                       
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
-                          control={addressForm.control}
+                          control={form.control}
                           name="city"
                           render={({ field }) => (
                             <FormItem>
@@ -598,7 +374,7 @@ const SettingsPage: React.FC = () => {
                         />
                         
                         <FormField
-                          control={addressForm.control}
+                          control={form.control}
                           name="state"
                           render={({ field }) => (
                             <FormItem>
@@ -614,7 +390,7 @@ const SettingsPage: React.FC = () => {
                       
                       <div className="grid grid-cols-2 gap-4">
                         <FormField
-                          control={addressForm.control}
+                          control={form.control}
                           name="zip"
                           render={({ field }) => (
                             <FormItem>
@@ -628,7 +404,7 @@ const SettingsPage: React.FC = () => {
                         />
                         
                         <FormField
-                          control={addressForm.control}
+                          control={form.control}
                           name="country"
                           render={({ field }) => (
                             <FormItem>
@@ -643,7 +419,7 @@ const SettingsPage: React.FC = () => {
                       </div>
                       
                       <FormField
-                        control={addressForm.control}
+                        control={form.control}
                         name="phone"
                         render={({ field }) => (
                           <FormItem>
@@ -657,7 +433,7 @@ const SettingsPage: React.FC = () => {
                       />
                       
                       <FormField
-                        control={addressForm.control}
+                        control={form.control}
                         name="is_default_from"
                         render={({ field }) => (
                           <FormItem className="space-y-3">
@@ -705,283 +481,6 @@ const SettingsPage: React.FC = () => {
                 </CardContent>
               </Card>
             </TabsContent>
-            
-            {/* Home Address Tab */}
-            <TabsContent value="home">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Home Address</CardTitle>
-                  <CardDescription>
-                    Update your home address information
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...homeAddressForm}>
-                    <form onSubmit={homeAddressForm.handleSubmit(handleHomeAddressSubmit)} className="space-y-6">
-                      <FormField
-                        control={homeAddressForm.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Full Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Your name" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={homeAddressForm.control}
-                        name="street1"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Address Line 1</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Street address" required {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={homeAddressForm.control}
-                        name="street2"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Address Line 2 (Optional)</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Apartment, suite, unit, etc." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={homeAddressForm.control}
-                          name="city"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>City</FormLabel>
-                              <FormControl>
-                                <Input placeholder="City" required {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={homeAddressForm.control}
-                          name="state"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>State</FormLabel>
-                              <FormControl>
-                                <Input placeholder="State" required {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <FormField
-                          control={homeAddressForm.control}
-                          name="zip"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>ZIP Code</FormLabel>
-                              <FormControl>
-                                <Input placeholder="ZIP code" required {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={homeAddressForm.control}
-                          name="country"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Country</FormLabel>
-                              <FormControl>
-                                <Input placeholder="Country" required {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <FormField
-                        control={homeAddressForm.control}
-                        name="phone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Phone (Optional)</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Phone number" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <Button type="submit" disabled={isLoading}>
-                        {isLoading ? 'Saving...' : 'Save Home Address'}
-                      </Button>
-                    </form>
-                  </Form>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            {/* Payment Tab */}
-            <TabsContent value="payment">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payment Information</CardTitle>
-                  <CardDescription>
-                    Update your payment details for shipping services
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {userProfile?.payment_info && (
-                    <div className="mb-6 p-4 bg-gray-50 rounded-md">
-                      <h3 className="font-medium mb-2">Current Payment Method</h3>
-                      <div className="flex items-center gap-3">
-                        <CreditCard className="h-10 w-10 text-blue-500" />
-                        <div>
-                          <p className="font-medium">
-                            {userProfile.payment_info.brand || getCardBrand(userProfile.payment_info.card_number)} ending in {userProfile.payment_info.last4}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Expires {userProfile.payment_info.exp_month}/{userProfile.payment_info.exp_year}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {userProfile.payment_info.cardholder_name}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <Form {...paymentForm}>
-                    <form onSubmit={paymentForm.handleSubmit(handlePaymentSubmit)} className="space-y-6">
-                      <FormField
-                        control={paymentForm.control}
-                        name="cardholderName"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Cardholder Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Name on card" required {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={paymentForm.control}
-                        name="cardNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Card Number {userProfile?.payment_info ? '(leave blank to keep current)' : ''}</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder={userProfile?.payment_info ? renderMaskedCardNumber() : "XXXX XXXX XXXX XXXX"} 
-                                {...field} 
-                                maxLength={19}
-                                required={!userProfile?.payment_info}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <div className="grid grid-cols-3 gap-4">
-                        <FormField
-                          control={paymentForm.control}
-                          name="expiryMonth"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Expiry Month</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="MM" 
-                                  required 
-                                  maxLength={2}
-                                  {...field} 
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={paymentForm.control}
-                          name="expiryYear"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Expiry Year</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="YY" 
-                                  required 
-                                  maxLength={2}
-                                  {...field} 
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={paymentForm.control}
-                          name="cvv"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>CVV {userProfile?.payment_info ? '(only for new card)' : ''}</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  placeholder="XXX" 
-                                  required={!userProfile?.payment_info || !!paymentForm.watch('cardNumber')}
-                                  maxLength={4}
-                                  type="password"
-                                  {...field} 
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <div className="bg-yellow-50 p-4 rounded-md mb-4">
-                        <p className="text-sm text-yellow-800">
-                          <strong>Note:</strong> For demonstration purposes only. In a production environment, we would use a secure payment processor like Stripe to handle payment information.
-                        </p>
-                      </div>
-                      
-                      <Button type="submit" disabled={isLoading}>
-                        {isLoading ? 'Saving...' : 'Save Payment Information'}
-                      </Button>
-                    </form>
-                  </Form>
-                </CardContent>
-              </Card>
-            </TabsContent>
           </Tabs>
         </div>
         
@@ -1000,26 +499,18 @@ const SettingsPage: React.FC = () => {
               </div>
               
               <div>
-                <h3 className="text-sm font-semibold mb-1">Home address vs. pickup locations</h3>
-                <p className="text-sm text-gray-600">
-                  Your home address is used for billing and account purposes, while pickup locations are used for shipment origins.
-                  You can have multiple pickup locations but only one home address.
-                </p>
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-semibold mb-1">Payment information</h3>
-                <p className="text-sm text-gray-600">
-                  Your payment information is securely stored and used for shipping transactions.
-                  You can update your payment details at any time.
-                </p>
-              </div>
-              
-              <div>
                 <h3 className="text-sm font-semibold mb-1">Address validation</h3>
                 <p className="text-sm text-gray-600">
                   For the best shipping rates and delivery times, ensure your addresses are complete
                   and formatted correctly.
+                </p>
+              </div>
+              
+              <div>
+                <h3 className="text-sm font-semibold mb-1">Default pickup location</h3>
+                <p className="text-sm text-gray-600">
+                  Your default pickup location will automatically be used for new shipments.
+                  You can change your default location at any time.
                 </p>
               </div>
             </CardContent>

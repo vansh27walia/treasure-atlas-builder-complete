@@ -201,36 +201,6 @@ export type Database = {
           },
         ]
       }
-      user_profiles: {
-        Row: {
-          created_at: string | null
-          default_pickup_address_id: number | null
-          home_address: Json | null
-          id: string
-          onboarding_completed: boolean | null
-          payment_info: Json | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          default_pickup_address_id?: number | null
-          home_address?: Json | null
-          id: string
-          onboarding_completed?: boolean | null
-          payment_info?: Json | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          default_pickup_address_id?: number | null
-          home_address?: Json | null
-          id?: string
-          onboarding_completed?: boolean | null
-          payment_info?: Json | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       users: {
         Row: {
           created_at: string | null
@@ -254,10 +224,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      user_onboarding_status: {
-        Args: { user_id: string }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never
