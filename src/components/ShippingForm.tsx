@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { carrierService } from '@/services/CarrierService';
 import AddressSelector from '@/components/shipping/AddressSelector';
 import { SavedAddress } from '@/services/AddressService';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface FormValues {
   fromName: string;
@@ -40,7 +41,7 @@ interface FormValues {
   length: number;
   width: number;
   height: number;
-  shippingMethod: string;
+  carriers: string[];
   signatureRequired: boolean;
   insurance: boolean;
 }
@@ -61,6 +62,13 @@ interface AddressVerificationState {
   };
 }
 
+const carriersOptions = [
+  { id: 'usps', label: 'USPS' },
+  { id: 'ups', label: 'UPS' },
+  { id: 'fedex', label: 'FedEx' },
+  { id: 'dhl', label: 'DHL' },
+];
+
 const ShippingForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [toAddressVerification, setToAddressVerification] = useState<AddressVerificationState>({
@@ -72,6 +80,7 @@ const ShippingForm: React.FC = () => {
   const [selectedToAddressId, setSelectedToAddressId] = useState<number | undefined>(undefined);
   const [useFromAddressSelector, setUseFromAddressSelector] = useState(true);
   const [useToAddressSelector, setUseToAddressSelector] = useState(true);
+  const [selectedCarriers, setSelectedCarriers] = useState<string[]>(['usps']);
   
   // Using react-hook-form to manage form state
   const form = useForm<FormValues>({
@@ -99,11 +108,39 @@ const ShippingForm: React.FC = () => {
       length: 0,
       width: 0,
       height: 0,
-      shippingMethod: 'usps',
+      carriers: ['usps'],
       signatureRequired: false,
       insurance: false,
     }
   });
+  
+  const handleCarrierToggle = (carrier: string) => {
+    setSelectedCarriers(prev => {
+      if (prev.includes(carrier)) {
+        return prev.filter(c => c !== carrier);
+      } else {
+        return [...prev, carrier];
+      }
+    });
+    
+    // Update the form value
+    form.setValue('carriers', 
+      selectedCarriers.includes(carrier) 
+        ? selectedCarriers.filter(c => c !== carrier) 
+        : [...selectedCarriers, carrier]
+    );
+  };
+  
+  const selectAllCarriers = () => {
+    const allCarrierIds = carriersOptions.map(c => c.id);
+    setSelectedCarriers(allCarrierIds);
+    form.setValue('carriers', allCarrierIds);
+  };
+  
+  const clearAllCarriers = () => {
+    setSelectedCarriers([]);
+    form.setValue('carriers', []);
+  };
   
   // Handle pickup address selection
   const handleFromAddressSelect = (address: SavedAddress) => {
@@ -245,6 +282,11 @@ const ShippingForm: React.FC = () => {
   };
 
   const handleGetRates = async (values: FormValues) => {
+    if (selectedCarriers.length === 0) {
+      toast.error("Please select at least one carrier");
+      return;
+    }
+    
     setIsLoading(true);
     
     console.log("Submitting form values:", values);
@@ -253,7 +295,7 @@ const ShippingForm: React.FC = () => {
       // Calculate total weight in ounces
       const weightOz = (values.weightLb * 16) + (values.weightOz || 0);
       
-      // Prepare the request payload for EasyPost API
+      // Prepare the request payload for API
       const payload = {
         fromAddress: {
           name: values.fromName,
@@ -283,7 +325,8 @@ const ShippingForm: React.FC = () => {
         },
         options: {
           signature_confirmation: values.signatureRequired,
-          insurance: values.insurance ? (values.packageValue * 100) : undefined, // EasyPost expects cents
+          insurance: values.insurance ? (values.packageValue * 100) : undefined, // API expects cents
+          carriers: selectedCarriers,
         }
       };
 
@@ -311,7 +354,7 @@ const ShippingForm: React.FC = () => {
   };
 
   return (
-    <div className="mt-8">
+    <div className="mt-4">
       <Card className="border-2 border-gray-200">
         <div className="p-6">
           <h2 className="text-2xl font-semibold mb-6">Ship a Package</h2>
@@ -325,217 +368,89 @@ const ShippingForm: React.FC = () => {
                 </TabsList>
                 
                 <TabsContent value="domestic" className="pt-6">
-                  {/* Redesigned layout with clear From -> To flow */}
-                  <div className="space-y-8">
-                    {/* Origin Address Section */}
-                    <div className="bg-blue-50 rounded-lg p-6 border border-blue-100">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-medium text-blue-800">Origin Address</h3>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm"
-                          onClick={toggleFromAddressSelector}
-                        >
-                          {useFromAddressSelector ? "Manual Entry" : "Saved Addresses"}
-                        </Button>
-                      </div>
-                      
-                      {useFromAddressSelector ? (
-                        <AddressSelector 
-                          type="from"
-                          onAddressSelect={handleFromAddressSelect}
-                          selectedAddressId={selectedFromAddressId}
-                        />
-                      ) : (
-                        <div className="space-y-4">
-                          <FormField
-                            control={form.control}
-                            name="fromName"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Name</FormLabel>
-                                <FormControl>
-                                  <Input {...field} placeholder="Name" />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="fromCompany"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Company (optional)</FormLabel>
-                                <FormControl>
-                                  <Input {...field} placeholder="Company" />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="fromAddress1"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Address Line 1</FormLabel>
-                                <FormControl>
-                                  <Input {...field} placeholder="Street address" />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="fromAddress2"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Address Line 2 (optional)</FormLabel>
-                                <FormControl>
-                                  <Input {...field} placeholder="Apt, Suite, Unit, etc." />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <div className="grid grid-cols-2 gap-4">
-                            <FormField
-                              control={form.control}
-                              name="fromCity"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>City</FormLabel>
-                                  <FormControl>
-                                    <Input {...field} placeholder="City" />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                            
-                            <FormField
-                              control={form.control}
-                              name="fromState"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>State</FormLabel>
-                                  <FormControl>
-                                    <Input {...field} placeholder="State" />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          
-                          <FormField
-                            control={form.control}
-                            name="fromZip"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>ZIP Code</FormLabel>
-                                <FormControl>
-                                  <Input {...field} placeholder="ZIP Code" />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="fromCountry"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Country</FormLabel>
-                                <Select 
-                                  onValueChange={field.onChange} 
-                                  defaultValue={field.value}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select Country" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="US">United States</SelectItem>
-                                    <SelectItem value="CA">Canada</SelectItem>
-                                    <SelectItem value="MX">Mexico</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      )}
+                  {/* Origin Address Section */}
+                  <div className="bg-blue-50 rounded-lg p-6 border border-blue-100 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium text-blue-800">Origin Address</h3>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={toggleFromAddressSelector}
+                      >
+                        {useFromAddressSelector ? "Manual Entry" : "Saved Addresses"}
+                      </Button>
                     </div>
                     
-                    {/* Direction Arrow */}
-                    <div className="flex justify-center">
-                      <div className="bg-blue-100 rounded-full p-3">
-                        <ArrowDown className="h-6 w-6 text-blue-600" />
-                      </div>
-                    </div>
-                    
-                    {/* Destination Address Section */}
-                    <div className="bg-indigo-50 rounded-lg p-6 border border-indigo-100">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-medium text-indigo-800">Destination Address</h3>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm"
-                          onClick={toggleToAddressSelector}
-                        >
-                          {useToAddressSelector ? "Manual Entry" : "Saved Addresses"}
-                        </Button>
-                      </div>
-                      
-                      {/* Address verification status */}
-                      {toAddressVerification.messages.length > 0 && (
-                        <Alert className="mb-4" variant={toAddressVerification.isVerified ? "default" : "destructive"}>
-                          {toAddressVerification.isVerified ? (
-                            <Check className="h-4 w-4" />
-                          ) : (
-                            <AlertCircle className="h-4 w-4" />
+                    {useFromAddressSelector ? (
+                      <AddressSelector 
+                        type="from"
+                        onAddressSelect={handleFromAddressSelect}
+                        selectedAddressId={selectedFromAddressId}
+                      />
+                    ) : (
+                      <div className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="fromName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Name" />
+                              </FormControl>
+                            </FormItem>
                           )}
-                          <AlertTitle>{toAddressVerification.isVerified ? "Address Verified" : "Address Issues"}</AlertTitle>
-                          <AlertDescription>
-                            <ul className="list-disc pl-4 mt-2">
-                              {toAddressVerification.messages.map((message, i) => (
-                                <li key={i}>{message}</li>
-                              ))}
-                            </ul>
-                            {!toAddressVerification.isVerified && toAddressVerification.verifiedAddress && (
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="mt-2"
-                                onClick={useVerifiedAddress}
-                              >
-                                Use Suggested Address
-                              </Button>
-                            )}
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                      
-                      {useToAddressSelector ? (
-                        <AddressSelector 
-                          type="to"
-                          onAddressSelect={handleToAddressSelect}
-                          selectedAddressId={selectedToAddressId}
                         />
-                      ) : (
-                        <div className="space-y-4">
+                        
+                        <FormField
+                          control={form.control}
+                          name="fromCompany"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Company (optional)</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Company" />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="fromAddress1"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Address Line 1</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Street address" />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="fromAddress2"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Address Line 2 (optional)</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Apt, Suite, Unit, etc." />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="grid grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
-                            name="toName"
+                            name="fromCity"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Name</FormLabel>
+                                <FormLabel>City</FormLabel>
                                 <FormControl>
-                                  <Input {...field} placeholder="Name" />
+                                  <Input {...field} placeholder="City" />
                                 </FormControl>
                               </FormItem>
                             )}
@@ -543,122 +458,247 @@ const ShippingForm: React.FC = () => {
                           
                           <FormField
                             control={form.control}
-                            name="toCompany"
+                            name="fromState"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Company (optional)</FormLabel>
+                                <FormLabel>State</FormLabel>
                                 <FormControl>
-                                  <Input {...field} placeholder="Company" />
+                                  <Input {...field} placeholder="State" />
                                 </FormControl>
                               </FormItem>
                             )}
                           />
-                          
-                          <FormField
-                            control={form.control}
-                            name="toAddress1"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Address Line 1</FormLabel>
-                                <FormControl>
-                                  <Input {...field} placeholder="Street address" />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="toAddress2"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Address Line 2 (optional)</FormLabel>
-                                <FormControl>
-                                  <Input {...field} placeholder="Apt, Suite, Unit, etc." />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <div className="grid grid-cols-2 gap-4">
-                            <FormField
-                              control={form.control}
-                              name="toCity"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>City</FormLabel>
-                                  <FormControl>
-                                    <Input {...field} placeholder="City" />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                            
-                            <FormField
-                              control={form.control}
-                              name="toState"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>State</FormLabel>
-                                  <FormControl>
-                                    <Input {...field} placeholder="State" />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                          
-                          <FormField
-                            control={form.control}
-                            name="toZip"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>ZIP Code</FormLabel>
-                                <FormControl>
-                                  <Input {...field} placeholder="ZIP Code" />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="toCountry"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Country</FormLabel>
-                                <Select 
-                                  onValueChange={field.onChange} 
-                                  defaultValue={field.value}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Select Country" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="US">United States</SelectItem>
-                                    <SelectItem value="CA">Canada</SelectItem>
-                                    <SelectItem value="MX">Mexico</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <div className="mt-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={handleVerifyAddress}
-                              disabled={toAddressVerification.isVerifying}
-                            >
-                              {toAddressVerification.isVerifying ? 'Verifying...' : 'Verify Address'}
-                            </Button>
-                          </div>
                         </div>
-                      )}
+                        
+                        <FormField
+                          control={form.control}
+                          name="fromZip"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>ZIP Code</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="ZIP Code" />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="fromCountry"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Country</FormLabel>
+                              <Select 
+                                onValueChange={field.onChange} 
+                                defaultValue={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select Country" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="US">United States</SelectItem>
+                                  <SelectItem value="CA">Canada</SelectItem>
+                                  <SelectItem value="MX">Mexico</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Direction Arrow */}
+                  <div className="flex justify-center my-6">
+                    <div className="bg-blue-100 rounded-full p-3">
+                      <ArrowDown className="h-6 w-6 text-blue-600" />
                     </div>
+                  </div>
+                  
+                  {/* Destination Address Section */}
+                  <div className="bg-indigo-50 rounded-lg p-6 border border-indigo-100 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium text-indigo-800">Destination Address</h3>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={toggleToAddressSelector}
+                      >
+                        {useToAddressSelector ? "Manual Entry" : "Saved Addresses"}
+                      </Button>
+                    </div>
+                    
+                    {/* Address verification status */}
+                    {toAddressVerification.messages.length > 0 && (
+                      <Alert className="mb-4" variant={toAddressVerification.isVerified ? "default" : "destructive"}>
+                        {toAddressVerification.isVerified ? (
+                          <Check className="h-4 w-4" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4" />
+                        )}
+                        <AlertTitle>{toAddressVerification.isVerified ? "Address Verified" : "Address Issues"}</AlertTitle>
+                        <AlertDescription>
+                          <ul className="list-disc pl-4 mt-2">
+                            {toAddressVerification.messages.map((message, i) => (
+                              <li key={i}>{message}</li>
+                            ))}
+                          </ul>
+                          {!toAddressVerification.isVerified && toAddressVerification.verifiedAddress && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="mt-2"
+                              onClick={useVerifiedAddress}
+                            >
+                              Use Suggested Address
+                            </Button>
+                          )}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
+                    {useToAddressSelector ? (
+                      <AddressSelector 
+                        type="to"
+                        onAddressSelect={handleToAddressSelect}
+                        selectedAddressId={selectedToAddressId}
+                      />
+                    ) : (
+                      <div className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="toName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Name" />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="toCompany"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Company (optional)</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Company" />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="toAddress1"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Address Line 1</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Street address" />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="toAddress2"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Address Line 2 (optional)</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="Apt, Suite, Unit, etc." />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="toCity"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>City</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="City" />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="toState"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>State</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="State" />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        
+                        <FormField
+                          control={form.control}
+                          name="toZip"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>ZIP Code</FormLabel>
+                              <FormControl>
+                                <Input {...field} placeholder="ZIP Code" />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="toCountry"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Country</FormLabel>
+                              <Select 
+                                onValueChange={field.onChange} 
+                                defaultValue={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select Country" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="US">United States</SelectItem>
+                                  <SelectItem value="CA">Canada</SelectItem>
+                                  <SelectItem value="MX">Mexico</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="mt-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleVerifyAddress}
+                            disabled={toAddressVerification.isVerifying}
+                          >
+                            {toAddressVerification.isVerifying ? 'Verifying...' : 'Verify Address'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
                 
@@ -669,250 +709,271 @@ const ShippingForm: React.FC = () => {
                 </TabsContent>
               </Tabs>
               
-              <div className="mt-8">
-                <h3 className="text-lg font-medium mb-4">Package Details</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-6">
-                    <FormField
-                      control={form.control}
-                      name="packageType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Package Type</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange} 
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select Package Type" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="custom">Custom Package</SelectItem>
-                              <SelectItem value="usps_medium_flat_rate_box">USPS Medium Flat Rate Box</SelectItem>
-                              <SelectItem value="usps_small_flat_rate_box">USPS Small Flat Rate Box</SelectItem>
-                              <SelectItem value="usps_flat_rate_envelope">USPS Flat Rate Envelope</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <div className="grid grid-cols-3 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="weightLb"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Weight (lb)</FormLabel>
-                            <FormControl>
-                              <Input 
-                                {...field} 
-                                type="number"
-                                min="0"
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                placeholder="0" 
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+              <div className="mt-8 space-y-8">
+                {/* Carriers Section */}
+                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                  <h3 className="text-lg font-medium mb-4">Carriers</h3>
+                  
+                  <div className="space-y-4">
+                    <div className="flex justify-between mb-4">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={selectAllCarriers}
+                      >
+                        Select All
+                      </Button>
                       
-                      <FormField
-                        control={form.control}
-                        name="weightOz"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>oz</FormLabel>
-                            <FormControl>
-                              <Input 
-                                {...field} 
-                                type="number"
-                                min="0"
-                                max="15"
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                placeholder="0" 
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="packageValue"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Value ($)</FormLabel>
-                            <FormControl>
-                              <Input 
-                                {...field}
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                placeholder="0.00" 
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={clearAllCarriers}
+                      >
+                        Clear All
+                      </Button>
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="length"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Length (in)</FormLabel>
-                            <FormControl>
-                              <Input 
-                                {...field}
-                                type="number"
-                                min="0"
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                placeholder="0" 
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {carriersOptions.map(carrier => (
+                        <div 
+                          key={carrier.id}
+                          className={`border rounded-lg p-3 flex items-center justify-center cursor-pointer transition-colors ${
+                            selectedCarriers.includes(carrier.id) 
+                              ? 'bg-blue-50 border-blue-300' 
+                              : 'bg-white border-gray-200'
+                          }`}
+                          onClick={() => handleCarrierToggle(carrier.id)}
+                        >
+                          <div className="flex flex-col items-center">
+                            <div className="h-5 w-5 mb-1 flex items-center justify-center">
+                              <Checkbox 
+                                checked={selectedCarriers.includes(carrier.id)}
+                                onCheckedChange={() => handleCarrierToggle(carrier.id)}
                               />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="width"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Width (in)</FormLabel>
-                            <FormControl>
-                              <Input 
-                                {...field}
-                                type="number"
-                                min="0"
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                placeholder="0" 
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="height"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Height (in)</FormLabel>
-                            <FormControl>
-                              <Input 
-                                {...field}
-                                type="number"
-                                min="0"
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                                placeholder="0" 
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
+                            </div>
+                            <span className="font-medium">{carrier.label}</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
+                </div>
+
+                {/* Package Details */}
+                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                  <h3 className="text-lg font-medium mb-4">Package Details</h3>
                   
-                  <div className="space-y-6">
-                    <FormField
-                      control={form.control}
-                      name="shippingMethod"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-base">Shipping Service</FormLabel>
-                          <div className="flex flex-col space-y-2 mt-2">
-                            <div className="flex items-center">
-                              <input
-                                id="usps"
-                                name="shipping-method"
-                                type="radio"
-                                checked={field.value === 'usps'}
-                                onChange={() => field.onChange('usps')}
-                                className="h-4 w-4 text-primary focus:ring-primary"
-                              />
-                              <label htmlFor="usps" className="ml-3 block text-sm font-medium text-gray-700">
-                                USPS
-                              </label>
-                            </div>
-                            <div className="flex items-center">
-                              <input
-                                id="ups"
-                                name="shipping-method"
-                                type="radio"
-                                checked={field.value === 'ups'}
-                                onChange={() => field.onChange('ups')}
-                                className="h-4 w-4 text-primary focus:ring-primary"
-                              />
-                              <label htmlFor="ups" className="ml-3 block text-sm font-medium text-gray-700">
-                                UPS
-                              </label>
-                            </div>
-                            <div className="flex items-center">
-                              <input
-                                id="fedex"
-                                name="shipping-method"
-                                type="radio"
-                                checked={field.value === 'fedex'}
-                                onChange={() => field.onChange('fedex')}
-                                className="h-4 w-4 text-primary focus:ring-primary"
-                              />
-                              <label htmlFor="fedex" className="ml-3 block text-sm font-medium text-gray-700">
-                                FedEx
-                              </label>
-                            </div>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                      <FormField
+                        control={form.control}
+                        name="packageType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Package Type</FormLabel>
+                            <Select 
+                              onValueChange={field.onChange} 
+                              defaultValue={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select Package Type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="custom">Custom Package</SelectItem>
+                                <SelectItem value="usps_medium_flat_rate_box">USPS Medium Flat Rate Box</SelectItem>
+                                <SelectItem value="usps_small_flat_rate_box">USPS Small Flat Rate Box</SelectItem>
+                                <SelectItem value="usps_flat_rate_envelope">USPS Flat Rate Envelope</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <h4 className="text-sm font-medium mb-3 flex items-center">
+                          <Scale className="h-4 w-4 mr-1" />
+                          Weight
+                        </h4>
+                        <div className="grid grid-cols-3 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="weightLb"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Pounds</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    {...field} 
+                                    type="number"
+                                    min="0"
+                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                    placeholder="0" 
+                                    className="text-center"
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="weightOz"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Ounces</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    {...field} 
+                                    type="number"
+                                    min="0"
+                                    max="15"
+                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                    placeholder="0" 
+                                    className="text-center"
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="packageValue"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Value ($)</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    {...field}
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                    placeholder="0.00" 
+                                    className="text-center"
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <h4 className="text-sm font-medium mb-3 flex items-center">
+                          <Box className="h-4 w-4 mr-1" />
+                          Dimensions (inches)
+                        </h4>
+                        <div className="grid grid-cols-3 gap-4">
+                          <FormField
+                            control={form.control}
+                            name="length"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Length</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    {...field}
+                                    type="number"
+                                    min="0"
+                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                    placeholder="0" 
+                                    className="text-center"
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="width"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Width</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    {...field}
+                                    type="number"
+                                    min="0"
+                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                    placeholder="0" 
+                                    className="text-center"
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="height"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs">Height</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    {...field}
+                                    type="number"
+                                    min="0"
+                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                    placeholder="0" 
+                                    className="text-center"
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+                    </div>
                     
-                    <div>
-                      <Label className="text-base">Additional Options</Label>
-                      <div className="flex flex-col space-y-2 mt-2">
-                        <FormField
-                          control={form.control}
-                          name="signatureRequired"
-                          render={({ field }) => (
-                            <div className="flex items-center">
-                              <input
-                                id="signature"
-                                type="checkbox"
-                                checked={field.value}
-                                onChange={(e) => field.onChange(e.target.checked)}
-                                className="h-4 w-4 text-primary focus:ring-primary rounded"
-                              />
-                              <label htmlFor="signature" className="ml-3 block text-sm font-medium text-gray-700">
-                                Signature Required
-                              </label>
-                            </div>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="insurance"
-                          render={({ field }) => (
-                            <div className="flex items-center">
-                              <input
-                                id="insurance"
-                                type="checkbox"
-                                checked={field.value}
-                                onChange={(e) => field.onChange(e.target.checked)}
-                                className="h-4 w-4 text-primary focus:ring-primary rounded"
-                              />
-                              <label htmlFor="insurance" className="ml-3 block text-sm font-medium text-gray-700">
-                                Add Insurance
-                              </label>
-                            </div>
-                          )}
-                        />
+                    <div className="space-y-6">
+                      <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <h4 className="text-base font-medium mb-4">Additional Options</h4>
+                        <div className="flex flex-col space-y-4">
+                          <FormField
+                            control={form.control}
+                            name="signatureRequired"
+                            render={({ field }) => (
+                              <div className="flex items-center">
+                                <Checkbox 
+                                  id="signature"
+                                  checked={field.value}
+                                  onCheckedChange={(checked) => {
+                                    field.onChange(checked === true ? true : false);
+                                  }}
+                                />
+                                <label htmlFor="signature" className="ml-3 block text-sm font-medium text-gray-700">
+                                  Signature Required
+                                </label>
+                              </div>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="insurance"
+                            render={({ field }) => (
+                              <div className="flex items-center">
+                                <Checkbox 
+                                  id="insurance"
+                                  checked={field.value}
+                                  onCheckedChange={(checked) => {
+                                    field.onChange(checked === true ? true : false);
+                                  }}
+                                />
+                                <label htmlFor="insurance" className="ml-3 block text-sm font-medium text-gray-700">
+                                  Add Insurance
+                                </label>
+                              </div>
+                            )}
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -924,7 +985,7 @@ const ShippingForm: React.FC = () => {
                   type="submit" 
                   size="lg" 
                   className="flex items-center gap-2 px-8"
-                  disabled={isLoading}
+                  disabled={isLoading || selectedCarriers.length === 0}
                 >
                   <span>{isLoading ? 'Getting Rates...' : 'Show Shipping Rates'}</span>
                   <ArrowRight className="h-4 w-4" />

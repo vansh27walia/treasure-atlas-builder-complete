@@ -28,6 +28,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
 }) => {
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<number | undefined>(selectedAddressId);
   const navigate = useNavigate();
   
   // Load saved addresses
@@ -38,21 +39,23 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       setAddresses(savedAddresses);
       
       // If we don't have a selected address yet and we have a default, select it
-      if (!selectedAddressId && savedAddresses.length > 0) {
+      if (!selectedId && savedAddresses.length > 0) {
         const defaultAddress = savedAddresses.find(addr => 
           type === 'from' ? addr.is_default_from : addr.is_default_to
         );
         
         if (defaultAddress) {
+          setSelectedId(defaultAddress.id);
           onAddressSelect(defaultAddress);
           console.log(`Selected default ${type} address:`, defaultAddress);
         } else if (savedAddresses.length > 0) {
+          setSelectedId(savedAddresses[0].id);
           onAddressSelect(savedAddresses[0]);
           console.log(`No default found, selected first ${type} address:`, savedAddresses[0]);
         }
-      } else if (selectedAddressId) {
+      } else if (selectedId) {
         // If we already have a selected address ID, make sure it exists in our loaded addresses
-        const selectedAddress = savedAddresses.find(addr => addr.id === selectedAddressId);
+        const selectedAddress = savedAddresses.find(addr => addr.id === selectedId);
         if (selectedAddress) {
           onAddressSelect(selectedAddress);
           console.log(`Using pre-selected ${type} address:`, selectedAddress);
@@ -69,9 +72,19 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   useEffect(() => {
     loadAddresses();
   }, []);
+
+  // Update selected ID when prop changes
+  useEffect(() => {
+    if (selectedAddressId !== undefined && selectedAddressId !== selectedId) {
+      setSelectedId(selectedAddressId);
+    }
+  }, [selectedAddressId]);
   
   const handleAddressChange = (addressId: string) => {
-    const selectedAddress = addresses.find(addr => addr.id === parseInt(addressId));
+    const parsedId = parseInt(addressId);
+    setSelectedId(parsedId);
+    
+    const selectedAddress = addresses.find(addr => addr.id === parsedId);
     if (selectedAddress) {
       onAddressSelect(selectedAddress);
       console.log(`Selected ${type} address changed to:`, selectedAddress);
@@ -135,9 +148,8 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
         </div>
       ) : (
         <Select 
-          value={selectedAddressId?.toString()} 
+          value={selectedId?.toString()} 
           onValueChange={handleAddressChange}
-          defaultValue={selectedAddressId?.toString()}
         >
           <SelectTrigger className="bg-white">
             <SelectValue placeholder="Select an address" />
