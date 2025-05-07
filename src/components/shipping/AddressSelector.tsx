@@ -10,7 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Settings, Save } from 'lucide-react';
+import { 
+  Card,
+  CardContent,
+} from '@/components/ui/card';
+import { Plus, Settings, Save, MapPin } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
 interface AddressSelectorProps {
@@ -123,23 +127,32 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       // Prepare address object
       const addressToSave: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'> = {
         name: currentAddress.name || `${currentAddress.city}, ${currentAddress.state}`,
-        company: currentAddress.company,
+        company: currentAddress.company || '',
         street1: currentAddress.street1,
-        street2: currentAddress.street2,
+        street2: currentAddress.street2 || '',
         city: currentAddress.city,
         state: currentAddress.state,
         zip: currentAddress.zip,
         country: currentAddress.country || 'US',
-        phone: currentAddress.phone,
-        is_default_from: type === 'from',
-        is_default_to: type === 'to'
+        phone: currentAddress.phone || '',
+        is_default_from: type === 'from' ? true : false,
+        is_default_to: type === 'to' ? true : false
       };
+      
+      console.log("Saving address:", addressToSave);
       
       // Save the address
       const savedAddress = await addressService.createAddress(addressToSave);
       if (savedAddress) {
         toast.success(`Address saved successfully`);
         console.log("Saved address:", savedAddress);
+        
+        // Make this the default address if it's the appropriate type
+        if (type === 'from') {
+          await addressService.setDefaultFromAddress(savedAddress.id);
+        } else if (type === 'to') {
+          await addressService.setDefaultToAddress(savedAddress.id);
+        }
         
         // Refresh the address list
         await loadAddresses();
@@ -161,8 +174,9 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">
-          {type === 'from' ? 'Pickup' : 'Delivery'} Address
+        <h3 className="text-sm font-medium flex items-center">
+          <MapPin className="h-4 w-4 mr-1 text-blue-500" />
+          {type === 'from' ? 'Origin' : 'Destination'} Address
         </h3>
         
         <div className="flex items-center gap-2">
@@ -170,12 +184,12 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
             <Button 
               variant="outline" 
               size="sm" 
-              className="h-8 px-2 text-xs"
+              className="h-8 px-3 text-xs bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-green-200"
               onClick={saveAddressToFile}
               disabled={isSaving}
             >
               <Save className="h-3.5 w-3.5 mr-1" />
-              {isSaving ? 'Saving...' : 'Save Address'}
+              {isSaving ? 'Saving...' : 'Save as Pickup Location'}
             </Button>
           )}
           
@@ -204,25 +218,28 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       </div>
       
       {isLoading ? (
-        <Select disabled>
-          <SelectTrigger>
-            <SelectValue placeholder="Loading addresses..." />
-          </SelectTrigger>
-        </Select>
-      ) : addresses.length === 0 ? (
-        <div className="text-sm text-gray-500 flex items-center justify-between bg-gray-50 border rounded-md p-3">
-          <span>No saved addresses</span>
-          <Button size="sm" variant="default" onClick={goToAddressSettings}>
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            Add Address
-          </Button>
+        <div className="h-12 flex items-center justify-center bg-gray-50 rounded-md">
+          <span className="text-sm text-gray-500">Loading addresses...</span>
         </div>
+      ) : addresses.length === 0 ? (
+        <Card className="border border-blue-100 shadow-sm">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center">
+              <MapPin className="h-5 w-5 text-blue-500 mr-2" />
+              <span className="text-sm text-gray-600">No saved addresses</span>
+            </div>
+            <Button size="sm" variant="default" onClick={goToAddressSettings} className="bg-blue-600">
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add Address
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <Select 
           value={selectedId?.toString()} 
           onValueChange={handleAddressChange}
         >
-          <SelectTrigger className="bg-white">
+          <SelectTrigger className="bg-white border-blue-200 focus:ring-blue-500">
             <SelectValue placeholder="Select an address" />
           </SelectTrigger>
           <SelectContent className="bg-white">
