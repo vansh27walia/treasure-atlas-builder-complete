@@ -255,7 +255,7 @@ export type Database = {
     }
     Functions: {
       user_onboarding_status: {
-        Args: { user_id: string }
+        Args: Record<PropertyKey, never> | { user_id: string }
         Returns: boolean
       }
     }

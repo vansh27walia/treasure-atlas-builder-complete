@@ -106,7 +106,7 @@ export class UserProfileService {
       const { error } = await supabase
         .from('user_profiles')
         .update({
-          home_address: homeAddress as any,
+          home_address: homeAddress as any, // cast to any to avoid type issues with JSON
           updated_at: new Date().toISOString()
         })
         .eq('id', session.session.user.id);
@@ -144,7 +144,7 @@ export class UserProfileService {
       const { error } = await supabase
         .from('user_profiles')
         .update({
-          payment_info: paymentData as any,
+          payment_info: paymentData as any, // cast to any to avoid type issues with JSON
           updated_at: new Date().toISOString()
         })
         .eq('id', session.session.user.id);
@@ -170,12 +170,24 @@ export class UserProfileService {
         return false;
       }
       
+      // Handle JSON fields separately to avoid type issues
+      const dataToUpdate: Record<string, any> = {
+        ...profileData,
+        updated_at: new Date().toISOString()
+      };
+      
+      // Remove JSON fields to avoid type errors and handle them separately if needed
+      if (profileData.home_address) {
+        dataToUpdate.home_address = profileData.home_address as any;
+      }
+      
+      if (profileData.payment_info) {
+        dataToUpdate.payment_info = profileData.payment_info as any;
+      }
+      
       const { error } = await supabase
         .from('user_profiles')
-        .update({
-          ...profileData,
-          updated_at: new Date().toISOString()
-        })
+        .update(dataToUpdate)
         .eq('id', session.session.user.id);
       
       if (error) {

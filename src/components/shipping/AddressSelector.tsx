@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addressService, SavedAddress } from '@/services/AddressService';
@@ -30,8 +29,8 @@ const addressSchema = z.object({
   zip: z.string().min(1, "ZIP/Postal code is required"),
   country: z.string().min(1, "Country is required"),
   phone: z.string().optional(),
-  is_default_from: z.boolean().optional(),
-  is_default_to: z.boolean().optional(),
+  is_default_from: z.boolean().default(false),
+  is_default_to: z.boolean().default(false),
 });
 
 type AddressFormValues = z.infer<typeof addressSchema>;
@@ -184,15 +183,19 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   
   const handleSaveAddress = async (values: AddressFormValues) => {
     try {
-      // Ensure required fields are not undefined
-      const addressData = {
-        ...values,
+      // Create a properly typed addressData object with required fields
+      const addressData: Omit<SavedAddress, "created_at" | "id" | "user_id"> = {
         name: values.name || '',
+        company: values.company || '',
         street1: values.street1,
+        street2: values.street2 || '',
         city: values.city,
         state: values.state,
         zip: values.zip,
         country: values.country,
+        phone: values.phone || '',
+        is_default_from: values.is_default_from,
+        is_default_to: values.is_default_to,
       };
       
       if (editingAddress) {

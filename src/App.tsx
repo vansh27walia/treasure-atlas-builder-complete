@@ -1,96 +1,59 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import Dashboard from "./pages/Dashboard";
-import PaymentPage from "./pages/PaymentPage";
-import LabelSuccessPage from "./pages/LabelSuccessPage";
-import CreateLabelPage from "./pages/CreateLabelPage";
-import InternationalShippingPage from "./pages/InternationalShippingPage";
-import PickupPage from "./pages/PickupPage";
-import SettingsPage from "./pages/SettingsPage";
-import SidebarNavigation from "./components/SidebarNavigation";
-import AuthPage from "./pages/AuthPage";
-import AuthProvider from "./contexts/AuthContext";
-import ProtectedRoute from "./components/ProtectedRoute";
-import OnboardingProvider from "./contexts/OnboardingContext";
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Index from './pages/Index';
+import CreateLabelPage from './pages/CreateLabelPage';
+import LtlShippingPage from './pages/LtlShippingPage';
+import FtlShippingPage from './pages/FtlShippingPage';
+import InstantDeliveryPage from './pages/InstantDeliveryPage';
+import AuthPage from './pages/AuthPage';
+import SidebarNavigation from './components/SidebarNavigation';
+import './App.css';
+import NotFound from './pages/NotFound';
+import Dashboard from './pages/Dashboard';
+import SettingsPage from './pages/SettingsPage';
+import ProtectedRoute from './components/ProtectedRoute';
+import { AuthProvider } from './contexts/AuthContext';
+import { OnboardingProvider } from './contexts/OnboardingContext';
+import { Toaster } from './components/ui/sonner';
+import PaymentPage from './pages/PaymentPage';
+import InternationalShippingPage from './pages/InternationalShippingPage';
+import LabelSuccessPage from './pages/LabelSuccessPage';
+import PickupPage from './pages/PickupPage';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
+function App() {
+  return (
+    <BrowserRouter>
       <AuthProvider>
         <OnboardingProvider>
-          <BrowserRouter>
+          <SidebarNavigation>
             <Routes>
+              <Route path="/" element={<Index />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/create-label" element={<CreateLabelPage />} />
+              <Route path="/ltl-shipping" element={<LtlShippingPage />} />
+              <Route path="/ftl-shipping" element={<FtlShippingPage />} />
+              <Route path="/instant-delivery" element={<InstantDeliveryPage />} />
+              <Route path="/international" element={<InternationalShippingPage />} />
+              <Route path="/payment" element={<PaymentPage />} />
               <Route
-                path="/*"
-                element={
-                  <SidebarNavigation>
-                    <Routes>
-                      <Route path="/" element={<Index />} />
-                      <Route path="/dashboard" element={
-                        <ProtectedRoute>
-                          <Dashboard />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/payment" element={
-                        <ProtectedRoute>
-                          <PaymentPage />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/label-success" element={
-                        <ProtectedRoute>
-                          <LabelSuccessPage />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/create-label" element={
-                        <ProtectedRoute>
-                          <CreateLabelPage />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/international" element={
-                        <ProtectedRoute>
-                          <InternationalShippingPage />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/pickup" element={
-                        <ProtectedRoute>
-                          <PickupPage />
-                        </ProtectedRoute>
-                      } />
-                      <Route path="/settings" element={
-                        <ProtectedRoute>
-                          <SettingsPage />
-                        </ProtectedRoute>
-                      } />
-                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </SidebarNavigation>
-                }
+                path="/dashboard"
+                element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
               />
+              <Route
+                path="/settings"
+                element={<ProtectedRoute><SettingsPage /></ProtectedRoute>}
+              />
+              <Route path="/success" element={<LabelSuccessPage />} />
+              <Route path="/pickup" element={<PickupPage />} />
+              <Route path="*" element={<NotFound />} />
             </Routes>
-          </BrowserRouter>
+          </SidebarNavigation>
+          <Toaster />
         </OnboardingProvider>
       </AuthProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+    </BrowserRouter>
+  );
+}
 
 export default App;
