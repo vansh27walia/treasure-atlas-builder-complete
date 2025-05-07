@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import ShippingForm from '@/components/ShippingForm';
 import ShippingRates from '@/components/ShippingRates';
 import RateCalculator from '@/components/shipping/RateCalculator';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -9,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Package, Globe, Upload, Truck, Calculator } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 
 const CreateLabelPage: React.FC = () => {
   const location = useLocation();
@@ -80,7 +80,7 @@ const CreateLabelPage: React.FC = () => {
               </h2>
               <p className="text-blue-700">Ship packages within the country with our various carrier options.</p>
             </div>
-            <ShippingForm />
+            <EnhancedShippingForm />
           </TabsContent>
           
           <TabsContent value="international">

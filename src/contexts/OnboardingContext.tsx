@@ -34,13 +34,11 @@ const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       try {
         setIsCheckingStatus(true);
-        const completed = await userProfileService.hasCompletedOnboarding();
-        setHasCompletedOnboarding(completed);
-        
-        // Show the onboarding modal if the user hasn't completed onboarding
-        if (!completed) {
-          setShowOnboardingModal(true);
+        // Auto-complete onboarding without showing the modal
+        if (!await userProfileService.hasCompletedOnboarding()) {
+          await userProfileService.completeOnboarding();
         }
+        setHasCompletedOnboarding(true);
       } catch (error) {
         console.error('Error checking onboarding status:', error);
       } finally {
@@ -63,12 +61,6 @@ const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
   
-  const handleOnboardingComplete = () => {
-    completeOnboarding().catch(error => {
-      console.error('Error in handleOnboardingComplete:', error);
-    });
-  };
-  
   return (
     <OnboardingContext.Provider
       value={{
@@ -78,12 +70,6 @@ const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }}
     >
       {children}
-      {showOnboardingModal && (
-        <OnboardingModal
-          isOpen={showOnboardingModal}
-          onComplete={handleOnboardingComplete}
-        />
-      )}
     </OnboardingContext.Provider>
   );
 };

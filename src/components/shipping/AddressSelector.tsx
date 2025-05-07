@@ -11,7 +11,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Settings } from 'lucide-react';
+import { Plus, Settings, Edit } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+
+const addressSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  company: z.string().optional(),
+  street1: z.string().min(1, "Street address is required"),
+  street2: z.string().optional(),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  zip: z.string().min(1, "ZIP/Postal code is required"),
+  country: z.string().min(1, "Country is required"),
+  phone: z.string().optional(),
+  is_default_from: z.boolean().optional(),
+  is_default_to: z.boolean().optional(),
+});
+
+type AddressFormValues = z.infer<typeof addressSchema>;
 
 interface AddressSelectorProps {
   type: 'from' | 'to';
@@ -29,7 +52,27 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [defaultAddressId, setDefaultAddressId] = useState<number | null>(null);
+  const [showAddressDialog, setShowAddressDialog] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
   const navigate = useNavigate();
+  
+  // Form for adding/editing addresses
+  const form = useForm<AddressFormValues>({
+    resolver: zodResolver(addressSchema),
+    defaultValues: {
+      name: '',
+      company: '',
+      street1: '',
+      street2: '',
+      city: '',
+      state: '',
+      zip: '',
+      country: 'US',
+      phone: '',
+      is_default_from: type === 'from',
+      is_default_to: type === 'to',
+    }
+  });
   
   // Load saved addresses and default address from user profile
   const loadAddressData = async () => {
@@ -77,6 +120,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       }
     } catch (error) {
       console.error('Error loading addresses:', error);
+      toast.error("Failed to load saved addresses");
     } finally {
       setIsLoading(false);
     }
@@ -102,6 +146,89 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     navigate('/settings');
   };
   
+  const openAddNewAddressDialog = () => {
+    setEditingAddress(null);
+    form.reset({
+      name: '',
+      company: '',
+      street1: '',
+      street2: '',
+      city: '',
+      state: '',
+      zip: '',
+      country: 'US',
+      phone: '',
+      is_default_from: type === 'from',
+      is_default_to: type === 'to',
+    });
+    setShowAddressDialog(true);
+  };
+  
+  const openEditAddressDialog = (address: SavedAddress) => {
+    setEditingAddress(address);
+    form.reset({
+      name: address.name || '',
+      company: address.company || '',
+      street1: address.street1,
+      street2: address.street2 || '',
+      city: address.city,
+      state: address.state,
+      zip: address.zip,
+      country: address.country,
+      phone: address.phone || '',
+      is_default_from: address.is_default_from,
+      is_default_to: address.is_default_to,
+    });
+    setShowAddressDialog(true);
+  };
+  
+  const handleSaveAddress = async (values: AddressFormValues) => {
+    try {
+      if (editingAddress) {
+        // Update existing address
+        const updatedAddress = await addressService.updateAddress(editingAddress.id, values);
+        if (updatedAddress) {
+          // If this is set as default address, update the user profile
+          if (type === 'from' && values.is_default_from) {
+            await userProfileService.updateProfile({ default_pickup_address_id: updatedAddress.id });
+            await addressService.setDefaultFromAddress(updatedAddress.id);
+          }
+          
+          if (type === 'to' && values.is_default_to) {
+            await addressService.setDefaultToAddress(updatedAddress.id);
+          }
+          
+          toast.success("Address updated successfully");
+          onAddressSelect(updatedAddress);
+        }
+      } else {
+        // Create new address
+        const newAddress = await addressService.createAddress(values);
+        if (newAddress) {
+          // If this is set as default address, update the user profile
+          if (type === 'from' && values.is_default_from) {
+            await userProfileService.updateProfile({ default_pickup_address_id: newAddress.id });
+            await addressService.setDefaultFromAddress(newAddress.id);
+          }
+          
+          if (type === 'to' && values.is_default_to) {
+            await addressService.setDefaultToAddress(newAddress.id);
+          }
+          
+          toast.success("Address saved successfully");
+          onAddressSelect(newAddress);
+        }
+      }
+      
+      // Close dialog and reload addresses
+      setShowAddressDialog(false);
+      loadAddressData();
+    } catch (error) {
+      console.error('Error saving address:', error);
+      toast.error("Failed to save address");
+    }
+  };
+  
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -115,7 +242,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
               variant="ghost" 
               size="sm" 
               className="h-8 px-2 text-xs" 
-              onClick={goToAddressSettings}
+              onClick={openAddNewAddressDialog}
             >
               <Plus className="h-3.5 w-3.5 mr-1" />
               Add New
@@ -143,37 +270,266 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       ) : addresses.length === 0 ? (
         <div className="text-sm text-gray-500 flex items-center justify-between bg-gray-50 border rounded-md p-3">
           <span>No saved addresses</span>
-          <Button size="sm" variant="default" onClick={goToAddressSettings}>
+          <Button size="sm" variant="default" onClick={openAddNewAddressDialog}>
             <Plus className="h-3.5 w-3.5 mr-1" />
             Add Address
           </Button>
         </div>
       ) : (
-        <Select 
-          value={selectedAddressId?.toString()} 
-          onValueChange={handleAddressChange}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select an address" />
-          </SelectTrigger>
-          <SelectContent>
-            {addresses.map((address) => (
-              <SelectItem key={address.id} value={address.id.toString()}>
-                <div className="flex items-center">
-                  <span>{formatAddressForDisplay(address)}</span>
-                  {(type === 'from' && address.is_default_from) || 
-                   (type === 'to' && address.is_default_to) || 
-                   (type === 'from' && defaultAddressId === address.id) ? (
-                    <span className="ml-2 bg-green-100 text-green-800 text-xs px-1.5 py-0.5 rounded-full">
-                      Default
-                    </span>
-                  ) : null}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="space-y-2">
+          <Select 
+            value={selectedAddressId?.toString()} 
+            onValueChange={handleAddressChange}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select an address" />
+            </SelectTrigger>
+            <SelectContent>
+              {addresses.map((address) => (
+                <SelectItem key={address.id} value={address.id.toString()}>
+                  <div className="flex items-center">
+                    <span>{formatAddressForDisplay(address)}</span>
+                    {(type === 'from' && address.is_default_from) || 
+                     (type === 'to' && address.is_default_to) || 
+                     (type === 'from' && defaultAddressId === address.id) ? (
+                      <span className="ml-2 bg-green-100 text-green-800 text-xs px-1.5 py-0.5 rounded-full">
+                        Default
+                      </span>
+                    ) : null}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          {selectedAddressId && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full mt-1"
+              onClick={() => {
+                const address = addresses.find(addr => addr.id === selectedAddressId);
+                if (address) {
+                  openEditAddressDialog(address);
+                }
+              }}
+            >
+              <Edit className="h-3.5 w-3.5 mr-1" />
+              Edit this address
+            </Button>
+          )}
+        </div>
       )}
+      
+      {/* Address Dialog for adding/editing addresses */}
+      <Dialog open={showAddressDialog} onOpenChange={setShowAddressDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{editingAddress ? "Edit Address" : "Add New Address"}</DialogTitle>
+          </DialogHeader>
+          
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleSaveAddress)} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Label/Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Home, Office, etc." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="company"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Company (optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Company name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="street1"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Street Address</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Street address" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="street2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Apartment, Suite, etc. (optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Apt, Suite, Unit, etc." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State/Province</FormLabel>
+                        <FormControl>
+                          <Input placeholder="State/Province" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="zip"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ZIP/Postal Code</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ZIP/Postal Code" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="country"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Country</FormLabel>
+                        <Select 
+                          value={field.value} 
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select country" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="US">United States</SelectItem>
+                            <SelectItem value="CA">Canada</SelectItem>
+                            <SelectItem value="MX">Mexico</SelectItem>
+                            <SelectItem value="GB">United Kingdom</SelectItem>
+                            <SelectItem value="AU">Australia</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone (optional)</FormLabel>
+                      <FormControl>
+                        <Input type="tel" placeholder="Phone number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {type === 'from' && (
+                  <FormField
+                    control={form.control}
+                    name="is_default_from"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            checked={field.value}
+                            onChange={field.onChange}
+                            className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
+                          />
+                        </FormControl>
+                        <FormLabel className="text-sm font-normal">Set as default pickup address</FormLabel>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                
+                {type === 'to' && (
+                  <FormField
+                    control={form.control}
+                    name="is_default_to"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            checked={field.value}
+                            onChange={field.onChange}
+                            className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
+                          />
+                        </FormControl>
+                        <FormLabel className="text-sm font-normal">Set as default delivery address</FormLabel>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
+              
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowAddressDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">Save Address</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

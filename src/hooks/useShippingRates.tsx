@@ -29,12 +29,17 @@ interface EasyPostRatesEvent {
 export const useShippingRates = () => {
   const navigate = useNavigate();
   const [rates, setRates] = useState<ShippingRate[]>([]);
+  const [filteredRates, setFilteredRates] = useState<ShippingRate[]>([]);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
+  const [activeCarrierFilter, setActiveCarrierFilter] = useState<string | 'all'>('all');
+  
+  // Carrier filters
+  const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
 
   // Listen for rates from the shipping form component
   useEffect(() => {
@@ -47,10 +52,26 @@ export const useShippingRates = () => {
         }));
         
         setRates(ratesWithShipmentId);
+        setFilteredRates(ratesWithShipmentId);
         setShipmentId(event.detail.shipmentId);
         setSelectedRateId(null);
         setLabelUrl(null);
         setTrackingCode(null);
+        
+        // Extract unique carriers for filtering
+        const carriers = [...new Set(ratesWithShipmentId.map(rate => 
+          rate.carrier.toUpperCase()
+        ))];
+        setUniqueCarriers(carriers);
+        setActiveCarrierFilter('all');
+        
+        // Scroll to rates section
+        setTimeout(() => {
+          const ratesSection = document.getElementById('shipping-rates-section');
+          if (ratesSection) {
+            ratesSection.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 300);
       }
     };
 
@@ -60,6 +81,18 @@ export const useShippingRates = () => {
       document.removeEventListener('easypost-rates-received', handleRatesReceived as EventListener);
     };
   }, []);
+  
+  // Filter rates when carrier filter changes
+  useEffect(() => {
+    if (activeCarrierFilter === 'all') {
+      setFilteredRates(rates);
+    } else {
+      const filtered = rates.filter(rate => 
+        rate.carrier.toUpperCase() === activeCarrierFilter.toUpperCase()
+      );
+      setFilteredRates(filtered);
+    }
+  }, [activeCarrierFilter, rates]);
 
   const handleSelectRate = (rateId: string) => {
     setSelectedRateId(rateId);
@@ -71,6 +104,10 @@ export const useShippingRates = () => {
         selectedRateElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }, 100);
+  };
+  
+  const handleFilterByCarrier = (carrier: string | 'all') => {
+    setActiveCarrierFilter(carrier);
   };
 
   const handleCreateLabel = async () => {
@@ -120,8 +157,8 @@ export const useShippingRates = () => {
       setTrackingCode(data.trackingCode);
       toast.success("Shipping label generated successfully");
       
-      // We don't attempt to download directly here anymore
-      // This prevents the automatic redirect/refresh
+      // Navigate to the label success page
+      navigate(`/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}`);
       
     } catch (error) {
       console.error('Error creating label:', error);
@@ -164,10 +201,10 @@ export const useShippingRates = () => {
 
   // Function to determine the best value rate
   const getBestValueRate = () => {
-    if (rates.length === 0) return null;
+    if (filteredRates.length === 0) return null;
     
     // Sort by price and delivery days to find the best value
-    const sortedRates = [...rates].sort((a, b) => {
+    const sortedRates = [...filteredRates].sort((a, b) => {
       // First compare price
       const aPrice = parseFloat(a.rate);
       const bPrice = parseFloat(b.rate);
@@ -182,10 +219,10 @@ export const useShippingRates = () => {
 
   // Function to determine the fastest rate
   const getFastestRate = () => {
-    if (rates.length === 0) return null;
+    if (filteredRates.length === 0) return null;
     
     // Sort by delivery days to find the fastest
-    const sortedRates = [...rates].sort((a, b) => 
+    const sortedRates = [...filteredRates].sort((a, b) => 
       (a.delivery_days || 999) - (b.delivery_days || 999)
     );
     
@@ -196,7 +233,8 @@ export const useShippingRates = () => {
   const fastestRateId = getFastestRate();
 
   return {
-    rates,
+    rates: filteredRates,
+    allRates: rates,
     isLoading,
     isProcessingPayment,
     selectedRateId,
@@ -205,8 +243,11 @@ export const useShippingRates = () => {
     shipmentId,
     bestValueRateId,
     fastestRateId,
+    uniqueCarriers,
+    activeCarrierFilter,
     handleSelectRate,
     handleCreateLabel,
-    handleProceedToPayment
+    handleProceedToPayment,
+    handleFilterByCarrier
   };
 };
