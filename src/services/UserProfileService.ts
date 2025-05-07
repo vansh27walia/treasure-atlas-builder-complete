@@ -161,6 +161,35 @@ export class UserProfileService {
   }
   
   /**
+   * Update user profile with provided data
+   */
+  public async updateProfile(profileData: Partial<UserProfile>): Promise<boolean> {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) {
+        return false;
+      }
+      
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({
+          ...profileData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', session.session.user.id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      return false;
+    }
+  }
+  
+  /**
    * Update the default pickup address ID
    */
   public async updateDefaultPickupAddressId(addressId: number): Promise<boolean> {

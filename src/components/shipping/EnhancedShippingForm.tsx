@@ -96,7 +96,7 @@ const EnhancedShippingForm: React.FC = () => {
   const watchAllCarriers = form.watch("allCarriers");
   
   useEffect(() => {
-    const carriers = ['usps', 'ups', 'fedex', 'dhl'];
+    const carriers = ['usps', 'ups', 'fedex', 'dhl'] as const;
     carriers.forEach(carrier => {
       form.setValue(`carriers.${carrier}`, watchAllCarriers);
     });

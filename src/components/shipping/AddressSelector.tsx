@@ -184,13 +184,24 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   
   const handleSaveAddress = async (values: AddressFormValues) => {
     try {
+      // Ensure required fields are not undefined
+      const addressData = {
+        ...values,
+        name: values.name || '',
+        street1: values.street1,
+        city: values.city,
+        state: values.state,
+        zip: values.zip,
+        country: values.country,
+      };
+      
       if (editingAddress) {
         // Update existing address
-        const updatedAddress = await addressService.updateAddress(editingAddress.id, values);
+        const updatedAddress = await addressService.updateAddress(editingAddress.id, addressData);
         if (updatedAddress) {
           // If this is set as default address, update the user profile
           if (type === 'from' && values.is_default_from) {
-            await userProfileService.updateProfile({ default_pickup_address_id: updatedAddress.id });
+            await userProfileService.updateDefaultPickupAddressId(updatedAddress.id);
             await addressService.setDefaultFromAddress(updatedAddress.id);
           }
           
@@ -203,11 +214,11 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
         }
       } else {
         // Create new address
-        const newAddress = await addressService.createAddress(values);
+        const newAddress = await addressService.createAddress(addressData);
         if (newAddress) {
           // If this is set as default address, update the user profile
           if (type === 'from' && values.is_default_from) {
-            await userProfileService.updateProfile({ default_pickup_address_id: newAddress.id });
+            await userProfileService.updateDefaultPickupAddressId(newAddress.id);
             await addressService.setDefaultFromAddress(newAddress.id);
           }
           
