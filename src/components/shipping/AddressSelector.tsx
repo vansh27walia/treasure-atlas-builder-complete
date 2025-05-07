@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Settings } from 'lucide-react';
+import { Plus, Settings, Save } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
 interface AddressSelectorProps {
@@ -18,17 +18,22 @@ interface AddressSelectorProps {
   onAddressSelect: (address: SavedAddress) => void;
   selectedAddressId?: number;
   allowAddNew?: boolean;
+  showSaveButton?: boolean;
+  currentAddress?: Partial<SavedAddress>;
 }
 
 const AddressSelector: React.FC<AddressSelectorProps> = ({ 
   type, 
   onAddressSelect,
   selectedAddressId,
-  allowAddNew = true
+  allowAddNew = true,
+  showSaveButton = false,
+  currentAddress
 }) => {
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | undefined>(selectedAddressId);
+  const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
   
   // Load saved addresses
@@ -100,6 +105,59 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     navigate('/settings');
   };
   
+  // Save current address to database
+  const saveAddressToFile = async () => {
+    if (!currentAddress) {
+      toast.error("No address to save");
+      return;
+    }
+    
+    if (!currentAddress.street1 || !currentAddress.city || !currentAddress.state || !currentAddress.zip) {
+      toast.error("Please fill all required address fields before saving");
+      return;
+    }
+    
+    try {
+      setIsSaving(true);
+      
+      // Prepare address object
+      const addressToSave: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'> = {
+        name: currentAddress.name || `${currentAddress.city}, ${currentAddress.state}`,
+        company: currentAddress.company,
+        street1: currentAddress.street1,
+        street2: currentAddress.street2,
+        city: currentAddress.city,
+        state: currentAddress.state,
+        zip: currentAddress.zip,
+        country: currentAddress.country || 'US',
+        phone: currentAddress.phone,
+        is_default_from: type === 'from',
+        is_default_to: type === 'to'
+      };
+      
+      // Save the address
+      const savedAddress = await addressService.createAddress(addressToSave);
+      if (savedAddress) {
+        toast.success(`Address saved successfully`);
+        console.log("Saved address:", savedAddress);
+        
+        // Refresh the address list
+        await loadAddresses();
+        
+        // Select the newly saved address
+        setSelectedId(savedAddress.id);
+        onAddressSelect(savedAddress);
+      } else {
+        throw new Error("Failed to save address");
+      }
+    } catch (error) {
+      console.error('Error saving address:', error);
+      toast.error("Failed to save address");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
@@ -108,6 +166,19 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
         </h3>
         
         <div className="flex items-center gap-2">
+          {showSaveButton && currentAddress && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-8 px-2 text-xs"
+              onClick={saveAddressToFile}
+              disabled={isSaving}
+            >
+              <Save className="h-3.5 w-3.5 mr-1" />
+              {isSaving ? 'Saving...' : 'Save Address'}
+            </Button>
+          )}
+          
           {allowAddNew && (
             <Button 
               variant="ghost" 

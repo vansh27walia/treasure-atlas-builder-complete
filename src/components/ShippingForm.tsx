@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Box, ArrowRight, Scale, AlertCircle, Check, ArrowDown } from 'lucide-react';
+import { Package, Box, ArrowDown, Scale, AlertCircle, Check } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
@@ -16,6 +16,7 @@ import { carrierService } from '@/services/CarrierService';
 import AddressSelector from '@/components/shipping/AddressSelector';
 import { SavedAddress } from '@/services/AddressService';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface FormValues {
   fromName: string;
@@ -76,10 +77,10 @@ const ShippingForm: React.FC = () => {
     isVerified: false,
     messages: []
   });
-  const [selectedFromAddressId, setSelectedFromAddressId] = useState<number | undefined>(undefined);
-  const [selectedToAddressId, setSelectedToAddressId] = useState<number | undefined>(undefined);
-  const [useFromAddressSelector, setUseFromAddressSelector] = useState(true);
-  const [useToAddressSelector, setUseToAddressSelector] = useState(true);
+  const [fromAddress, setFromAddress] = useState<Partial<SavedAddress>>({});
+  const [toAddress, setToAddress] = useState<Partial<SavedAddress>>({});
+  const [showFromAddressSelector, setShowFromAddressSelector] = useState(true);
+  const [showToAddressSelector, setShowToAddressSelector] = useState(false);
   const [selectedCarriers, setSelectedCarriers] = useState<string[]>(['usps']);
   
   // Using react-hook-form to manage form state
@@ -114,38 +115,46 @@ const ShippingForm: React.FC = () => {
     }
   });
   
-  const handleCarrierToggle = (carrier: string) => {
-    setSelectedCarriers(prev => {
-      if (prev.includes(carrier)) {
-        return prev.filter(c => c !== carrier);
-      } else {
-        return [...prev, carrier];
-      }
+  // Handle form value changes
+  useEffect(() => {
+    const subscription = form.watch((value) => {
+      // Update from address
+      setFromAddress({
+        name: value.fromName,
+        company: value.fromCompany,
+        street1: value.fromAddress1,
+        street2: value.fromAddress2,
+        city: value.fromCity,
+        state: value.fromState,
+        zip: value.fromZip,
+        country: value.fromCountry,
+      });
+      
+      // Update to address
+      setToAddress({
+        name: value.toName,
+        company: value.toCompany,
+        street1: value.toAddress1,
+        street2: value.toAddress2,
+        city: value.toCity,
+        state: value.toState,
+        zip: value.toZip,
+        country: value.toCountry,
+      });
     });
     
-    // Update the form value
-    form.setValue('carriers', 
-      selectedCarriers.includes(carrier) 
-        ? selectedCarriers.filter(c => c !== carrier) 
-        : [...selectedCarriers, carrier]
-    );
-  };
+    return () => subscription.unsubscribe();
+  }, [form.watch]);
   
-  const selectAllCarriers = () => {
-    const allCarrierIds = carriersOptions.map(c => c.id);
-    setSelectedCarriers(allCarrierIds);
-    form.setValue('carriers', allCarrierIds);
-  };
-  
-  const clearAllCarriers = () => {
-    setSelectedCarriers([]);
-    form.setValue('carriers', []);
+  const handleCarrierSelectionChange = (value: string[]) => {
+    if (value.length > 0) {
+      setSelectedCarriers(value);
+      form.setValue('carriers', value);
+    }
   };
   
   // Handle pickup address selection
   const handleFromAddressSelect = (address: SavedAddress) => {
-    setSelectedFromAddressId(address.id);
-    
     // Update form values with selected address
     form.setValue('fromName', address.name || '');
     form.setValue('fromCompany', address.company || '');
@@ -156,36 +165,18 @@ const ShippingForm: React.FC = () => {
     form.setValue('fromZip', address.zip);
     form.setValue('fromCountry', address.country);
     
-    toast.success(`Pickup address set to ${address.name || address.city}`);
-    console.log("From address selected:", address);
-  };
-  
-  // Handle delivery address selection
-  const handleToAddressSelect = (address: SavedAddress) => {
-    setSelectedToAddressId(address.id);
+    setFromAddress({
+      name: address.name,
+      company: address.company,
+      street1: address.street1,
+      street2: address.street2,
+      city: address.city,
+      state: address.state,
+      zip: address.zip,
+      country: address.country,
+    });
     
-    // Update form values with selected address
-    form.setValue('toName', address.name || '');
-    form.setValue('toCompany', address.company || '');
-    form.setValue('toAddress1', address.street1);
-    form.setValue('toAddress2', address.street2 || '');
-    form.setValue('toCity', address.city);
-    form.setValue('toState', address.state);
-    form.setValue('toZip', address.zip);
-    form.setValue('toCountry', address.country);
-    
-    toast.success(`Delivery address set to ${address.name || address.city}`);
-    console.log("To address selected:", address);
-  };
-
-  // Toggle between address selector and manual entry
-  const toggleFromAddressSelector = () => {
-    setUseFromAddressSelector(!useFromAddressSelector);
-  };
-  
-  // Toggle between address selector and manual entry for destination
-  const toggleToAddressSelector = () => {
-    setUseToAddressSelector(!useToAddressSelector);
+    toast.success(`Origin address set to ${address.name || address.city}`);
   };
   
   // Handle address verification
@@ -360,36 +351,40 @@ const ShippingForm: React.FC = () => {
           <h2 className="text-2xl font-semibold mb-6">Ship a Package</h2>
           
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleGetRates)}>
+            <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-8">
               <Tabs defaultValue="domestic" className="mb-6">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="domestic">Domestic</TabsTrigger>
                   <TabsTrigger value="international">International</TabsTrigger>
                 </TabsList>
                 
-                <TabsContent value="domestic" className="pt-6">
+                <TabsContent value="domestic" className="pt-6 space-y-6">
                   {/* Origin Address Section */}
-                  <div className="bg-blue-50 rounded-lg p-6 border border-blue-100 mb-6">
+                  <div className="bg-blue-50 rounded-lg p-6 border border-blue-100">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-medium text-blue-800">Origin Address</h3>
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm"
-                        onClick={toggleFromAddressSelector}
-                      >
-                        {useFromAddressSelector ? "Manual Entry" : "Saved Addresses"}
-                      </Button>
+                      <h3 className="text-lg font-semibold text-blue-800">Origin Address</h3>
+                      <div className="flex gap-2">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setShowFromAddressSelector(!showFromAddressSelector)}
+                          className="text-xs"
+                        >
+                          {showFromAddressSelector ? "Manual Entry" : "Use Saved Address"}
+                        </Button>
+                      </div>
                     </div>
                     
-                    {useFromAddressSelector ? (
+                    {showFromAddressSelector ? (
                       <AddressSelector 
                         type="from"
                         onAddressSelect={handleFromAddressSelect}
-                        selectedAddressId={selectedFromAddressId}
+                        currentAddress={fromAddress}
+                        showSaveButton={true}
                       />
                     ) : (
-                      <div className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4 mt-4">
                         <FormField
                           control={form.control}
                           name="fromName"
@@ -416,46 +411,50 @@ const ShippingForm: React.FC = () => {
                           )}
                         />
                         
-                        <FormField
-                          control={form.control}
-                          name="fromAddress1"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Address Line 1</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Street address" />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
+                        <div className="md:col-span-2">
+                          <FormField
+                            control={form.control}
+                            name="fromAddress1"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Address Line 1</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="Street address" />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        
+                        <div className="md:col-span-2">
+                          <FormField
+                            control={form.control}
+                            name="fromAddress2"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Address Line 2 (optional)</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="Apt, Suite, Unit, etc." />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                         
                         <FormField
                           control={form.control}
-                          name="fromAddress2"
+                          name="fromCity"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Address Line 2 (optional)</FormLabel>
+                              <FormLabel>City</FormLabel>
                               <FormControl>
-                                <Input {...field} placeholder="Apt, Suite, Unit, etc." />
+                                <Input {...field} placeholder="City" />
                               </FormControl>
                             </FormItem>
                           )}
                         />
                         
                         <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="fromCity"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>City</FormLabel>
-                                <FormControl>
-                                  <Input {...field} placeholder="City" />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
                           <FormField
                             control={form.control}
                             name="fromState"
@@ -468,20 +467,20 @@ const ShippingForm: React.FC = () => {
                               </FormItem>
                             )}
                           />
+                          
+                          <FormField
+                            control={form.control}
+                            name="fromZip"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>ZIP Code</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="ZIP Code" />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
                         </div>
-                        
-                        <FormField
-                          control={form.control}
-                          name="fromZip"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>ZIP Code</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="ZIP Code" />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
                         
                         <FormField
                           control={form.control}
@@ -507,28 +506,38 @@ const ShippingForm: React.FC = () => {
                             </FormItem>
                           )}
                         />
+                        
+                        <div className="md:col-span-2">
+                          <AddressSelector 
+                            type="from"
+                            onAddressSelect={handleFromAddressSelect}
+                            currentAddress={fromAddress}
+                            showSaveButton={true}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
                   
                   {/* Direction Arrow */}
-                  <div className="flex justify-center my-6">
+                  <div className="flex justify-center my-4">
                     <div className="bg-blue-100 rounded-full p-3">
                       <ArrowDown className="h-6 w-6 text-blue-600" />
                     </div>
                   </div>
                   
                   {/* Destination Address Section */}
-                  <div className="bg-indigo-50 rounded-lg p-6 border border-indigo-100 mb-6">
+                  <div className="bg-indigo-50 rounded-lg p-6 border border-indigo-100">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-medium text-indigo-800">Destination Address</h3>
+                      <h3 className="text-lg font-semibold text-indigo-800">Destination Address</h3>
                       <Button 
                         type="button" 
                         variant="outline" 
                         size="sm"
-                        onClick={toggleToAddressSelector}
+                        onClick={() => setShowToAddressSelector(!showToAddressSelector)}
+                        className="text-xs"
                       >
-                        {useToAddressSelector ? "Manual Entry" : "Saved Addresses"}
+                        {showToAddressSelector ? "Manual Entry" : "Use Saved Address"}
                       </Button>
                     </div>
                     
@@ -561,14 +570,22 @@ const ShippingForm: React.FC = () => {
                       </Alert>
                     )}
                     
-                    {useToAddressSelector ? (
+                    {showToAddressSelector ? (
                       <AddressSelector 
                         type="to"
-                        onAddressSelect={handleToAddressSelect}
-                        selectedAddressId={selectedToAddressId}
+                        onAddressSelect={(address) => {
+                          form.setValue('toName', address.name || '');
+                          form.setValue('toCompany', address.company || '');
+                          form.setValue('toAddress1', address.street1);
+                          form.setValue('toAddress2', address.street2 || '');
+                          form.setValue('toCity', address.city);
+                          form.setValue('toState', address.state);
+                          form.setValue('toZip', address.zip);
+                          form.setValue('toCountry', address.country);
+                        }}
                       />
                     ) : (
-                      <div className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
                           name="toName"
@@ -595,46 +612,50 @@ const ShippingForm: React.FC = () => {
                           )}
                         />
                         
-                        <FormField
-                          control={form.control}
-                          name="toAddress1"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Address Line 1</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="Street address" />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
+                        <div className="md:col-span-2">
+                          <FormField
+                            control={form.control}
+                            name="toAddress1"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Address Line 1</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="Street address" />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        
+                        <div className="md:col-span-2">
+                          <FormField
+                            control={form.control}
+                            name="toAddress2"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Address Line 2 (optional)</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="Apt, Suite, Unit, etc." />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                         
                         <FormField
                           control={form.control}
-                          name="toAddress2"
+                          name="toCity"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Address Line 2 (optional)</FormLabel>
+                              <FormLabel>City</FormLabel>
                               <FormControl>
-                                <Input {...field} placeholder="Apt, Suite, Unit, etc." />
+                                <Input {...field} placeholder="City" />
                               </FormControl>
                             </FormItem>
                           )}
                         />
                         
                         <div className="grid grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="toCity"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>City</FormLabel>
-                                <FormControl>
-                                  <Input {...field} placeholder="City" />
-                                </FormControl>
-                              </FormItem>
-                            )}
-                          />
-                          
                           <FormField
                             control={form.control}
                             name="toState"
@@ -647,20 +668,20 @@ const ShippingForm: React.FC = () => {
                               </FormItem>
                             )}
                           />
+                          
+                          <FormField
+                            control={form.control}
+                            name="toZip"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>ZIP Code</FormLabel>
+                                <FormControl>
+                                  <Input {...field} placeholder="ZIP Code" />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
                         </div>
-                        
-                        <FormField
-                          control={form.control}
-                          name="toZip"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>ZIP Code</FormLabel>
-                              <FormControl>
-                                <Input {...field} placeholder="ZIP Code" />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
                         
                         <FormField
                           control={form.control}
@@ -687,12 +708,14 @@ const ShippingForm: React.FC = () => {
                           )}
                         />
                         
-                        <div className="mt-2">
+                        <div className="md:col-span-2">
                           <Button
                             type="button"
                             variant="outline"
+                            size="sm"
                             onClick={handleVerifyAddress}
                             disabled={toAddressVerification.isVerifying}
+                            className="w-full"
                           >
                             {toAddressVerification.isVerifying ? 'Verifying...' : 'Verify Address'}
                           </Button>
@@ -709,61 +732,102 @@ const ShippingForm: React.FC = () => {
                 </TabsContent>
               </Tabs>
               
-              <div className="mt-8 space-y-8">
+              <div className="space-y-6">
                 {/* Carriers Section */}
                 <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                  <h3 className="text-lg font-medium mb-4">Carriers</h3>
+                  <h3 className="text-lg font-semibold mb-4">Select Carriers</h3>
                   
                   <div className="space-y-4">
-                    <div className="flex justify-between mb-4">
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm"
-                        onClick={selectAllCarriers}
-                      >
-                        Select All
-                      </Button>
-                      
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm"
-                        onClick={clearAllCarriers}
-                      >
-                        Clear All
-                      </Button>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {carriersOptions.map(carrier => (
-                        <div 
-                          key={carrier.id}
-                          className={`border rounded-lg p-3 flex items-center justify-center cursor-pointer transition-colors ${
-                            selectedCarriers.includes(carrier.id) 
-                              ? 'bg-blue-50 border-blue-300' 
-                              : 'bg-white border-gray-200'
-                          }`}
-                          onClick={() => handleCarrierToggle(carrier.id)}
-                        >
-                          <div className="flex flex-col items-center">
-                            <div className="h-5 w-5 mb-1 flex items-center justify-center">
-                              <Checkbox 
-                                checked={selectedCarriers.includes(carrier.id)}
-                                onCheckedChange={() => handleCarrierToggle(carrier.id)}
-                              />
+                    <div className="grid gap-4">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-between">
+                            {selectedCarriers.length === 0 
+                              ? "Select carriers" 
+                              : `${selectedCarriers.length} carrier${selectedCarriers.length > 1 ? 's' : ''} selected`}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full p-4" align="start">
+                          <div className="space-y-3">
+                            <h4 className="font-medium text-sm">Available Carriers</h4>
+                            <div className="grid grid-cols-2 gap-2">
+                              {carriersOptions.map((carrier) => (
+                                <div 
+                                  key={carrier.id} 
+                                  className={`flex items-center space-x-2 border p-2 rounded-md cursor-pointer ${
+                                    selectedCarriers.includes(carrier.id) ? 'bg-blue-50 border-blue-300' : 'bg-white'
+                                  }`}
+                                  onClick={() => {
+                                    const updatedCarriers = selectedCarriers.includes(carrier.id)
+                                      ? selectedCarriers.filter(c => c !== carrier.id)
+                                      : [...selectedCarriers, carrier.id];
+                                    handleCarrierSelectionChange(updatedCarriers);
+                                  }}
+                                >
+                                  <Checkbox 
+                                    checked={selectedCarriers.includes(carrier.id)}
+                                    onCheckedChange={() => {
+                                      const updatedCarriers = selectedCarriers.includes(carrier.id)
+                                        ? selectedCarriers.filter(c => c !== carrier.id)
+                                        : [...selectedCarriers, carrier.id];
+                                      handleCarrierSelectionChange(updatedCarriers);
+                                    }}
+                                  />
+                                  <span>{carrier.label}</span>
+                                </div>
+                              ))}
                             </div>
-                            <span className="font-medium">{carrier.label}</span>
+                            <div className="flex justify-between pt-2">
+                              <Button 
+                                type="button" 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleCarrierSelectionChange(carriersOptions.map(c => c.id))}
+                              >
+                                Select All
+                              </Button>
+                              <Button 
+                                type="button" 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => handleCarrierSelectionChange(['usps'])}
+                              >
+                                Clear
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        </PopoverContent>
+                      </Popover>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        {selectedCarriers.map((carrierId) => {
+                          const carrier = carriersOptions.find(c => c.id === carrierId);
+                          return carrier ? (
+                            <div key={carrier.id} className="bg-blue-50 border border-blue-200 rounded-full px-3 py-1 text-sm text-blue-700 flex items-center">
+                              {carrier.label}
+                              <Button
+                                type="button" 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-5 w-5 p-0 ml-1 text-blue-700 hover:text-blue-900"
+                                onClick={() => {
+                                  const updatedCarriers = selectedCarriers.filter(c => c !== carrier.id);
+                                  handleCarrierSelectionChange(updatedCarriers.length ? updatedCarriers : ['usps']);
+                                }}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          ) : null;
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Package Details */}
                 <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                  <h3 className="text-lg font-medium mb-4">Package Details</h3>
+                  <h3 className="text-lg font-semibold mb-4">Package Details</h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-6">
@@ -778,7 +842,7 @@ const ShippingForm: React.FC = () => {
                               defaultValue={field.value}
                             >
                               <FormControl>
-                                <SelectTrigger>
+                                <SelectTrigger className="bg-white">
                                   <SelectValue placeholder="Select Package Type" />
                                 </SelectTrigger>
                               </FormControl>
@@ -980,15 +1044,15 @@ const ShippingForm: React.FC = () => {
                 </div>
               </div>
               
-              <div className="mt-8 flex justify-center">
+              <div className="flex justify-center mt-8">
                 <Button 
                   type="submit" 
                   size="lg" 
-                  className="flex items-center gap-2 px-8"
+                  className="flex items-center gap-2 px-8 bg-blue-600 hover:bg-blue-700"
                   disabled={isLoading || selectedCarriers.length === 0}
                 >
                   <span>{isLoading ? 'Getting Rates...' : 'Show Shipping Rates'}</span>
-                  <ArrowRight className="h-4 w-4" />
+                  {!isLoading && <Package className="h-4 w-4" />}
                 </Button>
               </div>
             </form>
