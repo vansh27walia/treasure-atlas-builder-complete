@@ -35,10 +35,6 @@ export const useShippingRates = () => {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
-  const [carrierFilter, setCarrierFilter] = useState<string | 'ALL'>('ALL');
-
-  // Carrier options
-  const availableCarriers = ['USPS', 'UPS', 'FedEx', 'DHL'];
 
   // Listen for rates from the shipping form component
   useEffect(() => {
@@ -124,6 +120,9 @@ export const useShippingRates = () => {
       setTrackingCode(data.trackingCode);
       toast.success("Shipping label generated successfully");
       
+      // We don't attempt to download directly here anymore
+      // This prevents the automatic redirect/refresh
+      
     } catch (error) {
       console.error('Error creating label:', error);
       toast.error("Failed to generate shipping label. Please try again.");
@@ -163,17 +162,12 @@ export const useShippingRates = () => {
     }
   };
 
-  // Filter rates by carrier
-  const filteredRates = carrierFilter === 'ALL' 
-    ? rates 
-    : rates.filter(rate => rate.carrier === carrierFilter);
-
   // Function to determine the best value rate
   const getBestValueRate = () => {
-    if (filteredRates.length === 0) return null;
+    if (rates.length === 0) return null;
     
     // Sort by price and delivery days to find the best value
-    const sortedRates = [...filteredRates].sort((a, b) => {
+    const sortedRates = [...rates].sort((a, b) => {
       // First compare price
       const aPrice = parseFloat(a.rate);
       const bPrice = parseFloat(b.rate);
@@ -188,10 +182,10 @@ export const useShippingRates = () => {
 
   // Function to determine the fastest rate
   const getFastestRate = () => {
-    if (filteredRates.length === 0) return null;
+    if (rates.length === 0) return null;
     
     // Sort by delivery days to find the fastest
-    const sortedRates = [...filteredRates].sort((a, b) => 
+    const sortedRates = [...rates].sort((a, b) => 
       (a.delivery_days || 999) - (b.delivery_days || 999)
     );
     
@@ -203,7 +197,6 @@ export const useShippingRates = () => {
 
   return {
     rates,
-    filteredRates,
     isLoading,
     isProcessingPayment,
     selectedRateId,
@@ -212,12 +205,8 @@ export const useShippingRates = () => {
     shipmentId,
     bestValueRateId,
     fastestRateId,
-    carrierFilter,
-    availableCarriers,
-    setCarrierFilter,
     handleSelectRate,
     handleCreateLabel,
     handleProceedToPayment
   };
 };
-

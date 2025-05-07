@@ -17,6 +17,7 @@ import SidebarNavigation from "./components/SidebarNavigation";
 import AuthPage from "./pages/AuthPage";
 import AuthProvider from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import OnboardingProvider from "./contexts/OnboardingContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,58 +34,60 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<AuthPage />} />
-            <Route
-              path="/*"
-              element={
-                <SidebarNavigation>
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/dashboard" element={
-                      <ProtectedRoute>
-                        <Dashboard />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/payment" element={
-                      <ProtectedRoute>
-                        <PaymentPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/label-success" element={
-                      <ProtectedRoute>
-                        <LabelSuccessPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/create-label" element={
-                      <ProtectedRoute>
-                        <CreateLabelPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/international" element={
-                      <ProtectedRoute>
-                        <InternationalShippingPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/pickup" element={
-                      <ProtectedRoute>
-                        <PickupPage />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/settings" element={
-                      <ProtectedRoute>
-                        <SettingsPage />
-                      </ProtectedRoute>
-                    } />
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </SidebarNavigation>
-              }
-            />
-          </Routes>
-        </BrowserRouter>
+        <OnboardingProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<AuthPage />} />
+              <Route
+                path="/*"
+                element={
+                  <SidebarNavigation>
+                    <Routes>
+                      <Route path="/" element={<Index />} />
+                      <Route path="/dashboard" element={
+                        <ProtectedRoute>
+                          <Dashboard />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/payment" element={
+                        <ProtectedRoute>
+                          <PaymentPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/label-success" element={
+                        <ProtectedRoute>
+                          <LabelSuccessPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/create-label" element={
+                        <ProtectedRoute>
+                          <CreateLabelPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/international" element={
+                        <ProtectedRoute>
+                          <InternationalShippingPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/pickup" element={
+                        <ProtectedRoute>
+                          <PickupPage />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/settings" element={
+                        <ProtectedRoute>
+                          <SettingsPage />
+                        </ProtectedRoute>
+                      } />
+                      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </SidebarNavigation>
+                }
+              />
+            </Routes>
+          </BrowserRouter>
+        </OnboardingProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
