@@ -14,7 +14,16 @@ export function createTempSavedAddress(simpleAddress: SimpleAddress): SavedAddre
     user_id: 'temp',
     is_default_from: false,
     is_default_to: false,
-    ...simpleAddress,
+    // Ensure all required fields have default values if they're undefined
+    name: simpleAddress.name || 'Unnamed',  // Default name for SavedAddress
+    company: simpleAddress.company,
+    street1: simpleAddress.street1 || '',   // Default empty string if undefined
+    street2: simpleAddress.street2,
+    city: simpleAddress.city || '',         // Default empty string if undefined
+    state: simpleAddress.state || '',       // Default empty string if undefined
+    zip: simpleAddress.zip || '',           // Default empty string if undefined
+    country: simpleAddress.country || 'US', // Default to US if undefined
+    phone: simpleAddress.phone,
   };
 }
 

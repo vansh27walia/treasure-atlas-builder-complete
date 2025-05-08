@@ -25,12 +25,12 @@ import { SavedAddress } from '@/services/AddressService';
 export interface SimpleAddress {
   name?: string;
   company?: string;
-  street1: string;
+  street1?: string; // Making this optional to match form values
   street2?: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
+  city?: string; // Making this optional
+  state?: string; // Making this optional
+  zip?: string; // Making this optional
+  country?: string; // Making this optional
   phone?: string;
 }
 
