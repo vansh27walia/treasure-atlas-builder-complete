@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Card,
   CardContent,
@@ -19,7 +19,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { COUNTRIES_LIST } from '@/lib/countries';
-import { SavedAddress } from '@/services/AddressService';
+import { Phone } from 'lucide-react';
 
 // Create a simplified address type that matches the form inputs
 export interface SimpleAddress {
@@ -223,10 +223,19 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone (optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Contact phone" {...field} />
-                    </FormControl>
+                    <FormLabel>Phone</FormLabel>
+                    <div className="flex items-center">
+                      <div className="bg-gray-100 p-2 border border-gray-300 rounded-l-md">
+                        <Phone className="h-5 w-5 text-gray-500" />
+                      </div>
+                      <FormControl>
+                        <Input 
+                          placeholder="Contact phone number" 
+                          className="rounded-l-none" 
+                          {...field} 
+                        />
+                      </FormControl>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}

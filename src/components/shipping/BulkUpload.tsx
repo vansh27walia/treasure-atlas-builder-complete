@@ -42,6 +42,7 @@ const BulkUpload: React.FC = () => {
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [results, setResults] = useState<ProcessingResult | null>(null);
+  const [progress, setProgress] = useState(0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -56,6 +57,7 @@ const BulkUpload: React.FC = () => {
       setFile(selectedFile);
       setUploadStatus('idle');
       setResults(null);
+      setProgress(0);
     }
   };
 
@@ -67,23 +69,49 @@ const BulkUpload: React.FC = () => {
 
     setIsUploading(true);
     setUploadStatus('idle');
+    setProgress(10); // Start progress
 
     try {
       // Read the file
       const text = await file.text();
-      const rows = text.split('\n');
+      setProgress(20); // File read
       
-      // Validate the CSV format (simple check)
+      // Validate CSV structure
+      const rows = text.split('\n');
       if (rows.length < 2) {
         throw new Error('CSV file must have at least a header row and one data row');
       }
       
+      // Check CSV headers
+      const headers = rows[0].toLowerCase().split(',');
+      const requiredFields = ['name', 'street1', 'city', 'state', 'zip', 'country'];
+      const missingFields = requiredFields.filter(field => !headers.includes(field));
+      
+      if (missingFields.length > 0) {
+        throw new Error(`CSV is missing required fields: ${missingFields.join(', ')}`);
+      }
+      
+      setProgress(30); // File validated
+
       // Process file and generate labels via the API
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
-        body: { csvContent: text }
+        body: { 
+          csvContent: text,
+          origin: {
+            name: "Shipping Company",
+            street1: "123 Main St",
+            city: "San Francisco",
+            state: "CA",
+            zip: "94111",
+            country: "US",
+            phone: "555-555-5555"
+          }
+        }
       });
 
       if (error) throw new Error(error.message);
+
+      setProgress(90); // Processing complete
 
       setResults({
         total: data.total,
@@ -95,11 +123,14 @@ const BulkUpload: React.FC = () => {
       });
       
       setUploadStatus('success');
+      setProgress(100);
+      
       toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments and generated labels`);
     } catch (error) {
       console.error('Bulk upload error:', error);
       setUploadStatus('error');
-      toast.error('Failed to process the uploaded file');
+      setProgress(0);
+      toast.error(`Failed to process the uploaded file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsUploading(false);
     }
@@ -122,7 +153,10 @@ const BulkUpload: React.FC = () => {
         body: { 
           amount: amountInCents,
           quantity: results.successful,
-          description: `Bulk Shipping - ${results.successful} labels`
+          description: `Bulk Shipping - ${results.successful} labels`,
+          metadata: {
+            shipment_ids: results.processedShipments.map(s => s.id).join(',')
+          }
         }
       });
 
@@ -177,6 +211,8 @@ const BulkUpload: React.FC = () => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    
+    toast.success('Template downloaded successfully');
   };
 
   const handleDownloadSingleLabel = (labelUrl: string) => {
@@ -220,6 +256,18 @@ const BulkUpload: React.FC = () => {
             ) : 'Process Upload'}
           </Button>
         </div>
+        
+        {isUploading && progress > 0 && (
+          <div className="mt-4">
+            <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2">
+              <div 
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">{progress < 100 ? 'Processing...' : 'Complete'} ({progress}%)</p>
+          </div>
+        )}
       </div>
       
       {uploadStatus === 'success' && results && (

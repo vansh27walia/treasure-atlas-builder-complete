@@ -23,6 +23,18 @@ interface ProcessingError {
   details: string;
 }
 
+interface Address {
+  name: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone?: string;
+  company?: string;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -40,7 +52,7 @@ serve(async (req) => {
     }
 
     // Parse request body
-    const { csvContent } = await req.json();
+    const { csvContent, origin } = await req.json();
     
     if (!csvContent) {
       return new Response(
@@ -49,9 +61,16 @@ serve(async (req) => {
       );
     }
 
+    if (!origin) {
+      return new Response(
+        JSON.stringify({ error: 'Missing origin address' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
     // Process the CSV content
     const rows = csvContent.split('\n');
-    const headers = rows[0].split(',');
+    const headers = rows[0].toLowerCase().split(',');
     
     // Check if we have data rows (excluding header)
     if (rows.length < 2) {
@@ -60,50 +79,108 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
+
+    // Validate required headers
+    const requiredFields = ['name', 'street1', 'city', 'state', 'zip', 'country'];
+    const missingFields = requiredFields.filter(field => !headers.includes(field));
     
-    // In a real implementation, we would:
-    // 1. Parse each row to extract address and package details
-    // 2. Create shipments via EasyPost API for each row
-    // 3. Purchase and generate labels for each shipment
-    // 4. Return the results with tracking codes and label URLs
+    if (missingFields.length > 0) {
+      return new Response(
+        JSON.stringify({ error: `CSV is missing required fields: ${missingFields.join(', ')}` }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
     
-    // For this demo, we'll generate mock data
+    // Get the indexes for each field
+    const fieldIndexes = {
+      name: headers.indexOf('name'),
+      company: headers.indexOf('company'),
+      street1: headers.indexOf('street1'),
+      street2: headers.indexOf('street2'),
+      city: headers.indexOf('city'),
+      state: headers.indexOf('state'),
+      zip: headers.indexOf('zip'),
+      country: headers.indexOf('country'),
+      phone: headers.indexOf('phone'),
+      parcel_length: headers.indexOf('parcel_length'),
+      parcel_width: headers.indexOf('parcel_width'),
+      parcel_height: headers.indexOf('parcel_height'),
+      parcel_weight: headers.indexOf('parcel_weight'),
+    };
+    
+    // Process each data row
     const total = rows.length - 1; // Exclude header row
-    const successful = Math.floor(total * 0.9); // 90% success rate
-    const failed = total - successful;
-    
-    // Generate mock tracking info and label URLs for successfully processed shipments
     const processedShipments: ShipmentResult[] = [];
-    for (let i = 1; i <= successful; i++) {
+    const failedShipments: ProcessingError[] = [];
+    
+    // Process each row (skip header)
+    for (let i = 1; i < rows.length; i++) {
       const rowData = rows[i].split(',');
-      // Create a mock processed shipment result with label URL
-      processedShipments.push({
-        id: `ship_${crypto.randomUUID().substring(0, 8)}`,
-        tracking_code: `EZ${Math.floor(Math.random() * 10000000).toString().padStart(8, '0')}`,
-        label_url: 'https://assets.easypost.com/shipping_labels/example_label.png',
-        status: 'created',
-        row: i,
-        recipient: rowData[0] || 'Unknown Recipient',
-        carrier: Math.random() > 0.5 ? 'USPS' : Math.random() > 0.5 ? 'UPS' : 'FedEx'
-      });
+      
+      // Skip empty rows
+      if (rowData.join('').trim() === '') continue;
+      
+      try {
+        // Extract address data
+        const toAddress: Address = {
+          name: rowData[fieldIndexes.name],
+          company: fieldIndexes.company >= 0 ? rowData[fieldIndexes.company] : undefined,
+          street1: rowData[fieldIndexes.street1],
+          street2: fieldIndexes.street2 >= 0 ? rowData[fieldIndexes.street2] : undefined,
+          city: rowData[fieldIndexes.city],
+          state: rowData[fieldIndexes.state],
+          zip: rowData[fieldIndexes.zip],
+          country: rowData[fieldIndexes.country],
+          phone: fieldIndexes.phone >= 0 ? rowData[fieldIndexes.phone] : undefined,
+        };
+        
+        // Extract parcel data
+        const parcelData = {
+          length: fieldIndexes.parcel_length >= 0 ? parseFloat(rowData[fieldIndexes.parcel_length]) : 8,
+          width: fieldIndexes.parcel_width >= 0 ? parseFloat(rowData[fieldIndexes.parcel_width]) : 6,
+          height: fieldIndexes.parcel_height >= 0 ? parseFloat(rowData[fieldIndexes.parcel_height]) : 4,
+          weight: fieldIndexes.parcel_weight >= 0 ? parseFloat(rowData[fieldIndexes.parcel_weight]) : 16,
+        };
+        
+        // Validate the address
+        if (!toAddress.street1 || !toAddress.city || !toAddress.state || !toAddress.zip || !toAddress.country) {
+          throw new Error('Missing required address fields');
+        }
+        
+        // In a real implementation, we would call EasyPost API here
+        // const shipment = await createEasyPostShipment(origin, toAddress, parcelData, apiKey);
+        
+        // For this demo, we'll generate mock data
+        const recipient = toAddress.name;
+        const carrier = Math.random() > 0.5 ? 'USPS' : Math.random() > 0.5 ? 'UPS' : 'FedEx';
+        
+        // Create a mock processed shipment result with label URL
+        processedShipments.push({
+          id: `ship_${crypto.randomUUID().substring(0, 8)}`,
+          tracking_code: `EZ${Math.floor(Math.random() * 10000000).toString().padStart(8, '0')}`,
+          label_url: 'https://assets.easypost.com/shipping_labels/example_label.png',
+          status: 'created',
+          row: i,
+          recipient,
+          carrier
+        });
+      } catch (error) {
+        // Add to failed shipments
+        failedShipments.push({
+          row: i,
+          error: error instanceof Error ? 'Validation Error' : 'Processing Error',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
     }
     
-    // Generate error information for failed shipments
-    const failedShipments: ProcessingError[] = [];
-    for (let i = successful + 1; i <= total; i++) {
-      const errorType = Math.random() > 0.5 ? 'Invalid address' : 
-                         Math.random() > 0.5 ? 'Missing zip code' : 'Invalid weight';
-      failedShipments.push({
-        row: i,
-        error: errorType,
-        details: `Error processing row ${i}: ${errorType}`
-      });
-    }
+    const successful = processedShipments.length;
+    const failed = failedShipments.length;
     
     // Return the results with detailed information
     return new Response(
       JSON.stringify({ 
-        total,
+        total: total,
         successful,
         failed,
         totalCost: successful * 4.99, // Assuming $4.99 per label
@@ -116,7 +193,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in process-bulk-upload function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
+      JSON.stringify({ error: 'Internal Server Error', message: error instanceof Error ? error.message : 'Unknown error' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
