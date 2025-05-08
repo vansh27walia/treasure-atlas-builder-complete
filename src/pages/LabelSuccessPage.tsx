@@ -7,6 +7,7 @@ import { CheckCircle, Download, Home, Truck, Printer } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import ShippingLabel from '@/components/shipping/ShippingLabel';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
+import { Progress } from '@/components/ui/progress';
 
 const LabelSuccessPage: React.FC = () => {
   const location = useLocation();
@@ -14,6 +15,7 @@ const LabelSuccessPage: React.FC = () => {
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -53,6 +55,10 @@ const LabelSuccessPage: React.FC = () => {
     document.dispatchEvent(new CustomEvent('shipping-step-change', { 
       detail: { step: 'complete' }
     }));
+    
+    // Animate progress bar
+    const timer = setTimeout(() => setProgress(100), 100);
+    return () => clearTimeout(timer);
   }, [location]);
   
   const handleViewTracking = () => {
@@ -60,10 +66,12 @@ const LabelSuccessPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-12">
+    <div className="container mx-auto max-w-3xl px-4 py-8">
       <div className="sticky top-0 z-10 bg-white pb-4 -mx-4 px-4 pt-4">
         <ShippingWorkflow currentStep="complete" />
       </div>
+      
+      <Progress value={progress} className="h-2 mb-2 bg-gray-200" />
       
       <Card className="p-8 text-center border-2 border-green-200 mt-6 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50">
         <div className="flex justify-center mb-6">

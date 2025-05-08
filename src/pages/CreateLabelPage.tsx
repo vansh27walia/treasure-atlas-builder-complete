@@ -69,28 +69,28 @@ const CreateLabelPage: React.FC = () => {
 
   return (
     <div className="w-full py-6 px-6">
-      <div className="fixed top-[3.5rem] left-0 right-0 bg-white z-20 border-b border-gray-200 shadow-sm px-6 pt-4 pb-2">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold text-blue-800 flex items-center">
-              <Package className="mr-3 h-7 w-7 text-blue-600" />
-              Create a Shipping Label
-            </h1>
-            <Button
-              variant="outline"
-              onClick={() => setShowApiKeyForm(!showApiKeyForm)}
-              className="text-sm flex items-center gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              {showApiKeyForm ? 'Hide API Settings' : 'Configure Google API'}
-            </Button>
-          </div>
-          
+      <div className="max-w-7xl mx-auto mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold text-blue-800 flex items-center">
+            <Package className="mr-3 h-7 w-7 text-blue-600" />
+            Create a Shipping Label
+          </h1>
+          <Button
+            variant="outline"
+            onClick={() => setShowApiKeyForm(!showApiKeyForm)}
+            className="text-sm flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            {showApiKeyForm ? 'Hide API Settings' : 'Configure Google API'}
+          </Button>
+        </div>
+        
+        <div className="sticky top-0 z-20 bg-white py-4">
           <ShippingWorkflow currentStep={currentStep} />
         </div>
       </div>
       
-      <div className="mt-32">
+      <div className="max-w-7xl mx-auto">
         {showApiKeyForm && (
           <div className="mb-6">
             <GoogleApiKeyInput />

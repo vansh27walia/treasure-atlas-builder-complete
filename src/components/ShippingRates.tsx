@@ -6,7 +6,6 @@ import ShippingRateCard from './shipping/ShippingRateCard';
 import ShippingLabel from './shipping/ShippingLabel';
 import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
-import ShippingWorkflow from './shipping/ShippingWorkflow';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
@@ -41,7 +40,6 @@ const ShippingRates: React.FC = () => {
   if (rates.length === 0) {
     return (
       <div className="mt-8 w-full" id="shipping-rates-section">
-        <ShippingWorkflow currentStep="rates" />
         <EmptyRatesState />
         <div className="mt-4 flex justify-end">
           <Link to="/bulk-upload">
@@ -55,38 +53,8 @@ const ShippingRates: React.FC = () => {
     );
   }
 
-  // Identify premium services (typically express, overnight, or most expensive)
-  const identifyPremiumRates = (ratesList) => {
-    // Clone the array to avoid modifying the original
-    const ratesWithPremium = [...ratesList];
-    
-    // Sort by price to identify the most expensive options
-    const sortedByPrice = [...ratesList].sort((a, b) => 
-      parseFloat(b.rate) - parseFloat(a.rate)
-    );
-    
-    // Mark top 30% as premium
-    const premiumCount = Math.ceil(sortedByPrice.length * 0.3);
-    const premiumThreshold = sortedByPrice[Math.min(premiumCount - 1, sortedByPrice.length - 1)].rate;
-    
-    // Also mark as premium if service name contains these keywords
-    const premiumKeywords = ['express', 'priority', 'overnight', 'next day', 'same day', 'instant'];
-    
-    return ratesWithPremium.map(rate => ({
-      ...rate,
-      isPremium: 
-        parseFloat(rate.rate) >= parseFloat(premiumThreshold) || 
-        premiumKeywords.some(keyword => 
-          rate.service.toLowerCase().includes(keyword)
-        )
-    }));
-  };
-
-  // Add premium flag to rates
-  const ratesWithPremium = identifyPremiumRates(rates);
-  
   // Sort the rates based on the selected sorting option
-  const sortedRates = [...ratesWithPremium].sort((a, b) => {
+  const sortedRates = [...rates].sort((a, b) => {
     if (sortOrder === 'premium') {
       // Premium rates first, then sort by other criteria within each group
       if (a.isPremium && !b.isPremium) return -1;
@@ -106,12 +74,17 @@ const ShippingRates: React.FC = () => {
     }
   });
 
+  // Get premium rates (top 3 most expensive)
+  const premiumRates = [...rates]
+    .sort((a, b) => parseFloat(b.rate) - parseFloat(a.rate))
+    .filter(rate => rate.isPremium)
+    .slice(0, 3);
+
   return (
     <div className="mt-8 w-full px-4" id="shipping-rates-section">
-      <ShippingWorkflow currentStep={labelUrl ? 'label' : 'rates'} />
       <Card className="border-2 border-gray-200 shadow-md rounded-xl overflow-hidden w-full">
         <div className="p-6">
-          <div className="flex justify-between mb-6">
+          <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold text-blue-800 flex items-center">
               <Truck className="mr-2 h-6 w-6 text-blue-600" />
               Available Shipping Rates
@@ -166,13 +139,6 @@ const ShippingRates: React.FC = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              
-              <Link to="/bulk-upload">
-                <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
-                  <Upload className="h-4 w-4" />
-                  Bulk Upload
-                </Button>
-              </Link>
             </div>
           </div>
           
@@ -184,20 +150,20 @@ const ShippingRates: React.FC = () => {
           
           {!labelUrl && (
             <>
-              {/* Premium Recommendations - Show at the top */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
-                  <Sparkles className="h-5 w-5 mr-2 text-amber-400" />
-                  Recommended Premium Services
+              {/* Premium Options Section (Highlighted) */}
+              <div className="mb-8 bg-gradient-to-r from-amber-50 to-yellow-50 p-4 rounded-lg border border-amber-200">
+                <h3 className="text-lg font-semibold text-amber-800 mb-4 flex items-center">
+                  <Sparkles className="h-5 w-5 mr-2 text-amber-500" />
+                  Premium Delivery Options
                 </h3>
                 <div className="space-y-4">
-                  {sortedRates.filter(rate => rate.isPremium).slice(0, 3).map((rate) => (
+                  {premiumRates.map((rate) => (
                     <ShippingRateCard
                       key={`premium-${rate.id}`}
                       rate={rate}
                       isSelected={selectedRateId === rate.id}
                       onSelect={handleSelectRate}
-                      isBestValue={rate.id === bestValueRateId}
+                      isBestValue={false}
                       isFastest={rate.id === fastestRateId}
                       aiRecommendation={aiRecommendation && {
                         rateId: aiRecommendation.bestOverall || '',

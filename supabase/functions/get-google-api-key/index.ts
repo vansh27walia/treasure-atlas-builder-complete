@@ -14,15 +14,8 @@ serve(async (req) => {
   }
 
   try {
-    // This function requires authentication (JWT)
-    const token = req.headers.get('Authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      );
-    }
-
+    // This function does not require authentication to be accessible
+    
     // Get the API key from environment variables
     const apiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
     
