@@ -39,7 +39,7 @@ const ShippingRates: React.FC = () => {
   // Show empty state if no rates available
   if (rates.length === 0) {
     return (
-      <div className="mt-8" id="shipping-rates-section">
+      <div className="mt-8 w-full" id="shipping-rates-section">
         <EmptyRatesState />
         <div className="mt-4 flex justify-end">
           <Link to="/bulk-upload">
@@ -67,8 +67,8 @@ const ShippingRates: React.FC = () => {
   });
 
   return (
-    <div className="mt-8" id="shipping-rates-section">
-      <Card className="border-2 border-gray-200 shadow-md rounded-xl overflow-hidden">
+    <div className="mt-8 w-full px-4" id="shipping-rates-section">
+      <Card className="border-2 border-gray-200 shadow-md rounded-xl overflow-hidden w-full">
         <div className="p-6">
           <div className="flex justify-between mb-6">
             <h2 className="text-2xl font-semibold text-blue-800 flex items-center">

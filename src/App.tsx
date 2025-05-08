@@ -28,9 +28,9 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <OnboardingProvider>
-          <div className="overflow-hidden">
+          <div className="w-full h-screen overflow-hidden">
             <SidebarNavigation>
-              <div className="px-4 md:px-6 overflow-y-auto">
+              <div className="w-full h-full overflow-y-auto">
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<AuthPage />} />

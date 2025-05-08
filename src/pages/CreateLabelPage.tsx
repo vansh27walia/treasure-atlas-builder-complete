@@ -35,7 +35,7 @@ const CreateLabelPage: React.FC = () => {
   }, [tabFromQuery]);
 
   return (
-    <div className="w-full py-6">
+    <div className="w-full py-6 px-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-blue-800 flex items-center">
           <Package className="mr-3 h-7 w-7 text-blue-600" />

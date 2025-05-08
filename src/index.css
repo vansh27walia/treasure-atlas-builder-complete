@@ -90,15 +90,23 @@
     @apply border-border;
   }
 
+  html, body {
+    @apply w-full h-full m-0 p-0 overflow-hidden;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter', sans-serif;
+  }
+
+  #root {
+    @apply w-full h-full;
   }
 }
 
 @layer components {
   .shipping-container {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+    @apply w-full mx-auto px-4 sm:px-6 lg:px-8;
   }
   
   .nav-link {
