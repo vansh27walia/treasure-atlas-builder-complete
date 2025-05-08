@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   Home, Package, CreditCard, Settings, ShoppingBag, Truck, MapPin, 
-  BarChart3, Globe, HelpCircle, Tag, Upload, Calculator, Clock, Send
+  BarChart3, Globe, HelpCircle, Tag, Upload, Calculator, Clock, Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import SidebarNavSection from './SidebarNavSection';
@@ -59,7 +59,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
           <SidebarNavItem
             icon={<Truck size={18} />}
             title="Tracking"
-            to="/tracking"
+            to="/tracking" 
             collapsed={collapsed}
           />
           <SidebarNavItem

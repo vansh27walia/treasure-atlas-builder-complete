@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -41,33 +42,12 @@ const shippingFormSchema = z.object({
   allCarriers: z.boolean().default(true),
 });
 
-interface ShippingFormValues extends z.infer<typeof shippingFormSchema> {}
-
-interface AddressVerificationState {
-  isVerifying: boolean;
-  isVerified: boolean;
-  messages: string[];
-  verifiedAddress?: {
-    name?: string;
-    company?: string;
-    street1?: string;
-    street2?: string;
-    city?: string;
-    state?: string;
-    zip?: string;
-    country?: string;
-  };
-}
+type ShippingFormValues = z.infer<typeof shippingFormSchema>;
 
 const EnhancedShippingForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
   const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
-  const [toAddressVerification, setToAddressVerification] = useState<AddressVerificationState>({
-    isVerifying: false,
-    isVerified: false,
-    messages: []
-  });
 
   // Using react-hook-form to manage form state
   const form = useForm<ShippingFormValues>({
@@ -109,74 +89,6 @@ const EnhancedShippingForm: React.FC = () => {
     const allSelected = Object.values(watchCarriers).every(selected => selected === true);
     form.setValue("allCarriers", allSelected);
   }, [watchCarriers, form]);
-  
-  // Handle address verification
-  const handleVerifyAddress = async () => {
-    if (!toAddress) {
-      toast.error("Please select a delivery address first");
-      return;
-    }
-
-    setToAddressVerification({
-      ...toAddressVerification,
-      isVerifying: true,
-      isVerified: false,
-      messages: []
-    });
-    
-    try {
-      const addressToVerify = {
-        name: toAddress.name,
-        company: toAddress.company,
-        street1: toAddress.street1,
-        street2: toAddress.street2,
-        city: toAddress.city,
-        state: toAddress.state,
-        zip: toAddress.zip,
-        country: toAddress.country,
-      };
-      
-      // Get the verification response
-      const { data, error } = await supabase.functions.invoke('verify-address', {
-        body: { address: addressToVerify, carrier: 'easypost' }
-      });
-      
-      if (error) {
-        throw new Error(`Error verifying address: ${error.message}`);
-      }
-      
-      if (data.success) {
-        // Address is valid
-        setToAddressVerification({
-          isVerifying: false,
-          isVerified: true,
-          messages: ['Address is valid'],
-          verifiedAddress: data.verifiedAddress
-        });
-        
-        toast.success("Address verified successfully");
-      } else {
-        // Address has issues
-        setToAddressVerification({
-          isVerifying: false,
-          isVerified: false,
-          messages: data.messages || ['Unable to verify this address'],
-          verifiedAddress: data.verifiedAddress
-        });
-        
-        toast.warning("Address verification found issues");
-      }
-    } catch (error) {
-      console.error('Error verifying address:', error);
-      setToAddressVerification({
-        isVerifying: false,
-        isVerified: false,
-        messages: ['Failed to verify address. Please check the address and try again.']
-      });
-      
-      toast.error("Address verification failed");
-    }
-  };
 
   const handleGetRates = async (values: ShippingFormValues) => {
     if (!fromAddress || !toAddress) {
@@ -248,6 +160,12 @@ const EnhancedShippingForm: React.FC = () => {
       }));
 
       toast.success("Shipping rates retrieved successfully");
+      
+      // Scroll to the rates section
+      const ratesSection = document.getElementById('shipping-rates-section');
+      if (ratesSection) {
+        ratesSection.scrollIntoView({ behavior: 'smooth' });
+      }
     } catch (error) {
       console.error('Error fetching shipping rates:', error);
       toast.error(error instanceof Error ? error.message : "Failed to get shipping rates");
@@ -257,102 +175,44 @@ const EnhancedShippingForm: React.FC = () => {
   };
 
   return (
-    <div className="mb-8">
-      <Card className="border-2 border-gray-200">
+    <div className="mb-8 w-full">
+      <Card className="border-2 border-gray-200 w-full">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-gray-200">
+          <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-gray-200 w-full">
             {/* Addresses Section */}
             <div className="p-6">
               <h2 className="text-xl font-semibold mb-6 text-blue-700">Shipping Addresses</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
                 {/* Origin Address Section */}
-                <div className="space-y-4">
-                  <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="space-y-4 w-full">
+                  <div className="bg-blue-50 p-4 rounded-lg w-full">
                     <h3 className="text-lg font-medium text-blue-700 mb-2">Origin</h3>
                     <AddressSelector 
                       type="from"
                       onAddressSelect={createAddressSelectHandler(setFromAddress)}
-                      selectedAddressId={fromAddress?.id}
                     />
                   </div>
-                  
-                  {fromAddress && (
-                    <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
-                      <h4 className="text-sm font-medium text-gray-700 mb-1">{fromAddress.name || 'Unnamed'}</h4>
-                      <p className="text-sm text-gray-600">
-                        {fromAddress.street1}<br />
-                        {fromAddress.street2 && <>{fromAddress.street2}<br /></>}
-                        {fromAddress.city}, {fromAddress.state} {fromAddress.zip}<br />
-                        {fromAddress.country}
-                      </p>
-                    </div>
-                  )}
                 </div>
                 
                 {/* Destination Address Section */}
-                <div className="space-y-4">
-                  <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="space-y-4 w-full">
+                  <div className="bg-blue-50 p-4 rounded-lg w-full">
                     <h3 className="text-lg font-medium text-blue-700 mb-2">Destination</h3>
                     <AddressSelector 
                       type="to"
                       onAddressSelect={createAddressSelectHandler(setToAddress)}
-                      selectedAddressId={toAddress?.id}
                     />
                   </div>
-                  
-                  {toAddress && (
-                    <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-700 mb-1">{toAddress.name || 'Unnamed'}</h4>
-                          <p className="text-sm text-gray-600">
-                            {toAddress.street1}<br />
-                            {toAddress.street2 && <>{toAddress.street2}<br /></>}
-                            {toAddress.city}, {toAddress.state} {toAddress.zip}<br />
-                            {toAddress.country}
-                          </p>
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={handleVerifyAddress}
-                          disabled={toAddressVerification.isVerifying}
-                          className="whitespace-nowrap"
-                        >
-                          {toAddressVerification.isVerifying ? 'Verifying...' : 'Verify Address'}
-                        </Button>
-                      </div>
-                      
-                      {/* Address verification status */}
-                      {toAddressVerification.messages.length > 0 && (
-                        <Alert className="mt-3" variant={toAddressVerification.isVerified ? "default" : "destructive"}>
-                          {toAddressVerification.isVerified ? (
-                            <Check className="h-4 w-4" />
-                          ) : (
-                            <AlertCircle className="h-4 w-4" />
-                          )}
-                          <AlertTitle>{toAddressVerification.isVerified ? "Address Verified" : "Address Issues"}</AlertTitle>
-                          <AlertDescription>
-                            <ul className="list-disc pl-4 mt-2">
-                              {toAddressVerification.messages.map((message, i) => (
-                                <li key={i}>{message}</li>
-                              ))}
-                            </ul>
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
             
             {/* Package Details Section */}
-            <div className="p-6">
+            <div className="p-6 w-full">
               <h2 className="text-xl font-semibold mb-6 text-blue-700">Package Details</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
                 <div className="space-y-6">
                   <FormField
                     control={form.control}
@@ -665,7 +525,7 @@ const EnhancedShippingForm: React.FC = () => {
             </div>
             
             {/* Action Button Section */}
-            <div className="p-6 bg-gray-50">
+            <div className="p-6 bg-gray-50 w-full">
               <div className="flex justify-end">
                 <Button 
                   type="submit" 
