@@ -1,40 +1,19 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { SavedAddress } from './AddressService';
 
-export interface UserProfile {
+interface UserProfile {
   id: string;
-  home_address?: HomeAddress;
   default_pickup_address_id?: number;
-  payment_info?: PaymentInfo;
-  onboarding_completed: boolean;
+  home_address?: any;
   created_at?: string;
   updated_at?: string;
-}
-
-export interface HomeAddress {
-  name?: string;
-  street1: string;
-  street2?: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  phone?: string;
-}
-
-export interface PaymentInfo {
-  card_number: string;
-  exp_month: string;
-  exp_year: string;
-  cardholder_name: string;
-  last4: string;
-  brand?: string;
+  onboarding_completed: boolean;
+  payment_info?: any;
 }
 
 export class UserProfileService {
   /**
-   * Get the current user's profile
+   * Get the user profile for the current user
    */
   public async getUserProfile(): Promise<UserProfile | null> {
     try {
@@ -43,45 +22,110 @@ export class UserProfileService {
         return null;
       }
       
+      const userId = session.session.user.id;
+      
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('id', session.session.user.id)
-        .single();
+        .eq('id', userId)
+        .maybeSingle();
       
       if (error) {
-        throw error;
+        console.error('Error getting user profile:', error);
+        return null;
       }
       
-      // Cast and transform the data to match our UserProfile interface
-      if (data) {
-        // Safely cast the JSON fields by first checking if they exist and are objects
-        const homeAddress = data.home_address ? 
-          data.home_address as Record<string, any> : undefined;
-        
-        const paymentInfo = data.payment_info ? 
-          data.payment_info as Record<string, any> : undefined;
-        
-        return {
-          id: data.id,
-          home_address: homeAddress as HomeAddress | undefined,
-          default_pickup_address_id: data.default_pickup_address_id,
-          payment_info: paymentInfo as PaymentInfo | undefined,
-          onboarding_completed: data.onboarding_completed || false,
-          created_at: data.created_at,
-          updated_at: data.updated_at
-        };
-      }
-      
-      return null;
+      return data as UserProfile;
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error('Error getting user profile:', error);
       return null;
     }
   }
   
   /**
-   * Check if the current user has completed onboarding
+   * Create a user profile for a new user
+   */
+  public async createUserProfile(): Promise<UserProfile | null> {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) {
+        throw new Error('User is not authenticated');
+      }
+      
+      const userId = session.session.user.id;
+      
+      // Check if profile already exists
+      const { data: existingProfile } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (existingProfile) {
+        return existingProfile as UserProfile;
+      }
+      
+      // Create new profile
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .insert({
+          id: userId,
+          onboarding_completed: false
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error creating user profile:', error);
+        return null;
+      }
+      
+      return data as UserProfile;
+    } catch (error) {
+      console.error('Error creating user profile:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Mark the onboarding process as completed for the current user
+   */
+  public async completeOnboarding(): Promise<boolean> {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) {
+        throw new Error('User is not authenticated');
+      }
+      
+      const userId = session.session.user.id;
+      
+      // Ensure the user profile exists
+      const profile = await this.getUserProfile();
+      if (!profile) {
+        await this.createUserProfile();
+      }
+      
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({
+          onboarding_completed: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Check if the user has completed onboarding
    */
   public async hasCompletedOnboarding(): Promise<boolean> {
     try {
@@ -94,121 +138,21 @@ export class UserProfileService {
   }
   
   /**
-   * Update the user's home address
-   */
-  public async updateHomeAddress(homeAddress: HomeAddress): Promise<boolean> {
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.user) {
-        return false;
-      }
-      
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({
-          home_address: homeAddress as any, // cast to any to avoid type issues with JSON
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', session.session.user.id);
-      
-      if (error) {
-        throw error;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error updating home address:', error);
-      return false;
-    }
-  }
-  
-  /**
-   * Update the user's payment information
-   */
-  public async updatePaymentInfo(paymentInfo: PaymentInfo): Promise<boolean> {
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.user) {
-        return false;
-      }
-      
-      // Add last4 and mask full card number for security
-      const last4 = paymentInfo.card_number.slice(-4);
-      const paymentData = {
-        ...paymentInfo,
-        last4,
-        // Don't store full card number in database, just for demo purposes
-        card_number: `XXXX-XXXX-XXXX-${last4}`
-      };
-      
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({
-          payment_info: paymentData as any, // cast to any to avoid type issues with JSON
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', session.session.user.id);
-      
-      if (error) {
-        throw error;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error updating payment info:', error);
-      return false;
-    }
-  }
-  
-  /**
-   * Update user profile with provided data
-   */
-  public async updateProfile(profileData: Partial<UserProfile>): Promise<boolean> {
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.user) {
-        return false;
-      }
-      
-      // Handle JSON fields separately to avoid type issues
-      const dataToUpdate: Record<string, any> = {
-        ...profileData,
-        updated_at: new Date().toISOString()
-      };
-      
-      // Remove JSON fields to avoid type errors and handle them separately if needed
-      if (profileData.home_address) {
-        dataToUpdate.home_address = profileData.home_address as any;
-      }
-      
-      if (profileData.payment_info) {
-        dataToUpdate.payment_info = profileData.payment_info as any;
-      }
-      
-      const { error } = await supabase
-        .from('user_profiles')
-        .update(dataToUpdate)
-        .eq('id', session.session.user.id);
-      
-      if (error) {
-        throw error;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      return false;
-    }
-  }
-  
-  /**
    * Update the default pickup address ID
    */
   public async updateDefaultPickupAddressId(addressId: number): Promise<boolean> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
-        return false;
+        throw new Error('User is not authenticated');
+      }
+      
+      const userId = session.session.user.id;
+      
+      // Create the profile if it doesn't exist
+      const profile = await this.getUserProfile();
+      if (!profile) {
+        await this.createUserProfile();
       }
       
       const { error } = await supabase
@@ -217,44 +161,16 @@ export class UserProfileService {
           default_pickup_address_id: addressId,
           updated_at: new Date().toISOString()
         })
-        .eq('id', session.session.user.id);
+        .eq('id', userId);
       
       if (error) {
-        throw error;
+        console.error('Error updating default pickup address:', error);
+        return false;
       }
       
       return true;
     } catch (error) {
       console.error('Error updating default pickup address:', error);
-      return false;
-    }
-  }
-  
-  /**
-   * Complete the onboarding process
-   */
-  public async completeOnboarding(): Promise<boolean> {
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.user) {
-        return false;
-      }
-      
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({
-          onboarding_completed: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', session.session.user.id);
-      
-      if (error) {
-        throw error;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error completing onboarding:', error);
       return false;
     }
   }

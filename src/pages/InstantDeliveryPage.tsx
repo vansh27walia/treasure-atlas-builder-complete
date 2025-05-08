@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Send, Clock, Package, MapPin, ArrowRight } from 'lucide-react';
+import { Send, Clock, Package, MapPin, ArrowRight, Ruler } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
@@ -20,6 +20,10 @@ const instantDeliverySchema = z.object({
   packageSize: z.string().min(1, "Select a package size"),
   packageType: z.string().min(1, "Select package type"),
   weight: z.coerce.number().min(0, "Weight must be greater than or equal to 0").max(50, "Weight must be less than 50 lbs"),
+  // Add dimensions fields
+  length: z.coerce.number().min(0, "Length must be greater than or equal to 0"),
+  width: z.coerce.number().min(0, "Width must be greater than or equal to 0"),
+  height: z.coerce.number().min(0, "Height must be greater than or equal to 0"),
   description: z.string().min(1, "Description is required"),
   deliverySpeed: z.enum(["asap", "scheduled"]),
   scheduledTime: z.string().optional(),
@@ -55,6 +59,9 @@ const InstantDeliveryPage: React.FC = () => {
       packageSize: "small",
       packageType: "box",
       weight: 0,
+      length: 0,
+      width: 0,
+      height: 0,
       description: "",
       deliverySpeed: "asap",
       recipientName: "",
@@ -148,18 +155,6 @@ const InstantDeliveryPage: React.FC = () => {
                       selectedAddressId={toAddress?.id}
                     />
                   </div>
-                  
-                  {toAddress && (
-                    <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
-                      <h4 className="text-sm font-medium text-gray-700 mb-1">{toAddress.name || 'Unnamed'}</h4>
-                      <p className="text-sm text-gray-600">
-                        {toAddress.street1}<br />
-                        {toAddress.street2 && <>{toAddress.street2}<br /></>}
-                        {toAddress.city}, {toAddress.state} {toAddress.zip}<br />
-                        {toAddress.country}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -267,6 +262,79 @@ const InstantDeliveryPage: React.FC = () => {
                         </FormItem>
                       )}
                     />
+                  </div>
+
+                  {/* Package Dimensions Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center mb-2">
+                      <Ruler className="mr-2 h-4 w-4 text-blue-600" />
+                      <h3 className="text-md font-medium">Dimensions (inches)</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="length"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Length</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                type="number"
+                                min="0"
+                                step="0.1"
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                placeholder="0" 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="width"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Width</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                type="number"
+                                min="0"
+                                step="0.1"
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                placeholder="0" 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="height"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Height</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                type="number"
+                                min="0"
+                                step="0.1"
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                placeholder="0" 
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
                   
                   <FormField
