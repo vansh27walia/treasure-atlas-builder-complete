@@ -1,5 +1,16 @@
+
 import { SavedAddress } from '@/services/AddressService';
 import { SimpleAddress } from '@/components/shipping/AddressSelector';
+import { supabase } from "@/integrations/supabase/client";
+
+// Add a type declaration for the Google Maps API
+declare global {
+  interface Window {
+    google?: {
+      maps: any;
+    };
+  }
+}
 
 /**
  * Creates a temporary SavedAddress object from a SimpleAddress form input
