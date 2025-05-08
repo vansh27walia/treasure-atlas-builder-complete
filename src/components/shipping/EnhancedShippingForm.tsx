@@ -249,6 +249,7 @@ const EnhancedShippingForm: React.FC = () => {
                     <AddressSelector 
                       type="from"
                       onAddressSelect={handleFromAddressSelect}
+                      useGoogleAutocomplete={true}
                     />
                   </div>
                 </div>
@@ -260,6 +261,7 @@ const EnhancedShippingForm: React.FC = () => {
                     <AddressSelector 
                       type="to"
                       onAddressSelect={handleToAddressSelect}
+                      useGoogleAutocomplete={true}
                     />
                   </div>
                 </div>

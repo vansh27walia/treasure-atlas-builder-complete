@@ -32,9 +32,9 @@ const GoogleApiKeyInput: React.FC = () => {
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initTestMap`;
       
       // Create a global callback function to verify the API loaded correctly
-      (window as any).initTestMap = () => {
+      window.initTestMap = () => {
         toast.success('Google Maps API loaded successfully');
-        delete (window as any).initTestMap; // Clean up
+        delete window.initTestMap; // Clean up
       };
       
       script.onerror = () => {

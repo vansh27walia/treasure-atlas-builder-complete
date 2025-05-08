@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ShippingRates from '@/components/ShippingRates';
@@ -9,7 +8,6 @@ import { Package, Globe, Upload, Truck, Calculator, Settings } from 'lucide-reac
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
-import GoogleApiKeyForm from '@/components/settings/GoogleApiKeyForm';
 import GoogleApiKeyInput from '@/components/settings/GoogleApiKeyInput';
 
 const CreateLabelPage: React.FC = () => {
