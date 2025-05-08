@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,6 +14,7 @@ import AddressSelector from '../components/shipping/AddressSelector';
 import { SavedAddress } from '@/services/AddressService';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { createAddressSelectHandler } from '@/utils/addressUtils';
 
 const instantDeliverySchema = z.object({
   packageSize: z.string().min(1, "Select a package size"),
@@ -127,7 +127,7 @@ const InstantDeliveryPage: React.FC = () => {
                     <h3 className="text-lg font-medium text-blue-700 mb-2">Pickup Location</h3>
                     <AddressSelector 
                       type="from"
-                      onAddressSelect={setFromAddress}
+                      onAddressSelect={createAddressSelectHandler(setFromAddress)}
                       selectedAddressId={fromAddress?.id}
                     />
                   </div>
@@ -151,7 +151,7 @@ const InstantDeliveryPage: React.FC = () => {
                     <h3 className="text-lg font-medium text-blue-700 mb-2">Delivery Location</h3>
                     <AddressSelector 
                       type="to"
-                      onAddressSelect={setToAddress}
+                      onAddressSelect={createAddressSelectHandler(setToAddress)}
                       selectedAddressId={toAddress?.id}
                     />
                   </div>

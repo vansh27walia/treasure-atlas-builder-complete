@@ -19,6 +19,20 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { COUNTRIES_LIST } from '@/lib/countries';
+import { SavedAddress } from '@/services/AddressService';
+
+// Create a simplified address type that matches the form inputs
+export interface SimpleAddress {
+  name?: string;
+  company?: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone?: string;
+}
 
 const addressSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -29,18 +43,21 @@ const addressSchema = z.object({
   state: z.string().min(1, "State is required"),
   zip: z.string().min(1, "ZIP/Postal code is required"),
   country: z.string().min(1, "Country is required"),
+  phone: z.string().optional(),
 });
 
 type AddressFormValues = z.infer<typeof addressSchema>;
 
 interface AddressSelectorProps {
   type: 'from' | 'to';
-  onAddressSelect?: (address: AddressFormValues) => void;
+  onAddressSelect?: (address: SimpleAddress) => void;
+  selectedAddressId?: number;
 }
 
 const AddressSelector: React.FC<AddressSelectorProps> = ({ 
   type,
-  onAddressSelect
+  onAddressSelect,
+  selectedAddressId
 }) => {
   const form = useForm<AddressFormValues>({
     resolver: zodResolver(addressSchema),
@@ -53,6 +70,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       state: '',
       zip: '',
       country: 'US',
+      phone: '',
     }
   });
   
@@ -199,6 +217,20 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                   )}
                 />
               </div>
+              
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone (optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Contact phone" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             
             <Button type="submit" className="w-full mt-2">
