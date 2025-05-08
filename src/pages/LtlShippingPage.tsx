@@ -39,6 +39,10 @@ const LtlShippingPage: React.FC = () => {
   const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Create address selection handlers using the updated utility function
+  const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
+  const handleToAddressSelect = createAddressSelectHandler(setToAddress);
+
   // Using react-hook-form to manage form state
   const form = useForm<LtlFormValues>({
     resolver: zodResolver(ltlFormSchema),
@@ -114,7 +118,7 @@ const LtlShippingPage: React.FC = () => {
                     <h3 className="text-lg font-medium text-blue-700 mb-2">Origin</h3>
                     <AddressSelector 
                       type="from"
-                      onAddressSelect={createAddressSelectHandler(setFromAddress)}
+                      onAddressSelect={handleFromAddressSelect}
                       selectedAddressId={fromAddress?.id}
                     />
                   </div>
@@ -138,7 +142,7 @@ const LtlShippingPage: React.FC = () => {
                     <h3 className="text-lg font-medium text-blue-700 mb-2">Destination</h3>
                     <AddressSelector 
                       type="to"
-                      onAddressSelect={createAddressSelectHandler(setToAddress)}
+                      onAddressSelect={handleToAddressSelect}
                       selectedAddressId={toAddress?.id}
                     />
                   </div>

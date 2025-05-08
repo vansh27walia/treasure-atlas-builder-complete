@@ -142,19 +142,31 @@ export const extractAddressComponents = (place: GooglePlaceResult): SimpleAddres
 };
 
 // Helper function to create address select handler
+// This version supports both React Hook Form's setFieldValue and direct React setState
 export const createAddressSelectHandler = (
-  setFieldValue: (name: string, value: any) => void,
+  setterOrState: ((name: string, value: any) => void) | React.Dispatch<React.SetStateAction<any>>,
   prefix: string = ''
 ) => {
   return (address: SimpleAddress) => {
-    if (address.name) setFieldValue(`${prefix}name`, address.name);
-    if (address.company) setFieldValue(`${prefix}company`, address.company);
-    if (address.street1) setFieldValue(`${prefix}street1`, address.street1);
-    if (address.street2) setFieldValue(`${prefix}street2`, address.street2);
-    if (address.city) setFieldValue(`${prefix}city`, address.city);
-    if (address.state) setFieldValue(`${prefix}state`, address.state);
-    if (address.zip) setFieldValue(`${prefix}zip`, address.zip);
-    if (address.country) setFieldValue(`${prefix}country`, address.country);
-    if (address.phone) setFieldValue(`${prefix}phone`, address.phone);
+    // Check if the setter is a React Hook Form setter (has two parameters) or a React setState (has one parameter)
+    if (typeof setterOrState === 'function') {
+      if (setterOrState.length === 2) {
+        // It's a React Hook Form setter
+        const setFieldValue = setterOrState as (name: string, value: any) => void;
+        if (address.name) setFieldValue(`${prefix}name`, address.name);
+        if (address.company) setFieldValue(`${prefix}company`, address.company);
+        if (address.street1) setFieldValue(`${prefix}street1`, address.street1);
+        if (address.street2) setFieldValue(`${prefix}street2`, address.street2);
+        if (address.city) setFieldValue(`${prefix}city`, address.city);
+        if (address.state) setFieldValue(`${prefix}state`, address.state);
+        if (address.zip) setFieldValue(`${prefix}zip`, address.zip);
+        if (address.country) setFieldValue(`${prefix}country`, address.country);
+        if (address.phone) setFieldValue(`${prefix}phone`, address.phone);
+      } else {
+        // It's a React setState
+        const setState = setterOrState as React.Dispatch<React.SetStateAction<any>>;
+        setState(address);
+      }
+    }
   };
 };

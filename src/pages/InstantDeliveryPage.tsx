@@ -48,9 +48,13 @@ const instantDeliverySchema = z.object({
 type InstantDeliveryFormValues = z.infer<typeof instantDeliverySchema>;
 
 const InstantDeliveryPage: React.FC = () => {
-  const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
-  const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
+  const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
+  const [dropoffAddress, setDropoffAddress] = useState<SavedAddress | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Create address selection handlers using the updated utility function
+  const handlePickupAddressSelect = createAddressSelectHandler(setPickupAddress);
+  const handleDropoffAddressSelect = createAddressSelectHandler(setDropoffAddress);
 
   // Using react-hook-form to manage form state
   const form = useForm<InstantDeliveryFormValues>({
@@ -76,9 +80,9 @@ const InstantDeliveryPage: React.FC = () => {
   // Watch delivery speed to conditionally show scheduled time fields
   const deliverySpeed = form.watch("deliverySpeed");
 
-  const handleGetQuote = async (values: InstantDeliveryFormValues) => {
-    if (!fromAddress || !toAddress) {
-      toast.error("Please select both pickup and delivery addresses");
+  const handleGetRates = async (values: InstantDeliveryFormValues) => {
+    if (!pickupAddress || !dropoffAddress) {
+      toast.error("Please select both pickup and dropoff addresses");
       return;
     }
 
@@ -86,8 +90,8 @@ const InstantDeliveryPage: React.FC = () => {
     try {
       // This would typically call an API to get delivery quote
       console.log("Form values:", values);
-      console.log("From address:", fromAddress);
-      console.log("To address:", toAddress);
+      console.log("Pickup address:", pickupAddress);
+      console.log("Dropoff address:", dropoffAddress);
       
       toast.success("Instant delivery quote request submitted");
       
@@ -115,46 +119,58 @@ const InstantDeliveryPage: React.FC = () => {
       
       <Card className="border-2 border-gray-200">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleGetQuote)} className="divide-y divide-gray-200">
+          <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-gray-200">
             {/* Addresses Section */}
             <div className="p-6">
-              <h2 className="text-xl font-semibold mb-6 text-blue-700">Pickup & Delivery Locations</h2>
+              <h2 className="text-xl font-semibold mb-6 text-blue-700">Pickup & Dropoff Addresses</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Origin Address Section */}
+                {/* Pickup Address Section */}
                 <div className="space-y-4">
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <h3 className="text-lg font-medium text-blue-700 mb-2">Pickup Location</h3>
                     <AddressSelector 
                       type="from"
-                      onAddressSelect={createAddressSelectHandler(setFromAddress)}
-                      selectedAddressId={fromAddress?.id}
+                      onAddressSelect={handlePickupAddressSelect}
+                      selectedAddressId={pickupAddress?.id}
                     />
                   </div>
                   
-                  {fromAddress && (
+                  {pickupAddress && (
                     <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
-                      <h4 className="text-sm font-medium text-gray-700 mb-1">{fromAddress.name || 'Unnamed'}</h4>
+                      <h4 className="text-sm font-medium text-gray-700 mb-1">{pickupAddress.name || 'Unnamed'}</h4>
                       <p className="text-sm text-gray-600">
-                        {fromAddress.street1}<br />
-                        {fromAddress.street2 && <>{fromAddress.street2}<br /></>}
-                        {fromAddress.city}, {fromAddress.state} {fromAddress.zip}<br />
-                        {fromAddress.country}
+                        {pickupAddress.street1}<br />
+                        {pickupAddress.street2 && <>{pickupAddress.street2}<br /></>}
+                        {pickupAddress.city}, {pickupAddress.state} {pickupAddress.zip}<br />
+                        {pickupAddress.country}
                       </p>
                     </div>
                   )}
                 </div>
                 
-                {/* Destination Address Section */}
+                {/* Dropoff Address Section */}
                 <div className="space-y-4">
                   <div className="bg-blue-50 p-4 rounded-lg">
-                    <h3 className="text-lg font-medium text-blue-700 mb-2">Delivery Location</h3>
+                    <h3 className="text-lg font-medium text-blue-700 mb-2">Dropoff Location</h3>
                     <AddressSelector 
                       type="to"
-                      onAddressSelect={createAddressSelectHandler(setToAddress)}
-                      selectedAddressId={toAddress?.id}
+                      onAddressSelect={handleDropoffAddressSelect}
+                      selectedAddressId={dropoffAddress?.id}
                     />
                   </div>
+                  
+                  {dropoffAddress && (
+                    <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
+                      <h4 className="text-sm font-medium text-gray-700 mb-1">{dropoffAddress.name || 'Unnamed'}</h4>
+                      <p className="text-sm text-gray-600">
+                        {dropoffAddress.street1}<br />
+                        {dropoffAddress.street2 && <>{dropoffAddress.street2}<br /></>}
+                        {dropoffAddress.city}, {dropoffAddress.state} {dropoffAddress.zip}<br />
+                        {dropoffAddress.country}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

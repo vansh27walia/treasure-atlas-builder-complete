@@ -49,7 +49,7 @@ const EnhancedShippingForm: React.FC = () => {
   const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
   const [dimensionInputTimer, setDimensionInputTimer] = useState<NodeJS.Timeout | null>(null);
 
-  // Create address selection handlers using the utility function
+  // Create address selection handlers using the updated utility function
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
 
