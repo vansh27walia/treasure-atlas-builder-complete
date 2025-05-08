@@ -27,8 +27,8 @@ const ShippingWorkflow: React.FC<ShippingWorkflowProps> = ({ currentStep }) => {
   };
 
   return (
-    <div className="w-full bg-white shadow-sm rounded-lg border border-gray-200 p-4 mb-6">
-      <div className="flex flex-wrap justify-between items-center">
+    <div className="w-full bg-gradient-to-r from-blue-50 to-indigo-50 shadow-md rounded-lg border border-blue-200 p-6 mb-6 sticky top-0 z-10">
+      <div className="flex justify-between items-center">
         {steps.map((step, index) => {
           const status = getStepStatus(step.id);
           const StepIcon = step.icon;
@@ -37,18 +37,18 @@ const ShippingWorkflow: React.FC<ShippingWorkflowProps> = ({ currentStep }) => {
             <React.Fragment key={step.id}>
               <div className="flex flex-col items-center">
                 <div 
-                  className={`w-10 h-10 rounded-full flex items-center justify-center mb-1
-                    ${status === 'completed' ? 'bg-green-100 text-green-600' : 
-                      status === 'active' ? 'bg-blue-100 text-blue-600 ring-2 ring-blue-400' : 
+                  className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all duration-300
+                    ${status === 'completed' ? 'bg-green-100 text-green-600 ring-2 ring-green-400' : 
+                      status === 'active' ? 'bg-blue-100 text-blue-600 ring-4 ring-blue-400 scale-110' : 
                       'bg-gray-100 text-gray-400'}
                   `}
                 >
-                  <StepIcon className="h-5 w-5" />
+                  <StepIcon className="h-6 w-6" />
                 </div>
                 <span 
                   className={`text-xs font-medium 
                     ${status === 'completed' ? 'text-green-600' : 
-                      status === 'active' ? 'text-blue-600' : 
+                      status === 'active' ? 'text-blue-700 font-bold' : 
                       'text-gray-400'}
                   `}
                 >
@@ -58,7 +58,7 @@ const ShippingWorkflow: React.FC<ShippingWorkflowProps> = ({ currentStep }) => {
               
               {index < steps.length - 1 && (
                 <div className="hidden md:flex items-center">
-                  <ArrowRight className={`h-4 w-4 mx-2 ${status === 'completed' ? 'text-green-500' : 'text-gray-300'}`} />
+                  <div className={`h-1 w-10 md:w-20 lg:w-24 ${status === 'completed' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
                 </div>
               )}
             </React.Fragment>

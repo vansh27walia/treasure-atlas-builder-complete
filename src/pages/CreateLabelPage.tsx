@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ShippingRates from '@/components/ShippingRates';
@@ -9,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import GoogleApiKeyInput from '@/components/settings/GoogleApiKeyInput';
+import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 
 const CreateLabelPage: React.FC = () => {
   const location = useLocation();
@@ -17,6 +19,7 @@ const CreateLabelPage: React.FC = () => {
   const tabFromQuery = queryParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
   const [showApiKeyForm, setShowApiKeyForm] = useState(false);
+  const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
 
   // Update the URL when tab changes
   useEffect(() => {
@@ -32,175 +35,180 @@ const CreateLabelPage: React.FC = () => {
       setActiveTab(tabFromQuery);
     }
   }, [tabFromQuery]);
+  
+  // Listen for custom events to update workflow step
+  useEffect(() => {
+    const handleStepChange = (event: CustomEvent<{step: 'address' | 'package' | 'rates' | 'label' | 'complete'}>) => {
+      if (event.detail && event.detail.step) {
+        setCurrentStep(event.detail.step);
+      }
+    };
+    
+    document.addEventListener('shipping-step-change', handleStepChange as EventListener);
+    
+    // Custom event listener for when shipping form is completed
+    const handleFormCompleted = () => {
+      setCurrentStep('rates');
+    };
+    
+    document.addEventListener('shipping-form-completed', handleFormCompleted);
+    
+    // Custom event listener for when a rate is selected
+    const handleRateSelected = () => {
+      setCurrentStep('label');
+    };
+    
+    document.addEventListener('rate-selected', handleRateSelected);
+    
+    return () => {
+      document.removeEventListener('shipping-step-change', handleStepChange as EventListener);
+      document.removeEventListener('shipping-form-completed', handleFormCompleted);
+      document.removeEventListener('rate-selected', handleRateSelected);
+    };
+  }, []);
 
   return (
     <div className="w-full py-6 px-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-blue-800 flex items-center">
-          <Package className="mr-3 h-7 w-7 text-blue-600" />
-          Create a Shipping Label
-        </h1>
-        <Button
-          variant="outline"
-          onClick={() => setShowApiKeyForm(!showApiKeyForm)}
-          className="text-sm flex items-center gap-2"
-        >
-          <Settings className="h-4 w-4" />
-          {showApiKeyForm ? 'Hide API Settings' : 'Configure Google API'}
-        </Button>
-      </div>
-      
-      {showApiKeyForm && (
-        <div className="mb-6">
-          <GoogleApiKeyInput />
-        </div>
-      )}
-      
-      {/* Workflow Steps */}
-      <div className="mb-6">
-        <div className="relative">
-          <div className="flex items-center justify-between mb-4 max-w-4xl mx-auto">
-            <div className="flex flex-col items-center">
-              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white">1</div>
-              <span className="text-xs mt-1 text-blue-800 font-medium">Enter Addresses</span>
-            </div>
-
-            <div className="h-1 flex-1 bg-blue-200 mx-2 relative">
-              <div className="absolute inset-0 bg-blue-600" style={{width: activeTab === 'domestic' ? '0%' : '100%'}}></div>
-            </div>
-            
-            <div className="flex flex-col items-center">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activeTab === 'domestic' ? 'bg-blue-200 text-blue-600' : 'bg-blue-600 text-white'}`}>2</div>
-              <span className="text-xs mt-1 text-blue-800 font-medium">Select Rate</span>
-            </div>
-
-            <div className="h-1 flex-1 bg-blue-200 mx-2"></div>
-            
-            <div className="flex flex-col items-center">
-              <div className="w-10 h-10 bg-blue-200 rounded-full flex items-center justify-center text-blue-600">3</div>
-              <span className="text-xs mt-1 text-blue-800 font-medium">Print Label</span>
-            </div>
-
-            <div className="h-1 flex-1 bg-blue-200 mx-2"></div>
-            
-            <div className="flex flex-col items-center">
-              <div className="w-10 h-10 bg-blue-200 rounded-full flex items-center justify-center text-blue-600">4</div>
-              <span className="text-xs mt-1 text-blue-800 font-medium">Track Package</span>
-            </div>
+      <div className="fixed top-[3.5rem] left-0 right-0 bg-white z-20 border-b border-gray-200 shadow-sm px-6 pt-4 pb-2">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl font-bold text-blue-800 flex items-center">
+              <Package className="mr-3 h-7 w-7 text-blue-600" />
+              Create a Shipping Label
+            </h1>
+            <Button
+              variant="outline"
+              onClick={() => setShowApiKeyForm(!showApiKeyForm)}
+              className="text-sm flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              {showApiKeyForm ? 'Hide API Settings' : 'Configure Google API'}
+            </Button>
           </div>
+          
+          <ShippingWorkflow currentStep={currentStep} />
         </div>
       </div>
       
-      <Card className="border border-gray-200 shadow-md bg-white rounded-lg">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-4 bg-blue-50 p-1 rounded-lg">
-            <TabsTrigger 
-              value="domestic" 
-              className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-            >
-              <Package className="h-4 w-4" />
-              Domestic
-            </TabsTrigger>
-            <TabsTrigger 
-              value="international" 
-              className="flex items-center gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
-            >
-              <Globe className="h-4 w-4" />
-              International
-            </TabsTrigger>
-            <TabsTrigger 
-              value="calculator" 
-              className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-            >
-              <Calculator className="h-4 w-4" />
-              Rate Calculator
-            </TabsTrigger>
-            <TabsTrigger 
-              value="bulk" 
-              className="flex items-center gap-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white"
-            >
-              <Upload className="h-4 w-4" />
-              Bulk Shipping
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="domestic">
-            <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-4 border border-blue-100 shadow-sm">
-              <h2 className="text-lg font-semibold text-blue-800 flex items-center mb-2">
-                <Truck className="h-5 w-5 mr-2 text-blue-600" />
-                Domestic Shipping
-              </h2>
-              <p className="text-blue-700 text-sm">Ship packages within the country with our various carrier options.</p>
-            </div>
-            <EnhancedShippingForm />
-          </TabsContent>
-          
-          <TabsContent value="international">
-            <div className="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg mb-4 border border-indigo-100 shadow-sm">
-              <h2 className="text-lg font-semibold text-indigo-800 flex items-center mb-2">
-                <Globe className="h-5 w-5 mr-2 text-indigo-600" />
-                International Shipping
-              </h2>
-              <p className="text-indigo-700 text-sm">Send packages worldwide with customs forms automatically generated.</p>
-            </div>
-            
-            <div className="flex justify-center items-center py-8 px-4">
-              <div className="text-center max-w-md">
-                <Globe className="h-12 w-12 mx-auto text-indigo-500 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">International Shipping</h3>
-                <p className="text-gray-600 mb-6 text-sm">
-                  Ship to over 200+ countries with our international shipping service, including automated customs documentation.
-                </p>
-                <Link to="/international">
-                  <Button className="bg-indigo-600 hover:bg-indigo-700">
-                    Go to International Shipping
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="calculator">
-            <div className="p-4 bg-gradient-to-r from-green-50 to-teal-50 rounded-lg mb-4 border border-green-100 shadow-sm">
-              <h2 className="text-lg font-semibold text-green-800 flex items-center mb-2">
-                <Calculator className="h-5 w-5 mr-2 text-green-600" />
-                Shipping Rate Calculator
-              </h2>
-              <p className="text-green-700 text-sm">Calculate shipping rates for different carriers without creating a shipment.</p>
-            </div>
-            
-            <RateCalculator />
-          </TabsContent>
-          
-          <TabsContent value="bulk">
-            <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg mb-4 border border-amber-100 shadow-sm">
-              <h2 className="text-lg font-semibold text-amber-800 flex items-center mb-2">
-                <Upload className="h-5 w-5 mr-2 text-amber-600" />
+      <div className="mt-32">
+        {showApiKeyForm && (
+          <div className="mb-6">
+            <GoogleApiKeyInput />
+          </div>
+        )}
+        
+        <Card className="border border-gray-200 shadow-md bg-white rounded-lg">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-4 mb-4 bg-blue-50 p-1 rounded-lg">
+              <TabsTrigger 
+                value="domestic" 
+                className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+                onClick={() => setCurrentStep('address')}
+              >
+                <Package className="h-4 w-4" />
+                Domestic
+              </TabsTrigger>
+              <TabsTrigger 
+                value="international" 
+                className="flex items-center gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
+              >
+                <Globe className="h-4 w-4" />
+                International
+              </TabsTrigger>
+              <TabsTrigger 
+                value="calculator" 
+                className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
+              >
+                <Calculator className="h-4 w-4" />
+                Rate Calculator
+              </TabsTrigger>
+              <TabsTrigger 
+                value="bulk" 
+                className="flex items-center gap-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white"
+              >
+                <Upload className="h-4 w-4" />
                 Bulk Shipping
-              </h2>
-              <p className="text-amber-700 text-sm">Upload CSV files to process multiple shipments at once.</p>
-            </div>
+              </TabsTrigger>
+            </TabsList>
             
-            <div className="flex justify-center items-center py-8 px-4">
-              <div className="text-center max-w-md">
-                <Upload className="h-12 w-12 mx-auto text-amber-500 mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Bulk Upload Shipping</h3>
-                <p className="text-gray-600 mb-6 text-sm">
-                  Process multiple shipments at once by uploading a CSV file with all your shipping details.
-                </p>
-                <Link to="/bulk-upload">
-                  <Button className="bg-amber-600 hover:bg-amber-700">
-                    Go to Bulk Upload
-                  </Button>
-                </Link>
+            <TabsContent value="domestic">
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-4 border border-blue-100 shadow-sm">
+                <h2 className="text-lg font-semibold text-blue-800 flex items-center mb-2">
+                  <Truck className="h-5 w-5 mr-2 text-blue-600" />
+                  Domestic Shipping
+                </h2>
+                <p className="text-blue-700 text-sm">Ship packages within the country with our various carrier options.</p>
               </div>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </Card>
+              <EnhancedShippingForm />
+            </TabsContent>
+            
+            <TabsContent value="international">
+              <div className="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg mb-4 border border-indigo-100 shadow-sm">
+                <h2 className="text-lg font-semibold text-indigo-800 flex items-center mb-2">
+                  <Globe className="h-5 w-5 mr-2 text-indigo-600" />
+                  International Shipping
+                </h2>
+                <p className="text-indigo-700 text-sm">Send packages worldwide with customs forms automatically generated.</p>
+              </div>
+              
+              <div className="flex justify-center items-center py-8 px-4">
+                <div className="text-center max-w-md">
+                  <Globe className="h-12 w-12 mx-auto text-indigo-500 mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">International Shipping</h3>
+                  <p className="text-gray-600 mb-6 text-sm">
+                    Ship to over 200+ countries with our international shipping service, including automated customs documentation.
+                  </p>
+                  <Link to="/international">
+                    <Button className="bg-indigo-600 hover:bg-indigo-700">
+                      Go to International Shipping
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="calculator">
+              <div className="p-4 bg-gradient-to-r from-green-50 to-teal-50 rounded-lg mb-4 border border-green-100 shadow-sm">
+                <h2 className="text-lg font-semibold text-green-800 flex items-center mb-2">
+                  <Calculator className="h-5 w-5 mr-2 text-green-600" />
+                  Shipping Rate Calculator
+                </h2>
+                <p className="text-green-700 text-sm">Calculate shipping rates for different carriers without creating a shipment.</p>
+              </div>
+              
+              <RateCalculator />
+            </TabsContent>
+            
+            <TabsContent value="bulk">
+              <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg mb-4 border border-amber-100 shadow-sm">
+                <h2 className="text-lg font-semibold text-amber-800 flex items-center mb-2">
+                  <Upload className="h-5 w-5 mr-2 text-amber-600" />
+                  Bulk Shipping
+                </h2>
+                <p className="text-amber-700 text-sm">Upload CSV files to process multiple shipments at once.</p>
+              </div>
+              
+              <div className="flex justify-center items-center py-8 px-4">
+                <div className="text-center max-w-md">
+                  <Upload className="h-12 w-12 mx-auto text-amber-500 mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Bulk Upload Shipping</h3>
+                  <p className="text-gray-600 mb-6 text-sm">
+                    Process multiple shipments at once by uploading a CSV file with all your shipping details.
+                  </p>
+                  <Link to="/bulk-upload">
+                    <Button className="bg-amber-600 hover:bg-amber-700">
+                      Go to Bulk Upload
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </Card>
 
-      {activeTab === 'domestic' && <ShippingRates />}
-      {activeTab === 'calculator' && <ShippingRates />}
+        {activeTab === 'domestic' && <ShippingRates />}
+        {activeTab === 'calculator' && <ShippingRates />}
+      </div>
     </div>
   );
 };

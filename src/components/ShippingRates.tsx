@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import ShippingRateCard from './shipping/ShippingRateCard';
@@ -10,7 +10,7 @@ import ShippingWorkflow from './shipping/ShippingWorkflow';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
-import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
+import { CreditCard, Loader, Download, Upload, Truck, Filter, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -35,7 +35,7 @@ const ShippingRates: React.FC = () => {
   } = useShippingRates();
   
   const { aiRecommendation, isAiLoading } = useRateCalculator();
-  const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
+  const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier' | 'premium'>('premium');
   
   // Show empty state if no rates available
   if (rates.length === 0) {
@@ -55,9 +55,47 @@ const ShippingRates: React.FC = () => {
     );
   }
 
+  // Identify premium services (typically express, overnight, or most expensive)
+  const identifyPremiumRates = (ratesList) => {
+    // Clone the array to avoid modifying the original
+    const ratesWithPremium = [...ratesList];
+    
+    // Sort by price to identify the most expensive options
+    const sortedByPrice = [...ratesList].sort((a, b) => 
+      parseFloat(b.rate) - parseFloat(a.rate)
+    );
+    
+    // Mark top 30% as premium
+    const premiumCount = Math.ceil(sortedByPrice.length * 0.3);
+    const premiumThreshold = sortedByPrice[Math.min(premiumCount - 1, sortedByPrice.length - 1)].rate;
+    
+    // Also mark as premium if service name contains these keywords
+    const premiumKeywords = ['express', 'priority', 'overnight', 'next day', 'same day', 'instant'];
+    
+    return ratesWithPremium.map(rate => ({
+      ...rate,
+      isPremium: 
+        parseFloat(rate.rate) >= parseFloat(premiumThreshold) || 
+        premiumKeywords.some(keyword => 
+          rate.service.toLowerCase().includes(keyword)
+        )
+    }));
+  };
+
+  // Add premium flag to rates
+  const ratesWithPremium = identifyPremiumRates(rates);
+  
   // Sort the rates based on the selected sorting option
-  const sortedRates = [...rates].sort((a, b) => {
-    if (sortOrder === 'price') {
+  const sortedRates = [...ratesWithPremium].sort((a, b) => {
+    if (sortOrder === 'premium') {
+      // Premium rates first, then sort by other criteria within each group
+      if (a.isPremium && !b.isPremium) return -1;
+      if (!a.isPremium && b.isPremium) return 1;
+      // If both are premium or both are not, sort by speed
+      const aDays = a.delivery_days || 999;
+      const bDays = b.delivery_days || 999;
+      return aDays - bDays;
+    } else if (sortOrder === 'price') {
       return parseFloat(a.rate) - parseFloat(b.rate);
     } else if (sortOrder === 'speed') {
       const aDays = a.delivery_days || 999;
@@ -104,15 +142,24 @@ const ShippingRates: React.FC = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
-                    Sort by: {sortOrder === 'price' ? 'Price' : sortOrder === 'speed' ? 'Speed' : 'Carrier'}
+                    Sort by: {
+                      sortOrder === 'premium' ? 'Premium' : 
+                      sortOrder === 'price' ? 'Price' : 
+                      sortOrder === 'speed' ? 'Speed' : 
+                      'Carrier'
+                    }
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-white">
-                  <DropdownMenuItem onClick={() => setSortOrder('price')}>
-                    Price (Lowest First)
+                  <DropdownMenuItem onClick={() => setSortOrder('premium')}>
+                    <Sparkles className="h-4 w-4 mr-2 text-amber-400" />
+                    Premium Options First
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSortOrder('speed')}>
                     Speed (Fastest First)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder('price')}>
+                    Price (Lowest First)
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSortOrder('carrier')}>
                     Carrier (A-Z)
@@ -137,6 +184,33 @@ const ShippingRates: React.FC = () => {
           
           {!labelUrl && (
             <>
+              {/* Premium Recommendations - Show at the top */}
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
+                  <Sparkles className="h-5 w-5 mr-2 text-amber-400" />
+                  Recommended Premium Services
+                </h3>
+                <div className="space-y-4">
+                  {sortedRates.filter(rate => rate.isPremium).slice(0, 3).map((rate) => (
+                    <ShippingRateCard
+                      key={`premium-${rate.id}`}
+                      rate={rate}
+                      isSelected={selectedRateId === rate.id}
+                      onSelect={handleSelectRate}
+                      isBestValue={rate.id === bestValueRateId}
+                      isFastest={rate.id === fastestRateId}
+                      aiRecommendation={aiRecommendation && {
+                        rateId: aiRecommendation.bestOverall || '',
+                        reason: aiRecommendation.analysisText || ''
+                      }}
+                      showDiscount={true}
+                      originalRate={rate.original_rate}
+                      isPremium={true}
+                    />
+                  ))}
+                </div>
+              </div>
+            
               {/* AI Recommendations */}
               {(aiRecommendation || isAiLoading) && (
                 <ShippingAIRecommendation 
@@ -147,6 +221,7 @@ const ShippingRates: React.FC = () => {
               )}
               
               <div className="space-y-4 mt-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">All Available Options</h3>
                 {sortedRates.map((rate) => (
                   <ShippingRateCard
                     key={rate.id}
@@ -161,6 +236,7 @@ const ShippingRates: React.FC = () => {
                     }}
                     showDiscount={true}
                     originalRate={rate.original_rate}
+                    isPremium={rate.isPremium}
                   />
                 ))}
 

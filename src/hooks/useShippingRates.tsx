@@ -17,6 +17,7 @@ interface ShippingRate {
   est_delivery_days?: number;
   shipment_id?: string; 
   original_rate?: string;
+  isPremium?: boolean;
 }
 
 interface EasyPostRatesEvent {
@@ -52,9 +53,20 @@ export const useShippingRates = () => {
       // Calculate what the "original" price would be before our massive discount
       const inflatedRate = (actualRate * (100 / (100 - discountPercentage))).toFixed(2);
       
+      // Generate premium flag - typically express, overnight, or most expensive services
+      const isPremium = 
+        rate.service.toLowerCase().includes('express') || 
+        rate.service.toLowerCase().includes('priority') || 
+        rate.service.toLowerCase().includes('overnight') ||
+        rate.service.toLowerCase().includes('next day') ||
+        rate.service.toLowerCase().includes('same day') ||
+        (rate.delivery_days === 1) ||
+        actualRate > 20; // If rate is above $20, consider it a premium service
+      
       return {
         ...rate,
-        original_rate: inflatedRate
+        original_rate: inflatedRate,
+        isPremium
       };
     });
   };
@@ -86,13 +98,25 @@ export const useShippingRates = () => {
         setUniqueCarriers(carriers);
         setActiveCarrierFilter('all');
         
-        // Scroll to rates section
+        // Update workflow step
+        document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+          detail: { step: 'rates' }
+        }));
+        
+        // Scroll to rates section with smooth behavior and delay
         setTimeout(() => {
           const ratesSection = document.getElementById('shipping-rates-section');
           if (ratesSection) {
-            ratesSection.scrollIntoView({ behavior: 'smooth' });
+            // Use scrollIntoView with behavior smooth
+            ratesSection.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'start'
+            });
           }
         }, 300);
+        
+        // Also dispatch a completed form event
+        document.dispatchEvent(new Event('shipping-form-completed'));
       }
     };
 
@@ -102,6 +126,11 @@ export const useShippingRates = () => {
     const handleRateSelected = (event: CustomEvent<{rateId: string}>) => {
       if (event.detail && event.detail.rateId) {
         setSelectedRateId(event.detail.rateId);
+        
+        // Dispatch event for step change
+        document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+          detail: { step: 'label' }
+        }));
         
         // Automatically create label when a rate is selected
         setTimeout(() => {
@@ -136,22 +165,28 @@ export const useShippingRates = () => {
   const handleSelectRate = (rateId: string) => {
     setSelectedRateId(rateId);
     
+    // Dispatch rate-selected event
+    document.dispatchEvent(new Event('rate-selected'));
+    
     // Find the rate with this ID
     const selectedRate = rates.find(rate => rate.id === rateId);
     console.log("Selected rate:", selectedRate);
     
-    // Automatically create label when a rate is selected
-    if (selectedRate && selectedRate.shipment_id) {
-      handleCreateLabel(rateId, selectedRate.shipment_id);
-    }
+    // Update workflow step
+    document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+      detail: { step: 'label' }
+    }));
     
-    // Scroll to the selected rate
-    setTimeout(() => {
-      const selectedRateElement = document.querySelector(`[data-rate-id="${rateId}"]`);
-      if (selectedRateElement) {
-        selectedRateElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }, 100);
+    // Scroll to the selected rate without animation
+    const selectedRateElement = document.querySelector(`[data-rate-id="${rateId}"]`);
+    if (selectedRateElement) {
+      setTimeout(() => {
+        window.scrollTo({
+          top: selectedRateElement.getBoundingClientRect().top + window.scrollY - 150,
+          behavior: 'smooth'
+        });
+      }, 100);
+    }
   };
   
   const handleFilterByCarrier = (carrier: string | 'all') => {
@@ -209,12 +244,20 @@ export const useShippingRates = () => {
       setTrackingCode(data.trackingCode);
       toast.success("Shipping label generated successfully");
       
+      // Update workflow step to complete
+      document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+        detail: { step: 'complete' }
+      }));
+      
       // Build the success URL with all needed parameters
       const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`;
       console.log("Navigating to:", labelSuccessUrl);
       
       // Use navigate with the correct URL
-      navigate(labelSuccessUrl);
+      navigate(labelSuccessUrl, { replace: true });
+      
+      // Scroll to top of page before navigating
+      window.scrollTo(0, 0);
       
     } catch (error) {
       console.error('Error creating label:', error);
