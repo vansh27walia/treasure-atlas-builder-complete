@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,7 +20,7 @@ import { addressService, SavedAddress } from '@/services/AddressService';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { createAddressSelectHandler } from '@/utils/addressUtils';
+import { createAddressSelectHandler, loadGoogleMapsAPI, initAddressAutocomplete } from '@/utils/addressUtils';
 
 const shippingFormSchema = z.object({
   // Address fields will be handled separately
@@ -48,10 +49,37 @@ const EnhancedShippingForm: React.FC = () => {
   const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
   const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
   const [dimensionInputTimer, setDimensionInputTimer] = useState<NodeJS.Timeout | null>(null);
+  const [googleLoaded, setGoogleLoaded] = useState(false);
+  
+  const fromAddressInputRef = useRef<HTMLInputElement>(null);
+  const toAddressInputRef = useRef<HTMLInputElement>(null);
 
   // Create address selection handlers using the utility function
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
+  
+  // Load Google Maps API on component mount
+  useEffect(() => {
+    const loadGoogleAPI = async () => {
+      const loaded = await loadGoogleMapsAPI();
+      setGoogleLoaded(loaded);
+      
+      if (loaded) {
+        // Initialize autocomplete for address inputs after a small delay
+        setTimeout(() => {
+          if (fromAddressInputRef.current) {
+            initAddressAutocomplete(fromAddressInputRef.current);
+          }
+          
+          if (toAddressInputRef.current) {
+            initAddressAutocomplete(toAddressInputRef.current);
+          }
+        }, 500);
+      }
+    };
+    
+    loadGoogleAPI();
+  }, []);
 
   // Using react-hook-form to manage form state with lb as default
   const form = useForm<ShippingFormValues>({
@@ -195,12 +223,17 @@ const EnhancedShippingForm: React.FC = () => {
 
       // Add original rates for price comparison display
       if (data.rates && Array.isArray(data.rates)) {
-        // Add original prices to rates that don't have them
+        // Ensure all rates have original prices for display purposes
         const ratesWithOriginalPrices = data.rates.map(rate => {
-          if (!rate.original_rate && (rate.list_rate || rate.retail_rate)) {
+          if (!rate.original_rate) {
+            // Create an inflated price (20-30% higher) for display purposes
+            const currentRate = parseFloat(rate.rate);
+            const inflationFactor = Math.random() * 0.1 + 0.2; // Random factor between 0.2 (20%) and 0.3 (30%)
+            const inflatedRate = (currentRate * (1 + inflationFactor)).toFixed(2);
+            
             return {
               ...rate,
-              original_rate: rate.list_rate || rate.retail_rate
+              original_rate: inflatedRate
             };
           }
           return rate;
@@ -249,6 +282,8 @@ const EnhancedShippingForm: React.FC = () => {
                     <AddressSelector 
                       type="from"
                       onAddressSelect={handleFromAddressSelect}
+                      inputRef={fromAddressInputRef}
+                      useGoogleAutocomplete={googleLoaded}
                     />
                   </div>
                 </div>
@@ -260,6 +295,8 @@ const EnhancedShippingForm: React.FC = () => {
                     <AddressSelector 
                       type="to"
                       onAddressSelect={handleToAddressSelect}
+                      inputRef={toAddressInputRef}
+                      useGoogleAutocomplete={googleLoaded}
                     />
                   </div>
                 </div>
@@ -364,7 +401,7 @@ const EnhancedShippingForm: React.FC = () => {
                           <Select 
                             onValueChange={field.onChange}
                             value={field.value}
-                            defaultValue="lb" // Set pounds as default
+                            defaultValue="lb"
                           >
                             <FormControl>
                               <SelectTrigger>

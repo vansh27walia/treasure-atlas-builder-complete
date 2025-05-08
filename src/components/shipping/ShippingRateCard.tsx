@@ -70,63 +70,44 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
     return `${days} days delivery`;
   };
 
-  // Calculate discount if available
-  const calculateDiscount = () => {
-    // First check if we have a specific original_rate
-    if (rate.original_rate && parseFloat(rate.original_rate) > parseFloat(rate.rate)) {
-      const original = parseFloat(rate.original_rate);
-      const current = parseFloat(rate.rate);
-      const savingsAmount = original - current;
-      const savingsPercent = ((original - current) / original) * 100;
-      
-      return {
-        amount: savingsAmount.toFixed(2),
-        percent: savingsPercent.toFixed(0),
-        originalPrice: rate.original_rate
-      };
+  // Calculate or use provided original rate for display
+  const getOriginalRate = () => {
+    // First check if we have a specific original_rate provided
+    if (originalRate) {
+      return originalRate;
     }
     
-    // If no specific original_rate, check the list_rate or retail_rate from carrier
-    if (rate.list_rate && parseFloat(rate.list_rate) > parseFloat(rate.rate)) {
-      const original = parseFloat(rate.list_rate);
-      const current = parseFloat(rate.rate);
-      const savingsAmount = original - current;
-      const savingsPercent = ((original - current) / original) * 100;
-      
-      return {
-        amount: savingsAmount.toFixed(2),
-        percent: savingsPercent.toFixed(0),
-        originalPrice: rate.list_rate
-      };
+    // Next check if the rate object has an original_rate
+    if (rate.original_rate) {
+      return rate.original_rate;
     }
     
-    if (rate.retail_rate && parseFloat(rate.retail_rate) > parseFloat(rate.rate)) {
-      const original = parseFloat(rate.retail_rate);
-      const current = parseFloat(rate.rate);
-      const savingsAmount = original - current;
-      const savingsPercent = ((original - current) / original) * 100;
-      
-      return {
-        amount: savingsAmount.toFixed(2),
-        percent: savingsPercent.toFixed(0),
-        originalPrice: rate.retail_rate
-      };
-    }
-    
-    return null;
+    // If no original rate, create one by inflating the current rate by 25%
+    const currentRate = parseFloat(rate.rate);
+    const inflatedRate = (currentRate * 1.25).toFixed(2);
+    return inflatedRate;
   };
 
-  const discount = calculateDiscount();
-  const effectiveOriginalRate = originalRate || discount?.originalPrice || rate.original_rate;
+  const effectiveOriginalRate = getOriginalRate();
+  
+  // Calculate savings percentage
+  const calculateSavingsPercent = () => {
+    const original = parseFloat(effectiveOriginalRate);
+    const current = parseFloat(rate.rate);
+    if (original <= current) return 0;
+    return Math.round(((original - current) / original) * 100);
+  };
 
-  // Get carrier logo based on carrier name
+  const savingsPercent = calculateSavingsPercent();
+
+  // Get carrier logo based on carrier name - using better URLs for reliable loading
   const getCarrierLogo = (carrier: string) => {
     const carrierLowerCase = carrier.toLowerCase();
 
     if (carrierLowerCase.includes('ups')) {
       return 'https://www.ups.com/assets/resources/images/UPS_logo.svg';
     } else if (carrierLowerCase.includes('usps')) {
-      return 'https://about.usps.com/postal-bulletin/2013/pb22374/html/logo_005.jpg';
+      return 'https://www.usps.com/assets/images/global/usps-logo-2021.svg';
     } else if (carrierLowerCase.includes('fedex')) {
       return 'https://www.fedex.com/content/dam/fedex-com/logos/logo.png';
     } else if (carrierLowerCase.includes('dhl')) {
@@ -158,6 +139,18 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
                     src={carrierLogo} 
                     alt={`${rate.carrier} logo`}
                     className="max-h-8 max-w-full object-contain"
+                    onError={(e) => {
+                      // Fallback to text if image fails to load
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent) {
+                        const text = document.createElement('span');
+                        text.textContent = rate.carrier.toUpperCase();
+                        text.className = 'font-semibold text-gray-800';
+                        parent.appendChild(text);
+                      }
+                    }}
                   />
                 </div>
               ) : (
@@ -210,15 +203,15 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
               </p>
             )}
             
-            {discount && showDiscount && (
+            {savingsPercent > 0 && showDiscount && (
               <div className="mt-3 flex items-center">
                 <Badge className="bg-red-100 text-red-600 font-semibold border-none">
-                  SAVE {discount.percent}%
+                  SAVE {savingsPercent}%
                 </Badge>
                 <div className="ml-2 flex items-center">
                   <span className="text-sm text-gray-500 line-through">${effectiveOriginalRate}</span>
                   <span className="text-sm font-semibold text-blue-600 ml-1">
-                    Save ${discount.amount}
+                    You save ${(parseFloat(effectiveOriginalRate) - parseFloat(rate.rate)).toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -237,7 +230,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
           <div className="flex items-center justify-between md:flex-col md:items-end">
             <div className="text-right mb-2">
               <div className="text-lg font-bold text-blue-800">${rate.rate}</div>
-              {discount && showDiscount && (
+              {savingsPercent > 0 && showDiscount && (
                 <div className="text-xs text-gray-500 line-through">${effectiveOriginalRate}</div>
               )}
             </div>

@@ -64,8 +64,15 @@ export const useShippingRates = () => {
         }
       }
       
-      // No changes needed
-      return rate;
+      // Create an inflated original price (20-30% higher) if no original price exists
+      const currentRate = parseFloat(rate.rate);
+      const inflationFactor = Math.random() * 0.1 + 0.2; // Random factor between 0.2 (20%) and 0.3 (30%)
+      const inflatedRate = (currentRate * (1 + inflationFactor)).toFixed(2);
+      
+      return {
+        ...rate,
+        original_rate: inflatedRate
+      };
     });
   };
 
@@ -88,7 +95,7 @@ export const useShippingRates = () => {
         
         // Extract unique carriers for filtering
         const carriers = [...new Set(processedRates.map(rate => 
-          rate.carrier.toUpperCase()
+          rate.carrier.toLowerCase()
         ))];
         setUniqueCarriers(carriers);
         setActiveCarrierFilter('all');
@@ -134,7 +141,7 @@ export const useShippingRates = () => {
       setFilteredRates(rates);
     } else {
       const filtered = rates.filter(rate => 
-        rate.carrier.toUpperCase() === activeCarrierFilter.toUpperCase()
+        rate.carrier.toLowerCase() === activeCarrierFilter.toLowerCase()
       );
       setFilteredRates(filtered);
     }
