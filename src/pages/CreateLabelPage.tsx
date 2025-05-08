@@ -9,6 +9,7 @@ import { Package, Globe, Upload, Truck, Calculator } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
+import GoogleApiKeyForm from '@/components/settings/GoogleApiKeyForm';
 
 const CreateLabelPage: React.FC = () => {
   const location = useLocation();
@@ -16,6 +17,7 @@ const CreateLabelPage: React.FC = () => {
   const queryParams = new URLSearchParams(location.search);
   const tabFromQuery = queryParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
+  const [showApiKeyForm, setShowApiKeyForm] = useState(false);
 
   // Update the URL when tab changes
   useEffect(() => {
@@ -33,11 +35,26 @@ const CreateLabelPage: React.FC = () => {
   }, [tabFromQuery]);
 
   return (
-    <div className="w-full px-3 py-6">
-      <h1 className="text-2xl font-bold mb-6 text-blue-800 flex items-center">
-        <Package className="mr-3 h-7 w-7 text-blue-600" />
-        Create a Shipping Label
-      </h1>
+    <div className="w-full py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-blue-800 flex items-center">
+          <Package className="mr-3 h-7 w-7 text-blue-600" />
+          Create a Shipping Label
+        </h1>
+        <Button
+          variant="outline"
+          onClick={() => setShowApiKeyForm(!showApiKeyForm)}
+          className="text-sm"
+        >
+          {showApiKeyForm ? 'Hide API Settings' : 'Configure Google API'}
+        </Button>
+      </div>
+      
+      {showApiKeyForm && (
+        <div className="mb-6">
+          <GoogleApiKeyForm />
+        </div>
+      )}
       
       <Card className="border border-gray-200 shadow-md bg-white rounded-lg">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

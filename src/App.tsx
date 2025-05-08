@@ -28,34 +28,38 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <OnboardingProvider>
-          <SidebarNavigation>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<AuthPage />} />
-              <Route path="/create-label" element={<CreateLabelPage />} />
-              <Route path="/ltl-shipping" element={<LtlShippingPage />} />
-              <Route path="/ftl-shipping" element={<FtlShippingPage />} />
-              <Route path="/instant-delivery" element={<InstantDeliveryPage />} />
-              <Route path="/international" element={<InternationalShippingPage />} />
-              <Route path="/payment" element={<PaymentPage />} />
-              <Route path="/tracking" element={<TrackingPage />} />
-              <Route
-                path="/dashboard"
-                element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
-              />
-              <Route
-                path="/settings"
-                element={<ProtectedRoute><SettingsPage /></ProtectedRoute>}
-              />
-              <Route path="/success" element={<LabelSuccessPage />} />
-              <Route path="/pickup" element={<PickupPage />} />
-              <Route
-                path="/bulk-upload"
-                element={<ProtectedRoute><BulkUploadPage /></ProtectedRoute>}
-              />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </SidebarNavigation>
+          <div className="overflow-hidden">
+            <SidebarNavigation>
+              <div className="px-4 md:px-6 overflow-y-auto">
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/auth" element={<AuthPage />} />
+                  <Route path="/create-label" element={<CreateLabelPage />} />
+                  <Route path="/ltl-shipping" element={<LtlShippingPage />} />
+                  <Route path="/ftl-shipping" element={<FtlShippingPage />} />
+                  <Route path="/instant-delivery" element={<InstantDeliveryPage />} />
+                  <Route path="/international" element={<InternationalShippingPage />} />
+                  <Route path="/payment" element={<PaymentPage />} />
+                  <Route path="/tracking" element={<TrackingPage />} />
+                  <Route
+                    path="/dashboard"
+                    element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+                  />
+                  <Route
+                    path="/settings"
+                    element={<ProtectedRoute><SettingsPage /></ProtectedRoute>}
+                  />
+                  <Route path="/success" element={<LabelSuccessPage />} />
+                  <Route path="/pickup" element={<PickupPage />} />
+                  <Route
+                    path="/bulk-upload"
+                    element={<ProtectedRoute><BulkUploadPage /></ProtectedRoute>}
+                  />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </div>
+            </SidebarNavigation>
+          </div>
           <Toaster />
         </OnboardingProvider>
       </AuthProvider>

@@ -26,7 +26,7 @@ const shippingFormSchema = z.object({
   // Address fields will be handled separately
   packageType: z.string().min(1, "Please select a package type"),
   weightValue: z.coerce.number().min(0, "Weight must be greater than 0"),
-  weightUnit: z.enum(["oz", "kg"]),
+  weightUnit: z.enum(["oz", "kg", "lb"]),
   packageValue: z.coerce.number().min(0, "Value must be greater than 0"),
   length: z.coerce.number().min(0, "Length must be greater than 0"),
   width: z.coerce.number().min(0, "Width must be greater than 0"),
@@ -136,6 +136,9 @@ const EnhancedShippingForm: React.FC = () => {
       if (values.weightUnit === 'kg') {
         // Convert kg to oz (1 kg = 35.274 oz)
         weightOz = values.weightValue * 35.274;
+      } else if (values.weightUnit === 'lb') {
+        // Convert lb to oz (1 lb = 16 oz)
+        weightOz = values.weightValue * 16;
       }
       
       // Get selected carriers
@@ -245,7 +248,7 @@ const EnhancedShippingForm: React.FC = () => {
               </div>
             </div>
             
-            {/* Package Dimensions Section */}
+            {/* Package Dimensions Section - Now placed directly below addresses */}
             <div className="p-4 w-full">
               <h2 className="text-lg font-semibold mb-4 text-blue-700">Package Dimensions</h2>
               
@@ -257,7 +260,7 @@ const EnhancedShippingForm: React.FC = () => {
                       name="length"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Length (in)</FormLabel>
+                          <FormLabel className="text-sm">Length (in)</FormLabel>
                           <FormControl>
                             <Input 
                               type="number"
@@ -277,7 +280,7 @@ const EnhancedShippingForm: React.FC = () => {
                       name="width"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Width (in)</FormLabel>
+                          <FormLabel className="text-sm">Width (in)</FormLabel>
                           <FormControl>
                             <Input 
                               type="number"
@@ -297,7 +300,7 @@ const EnhancedShippingForm: React.FC = () => {
                       name="height"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Height (in)</FormLabel>
+                          <FormLabel className="text-sm">Height (in)</FormLabel>
                           <FormControl>
                             <Input 
                               type="number"
@@ -319,7 +322,7 @@ const EnhancedShippingForm: React.FC = () => {
                       name="weightValue"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Weight</FormLabel>
+                          <FormLabel className="text-sm">Weight</FormLabel>
                           <FormControl>
                             <Input 
                               type="number"
@@ -339,7 +342,7 @@ const EnhancedShippingForm: React.FC = () => {
                       name="weightUnit"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Unit</FormLabel>
+                          <FormLabel className="text-sm">Unit</FormLabel>
                           <Select 
                             onValueChange={field.onChange}
                             value={field.value}
@@ -351,6 +354,7 @@ const EnhancedShippingForm: React.FC = () => {
                             </FormControl>
                             <SelectContent>
                               <SelectItem value="oz">Ounces (oz)</SelectItem>
+                              <SelectItem value="lb">Pounds (lb)</SelectItem>
                               <SelectItem value="kg">Kilograms (kg)</SelectItem>
                             </SelectContent>
                           </Select>
@@ -364,7 +368,7 @@ const EnhancedShippingForm: React.FC = () => {
                       name="packageValue"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Value ($)</FormLabel>
+                          <FormLabel className="text-sm">Value ($)</FormLabel>
                           <FormControl>
                             <Input 
                               type="number"
@@ -386,7 +390,7 @@ const EnhancedShippingForm: React.FC = () => {
                     name="packageType"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Package Type</FormLabel>
+                        <FormLabel className="text-sm">Package Type</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
                           value={field.value}

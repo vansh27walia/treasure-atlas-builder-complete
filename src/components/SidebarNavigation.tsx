@@ -35,7 +35,9 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
         </div>
 
         {/* Main Content */}
-        <SidebarContent collapsed={collapsed} />
+        <div className="flex-1 overflow-y-auto">
+          <SidebarContent collapsed={collapsed} />
+        </div>
       </div>
 
       {/* Main Content */}

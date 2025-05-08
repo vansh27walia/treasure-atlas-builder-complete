@@ -1,178 +1,204 @@
 
 import React from 'react';
+import { Package, Check, Clock, Award, Zap, AlertTriangle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Clock, Info, Award, AlertTriangle } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ShippingRate {
   id: string;
   carrier: string;
   service: string;
   rate: string;
-  original_rate?: string;
   currency: string;
   delivery_days: number;
-  delivery_date?: string;
+  delivery_date: string;
   list_rate?: string;
   retail_rate?: string;
   est_delivery_days?: number;
+  shipment_id?: string;
+  original_rate?: string;
+}
+
+interface AIRecommendation {
+  rateId: string;
+  reason: string;
 }
 
 interface ShippingRateCardProps {
   rate: ShippingRate;
   isSelected: boolean;
-  onSelect: (rateId: string) => void;
-  isBestValue: boolean;
-  isFastest: boolean;
-  aiRecommendation?: {
-    bestOverall?: string;
-    bestValue?: string;
-    fastest?: string;
-    mostReliable?: string;
-  };
+  onSelect: (id: string) => void;
+  isBestValue?: boolean;
+  isFastest?: boolean;
+  aiRecommendation?: AIRecommendation;
+  showDiscount?: boolean;
+  originalRate?: string;
 }
 
-const CarrierLogo: React.FC<{ carrier: string }> = ({ carrier }) => {
-  const carrierLower = carrier.toLowerCase();
-  
-  // Return the appropriate logo based on carrier name
-  if (carrierLower.includes('ups')) {
-    return (
-      <div className="flex items-center justify-center bg-[#351C15] h-8 w-16 rounded">
-        <span className="text-white font-bold">UPS</span>
-      </div>
-    );
-  } 
-  
-  if (carrierLower.includes('fedex')) {
-    return (
-      <div className="flex items-center justify-center bg-[#4D148C] h-8 w-16 rounded">
-        <span className="text-white font-bold">FedEx</span>
-      </div>
-    );
-  }
-  
-  if (carrierLower.includes('dhl')) {
-    return (
-      <div className="flex items-center justify-center bg-[#FFCC00] h-8 w-16 rounded">
-        <span className="text-black font-bold">DHL</span>
-      </div>
-    );
-  }
-  
-  if (carrierLower.includes('usps')) {
-    return (
-      <div className="flex items-center justify-center bg-[#333366] h-8 w-16 rounded">
-        <span className="text-white font-bold">USPS</span>
-      </div>
-    );
-  }
-  
-  // Default for other carriers
-  return (
-    <div className="flex items-center justify-center bg-gray-200 h-8 w-16 rounded">
-      <span className="text-gray-800 font-bold text-xs">{carrier}</span>
-    </div>
-  );
-};
-
-const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
-  rate,
-  isSelected,
+const ShippingRateCard: React.FC<ShippingRateCardProps> = ({ 
+  rate, 
+  isSelected, 
   onSelect,
   isBestValue,
   isFastest,
-  aiRecommendation
+  aiRecommendation,
+  showDiscount = false,
+  originalRate
 }) => {
-  const isAIBestOverall = aiRecommendation?.bestOverall === rate.id;
-  const isAIBestValue = aiRecommendation?.bestValue === rate.id;
-  const isAIFastest = aiRecommendation?.fastest === rate.id;
-  const isAIMostReliable = aiRecommendation?.mostReliable === rate.id;
+  const isRecommended = aiRecommendation?.rateId === rate.id;
+  
+  // Format date if available
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    } catch (err) {
+      console.error('Error parsing date:', err);
+      return dateString;
+    }
+  };
+  
+  const getDeliveryDaysText = () => {
+    const days = rate.delivery_days || rate.est_delivery_days;
+    if (!days) return 'Delivery time unknown';
+    if (days === 1) return '1 day delivery';
+    return `${days} days delivery`;
+  };
+
+  // Calculate discount if available
+  const calculateDiscount = () => {
+    if (!originalRate || !rate.rate) return null;
+    const original = parseFloat(originalRate);
+    const current = parseFloat(rate.rate);
+    if (original <= current) return null;
+    
+    const savingsAmount = original - current;
+    const savingsPercent = ((original - current) / original) * 100;
+    
+    return {
+      amount: savingsAmount.toFixed(2),
+      percent: savingsPercent.toFixed(0)
+    };
+  };
+
+  const discount = calculateDiscount();
   
   return (
     <div 
-      className={`border rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between hover:bg-gray-50 ${
-        isSelected ? 'border-2 border-primary bg-primary/5' : ''
+      className={`border rounded-lg overflow-hidden transition-all duration-200 ${
+        isSelected 
+          ? 'bg-blue-50 border-blue-400 shadow-md' 
+          : 'bg-white border-gray-200 hover:border-blue-200 hover:shadow-sm'
       }`}
+      data-rate-id={rate.id}
     >
-      <div className="flex flex-1">
-        <div className="mr-4">
-          <CarrierLogo carrier={rate.carrier} />
+      <div className="grid grid-cols-1 md:grid-cols-12 items-center">
+        {/* Carrier Info - 3 cols */}
+        <div className="p-4 md:col-span-3 border-b md:border-b-0 md:border-r border-gray-200">
+          <div className="flex items-center justify-between md:block">
+            <div>
+              <h3 className="font-semibold text-gray-800">{rate.carrier.toUpperCase()}</h3>
+              <p className="text-sm text-gray-600 mt-1">{rate.service}</p>
+              
+              {/* Tags section */}
+              <div className="flex flex-wrap gap-1 mt-2">
+                {isBestValue && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                    <Award className="h-3 w-3 mr-1" />
+                    Best Value
+                  </Badge>
+                )}
+                
+                {isFastest && (
+                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
+                    <Zap className="h-3 w-3 mr-1" />
+                    Fastest
+                  </Badge>
+                )}
+                
+                {isRecommended && (
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                    <Check className="h-3 w-3 mr-1" />
+                    AI Pick
+                  </Badge>
+                )}
+              </div>
+            </div>
+            
+            <div className="md:mt-3 flex md:block">
+              <Package className="h-8 w-8 text-gray-400" />
+            </div>
+          </div>
         </div>
         
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="font-semibold text-lg">{rate.service}</div>
-            
-            <div className="flex flex-wrap gap-1">
-              {isBestValue && (
-                <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                  Best Value
-                </span>
-              )}
-              {isFastest && (
-                <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                  Fastest
-                </span>
-              )}
-              {isAIBestOverall && (
-                <span className="px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-800 rounded-full flex items-center">
-                  <Award className="h-3 w-3 mr-1" /> AI Pick
-                </span>
-              )}
-              {isAIMostReliable && (
-                <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 rounded-full">
-                  Most Reliable
-                </span>
-              )}
-            </div>
-          </div>
-          
-          <div className="mt-2 text-sm text-gray-600">
+        {/* Delivery & Details - 6 cols */}
+        <div className="p-4 md:col-span-6 border-b md:border-b-0 md:border-r border-gray-200">
+          <div className="flex flex-col">
             <div className="flex items-center">
-              <Clock className="h-4 w-4 mr-1" />
-              <span>
-                {rate.delivery_days 
-                  ? `Est. delivery: ${rate.delivery_days} business days` 
-                  : 'Delivery estimate not available'}
-              </span>
+              <Clock className="h-4 w-4 text-gray-500 mr-2" />
+              <span className="text-sm font-medium">{getDeliveryDaysText()}</span>
             </div>
+            
+            {rate.delivery_date && (
+              <p className="text-xs text-gray-600 mt-1 ml-6">
+                Est. delivery by {formatDate(rate.delivery_date)}
+              </p>
+            )}
+            
+            {discount && showDiscount && (
+              <div className="mt-3 flex items-center">
+                <Badge className="bg-red-100 text-red-600 font-semibold border-none">
+                  SAVE {discount.percent}%
+                </Badge>
+                <div className="ml-2 flex items-center">
+                  <span className="text-sm text-gray-500 line-through">${originalRate}</span>
+                  <span className="text-sm font-semibold text-blue-600 ml-1">
+                    Save ${discount.amount}
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            {isRecommended && aiRecommendation?.reason && (
+              <p className="text-xs italic text-blue-600 mt-2">
+                "{aiRecommendation.reason}"
+              </p>
+            )}
           </div>
         </div>
-      </div>
-      
-      <div className="mt-4 md:mt-0 flex items-center">
-        <div className="mr-6 text-right">
-          <div className="text-2xl font-bold">${parseFloat(rate.rate).toFixed(2)}</div>
-          
-          {/* Show original rate if available with tooltip explaining the markup */}
-          {rate.original_rate && rate.original_rate !== rate.rate && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger className="text-xs text-gray-500 flex items-center">
-                  Base rate: ${parseFloat(rate.original_rate).toFixed(2)}
-                  <Info className="h-3 w-3 ml-1" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="text-xs">Rate includes shipping markup for handling fees</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          
-          {/* Show retail rate if available */}
-          {rate.retail_rate && (
-            <div className="text-xs text-gray-500">
-              Retail: ${parseFloat(rate.retail_rate).toFixed(2)}
+        
+        {/* Price & Action - 3 cols */}
+        <div className="p-4 md:col-span-3 bg-gray-50">
+          <div className="flex items-center justify-between md:flex-col md:items-end">
+            <div className="text-right mb-2">
+              <div className="text-lg font-bold text-blue-800">${rate.rate}</div>
+              {discount && showDiscount && (
+                <div className="text-xs text-gray-500 line-through">${originalRate}</div>
+              )}
             </div>
-          )}
+            
+            <Button
+              onClick={() => onSelect(rate.id)}
+              variant={isSelected ? "default" : "outline"}
+              size="sm"
+              className={isSelected ? "bg-blue-600 hover:bg-blue-700" : ""}
+            >
+              {isSelected ? (
+                <>
+                  <Check className="mr-1 h-4 w-4" />
+                  Selected
+                </>
+              ) : (
+                'Select'
+              )}
+            </Button>
+          </div>
         </div>
-        <Button 
-          variant={isSelected ? "default" : "outline"} 
-          onClick={() => onSelect(rate.id)}
-        >
-          {isSelected ? 'Selected' : 'Select'}
-        </Button>
       </div>
     </div>
   );

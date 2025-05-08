@@ -16,6 +16,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 const ShippingRates: React.FC = () => {
   const {
     rates,
+    allRates,
     isLoading,
     isProcessingPayment,
     selectedRateId,
@@ -24,14 +25,16 @@ const ShippingRates: React.FC = () => {
     shipmentId,
     bestValueRateId,
     fastestRateId,
+    uniqueCarriers,
+    activeCarrierFilter,
     handleSelectRate,
     handleCreateLabel,
-    handleProceedToPayment
+    handleProceedToPayment,
+    handleFilterByCarrier
   } = useShippingRates();
   
   const { aiRecommendation, isAiLoading } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
-  const [filterCarrier, setFilterCarrier] = useState<string | null>(null);
   
   // Show empty state if no rates available
   if (rates.length === 0) {
@@ -63,14 +66,6 @@ const ShippingRates: React.FC = () => {
     }
   });
 
-  // Apply carrier filter if selected
-  const filteredRates = filterCarrier 
-    ? sortedRates.filter(rate => rate.carrier.toLowerCase().includes(filterCarrier.toLowerCase()))
-    : sortedRates;
-
-  // Get unique carriers for filtering
-  const carriers = [...new Set(rates.map(rate => rate.carrier))];
-
   return (
     <div className="mt-8" id="shipping-rates-section">
       <Card className="border-2 border-gray-200 shadow-md rounded-xl overflow-hidden">
@@ -85,19 +80,19 @@ const ShippingRates: React.FC = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
                     <Filter className="h-4 w-4" />
-                    Filter
+                    {activeCarrierFilter === 'all' ? 'All Carriers' : activeCarrierFilter.toUpperCase()}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setFilterCarrier(null)}>
+                  <DropdownMenuItem onClick={() => handleFilterByCarrier('all')}>
                     All Carriers
                   </DropdownMenuItem>
-                  {carriers.map((carrier) => (
+                  {uniqueCarriers.map((carrier) => (
                     <DropdownMenuItem 
                       key={carrier} 
-                      onClick={() => setFilterCarrier(carrier)}
+                      onClick={() => handleFilterByCarrier(carrier)}
                     >
-                      {carrier}
+                      {carrier.toUpperCase()}
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -109,7 +104,7 @@ const ShippingRates: React.FC = () => {
                     Sort by: {sortOrder === 'price' ? 'Price' : sortOrder === 'speed' ? 'Speed' : 'Carrier'}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="bg-white">
                   <DropdownMenuItem onClick={() => setSortOrder('price')}>
                     Price (Lowest First)
                   </DropdownMenuItem>
@@ -149,7 +144,7 @@ const ShippingRates: React.FC = () => {
               )}
               
               <div className="space-y-4 mt-6">
-                {filteredRates.map((rate) => (
+                {sortedRates.map((rate) => (
                   <ShippingRateCard
                     key={rate.id}
                     rate={rate}
@@ -158,15 +153,17 @@ const ShippingRates: React.FC = () => {
                     isBestValue={rate.id === bestValueRateId}
                     isFastest={rate.id === fastestRateId}
                     aiRecommendation={aiRecommendation || undefined}
+                    showDiscount={!!rate.original_rate && parseFloat(rate.original_rate) > parseFloat(rate.rate)}
+                    originalRate={rate.original_rate}
                   />
                 ))}
 
-                {filteredRates.length === 0 && (
+                {sortedRates.length === 0 && (
                   <div className="p-8 text-center">
                     <p className="text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
                     <Button 
                       variant="outline" 
-                      onClick={() => setFilterCarrier(null)} 
+                      onClick={() => handleFilterByCarrier('all')} 
                       className="mt-4"
                     >
                       Clear Filters

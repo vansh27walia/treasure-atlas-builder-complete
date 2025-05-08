@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   Card,
@@ -59,6 +58,8 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   onAddressSelect,
   selectedAddressId
 }) => {
+  const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(false);
+  
   const form = useForm<AddressFormValues>({
     resolver: zodResolver(addressSchema),
     defaultValues: {
@@ -93,6 +94,13 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     }
   };
   
+  // Check for Google Places API availability
+  React.useEffect(() => {
+    // Here we would check if the Google Places API key is available
+    // For now, we'll just set it to false until we implement the full API integration
+    setGooglePlacesEnabled(false);
+  }, []);
+  
   return (
     <Card className="border border-gray-100 shadow-sm">
       <CardContent className="pt-3">
@@ -105,6 +113,9 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                   {type === 'from' ? 'Pickup Location' : 'Delivery Location'}
                 </span>
               </div>
+
+              {/* Future Google Places autocomplete input will go here */}
+              {/* We'll keep the regular inputs for now */}
 
               <FormField
                 control={form.control}
