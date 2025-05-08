@@ -63,6 +63,9 @@ export const useShippingRates = () => {
   useEffect(() => {
     const handleRatesReceived = (event: CustomEvent<EasyPostRatesEvent['detail']>) => {
       if (event.detail && event.detail.rates) {
+        console.log("Rates received:", event.detail.rates);
+        console.log("Shipment ID received:", event.detail.shipmentId);
+        
         // Add shipmentId to each rate object and process rates
         const processedRates = processRates(event.detail.rates).map(rate => ({
           ...rate,
@@ -135,6 +138,7 @@ export const useShippingRates = () => {
     
     // Find the rate with this ID
     const selectedRate = rates.find(rate => rate.id === rateId);
+    console.log("Selected rate:", selectedRate);
     
     // Automatically create label when a rate is selected
     if (selectedRate && selectedRate.shipment_id) {
@@ -205,7 +209,7 @@ export const useShippingRates = () => {
       setTrackingCode(data.trackingCode);
       toast.success("Shipping label generated successfully");
       
-      // Navigation fix - make sure we're using the correct URL
+      // Build the success URL with all needed parameters
       const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`;
       console.log("Navigating to:", labelSuccessUrl);
       

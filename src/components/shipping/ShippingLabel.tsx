@@ -22,6 +22,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   
   // Effect to fetch and cache the label as a blob when URL changes
   useEffect(() => {
+    console.log("ShippingLabel component received props:", { labelUrl, trackingCode, shipmentId });
     const fetchAndCacheLabel = async () => {
       const url = localLabelUrl || labelUrl;
       if (!url) return;
@@ -35,6 +36,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         });
         
         if (!response.ok) {
+          console.error(`Failed to fetch label: ${response.status} ${response.statusText}`);
           throw new Error(`Failed to fetch label: ${response.status}`);
         }
         
@@ -44,6 +46,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         console.log("Label cached as blob URL:", blobUrl);
       } catch (error) {
         console.error("Error caching label:", error);
+        toast.error("Error preparing label for download");
       }
     };
     
@@ -59,7 +62,14 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     };
   }, [labelUrl, localLabelUrl]);
   
-  if (!labelUrl && !localLabelUrl) return null;
+  if (!labelUrl && !localLabelUrl) {
+    console.log("No label URL available in ShippingLabel component");
+    return (
+      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md mb-6">
+        <p className="text-yellow-700">No label URL available. Please try generating the label again.</p>
+      </div>
+    );
+  }
   
   const handleRefreshLabel = async () => {
     if (!shipmentId) {
@@ -76,8 +86,11 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       });
       
       if (error) {
+        console.error("Error from get-stored-label function:", error);
         throw new Error('Failed to refresh label: ' + error.message);
       }
+      
+      console.log("Refreshed label data:", data);
       
       if (data.labelUrl) {
         setLocalLabelUrl(data.labelUrl);
@@ -147,34 +160,15 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   };
 
   const handleOpenInNewTab = () => {
-    if (blobUrl) {
-      try {
-        const newWindow = window.open(blobUrl, '_blank', 'noopener,noreferrer');
-        
-        if (newWindow) {
-          newWindow.focus();
-          toast.success('Label opened in new tab');
-        } else {
-          throw new Error('Popup blocked or failed to open');
-        }
-      } catch (error) {
-        console.error('Blob URL open error:', error);
-        fallbackOpenInNewTab();
-      }
-    } else {
-      fallbackOpenInNewTab();
-    }
-  };
-  
-  const fallbackOpenInNewTab = () => {
-    const url = localLabelUrl || labelUrl;
-    if (!url) {
+    const urlToOpen = blobUrl || localLabelUrl || labelUrl;
+    if (!urlToOpen) {
       toast.error('No label URL available');
       return;
     }
     
     try {
-      const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+      console.log("Opening URL in new tab:", urlToOpen);
+      const newWindow = window.open(urlToOpen, '_blank', 'noopener,noreferrer');
       
       if (newWindow) {
         newWindow.focus();

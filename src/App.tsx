@@ -49,7 +49,7 @@ function App() {
                     path="/settings"
                     element={<ProtectedRoute><SettingsPage /></ProtectedRoute>}
                   />
-                  <Route path="/success" element={<LabelSuccessPage />} />
+                  <Route path="/label-success" element={<LabelSuccessPage />} />
                   <Route path="/pickup" element={<PickupPage />} />
                   <Route
                     path="/bulk-upload"

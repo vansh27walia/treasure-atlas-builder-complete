@@ -28,6 +28,7 @@ const LabelSuccessPage: React.FC = () => {
 
     if (labelUrlParam) {
       setLabelUrl(decodeURIComponent(labelUrlParam));
+      console.log("Decoded label URL:", decodeURIComponent(labelUrlParam));
     } else {
       console.error('No label URL provided in the URL parameters');
       toast.error('Missing label information');
@@ -46,7 +47,6 @@ const LabelSuccessPage: React.FC = () => {
   }, [location]);
   
   const handleViewTracking = () => {
-    // Navigate to the tracking dashboard with the tracking code as a query parameter
     navigate(`/dashboard?tab=tracking&tracking=${trackingCode || ''}`);
   };
 
@@ -91,12 +91,24 @@ const LabelSuccessPage: React.FC = () => {
           {trackingCode && <> Tracking number: <span className="font-semibold">{trackingCode}</span></>}
         </p>
 
+        {/* Debug information - only in development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-gray-100 p-4 mb-6 text-left rounded">
+            <h4 className="font-medium mb-2">Debug Information:</h4>
+            <p className="text-xs break-all">Label URL: {labelUrl}</p>
+            <p className="text-xs">Tracking: {trackingCode}</p>
+            <p className="text-xs">Shipment ID: {shipmentId}</p>
+          </div>
+        )}
+
         {/* Render the ShippingLabel component to handle downloads */}
-        <ShippingLabel 
-          labelUrl={labelUrl} 
-          trackingCode={trackingCode} 
-          shipmentId={shipmentId}
-        />
+        {labelUrl && (
+          <ShippingLabel 
+            labelUrl={labelUrl} 
+            trackingCode={trackingCode} 
+            shipmentId={shipmentId}
+          />
+        )}
 
         <div className="flex flex-col sm:flex-row justify-center gap-4 mb-8">
           <Button 

@@ -28,9 +28,9 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Parse the URL to get the shipment_id parameter
-    const url = new URL(req.url);
-    const shipmentId = url.searchParams.get('shipment_id');
+    // Parse the request body
+    const requestData = await req.json();
+    const shipmentId = requestData.shipment_id;
     
     if (!shipmentId) {
       return new Response(
@@ -38,6 +38,8 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
+
+    console.log(`Retrieving label for shipment ID: ${shipmentId}`);
 
     // Get the label URL from the database
     const { data, error } = await supabase
@@ -47,10 +49,61 @@ serve(async (req) => {
       .single();
     
     if (error || !data) {
-      return new Response(
-        JSON.stringify({ error: 'Label not found', details: error }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
-      );
+      console.error('Error retrieving label from database:', error);
+      
+      // If not found in database, try to get it from EasyPost API
+      console.log('Label not found in database, trying EasyPost API...');
+      
+      // Get EasyPost API key
+      const apiKey = Deno.env.get('EASYPOST_API_KEY');
+      if (!apiKey) {
+        return new Response(
+          JSON.stringify({ error: 'EasyPost API key not configured' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+      
+      // Try to retrieve the shipment from EasyPost
+      try {
+        const easypostResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!easypostResponse.ok) {
+          return new Response(
+            JSON.stringify({ error: 'Failed to retrieve shipment from EasyPost', status: easypostResponse.status }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: easypostResponse.status }
+          );
+        }
+        
+        const shipmentData = await easypostResponse.json();
+        
+        if (shipmentData.postage_label?.label_url) {
+          return new Response(
+            JSON.stringify({
+              labelUrl: shipmentData.postage_label.label_url,
+              trackingCode: shipmentData.tracking_code,
+              source: 'easypost_api'
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } else {
+          return new Response(
+            JSON.stringify({ error: 'No label URL found in EasyPost response' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+          );
+        }
+      } catch (easypostError) {
+        console.error('Error retrieving shipment from EasyPost:', easypostError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to retrieve shipment', details: easypostError.message }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
     }
 
     // Return the label URL and tracking code
@@ -58,6 +111,7 @@ serve(async (req) => {
       JSON.stringify({
         labelUrl: data.label_url,
         trackingCode: data.tracking_code,
+        source: 'database'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
