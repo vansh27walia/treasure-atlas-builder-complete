@@ -50,6 +50,10 @@ const EnhancedShippingForm: React.FC = () => {
   const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
   const [dimensionInputTimer, setDimensionInputTimer] = useState<NodeJS.Timeout | null>(null);
 
+  // Create address selection handlers using the utility function
+  const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
+  const handleToAddressSelect = createAddressSelectHandler(setToAddress);
+
   // Using react-hook-form to manage form state
   const form = useForm<ShippingFormValues>({
     resolver: zodResolver(shippingFormSchema),
@@ -543,7 +547,7 @@ const EnhancedShippingForm: React.FC = () => {
                     <h3 className="text-lg font-medium text-blue-700 mb-2">Origin</h3>
                     <AddressSelector 
                       type="from"
-                      onAddressSelect={(address) => setFromAddress(address)}
+                      onAddressSelect={handleFromAddressSelect}
                     />
                   </div>
                 </div>
@@ -554,7 +558,7 @@ const EnhancedShippingForm: React.FC = () => {
                     <h3 className="text-lg font-medium text-blue-700 mb-2">Destination</h3>
                     <AddressSelector 
                       type="to"
-                      onAddressSelect={(address) => setToAddress(address)}
+                      onAddressSelect={handleToAddressSelect}
                     />
                   </div>
                 </div>
