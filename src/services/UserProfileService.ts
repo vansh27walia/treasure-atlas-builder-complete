@@ -1,5 +1,5 @@
-
 import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/integrations/supabase/types';
 
 export interface HomeAddress {
   name?: string;
@@ -55,7 +55,7 @@ export class UserProfileService {
         return null;
       }
       
-      return data as UserProfile;
+      return data as unknown as UserProfile;
     } catch (error) {
       console.error('Error getting user profile:', error);
       return null;
@@ -216,7 +216,7 @@ export class UserProfileService {
       const { error } = await supabase
         .from('user_profiles')
         .update({
-          home_address: homeAddress,
+          home_address: homeAddress as unknown as Json,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId);
@@ -254,7 +254,7 @@ export class UserProfileService {
       const { error } = await supabase
         .from('user_profiles')
         .update({
-          payment_info: paymentInfo,
+          payment_info: paymentInfo as unknown as Json,
           updated_at: new Date().toISOString()
         })
         .eq('id', userId);

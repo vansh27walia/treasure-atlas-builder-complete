@@ -297,9 +297,8 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     }
   };
   
-  // Instead of testing the result of handleSubmit for truthiness, which returns void,
-  // we'll modify the code to use a different approach
-  handleSaveInlineForm = async () => {
+  // Handle saving the inline form as a new address
+  const handleSaveInlineForm = async () => {
     try {
       let newAddress = null;
       
