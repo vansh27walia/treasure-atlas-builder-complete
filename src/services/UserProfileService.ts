@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 
@@ -31,6 +32,17 @@ export interface UserProfile {
   payment_info?: PaymentInfo;
 }
 
+// Type for the raw data received from Supabase database
+interface UserProfileRaw {
+  id: string;
+  default_pickup_address_id?: number;
+  home_address: Json;
+  created_at?: string;
+  updated_at?: string;
+  onboarding_completed: boolean;
+  payment_info: Json;
+}
+
 export class UserProfileService {
   /**
    * Get the user profile for the current user
@@ -55,7 +67,21 @@ export class UserProfileService {
         return null;
       }
       
-      return data as unknown as UserProfile;
+      // Convert the raw data to the UserProfile type
+      if (data) {
+        const rawProfile = data as unknown as UserProfileRaw;
+        return {
+          id: rawProfile.id,
+          default_pickup_address_id: rawProfile.default_pickup_address_id,
+          home_address: rawProfile.home_address as unknown as HomeAddress,
+          created_at: rawProfile.created_at,
+          updated_at: rawProfile.updated_at,
+          onboarding_completed: rawProfile.onboarding_completed || false,
+          payment_info: rawProfile.payment_info as unknown as PaymentInfo,
+        };
+      }
+      
+      return null;
     } catch (error) {
       console.error('Error getting user profile:', error);
       return null;
@@ -82,7 +108,17 @@ export class UserProfileService {
         .maybeSingle();
       
       if (existingProfile) {
-        return existingProfile as UserProfile;
+        // Convert to UserProfile type before returning
+        const rawProfile = existingProfile as unknown as UserProfileRaw;
+        return {
+          id: rawProfile.id,
+          default_pickup_address_id: rawProfile.default_pickup_address_id,
+          home_address: rawProfile.home_address as unknown as HomeAddress,
+          created_at: rawProfile.created_at,
+          updated_at: rawProfile.updated_at,
+          onboarding_completed: rawProfile.onboarding_completed || false,
+          payment_info: rawProfile.payment_info as unknown as PaymentInfo,
+        };
       }
       
       // Create new profile
@@ -100,7 +136,16 @@ export class UserProfileService {
         return null;
       }
       
-      return data as UserProfile;
+      // Convert to UserProfile type before returning
+      return {
+        id: data.id,
+        default_pickup_address_id: data.default_pickup_address_id,
+        home_address: data.home_address as unknown as HomeAddress,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        onboarding_completed: data.onboarding_completed || false,
+        payment_info: data.payment_info as unknown as PaymentInfo,
+      };
     } catch (error) {
       console.error('Error creating user profile:', error);
       return null;
