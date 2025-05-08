@@ -1,161 +1,160 @@
 
-import { supabase } from '@/integrations/supabase/client';
-import { SavedAddress } from '@/services/AddressService';
+import { toast } from '@/components/ui/sonner';
+import { SimpleAddress } from '@/components/shipping/AddressSelector';
 
-// Define types for Google Maps API
-declare global {
-  interface Window {
-    google: {
-      maps: {
-        places: {
-          Autocomplete: new (input: HTMLInputElement, options?: object) => any;
-          AutocompleteService: any;
-          PlacesService: any;
-        };
-      };
-    };
-  }
+interface PlacePrediction {
+  description: string;
+  place_id: string;
 }
 
-/**
- * Loads the Google Maps API with Places library
- */
+interface GooglePlaceResult {
+  address_components?: {
+    long_name: string;
+    short_name: string;
+    types: string[];
+  }[];
+  formatted_address?: string;
+}
+
+// Function to load Google Maps API
 export const loadGoogleMapsAPI = async (): Promise<boolean> => {
-  // If already loaded, return true
-  if (window.google && window.google.maps && window.google.maps.places) {
+  // If Google API is already loaded, return true
+  if (window.google && window.google.maps) {
     return true;
   }
 
-  try {
-    // Get API key from Supabase securely
-    const { data, error } = await supabase.functions.invoke('get-google-api-key');
-    
-    if (error || !data || !data.apiKey) {
-      console.error('Error retrieving Google API key:', error);
-      return false;
-    }
-    
-    const apiKey = data.apiKey;
-    
-    return new Promise((resolve) => {
-      // Create script element
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      
-      script.onload = () => {
-        console.log('Google Maps API loaded successfully');
-        resolve(true);
-      };
-      
-      script.onerror = () => {
-        console.error('Failed to load Google Maps API');
-        resolve(false);
-      };
-      
-      // Add script to document
-      document.head.appendChild(script);
-    });
-  } catch (error) {
-    console.error('Error in loadGoogleMapsAPI:', error);
+  // Try to get the API key from localStorage
+  const googleApiKey = localStorage.getItem('google_api_key');
+  
+  if (!googleApiKey) {
+    console.log('Google Places API key not found in localStorage');
     return false;
   }
+
+  return new Promise((resolve) => {
+    // Create a script element
+    const script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&libraries=places`;
+    
+    // Execute callback when script is loaded
+    script.onload = () => {
+      console.log('Google Places API loaded successfully');
+      resolve(true);
+    };
+    
+    // Handle script load failure
+    script.onerror = () => {
+      console.error('Failed to load Google Places API');
+      toast.error('Failed to load address autocomplete service');
+      resolve(false);
+    };
+    
+    // Append script to document
+    document.head.appendChild(script);
+  });
 };
 
-/**
- * Initializes Google Places Autocomplete on an input element
- */
-export const initAddressAutocomplete = (inputElement: HTMLInputElement, onPlaceSelected?: (place: any) => void) => {
+// Initialize Google Places Autocomplete
+export const initAddressAutocomplete = (
+  inputElement: HTMLInputElement,
+  onPlaceSelected: (place: GooglePlaceResult | null) => void
+) => {
   if (!window.google || !window.google.maps || !window.google.maps.places) {
-    console.warn('Google Maps API not loaded. Cannot initialize autocomplete.');
-    return null;
+    console.error('Google Places API not loaded');
+    return;
   }
-  
-  const options = {
-    componentRestrictions: { country: 'us' },
-    fields: ['address_components', 'formatted_address', 'geometry'],
-  };
-  
-  const autocomplete = new window.google.maps.places.Autocomplete(inputElement, options);
-  
-  if (onPlaceSelected) {
+
+  try {
+    const autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
+      types: ['address'],
+      componentRestrictions: { country: 'us' }, // Restrict to US addresses
+      fields: ['address_components', 'formatted_address']
+    });
+
     autocomplete.addListener('place_changed', () => {
       const place = autocomplete.getPlace();
       onPlaceSelected(place);
     });
+
+    // Prevent form submission when Enter is pressed in the autocomplete field
+    inputElement.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+      }
+    });
+
+    return autocomplete;
+  } catch (error) {
+    console.error('Error initializing Google Places Autocomplete:', error);
+    return null;
   }
-  
-  return autocomplete;
 };
 
-/**
- * Extracts address components from a Google Place result
- */
-export const extractAddressComponents = (place: any) => {
-  if (!place || !place.address_components) {
+// Extract address components from Google Places result
+export const extractAddressComponents = (place: GooglePlaceResult): SimpleAddress => {
+  if (!place.address_components) {
     return {};
   }
-  
+
   const addressComponents = place.address_components;
-  const result: Record<string, string> = {};
-  
-  // Map Google address components to our format
+  let streetNumber = '';
+  let streetName = '';
+  let city = '';
+  let state = '';
+  let zip = '';
+  let country = 'US';
+
+  // Extract each component
   for (const component of addressComponents) {
     const types = component.types;
-    
+
     if (types.includes('street_number')) {
-      result.streetNumber = component.long_name;
+      streetNumber = component.long_name;
     } else if (types.includes('route')) {
-      result.street = component.long_name;
-    } else if (types.includes('locality')) {
-      result.city = component.long_name;
+      streetName = component.long_name;
+    } else if (types.includes('locality') || types.includes('sublocality')) {
+      city = component.long_name;
     } else if (types.includes('administrative_area_level_1')) {
-      result.state = component.short_name;
+      state = component.short_name;
     } else if (types.includes('postal_code')) {
-      result.zip = component.long_name;
+      zip = component.long_name;
     } else if (types.includes('country')) {
-      result.country = component.short_name;
+      country = component.short_name;
     }
   }
-  
-  // Combine street number and street for street1
-  if (result.streetNumber && result.street) {
-    result.street1 = `${result.streetNumber} ${result.street}`;
+
+  // Construct the street address
+  let street1 = '';
+  if (streetNumber && streetName) {
+    street1 = `${streetNumber} ${streetName}`;
+  } else if (streetName) {
+    street1 = streetName;
   }
-  
-  return result;
+
+  return {
+    street1,
+    city,
+    state,
+    zip,
+    country,
+  };
 };
 
-/**
- * Format an address object into a readable string
- */
-export const formatAddress = (address: any): string => {
-  if (!address) return '';
-  
-  const parts = [];
-  
-  if (address.street1) parts.push(address.street1);
-  if (address.street2) parts.push(address.street2);
-  
-  const cityStateZip = [
-    address.city, 
-    address.state ? `${address.state}` : '', 
-    address.zip
-  ].filter(Boolean).join(', ');
-  
-  if (cityStateZip) parts.push(cityStateZip);
-  if (address.country && address.country !== 'US') parts.push(address.country);
-  
-  return parts.join(', ');
-};
-
-/**
- * Creates a handler function for address selection
- * This is used across various shipping forms to handle address selection
- */
-export const createAddressSelectHandler = (setAddressState: React.Dispatch<React.SetStateAction<SavedAddress | null>>) => {
-  return (address: SavedAddress) => {
-    setAddressState(address);
+// Helper function to create address select handler
+export const createAddressSelectHandler = (
+  setFieldValue: (name: string, value: any) => void,
+  prefix: string = ''
+) => {
+  return (address: SimpleAddress) => {
+    if (address.name) setFieldValue(`${prefix}name`, address.name);
+    if (address.company) setFieldValue(`${prefix}company`, address.company);
+    if (address.street1) setFieldValue(`${prefix}street1`, address.street1);
+    if (address.street2) setFieldValue(`${prefix}street2`, address.street2);
+    if (address.city) setFieldValue(`${prefix}city`, address.city);
+    if (address.state) setFieldValue(`${prefix}state`, address.state);
+    if (address.zip) setFieldValue(`${prefix}zip`, address.zip);
+    if (address.country) setFieldValue(`${prefix}country`, address.country);
+    if (address.phone) setFieldValue(`${prefix}phone`, address.phone);
   };
 };

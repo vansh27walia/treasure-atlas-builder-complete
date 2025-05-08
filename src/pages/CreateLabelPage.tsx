@@ -1,14 +1,16 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ShippingRates from '@/components/ShippingRates';
 import RateCalculator from '@/components/shipping/RateCalculator';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
-import { Package, Globe, Upload, Truck, Calculator } from 'lucide-react';
+import { Package, Globe, Upload, Truck, Calculator, Settings } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import GoogleApiKeyForm from '@/components/settings/GoogleApiKeyForm';
+import GoogleApiKeyInput from '@/components/settings/GoogleApiKeyInput';
 
 const CreateLabelPage: React.FC = () => {
   const location = useLocation();
@@ -40,21 +42,19 @@ const CreateLabelPage: React.FC = () => {
           <Package className="mr-3 h-7 w-7 text-blue-600" />
           Create a Shipping Label
         </h1>
-        {/* Admin button - visible only in admin mode if needed */}
-        {/* 
         <Button
           variant="outline"
           onClick={() => setShowApiKeyForm(!showApiKeyForm)}
-          className="text-sm"
+          className="text-sm flex items-center gap-2"
         >
+          <Settings className="h-4 w-4" />
           {showApiKeyForm ? 'Hide API Settings' : 'Configure Google API'}
         </Button>
-        */}
       </div>
       
       {showApiKeyForm && (
         <div className="mb-6">
-          <GoogleApiKeyForm />
+          <GoogleApiKeyInput />
         </div>
       )}
       

@@ -54,15 +54,20 @@ interface AddressSelectorProps {
   type: 'from' | 'to';
   onAddressSelect?: (address: SimpleAddress) => void;
   selectedAddressId?: number;
+  inputRef?: React.RefObject<HTMLInputElement>;
+  useGoogleAutocomplete?: boolean;
 }
 
 const AddressSelector: React.FC<AddressSelectorProps> = ({ 
   type,
   onAddressSelect,
-  selectedAddressId
+  selectedAddressId,
+  inputRef,
+  useGoogleAutocomplete = false
 }) => {
   const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(false);
   const streetInputRef = useRef<HTMLInputElement>(null);
+  const combinedRef = inputRef || streetInputRef;
   
   const form = useForm<AddressFormValues>({
     resolver: zodResolver(addressSchema),
@@ -96,12 +101,14 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   useEffect(() => {
     const initGooglePlaces = async () => {
       try {
+        if (!useGoogleAutocomplete) return;
+        
         const loaded = await loadGoogleMapsAPI();
         setGooglePlacesEnabled(loaded);
         
-        if (loaded && streetInputRef.current) {
+        if (loaded && combinedRef.current) {
           // Initialize autocomplete on street1 input
-          initAddressAutocomplete(streetInputRef.current, (place) => {
+          initAddressAutocomplete(combinedRef.current, (place) => {
             if (place && place.address_components) {
               const addressComponents = extractAddressComponents(place);
               
@@ -124,7 +131,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     };
     
     initGooglePlaces();
-  }, [form]);
+  }, [form, useGoogleAutocomplete, combinedRef]);
   
   const handleSubmit = (values: AddressFormValues) => {
     if (onAddressSelect) {
@@ -183,7 +190,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                       <Input 
                         placeholder={googlePlacesEnabled ? "Start typing address..." : "Street address"} 
                         {...field}
-                        ref={streetInputRef}
+                        ref={combinedRef}
                       />
                     </FormControl>
                     <FormMessage />

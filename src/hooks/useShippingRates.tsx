@@ -41,31 +41,21 @@ export const useShippingRates = () => {
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
 
-  // Process and enhance rates with original prices
+  // Process and enhance rates with original prices at 85-90% higher than actual rate
   const processRates = (incomingRates: ShippingRate[]) => {
     return incomingRates.map(rate => {
-      // If rate already has an original_rate, use it
-      if (rate.original_rate) {
-        return rate;
-      }
+      // Generate a random discount percentage between 85% and 90%
+      const discountPercentage = Math.random() * (90 - 85) + 85;
       
-      // If no original_rate but has list_rate or retail_rate, use the higher one as original
-      if (rate.list_rate || rate.retail_rate) {
-        const listRateValue = rate.list_rate ? parseFloat(rate.list_rate) : 0;
-        const retailRateValue = rate.retail_rate ? parseFloat(rate.retail_rate) : 0;
-        
-        // Use the higher rate as original
-        if (listRateValue > 0 || retailRateValue > 0) {
-          const original = Math.max(listRateValue, retailRateValue).toString();
-          return {
-            ...rate,
-            original_rate: original
-          };
-        }
-      }
+      // Calculate inflated original rate (actual rate + discount percentage)
+      const actualRate = parseFloat(rate.rate);
+      // Calculate what the "original" price would be before our massive discount
+      const inflatedRate = (actualRate * (100 / (100 - discountPercentage))).toFixed(2);
       
-      // No changes needed
-      return rate;
+      return {
+        ...rate,
+        original_rate: inflatedRate
+      };
     });
   };
 
@@ -215,8 +205,12 @@ export const useShippingRates = () => {
       setTrackingCode(data.trackingCode);
       toast.success("Shipping label generated successfully");
       
-      // Navigate to the label success page with all parameters
-      navigate(`/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`);
+      // Navigation fix - make sure we're using the correct URL
+      const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`;
+      console.log("Navigating to:", labelSuccessUrl);
+      
+      // Use navigate with the correct URL
+      navigate(labelSuccessUrl);
       
     } catch (error) {
       console.error('Error creating label:', error);

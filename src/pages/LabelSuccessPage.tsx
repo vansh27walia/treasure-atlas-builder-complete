@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CheckCircle, Download, Home, Truck } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
+import ShippingLabel from '@/components/shipping/ShippingLabel';
 
 const LabelSuccessPage: React.FC = () => {
   const location = useLocation();
@@ -19,10 +20,17 @@ const LabelSuccessPage: React.FC = () => {
     const trackingCodeParam = params.get('trackingCode');
     const shipmentIdParam = params.get('shipmentId');
 
+    console.log("URL Parameters:", {
+      labelUrl: labelUrlParam,
+      trackingCode: trackingCodeParam,
+      shipmentId: shipmentIdParam
+    });
+
     if (labelUrlParam) {
       setLabelUrl(decodeURIComponent(labelUrlParam));
     } else {
       console.error('No label URL provided in the URL parameters');
+      toast.error('Missing label information');
     }
 
     if (trackingCodeParam) {
@@ -83,17 +91,14 @@ const LabelSuccessPage: React.FC = () => {
           {trackingCode && <> Tracking number: <span className="font-semibold">{trackingCode}</span></>}
         </p>
 
-        <div className="flex flex-col sm:flex-row justify-center gap-4 mb-8">
-          {labelUrl && (
-            <Button 
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-              onClick={handleDownloadLabel}
-            >
-              <Download className="h-5 w-5" />
-              Download Label
-            </Button>
-          )}
+        {/* Render the ShippingLabel component to handle downloads */}
+        <ShippingLabel 
+          labelUrl={labelUrl} 
+          trackingCode={trackingCode} 
+          shipmentId={shipmentId}
+        />
 
+        <div className="flex flex-col sm:flex-row justify-center gap-4 mb-8">
           <Button 
             variant="outline" 
             className="flex items-center gap-2"
