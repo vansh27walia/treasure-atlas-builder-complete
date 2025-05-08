@@ -2,7 +2,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useAuth } from './AuthContext';
 import { userProfileService } from '@/services/UserProfileService';
-import OnboardingModal from '@/components/onboarding/OnboardingModal';
 
 interface OnboardingContextType {
   hasCompletedOnboarding: boolean | null;
@@ -18,11 +17,10 @@ const OnboardingContext = createContext<OnboardingContextType>({
 
 export const useOnboarding = () => useContext(OnboardingContext);
 
-const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading: authLoading } = useAuth();
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState<boolean | null>(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(true);
-  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   
   useEffect(() => {
     const checkOnboardingStatus = async () => {
@@ -55,7 +53,6 @@ const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await userProfileService.completeOnboarding();
       setHasCompletedOnboarding(true);
-      setShowOnboardingModal(false);
     } catch (error) {
       console.error('Error completing onboarding:', error);
     }
