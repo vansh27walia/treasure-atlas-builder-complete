@@ -1,6 +1,22 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { GoogleApiKeyResponse } from '@/types/shipping';
+import { SavedAddress } from '@/services/AddressService';
+
+// Define window.initGoogleMapsCallback for TypeScript
+declare global {
+  interface Window {
+    google: any;
+    initGoogleMapsCallback?: () => void;
+  }
+}
+
+// Helper function to create address selection handlers
+export const createAddressSelectHandler = (setAddressState: React.Dispatch<React.SetStateAction<SavedAddress | null>>) => {
+  return (address: SavedAddress | null) => {
+    setAddressState(address);
+  };
+};
 
 // Function to load the Google Maps API
 export const loadGoogleMapsAPI = async (): Promise<boolean> => {
@@ -62,8 +78,8 @@ export const loadGoogleMapsAPI = async (): Promise<boolean> => {
 // Function to initialize Google Places Autocomplete on an input field
 export const initAddressAutocomplete = (
   inputElement: HTMLInputElement, 
-  onPlaceSelected: (place: google.maps.places.PlaceResult) => void
-): google.maps.places.Autocomplete | null => {
+  onPlaceSelected: (place: any) => void
+): any | null => {
   try {
     if (!window.google || !window.google.maps || !window.google.maps.places) {
       console.error('Google Maps Places API not loaded');
@@ -71,13 +87,13 @@ export const initAddressAutocomplete = (
     }
     
     // Options for autocomplete
-    const options: google.maps.places.AutocompleteOptions = {
+    const options = {
       fields: ['address_components', 'formatted_address', 'geometry'],
       types: ['address'],
     };
     
     // Create the autocomplete instance
-    const autocomplete = new google.maps.places.Autocomplete(inputElement, options);
+    const autocomplete = new window.google.maps.places.Autocomplete(inputElement, options);
     
     // Add listener for place selection
     autocomplete.addListener('place_changed', () => {
@@ -95,7 +111,7 @@ export const initAddressAutocomplete = (
 };
 
 // Extract address components from Google Place result
-export const extractAddressComponents = (place: google.maps.places.PlaceResult): {
+export const extractAddressComponents = (place: any): {
   street1: string;
   city: string;
   state: string;
@@ -110,23 +126,25 @@ export const extractAddressComponents = (place: google.maps.places.PlaceResult):
   let country = 'US';
   
   // Extract each component
-  place.address_components?.forEach((component) => {
-    const types = component.types;
-    
-    if (types.includes('street_number')) {
-      street_number = component.long_name;
-    } else if (types.includes('route')) {
-      route = component.long_name;
-    } else if (types.includes('locality') || types.includes('sublocality')) {
-      city = component.long_name;
-    } else if (types.includes('administrative_area_level_1')) {
-      state = component.short_name;
-    } else if (types.includes('postal_code')) {
-      zip = component.long_name;
-    } else if (types.includes('country')) {
-      country = component.short_name;
-    }
-  });
+  if (place.address_components) {
+    place.address_components.forEach((component: any) => {
+      const types = component.types;
+      
+      if (types.includes('street_number')) {
+        street_number = component.long_name;
+      } else if (types.includes('route')) {
+        route = component.long_name;
+      } else if (types.includes('locality') || types.includes('sublocality')) {
+        city = component.long_name;
+      } else if (types.includes('administrative_area_level_1')) {
+        state = component.short_name;
+      } else if (types.includes('postal_code')) {
+        zip = component.long_name;
+      } else if (types.includes('country')) {
+        country = component.short_name;
+      }
+    });
+  }
   
   // Combine street number and route for street address
   const street1 = street_number && route ? `${street_number} ${route}` : (route || place.formatted_address?.split(',')[0] || '');
