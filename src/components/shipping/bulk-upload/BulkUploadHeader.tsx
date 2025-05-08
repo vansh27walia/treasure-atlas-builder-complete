@@ -11,11 +11,18 @@ const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({
   onDownloadTemplate 
 }) => {
   return (
-    <div className="flex items-center justify-between mb-6">
-      <h2 className="text-2xl font-semibold flex items-center">
-        <Upload className="mr-2" /> Bulk Shipping Upload
-      </h2>
-      <Button variant="outline" onClick={onDownloadTemplate}>
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <div>
+        <h2 className="text-2xl font-semibold flex items-center text-blue-800">
+          <Upload className="mr-2 h-6 w-6 text-blue-600" /> Bulk Shipping Upload
+        </h2>
+        <p className="text-gray-600 mt-1">Upload multiple shipments at once using our CSV template</p>
+      </div>
+      <Button 
+        variant="outline" 
+        onClick={onDownloadTemplate}
+        className="border-blue-300 hover:bg-blue-50"
+      >
         <FileText className="mr-2 h-4 w-4" />
         Download Template
       </Button>

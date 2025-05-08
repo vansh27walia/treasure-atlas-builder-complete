@@ -20,7 +20,7 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
   };
 
   return (
-    <div className="flex h-screen w-full">
+    <div className="flex h-screen w-full overflow-hidden">
       {/* Sidebar */}
       <div
         className={cn(
@@ -39,7 +39,7 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto bg-gray-50 w-full">
+      <div className="flex-1 h-full overflow-y-auto bg-gray-50">
         {children}
       </div>
     </div>

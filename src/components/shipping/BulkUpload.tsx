@@ -23,7 +23,7 @@ const BulkUpload: React.FC = () => {
   } = useBulkUpload();
 
   return (
-    <Card className="p-6 border-2 border-gray-200">
+    <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
       <BulkUploadHeader onDownloadTemplate={handleDownloadTemplate} />
       
       <BulkUploadForm 
