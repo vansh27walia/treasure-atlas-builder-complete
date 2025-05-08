@@ -256,7 +256,7 @@ export type Database = {
     Functions: {
       user_onboarding_status: {
         Args: Record<PropertyKey, never> | { user_id: string }
-        Returns: boolean
+        Returns: undefined
       }
     }
     Enums: {

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addressService, SavedAddress } from '@/services/AddressService';
@@ -10,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Settings, Edit, Save } from 'lucide-react';
+import { Plus, Settings, Edit, Save, MapPin } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -18,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { COUNTRIES_LIST } from '@/lib/countries';
 
 const addressSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -53,7 +55,8 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   const [defaultAddressId, setDefaultAddressId] = useState<number | null>(null);
   const [showAddressDialog, setShowAddressDialog] = useState(false);
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
-  const [alwaysShowForm, setAlwaysShowForm] = useState(type === 'to'); // Always show form for destination
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [isManualEntry, setIsManualEntry] = useState(type === 'to'); // For destination address
   const navigate = useNavigate();
   
   // Form for adding/editing addresses
@@ -74,7 +77,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     }
   });
   
-  // Form for inline address (always visible for destination)
+  // Form for inline address (for destination popup)
   const inlineForm = useForm<AddressFormValues>({
     resolver: zodResolver(addressSchema),
     defaultValues: {
@@ -234,6 +237,24 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     setShowAddressDialog(true);
   };
   
+  // Function to open the destination address form popup
+  const openAddressFormPopup = () => {
+    inlineForm.reset({
+      name: '',
+      company: '',
+      street1: '',
+      street2: '',
+      city: '',
+      state: '',
+      zip: '',
+      country: 'US',
+      phone: '',
+      is_default_from: false,
+      is_default_to: true,
+    });
+    setShowAddressForm(true);
+  };
+  
   // Handle saving an address (both from dialog and inline form)
   const handleSaveAddress = async (values: AddressFormValues) => {
     try {
@@ -300,39 +321,35 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   // Handle saving the inline form as a new address
   const handleSaveInlineForm = async () => {
     try {
-      let newAddress = null;
+      const formValues = inlineForm.getValues();
       
-      // Execute the form submission
-      await inlineForm.handleSubmit(async (data) => {
-        // Create a properly typed addressData object with required fields
-        const addressData: Omit<SavedAddress, "created_at" | "id" | "user_id"> = {
-          name: data.name,
-          company: data.company || '',
-          street1: data.street1,
-          street2: data.street2 || '',
-          city: data.city,
-          state: data.state,
-          zip: data.zip,
-          country: data.country,
-          phone: data.phone || '',
-          is_default_from: data.is_default_from,
-          is_default_to: data.is_default_to,
-        };
-        
-        // Create new address
-        newAddress = await addressService.createAddress(addressData);
-        if (newAddress) {
-          // If this is set as default address, update settings
-          if (data.is_default_to) {
-            await addressService.setDefaultToAddress(newAddress.id);
-          }
-          
-          toast.success("Destination address saved successfully");
-          onAddressSelect(newAddress);
-        }
-      })();
+      // Create a properly typed addressData object with required fields
+      const addressData: Omit<SavedAddress, "created_at" | "id" | "user_id"> = {
+        name: formValues.name,
+        company: formValues.company || '',
+        street1: formValues.street1,
+        street2: formValues.street2 || '',
+        city: formValues.city,
+        state: formValues.state,
+        zip: formValues.zip,
+        country: formValues.country,
+        phone: formValues.phone || '',
+        is_default_from: false,
+        is_default_to: formValues.is_default_to,
+      };
       
+      // Create new address
+      const newAddress = await addressService.createAddress(addressData);
       if (newAddress) {
+        // If this is set as default address, update settings
+        if (formValues.is_default_to) {
+          await addressService.setDefaultToAddress(newAddress.id);
+        }
+        
+        toast.success("Destination address saved successfully");
+        onAddressSelect(newAddress);
+        setShowAddressForm(false);
+        
         // Reload the addresses list
         loadAddressData();
       }
@@ -342,204 +359,8 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     }
   };
   
-  // Render the inline form for destination addresses
-  const renderDestinationForm = () => {
-    return (
-      <Form {...inlineForm}>
-        <form className="space-y-4 border rounded-md p-4 bg-white">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={inlineForm.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Label/Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Home, Office, etc." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={inlineForm.control}
-              name="company"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Company (optional)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Company name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          
-          <FormField
-            control={inlineForm.control}
-            name="street1"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Street Address</FormLabel>
-                <FormControl>
-                  <Input placeholder="Street address" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={inlineForm.control}
-            name="street2"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Apartment, Suite, etc. (optional)</FormLabel>
-                <FormControl>
-                  <Input placeholder="Apt, Suite, Unit, etc." {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={inlineForm.control}
-              name="city"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>City</FormLabel>
-                  <FormControl>
-                    <Input placeholder="City" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={inlineForm.control}
-              name="state"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>State/Province</FormLabel>
-                  <FormControl>
-                    <Input placeholder="State/Province" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={inlineForm.control}
-              name="zip"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>ZIP/Postal Code</FormLabel>
-                  <FormControl>
-                    <Input placeholder="ZIP/Postal Code" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={inlineForm.control}
-              name="country"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Country</FormLabel>
-                  <Select 
-                    value={field.value} 
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="US">United States</SelectItem>
-                      <SelectItem value="CA">Canada</SelectItem>
-                      <SelectItem value="MX">Mexico</SelectItem>
-                      <SelectItem value="GB">United Kingdom</SelectItem>
-                      <SelectItem value="AU">Australia</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          
-          <FormField
-            control={inlineForm.control}
-            name="phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Phone (optional)</FormLabel>
-                <FormControl>
-                  <Input type="tel" placeholder="Phone number" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <FormField
-            control={inlineForm.control}
-            name="is_default_to"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-center gap-2 space-y-0">
-                <FormControl>
-                  <input
-                    type="checkbox"
-                    checked={field.value}
-                    onChange={field.onChange}
-                    className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
-                  />
-                </FormControl>
-                <FormLabel className="text-sm font-normal">Set as default delivery address</FormLabel>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <div className="flex justify-end gap-2">
-            <Button 
-              type="button" 
-              variant="outline" 
-              size="sm"
-              onClick={() => {
-                // Load saved addresses or show settings
-                if (addresses.length > 0) {
-                  setAlwaysShowForm(false);
-                } else {
-                  goToAddressSettings();
-                }
-              }}
-            >
-              {addresses.length > 0 ? "Use Saved Address" : "Manage Addresses"}
-            </Button>
-            <Button 
-              type="button" 
-              size="sm" 
-              onClick={handleSaveInlineForm}
-              className="flex items-center gap-1"
-            >
-              <Save className="h-4 w-4" />
-              Save Address
-            </Button>
-          </div>
-        </form>
-      </Form>
-    );
-  };
+  // Submit handler for the popup form
+  const handleSubmitPopupForm = inlineForm.handleSubmit(handleSaveInlineForm);
   
   return (
     <div className="space-y-2">
@@ -573,12 +394,12 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
             </Button>
           )}
           
-          {type === 'to' && !alwaysShowForm && (
+          {type === 'to' && (
             <Button 
               variant="ghost" 
               size="sm" 
               className="h-8 px-2 text-xs" 
-              onClick={() => setAlwaysShowForm(true)}
+              onClick={openAddressFormPopup}
             >
               <Edit className="h-3.5 w-3.5 mr-1" />
               Enter Manually
@@ -587,71 +408,71 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
         </div>
       </div>
       
-      {/* For destination addresses, we'll either show the form or the dropdown based on user preference */}
-      {type === 'to' && alwaysShowForm ? (
-        renderDestinationForm()
-      ) : (
-        <>
-          {isLoading ? (
-            <Select disabled>
-              <SelectTrigger>
-                <SelectValue placeholder="Loading addresses..." />
-              </SelectTrigger>
-            </Select>
-          ) : addresses.length === 0 ? (
-            <div className="text-sm text-gray-500 flex items-center justify-between bg-gray-50 border rounded-md p-3">
-              <span>No saved addresses</span>
-              <Button size="sm" variant="default" onClick={openAddNewAddressDialog}>
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Add Address
-              </Button>
-            </div>
+      {isLoading ? (
+        <Select disabled>
+          <SelectTrigger>
+            <SelectValue placeholder="Loading addresses..." />
+          </SelectTrigger>
+        </Select>
+      ) : addresses.length === 0 ? (
+        <div className="text-sm text-gray-500 flex items-center justify-between bg-gray-50 border rounded-md p-3">
+          <span>No saved addresses</span>
+          {type === 'from' ? (
+            <Button size="sm" variant="default" onClick={openAddNewAddressDialog}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add Address
+            </Button>
           ) : (
-            <div className="space-y-2">
-              <Select 
-                value={selectedAddressId?.toString()} 
-                onValueChange={handleAddressChange}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an address" />
-                </SelectTrigger>
-                <SelectContent>
-                  {addresses.map((address) => (
-                    <SelectItem key={address.id} value={address.id.toString()}>
-                      <div className="flex items-center">
-                        <span>{formatAddressForDisplay(address)}</span>
-                        {(type === 'from' && address.is_default_from) || 
-                         (type === 'to' && address.is_default_to) || 
-                         (type === 'from' && defaultAddressId === address.id) ? (
-                          <span className="ml-2 bg-green-100 text-green-800 text-xs px-1.5 py-0.5 rounded-full">
-                            Default
-                          </span>
-                        ) : null}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              {selectedAddressId && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full mt-1"
-                  onClick={() => {
-                    const address = addresses.find(addr => addr.id === selectedAddressId);
-                    if (address) {
-                      openEditAddressDialog(address);
-                    }
-                  }}
-                >
-                  <Edit className="h-3.5 w-3.5 mr-1" />
-                  Edit this address
-                </Button>
-              )}
-            </div>
+            <Button size="sm" variant="default" onClick={openAddressFormPopup}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              Add Address
+            </Button>
           )}
-        </>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Select 
+            value={selectedAddressId?.toString()} 
+            onValueChange={handleAddressChange}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select an address" />
+            </SelectTrigger>
+            <SelectContent>
+              {addresses.map((address) => (
+                <SelectItem key={address.id} value={address.id.toString()}>
+                  <div className="flex items-center">
+                    <span>{formatAddressForDisplay(address)}</span>
+                    {(type === 'from' && address.is_default_from) || 
+                     (type === 'to' && address.is_default_to) || 
+                     (type === 'from' && defaultAddressId === address.id) ? (
+                      <span className="ml-2 bg-green-100 text-green-800 text-xs px-1.5 py-0.5 rounded-full">
+                        Default
+                      </span>
+                    ) : null}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          {selectedAddressId && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full mt-1"
+              onClick={() => {
+                const address = addresses.find(addr => addr.id === selectedAddressId);
+                if (address) {
+                  openEditAddressDialog(address);
+                }
+              }}
+            >
+              <Edit className="h-3.5 w-3.5 mr-1" />
+              Edit this address
+            </Button>
+          )}
+        </div>
       )}
       
       {/* Address Dialog for adding/editing addresses */}
@@ -778,12 +599,12 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                           <SelectTrigger>
                             <SelectValue placeholder="Select country" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="US">United States</SelectItem>
-                            <SelectItem value="CA">Canada</SelectItem>
-                            <SelectItem value="MX">Mexico</SelectItem>
-                            <SelectItem value="GB">United Kingdom</SelectItem>
-                            <SelectItem value="AU">Australia</SelectItem>
+                          <SelectContent className="max-h-[300px]">
+                            {COUNTRIES_LIST.map((country) => (
+                              <SelectItem key={country.code} value={country.code}>
+                                {country.name}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -854,6 +675,198 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                   type="button" 
                   variant="outline" 
                   onClick={() => setShowAddressDialog(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">Save Address</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Popup form dialog for destination address */}
+      <Dialog open={showAddressForm} onOpenChange={setShowAddressForm}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-blue-500" />
+                Enter Delivery Address
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <Form {...inlineForm}>
+            <form onSubmit={handleSubmitPopupForm} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <FormField
+                  control={inlineForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Label/Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Home, Office, etc." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={inlineForm.control}
+                  name="company"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Company (optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Company name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={inlineForm.control}
+                  name="street1"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Street Address</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Street address" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={inlineForm.control}
+                  name="street2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Apartment, Suite, etc. (optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Apt, Suite, Unit, etc." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={inlineForm.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={inlineForm.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State/Province</FormLabel>
+                        <FormControl>
+                          <Input placeholder="State/Province" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={inlineForm.control}
+                    name="zip"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ZIP/Postal Code</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ZIP/Postal Code" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={inlineForm.control}
+                    name="country"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Country</FormLabel>
+                        <Select 
+                          value={field.value} 
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select country" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[300px]">
+                            {COUNTRIES_LIST.map((country) => (
+                              <SelectItem key={country.code} value={country.code}>
+                                {country.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <FormField
+                  control={inlineForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone (optional)</FormLabel>
+                      <FormControl>
+                        <Input type="tel" placeholder="Phone number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={inlineForm.control}
+                  name="is_default_to"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          checked={field.value}
+                          onChange={field.onChange}
+                          className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
+                        />
+                      </FormControl>
+                      <FormLabel className="text-sm font-normal">Set as default delivery address</FormLabel>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowAddressForm(false)}
                 >
                   Cancel
                 </Button>
