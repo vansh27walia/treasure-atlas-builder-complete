@@ -22,6 +22,7 @@ import { COUNTRIES_LIST } from '@/lib/countries';
 import { Phone, MapPin } from 'lucide-react';
 import { loadGoogleMapsAPI, initAddressAutocomplete, extractAddressComponents } from '@/utils/addressUtils';
 import { toast } from '@/components/ui/sonner';
+import { SavedAddress } from '@/services/AddressService';
 
 // Create a simplified address type that matches the form inputs
 export interface SimpleAddress {
@@ -52,16 +53,21 @@ type AddressFormValues = z.infer<typeof addressSchema>;
 
 interface AddressSelectorProps {
   type: 'from' | 'to';
-  onAddressSelect?: (address: SimpleAddress) => void;
+  onAddressSelect?: (address: SavedAddress) => void;
   selectedAddressId?: number;
+  // Add the new props that were being passed from EnhancedShippingForm
+  inputRef?: React.RefObject<HTMLInputElement>;
+  useGoogleAutocomplete?: boolean;
 }
 
 const AddressSelector: React.FC<AddressSelectorProps> = ({ 
   type,
   onAddressSelect,
-  selectedAddressId
+  selectedAddressId,
+  inputRef,
+  useGoogleAutocomplete = false
 }) => {
-  const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(false);
+  const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(useGoogleAutocomplete);
   const streetInputRef = useRef<HTMLInputElement>(null);
   
   const form = useForm<AddressFormValues>({
@@ -87,7 +93,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     if (allFilled) {
       const values = form.getValues();
       if (onAddressSelect) {
-        onAddressSelect(values);
+        onAddressSelect(values as SavedAddress);
       }
     }
   }, [watchRequired, form, onAddressSelect]);
@@ -96,26 +102,32 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   useEffect(() => {
     const initGooglePlaces = async () => {
       try {
-        const loaded = await loadGoogleMapsAPI();
-        setGooglePlacesEnabled(loaded);
-        
-        if (loaded && streetInputRef.current) {
-          // Initialize autocomplete on street1 input
-          initAddressAutocomplete(streetInputRef.current, (place) => {
-            if (place && place.address_components) {
-              const addressComponents = extractAddressComponents(place);
-              
-              // Update form values with extracted address components
-              form.setValue('street1', addressComponents.street1 || '');
-              form.setValue('city', addressComponents.city || '');
-              form.setValue('state', addressComponents.state || '');
-              form.setValue('zip', addressComponents.zip || '');
-              form.setValue('country', addressComponents.country || 'US');
-              
-              // Trigger form validation
-              form.trigger(['street1', 'city', 'state', 'zip', 'country']);
-            }
-          });
+        // Use the provided useGoogleAutocomplete prop to determine if we should initialize
+        if (useGoogleAutocomplete) {
+          const loaded = await loadGoogleMapsAPI();
+          setGooglePlacesEnabled(loaded);
+          
+          // Use either the inputRef prop if provided, or the internal streetInputRef
+          const refToUse = inputRef || streetInputRef;
+          
+          if (loaded && refToUse?.current) {
+            // Initialize autocomplete on street1 input
+            initAddressAutocomplete(refToUse.current, (place) => {
+              if (place && place.address_components) {
+                const addressComponents = extractAddressComponents(place);
+                
+                // Update form values with extracted address components
+                form.setValue('street1', addressComponents.street1 || '');
+                form.setValue('city', addressComponents.city || '');
+                form.setValue('state', addressComponents.state || '');
+                form.setValue('zip', addressComponents.zip || '');
+                form.setValue('country', addressComponents.country || 'US');
+                
+                // Trigger form validation
+                form.trigger(['street1', 'city', 'state', 'zip', 'country']);
+              }
+            });
+          }
         }
       } catch (error) {
         console.error('Error initializing Google Places:', error);
@@ -124,11 +136,11 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     };
     
     initGooglePlaces();
-  }, [form]);
+  }, [form, inputRef, useGoogleAutocomplete]);
   
   const handleSubmit = (values: AddressFormValues) => {
     if (onAddressSelect) {
-      onAddressSelect(values);
+      onAddressSelect(values as SavedAddress);
     }
   };
   
@@ -183,7 +195,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                       <Input 
                         placeholder={googlePlacesEnabled ? "Start typing address..." : "Street address"} 
                         {...field}
-                        ref={streetInputRef}
+                        ref={inputRef || streetInputRef}
                       />
                     </FormControl>
                     <FormMessage />
