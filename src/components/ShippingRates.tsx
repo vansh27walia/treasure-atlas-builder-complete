@@ -152,7 +152,10 @@ const ShippingRates: React.FC = () => {
                     onSelect={handleSelectRate}
                     isBestValue={rate.id === bestValueRateId}
                     isFastest={rate.id === fastestRateId}
-                    aiRecommendation={aiRecommendation || undefined}
+                    aiRecommendation={aiRecommendation && {
+                      rateId: aiRecommendation.bestOverall || '',
+                      reason: aiRecommendation.analysisText || ''
+                    }}
                     showDiscount={!!rate.original_rate && parseFloat(rate.original_rate) > parseFloat(rate.rate)}
                     originalRate={rate.original_rate}
                   />
