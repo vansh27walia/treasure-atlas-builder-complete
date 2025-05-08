@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -81,15 +81,11 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   };
   
   return (
-    <Card className="border-2 border-gray-100">
+    <Card className="border border-gray-100 shadow-sm">
       <CardContent className="pt-4">
-        <h3 className="text-lg font-medium mb-4">
-          {type === 'from' ? 'Origin' : 'Destination'} Address
-        </h3>
-        
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-3">
               <FormField
                 control={form.control}
                 name="name"
@@ -146,7 +142,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                 )}
               />
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <FormField
                   control={form.control}
                   name="city"
@@ -176,7 +172,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <FormField
                   control={form.control}
                   name="zip"
@@ -204,7 +200,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                         <SelectTrigger>
                           <SelectValue placeholder="Select country" />
                         </SelectTrigger>
-                        <SelectContent className="max-h-[300px]">
+                        <SelectContent className="max-h-[200px]">
                           {COUNTRIES_LIST.map((country) => (
                             <SelectItem key={country.code} value={country.code}>
                               {country.name}
@@ -242,8 +238,8 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
               />
             </div>
             
-            <Button type="submit" className="w-full mt-2">
-              {type === 'from' ? 'Set Origin Address' : 'Set Destination Address'}
+            <Button type="submit" className="w-full mt-2 bg-blue-600 hover:bg-blue-700">
+              {type === 'from' ? 'Use Origin Address' : 'Use Destination Address'}
             </Button>
           </form>
         </Form>

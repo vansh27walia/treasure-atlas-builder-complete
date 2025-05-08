@@ -25,8 +25,8 @@ import { createAddressSelectHandler } from '@/utils/addressUtils';
 const shippingFormSchema = z.object({
   // Address fields will be handled separately
   packageType: z.string().min(1, "Please select a package type"),
-  weightLb: z.coerce.number().min(0, "Weight must be greater than 0"),
-  weightOz: z.coerce.number().min(0, "Weight must be greater than 0").max(15, "Ounces must be less than 16"),
+  weightValue: z.coerce.number().min(0, "Weight must be greater than 0"),
+  weightUnit: z.enum(["oz", "kg"]),
   packageValue: z.coerce.number().min(0, "Value must be greater than 0"),
   length: z.coerce.number().min(0, "Length must be greater than 0"),
   width: z.coerce.number().min(0, "Width must be greater than 0"),
@@ -48,14 +48,15 @@ const EnhancedShippingForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
   const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
+  const [dimensionInputTimer, setDimensionInputTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Using react-hook-form to manage form state
   const form = useForm<ShippingFormValues>({
     resolver: zodResolver(shippingFormSchema),
     defaultValues: {
       packageType: 'custom',
-      weightLb: 0,
-      weightOz: 0,
+      weightValue: 0,
+      weightUnit: 'oz',
       packageValue: 0,
       length: 8,
       width: 8,
@@ -71,6 +72,34 @@ const EnhancedShippingForm: React.FC = () => {
       allCarriers: true,
     }
   });
+
+  // Handle dimension input auto-clearing
+  const handleDimensionChange = (field: any, value: number) => {
+    field.onChange(value);
+    
+    // Clear timer if it exists
+    if (dimensionInputTimer) {
+      clearTimeout(dimensionInputTimer);
+    }
+    
+    // Set new timer to clear fields after user stops typing (3 seconds)
+    const timer = setTimeout(() => {
+      // We don't actually clear fields here as that would be disruptive
+      // Instead we could highlight fields or validate them
+      console.log('User finished entering dimensions');
+    }, 3000);
+    
+    setDimensionInputTimer(timer);
+  };
+
+  // Cleanup timer when component unmounts
+  useEffect(() => {
+    return () => {
+      if (dimensionInputTimer) {
+        clearTimeout(dimensionInputTimer);
+      }
+    };
+  }, [dimensionInputTimer]);
 
   // Update carrier checkboxes when allCarriers changes
   const watchAllCarriers = form.watch("allCarriers");
@@ -98,8 +127,12 @@ const EnhancedShippingForm: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Calculate total weight in ounces
-      const weightOz = (values.weightLb * 16) + (values.weightOz || 0);
+      // Convert weight to ounces for backend processing
+      let weightOz = values.weightValue;
+      if (values.weightUnit === 'kg') {
+        // Convert kg to oz (1 kg = 35.274 oz)
+        weightOz = values.weightValue * 35.274;
+      }
       
       // Get selected carriers
       const selectedCarriers = Object.entries(values.carriers)
@@ -179,41 +212,142 @@ const EnhancedShippingForm: React.FC = () => {
       <Card className="border-2 border-gray-200 w-full">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-gray-200 w-full">
-            {/* Addresses Section */}
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-6 text-blue-700">Shipping Addresses</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-                {/* Origin Address Section */}
-                <div className="space-y-4 w-full">
-                  <div className="bg-blue-50 p-4 rounded-lg w-full">
-                    <h3 className="text-lg font-medium text-blue-700 mb-2">Origin</h3>
-                    <AddressSelector 
-                      type="from"
-                      onAddressSelect={createAddressSelectHandler(setFromAddress)}
-                    />
-                  </div>
-                </div>
-                
-                {/* Destination Address Section */}
-                <div className="space-y-4 w-full">
-                  <div className="bg-blue-50 p-4 rounded-lg w-full">
-                    <h3 className="text-lg font-medium text-blue-700 mb-2">Destination</h3>
-                    <AddressSelector 
-                      type="to"
-                      onAddressSelect={createAddressSelectHandler(setToAddress)}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Package Details Section */}
+            {/* Package Dimensions Section - Moved to the top */}
             <div className="p-6 w-full">
-              <h2 className="text-xl font-semibold mb-6 text-blue-700">Package Details</h2>
+              <h2 className="text-xl font-semibold mb-6 text-blue-700">Package Dimensions</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-                <div className="space-y-6">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="length"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Length (in)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              min="0"
+                              onChange={(e) => handleDimensionChange(field, Number(e.target.value))}
+                              value={field.value}
+                              placeholder="0" 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="width"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Width (in)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              min="0"
+                              onChange={(e) => handleDimensionChange(field, Number(e.target.value))}
+                              value={field.value}
+                              placeholder="0" 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="height"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Height (in)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              min="0"
+                              onChange={(e) => handleDimensionChange(field, Number(e.target.value))}
+                              value={field.value}
+                              placeholder="0" 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="weightValue"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Weight</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              min="0"
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              value={field.value}
+                              placeholder="0" 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="weightUnit"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Unit</FormLabel>
+                          <Select 
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select unit" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="oz">Ounces (oz)</SelectItem>
+                              <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="packageValue"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Value ($)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              value={field.value}
+                              placeholder="0.00" 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
                   <FormField
                     control={form.control}
                     name="packageType"
@@ -222,7 +356,7 @@ const EnhancedShippingForm: React.FC = () => {
                         <FormLabel>Package Type</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
-                          defaultValue={field.value}
+                          value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -240,132 +374,6 @@ const EnhancedShippingForm: React.FC = () => {
                       </FormItem>
                     )}
                   />
-                  
-                  <div className="grid grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="weightLb"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Weight (lb)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              type="number"
-                              min="0"
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              placeholder="0" 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="weightOz"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>oz</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              type="number"
-                              min="0"
-                              max="15"
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              placeholder="0" 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="packageValue"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Value ($)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field}
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              placeholder="0.00" 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="length"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Length (in)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field}
-                              type="number"
-                              min="0"
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              placeholder="0" 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="width"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Width (in)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field}
-                              type="number"
-                              min="0"
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              placeholder="0" 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="height"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Height (in)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field}
-                              type="number"
-                              min="0"
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              placeholder="0" 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
                 </div>
                 
                 <div className="space-y-6">
@@ -519,6 +527,35 @@ const EnhancedShippingForm: React.FC = () => {
                         )}
                       />
                     </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Addresses Section moved below dimensions */}
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-6 text-blue-700">Shipping Addresses</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                {/* Origin Address Section */}
+                <div className="space-y-4 w-full">
+                  <div className="bg-blue-50 p-4 rounded-lg w-full">
+                    <h3 className="text-lg font-medium text-blue-700 mb-2">Origin</h3>
+                    <AddressSelector 
+                      type="from"
+                      onAddressSelect={(address) => setFromAddress(address)}
+                    />
+                  </div>
+                </div>
+                
+                {/* Destination Address Section */}
+                <div className="space-y-4 w-full">
+                  <div className="bg-blue-50 p-4 rounded-lg w-full">
+                    <h3 className="text-lg font-medium text-blue-700 mb-2">Destination</h3>
+                    <AddressSelector 
+                      type="to"
+                      onAddressSelect={(address) => setToAddress(address)}
+                    />
                   </div>
                 </div>
               </div>
