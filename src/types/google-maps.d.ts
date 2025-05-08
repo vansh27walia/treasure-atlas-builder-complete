@@ -39,5 +39,6 @@ interface Window {
   google?: {
     maps?: GoogleMapsAPI;
   };
+  initGoogleMapsCallback?: () => void;
   initTestMap?: () => void;
 }

@@ -3,14 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { GoogleApiKeyResponse } from '@/types/shipping';
 import { SavedAddress } from '@/services/AddressService';
 
-// Define window.initGoogleMapsCallback for TypeScript
-declare global {
-  interface Window {
-    google: any;
-    initGoogleMapsCallback?: () => void;
-  }
-}
-
 // Helper function to create address selection handlers
 export const createAddressSelectHandler = (setAddressState: React.Dispatch<React.SetStateAction<SavedAddress | null>>) => {
   return (address: SavedAddress | null) => {
@@ -78,8 +70,8 @@ export const loadGoogleMapsAPI = async (): Promise<boolean> => {
 // Function to initialize Google Places Autocomplete on an input field
 export const initAddressAutocomplete = (
   inputElement: HTMLInputElement, 
-  onPlaceSelected: (place: any) => void
-): any | null => {
+  onPlaceSelected: (place: GoogleMapsPlace) => void
+): GoogleMapsAutocomplete | null => {
   try {
     if (!window.google || !window.google.maps || !window.google.maps.places) {
       console.error('Google Maps Places API not loaded');
@@ -111,7 +103,7 @@ export const initAddressAutocomplete = (
 };
 
 // Extract address components from Google Place result
-export const extractAddressComponents = (place: any): {
+export const extractAddressComponents = (place: GoogleMapsPlace): {
   street1: string;
   city: string;
   state: string;
@@ -127,7 +119,7 @@ export const extractAddressComponents = (place: any): {
   
   // Extract each component
   if (place.address_components) {
-    place.address_components.forEach((component: any) => {
+    place.address_components.forEach((component) => {
       const types = component.types;
       
       if (types.includes('street_number')) {
