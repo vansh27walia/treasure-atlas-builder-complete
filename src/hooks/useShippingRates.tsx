@@ -41,25 +41,53 @@ export const useShippingRates = () => {
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
 
+  // Process and enhance rates with original prices
+  const processRates = (incomingRates: ShippingRate[]) => {
+    return incomingRates.map(rate => {
+      // If rate already has an original_rate, use it
+      if (rate.original_rate) {
+        return rate;
+      }
+      
+      // If no original_rate but has list_rate or retail_rate, use the higher one as original
+      if (rate.list_rate || rate.retail_rate) {
+        const listRateValue = rate.list_rate ? parseFloat(rate.list_rate) : 0;
+        const retailRateValue = rate.retail_rate ? parseFloat(rate.retail_rate) : 0;
+        
+        // Use the higher rate as original
+        if (listRateValue > 0 || retailRateValue > 0) {
+          const original = Math.max(listRateValue, retailRateValue).toString();
+          return {
+            ...rate,
+            original_rate: original
+          };
+        }
+      }
+      
+      // No changes needed
+      return rate;
+    });
+  };
+
   // Listen for rates from the shipping form component
   useEffect(() => {
     const handleRatesReceived = (event: CustomEvent<EasyPostRatesEvent['detail']>) => {
       if (event.detail && event.detail.rates) {
-        // Add shipmentId to each rate object
-        const ratesWithShipmentId = event.detail.rates.map(rate => ({
+        // Add shipmentId to each rate object and process rates
+        const processedRates = processRates(event.detail.rates).map(rate => ({
           ...rate,
           shipment_id: event.detail.shipmentId
         }));
         
-        setRates(ratesWithShipmentId);
-        setFilteredRates(ratesWithShipmentId);
+        setRates(processedRates);
+        setFilteredRates(processedRates);
         setShipmentId(event.detail.shipmentId);
         setSelectedRateId(null);
         setLabelUrl(null);
         setTrackingCode(null);
         
         // Extract unique carriers for filtering
-        const carriers = [...new Set(ratesWithShipmentId.map(rate => 
+        const carriers = [...new Set(processedRates.map(rate => 
           rate.carrier.toUpperCase()
         ))];
         setUniqueCarriers(carriers);
@@ -77,8 +105,18 @@ export const useShippingRates = () => {
 
     document.addEventListener('easypost-rates-received', handleRatesReceived as EventListener);
     
+    // Listen for rate selection from other components
+    const handleRateSelected = (event: CustomEvent<{rateId: string}>) => {
+      if (event.detail && event.detail.rateId) {
+        setSelectedRateId(event.detail.rateId);
+      }
+    };
+    
+    document.addEventListener('select-shipping-rate', handleRateSelected as EventListener);
+    
     return () => {
       document.removeEventListener('easypost-rates-received', handleRatesReceived as EventListener);
+      document.removeEventListener('select-shipping-rate', handleRateSelected as EventListener);
     };
   }, []);
   
@@ -157,8 +195,8 @@ export const useShippingRates = () => {
       setTrackingCode(data.trackingCode);
       toast.success("Shipping label generated successfully");
       
-      // Navigate to the label success page
-      navigate(`/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}`);
+      // Navigate to the label success page with all parameters
+      navigate(`/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || shipmentId)}`);
       
     } catch (error) {
       console.error('Error creating label:', error);

@@ -11,11 +11,13 @@ const LabelSuccessPage: React.FC = () => {
   const navigate = useNavigate();
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
+  const [shipmentId, setShipmentId] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const labelUrlParam = params.get('labelUrl');
     const trackingCodeParam = params.get('trackingCode');
+    const shipmentIdParam = params.get('shipmentId');
 
     if (labelUrlParam) {
       setLabelUrl(decodeURIComponent(labelUrlParam));
@@ -24,10 +26,19 @@ const LabelSuccessPage: React.FC = () => {
     if (trackingCodeParam) {
       setTrackingCode(decodeURIComponent(trackingCodeParam));
     }
+    
+    if (shipmentIdParam) {
+      setShipmentId(decodeURIComponent(shipmentIdParam));
+    }
 
     // Show success toast
     toast.success('Payment successful! Your shipping label is ready.');
   }, [location]);
+  
+  const handleViewTracking = () => {
+    // Navigate to the tracking dashboard with the tracking code as a query parameter
+    navigate(`/dashboard?tab=tracking&tracking=${trackingCode || ''}`);
+  };
 
   return (
     <div className="container mx-auto max-w-3xl px-4 py-12">
@@ -47,7 +58,7 @@ const LabelSuccessPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row justify-center gap-4 mb-8">
           {labelUrl && (
             <Button className="flex items-center gap-2" asChild>
-              <a href={labelUrl} target="_blank" rel="noopener noreferrer">
+              <a href={labelUrl} target="_blank" rel="noopener noreferrer" download="shipping-label.pdf">
                 <Download className="h-5 w-5" />
                 Download Label
               </a>
@@ -57,7 +68,7 @@ const LabelSuccessPage: React.FC = () => {
           <Button 
             variant="outline" 
             className="flex items-center gap-2"
-            onClick={() => navigate('/dashboard?tab=tracking')}
+            onClick={handleViewTracking}
           >
             <Truck className="h-5 w-5" />
             View Tracking

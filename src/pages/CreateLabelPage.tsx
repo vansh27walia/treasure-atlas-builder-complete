@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ShippingRates from '@/components/ShippingRates';
@@ -41,6 +40,8 @@ const CreateLabelPage: React.FC = () => {
           <Package className="mr-3 h-7 w-7 text-blue-600" />
           Create a Shipping Label
         </h1>
+        {/* Admin button - visible only in admin mode if needed */}
+        {/* 
         <Button
           variant="outline"
           onClick={() => setShowApiKeyForm(!showApiKeyForm)}
@@ -48,6 +49,7 @@ const CreateLabelPage: React.FC = () => {
         >
           {showApiKeyForm ? 'Hide API Settings' : 'Configure Google API'}
         </Button>
+        */}
       </div>
       
       {showApiKeyForm && (
@@ -55,6 +57,41 @@ const CreateLabelPage: React.FC = () => {
           <GoogleApiKeyForm />
         </div>
       )}
+      
+      {/* Workflow Steps */}
+      <div className="mb-6">
+        <div className="relative">
+          <div className="flex items-center justify-between mb-4 max-w-4xl mx-auto">
+            <div className="flex flex-col items-center">
+              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white">1</div>
+              <span className="text-xs mt-1 text-blue-800 font-medium">Enter Addresses</span>
+            </div>
+
+            <div className="h-1 flex-1 bg-blue-200 mx-2 relative">
+              <div className="absolute inset-0 bg-blue-600" style={{width: activeTab === 'domestic' ? '0%' : '100%'}}></div>
+            </div>
+            
+            <div className="flex flex-col items-center">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activeTab === 'domestic' ? 'bg-blue-200 text-blue-600' : 'bg-blue-600 text-white'}`}>2</div>
+              <span className="text-xs mt-1 text-blue-800 font-medium">Select Rate</span>
+            </div>
+
+            <div className="h-1 flex-1 bg-blue-200 mx-2"></div>
+            
+            <div className="flex flex-col items-center">
+              <div className="w-10 h-10 bg-blue-200 rounded-full flex items-center justify-center text-blue-600">3</div>
+              <span className="text-xs mt-1 text-blue-800 font-medium">Print Label</span>
+            </div>
+
+            <div className="h-1 flex-1 bg-blue-200 mx-2"></div>
+            
+            <div className="flex flex-col items-center">
+              <div className="w-10 h-10 bg-blue-200 rounded-full flex items-center justify-center text-blue-600">4</div>
+              <span className="text-xs mt-1 text-blue-800 font-medium">Track Package</span>
+            </div>
+          </div>
+        </div>
+      </div>
       
       <Card className="border border-gray-200 shadow-md bg-white rounded-lg">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

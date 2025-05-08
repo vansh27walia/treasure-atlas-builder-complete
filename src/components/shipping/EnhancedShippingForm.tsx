@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -54,13 +53,13 @@ const EnhancedShippingForm: React.FC = () => {
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
 
-  // Using react-hook-form to manage form state
+  // Using react-hook-form to manage form state with lb as default
   const form = useForm<ShippingFormValues>({
     resolver: zodResolver(shippingFormSchema),
     defaultValues: {
       packageType: 'custom',
       weightValue: 0,
-      weightUnit: 'oz',
+      weightUnit: 'lb', // Set pounds as default
       packageValue: 0,
       length: 8,
       width: 8,
@@ -194,10 +193,29 @@ const EnhancedShippingForm: React.FC = () => {
         throw new Error(`Error fetching rates: ${error.message}`);
       }
 
-      // Publish the rates to be displayed in the ShippingRates component
-      document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
-        detail: { rates: data.rates, shipmentId: data.shipmentId } 
-      }));
+      // Add original rates for price comparison display
+      if (data.rates && Array.isArray(data.rates)) {
+        // Add original prices to rates that don't have them
+        const ratesWithOriginalPrices = data.rates.map(rate => {
+          if (!rate.original_rate && (rate.list_rate || rate.retail_rate)) {
+            return {
+              ...rate,
+              original_rate: rate.list_rate || rate.retail_rate
+            };
+          }
+          return rate;
+        });
+        
+        // Publish the updated rates to be displayed in the ShippingRates component
+        document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
+          detail: { rates: ratesWithOriginalPrices, shipmentId: data.shipmentId } 
+        }));
+      } else {
+        // Publish the rates as is
+        document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
+          detail: { rates: data.rates, shipmentId: data.shipmentId } 
+        }));
+      }
 
       toast.success("Shipping rates retrieved successfully");
       
@@ -346,6 +364,7 @@ const EnhancedShippingForm: React.FC = () => {
                           <Select 
                             onValueChange={field.onChange}
                             value={field.value}
+                            defaultValue="lb" // Set pounds as default
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -353,8 +372,8 @@ const EnhancedShippingForm: React.FC = () => {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="oz">Ounces (oz)</SelectItem>
                               <SelectItem value="lb">Pounds (lb)</SelectItem>
+                              <SelectItem value="oz">Ounces (oz)</SelectItem>
                               <SelectItem value="kg">Kilograms (kg)</SelectItem>
                             </SelectContent>
                           </Select>

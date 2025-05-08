@@ -42,7 +42,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   isBestValue,
   isFastest,
   aiRecommendation,
-  showDiscount = false,
+  showDiscount = true, // Set default to true to show discounts by default
   originalRate
 }) => {
   const isRecommended = aiRecommendation?.rateId === rate.id;
@@ -72,21 +72,51 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
 
   // Calculate discount if available
   const calculateDiscount = () => {
-    if (!originalRate || !rate.rate) return null;
-    const original = parseFloat(originalRate);
-    const current = parseFloat(rate.rate);
-    if (original <= current) return null;
+    // First check if we have a specific original_rate
+    if (rate.original_rate && parseFloat(rate.original_rate) > parseFloat(rate.rate)) {
+      const original = parseFloat(rate.original_rate);
+      const current = parseFloat(rate.rate);
+      const savingsAmount = original - current;
+      const savingsPercent = ((original - current) / original) * 100;
+      
+      return {
+        amount: savingsAmount.toFixed(2),
+        percent: savingsPercent.toFixed(0)
+      };
+    }
     
-    const savingsAmount = original - current;
-    const savingsPercent = ((original - current) / original) * 100;
+    // If no specific original_rate, check the list_rate or retail_rate from carrier
+    if (rate.list_rate && parseFloat(rate.list_rate) > parseFloat(rate.rate)) {
+      const original = parseFloat(rate.list_rate);
+      const current = parseFloat(rate.rate);
+      const savingsAmount = original - current;
+      const savingsPercent = ((original - current) / original) * 100;
+      
+      return {
+        amount: savingsAmount.toFixed(2),
+        percent: savingsPercent.toFixed(0),
+        originalPrice: rate.list_rate
+      };
+    }
     
-    return {
-      amount: savingsAmount.toFixed(2),
-      percent: savingsPercent.toFixed(0)
-    };
+    if (rate.retail_rate && parseFloat(rate.retail_rate) > parseFloat(rate.rate)) {
+      const original = parseFloat(rate.retail_rate);
+      const current = parseFloat(rate.rate);
+      const savingsAmount = original - current;
+      const savingsPercent = ((original - current) / original) * 100;
+      
+      return {
+        amount: savingsAmount.toFixed(2),
+        percent: savingsPercent.toFixed(0),
+        originalPrice: rate.retail_rate
+      };
+    }
+    
+    return null;
   };
 
   const discount = calculateDiscount();
+  const effectiveOriginalRate = originalRate || discount?.originalPrice || rate.original_rate;
   
   return (
     <div 
@@ -156,7 +186,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
                   SAVE {discount.percent}%
                 </Badge>
                 <div className="ml-2 flex items-center">
-                  <span className="text-sm text-gray-500 line-through">${originalRate}</span>
+                  <span className="text-sm text-gray-500 line-through">${effectiveOriginalRate}</span>
                   <span className="text-sm font-semibold text-blue-600 ml-1">
                     Save ${discount.amount}
                   </span>
@@ -178,7 +208,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
             <div className="text-right mb-2">
               <div className="text-lg font-bold text-blue-800">${rate.rate}</div>
               {discount && showDiscount && (
-                <div className="text-xs text-gray-500 line-through">${originalRate}</div>
+                <div className="text-xs text-gray-500 line-through">${effectiveOriginalRate}</div>
               )}
             </div>
             

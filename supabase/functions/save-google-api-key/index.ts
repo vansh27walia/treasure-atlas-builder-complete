@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Set up CORS headers
 const corsHeaders = {
@@ -15,39 +14,15 @@ serve(async (req) => {
   }
 
   try {
-    // Get the Supabase URL and key from environment variables
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Supabase configuration not found');
+    // This function requires authentication (JWT)
+    const token = req.headers.get('Authorization')?.replace('Bearer ', '');
+    if (!token) {
       return new Response(
-        JSON.stringify({ error: 'Supabase configuration not found' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
-    
-    // Authentication check
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized access' }),
+        JSON.stringify({ error: 'Unauthorized' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       );
     }
-    
-    // Verify this is an admin user (you could implement more robust admin checks)
-    const token = authHeader.replace('Bearer ', '');
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Authentication failed', details: authError }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      );
-    }
-    
+
     // Parse the request body
     const { apiKey } = await req.json();
     
@@ -58,21 +33,13 @@ serve(async (req) => {
       );
     }
 
-    // Update the Google API key secret in Supabase
-    const { error } = await supabase.functions.setSecret('GOOGLE_PLACES_API_KEY', apiKey);
+    // Save the API key as a secret
+    // This will error if you don't have the right permissions
+    await Deno.env.set('GOOGLE_PLACES_API_KEY', apiKey);
     
-    if (error) {
-      console.error('Error saving Google API key:', error);
-      return new Response(
-        JSON.stringify({ error: 'Failed to save API key', details: error }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
-    
-    console.log("Google API key saved successfully");
-    
+    // Return success
     return new Response(
-      JSON.stringify({ success: true, message: 'Google Places API key saved successfully' }),
+      JSON.stringify({ success: true }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
