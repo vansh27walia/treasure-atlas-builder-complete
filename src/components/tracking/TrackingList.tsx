@@ -1,7 +1,12 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import TrackingListItem from './TrackingListItem';
 import TrackingEmptyState from './TrackingEmptyState';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Search, RefreshCw, Package } from 'lucide-react';
 
 interface TrackingEvent {
   id: string;
@@ -54,12 +59,85 @@ const TrackingList: React.FC<TrackingListProps> = ({
   setSelectedTracking,
   setActiveFilter
 }) => {
-  if (trackingData.length === 0) {
+  const [trackingInput, setTrackingInput] = useState('');
+  const [manualTrackingData, setManualTrackingData] = useState<TrackingInfo[]>([]);
+  const [isManualTracking, setIsManualTracking] = useState(false);
+  
+  // Combine manually tracked shipments with system tracking data
+  const allTrackingData = [...trackingData, ...manualTrackingData];
+  
+  // Handle manual tracking number input
+  const handleTrackingInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setTrackingInput(e.target.value);
+  };
+  
+  // Track a package manually
+  const trackPackage = async () => {
+    if (!trackingInput.trim()) {
+      toast.error("Please enter a tracking number");
+      return;
+    }
+    
+    setIsManualTracking(true);
+    
+    try {
+      // Call tracking API
+      const { data, error } = await supabase.functions.invoke('get-tracking-info', {
+        body: { tracking_code: trackingInput.trim() }
+      });
+      
+      if (error) throw new Error(error.message);
+      
+      if (data) {
+        // Add to manual tracking list
+        setManualTrackingData(prev => {
+          // Check if tracking number already exists
+          if (prev.some(item => item.tracking_code === data.tracking_code)) {
+            toast.info("This tracking number is already being tracked");
+            return prev;
+          }
+          
+          toast.success("Package tracking added successfully");
+          return [...prev, data];
+        });
+        
+        // Clear input
+        setTrackingInput('');
+      } else {
+        toast.error("No tracking information found for this number");
+      }
+    } catch (error) {
+      console.error('Error tracking package:', error);
+      toast.error("Error tracking package. Please try again.");
+    } finally {
+      setIsManualTracking(false);
+    }
+  };
+  
+  if (allTrackingData.length === 0) {
     return (
-      <TrackingEmptyState 
-        isLoading={isLoading} 
-        onShowAll={() => setActiveFilter('all')} 
-      />
+      <div className="space-y-6">
+        <div className="flex items-center space-x-2 mb-6">
+          <Input 
+            placeholder="Enter tracking number" 
+            value={trackingInput}
+            onChange={handleTrackingInput}
+            className="flex-1"
+          />
+          <Button 
+            onClick={trackPackage}
+            disabled={isManualTracking}
+          >
+            {isManualTracking ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+            Track
+          </Button>
+        </div>
+        
+        <TrackingEmptyState 
+          isLoading={isLoading} 
+          onShowAll={() => setActiveFilter('all')} 
+        />
+      </div>
     );
   }
   
@@ -68,15 +146,33 @@ const TrackingList: React.FC<TrackingListProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      {trackingData.map((item) => (
-        <TrackingListItem
-          key={item.id}
-          item={item}
-          isSelected={selectedTracking === item.tracking_code}
-          onSelect={handleSelectTracking}
+    <div className="space-y-6">
+      <div className="flex items-center space-x-2 mb-6">
+        <Input 
+          placeholder="Enter tracking number" 
+          value={trackingInput}
+          onChange={handleTrackingInput}
+          className="flex-1"
         />
-      ))}
+        <Button 
+          onClick={trackPackage}
+          disabled={isManualTracking}
+        >
+          {isManualTracking ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+          Track
+        </Button>
+      </div>
+      
+      <div className="space-y-4">
+        {allTrackingData.map((item) => (
+          <TrackingListItem
+            key={item.id}
+            item={item}
+            isSelected={selectedTracking === item.tracking_code}
+            onSelect={handleSelectTracking}
+          />
+        ))}
+      </div>
     </div>
   );
 };

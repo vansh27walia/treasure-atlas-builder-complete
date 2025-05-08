@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Index from './pages/Index';
@@ -20,6 +19,7 @@ import PaymentPage from './pages/PaymentPage';
 import InternationalShippingPage from './pages/InternationalShippingPage';
 import LabelSuccessPage from './pages/LabelSuccessPage';
 import PickupPage from './pages/PickupPage';
+import BulkUploadPage from './pages/BulkUploadPage';
 
 function App() {
   return (
@@ -46,6 +46,10 @@ function App() {
               />
               <Route path="/success" element={<LabelSuccessPage />} />
               <Route path="/pickup" element={<PickupPage />} />
+              <Route
+                path="/bulk-upload"
+                element={<ProtectedRoute><BulkUploadPage /></ProtectedRoute>}
+              />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </SidebarNavigation>
