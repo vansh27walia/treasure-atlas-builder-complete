@@ -1,14 +1,34 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-interface UserProfile {
+export interface HomeAddress {
+  name?: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone?: string;
+}
+
+export interface PaymentInfo {
+  card_number: string;
+  exp_month: string;
+  exp_year: string;
+  cardholder_name: string;
+  last4: string;
+  brand?: string;
+}
+
+export interface UserProfile {
   id: string;
   default_pickup_address_id?: number;
-  home_address?: any;
+  home_address?: HomeAddress;
   created_at?: string;
   updated_at?: string;
   onboarding_completed: boolean;
-  payment_info?: any;
+  payment_info?: PaymentInfo;
 }
 
 export class UserProfileService {
@@ -171,6 +191,82 @@ export class UserProfileService {
       return true;
     } catch (error) {
       console.error('Error updating default pickup address:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Update the home address
+   */
+  public async updateHomeAddress(homeAddress: HomeAddress): Promise<boolean> {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) {
+        throw new Error('User is not authenticated');
+      }
+      
+      const userId = session.session.user.id;
+      
+      // Create the profile if it doesn't exist
+      const profile = await this.getUserProfile();
+      if (!profile) {
+        await this.createUserProfile();
+      }
+      
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({
+          home_address: homeAddress,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+      
+      if (error) {
+        console.error('Error updating home address:', error);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating home address:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Update the payment information
+   */
+  public async updatePaymentInfo(paymentInfo: PaymentInfo): Promise<boolean> {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) {
+        throw new Error('User is not authenticated');
+      }
+      
+      const userId = session.session.user.id;
+      
+      // Create the profile if it doesn't exist
+      const profile = await this.getUserProfile();
+      if (!profile) {
+        await this.createUserProfile();
+      }
+      
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({
+          payment_info: paymentInfo,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId);
+      
+      if (error) {
+        console.error('Error updating payment info:', error);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating payment info:', error);
       return false;
     }
   }

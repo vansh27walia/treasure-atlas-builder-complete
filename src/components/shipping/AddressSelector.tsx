@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addressService, SavedAddress } from '@/services/AddressService';
@@ -298,10 +297,14 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     }
   };
   
-  // Handle saving the inline form as a new address
-  const handleSaveInlineForm = async () => {
+  // Instead of testing the result of handleSubmit for truthiness, which returns void,
+  // we'll modify the code to use a different approach
+  handleSaveInlineForm = async () => {
     try {
-      const values = await inlineForm.handleSubmit(async (data) => {
+      let newAddress = null;
+      
+      // Execute the form submission
+      await inlineForm.handleSubmit(async (data) => {
         // Create a properly typed addressData object with required fields
         const addressData: Omit<SavedAddress, "created_at" | "id" | "user_id"> = {
           name: data.name,
@@ -318,7 +321,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
         };
         
         // Create new address
-        const newAddress = await addressService.createAddress(addressData);
+        newAddress = await addressService.createAddress(addressData);
         if (newAddress) {
           // If this is set as default address, update settings
           if (data.is_default_to) {
@@ -327,12 +330,10 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
           
           toast.success("Destination address saved successfully");
           onAddressSelect(newAddress);
-          return newAddress;
         }
-        return null;
       })();
       
-      if (values) {
+      if (newAddress) {
         // Reload the addresses list
         loadAddressData();
       }
