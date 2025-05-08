@@ -23,7 +23,6 @@ const LabelSuccessPage: React.FC = () => {
       setLabelUrl(decodeURIComponent(labelUrlParam));
     } else {
       console.error('No label URL provided in the URL parameters');
-      toast.error('Label URL not found. Please try generating your label again.');
     }
 
     if (trackingCodeParam) {
