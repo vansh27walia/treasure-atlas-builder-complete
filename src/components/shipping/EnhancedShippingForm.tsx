@@ -125,7 +125,7 @@ const EnhancedShippingForm: React.FC = () => {
 
   const handleGetRates = async (values: ShippingFormValues) => {
     if (!fromAddress || !toAddress) {
-      toast.error("Please select both pickup and delivery addresses");
+      toast.error("Please provide both origin and destination addresses");
       return;
     }
 
@@ -212,17 +212,46 @@ const EnhancedShippingForm: React.FC = () => {
   };
 
   return (
-    <div className="mb-8 w-full">
-      <Card className="border-2 border-gray-200 w-full">
+    <div className="w-full mb-6">
+      <Card className="border border-gray-200 w-full">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-gray-200 w-full">
-            {/* Package Dimensions Section - Moved to the top */}
-            <div className="p-6 w-full">
-              <h2 className="text-xl font-semibold mb-6 text-blue-700">Package Dimensions</h2>
+            {/* Addresses Section - Moved to the top */}
+            <div className="p-4">
+              <h2 className="text-lg font-semibold mb-4 text-blue-700">Shipping Addresses</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                {/* Origin Address Section */}
+                <div className="space-y-3 w-full">
+                  <div className="bg-blue-50 p-3 rounded-lg w-full">
+                    <h3 className="text-base font-medium text-blue-700 mb-2">Origin</h3>
+                    <AddressSelector 
+                      type="from"
+                      onAddressSelect={handleFromAddressSelect}
+                    />
+                  </div>
+                </div>
+                
+                {/* Destination Address Section */}
+                <div className="space-y-3 w-full">
+                  <div className="bg-blue-50 p-3 rounded-lg w-full">
+                    <h3 className="text-base font-medium text-blue-700 mb-2">Destination</h3>
+                    <AddressSelector 
+                      type="to"
+                      onAddressSelect={handleToAddressSelect}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Package Dimensions Section */}
+            <div className="p-4 w-full">
+              <h2 className="text-lg font-semibold mb-4 text-blue-700">Package Dimensions</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full">
                 <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-3 gap-3">
                     <FormField
                       control={form.control}
                       name="length"
@@ -284,7 +313,7 @@ const EnhancedShippingForm: React.FC = () => {
                     />
                   </div>
                   
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-3 gap-3">
                     <FormField
                       control={form.control}
                       name="weightValue"
@@ -380,8 +409,8 @@ const EnhancedShippingForm: React.FC = () => {
                   />
                 </div>
                 
-                <div className="space-y-6">
-                  <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="space-y-4">
+                  <div className="bg-blue-50 p-3 rounded-lg">
                     <FormLabel className="text-base font-medium text-blue-700 mb-2">Shipping Carriers</FormLabel>
                     
                     <div className="space-y-2 mt-3">
@@ -481,10 +510,10 @@ const EnhancedShippingForm: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="bg-blue-50 p-3 rounded-lg">
                     <FormLabel className="text-base font-medium text-blue-700 mb-2">Additional Options</FormLabel>
                     
-                    <div className="space-y-3 mt-3">
+                    <div className="space-y-3 mt-2">
                       <FormField
                         control={form.control}
                         name="signatureRequired"
@@ -536,37 +565,8 @@ const EnhancedShippingForm: React.FC = () => {
               </div>
             </div>
             
-            {/* Addresses Section moved below dimensions */}
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-6 text-blue-700">Shipping Addresses</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-                {/* Origin Address Section */}
-                <div className="space-y-4 w-full">
-                  <div className="bg-blue-50 p-4 rounded-lg w-full">
-                    <h3 className="text-lg font-medium text-blue-700 mb-2">Origin</h3>
-                    <AddressSelector 
-                      type="from"
-                      onAddressSelect={handleFromAddressSelect}
-                    />
-                  </div>
-                </div>
-                
-                {/* Destination Address Section */}
-                <div className="space-y-4 w-full">
-                  <div className="bg-blue-50 p-4 rounded-lg w-full">
-                    <h3 className="text-lg font-medium text-blue-700 mb-2">Destination</h3>
-                    <AddressSelector 
-                      type="to"
-                      onAddressSelect={handleToAddressSelect}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            
             {/* Action Button Section */}
-            <div className="p-6 bg-gray-50 w-full">
+            <div className="p-4 bg-gray-50 w-full">
               <div className="flex justify-end">
                 <Button 
                   type="submit" 

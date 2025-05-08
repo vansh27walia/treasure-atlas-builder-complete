@@ -19,7 +19,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { COUNTRIES_LIST } from '@/lib/countries';
-import { Phone } from 'lucide-react';
+import { Phone, MapPin } from 'lucide-react';
 
 // Create a simplified address type that matches the form inputs
 export interface SimpleAddress {
@@ -74,6 +74,19 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     }
   });
   
+  // Auto-submit form when all required fields are filled
+  const watchRequired = form.watch(['name', 'street1', 'city', 'state', 'zip']);
+  
+  React.useEffect(() => {
+    const allFilled = watchRequired.every(field => field && field.trim() !== '');
+    if (allFilled) {
+      const values = form.getValues();
+      if (onAddressSelect) {
+        onAddressSelect(values);
+      }
+    }
+  }, [watchRequired, form, onAddressSelect]);
+  
   const handleSubmit = (values: AddressFormValues) => {
     if (onAddressSelect) {
       onAddressSelect(values);
@@ -82,16 +95,23 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   
   return (
     <Card className="border border-gray-100 shadow-sm">
-      <CardContent className="pt-4">
+      <CardContent className="pt-3">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-3">
             <div className="grid grid-cols-1 gap-3">
+              <div className="flex items-center gap-2 text-blue-600 mb-1">
+                <MapPin className="h-4 w-4" />
+                <span className="text-sm font-medium">
+                  {type === 'from' ? 'Pickup Location' : 'Delivery Location'}
+                </span>
+              </div>
+
               <FormField
                 control={form.control}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Contact Name</FormLabel>
+                    <FormLabel className="text-sm">Contact Name</FormLabel>
                     <FormControl>
                       <Input placeholder="Full name" {...field} />
                     </FormControl>
@@ -105,7 +125,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                 name="company"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company (optional)</FormLabel>
+                    <FormLabel className="text-sm">Company (optional)</FormLabel>
                     <FormControl>
                       <Input placeholder="Company name" {...field} />
                     </FormControl>
@@ -119,7 +139,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                 name="street1"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Street Address</FormLabel>
+                    <FormLabel className="text-sm">Street Address</FormLabel>
                     <FormControl>
                       <Input placeholder="Street address" {...field} />
                     </FormControl>
@@ -133,7 +153,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                 name="street2"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Apartment, Suite, etc. (optional)</FormLabel>
+                    <FormLabel className="text-sm">Apartment, Suite, etc. (optional)</FormLabel>
                     <FormControl>
                       <Input placeholder="Apt, Suite, Unit, etc." {...field} />
                     </FormControl>
@@ -148,7 +168,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                   name="city"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>City</FormLabel>
+                      <FormLabel className="text-sm">City</FormLabel>
                       <FormControl>
                         <Input placeholder="City" {...field} />
                       </FormControl>
@@ -162,7 +182,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                   name="state"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>State/Province</FormLabel>
+                      <FormLabel className="text-sm">State/Province</FormLabel>
                       <FormControl>
                         <Input placeholder="State/Province" {...field} />
                       </FormControl>
@@ -178,7 +198,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                   name="zip"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>ZIP/Postal Code</FormLabel>
+                      <FormLabel className="text-sm">ZIP/Postal Code</FormLabel>
                       <FormControl>
                         <Input placeholder="ZIP/Postal Code" {...field} />
                       </FormControl>
@@ -192,7 +212,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                   name="country"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Country</FormLabel>
+                      <FormLabel className="text-sm">Country</FormLabel>
                       <Select 
                         value={field.value} 
                         onValueChange={field.onChange}
@@ -219,10 +239,10 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                 name="phone"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Phone</FormLabel>
+                    <FormLabel className="text-sm">Phone</FormLabel>
                     <div className="flex items-center">
                       <div className="bg-gray-100 p-2 border border-gray-300 rounded-l-md">
-                        <Phone className="h-5 w-5 text-gray-500" />
+                        <Phone className="h-4 w-4 text-gray-500" />
                       </div>
                       <FormControl>
                         <Input 
@@ -237,10 +257,6 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                 )}
               />
             </div>
-            
-            <Button type="submit" className="w-full mt-2 bg-blue-600 hover:bg-blue-700">
-              {type === 'from' ? 'Use Origin Address' : 'Use Destination Address'}
-            </Button>
           </form>
         </Form>
       </CardContent>
