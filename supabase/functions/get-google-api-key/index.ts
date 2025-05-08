@@ -27,6 +27,8 @@ serve(async (req) => {
       );
     }
     
+    console.log('Retrieved Google Places API key successfully');
+    
     // Return the API key
     return new Response(
       JSON.stringify({ apiKey }),

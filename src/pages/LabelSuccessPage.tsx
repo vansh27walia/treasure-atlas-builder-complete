@@ -48,7 +48,7 @@ const LabelSuccessPage: React.FC = () => {
     // Show success toast
     toast.success('Your shipping label is ready!');
     
-    // Scroll to top
+    // Scroll to top and prevent any unwanted scrolling
     window.scrollTo(0, 0);
     
     // Dispatch event to update workflow step

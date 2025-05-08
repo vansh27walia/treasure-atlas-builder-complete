@@ -1,118 +1,122 @@
 
-import { toast } from '@/components/ui/sonner';
-import { SimpleAddress } from '@/components/shipping/AddressSelector';
+import { supabase } from '@/integrations/supabase/client';
+import { GoogleApiKeyResponse } from '@/types/shipping';
 
-interface PlacePrediction {
-  description: string;
-  place_id: string;
-}
-
-interface GooglePlaceResult {
-  address_components?: {
-    long_name: string;
-    short_name: string;
-    types: string[];
-  }[];
-  formatted_address?: string;
-}
-
-// Function to load Google Maps API
+// Function to load the Google Maps API
 export const loadGoogleMapsAPI = async (): Promise<boolean> => {
-  // If Google API is already loaded, return true
-  if (window.google && window.google.maps) {
-    return true;
-  }
-
-  // Try to get the API key from localStorage
-  const googleApiKey = localStorage.getItem('google_api_key');
-  
-  if (!googleApiKey) {
-    console.log('Google Places API key not found in localStorage');
+  try {
+    // First, check if the API is already loaded
+    if (window.google && window.google.maps) {
+      console.log('Google Maps API already loaded');
+      return true;
+    }
+    
+    // Try to get the API key from Supabase edge function
+    const { data, error } = await supabase.functions.invoke('get-google-api-key', {
+      body: {}
+    });
+    
+    if (error) {
+      console.error('Error fetching Google API key:', error);
+      return false;
+    }
+    
+    const response = data as GoogleApiKeyResponse;
+    
+    if (!response.apiKey) {
+      console.error('No API key returned from server');
+      return false;
+    }
+    
+    const apiKey = response.apiKey;
+    
+    // Load the Google Maps API
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMapsCallback`;
+      script.async = true;
+      script.defer = true;
+      
+      // Define the callback function
+      window.initGoogleMapsCallback = () => {
+        console.log('Google Maps API loaded successfully');
+        resolve(true);
+        delete window.initGoogleMapsCallback;
+      };
+      
+      // Handle loading errors
+      script.onerror = () => {
+        console.error('Error loading Google Maps API');
+        resolve(false);
+      };
+      
+      document.head.appendChild(script);
+    });
+  } catch (error) {
+    console.error('Error in loadGoogleMapsAPI:', error);
     return false;
   }
-
-  return new Promise((resolve) => {
-    // Create a script element
-    const script = document.createElement('script');
-    script.type = 'text/javascript';
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&libraries=places`;
-    
-    // Execute callback when script is loaded
-    script.onload = () => {
-      console.log('Google Places API loaded successfully');
-      resolve(true);
-    };
-    
-    // Handle script load failure
-    script.onerror = () => {
-      console.error('Failed to load Google Places API');
-      toast.error('Failed to load address autocomplete service');
-      resolve(false);
-    };
-    
-    // Append script to document
-    document.head.appendChild(script);
-  });
 };
 
-// Initialize Google Places Autocomplete
+// Function to initialize Google Places Autocomplete on an input field
 export const initAddressAutocomplete = (
-  inputElement: HTMLInputElement,
-  onPlaceSelected: (place: GooglePlaceResult | null) => void
-) => {
-  if (!window.google || !window.google.maps || !window.google.maps.places) {
-    console.error('Google Places API not loaded');
-    return;
-  }
-
+  inputElement: HTMLInputElement, 
+  onPlaceSelected: (place: google.maps.places.PlaceResult) => void
+): google.maps.places.Autocomplete | null => {
   try {
-    const autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
+    if (!window.google || !window.google.maps || !window.google.maps.places) {
+      console.error('Google Maps Places API not loaded');
+      return null;
+    }
+    
+    // Options for autocomplete
+    const options: google.maps.places.AutocompleteOptions = {
+      fields: ['address_components', 'formatted_address', 'geometry'],
       types: ['address'],
-      componentRestrictions: { country: 'us' }, // Restrict to US addresses
-      fields: ['address_components', 'formatted_address']
-    });
-
+    };
+    
+    // Create the autocomplete instance
+    const autocomplete = new google.maps.places.Autocomplete(inputElement, options);
+    
+    // Add listener for place selection
     autocomplete.addListener('place_changed', () => {
       const place = autocomplete.getPlace();
-      onPlaceSelected(place);
-    });
-
-    // Prevent form submission when Enter is pressed in the autocomplete field
-    inputElement.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
+      if (place) {
+        onPlaceSelected(place);
       }
     });
-
+    
     return autocomplete;
   } catch (error) {
-    console.error('Error initializing Google Places Autocomplete:', error);
+    console.error('Error initializing address autocomplete:', error);
     return null;
   }
 };
 
-// Extract address components from Google Places result
-export const extractAddressComponents = (place: GooglePlaceResult): SimpleAddress => {
-  if (!place.address_components) {
-    return {};
-  }
-
-  const addressComponents = place.address_components;
-  let streetNumber = '';
-  let streetName = '';
+// Extract address components from Google Place result
+export const extractAddressComponents = (place: google.maps.places.PlaceResult): {
+  street1: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+} => {
+  let street_number = '';
+  let route = '';
   let city = '';
   let state = '';
   let zip = '';
   let country = 'US';
-
+  
   // Extract each component
-  for (const component of addressComponents) {
+  place.address_components?.forEach((component) => {
     const types = component.types;
-
+    
     if (types.includes('street_number')) {
-      streetNumber = component.long_name;
+      street_number = component.long_name;
     } else if (types.includes('route')) {
-      streetName = component.long_name;
+      route = component.long_name;
     } else if (types.includes('locality') || types.includes('sublocality')) {
       city = component.long_name;
     } else if (types.includes('administrative_area_level_1')) {
@@ -122,51 +126,16 @@ export const extractAddressComponents = (place: GooglePlaceResult): SimpleAddres
     } else if (types.includes('country')) {
       country = component.short_name;
     }
-  }
-
-  // Construct the street address
-  let street1 = '';
-  if (streetNumber && streetName) {
-    street1 = `${streetNumber} ${streetName}`;
-  } else if (streetName) {
-    street1 = streetName;
-  }
-
+  });
+  
+  // Combine street number and route for street address
+  const street1 = street_number && route ? `${street_number} ${route}` : (route || place.formatted_address?.split(',')[0] || '');
+  
   return {
     street1,
     city,
     state,
     zip,
-    country,
-  };
-};
-
-// Helper function to create address select handler
-// This version supports both React Hook Form's setFieldValue and direct React setState
-export const createAddressSelectHandler = (
-  setterOrState: ((name: string, value: any) => void) | React.Dispatch<React.SetStateAction<any>>,
-  prefix: string = ''
-) => {
-  return (address: SimpleAddress) => {
-    // Check if the setter is a React Hook Form setter (has two parameters) or a React setState (has one parameter)
-    if (typeof setterOrState === 'function') {
-      if (setterOrState.length === 2) {
-        // It's a React Hook Form setter
-        const setFieldValue = setterOrState as (name: string, value: any) => void;
-        if (address.name) setFieldValue(`${prefix}name`, address.name);
-        if (address.company) setFieldValue(`${prefix}company`, address.company);
-        if (address.street1) setFieldValue(`${prefix}street1`, address.street1);
-        if (address.street2) setFieldValue(`${prefix}street2`, address.street2);
-        if (address.city) setFieldValue(`${prefix}city`, address.city);
-        if (address.state) setFieldValue(`${prefix}state`, address.state);
-        if (address.zip) setFieldValue(`${prefix}zip`, address.zip);
-        if (address.country) setFieldValue(`${prefix}country`, address.country);
-        if (address.phone) setFieldValue(`${prefix}phone`, address.phone);
-      } else {
-        // It's a React setState
-        const setState = setterOrState as React.Dispatch<React.SetStateAction<any>>;
-        setState(address);
-      }
-    }
+    country
   };
 };

@@ -27,8 +27,8 @@ port = 54326
 enabled = true
 
 [functions.save-google-api-key]
-verify_jwt = true
+verify_jwt = false
 
 [functions.get-google-api-key]
-verify_jwt = true
+verify_jwt = false
 

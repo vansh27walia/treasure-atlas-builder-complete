@@ -1,10 +1,8 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Card,
   CardContent,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -63,7 +61,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   onAddressSelect,
   selectedAddressId,
   inputRef,
-  useGoogleAutocomplete = false
+  useGoogleAutocomplete = true // Enable by default
 }) => {
   const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(false);
   const streetInputRef = useRef<HTMLInputElement>(null);
@@ -106,23 +104,33 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
         const loaded = await loadGoogleMapsAPI();
         setGooglePlacesEnabled(loaded);
         
-        if (loaded && combinedRef.current) {
-          // Initialize autocomplete on street1 input
-          initAddressAutocomplete(combinedRef.current, (place) => {
-            if (place && place.address_components) {
-              const addressComponents = extractAddressComponents(place);
-              
-              // Update form values with extracted address components
-              form.setValue('street1', addressComponents.street1 || '');
-              form.setValue('city', addressComponents.city || '');
-              form.setValue('state', addressComponents.state || '');
-              form.setValue('zip', addressComponents.zip || '');
-              form.setValue('country', addressComponents.country || 'US');
-              
-              // Trigger form validation
-              form.trigger(['street1', 'city', 'state', 'zip', 'country']);
-            }
-          });
+        if (loaded) {
+          console.log('Google Places API loaded successfully, initializing autocomplete');
+          
+          if (combinedRef.current) {
+            // Initialize autocomplete on street1 input
+            initAddressAutocomplete(combinedRef.current, (place) => {
+              if (place && place.address_components) {
+                const addressComponents = extractAddressComponents(place);
+                
+                // Update form values with extracted address components
+                form.setValue('street1', addressComponents.street1 || '');
+                form.setValue('city', addressComponents.city || '');
+                form.setValue('state', addressComponents.state || '');
+                form.setValue('zip', addressComponents.zip || '');
+                form.setValue('country', addressComponents.country || 'US');
+                
+                // Trigger form validation
+                form.trigger(['street1', 'city', 'state', 'zip', 'country']);
+                
+                toast.success('Address found and auto-filled');
+              }
+            });
+          } else {
+            console.warn('Input reference not available for autocomplete');
+          }
+        } else {
+          console.warn('Google Places API could not be loaded');
         }
       } catch (error) {
         console.error('Error initializing Google Places:', error);
@@ -130,7 +138,12 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       }
     };
     
-    initGooglePlaces();
+    // Initialize Google Places after a short delay to ensure the component is fully rendered
+    const timer = setTimeout(() => {
+      initGooglePlaces();
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, [form, useGoogleAutocomplete, combinedRef]);
   
   const handleSubmit = (values: AddressFormValues) => {
@@ -150,6 +163,11 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                 <span className="text-sm font-medium">
                   {type === 'from' ? 'Pickup Location' : 'Delivery Location'}
                 </span>
+                {googlePlacesEnabled && (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                    Address Autocomplete Enabled
+                  </span>
+                )}
               </div>
 
               <FormField
@@ -188,11 +206,15 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                     <FormLabel className="text-sm">Street Address</FormLabel>
                     <FormControl>
                       <Input 
-                        placeholder={googlePlacesEnabled ? "Start typing address..." : "Street address"} 
+                        placeholder={googlePlacesEnabled ? "Start typing your address..." : "Street address"} 
                         {...field}
                         ref={combinedRef}
+                        className={googlePlacesEnabled ? "border-green-300 focus:border-green-500" : ""}
                       />
                     </FormControl>
+                    {googlePlacesEnabled && (
+                      <p className="text-xs text-green-600">Type to use address autocomplete</p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
