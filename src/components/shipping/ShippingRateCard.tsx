@@ -81,7 +81,8 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
       
       return {
         amount: savingsAmount.toFixed(2),
-        percent: savingsPercent.toFixed(0)
+        percent: savingsPercent.toFixed(0),
+        originalPrice: rate.original_rate
       };
     }
     
@@ -117,6 +118,25 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
 
   const discount = calculateDiscount();
   const effectiveOriginalRate = originalRate || discount?.originalPrice || rate.original_rate;
+
+  // Get carrier logo based on carrier name
+  const getCarrierLogo = (carrier: string) => {
+    const carrierLowerCase = carrier.toLowerCase();
+
+    if (carrierLowerCase.includes('ups')) {
+      return 'https://www.ups.com/assets/resources/images/UPS_logo.svg';
+    } else if (carrierLowerCase.includes('usps')) {
+      return 'https://about.usps.com/postal-bulletin/2013/pb22374/html/logo_005.jpg';
+    } else if (carrierLowerCase.includes('fedex')) {
+      return 'https://www.fedex.com/content/dam/fedex-com/logos/logo.png';
+    } else if (carrierLowerCase.includes('dhl')) {
+      return 'https://www.dhl.com/content/dam/dhl/global/core/images/logos/dhl-logo.svg';
+    } else {
+      return null;
+    }
+  };
+
+  const carrierLogo = getCarrierLogo(rate.carrier);
   
   return (
     <div 
@@ -132,7 +152,17 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
         <div className="p-4 md:col-span-3 border-b md:border-b-0 md:border-r border-gray-200">
           <div className="flex items-center justify-between md:block">
             <div>
-              <h3 className="font-semibold text-gray-800">{rate.carrier.toUpperCase()}</h3>
+              {carrierLogo ? (
+                <div className="h-8 mb-2">
+                  <img 
+                    src={carrierLogo} 
+                    alt={`${rate.carrier} logo`}
+                    className="max-h-8 max-w-full object-contain"
+                  />
+                </div>
+              ) : (
+                <h3 className="font-semibold text-gray-800">{rate.carrier.toUpperCase()}</h3>
+              )}
               <p className="text-sm text-gray-600 mt-1">{rate.service}</p>
               
               {/* Tags section */}

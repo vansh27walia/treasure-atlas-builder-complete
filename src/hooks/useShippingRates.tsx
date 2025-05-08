@@ -109,6 +109,14 @@ export const useShippingRates = () => {
     const handleRateSelected = (event: CustomEvent<{rateId: string}>) => {
       if (event.detail && event.detail.rateId) {
         setSelectedRateId(event.detail.rateId);
+        
+        // Automatically create label when a rate is selected
+        setTimeout(() => {
+          const selectedRate = rates.find(rate => rate.id === event.detail.rateId);
+          if (selectedRate && selectedRate.shipment_id) {
+            handleCreateLabel(event.detail.rateId, selectedRate.shipment_id);
+          }
+        }, 300);
       }
     };
     
@@ -118,7 +126,7 @@ export const useShippingRates = () => {
       document.removeEventListener('easypost-rates-received', handleRatesReceived as EventListener);
       document.removeEventListener('select-shipping-rate', handleRateSelected as EventListener);
     };
-  }, []);
+  }, [rates]);
   
   // Filter rates when carrier filter changes
   useEffect(() => {
@@ -135,6 +143,14 @@ export const useShippingRates = () => {
   const handleSelectRate = (rateId: string) => {
     setSelectedRateId(rateId);
     
+    // Find the rate with this ID
+    const selectedRate = rates.find(rate => rate.id === rateId);
+    
+    // Automatically create label when a rate is selected
+    if (selectedRate && selectedRate.shipment_id) {
+      handleCreateLabel(rateId, selectedRate.shipment_id);
+    }
+    
     // Scroll to the selected rate
     setTimeout(() => {
       const selectedRateElement = document.querySelector(`[data-rate-id="${rateId}"]`);
@@ -148,8 +164,12 @@ export const useShippingRates = () => {
     setActiveCarrierFilter(carrier);
   };
 
-  const handleCreateLabel = async () => {
-    if (!selectedRateId || !shipmentId) {
+  // Modified to accept rateId and shipmentId params for automatic calling
+  const handleCreateLabel = async (rateIdParam?: string, shipmentIdParam?: string) => {
+    const effectiveRateId = rateIdParam || selectedRateId;
+    const effectiveShipmentId = shipmentIdParam || shipmentId;
+    
+    if (!effectiveRateId || !effectiveShipmentId) {
       toast.error("Please select a shipping rate first");
       return;
     }
@@ -157,10 +177,10 @@ export const useShippingRates = () => {
     setIsLoading(true);
     
     try {
-      console.log("Creating label with shipmentId:", shipmentId, "and rateId:", selectedRateId);
+      console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
       
       // Get the selected rate to determine if it's international
-      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      const selectedRate = rates.find(rate => rate.id === effectiveRateId);
       const isInternational = selectedRate?.service?.toLowerCase().includes('international');
       
       // Choose the appropriate endpoint based on whether it's international
@@ -171,8 +191,8 @@ export const useShippingRates = () => {
       // Add label format and size to options
       const { data, error } = await supabase.functions.invoke(endpoint, {
         body: { 
-          shipmentId, 
-          rateId: selectedRateId,
+          shipmentId: effectiveShipmentId, 
+          rateId: effectiveRateId,
           options: {
             label_format: "PDF",
             label_size: "4x6"
@@ -196,7 +216,7 @@ export const useShippingRates = () => {
       toast.success("Shipping label generated successfully");
       
       // Navigate to the label success page with all parameters
-      navigate(`/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || shipmentId)}`);
+      navigate(`/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`);
       
     } catch (error) {
       console.error('Error creating label:', error);

@@ -21,6 +21,8 @@ const LabelSuccessPage: React.FC = () => {
 
     if (labelUrlParam) {
       setLabelUrl(decodeURIComponent(labelUrlParam));
+    } else {
+      console.error('No label URL provided in the URL parameters');
     }
 
     if (trackingCodeParam) {
@@ -32,12 +34,38 @@ const LabelSuccessPage: React.FC = () => {
     }
 
     // Show success toast
-    toast.success('Payment successful! Your shipping label is ready.');
+    toast.success('Your shipping label is ready!');
   }, [location]);
   
   const handleViewTracking = () => {
     // Navigate to the tracking dashboard with the tracking code as a query parameter
     navigate(`/dashboard?tab=tracking&tracking=${trackingCode || ''}`);
+  };
+
+  const handleDownloadLabel = () => {
+    if (!labelUrl) {
+      toast.error('No label URL available for download');
+      return;
+    }
+    
+    try {
+      // Create a hidden iframe to download without navigating away
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = labelUrl;
+      document.body.appendChild(iframe);
+      
+      // Remove the iframe after a moment
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        toast.success('Label download started');
+      }, 1000);
+    } catch (error) {
+      console.error('Error downloading label:', error);
+      
+      // Fallback - open in new window
+      window.open(labelUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
@@ -49,19 +77,20 @@ const LabelSuccessPage: React.FC = () => {
           </div>
         </div>
 
-        <h1 className="text-3xl font-bold text-green-800 mb-2">Payment Successful!</h1>
+        <h1 className="text-3xl font-bold text-green-800 mb-2">Label Created Successfully!</h1>
         <p className="text-gray-600 mb-8">
           Your shipping label has been generated successfully.
-          {trackingCode && ` Tracking number: ${trackingCode}`}
+          {trackingCode && <> Tracking number: <span className="font-semibold">{trackingCode}</span></>}
         </p>
 
         <div className="flex flex-col sm:flex-row justify-center gap-4 mb-8">
           {labelUrl && (
-            <Button className="flex items-center gap-2" asChild>
-              <a href={labelUrl} target="_blank" rel="noopener noreferrer" download="shipping-label.pdf">
-                <Download className="h-5 w-5" />
-                Download Label
-              </a>
+            <Button 
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+              onClick={handleDownloadLabel}
+            >
+              <Download className="h-5 w-5" />
+              Download Label
             </Button>
           )}
 

@@ -1,97 +1,150 @@
 
-import { SavedAddress } from '@/services/AddressService';
-import { SimpleAddress } from '@/components/shipping/AddressSelector';
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from '@/integrations/supabase/client';
 
-// Add a type declaration for the Google Maps API
+// Define types for Google Maps API
 declare global {
   interface Window {
-    google?: {
-      maps: any;
+    google: {
+      maps: {
+        places: {
+          Autocomplete: new (input: HTMLInputElement, options?: object) => any;
+          AutocompleteService: any;
+          PlacesService: any;
+        };
+      };
     };
   }
 }
 
 /**
- * Creates a temporary SavedAddress object from a SimpleAddress form input
- * This allows components to work with SimpleAddress inputs while maintaining
- * compatibility with SavedAddress type requirements
- */
-export function createTempSavedAddress(simpleAddress: SimpleAddress): SavedAddress {
-  return {
-    // Generate a temporary negative ID that won't conflict with DB IDs
-    id: Math.floor(Math.random() * -1000) - 1,
-    user_id: 'temp',
-    is_default_from: false,
-    is_default_to: false,
-    // Ensure all required fields have default values if they're undefined
-    name: simpleAddress.name || 'Unnamed',  // Default name for SavedAddress
-    company: simpleAddress.company,
-    street1: simpleAddress.street1 || '',   // Default empty string if undefined
-    street2: simpleAddress.street2,
-    city: simpleAddress.city || '',         // Default empty string if undefined
-    state: simpleAddress.state || '',       // Default empty string if undefined
-    zip: simpleAddress.zip || '',           // Default empty string if undefined
-    country: simpleAddress.country || 'US', // Default to US if undefined
-    phone: simpleAddress.phone,
-  };
-}
-
-/**
- * Adapter function to convert from useState dispatcher to AddressSelector compatible function
- */
-export function createAddressSelectHandler(
-  setter: React.Dispatch<React.SetStateAction<SavedAddress | null>>
-): (address: SimpleAddress) => void {
-  return (simpleAddress: SimpleAddress) => {
-    const tempSavedAddress = createTempSavedAddress(simpleAddress);
-    setter(tempSavedAddress);
-  };
-}
-
-/**
- * Loads the Google Maps JavaScript API with Places library
- * This function will fetch the API key from our secure Edge Function
+ * Loads the Google Maps API with Places library
  */
 export const loadGoogleMapsAPI = async (): Promise<boolean> => {
+  // If already loaded, return true
+  if (window.google && window.google.maps && window.google.maps.places) {
+    return true;
+  }
+
   try {
-    // If Google API is already loaded, don't load it again
-    if (window.google && window.google.maps) {
-      return true;
-    }
-    
-    // Fetch API key from secure Edge Function
+    // Get API key from Supabase securely
     const { data, error } = await supabase.functions.invoke('get-google-api-key');
     
-    if (error || !data?.available || !data?.apiKey) {
-      console.error('Failed to load Google API key:', error || 'API key not available');
+    if (error || !data || !data.apiKey) {
+      console.error('Error retrieving Google API key:', error);
       return false;
     }
+    
+    const apiKey = data.apiKey;
     
     return new Promise((resolve) => {
       // Create script element
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
       script.async = true;
       script.defer = true;
       
-      // On load callback
       script.onload = () => {
         console.log('Google Maps API loaded successfully');
         resolve(true);
       };
       
-      // On error callback
       script.onerror = () => {
         console.error('Failed to load Google Maps API');
         resolve(false);
       };
       
-      // Append script to document
+      // Add script to document
       document.head.appendChild(script);
     });
   } catch (error) {
-    console.error('Error loading Google Maps API:', error);
+    console.error('Error in loadGoogleMapsAPI:', error);
     return false;
   }
+};
+
+/**
+ * Initializes Google Places Autocomplete on an input element
+ */
+export const initAddressAutocomplete = (inputElement: HTMLInputElement, onPlaceSelected?: (place: any) => void) => {
+  if (!window.google || !window.google.maps || !window.google.maps.places) {
+    console.warn('Google Maps API not loaded. Cannot initialize autocomplete.');
+    return null;
+  }
+  
+  const options = {
+    componentRestrictions: { country: 'us' },
+    fields: ['address_components', 'formatted_address', 'geometry'],
+  };
+  
+  const autocomplete = new window.google.maps.places.Autocomplete(inputElement, options);
+  
+  if (onPlaceSelected) {
+    autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+      onPlaceSelected(place);
+    });
+  }
+  
+  return autocomplete;
+};
+
+/**
+ * Extracts address components from a Google Place result
+ */
+export const extractAddressComponents = (place: any) => {
+  if (!place || !place.address_components) {
+    return {};
+  }
+  
+  const addressComponents = place.address_components;
+  const result: Record<string, string> = {};
+  
+  // Map Google address components to our format
+  for (const component of addressComponents) {
+    const types = component.types;
+    
+    if (types.includes('street_number')) {
+      result.streetNumber = component.long_name;
+    } else if (types.includes('route')) {
+      result.street = component.long_name;
+    } else if (types.includes('locality')) {
+      result.city = component.long_name;
+    } else if (types.includes('administrative_area_level_1')) {
+      result.state = component.short_name;
+    } else if (types.includes('postal_code')) {
+      result.zip = component.long_name;
+    } else if (types.includes('country')) {
+      result.country = component.short_name;
+    }
+  }
+  
+  // Combine street number and street for street1
+  if (result.streetNumber && result.street) {
+    result.street1 = `${result.streetNumber} ${result.street}`;
+  }
+  
+  return result;
+};
+
+/**
+ * Format an address object into a readable string
+ */
+export const formatAddress = (address: any): string => {
+  if (!address) return '';
+  
+  const parts = [];
+  
+  if (address.street1) parts.push(address.street1);
+  if (address.street2) parts.push(address.street2);
+  
+  const cityStateZip = [
+    address.city, 
+    address.state ? `${address.state}` : '', 
+    address.zip
+  ].filter(Boolean).join(', ');
+  
+  if (cityStateZip) parts.push(cityStateZip);
+  if (address.country && address.country !== 'US') parts.push(address.country);
+  
+  return parts.join(', ');
 };

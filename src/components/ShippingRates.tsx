@@ -6,6 +6,7 @@ import ShippingRateCard from './shipping/ShippingRateCard';
 import ShippingLabel from './shipping/ShippingLabel';
 import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
+import ShippingWorkflow from './shipping/ShippingWorkflow';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
@@ -40,6 +41,7 @@ const ShippingRates: React.FC = () => {
   if (rates.length === 0) {
     return (
       <div className="mt-8 w-full" id="shipping-rates-section">
+        <ShippingWorkflow currentStep="rates" />
         <EmptyRatesState />
         <div className="mt-4 flex justify-end">
           <Link to="/bulk-upload">
@@ -68,6 +70,7 @@ const ShippingRates: React.FC = () => {
 
   return (
     <div className="mt-8 w-full px-4" id="shipping-rates-section">
+      <ShippingWorkflow currentStep={labelUrl ? 'label' : 'rates'} />
       <Card className="border-2 border-gray-200 shadow-md rounded-xl overflow-hidden w-full">
         <div className="p-6">
           <div className="flex justify-between mb-6">
@@ -156,7 +159,7 @@ const ShippingRates: React.FC = () => {
                       rateId: aiRecommendation.bestOverall || '',
                       reason: aiRecommendation.analysisText || ''
                     }}
-                    showDiscount={!!rate.original_rate && parseFloat(rate.original_rate) > parseFloat(rate.rate)}
+                    showDiscount={true}
                     originalRate={rate.original_rate}
                   />
                 ))}
@@ -177,7 +180,7 @@ const ShippingRates: React.FC = () => {
               
               <div className="mt-8 flex flex-wrap justify-end gap-4">
                 <Button 
-                  onClick={handleCreateLabel}
+                  onClick={() => handleCreateLabel()}
                   disabled={!selectedRateId || isLoading}
                   className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-6 py-2 h-12 text-base"
                 >

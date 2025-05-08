@@ -14,24 +14,29 @@ serve(async (req) => {
   }
 
   try {
-    // Get the Google Places API key from environment
-    const googleApiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
-    
-    if (!googleApiKey) {
-      // Return a non-error response when the key is not set yet
+    // This function requires authentication (JWT)
+    const token = req.headers.get('Authorization')?.replace('Bearer ', '');
+    if (!token) {
       return new Response(
-        JSON.stringify({ available: false, message: 'Google Places API key not configured' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Unauthorized' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       );
     }
 
-    // Authentication is already handled by Supabase
-    // Return the API key for use in address autocomplete
+    // Get the API key from environment variables
+    const apiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
+    
+    if (!apiKey) {
+      console.error('Google Places API key not configured');
+      return new Response(
+        JSON.stringify({ error: 'API key not configured', message: 'Please ask your administrator to set up the Google Places API key.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
+    }
+    
+    // Return the API key
     return new Response(
-      JSON.stringify({ 
-        available: true, 
-        apiKey: googleApiKey,
-      }),
+      JSON.stringify({ apiKey }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

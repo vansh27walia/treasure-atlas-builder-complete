@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Card,
   CardContent,
@@ -19,6 +20,8 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { COUNTRIES_LIST } from '@/lib/countries';
 import { Phone, MapPin } from 'lucide-react';
+import { loadGoogleMapsAPI, initAddressAutocomplete, extractAddressComponents } from '@/utils/addressUtils';
+import { toast } from '@/components/ui/sonner';
 
 // Create a simplified address type that matches the form inputs
 export interface SimpleAddress {
@@ -59,6 +62,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   selectedAddressId
 }) => {
   const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(false);
+  const streetInputRef = useRef<HTMLInputElement>(null);
   
   const form = useForm<AddressFormValues>({
     resolver: zodResolver(addressSchema),
@@ -78,7 +82,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   // Auto-submit form when all required fields are filled
   const watchRequired = form.watch(['name', 'street1', 'city', 'state', 'zip']);
   
-  React.useEffect(() => {
+  useEffect(() => {
     const allFilled = watchRequired.every(field => field && field.trim() !== '');
     if (allFilled) {
       const values = form.getValues();
@@ -88,18 +92,45 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     }
   }, [watchRequired, form, onAddressSelect]);
   
+  // Initialize Google Places API
+  useEffect(() => {
+    const initGooglePlaces = async () => {
+      try {
+        const loaded = await loadGoogleMapsAPI();
+        setGooglePlacesEnabled(loaded);
+        
+        if (loaded && streetInputRef.current) {
+          // Initialize autocomplete on street1 input
+          initAddressAutocomplete(streetInputRef.current, (place) => {
+            if (place && place.address_components) {
+              const addressComponents = extractAddressComponents(place);
+              
+              // Update form values with extracted address components
+              form.setValue('street1', addressComponents.street1 || '');
+              form.setValue('city', addressComponents.city || '');
+              form.setValue('state', addressComponents.state || '');
+              form.setValue('zip', addressComponents.zip || '');
+              form.setValue('country', addressComponents.country || 'US');
+              
+              // Trigger form validation
+              form.trigger(['street1', 'city', 'state', 'zip', 'country']);
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error initializing Google Places:', error);
+        setGooglePlacesEnabled(false);
+      }
+    };
+    
+    initGooglePlaces();
+  }, [form]);
+  
   const handleSubmit = (values: AddressFormValues) => {
     if (onAddressSelect) {
       onAddressSelect(values);
     }
   };
-  
-  // Check for Google Places API availability
-  React.useEffect(() => {
-    // Here we would check if the Google Places API key is available
-    // For now, we'll just set it to false until we implement the full API integration
-    setGooglePlacesEnabled(false);
-  }, []);
   
   return (
     <Card className="border border-gray-100 shadow-sm">
@@ -113,9 +144,6 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                   {type === 'from' ? 'Pickup Location' : 'Delivery Location'}
                 </span>
               </div>
-
-              {/* Future Google Places autocomplete input will go here */}
-              {/* We'll keep the regular inputs for now */}
 
               <FormField
                 control={form.control}
@@ -152,7 +180,11 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                   <FormItem>
                     <FormLabel className="text-sm">Street Address</FormLabel>
                     <FormControl>
-                      <Input placeholder="Street address" {...field} />
+                      <Input 
+                        placeholder={googlePlacesEnabled ? "Start typing address..." : "Street address"} 
+                        {...field}
+                        ref={streetInputRef}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
