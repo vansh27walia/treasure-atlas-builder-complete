@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { SavedAddress } from '@/services/AddressService';
 
 // Define types for Google Maps API
 declare global {
@@ -147,4 +148,14 @@ export const formatAddress = (address: any): string => {
   if (address.country && address.country !== 'US') parts.push(address.country);
   
   return parts.join(', ');
+};
+
+/**
+ * Creates a handler function for address selection
+ * This is used across various shipping forms to handle address selection
+ */
+export const createAddressSelectHandler = (setAddressState: React.Dispatch<React.SetStateAction<SavedAddress | null>>) => {
+  return (address: SavedAddress) => {
+    setAddressState(address);
+  };
 };
