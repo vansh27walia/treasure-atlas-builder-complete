@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { GoogleApiKeyResponse } from '@/types/shipping';
 import { SavedAddress } from '@/services/AddressService';
@@ -182,20 +181,30 @@ export const initDomesticAddressAutocomplete = (
   });
 };
 
-// Helper function to get carrier logo URL by carrier name
+// Get carrier logo URL based on carrier name
 export const getCarrierLogoUrl = (carrier: string): string => {
-  const carrierLowerCase = carrier.toLowerCase();
+  const normalizedCarrier = carrier.toLowerCase();
   
-  if (carrierLowerCase.includes('usps')) {
-    return 'https://www.easypost.com/assets/images/carriers/usps.svg';
-  } else if (carrierLowerCase.includes('ups')) {
-    return 'https://www.easypost.com/assets/images/carriers/ups.svg';
-  } else if (carrierLowerCase.includes('fedex')) {
-    return 'https://www.easypost.com/assets/images/carriers/fedex.svg';
-  } else if (carrierLowerCase.includes('dhl')) {
-    return 'https://www.easypost.com/assets/images/carriers/dhl.svg';
-  }
+  // Map of carrier names to their logo URLs
+  const carrierLogos: Record<string, string> = {
+    'usps': 'https://upload.wikimedia.org/wikipedia/commons/1/1b/USPS_eagle_logo.svg',
+    'ups': 'https://upload.wikimedia.org/wikipedia/commons/6/6b/United_Parcel_Service_logo_2014.svg',
+    'fedex': 'https://upload.wikimedia.org/wikipedia/commons/b/b7/FedEx_Ground_logo.svg',
+    'dhl': 'https://upload.wikimedia.org/wikipedia/commons/5/5d/DHL_Logo.svg',
+    'ontrac': 'https://www.ontrac.com/images/ontrac-logo.png',
+    'lasership': 'https://www.lasership.com/wp-content/uploads/2022/05/LS_horizontal-blue-yellow.svg',
+    'amazon': 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg',
+  };
   
-  // Default logo if carrier not recognized
-  return '';
+  // Check if the carrier is in our map, accounting for partial matches
+  let logoUrl = '';
+  
+  Object.keys(carrierLogos).forEach(key => {
+    if (normalizedCarrier.includes(key)) {
+      logoUrl = carrierLogos[key];
+    }
+  });
+  
+  // Return logo URL or empty string if not found
+  return logoUrl;
 };

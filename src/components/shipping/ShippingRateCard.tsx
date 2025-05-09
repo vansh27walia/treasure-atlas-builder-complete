@@ -52,8 +52,13 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   const discountPercent = hasDiscount ? 
     Math.round((1 - (Number(rate.rate) / Number(originalRate))) * 100) : 0;
   
-  // Get carrier logo
+  // Get carrier logo with fallback
   const carrierLogo = getCarrierLogoUrl(rate.carrier);
+  
+  // Fallback for carrier display name
+  const getCarrierDisplayName = (carrier: string): string => {
+    return carrier.toUpperCase();
+  };
   
   return (
     <div
@@ -64,20 +69,29 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
       `}
       onClick={() => onSelect(rate.id)}
       data-testid={`rate-card-${rate.id}`}
+      data-rate-id={rate.id}
     >
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-3">
-          {carrierLogo && (
-            <div className="h-10 w-16 flex items-center justify-center">
+          {carrierLogo ? (
+            <div className="h-10 w-16 flex items-center justify-center bg-white p-1 rounded">
               <img 
                 src={carrierLogo} 
                 alt={`${rate.carrier} logo`} 
                 className="h-8 w-auto object-contain"
+                onError={(e) => {
+                  // If image fails to load, hide the image container
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
               />
+            </div>
+          ) : (
+            <div className="h-10 w-16 flex items-center justify-center bg-gray-100 rounded">
+              <span className="text-xs font-bold text-gray-700">{getCarrierDisplayName(rate.carrier)}</span>
             </div>
           )}
           <div>
-            <h3 className="font-medium text-gray-900 mb-1">{rate.carrier}</h3>
+            <h3 className="font-medium text-gray-900 mb-1">{getCarrierDisplayName(rate.carrier)}</h3>
             <p className="text-sm text-gray-600">{rate.service}</p>
           </div>
         </div>
