@@ -185,7 +185,7 @@ serve(async (req) => {
           id: `ship_${crypto.randomUUID().substring(0, 8)}`,
           tracking_code: `EZ${Math.floor(Math.random() * 10000000).toString().padStart(8, '0')}`,
           label_url: 'https://assets.easypost.com/shipping_labels/example_label.png',
-          status: 'created',
+          status: 'pending',
           row: i,
           recipient,
           carrier: randomService.carrier,

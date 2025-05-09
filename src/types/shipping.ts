@@ -22,7 +22,9 @@ export interface BulkShipment {
   carrier: string;
   service: string;
   rate: number;
-  trackingCode?: string;
+  tracking_code?: string;
+  label_url?: string;
+  trackingCode?: string; // For backward compatibility
   status: 'pending' | 'processing' | 'error' | 'completed';
   error?: string;
   details: {

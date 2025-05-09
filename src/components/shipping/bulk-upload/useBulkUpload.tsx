@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
@@ -89,10 +90,10 @@ export const useBulkUpload = () => {
       setProgress(90); // Processing complete
       
       // Initialize the shipments with empty available rates
-      const processedShipments = data.processedShipments.map((shipment: BulkShipment) => ({
+      const processedShipments = data.processedShipments.map((shipment: any) => ({
         ...shipment,
         availableRates: [],
-        status: 'pending'
+        status: shipment.status as 'pending' | 'processing' | 'error' | 'completed'
       }));
 
       setResults({
@@ -462,7 +463,11 @@ export const useBulkUpload = () => {
     // In a real app, this would download a ZIP file with all labels
     // For this demo, we'll open the first label URL as an example
     toast.success(`Preparing ${results.successful} labels for download`);
-    window.open(results.processedShipments[0].label_url, '_blank');
+    const firstShipment = results.processedShipments[0];
+    const labelUrl = firstShipment.label_url || '';
+    if (labelUrl) {
+      window.open(labelUrl, '_blank');
+    }
   };
 
   const handleDownloadSingleLabel = (labelUrl: string) => {

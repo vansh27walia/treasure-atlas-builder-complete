@@ -4,30 +4,10 @@ import { Check } from 'lucide-react';
 import OrderSummary from './OrderSummary';
 import SuccessfulShipmentsTable from './SuccessfulShipmentsTable';
 import FailedShipmentsTable from './FailedShipmentsTable';
-
-interface ProcessingResult {
-  total: number;
-  successful: number;
-  failed: number;
-  totalCost: number;
-  processedShipments: Array<{
-    id: string;
-    tracking_code: string;
-    label_url: string;
-    status: string;
-    row: number;
-    recipient: string;
-    carrier: string;
-  }>;
-  failedShipments: Array<{
-    row: number;
-    error: string;
-    details: string;
-  }>;
-}
+import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 
 interface SuccessNotificationProps {
-  results: ProcessingResult;
+  results: BulkUploadResult;
   onDownloadAllLabels: () => void;
   onDownloadSingleLabel: (labelUrl: string) => void;
   onProceedToPayment: () => void;
