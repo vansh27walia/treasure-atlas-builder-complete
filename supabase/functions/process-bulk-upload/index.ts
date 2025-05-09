@@ -15,6 +15,23 @@ interface ShipmentResult {
   row: number;
   recipient: string;
   carrier: string;
+  service: string;
+  rate: number;
+  details: {
+    name: string;
+    company?: string;
+    street1: string;
+    street2?: string;
+    city: string;
+    state: string;
+    zip: string;
+    country: string;
+    phone?: string;
+    parcel_length?: number;
+    parcel_width?: number;
+    parcel_height?: number;
+    parcel_weight?: number;
+  }
 }
 
 interface ProcessingError {
@@ -122,7 +139,7 @@ serve(async (req) => {
       
       try {
         // Extract address data
-        const toAddress: Address = {
+        const recipientDetails = {
           name: rowData[fieldIndexes.name],
           company: fieldIndexes.company >= 0 ? rowData[fieldIndexes.company] : undefined,
           street1: rowData[fieldIndexes.street1],
@@ -132,18 +149,14 @@ serve(async (req) => {
           zip: rowData[fieldIndexes.zip],
           country: rowData[fieldIndexes.country],
           phone: fieldIndexes.phone >= 0 ? rowData[fieldIndexes.phone] : undefined,
-        };
-        
-        // Extract parcel data
-        const parcelData = {
-          length: fieldIndexes.parcel_length >= 0 ? parseFloat(rowData[fieldIndexes.parcel_length]) : 8,
-          width: fieldIndexes.parcel_width >= 0 ? parseFloat(rowData[fieldIndexes.parcel_width]) : 6,
-          height: fieldIndexes.parcel_height >= 0 ? parseFloat(rowData[fieldIndexes.parcel_height]) : 4,
-          weight: fieldIndexes.parcel_weight >= 0 ? parseFloat(rowData[fieldIndexes.parcel_weight]) : 16,
+          parcel_length: fieldIndexes.parcel_length >= 0 ? parseFloat(rowData[fieldIndexes.parcel_length]) : 8,
+          parcel_width: fieldIndexes.parcel_width >= 0 ? parseFloat(rowData[fieldIndexes.parcel_width]) : 6,
+          parcel_height: fieldIndexes.parcel_height >= 0 ? parseFloat(rowData[fieldIndexes.parcel_height]) : 4,
+          parcel_weight: fieldIndexes.parcel_weight >= 0 ? parseFloat(rowData[fieldIndexes.parcel_weight]) : 16,
         };
         
         // Validate the address
-        if (!toAddress.street1 || !toAddress.city || !toAddress.state || !toAddress.zip || !toAddress.country) {
+        if (!recipientDetails.street1 || !recipientDetails.city || !recipientDetails.state || !recipientDetails.zip || !recipientDetails.country) {
           throw new Error('Missing required address fields');
         }
         
@@ -151,8 +164,21 @@ serve(async (req) => {
         // const shipment = await createEasyPostShipment(origin, toAddress, parcelData, apiKey);
         
         // For this demo, we'll generate mock data
-        const recipient = toAddress.name;
-        const carrier = Math.random() > 0.5 ? 'USPS' : Math.random() > 0.5 ? 'UPS' : 'FedEx';
+        const recipient = recipientDetails.name;
+        // Assign a random carrier
+        const carriersAndServices = [
+          { carrier: 'USPS', service: 'Priority' },
+          { carrier: 'USPS', service: 'First-Class' },
+          { carrier: 'UPS', service: 'Ground' },
+          { carrier: 'UPS', service: '2nd Day Air' },
+          { carrier: 'FedEx', service: 'Ground' },
+          { carrier: 'FedEx', service: 'Express' },
+        ];
+        const randomService = carriersAndServices[Math.floor(Math.random() * carriersAndServices.length)];
+        
+        // Generate a base rate between $5-20 based on package weight
+        const weight = recipientDetails.parcel_weight || 1;
+        const baseRate = 5 + (weight * 0.2) + (Math.random() * 10);
         
         // Create a mock processed shipment result with label URL
         processedShipments.push({
@@ -162,7 +188,10 @@ serve(async (req) => {
           status: 'created',
           row: i,
           recipient,
-          carrier
+          carrier: randomService.carrier,
+          service: randomService.service,
+          rate: parseFloat(baseRate.toFixed(2)),
+          details: recipientDetails
         });
       } catch (error) {
         // Add to failed shipments
@@ -177,16 +206,19 @@ serve(async (req) => {
     const successful = processedShipments.length;
     const failed = failedShipments.length;
     
+    // Calculate total cost based on shipment rates
+    const totalCost = processedShipments.reduce((sum, shipment) => sum + shipment.rate, 0);
+    
     // Return the results with detailed information
     return new Response(
       JSON.stringify({ 
         total: total,
         successful,
         failed,
-        totalCost: successful * 4.99, // Assuming $4.99 per label
+        totalCost,
         processedShipments,
         failedShipments,
-        message: `Processed ${successful} out of ${total} shipments successfully and generated labels` 
+        message: `Processed ${successful} out of ${total} shipments successfully` 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
