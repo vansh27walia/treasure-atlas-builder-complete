@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // Set up CORS headers
@@ -11,7 +10,7 @@ interface ShipmentResult {
   id: string;
   tracking_code: string;
   label_url: string;
-  status: string;
+  status: "pending" | "processing" | "error" | "completed";
   row: number;
   recipient: string;
   carrier: string;
@@ -180,12 +179,12 @@ serve(async (req) => {
         const weight = recipientDetails.parcel_weight || 1;
         const baseRate = 5 + (weight * 0.2) + (Math.random() * 10);
         
-        // Create a mock processed shipment result with label URL
+        // Create a mock processed shipment result with label URL and properly typed status
         processedShipments.push({
           id: `ship_${crypto.randomUUID().substring(0, 8)}`,
           tracking_code: `EZ${Math.floor(Math.random() * 10000000).toString().padStart(8, '0')}`,
           label_url: 'https://assets.easypost.com/shipping_labels/example_label.png',
-          status: 'pending',
+          status: "pending", // Using the proper enum value
           row: i,
           recipient,
           carrier: randomService.carrier,

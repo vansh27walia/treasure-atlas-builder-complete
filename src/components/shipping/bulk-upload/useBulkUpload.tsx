@@ -1,9 +1,21 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
 import { BulkShipment, BulkUploadResult, CarrierOption, CARRIER_OPTIONS } from '@/types/shipping';
+
+// Helper function to validate and normalize status values
+const normalizeStatus = (status: string): 'pending' | 'processing' | 'error' | 'completed' => {
+  if (status === 'pending' || status === 'processing' || status === 'error' || status === 'completed') {
+    return status;
+  }
+  // Map other potential statuses to one of our allowed values
+  if (status === 'created') return 'pending';
+  if (status === 'success') return 'completed';
+  if (status === 'failed') return 'error';
+  // Default fallback
+  return 'pending';
+};
 
 export const useBulkUpload = () => {
   const navigate = useNavigate();
@@ -89,11 +101,11 @@ export const useBulkUpload = () => {
 
       setProgress(90); // Processing complete
       
-      // Initialize the shipments with empty available rates
-      const processedShipments = data.processedShipments.map((shipment: any) => ({
+      // Initialize the shipments with empty available rates and properly typed status
+      const processedShipments: BulkShipment[] = data.processedShipments.map((shipment: any) => ({
         ...shipment,
         availableRates: [],
-        status: shipment.status as 'pending' | 'processing' | 'error' | 'completed'
+        status: normalizeStatus(shipment.status || 'pending')
       }));
 
       setResults({
@@ -127,7 +139,7 @@ export const useBulkUpload = () => {
     setIsFetchingRates(true);
     
     try {
-      const updatedShipments = [...shipments];
+      const updatedShipments: BulkShipment[] = [...shipments];
       let successCount = 0;
       
       for (let i = 0; i < updatedShipments.length; i++) {
@@ -135,7 +147,7 @@ export const useBulkUpload = () => {
         
         try {
           // Update status to show we're processing this shipment
-          updatedShipments[i] = { ...shipment, status: 'processing' };
+          updatedShipments[i] = { ...shipment, status: 'processing' as const };
           setResults(prev => prev ? {
             ...prev,
             processedShipments: updatedShipments
@@ -148,7 +160,7 @@ export const useBulkUpload = () => {
           updatedShipments[i] = { 
             ...shipment, 
             availableRates: rates,
-            status: 'completed',
+            status: 'completed' as const,
             // Set default selected rate to the cheapest option
             selectedRateId: rates.length > 0 ? rates.sort((a, b) => a.rate - b.rate)[0].id : undefined
           };
@@ -158,7 +170,7 @@ export const useBulkUpload = () => {
           console.error(`Error fetching rates for shipment ${shipment.id}:`, error);
           updatedShipments[i] = { 
             ...shipment, 
-            status: 'error',
+            status: 'error' as const,
             error: 'Failed to fetch shipping rates' 
           };
         }
@@ -317,7 +329,7 @@ export const useBulkUpload = () => {
     
     // Update shipment status to processing
     const updatedShipments = results.processedShipments.map(s => 
-      s.id === shipmentId ? { ...s, status: 'processing' } : s
+      s.id === shipmentId ? { ...s, status: 'processing' as const } : s
     );
     
     setResults({
@@ -334,7 +346,7 @@ export const useBulkUpload = () => {
         s.id === shipmentId ? { 
           ...s, 
           availableRates: rates,
-          status: 'completed',
+          status: 'completed' as const,
           selectedRateId: rates.length > 0 ? rates[0].id : s.selectedRateId
         } : s
       );
@@ -350,7 +362,7 @@ export const useBulkUpload = () => {
       const errorShipments = updatedShipments.map(s => 
         s.id === shipmentId ? { 
           ...s, 
-          status: 'error',
+          status: 'error' as const,
           error: 'Failed to refresh rates'
         } : s
       );
