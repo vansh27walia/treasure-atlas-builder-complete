@@ -9,7 +9,7 @@ import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
-import { CreditCard, Loader, Download, Upload, Truck, Filter, Sparkles } from 'lucide-react';
+import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -34,7 +34,7 @@ const ShippingRates: React.FC = () => {
   } = useShippingRates();
   
   const { aiRecommendation, isAiLoading } = useRateCalculator();
-  const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier' | 'premium'>('premium');
+  const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   
   // Show empty state if no rates available
   if (rates.length === 0) {
@@ -55,15 +55,7 @@ const ShippingRates: React.FC = () => {
 
   // Sort the rates based on the selected sorting option
   const sortedRates = [...rates].sort((a, b) => {
-    if (sortOrder === 'premium') {
-      // Premium rates first, then sort by other criteria within each group
-      if (a.isPremium && !b.isPremium) return -1;
-      if (!a.isPremium && b.isPremium) return 1;
-      // If both are premium or both are not, sort by speed
-      const aDays = a.delivery_days || 999;
-      const bDays = b.delivery_days || 999;
-      return aDays - bDays;
-    } else if (sortOrder === 'price') {
+    if (sortOrder === 'price') {
       return parseFloat(a.rate) - parseFloat(b.rate);
     } else if (sortOrder === 'speed') {
       const aDays = a.delivery_days || 999;
@@ -74,15 +66,9 @@ const ShippingRates: React.FC = () => {
     }
   });
 
-  // Get premium rates (top 3 most expensive)
-  const premiumRates = [...rates]
-    .sort((a, b) => parseFloat(b.rate) - parseFloat(a.rate))
-    .filter(rate => rate.isPremium)
-    .slice(0, 3);
-
   return (
     <div className="mt-8 w-full px-4" id="shipping-rates-section">
-      <Card className="border-2 border-gray-200 shadow-md rounded-xl overflow-hidden w-full">
+      <Card className="border border-gray-200 shadow-md rounded-xl overflow-hidden w-full">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold text-blue-800 flex items-center">
@@ -97,7 +83,7 @@ const ShippingRates: React.FC = () => {
                     {activeCarrierFilter === 'all' ? 'All Carriers' : activeCarrierFilter.toUpperCase()}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="bg-white">
                   <DropdownMenuItem onClick={() => handleFilterByCarrier('all')}>
                     All Carriers
                   </DropdownMenuItem>
@@ -116,7 +102,6 @@ const ShippingRates: React.FC = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
                     Sort by: {
-                      sortOrder === 'premium' ? 'Premium' : 
                       sortOrder === 'price' ? 'Price' : 
                       sortOrder === 'speed' ? 'Speed' : 
                       'Carrier'
@@ -124,10 +109,6 @@ const ShippingRates: React.FC = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-white">
-                  <DropdownMenuItem onClick={() => setSortOrder('premium')}>
-                    <Sparkles className="h-4 w-4 mr-2 text-amber-400" />
-                    Premium Options First
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setSortOrder('speed')}>
                     Speed (Fastest First)
                   </DropdownMenuItem>
@@ -150,33 +131,6 @@ const ShippingRates: React.FC = () => {
           
           {!labelUrl && (
             <>
-              {/* Premium Options Section (Highlighted) */}
-              <div className="mb-8 bg-gradient-to-r from-amber-50 to-yellow-50 p-4 rounded-lg border border-amber-200">
-                <h3 className="text-lg font-semibold text-amber-800 mb-4 flex items-center">
-                  <Sparkles className="h-5 w-5 mr-2 text-amber-500" />
-                  Premium Delivery Options
-                </h3>
-                <div className="space-y-4">
-                  {premiumRates.map((rate) => (
-                    <ShippingRateCard
-                      key={`premium-${rate.id}`}
-                      rate={rate}
-                      isSelected={selectedRateId === rate.id}
-                      onSelect={handleSelectRate}
-                      isBestValue={false}
-                      isFastest={rate.id === fastestRateId}
-                      aiRecommendation={aiRecommendation && {
-                        rateId: aiRecommendation.bestOverall || '',
-                        reason: aiRecommendation.analysisText || ''
-                      }}
-                      showDiscount={true}
-                      originalRate={rate.original_rate}
-                      isPremium={true}
-                    />
-                  ))}
-                </div>
-              </div>
-            
               {/* AI Recommendations */}
               {(aiRecommendation || isAiLoading) && (
                 <ShippingAIRecommendation 
@@ -202,7 +156,7 @@ const ShippingRates: React.FC = () => {
                     }}
                     showDiscount={true}
                     originalRate={rate.original_rate}
-                    isPremium={rate.isPremium}
+                    isPremium={false}
                   />
                 ))}
 

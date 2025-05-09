@@ -5,11 +5,10 @@ import ShippingRates from '@/components/ShippingRates';
 import RateCalculator from '@/components/shipping/RateCalculator';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
-import { Package, Globe, Upload, Truck, Calculator, Settings } from 'lucide-react';
+import { Package, Globe, Upload, Truck, Calculator } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
-import GoogleApiKeyInput from '@/components/settings/GoogleApiKeyInput';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 
 const CreateLabelPage: React.FC = () => {
@@ -18,7 +17,6 @@ const CreateLabelPage: React.FC = () => {
   const queryParams = new URLSearchParams(location.search);
   const tabFromQuery = queryParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
-  const [showApiKeyForm, setShowApiKeyForm] = useState(false);
   const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
 
   // Update the URL when tab changes
@@ -75,28 +73,17 @@ const CreateLabelPage: React.FC = () => {
             <Package className="mr-3 h-7 w-7 text-blue-600" />
             Create a Shipping Label
           </h1>
-          <Button
-            variant="outline"
-            onClick={() => setShowApiKeyForm(!showApiKeyForm)}
-            className="text-sm flex items-center gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            {showApiKeyForm ? 'Hide API Settings' : 'Configure Google API'}
-          </Button>
         </div>
-        
-        <div className="sticky top-0 z-20 bg-white py-4">
+      </div>
+      
+      {/* Floating workflow steps that follow scroll */}
+      <div className="sticky top-0 z-20 bg-white py-4 shadow-sm">
+        <div className="max-w-7xl mx-auto">
           <ShippingWorkflow currentStep={currentStep} />
         </div>
       </div>
       
       <div className="max-w-7xl mx-auto">
-        {showApiKeyForm && (
-          <div className="mb-6">
-            <GoogleApiKeyInput />
-          </div>
-        )}
-        
         <Card className="border border-gray-200 shadow-md bg-white rounded-lg">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4 mb-4 bg-blue-50 p-1 rounded-lg">

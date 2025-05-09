@@ -70,7 +70,11 @@ export const loadGoogleMapsAPI = async (): Promise<boolean> => {
 // Function to initialize Google Places Autocomplete on an input field
 export const initAddressAutocomplete = (
   inputElement: HTMLInputElement, 
-  onPlaceSelected: (place: GoogleMapsPlace) => void
+  onPlaceSelected: (place: GoogleMapsPlace) => void,
+  options: {
+    types?: string[];
+    componentRestrictions?: { country: string | string[] };
+  } = {}
 ): GoogleMapsAutocomplete | null => {
   try {
     if (!window.google || !window.google.maps || !window.google.maps.places) {
@@ -78,14 +82,20 @@ export const initAddressAutocomplete = (
       return null;
     }
     
-    // Options for autocomplete
-    const options = {
+    // Default options for autocomplete
+    const defaultOptions = {
       fields: ['address_components', 'formatted_address', 'geometry'],
       types: ['address'],
     };
     
+    // Merge default options with provided options
+    const autocompleteOptions = {
+      ...defaultOptions,
+      ...options,
+    };
+    
     // Create the autocomplete instance
-    const autocomplete = new window.google.maps.places.Autocomplete(inputElement, options);
+    const autocomplete = new window.google.maps.places.Autocomplete(inputElement, autocompleteOptions);
     
     // Add listener for place selection
     autocomplete.addListener('place_changed', () => {
@@ -148,4 +158,44 @@ export const extractAddressComponents = (place: GoogleMapsPlace): {
     zip,
     country
   };
+};
+
+// Initialize Google Places Autocomplete for international addresses
+export const initInternationalAddressAutocomplete = (
+  inputElement: HTMLInputElement,
+  onPlaceSelected: (place: GoogleMapsPlace) => void
+): GoogleMapsAutocomplete | null => {
+  return initAddressAutocomplete(inputElement, onPlaceSelected, {
+    types: ['address'],
+    // No country restrictions for international addresses
+  });
+};
+
+// Initialize Google Places Autocomplete for domestic addresses (US only)
+export const initDomesticAddressAutocomplete = (
+  inputElement: HTMLInputElement,
+  onPlaceSelected: (place: GoogleMapsPlace) => void
+): GoogleMapsAutocomplete | null => {
+  return initAddressAutocomplete(inputElement, onPlaceSelected, {
+    types: ['address'],
+    componentRestrictions: { country: 'us' }
+  });
+};
+
+// Helper function to get carrier logo URL by carrier name
+export const getCarrierLogoUrl = (carrier: string): string => {
+  const carrierLowerCase = carrier.toLowerCase();
+  
+  if (carrierLowerCase.includes('usps')) {
+    return 'https://www.easypost.com/assets/images/carriers/usps.svg';
+  } else if (carrierLowerCase.includes('ups')) {
+    return 'https://www.easypost.com/assets/images/carriers/ups.svg';
+  } else if (carrierLowerCase.includes('fedex')) {
+    return 'https://www.easypost.com/assets/images/carriers/fedex.svg';
+  } else if (carrierLowerCase.includes('dhl')) {
+    return 'https://www.easypost.com/assets/images/carriers/dhl.svg';
+  }
+  
+  // Default logo if carrier not recognized
+  return '';
 };

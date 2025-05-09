@@ -47,7 +47,7 @@ const ShippingWorkflow: React.FC<ShippingWorkflowProps> = ({ currentStep }) => {
   };
 
   return (
-    <div className="w-full bg-gradient-to-r from-blue-50 to-indigo-50 shadow-md rounded-lg border border-blue-200 p-3 mb-4">
+    <div className="w-full bg-white rounded-lg border border-blue-200 p-3 mb-4 shadow-md">
       <div className="flex justify-between items-center">
         {steps.map((step, index) => {
           const StepIcon = getStepIcon(step);
@@ -56,14 +56,14 @@ const ShippingWorkflow: React.FC<ShippingWorkflowProps> = ({ currentStep }) => {
             <React.Fragment key={step.id}>
               <div className="flex flex-col items-center">
                 <div 
-                  className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 transition-all duration-300
+                  className={`w-10 h-10 rounded-full flex items-center justify-center mb-1 transition-all duration-300
                     ${step.status === 'completed' ? 'bg-green-100 text-green-600 ring-2 ring-green-400' : 
                       step.status === 'active' ? 'bg-blue-100 text-blue-600 ring-2 ring-blue-400 scale-110' : 
                       'bg-gray-100 text-gray-400'}
                   `}
                   data-step-id={step.id}
                 >
-                  <StepIcon className="h-4 w-4" />
+                  <StepIcon className="h-5 w-5" />
                 </div>
                 <span 
                   className={`text-xs font-medium 
@@ -78,7 +78,7 @@ const ShippingWorkflow: React.FC<ShippingWorkflowProps> = ({ currentStep }) => {
               
               {index < steps.length - 1 && (
                 <div className="hidden md:block flex-grow mx-1">
-                  <div className={`h-0.5 w-full ${step.status === 'completed' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                  <div className={`h-1 w-full ${step.status === 'completed' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
                 </div>
               )}
             </React.Fragment>
