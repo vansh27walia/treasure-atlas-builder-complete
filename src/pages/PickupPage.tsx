@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { toast } from '@/components/ui/sonner';
 import { AddressData, PickupRequestData, carrierService } from '@/services/CarrierService';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { initAddressAutocomplete, extractAddressComponents, loadGoogleMapsAPI } from '@/utils/addressUtils';
 
 interface FormValues {
   name: string;
@@ -54,6 +55,14 @@ const PickupPage: React.FC = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [pickupConfirmation, setPickupConfirmation] = useState<any>(null);
+  const streetInputRef = useRef<HTMLInputElement>(null);
+  const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(false);
+  
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([
+    { id: '1', name: 'Home Office', street: '123 Main St', city: 'Boston', state: 'MA', zip: '02101', country: 'US', company: 'My Company', phone: '555-1234' },
+    { id: '2', name: 'Warehouse', street: '456 Storage Ave', city: 'Chicago', state: 'IL', zip: '60007', country: 'US', company: 'Storage Inc.', phone: '555-5678' },
+  ]);
+  
   const form = useForm<FormValues>({
     defaultValues: {
       country: 'US',
@@ -65,12 +74,39 @@ const PickupPage: React.FC = () => {
     },
   });
   
-  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([
-    { id: '1', name: 'Home Office', street: '123 Main St', city: 'Boston', state: 'MA', zip: '02101', country: 'US', company: 'My Company', phone: '555-1234' },
-    { id: '2', name: 'Warehouse', street: '456 Storage Ave', city: 'Chicago', state: 'IL', zip: '60007', country: 'US', company: 'Storage Inc.', phone: '555-5678' },
-  ]);
-  
   const [selectedAddress, setSelectedAddress] = useState<string>('');
+  
+  // Initialize Google Places API
+  useEffect(() => {
+    const initGooglePlaces = async () => {
+      try {
+        const loaded = await loadGoogleMapsAPI();
+        setGooglePlacesEnabled(loaded);
+        
+        if (loaded && streetInputRef.current) {
+          console.log('Google Places API loaded successfully, initializing autocomplete');
+          
+          initAddressAutocomplete(streetInputRef.current, (place) => {
+            if (place && place.address_components) {
+              const addressComponents = extractAddressComponents(place);
+              
+              form.setValue('street1', addressComponents.street1);
+              form.setValue('city', addressComponents.city);
+              form.setValue('state', addressComponents.state);
+              form.setValue('zip', addressComponents.zip);
+              form.setValue('country', addressComponents.country);
+              
+              toast.success('Address found and auto-filled');
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error initializing Google Places:', error);
+      }
+    };
+    
+    initGooglePlaces();
+  }, [form]);
   
   const handleSelectAddress = (addressId: string) => {
     const address = savedAddresses.find(addr => addr.id === addressId);
@@ -84,6 +120,34 @@ const PickupPage: React.FC = () => {
       form.setValue('country', address.country || 'US');
       form.setValue('phone', address.phone || '');
       setSelectedAddress(addressId);
+    }
+  };
+  
+  const savePickupAddress = () => {
+    try {
+      const values = form.getValues();
+      
+      // Create a new address object
+      const newAddress: SavedAddress = {
+        id: String(Date.now()),
+        name: values.name,
+        street: values.street1,
+        city: values.city,
+        state: values.state,
+        zip: values.zip,
+        country: values.country,
+        company: values.company,
+        phone: values.phone,
+      };
+      
+      // Add the new address to the saved addresses array
+      setSavedAddresses(prev => [...prev, newAddress]);
+      setSelectedAddress(newAddress.id);
+      
+      toast.success('Pickup address saved successfully!');
+    } catch (error) {
+      console.error('Error saving pickup address:', error);
+      toast.error('Failed to save pickup address. Please try again.');
     }
   };
   
@@ -124,6 +188,7 @@ const PickupPage: React.FC = () => {
         packageCount: values.packageCount,
       };
       
+      // In a real app, this would call a real API
       const response = await carrierService.schedulePickup(requestData);
       
       setPickupConfirmation(response);
@@ -205,7 +270,14 @@ const PickupPage: React.FC = () => {
                       
                       <div>
                         <Label htmlFor="street1">Address Line 1</Label>
-                        <Input id="street1" {...form.register('street1')} placeholder="Street address" required />
+                        <Input 
+                          id="street1" 
+                          {...form.register('street1')} 
+                          placeholder="Street address" 
+                          required 
+                          ref={streetInputRef}
+                          className={googlePlacesEnabled ? "border-blue-300" : ""}
+                        />
                       </div>
                       
                       <div>
@@ -235,6 +307,16 @@ const PickupPage: React.FC = () => {
                           <Label htmlFor="country">Country</Label>
                           <Input id="country" {...form.register('country')} placeholder="Country" required />
                         </div>
+                      </div>
+                      
+                      <div className="pt-2">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={savePickupAddress}
+                        >
+                          Save this address
+                        </Button>
                       </div>
                     </div>
                   </div>

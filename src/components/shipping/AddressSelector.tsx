@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Card,
@@ -163,11 +164,6 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                 <span className="text-sm font-medium">
                   {type === 'from' ? 'Pickup Location' : 'Delivery Location'}
                 </span>
-                {googlePlacesEnabled && (
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                    Address Autocomplete Enabled
-                  </span>
-                )}
               </div>
 
               <FormField
@@ -209,12 +205,9 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                         placeholder={googlePlacesEnabled ? "Start typing your address..." : "Street address"} 
                         {...field}
                         ref={combinedRef}
-                        className={googlePlacesEnabled ? "border-green-300 focus:border-green-500" : ""}
+                        className={googlePlacesEnabled ? "border-blue-300 focus:border-blue-500" : ""}
                       />
                     </FormControl>
-                    {googlePlacesEnabled && (
-                      <p className="text-xs text-green-600">Type to use address autocomplete</p>
-                    )}
                     <FormMessage />
                   </FormItem>
                 )}

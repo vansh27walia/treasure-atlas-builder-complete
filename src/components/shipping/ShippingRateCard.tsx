@@ -68,14 +68,16 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-3">
           {carrierLogo && (
-            <img 
-              src={carrierLogo} 
-              alt={`${rate.carrier} logo`} 
-              className="h-8 w-auto object-contain"
-            />
+            <div className="h-10 w-16 flex items-center justify-center">
+              <img 
+                src={carrierLogo} 
+                alt={`${rate.carrier} logo`} 
+                className="h-8 w-auto object-contain"
+              />
+            </div>
           )}
           <div>
-            <h3 className="font-medium text-gray-900 mb-0.5">{rate.carrier}</h3>
+            <h3 className="font-medium text-gray-900 mb-1">{rate.carrier}</h3>
             <p className="text-sm text-gray-600">{rate.service}</p>
           </div>
         </div>
@@ -107,7 +109,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
       </div>
       
       <div className="mt-3 flex justify-between items-center">
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isBestValue && (
             <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
               <TrendingDown className="h-3 w-3 mr-1" /> Best Value

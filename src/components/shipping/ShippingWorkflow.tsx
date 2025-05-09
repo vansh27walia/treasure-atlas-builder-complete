@@ -47,7 +47,7 @@ const ShippingWorkflow: React.FC<ShippingWorkflowProps> = ({ currentStep }) => {
   };
 
   return (
-    <div className="w-full bg-white rounded-lg border border-blue-200 p-3 mb-4 shadow-md">
+    <div className="w-full bg-white rounded-lg border border-blue-200 p-3 mb-4 shadow-md sticky top-0 z-30">
       <div className="flex justify-between items-center">
         {steps.map((step, index) => {
           const StepIcon = getStepIcon(step);

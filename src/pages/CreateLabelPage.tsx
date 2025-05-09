@@ -76,7 +76,7 @@ const CreateLabelPage: React.FC = () => {
         </div>
       </div>
       
-      {/* Floating workflow steps that follow scroll */}
+      {/* Floating workflow steps */}
       <div className="sticky top-0 z-20 bg-white py-4 shadow-sm">
         <div className="max-w-7xl mx-auto">
           <ShippingWorkflow currentStep={currentStep} />

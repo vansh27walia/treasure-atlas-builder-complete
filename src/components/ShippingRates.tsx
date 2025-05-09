@@ -70,12 +70,12 @@ const ShippingRates: React.FC = () => {
     <div className="mt-8 w-full px-4" id="shipping-rates-section">
       <Card className="border border-gray-200 shadow-md rounded-xl overflow-hidden w-full">
         <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold text-blue-800 flex items-center">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+            <h2 className="text-2xl font-semibold text-blue-800 flex items-center mb-3 md:mb-0">
               <Truck className="mr-2 h-6 w-6 text-blue-600" />
               Available Shipping Rates
             </h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
@@ -142,23 +142,25 @@ const ShippingRates: React.FC = () => {
               
               <div className="space-y-4 mt-6">
                 <h3 className="text-lg font-semibold text-gray-700 mb-4">All Available Options</h3>
-                {sortedRates.map((rate) => (
-                  <ShippingRateCard
-                    key={rate.id}
-                    rate={rate}
-                    isSelected={selectedRateId === rate.id}
-                    onSelect={handleSelectRate}
-                    isBestValue={rate.id === bestValueRateId}
-                    isFastest={rate.id === fastestRateId}
-                    aiRecommendation={aiRecommendation && {
-                      rateId: aiRecommendation.bestOverall || '',
-                      reason: aiRecommendation.analysisText || ''
-                    }}
-                    showDiscount={true}
-                    originalRate={rate.original_rate}
-                    isPremium={false}
-                  />
-                ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sortedRates.map((rate) => (
+                    <ShippingRateCard
+                      key={rate.id}
+                      rate={rate}
+                      isSelected={selectedRateId === rate.id}
+                      onSelect={handleSelectRate}
+                      isBestValue={rate.id === bestValueRateId}
+                      isFastest={rate.id === fastestRateId}
+                      aiRecommendation={aiRecommendation && {
+                        rateId: aiRecommendation.bestOverall || '',
+                        reason: aiRecommendation.analysisText || ''
+                      }}
+                      showDiscount={true}
+                      originalRate={rate.original_rate}
+                      isPremium={false}
+                    />
+                  ))}
+                </div>
 
                 {sortedRates.length === 0 && (
                   <div className="p-8 text-center">
