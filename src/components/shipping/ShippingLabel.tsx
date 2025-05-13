@@ -189,14 +189,19 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     }
 
     setIsEmailSending(true);
+    
     try {
-      toast.loading('Sending label to your email...');
+      // Call the email sending edge function
+      const { data, error } = await supabase.functions.invoke('send-shipping-label', {
+        body: { 
+          labelUrl: localLabelUrl || labelUrl,
+          trackingCode,
+          shipmentId
+        }
+      });
       
-      // For now, we'll simulate the email sending
-      // In a real implementation, this would call a backend function
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (error) throw error;
       
-      toast.dismiss();
       toast.success('Label sent to your registered email');
     } catch (error) {
       console.error('Email label error:', error);
@@ -215,11 +220,15 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     
     setIsSaving(true);
     try {
-      toast.loading('Saving label to your account...');
-      // Simulate saving to account
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Save label to user's account
+      const { error } = await supabase.from('saved_labels').insert({
+        tracking_code: trackingCode,
+        label_url: localLabelUrl || labelUrl,
+        shipment_id: shipmentId
+      });
       
-      toast.dismiss();
+      if (error) throw error;
+      
       toast.success('Label saved to your account');
     } catch (error) {
       console.error('Save label error:', error);
@@ -229,22 +238,8 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     }
   };
   
-  // Hidden iframe for previewing PDF (not visible to user)
-  const renderHiddenPreviewFrame = () => {
-    if (!blobUrl) return null;
-    
-    return (
-      <iframe 
-        ref={iframeRef}
-        src={blobUrl}
-        style={{ display: 'none' }}
-        title="PDF Preview"
-      />
-    );
-  };
-  
   return (
-    <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg shadow-sm border-2 border-green-200">
+    <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg shadow-sm border border-green-200">
       <div className="flex flex-col space-y-5">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
           <div>
@@ -305,8 +300,6 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
               {isSaving ? 'Saving...' : 'Save to My Labels'}
             </Button>
           </div>
-
-          {renderHiddenPreviewFrame()}
         </div>
 
         <div className="text-sm text-center text-green-600">
