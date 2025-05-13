@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -41,10 +42,9 @@ export const useShippingRates = () => {
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
 
-  // Process and enhance rates with original prices and organize by carrier
+  // Process and enhance rates with original prices at 85-90% higher than actual rate
   const processRates = (incomingRates: ShippingRate[]) => {
-    // Process and enhance rates with original prices
-    const processedRates = incomingRates.map(rate => {
+    return incomingRates.map(rate => {
       // Generate a random discount percentage between 85% and 90%
       const discountPercentage = Math.random() * (90 - 85) + 85;
       
@@ -68,18 +68,6 @@ export const useShippingRates = () => {
         original_rate: inflatedRate,
         isPremium
       };
-    });
-    
-    // Sort by carrier first, then by price within each carrier
-    return processedRates.sort((a, b) => {
-      // First, sort by carrier
-      const carrierCompare = a.carrier.localeCompare(b.carrier);
-      if (carrierCompare !== 0) {
-        return carrierCompare;
-      }
-      
-      // If same carrier, sort by price
-      return parseFloat(a.rate) - parseFloat(b.rate);
     });
   };
 
