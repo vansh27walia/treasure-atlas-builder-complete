@@ -175,13 +175,14 @@ serve(async (req) => {
       JSON.stringify({ 
         rates: organizedRates,
         shipmentId: data.id,
+        markupPercentage: markupPercentage // Include markup percentage for transparency
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error in get-shipping-rates function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
+      JSON.stringify({ error: 'Internal Server Error', message: error instanceof Error ? error.message : 'Unknown error' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

@@ -31,7 +31,14 @@ interface ShipmentResult {
     parcel_width?: number;
     parcel_height?: number;
     parcel_weight?: number;
-  }
+    email?: string;
+    carrier_logo?: string;
+    carrier_colors?: {
+      primary: string;
+      secondary: string;
+    };
+    carrier_formats?: string[];
+  };
 }
 
 interface ProcessingError {
@@ -50,12 +57,13 @@ interface Address {
   country: string;
   phone?: string;
   company?: string;
+  email?: string;
 }
 
-// Carrier logos and info - these would be actual URLs in production
+// Carrier logos and info - using placeholder URLs that would be replaced with actual URLs in production
 const carrierInfo = {
   USPS: {
-    logo: "https://example.com/usps-logo.png",
+    logo: "https://www.usps.com/assets/images/home/usps-logo-2023.svg",
     colors: {
       primary: "#004B87",
       secondary: "#DA291C"
@@ -63,7 +71,7 @@ const carrierInfo = {
     formats: ["PDF", "PNG", "ZPL"]
   },
   UPS: {
-    logo: "https://example.com/ups-logo.png",
+    logo: "https://www.ups.com/assets/resources/images/UPS_logo.svg",
     colors: {
       primary: "#351C15",
       secondary: "#FFB500"
@@ -71,7 +79,7 @@ const carrierInfo = {
     formats: ["PDF", "PNG", "ZPL"]
   },
   FedEx: {
-    logo: "https://example.com/fedex-logo.png",
+    logo: "https://www.fedex.com/content/dam/fedex-com/logos/logo.png",
     colors: {
       primary: "#4D148C",
       secondary: "#FF6600"
@@ -79,7 +87,7 @@ const carrierInfo = {
     formats: ["PDF", "PNG", "ZPL"]
   },
   DHL: {
-    logo: "https://example.com/dhl-logo.png",
+    logo: "https://www.dhl.com/content/dam/dhl/global/core/images/logos/dhl-logo.svg",
     colors: {
       primary: "#FFCC00",
       secondary: "#D40511"
@@ -189,6 +197,9 @@ serve(async (req) => {
       );
     }
 
+    // Log sender address for debugging
+    console.log("Sender address received:", JSON.stringify(origin));
+
     // Process the CSV content
     const rows = csvContent.split('\n');
     const headers = rows[0].toLowerCase().split(',');
@@ -258,10 +269,10 @@ serve(async (req) => {
           country: rowData[fieldIndexes.country],
           phone: fieldIndexes.phone >= 0 ? rowData[fieldIndexes.phone] : undefined,
           email: fieldIndexes.email >= 0 ? rowData[fieldIndexes.email] : undefined,
-          parcel_length: fieldIndexes.parcel_length >= 0 ? parseFloat(rowData[fieldIndexes.parcel_length]) || 8 : 8,
-          parcel_width: fieldIndexes.parcel_width >= 0 ? parseFloat(rowData[fieldIndexes.parcel_width]) || 6 : 6,
-          parcel_height: fieldIndexes.parcel_height >= 0 ? parseFloat(rowData[fieldIndexes.parcel_height]) || 4 : 4,
-          parcel_weight: fieldIndexes.parcel_weight >= 0 ? parseFloat(rowData[fieldIndexes.parcel_weight]) || 16 : 16,
+          parcel_length: fieldIndexes.parcel_length >= 0 ? parseFloat(rowData[fieldIndexes.parcel_length]) || 0 : 0,
+          parcel_width: fieldIndexes.parcel_width >= 0 ? parseFloat(rowData[fieldIndexes.parcel_width]) || 0 : 0,
+          parcel_height: fieldIndexes.parcel_height >= 0 ? parseFloat(rowData[fieldIndexes.parcel_height]) || 0 : 0,
+          parcel_weight: fieldIndexes.parcel_weight >= 0 ? parseFloat(rowData[fieldIndexes.parcel_weight]) || 0 : 0,
           carrier_preference: fieldIndexes.carrier_preference >= 0 ? rowData[fieldIndexes.carrier_preference] : undefined,
           service_preference: fieldIndexes.service_preference >= 0 ? rowData[fieldIndexes.service_preference] : undefined,
           package_type: fieldIndexes.package_type >= 0 ? rowData[fieldIndexes.package_type] : undefined
@@ -271,6 +282,12 @@ serve(async (req) => {
         if (!recipientDetails.street1 || !recipientDetails.city || !recipientDetails.state || !recipientDetails.zip || !recipientDetails.country) {
           throw new Error('Missing required address fields');
         }
+        
+        // Default dimensions if not provided
+        if (recipientDetails.parcel_length === 0) recipientDetails.parcel_length = 8;
+        if (recipientDetails.parcel_width === 0) recipientDetails.parcel_width = 6;
+        if (recipientDetails.parcel_height === 0) recipientDetails.parcel_height = 4;
+        if (recipientDetails.parcel_weight === 0) recipientDetails.parcel_weight = 16;
         
         // In a real implementation, we would call EasyPost API here
         // const shipment = await createEasyPostShipment(origin, toAddress, parcelData, apiKey);
@@ -318,7 +335,12 @@ serve(async (req) => {
         
         // Generate a base rate between $5-20 based on package weight
         const weight = recipientDetails.parcel_weight || 1;
-        const baseRate = 5 + (weight * 0.2) + (Math.random() * 10);
+        let baseRate = 5 + (weight * 0.2) + (Math.random() * 10);
+        
+        // Apply 15% markup as per the get-shipping-rates function
+        const markupPercentage = 15;
+        const markupAmount = baseRate * (markupPercentage / 100);
+        baseRate = baseRate + markupAmount;
         
         // Add carrier info
         const carrier = selectedCarrier.toUpperCase();
@@ -332,7 +354,7 @@ serve(async (req) => {
         processedShipments.push({
           id: `ship_${crypto.randomUUID().substring(0, 8)}`,
           tracking_code: `EZ${Math.floor(Math.random() * 10000000).toString().padStart(8, '0')}`,
-          label_url: 'https://assets.easypost.com/shipping_labels/example_label.png',
+          label_url: 'https://assets.easypost.com/shipping_labels/example_label.pdf',
           status: "pending", // Using the proper enum value
           row: i,
           recipient,
@@ -404,7 +426,8 @@ serve(async (req) => {
         totalCost,
         processedShipments: organizeShipmentsByCarrier(processedShipments),
         failedShipments,
-        message: `Processed ${successful} out of ${total} shipments successfully` 
+        message: `Processed ${successful} out of ${total} shipments successfully`,
+        origin: origin // Include the sender address in the response
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
