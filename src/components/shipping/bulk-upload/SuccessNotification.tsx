@@ -11,6 +11,7 @@ interface SuccessNotificationProps {
   onDownloadAllLabels: () => void;
   onDownloadSingleLabel: (labelUrl: string) => void;
   onProceedToPayment: () => void;
+  onCreateLabels: () => void;
   isPaying: boolean;
   isCreatingLabels: boolean;
 }
@@ -20,9 +21,13 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   onDownloadAllLabels,
   onDownloadSingleLabel,
   onProceedToPayment,
+  onCreateLabels,
   isPaying,
   isCreatingLabels
 }) => {
+  // Check if any shipment is missing a label
+  const missingLabels = results.processedShipments.some(s => !s.label_url);
+
   return (
     <div className="bg-green-50 border border-green-200 rounded-md mb-6">
       <div className="p-4">
@@ -31,8 +36,9 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <h4 className="font-semibold text-green-800">Upload Successful</h4>
         </div>
         <p className="text-green-700 mb-3">
-          Successfully processed {results.successful} out of {results.total} shipments and generated labels.
+          Successfully processed {results.successful} out of {results.total} shipments
           {results.failed > 0 && ` (${results.failed} failed)`}
+          {missingLabels ? ". Labels need to be generated." : " and generated labels."}
         </p>
       
         <OrderSummary
@@ -43,6 +49,18 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           isPaying={isPaying}
           isCreatingLabels={isCreatingLabels}
         />
+        
+        {missingLabels && (
+          <div className="mt-3">
+            <button 
+              onClick={onCreateLabels}
+              className="text-blue-600 font-medium hover:text-blue-800 transition-colors"
+              disabled={isCreatingLabels}
+            >
+              {isCreatingLabels ? "Generating labels..." : "Generate All Labels"}
+            </button>
+          </div>
+        )}
       </div>
       
       <SuccessfulShipmentsTable 

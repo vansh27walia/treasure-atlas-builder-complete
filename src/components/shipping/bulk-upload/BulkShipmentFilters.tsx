@@ -1,11 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { CARRIER_OPTIONS, CarrierOption } from '@/types/shipping';
-import { Search, Filter, Check, Truck } from 'lucide-react';
+import { CARRIER_OPTIONS } from '@/types/shipping';
+import { Search, SortAsc, SortDesc, Filter } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 interface BulkShipmentFiltersProps {
   searchTerm: string;
@@ -15,7 +17,7 @@ interface BulkShipmentFiltersProps {
   onSortChange: (field: 'recipient' | 'rate' | 'carrier', direction: 'asc' | 'desc') => void;
   selectedCarrier: string | null;
   onCarrierFilterChange: (carrier: string | null) => void;
-  onApplyCarrierToAll: (carrierId: string, serviceId: string) => void;
+  onApplyCarrierToAll: (carrier: string, service: string) => void;
 }
 
 const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
@@ -28,128 +30,159 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
   onCarrierFilterChange,
   onApplyCarrierToAll
 }) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedBulkCarrier, setSelectedBulkCarrier] = useState<string>('');
-  const [selectedBulkService, setSelectedBulkService] = useState<string>('');
+  const [selectedCarrierService, setSelectedCarrierService] = useState<{carrierId: string, serviceId: string} | null>(null);
+  const [availableServices, setAvailableServices] = useState<Array<{id: string, name: string}>>([]);
   
-  const handleApplyCarrierToAll = () => {
-    if (selectedBulkCarrier && selectedBulkService) {
-      onApplyCarrierToAll(selectedBulkCarrier, selectedBulkService);
-      setIsDialogOpen(false);
+  // Update available services when carrier changes
+  useEffect(() => {
+    if (selectedCarrierService?.carrierId) {
+      const carrier = CARRIER_OPTIONS.find(c => c.id === selectedCarrierService.carrierId);
+      if (carrier) {
+        setAvailableServices(carrier.services);
+        // Auto select first service if current service doesn't exist in this carrier
+        if (!carrier.services.some(s => s.id === selectedCarrierService.serviceId)) {
+          setSelectedCarrierService({
+            carrierId: selectedCarrierService.carrierId,
+            serviceId: carrier.services[0]?.id || ''
+          });
+        }
+      }
+    } else {
+      setAvailableServices([]);
     }
-  };
-  
-  const getAvailableServices = () => {
-    const carrier = CARRIER_OPTIONS.find(c => c.id === selectedBulkCarrier);
-    return carrier ? carrier.services : [];
-  };
-  
-  const handleSortChange = (field: 'recipient' | 'rate' | 'carrier') => {
-    const direction = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
-    onSortChange(field, direction);
+  }, [selectedCarrierService?.carrierId]);
+
+  // Handle apply to all button click
+  const handleApplyToAll = () => {
+    if (selectedCarrierService?.carrierId && selectedCarrierService?.serviceId) {
+      onApplyCarrierToAll(
+        CARRIER_OPTIONS.find(c => c.id === selectedCarrierService.carrierId)?.name || '',
+        availableServices.find(s => s.id === selectedCarrierService.serviceId)?.name || ''
+      );
+    }
   };
 
   return (
-    <div className="mb-6 space-y-4">
-      <div className="flex flex-col lg:flex-row justify-between gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-          <Input
-            placeholder="Search shipments..."
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+    <div className="flex flex-col md:flex-row gap-3 mb-4">
+      <div className="relative flex-grow">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+        <Input
+          type="text"
+          placeholder="Search by recipient, address, carrier..."
+          value={searchTerm}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+      
+      <div className="flex gap-2">
+        <Select
+          value={sortField}
+          onValueChange={(value) => onSortChange(value as 'recipient' | 'rate' | 'carrier', sortDirection)}
+        >
+          <SelectTrigger className="w-[130px]">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectLabel>Sort by</SelectLabel>
+              <SelectItem value="recipient">Recipient</SelectItem>
+              <SelectItem value="rate">Price</SelectItem>
+              <SelectItem value="carrier">Carrier</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
         
-        <div className="flex gap-3">
-          <div className="w-48">
-            <Select value={selectedCarrier || 'all'} onValueChange={(value) => onCarrierFilterChange(value === 'all' ? null : value)}>
-              <SelectTrigger className="bg-white border-gray-300">
-                <SelectValue placeholder="Filter by carrier" />
-              </SelectTrigger>
-              <SelectContent className="bg-white">
-                <SelectItem value="all">All Carriers</SelectItem>
-                {CARRIER_OPTIONS.map(carrier => (
-                  <SelectItem key={carrier.id} value={carrier.id}>
-                    {carrier.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-1 whitespace-nowrap">
-                <Truck className="h-4 w-4 mr-1" /> Apply to All
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md bg-white">
-              <DialogHeader>
-                <DialogTitle>Apply Carrier to All Shipments</DialogTitle>
-                <DialogDescription>
-                  Select a carrier and service to apply to all shipments
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Select Carrier</label>
-                  <Select value={selectedBulkCarrier} onValueChange={setSelectedBulkCarrier}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Choose a carrier" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white z-50">
-                      {CARRIER_OPTIONS.map(carrier => (
-                        <SelectItem key={carrier.id} value={carrier.id}>
-                          {carrier.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onSortChange(sortField, sortDirection === 'asc' ? 'desc' : 'asc')}
+          className="border"
+        >
+          {sortDirection === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+        </Button>
+        
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="gap-2">
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">Filter</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80">
+            <div className="space-y-4">
+              <h4 className="font-medium">Filter by carrier</h4>
+              
+              <RadioGroup 
+                value={selectedCarrier || ''} 
+                onValueChange={(value) => onCarrierFilterChange(value === '' ? null : value)}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="" id="all" />
+                  <Label htmlFor="all">All carriers</Label>
                 </div>
                 
-                {selectedBulkCarrier && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Select Service</label>
-                    <Select value={selectedBulkService} onValueChange={setSelectedBulkService}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Choose a service" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white z-50">
-                        {getAvailableServices().map(service => (
-                          <SelectItem key={service.id} value={service.id}>
-                            {service.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                {CARRIER_OPTIONS.map((carrier) => (
+                  <div className="flex items-center space-x-2" key={carrier.id}>
+                    <RadioGroupItem value={carrier.id} id={carrier.id} />
+                    <Label htmlFor={carrier.id}>{carrier.name}</Label>
                   </div>
-                )}
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                <Button 
-                  type="submit" 
-                  onClick={handleApplyCarrierToAll}
-                  disabled={!selectedBulkCarrier || !selectedBulkService}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  <Check className="mr-1 h-4 w-4" />
-                  Apply to All Shipments
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-          
-          <Button
-            variant="outline"
-            className="gap-1 whitespace-nowrap"
-            onClick={() => handleSortChange('recipient')}
+                ))}
+              </RadioGroup>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+      
+      <div className="mt-3 md:mt-0 border-t pt-3 md:border-t-0 md:pt-0">
+        <div className="flex flex-wrap gap-2 items-center">
+          <Select
+            value={selectedCarrierService?.carrierId || ''}
+            onValueChange={(value) => setSelectedCarrierService({
+              carrierId: value,
+              serviceId: ''
+            })}
           >
-            <Filter className="h-4 w-4" />
-            Sort: {sortField === 'recipient' ? 'Name' : sortField === 'rate' ? 'Price' : 'Carrier'} 
-            {sortDirection === 'asc' ? ' ↑' : ' ↓'}
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Select carrier" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Carriers</SelectLabel>
+                {CARRIER_OPTIONS.map((carrier) => (
+                  <SelectItem key={carrier.id} value={carrier.id}>{carrier.name}</SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          
+          <Select
+            value={selectedCarrierService?.serviceId || ''}
+            onValueChange={(value) => setSelectedCarrierService({
+              ...selectedCarrierService!,
+              serviceId: value
+            })}
+            disabled={!selectedCarrierService?.carrierId || availableServices.length === 0}
+          >
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Select service" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Services</SelectLabel>
+                {availableServices.map((service) => (
+                  <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          
+          <Button 
+            onClick={handleApplyToAll}
+            disabled={!selectedCarrierService?.carrierId || !selectedCarrierService?.serviceId}
+            size="sm"
+          >
+            Apply to All
           </Button>
         </div>
       </div>

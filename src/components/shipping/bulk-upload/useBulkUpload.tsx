@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { BulkUploadResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -22,6 +23,11 @@ export const useBulkUpload = () => {
   // Update results wrapper function
   const updateResults = (newResults: BulkUploadResult) => {
     setResults(newResults);
+    
+    // If a new upload status is provided, update it
+    if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
+      setUploadStatus(newResults.uploadStatus);
+    }
   };
 
   const {
@@ -35,12 +41,18 @@ export const useBulkUpload = () => {
   const {
     isPaying,
     isCreatingLabels,
+    showLabelOptions,
+    downloadFormat,
     handleRemoveShipment,
     handleEditShipment,
     handleProceedToPayment,
     handleCreateLabels,
     handleDownloadAllLabels,
-    handleDownloadSingleLabel
+    handleDownloadLabelsWithFormat,
+    handleDownloadSingleLabel,
+    handleEmailLabels,
+    setShowLabelOptions,
+    setDownloadFormat
   } = useShipmentManagement(results, updateResults);
 
   const {
@@ -85,6 +97,8 @@ export const useBulkUpload = () => {
     // Payment and label states and handlers
     isPaying,
     isCreatingLabels,
+    showLabelOptions,
+    downloadFormat,
     
     // Filtering states and handlers
     searchTerm,
@@ -104,8 +118,12 @@ export const useBulkUpload = () => {
     handleProceedToPayment,
     handleCreateLabels,
     handleDownloadAllLabels,
+    handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
+    handleEmailLabels,
     handleDownloadTemplate,
+    setShowLabelOptions,
+    setDownloadFormat,
     setSearchTerm,
     setSortField,
     setSortDirection,
