@@ -41,7 +41,7 @@ export const useShipmentUpload = () => {
     }
   };
 
-  const handleUpload = async (file: File) => {
+  const handleUpload = async (file: File): Promise<void> => {
     if (!file) {
       toast.error('Please select a file to upload');
       return;
@@ -114,15 +114,11 @@ export const useShipmentUpload = () => {
       setProgress(100);
       
       toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments. Ready for carrier selection.`);
-      
-      return processedShipments;
-      
     } catch (error) {
       console.error('Bulk upload error:', error);
       setUploadStatus('error');
       setProgress(0);
       toast.error(`Failed to process the uploaded file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      return null;
     } finally {
       setIsUploading(false);
     }
