@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
 
@@ -68,8 +68,7 @@ export const useShipmentManagement = (
   const handleProceedToPayment = async () => {
     if (!initialResults) {
       toast("Error", {
-        description: "No shipments to process",
-        variant: "destructive"
+        description: "No shipments to process"
       });
       return;
     }
@@ -102,8 +101,7 @@ export const useShipmentManagement = (
     } catch (error) {
       console.error('Payment error:', error);
       toast("Payment failed", {
-        description: error instanceof Error ? error.message : "Failed to process payment",
-        variant: "destructive"
+        description: error instanceof Error ? error.message : "Failed to process payment"
       });
     } finally {
       setIsPaying(false);
@@ -113,8 +111,7 @@ export const useShipmentManagement = (
   const handleCreateLabels = async () => {
     if (!initialResults || initialResults.processedShipments.length === 0) {
       toast("Error", {
-        description: "No shipments to process",
-        variant: "destructive"
+        description: "No shipments to process"
       });
       return;
     }
@@ -184,15 +181,13 @@ export const useShipmentManagement = (
         setUploadStatus('success');
       } else {
         toast("Label generation failed", {
-          description: "No labels were generated, please try again",
-          variant: "destructive"
+          description: "No labels were generated, please try again"
         });
       }
     } catch (error) {
       console.error('Error creating labels:', error);
       toast("Label generation failed", {
-        description: error instanceof Error ? error.message : "Failed to generate labels",
-        variant: "destructive"
+        description: error instanceof Error ? error.message : "Failed to generate labels"
       });
     } finally {
       setIsCreatingLabels(false);
@@ -202,8 +197,7 @@ export const useShipmentManagement = (
   const handleDownloadAllLabels = () => {
     if (!initialResults || !initialResults.processedShipments.length) {
       toast("No labels", {
-        description: "No labels available to download",
-        variant: "destructive"
+        description: "No labels available to download"
       });
       return;
     }
