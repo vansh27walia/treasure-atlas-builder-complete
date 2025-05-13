@@ -220,11 +220,12 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     
     setIsSaving(true);
     try {
-      // Save label to user's account
-      const { error } = await supabase.from('saved_labels').insert({
+      // Save label to user's account using shipment_records table
+      const { error } = await supabase.from('shipment_records').insert({
         tracking_code: trackingCode,
         label_url: localLabelUrl || labelUrl,
-        shipment_id: shipmentId
+        shipment_id: shipmentId,
+        status: 'saved_label'
       });
       
       if (error) throw error;

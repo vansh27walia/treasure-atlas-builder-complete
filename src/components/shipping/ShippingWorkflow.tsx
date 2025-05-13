@@ -58,8 +58,8 @@ const ShippingWorkflow: React.FC<ShippingWorkflowProps> = ({ currentStep }) => {
   };
 
   return (
-    <div className="w-full py-2 border-b border-gray-200">
-      <div className="flex justify-between items-center">
+    <div className="w-full py-2 border-b border-gray-200 bg-white">
+      <div className="flex justify-between items-center max-w-7xl mx-auto px-4">
         {steps.map((step, index) => {
           // Determine step color based on status
           let stepColor = 'text-gray-400 border-gray-200';
@@ -79,7 +79,8 @@ const ShippingWorkflow: React.FC<ShippingWorkflowProps> = ({ currentStep }) => {
           return (
             <React.Fragment key={step.id}>
               <div className="flex flex-col items-center">
-                <div className={`flex items-center justify-center w-8 h-8 ${bgColor} rounded-full border-2 ${stepColor} mb-1`}>
+                {/* Reduced size of icon container and made border thinner */}
+                <div className={`flex items-center justify-center w-7 h-7 ${bgColor} rounded-full border ${stepColor} mb-1`}>
                   <span className={iconColor}>{getStepIcon(step)}</span>
                 </div>
                 <span className={`text-xs ${stepColor} hidden sm:block`}>
@@ -87,9 +88,9 @@ const ShippingWorkflow: React.FC<ShippingWorkflowProps> = ({ currentStep }) => {
                 </span>
               </div>
               
-              {/* Connector line between steps */}
+              {/* Connector line between steps - made thinner */}
               {index < steps.length - 1 && (
-                <div className="flex-grow mx-1 h-0.5 bg-gray-200">
+                <div className="flex-grow mx-1 h-px bg-gray-200">
                   {step.status === 'completed' && (
                     <div className="h-full bg-green-500" style={{width: '100%'}}></div>
                   )}
