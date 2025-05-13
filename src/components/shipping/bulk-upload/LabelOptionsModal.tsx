@@ -3,7 +3,7 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { FilePdf, FileImage, FileCode, Archive, Mail } from 'lucide-react';
+import { FileText, Image, FileCode, Archive, Mail } from 'lucide-react';
 
 interface LabelOptionsModalProps {
   open: boolean;
@@ -43,7 +43,7 @@ const LabelOptionsModal: React.FC<LabelOptionsModalProps> = ({
                 className="flex flex-col h-auto py-4"
                 onClick={() => onFormatSelect('pdf')}
               >
-                <FilePdf className="h-8 w-8 mb-2" />
+                <FileText className="h-8 w-8 mb-2" />
                 <span>PDF</span>
               </Button>
               
@@ -52,7 +52,7 @@ const LabelOptionsModal: React.FC<LabelOptionsModalProps> = ({
                 className="flex flex-col h-auto py-4"
                 onClick={() => onFormatSelect('png')}
               >
-                <FileImage className="h-8 w-8 mb-2" />
+                <Image className="h-8 w-8 mb-2" />
                 <span>PNG</span>
               </Button>
               
