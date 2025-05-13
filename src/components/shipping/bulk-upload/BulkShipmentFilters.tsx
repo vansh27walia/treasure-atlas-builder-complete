@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CarrierOption, CARRIER_OPTIONS } from '@/types/shipping';
-import { Search, SortAsc, SortDesc, Filter } from 'lucide-react';
+import { Search, SortAsc, SortDesc, Filter, CheckCircle } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 
 interface BulkShipmentFiltersProps {
   searchTerm: string;
@@ -29,10 +30,23 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
 }) => {
   const [selectedCarrierForAll, setSelectedCarrierForAll] = useState<string>('');
   const [selectedServiceForAll, setSelectedServiceForAll] = useState<string>('');
+  const [isApplying, setIsApplying] = useState(false);
   
   const handleApplyToAll = () => {
     if (selectedCarrierForAll && selectedServiceForAll) {
-      onApplyCarrierToAll(selectedCarrierForAll, selectedServiceForAll);
+      setIsApplying(true);
+      
+      try {
+        onApplyCarrierToAll(selectedCarrierForAll, selectedServiceForAll);
+        toast.success(`Successfully applied ${selectedCarrierForAll} ${selectedServiceForAll} to all eligible shipments`);
+      } catch (error) {
+        toast.error("Failed to apply carrier to all shipments");
+        console.error("Error applying carrier:", error);
+      } finally {
+        setIsApplying(false);
+      }
+    } else {
+      toast.error("Please select both a carrier and service");
     }
   };
   
@@ -54,6 +68,11 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
   const servicesForSelectedCarrier = CARRIER_OPTIONS.find(
     c => c.id === selectedCarrierForAll
   )?.services || [];
+
+  const getCarrierDisplayName = (carrierId: string) => {
+    const carrier = CARRIER_OPTIONS.find(c => c.id === carrierId);
+    return carrier ? carrier.name : carrierId;
+  };
 
   return (
     <div className="space-y-4 mb-6">
@@ -107,7 +126,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
         
         <div>
           <Select
-            value={selectedCarrier || ''}
+            value={selectedCarrier || 'all'}
             onValueChange={(value) => onCarrierFilterChange(value === 'all' ? null : value)}
           >
             <SelectTrigger className="w-[160px]">
@@ -115,12 +134,12 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
                 <Filter className="h-4 w-4" />
                 <span>
                   {selectedCarrier ? 
-                    CARRIER_OPTIONS.find(c => c.id === selectedCarrier)?.name || selectedCarrier : 
+                    getCarrierDisplayName(selectedCarrier) : 
                     'All Carriers'}
                 </span>
               </div>
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white">
               <SelectItem value="all">All Carriers</SelectItem>
               {uniqueCarriers.map((carrier) => (
                 <SelectItem key={carrier.id} value={carrier.id}>
@@ -132,19 +151,22 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
         </div>
       </div>
       
-      <div className="p-4 bg-gray-50 rounded-lg border">
-        <h3 className="text-sm font-semibold mb-3">Apply Carrier to All Shipments</h3>
+      <div className="p-4 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
+        <h3 className="text-sm font-semibold mb-3 text-blue-800">Apply Carrier to All Shipments</h3>
         <div className="flex flex-wrap gap-3 items-end">
           <div>
             <label className="text-xs text-gray-600 mb-1 block">Carrier</label>
             <Select
               value={selectedCarrierForAll}
-              onValueChange={setSelectedCarrierForAll}
+              onValueChange={(value) => {
+                setSelectedCarrierForAll(value);
+                setSelectedServiceForAll(''); // Reset service when carrier changes
+              }}
             >
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-[160px] bg-white">
                 <SelectValue placeholder="Select carrier" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white">
                 {CARRIER_OPTIONS.map((carrier) => (
                   <SelectItem key={carrier.id} value={carrier.id}>
                     {carrier.name}
@@ -161,10 +183,10 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
               onValueChange={setSelectedServiceForAll}
               disabled={!selectedCarrierForAll}
             >
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-[160px] bg-white">
                 <SelectValue placeholder="Select service" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white">
                 {servicesForSelectedCarrier.map((service) => (
                   <SelectItem key={service.id} value={service.name}>
                     {service.name}
@@ -176,9 +198,11 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           
           <Button 
             onClick={handleApplyToAll}
-            disabled={!selectedCarrierForAll || !selectedServiceForAll}
+            disabled={isApplying || !selectedCarrierForAll || !selectedServiceForAll}
+            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
           >
-            Apply to All
+            {isApplying ? 'Applying...' : 'Apply to All'}
+            <CheckCircle className="h-4 w-4" />
           </Button>
         </div>
       </div>
