@@ -11,14 +11,14 @@ import {
 import { Search, Filter, Check, CreditCard } from 'lucide-react';
 
 interface BulkShipmentFiltersProps {
-  onSearch: (term: string) => void;
-  onFilter: (filter: string) => void;
+  onSearch?: (term: string) => void;
+  onFilter?: (filter: string) => void;
   onBulkApplyCarrier?: (carrier: string, service: string) => void;
   onSelectAll?: () => void;
-  activeFilter: string;
+  activeFilter?: string;
   isAllSelected?: boolean;
   totalCost?: number;
-  // Add the following props to match what's being passed in BulkUpload.tsx
+  // Props for the updated implementation
   searchTerm?: string;
   onSearchChange?: React.Dispatch<React.SetStateAction<string>>;
   sortField?: 'carrier' | 'rate' | 'recipient';
@@ -30,11 +30,11 @@ interface BulkShipmentFiltersProps {
 }
 
 const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
-  onSearch,
-  onFilter,
+  onSearch = () => {},
+  onFilter = () => {},
   onBulkApplyCarrier,
   onSelectAll,
-  activeFilter,
+  activeFilter = 'all',
   isAllSelected,
   totalCost = 0,
   searchTerm = '',
