@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 interface ShippingLabelProps {
   labelUrl: string | null;
@@ -21,6 +22,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const downloadLinkRef = useRef<HTMLAnchorElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
@@ -32,11 +34,18 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       if (!url) return;
       
       try {
+        setIsLoadingPreview(true);
         console.log("Fetching label to cache as blob:", url);
+        
+        // Use correct content type for the request
+        const contentType = url.toLowerCase().endsWith('.pdf') 
+          ? 'application/pdf' 
+          : 'image/png';
+        
         const response = await fetch(url, { 
           method: 'GET',
-          headers: { 'Accept': 'application/pdf' },
-          cache: 'force-cache'
+          headers: { 'Accept': contentType },
+          cache: 'no-cache' // Force refresh
         });
         
         if (!response.ok) {
@@ -53,7 +62,9 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         setIsLabelModalOpen(true);
       } catch (error) {
         console.error("Error caching label:", error);
-        toast.error("Error preparing label for download");
+        toast.error("Error preparing label for preview");
+      } finally {
+        setIsLoadingPreview(false);
       }
     };
     
@@ -342,16 +353,24 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
             </TabsList>
             
             <TabsContent value="preview" className="min-h-[400px] flex items-center justify-center border rounded-md">
-              {blobUrl ? (
-                <iframe 
-                  src={blobUrl} 
-                  className="w-full h-[500px]" 
-                  title="Label Preview"
-                />
+              {isLoadingPreview ? (
+                <div className="flex flex-col items-center justify-center h-full w-full">
+                  <FileText className="h-16 w-16 text-gray-300 animate-pulse mb-4" />
+                  <p className="text-gray-500">Loading preview...</p>
+                </div>
+              ) : blobUrl ? (
+                <div className="w-full h-[500px] overflow-hidden">
+                  <iframe 
+                    src={blobUrl} 
+                    className="w-full h-full border-0" 
+                    title="Label Preview"
+                    ref={iframeRef}
+                  />
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full w-full">
                   <FileText className="h-16 w-16 text-gray-300 mb-4" />
-                  <p className="text-gray-500">Loading preview...</p>
+                  <p className="text-gray-500">Preview not available. Try downloading instead.</p>
                 </div>
               )}
             </TabsContent>

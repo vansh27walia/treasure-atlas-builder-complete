@@ -88,7 +88,8 @@ serve(async (req) => {
     
     // If label format and size are specified, add them to the request
     if (options.label_format || options.label_size) {
-      buyOptions.label_format = options.label_format || "PDF";
+      // Always request PDF format for consistency
+      buyOptions.label_format = "PDF";
       buyOptions.label_size = options.label_size || "4x6";
     }
 
@@ -134,9 +135,19 @@ serve(async (req) => {
           // We got the existing label URL, download and save to Storage
           const labelURL = shipmentData.postage_label.label_url;
           try {
-            const labelResponse = await fetch(labelURL);
+            // Force PDF format for the download
+            const pdfLabelURL = labelURL.replace(/\.(\w+)$/, '.pdf');
+            console.log(`Converting label URL to PDF: ${pdfLabelURL}`);
+            
+            const labelResponse = await fetch(pdfLabelURL, {
+              headers: {
+                'Accept': 'application/pdf'
+              }
+            });
+
             if (!labelResponse.ok) {
-              throw new Error('Failed to download existing label');
+              console.error(`Failed to download PDF label: ${labelResponse.status}`);
+              throw new Error('Failed to download existing label in PDF format');
             }
             
             const labelBlob = await labelResponse.blob();
@@ -161,7 +172,7 @@ serve(async (req) => {
               // Fall back to original URL if upload fails
               return new Response(
                 JSON.stringify({
-                  labelUrl: labelURL,
+                  labelUrl: pdfLabelURL,
                   trackingCode: shipmentData.tracking_code,
                   shipmentId: shipmentId
                 }),
@@ -177,7 +188,7 @@ serve(async (req) => {
               
             return new Response(
               JSON.stringify({
-                labelUrl: signedURLData?.signedUrl || labelURL,
+                labelUrl: signedURLData?.signedUrl || pdfLabelURL,
                 trackingCode: shipmentData.tracking_code,
                 shipmentId: shipmentId,
                 message: 'Retrieved existing label'
@@ -207,8 +218,14 @@ serve(async (req) => {
     }
 
     // Download the label PDF from EasyPost
-    const labelURL = data.postage_label.label_url;
+    let labelURL = data.postage_label.label_url;
     console.log(`Label URL from EasyPost: ${labelURL}`);
+    
+    // Force PDF format for the download if not already PDF
+    if (!labelURL.toLowerCase().endsWith('.pdf')) {
+      labelURL = labelURL.replace(/\.(\w+)$/, '.pdf');
+      console.log(`Converting label URL to PDF format: ${labelURL}`);
+    }
     
     const labelResponse = await fetch(labelURL, {
       headers: {
@@ -217,8 +234,20 @@ serve(async (req) => {
     });
     
     if (!labelResponse.ok) {
-      console.error('Failed to download label from EasyPost');
-      throw new Error('Failed to download label from EasyPost');
+      console.error(`Failed to download PDF label: ${labelResponse.status} ${labelResponse.statusText}`);
+      
+      // Try with original URL if PDF conversion fails
+      const originalURL = data.postage_label.label_url;
+      console.log(`Trying original URL: ${originalURL}`);
+      
+      const originalResponse = await fetch(originalURL);
+      if (!originalResponse.ok) {
+        console.error('Failed to download label from EasyPost with both PDF and original format');
+        throw new Error('Failed to download label from EasyPost');
+      }
+      
+      // Use original format if PDF fails
+      labelURL = originalURL;
     }
     
     // Convert the label to a blob
@@ -226,7 +255,7 @@ serve(async (req) => {
     const labelArrayBuffer = await labelBlob.arrayBuffer();
     const labelBuffer = new Uint8Array(labelArrayBuffer);
     
-    // Generate a unique filename for the label
+    // Use PDF extension consistently for the filename
     const fileName = `label_${shipmentId}_${Date.now()}.pdf`;
     
     // Upload the label to Supabase Storage
@@ -311,10 +340,6 @@ serve(async (req) => {
           charged_rate: data.selected_rate?.rate || null,
           easypost_rate: data.selected_rate?.rate || null,
           currency: data.selected_rate?.currency || 'USD'
-          // The following fields may not be available in the DB schema yet
-          // label_format: options.label_format || "PDF",
-          // label_size: options.label_size || "4x6",
-          // created_at: new Date().toISOString()
         });
         
       if (dbError) {
@@ -332,6 +357,7 @@ serve(async (req) => {
         labelUrl: signedURLData.signedUrl || labelURL, // Fall back to EasyPost URL if needed
         trackingCode: data.tracking_code,
         shipmentId: data.id,
+        format: 'pdf' // Explicitly specify format
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
