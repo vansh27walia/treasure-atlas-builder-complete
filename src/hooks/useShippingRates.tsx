@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
@@ -42,6 +42,16 @@ export const useShippingRates = () => {
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
 
+  // Add a mounted ref to prevent state updates after unmounting
+  const isMountedRef = useRef(true);
+  
+  useEffect(() => {
+    return () => {
+      // Set to false when component unmounts
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Process and enhance rates with original prices at 85-90% higher than actual rate
   const processRates = (incomingRates: ShippingRate[]) => {
     return incomingRates.map(rate => {
@@ -74,6 +84,8 @@ export const useShippingRates = () => {
   // Listen for rates from the shipping form component
   useEffect(() => {
     const handleRatesReceived = (event: CustomEvent<EasyPostRatesEvent['detail']>) => {
+      if (!isMountedRef.current) return;
+      
       if (event.detail && event.detail.rates) {
         console.log("Rates received:", event.detail.rates);
         console.log("Shipment ID received:", event.detail.shipmentId);
@@ -105,6 +117,8 @@ export const useShippingRates = () => {
         
         // Scroll to rates section with smooth behavior and delay
         setTimeout(() => {
+          if (!isMountedRef.current) return;
+          
           const ratesSection = document.getElementById('shipping-rates-section');
           if (ratesSection) {
             // Use scrollIntoView with behavior smooth
@@ -124,6 +138,8 @@ export const useShippingRates = () => {
     
     // Listen for rate selection from other components
     const handleRateSelected = (event: CustomEvent<{rateId: string}>) => {
+      if (!isMountedRef.current) return;
+      
       if (event.detail && event.detail.rateId) {
         setSelectedRateId(event.detail.rateId);
         
@@ -131,14 +147,6 @@ export const useShippingRates = () => {
         document.dispatchEvent(new CustomEvent('shipping-step-change', { 
           detail: { step: 'label' }
         }));
-        
-        // Automatically create label when a rate is selected
-        setTimeout(() => {
-          const selectedRate = rates.find(rate => rate.id === event.detail.rateId);
-          if (selectedRate && selectedRate.shipment_id) {
-            handleCreateLabel(event.detail.rateId, selectedRate.shipment_id);
-          }
-        }, 300);
       }
     };
     
@@ -148,10 +156,12 @@ export const useShippingRates = () => {
       document.removeEventListener('easypost-rates-received', handleRatesReceived as EventListener);
       document.removeEventListener('select-shipping-rate', handleRateSelected as EventListener);
     };
-  }, [rates]);
+  }, []);
   
   // Filter rates when carrier filter changes
   useEffect(() => {
+    if (!isMountedRef.current) return;
+
     if (activeCarrierFilter === 'all') {
       setFilteredRates(rates);
     } else {
@@ -163,6 +173,8 @@ export const useShippingRates = () => {
   }, [activeCarrierFilter, rates]);
 
   const handleSelectRate = (rateId: string) => {
+    if (!isMountedRef.current) return;
+    
     setSelectedRateId(rateId);
     
     // Dispatch rate-selected event
@@ -181,47 +193,39 @@ export const useShippingRates = () => {
     const selectedRateElement = document.querySelector(`[data-rate-id="${rateId}"]`);
     if (selectedRateElement) {
       setTimeout(() => {
-        window.scrollTo({
-          top: selectedRateElement.getBoundingClientRect().top + window.scrollY - 150,
-          behavior: 'smooth'
-        });
+        if (isMountedRef.current) {
+          window.scrollTo({
+            top: selectedRateElement.getBoundingClientRect().top + window.scrollY - 150,
+            behavior: 'smooth'
+          });
+        }
       }, 100);
     }
   };
   
   const handleFilterByCarrier = (carrier: string | 'all') => {
+    if (!isMountedRef.current) return;
     setActiveCarrierFilter(carrier);
   };
 
-  // Modified to accept rateId and shipmentId params for automatic calling
-  const handleCreateLabel = async (rateIdParam?: string, shipmentIdParam?: string) => {
-    const effectiveRateId = rateIdParam || selectedRateId;
-    const effectiveShipmentId = shipmentIdParam || shipmentId;
-    
-    if (!effectiveRateId || !effectiveShipmentId) {
+  // Simplified create label function that follows the previous reliable pattern
+  const handleCreateLabel = async () => {
+    if (!selectedRateId || !shipmentId) {
       toast.error("Please select a shipping rate first");
       return;
     }
     
+    if (!isMountedRef.current) return;
     setIsLoading(true);
     
     try {
-      console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
+      console.log("Creating label with shipmentId:", shipmentId, "and rateId:", selectedRateId);
       
-      // Get the selected rate to determine if it's international
-      const selectedRate = rates.find(rate => rate.id === effectiveRateId);
-      const isInternational = selectedRate?.service?.toLowerCase().includes('international');
-      
-      // Choose the appropriate endpoint based on whether it's international
-      const endpoint = isInternational ? 'create-international-label' : 'create-label';
-      
-      console.log(`Using ${endpoint} endpoint for label creation with options`);
-      
-      // Add label format and size to options
-      const { data, error } = await supabase.functions.invoke(endpoint, {
+      // Direct approach without extra parameters to minimize complexity
+      const { data, error } = await supabase.functions.invoke('create-label', {
         body: { 
-          shipmentId: effectiveShipmentId, 
-          rateId: effectiveRateId,
+          shipmentId: shipmentId, 
+          rateId: selectedRateId,
           options: {
             label_format: "PDF",
             label_size: "4x6"
@@ -230,40 +234,47 @@ export const useShippingRates = () => {
       });
 
       if (error) {
-        console.error(`Error from ${endpoint} function:`, error);
+        console.error(`Error from create-label function:`, error);
         throw new Error(`Error creating label: ${error.message}`);
       }
 
       if (!data || !data.labelUrl) {
-        console.error(`No data returned from ${endpoint} function`);
+        console.error(`No data returned from create-label function`);
         throw new Error("No label data returned from server");
       }
 
       console.log("Label created successfully:", data);
-      setLabelUrl(data.labelUrl);
-      setTrackingCode(data.trackingCode);
-      toast.success("Shipping label generated successfully");
       
-      // Update workflow step to complete
-      document.dispatchEvent(new CustomEvent('shipping-step-change', { 
-        detail: { step: 'complete' }
-      }));
-      
-      // Build the success URL with all needed parameters
-      const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`;
-      console.log("Navigating to:", labelSuccessUrl);
-      
-      // Use navigate with the correct URL
-      navigate(labelSuccessUrl, { replace: true });
-      
-      // Scroll to top of page before navigating
-      window.scrollTo(0, 0);
-      
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setLabelUrl(data.labelUrl);
+        setTrackingCode(data.trackingCode);
+        toast.success("Shipping label generated successfully");
+        
+        // Update workflow step to complete
+        document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+          detail: { step: 'complete' }
+        }));
+        
+        // Build the success URL with all needed parameters
+        const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || shipmentId)}`;
+        console.log("Navigating to:", labelSuccessUrl);
+        
+        // Use navigate with the correct URL
+        navigate(labelSuccessUrl, { replace: true });
+        
+        // Scroll to top of page before navigating
+        window.scrollTo(0, 0);
+      }
     } catch (error) {
       console.error('Error creating label:', error);
-      toast.error("Failed to generate shipping label. Please try again.");
+      if (isMountedRef.current) {
+        toast.error("Failed to generate shipping label. Please try again.");
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -274,6 +285,7 @@ export const useShippingRates = () => {
       return;
     }
     
+    if (!isMountedRef.current) return;
     setIsProcessingPayment(true);
     
     try {
@@ -292,9 +304,13 @@ export const useShippingRates = () => {
       
     } catch (error) {
       console.error('Error proceeding to payment:', error);
-      toast.error("Failed to process payment. Please try again.");
+      if (isMountedRef.current) {
+        toast.error("Failed to process payment. Please try again.");
+      }
     } finally {
-      setIsProcessingPayment(false);
+      if (isMountedRef.current) {
+        setIsProcessingPayment(false);
+      }
     }
   };
 

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ShippingRates from '@/components/ShippingRates';
 import RateCalculator from '@/components/shipping/RateCalculator';
@@ -18,34 +18,44 @@ const CreateLabelPage: React.FC = () => {
   const tabFromQuery = queryParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
   const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
+  
+  // Add a mounted ref to prevent state updates after unmounting
+  const isMountedRef = useRef(true);
+  
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Update the URL when tab changes
   useEffect(() => {
-    if (activeTab) {
-      queryParams.set('tab', activeTab);
-      navigate(`${location.pathname}?${queryParams.toString()}`, { replace: true });
-    }
+    if (!activeTab || !isMountedRef.current) return;
+    
+    queryParams.set('tab', activeTab);
+    navigate(`${location.pathname}?${queryParams.toString()}`, { replace: true });
   }, [activeTab, location.pathname, navigate]);
 
   // Handle tab change from URL
   useEffect(() => {
-    if (tabFromQuery && tabFromQuery !== activeTab) {
-      setActiveTab(tabFromQuery);
-    }
+    if (!tabFromQuery || tabFromQuery === activeTab || !isMountedRef.current) return;
+    
+    setActiveTab(tabFromQuery);
   }, [tabFromQuery]);
   
   // Listen for custom events to update workflow step
   useEffect(() => {
     const handleStepChange = (event: CustomEvent<{step: 'address' | 'package' | 'rates' | 'label' | 'complete'}>) => {
-      if (event.detail && event.detail.step) {
-        setCurrentStep(event.detail.step);
-      }
+      if (!event.detail || !event.detail.step || !isMountedRef.current) return;
+      
+      setCurrentStep(event.detail.step);
     };
     
     document.addEventListener('shipping-step-change', handleStepChange as EventListener);
     
     // Custom event listener for when shipping form is completed
     const handleFormCompleted = () => {
+      if (!isMountedRef.current) return;
       setCurrentStep('rates');
     };
     
@@ -53,6 +63,7 @@ const CreateLabelPage: React.FC = () => {
     
     // Custom event listener for when a rate is selected
     const handleRateSelected = () => {
+      if (!isMountedRef.current) return;
       setCurrentStep('label');
     };
     

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, RefreshCw, ExternalLink, Mail, Save, FileText, X } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
@@ -23,6 +22,19 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   const downloadLinkRef = useRef<HTMLAnchorElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const isMountedRef = useRef(true);
+  
+  // Set mounted ref to false when component unmounts
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      
+      // Clean up blob URL on unmount
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, []);
   
   // Effect to fetch and cache the label as a blob when URL changes
   useEffect(() => {
@@ -45,6 +57,10 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         }
         
         const blob = await response.blob();
+        
+        // Check if component is still mounted before creating blob URL and updating state
+        if (!isMountedRef.current) return;
+        
         const blobUrl = URL.createObjectURL(blob);
         setBlobUrl(blobUrl);
         console.log("Label cached as blob URL:", blobUrl);
@@ -53,20 +69,15 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         setIsLabelModalOpen(true);
       } catch (error) {
         console.error("Error caching label:", error);
-        toast.error("Error preparing label for download");
+        if (isMountedRef.current) {
+          toast.error("Error preparing label for download");
+        }
       }
     };
     
     if (labelUrl || localLabelUrl) {
       fetchAndCacheLabel();
     }
-    
-    // Clean up blob URL on unmount
-    return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
-    };
   }, [labelUrl, localLabelUrl]);
   
   if (!labelUrl && !localLabelUrl) {
@@ -84,6 +95,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       return;
     }
     
+    if (!isMountedRef.current) return;
     setIsRefreshing(true);
     
     try {
@@ -99,7 +111,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       
       console.log("Refreshed label data:", data);
       
-      if (data.labelUrl) {
+      if (data.labelUrl && isMountedRef.current) {
         setLocalLabelUrl(data.labelUrl);
         toast.success('Label refreshed successfully');
       } else {
@@ -107,9 +119,13 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       }
     } catch (error) {
       console.error('Error refreshing label:', error);
-      toast.error('Failed to refresh label');
+      if (isMountedRef.current) {
+        toast.error('Failed to refresh label');
+      }
     } finally {
-      setIsRefreshing(false);
+      if (isMountedRef.current) {
+        setIsRefreshing(false);
+      }
     }
   };
 
@@ -195,7 +211,9 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       return;
     }
 
+    if (!isMountedRef.current) return;
     setIsEmailSending(true);
+    
     try {
       toast.loading('Sending label to your email...');
       
@@ -203,16 +221,22 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       // In a real implementation, this would call a backend function
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      toast.dismiss();
-      toast.success('Label sent to your registered email');
-      
-      // Close the modal after emailing
-      setIsLabelModalOpen(false);
+      if (isMountedRef.current) {
+        toast.dismiss();
+        toast.success('Label sent to your registered email');
+        
+        // Close the modal after emailing
+        setIsLabelModalOpen(false);
+      }
     } catch (error) {
       console.error('Email label error:', error);
-      toast.error('Failed to email label');
+      if (isMountedRef.current) {
+        toast.error('Failed to email label');
+      }
     } finally {
-      setIsEmailSending(false);
+      if (isMountedRef.current) {
+        setIsEmailSending(false);
+      }
     }
   };
 
@@ -223,7 +247,9 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       return;
     }
     
+    if (!isMountedRef.current) return;
     setIsSaving(true);
+    
     try {
       toast.loading('Saving label to your account...');
       
@@ -241,16 +267,22 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         throw new Error(`Failed to save label: ${error.message}`);
       }
       
-      toast.dismiss();
-      toast.success('Label saved to your account');
-      
-      // Close the modal after saving
-      setIsLabelModalOpen(false);
+      if (isMountedRef.current) {
+        toast.dismiss();
+        toast.success('Label saved to your account');
+        
+        // Close the modal after saving
+        setIsLabelModalOpen(false);
+      }
     } catch (error) {
       console.error('Save label error:', error);
-      toast.error('Failed to save label');
+      if (isMountedRef.current) {
+        toast.error('Failed to save label');
+      }
     } finally {
-      setIsSaving(false);
+      if (isMountedRef.current) {
+        setIsSaving(false);
+      }
     }
   };
   
