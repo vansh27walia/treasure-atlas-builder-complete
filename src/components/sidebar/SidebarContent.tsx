@@ -1,3 +1,4 @@
+
 import {
   LayoutDashboard,
   Settings,
@@ -11,22 +12,22 @@ import {
   Archive,
   FileText,
   Users,
+  BarChart3,
+  CreditCard
 } from "lucide-react"
-
-import { Icons } from "@/components/icons"
 
 export type SidebarNavItem = {
   title: string
   href: string
   disabled?: boolean
   external?: boolean
-  icon?: keyof typeof Icons
+  icon?: any
   label?: string
 }
 
 export type SidebarNavGroup = {
   title: string
-  icon?: keyof typeof Icons
+  icon?: any
   items: SidebarNavItem[]
 }
 
@@ -39,62 +40,62 @@ const sidebarNavItems: SidebarNav = {
     {
       title: "Dashboard",
       href: "/dashboard",
-      icon: "dashboard",
+      icon: LayoutDashboard,
     },
     {
       title: "Analytics",
       href: "/analytics",
-      icon: "analytics",
+      icon: BarChart3,
     },
     {
       title: "Customers",
       href: "/customers",
-      icon: "customers",
+      icon: Users,
     },
     {
       title: "Invoices",
       href: "/invoices",
-      icon: "invoices",
+      icon: FileText,
     },
     {
       title: "Products",
       href: "/products",
-      icon: "products",
+      icon: Package,
     },
     {
       title: "Orders",
       href: "/orders",
-      icon: "orders",
+      icon: CreditCard,
     },
     {
       title: "Shipments",
       href: "/shipments",
-      icon: "shipments",
+      icon: Truck,
     },
     {
       title: "Returns",
       href: "/returns",
-      icon: "returns",
+      icon: Archive,
     },
     {
       title: "Disputes",
       href: "/disputes",
-      icon: "disputes",
+      icon: HelpCircle,
     },
     {
       title: "Integrations",
       href: "/integrations",
-      icon: "integrations",
+      icon: Globe,
     },
     {
       title: "Settings",
       href: "/settings",
-      icon: "settings",
+      icon: Settings,
     },
     {
       title: "Subscription",
       href: "/subscription",
-      icon: "subscription",
+      icon: Plus,
       label: "pro",
     },
     {
