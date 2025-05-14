@@ -38,6 +38,7 @@ const BulkUpload: React.FC = () => {
     handleEmailLabels,
     handleDownloadTemplate,
     handleSelectRate,
+    handleRateSelectionAndLabel,
     handleRemoveShipment,
     handleEditShipment,
     handleRefreshRates,
@@ -103,7 +104,7 @@ const BulkUpload: React.FC = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Important</AlertTitle>
             <AlertDescription>
-              Select carrier and service options for each shipment. You can edit address details or remove shipments before proceeding.
+              Select carrier and service options for each shipment. You can create labels individually or in bulk after selecting rates.
             </AlertDescription>
           </Alert>
           
@@ -128,6 +129,7 @@ const BulkUpload: React.FC = () => {
             onRemoveShipment={handleRemoveShipment}
             onEditShipment={handleEditShipment}
             onRefreshRates={handleRefreshRates}
+            onRateSelectionAndLabel={handleRateSelectionAndLabel}
           />
           
           {results.processedShipments.length > 0 && (
