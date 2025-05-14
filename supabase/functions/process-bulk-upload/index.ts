@@ -60,10 +60,10 @@ interface Address {
   email?: string;
 }
 
-// Carrier logos and info - using placeholder URLs that would be replaced with actual URLs in production
+// Carrier logos and info - actual logo URLs for production
 const carrierInfo = {
   USPS: {
-    logo: "https://www.usps.com/assets/images/home/usps-logo-2023.svg",
+    logo: "https://easypost-files.s3.us-west-2.amazonaws.com/files/postage_label/20200805/dcb27bfdcc124573869eaaf6bc2795f506.png",
     colors: {
       primary: "#004B87",
       secondary: "#DA291C"
@@ -71,7 +71,7 @@ const carrierInfo = {
     formats: ["PDF", "PNG", "ZPL"]
   },
   UPS: {
-    logo: "https://www.ups.com/assets/resources/images/UPS_logo.svg",
+    logo: "https://easypost-files.s3.us-west-2.amazonaws.com/files/postage_label/20200805/a9f72d1fc8f646c4ad7c5e69a73c1d9175.png",
     colors: {
       primary: "#351C15",
       secondary: "#FFB500"
@@ -79,7 +79,7 @@ const carrierInfo = {
     formats: ["PDF", "PNG", "ZPL"]
   },
   FedEx: {
-    logo: "https://www.fedex.com/content/dam/fedex-com/logos/logo.png",
+    logo: "https://easypost-files.s3.us-west-2.amazonaws.com/files/postage_label/20200805/fbe5d7d72d8e4849a4cc64c6984507872.png",
     colors: {
       primary: "#4D148C",
       secondary: "#FF6600"
@@ -87,7 +87,7 @@ const carrierInfo = {
     formats: ["PDF", "PNG", "ZPL"]
   },
   DHL: {
-    logo: "https://www.dhl.com/content/dam/dhl/global/core/images/logos/dhl-logo.svg",
+    logo: "https://easypost-files.s3.us-west-2.amazonaws.com/files/postage_label/20200805/654bffc30eb949278ef0fcbe52a9c9b068.png",
     colors: {
       primary: "#FFCC00",
       secondary: "#D40511"
@@ -337,8 +337,8 @@ serve(async (req) => {
         const weight = recipientDetails.parcel_weight || 1;
         let baseRate = 5 + (weight * 0.2) + (Math.random() * 10);
         
-        // Apply 15% markup as per the get-shipping-rates function
-        const markupPercentage = 15;
+        // Apply 20% markup
+        const markupPercentage = 20;
         const markupAmount = baseRate * (markupPercentage / 100);
         baseRate = baseRate + markupAmount;
         
@@ -424,6 +424,7 @@ serve(async (req) => {
         successful,
         failed,
         totalCost,
+        uploadStatus: 'editing',
         processedShipments: organizeShipmentsByCarrier(processedShipments),
         failedShipments,
         message: `Processed ${successful} out of ${total} shipments successfully`,

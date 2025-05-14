@@ -1,154 +1,221 @@
 
 import React from 'react';
-import { Check, Zap, TrendingDown } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { getCarrierLogoUrl } from '@/utils/addressUtils';
+import { Check, Clock, CreditCard, ShoppingCart, Award, Zap } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface ShippingRateCardProps {
   rate: {
     id: string;
     carrier: string;
     service: string;
-    rate: string;
-    currency: string;
+    rate: number;
     delivery_days?: number;
-    delivery_date?: string | null;
-    list_rate?: string;
-    retail_rate?: string;
-    est_delivery_days?: number;
-    isPremium?: boolean;
-    original_rate?: string;
+    logo_url?: string;
+    original_rate?: number;
+    currency: string;
   };
   isSelected: boolean;
-  onSelect: (rateId: string) => void;
-  isBestValue: boolean;
-  isFastest: boolean;
+  onSelect: (id: string) => void;
+  isBestValue?: boolean;
+  isFastest?: boolean;
   aiRecommendation?: {
     rateId: string;
     reason: string;
   };
   showDiscount?: boolean;
-  originalRate?: string;
+  originalRate?: number;
   isPremium?: boolean;
 }
+
+const carrierLogos: Record<string, string> = {
+  'usps': 'https://easypost-files.s3.us-west-2.amazonaws.com/files/postage_label/20200805/dcb27bfdcc124573869eaaf6bc2795f506.png',
+  'fedex': 'https://easypost-files.s3.us-west-2.amazonaws.com/files/postage_label/20200805/fbe5d7d72d8e4849a4cc64c6984507872.png',
+  'ups': 'https://easypost-files.s3.us-west-2.amazonaws.com/files/postage_label/20200805/a9f72d1fc8f646c4ad7c5e69a73c1d9175.png',
+  'dhl': 'https://easypost-files.s3.us-west-2.amazonaws.com/files/postage_label/20200805/654bffc30eb949278ef0fcbe52a9c9b068.png',
+};
+
+// Colors for each carrier
+const carrierColors: Record<string, { primary: string, secondary: string }> = {
+  'usps': { primary: '#004B87', secondary: '#DA291C' },
+  'fedex': { primary: '#4D148C', secondary: '#FF6600' },
+  'ups': { primary: '#351C15', secondary: '#FFB500' },
+  'dhl': { primary: '#FFCC00', secondary: '#D40511' },
+};
 
 const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   rate,
   isSelected,
   onSelect,
-  isBestValue,
-  isFastest,
+  isBestValue = false,
+  isFastest = false,
   aiRecommendation,
   showDiscount = false,
-  isPremium = false,
+  originalRate,
+  isPremium = false
 }) => {
-  const isRecommended = aiRecommendation && aiRecommendation.rateId === rate.id;
-  const deliveryDays = rate.delivery_days || rate.est_delivery_days;
-  const deliveryEstimate = deliveryDays === 1 ? 'Next day' : deliveryDays ? `${deliveryDays} days` : 'N/A';
+  const isAiRecommended = aiRecommendation?.rateId === rate.id;
   
-  // Calculate discount percentage if available
-  const originalRate = rate.original_rate || rate.list_rate || rate.retail_rate;
-  const hasDiscount = showDiscount && originalRate && Number(originalRate) > Number(rate.rate);
-  const discountPercent = hasDiscount ? 
-    Math.round((1 - (Number(rate.rate) / Number(originalRate))) * 100) : 0;
+  // Determine carrier logo
+  const carrierKey = rate.carrier.toLowerCase();
+  const logoUrl = rate.logo_url || carrierLogos[carrierKey] || '';
   
-  // Get carrier logo with fallback
-  const carrierLogo = getCarrierLogoUrl(rate.carrier);
+  // Get carrier colors
+  const colors = carrierColors[carrierKey] || { primary: '#333', secondary: '#666' };
   
-  // Fallback for carrier display name
-  const getCarrierDisplayName = (carrier: string): string => {
-    return carrier.toUpperCase();
-  };
-  
+  // Calculate discount if original rate is provided
+  const displayOriginalRate = originalRate || rate.original_rate;
+  const hasDiscount = showDiscount && displayOriginalRate && displayOriginalRate > rate.rate;
+  const discountPercent = hasDiscount 
+    ? Math.round(((displayOriginalRate - rate.rate) / displayOriginalRate) * 100) 
+    : 0;
+
   return (
-    <div
-      className={`
-        border rounded-lg p-4 cursor-pointer transition-all
-        ${isSelected ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'}
-        ${isPremium ? 'border-amber-400 bg-amber-50/50' : ''}
-      `}
-      onClick={() => onSelect(rate.id)}
-      data-testid={`rate-card-${rate.id}`}
-      data-rate-id={rate.id}
+    <div 
+      className={cn(
+        "border rounded-lg transition-all overflow-hidden",
+        isSelected 
+          ? "border-blue-500 bg-blue-50 shadow-md" 
+          : "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/30",
+        isPremium && "border-amber-400",
+      )}
     >
-      <div className="flex justify-between items-center">
-        <div className="flex items-center space-x-3">
-          {carrierLogo ? (
-            <div className="h-10 w-16 flex items-center justify-center bg-white p-1 rounded">
-              <img 
-                src={carrierLogo} 
-                alt={`${rate.carrier} logo`} 
-                className="h-8 w-auto object-contain"
-                onError={(e) => {
-                  // If image fails to load, hide the image container
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            </div>
-          ) : (
-            <div className="h-10 w-16 flex items-center justify-center bg-gray-100 rounded">
-              <span className="text-xs font-bold text-gray-700">{getCarrierDisplayName(rate.carrier)}</span>
-            </div>
-          )}
-          <div>
-            <h3 className="font-medium text-gray-900 mb-1">{getCarrierDisplayName(rate.carrier)}</h3>
-            <p className="text-sm text-gray-600">{rate.service}</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center">
-          {isSelected && (
-            <div className="bg-blue-500 rounded-full p-1 mr-2">
-              <Check className="h-4 w-4 text-white" />
-            </div>
-          )}
-          <div className="text-right">
-            <div className="flex items-center justify-end space-x-2">
-              {hasDiscount && (
-                <span className="text-sm text-gray-500 line-through">
-                  ${parseFloat(originalRate).toFixed(2)}
-                </span>
-              )}
-              <span className="font-bold text-lg">
-                ${parseFloat(rate.rate).toFixed(2)}
+      {/* Badges */}
+      <div className="relative">
+        {(isBestValue || isFastest || isAiRecommended) && (
+          <div className="absolute top-0 left-0 right-0 flex space-x-2 p-2 justify-end">
+            {isBestValue && (
+              <span 
+                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
+              >
+                <Award className="h-3 w-3 mr-1" />
+                Best Value
               </span>
-            </div>
-            {hasDiscount && (
-              <span className="text-xs font-medium text-green-600">
-                Save {discountPercent}%
+            )}
+            
+            {isFastest && (
+              <span 
+                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
+              >
+                <Zap className="h-3 w-3 mr-1" />
+                Fastest
+              </span>
+            )}
+            
+            {isAiRecommended && (
+              <span 
+                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+              >
+                <Award className="h-3 w-3 mr-1" />
+                AI Pick
               </span>
             )}
           </div>
-        </div>
+        )}
+        
+        {/* Discount badge */}
+        {hasDiscount && (
+          <div className="absolute top-0 left-0 p-2">
+            <span 
+              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800"
+            >
+              Save {discountPercent}%
+            </span>
+          </div>
+        )}
       </div>
       
-      <div className="mt-3 flex justify-between items-center">
-        <div className="flex flex-wrap items-center gap-2">
-          {isBestValue && (
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
-              <TrendingDown className="h-3 w-3 mr-1" /> Best Value
-            </Badge>
-          )}
+      {/* Rate Card Content */}
+      <div className="p-4">
+        {/* Carrier Logo and Name */}
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex items-center">
+            {logoUrl ? (
+              <img 
+                src={logoUrl} 
+                alt={rate.carrier} 
+                className="h-8 w-auto object-contain mr-3"
+              />
+            ) : (
+              <div 
+                className="h-8 w-12 flex items-center justify-center rounded bg-gray-100 mr-3"
+                style={{ backgroundColor: colors.primary, color: 'white' }}
+              >
+                <span className="text-xs font-bold">{rate.carrier.toUpperCase()}</span>
+              </div>
+            )}
+            <div>
+              <h3 className="font-medium">{rate.carrier.toUpperCase()}</h3>
+              <p className="text-sm text-gray-600">{rate.service}</p>
+            </div>
+          </div>
           
-          {isFastest && (
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
-              <Zap className="h-3 w-3 mr-1" /> Fastest
-            </Badge>
-          )}
+          <div 
+            className={cn(
+              "w-5 h-5 rounded-full border flex items-center justify-center",
+              isSelected 
+                ? "bg-blue-600 border-blue-600" 
+                : "bg-white border-gray-300"
+            )}
+          >
+            {isSelected && <Check className="h-3 w-3 text-white" />}
+          </div>
         </div>
         
-        <div className="flex items-center">
-          <span className="text-sm text-gray-600">
-            Est. Delivery: <span className="font-medium">{deliveryEstimate}</span>
-          </span>
+        {/* Price and Delivery Time */}
+        <div className="flex justify-between items-end">
+          <div>
+            <p className="text-sm text-gray-500 flex items-center">
+              <Clock className="h-3 w-3 mr-1" />
+              {rate.delivery_days 
+                ? rate.delivery_days === 1 
+                  ? "1 day delivery"
+                  : `${rate.delivery_days} days delivery`
+                : "Delivery time varies"
+              }
+            </p>
+          </div>
+          <div className="text-right">
+            {hasDiscount && (
+              <p className="text-sm text-gray-500 line-through">
+                ${displayOriginalRate?.toFixed(2)}
+              </p>
+            )}
+            <p className="text-lg font-bold text-blue-700">
+              ${rate.rate.toFixed(2)} <span className="text-xs font-normal text-gray-500">{rate.currency}</span>
+            </p>
+          </div>
         </div>
+        
+        {isPremium && (
+          <div className="mt-3 bg-amber-50 p-2 rounded-md border border-amber-200">
+            <p className="text-xs text-amber-800 flex items-center">
+              <Award className="h-3 w-3 mr-1 text-amber-600" />
+              Premium service with additional insurance
+            </p>
+          </div>
+        )}
+        
+        {isAiRecommended && aiRecommendation?.reason && (
+          <div className="mt-3 bg-blue-50 p-2 rounded-md border border-blue-200">
+            <p className="text-xs text-blue-800">
+              <strong>Why recommended:</strong> {aiRecommendation.reason}
+            </p>
+          </div>
+        )}
       </div>
       
-      {isRecommended && (
-        <div className="mt-2 text-sm text-gray-600 border-t border-gray-200 pt-2">
-          <span className="font-medium text-blue-600">AI Recommended:</span> {aiRecommendation.reason}
-        </div>
-      )}
+      {/* Select Button */}
+      <button
+        onClick={() => onSelect(rate.id)}
+        className={cn(
+          "w-full p-2 text-sm font-medium rounded-t-none transition-colors",
+          isSelected 
+            ? "bg-blue-600 text-white hover:bg-blue-700" 
+            : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+        )}
+      >
+        {isSelected ? "Selected" : "Select"}
+      </button>
     </div>
   );
 };

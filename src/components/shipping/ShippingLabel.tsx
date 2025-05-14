@@ -23,6 +23,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const downloadLinkRef = useRef<HTMLAnchorElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
@@ -35,33 +36,60 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       
       try {
         setIsLoadingPreview(true);
+        setPreviewError(null);
         console.log("Fetching label to cache as blob:", url);
         
-        // Use correct content type for the request
-        const contentType = url.toLowerCase().endsWith('.pdf') 
-          ? 'application/pdf' 
-          : 'image/png';
+        // Determine content type based on URL file extension
+        let contentType = 'application/pdf'; // Default to PDF
+        if (url.toLowerCase().endsWith('.png')) {
+          contentType = 'image/png';
+        } else if (url.toLowerCase().endsWith('.zpl')) {
+          contentType = 'text/plain';
+        }
         
         const response = await fetch(url, { 
           method: 'GET',
           headers: { 'Accept': contentType },
-          cache: 'no-cache' // Force refresh
+          cache: 'no-store' // Force refresh each time
         });
         
         if (!response.ok) {
           console.error(`Failed to fetch label: ${response.status} ${response.statusText}`);
+          
+          // If the URL specifies PDF but fails, try PNG as fallback
+          if (url.toLowerCase().endsWith('.pdf')) {
+            console.log('PDF fetch failed, trying PNG fallback');
+            const pngUrl = url.replace(/\.pdf$/i, '.png');
+            const pngResponse = await fetch(pngUrl, {
+              method: 'GET',
+              headers: { 'Accept': 'image/png' },
+              cache: 'no-store'
+            });
+            
+            if (pngResponse.ok) {
+              const blob = await pngResponse.blob();
+              const blobUrl = URL.createObjectURL(blob);
+              setBlobUrl(blobUrl);
+              console.log("Label cached as PNG blob URL:", blobUrl);
+              setIsLabelModalOpen(true);
+              setIsLoadingPreview(false);
+              return;
+            }
+          }
+          
           throw new Error(`Failed to fetch label: ${response.status}`);
         }
         
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
         setBlobUrl(blobUrl);
-        console.log("Label cached as blob URL:", blobUrl);
+        console.log("Label cached as blob URL:", blobUrl, "Content type:", contentType);
         
         // Automatically open the label modal when the blob is ready
         setIsLabelModalOpen(true);
       } catch (error) {
         console.error("Error caching label:", error);
+        setPreviewError(error instanceof Error ? error.message : 'Error preparing label for preview');
         toast.error("Error preparing label for preview");
       } finally {
         setIsLoadingPreview(false);
@@ -125,27 +153,38 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   };
 
   const handleDirectDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    if (blobUrl) {
-      try {
-        console.log(`Starting direct download with blob URL (${format}):`, blobUrl);
-        
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = `shipping_label_${trackingCode || 'download'}.${format}`;
-        document.body.appendChild(link);
-        link.click();
-        
-        // Clean up
-        setTimeout(() => {
-          document.body.removeChild(link);
-          toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
-        }, 100);
-      } catch (error) {
-        console.error('Direct download error:', error);
-        toast.error('Failed to download directly');
-        tryFallbackDownload(format);
+    // Choose the correct URL depending on the chosen format
+    const url = localLabelUrl || labelUrl;
+    if (!url) {
+      toast.error('No label URL available');
+      return;
+    }
+    
+    try {
+      console.log(`Starting direct download (${format})`, url);
+      
+      // Force the right extension based on the requested format
+      let downloadUrl = url;
+      if (!url.toLowerCase().endsWith(`.${format}`)) {
+        downloadUrl = url.replace(/\.\w+$/, `.${format}`);
       }
-    } else {
+      
+      // Create temporary link and trigger download
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `shipping_label_${trackingCode || 'download'}.${format}`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+        toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
+      }, 100);
+    } catch (error) {
+      console.error('Direct download error:', error);
+      toast.error('Failed to download directly. Trying fallback method...');
       tryFallbackDownload(format);
     }
   };
@@ -158,18 +197,35 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     }
     
     try {
-      console.log(`Trying fallback download with URL (${format}):`, url);
+      console.log(`Trying fallback download (${format}):`, url);
       
       // Create a hidden iframe to download without navigating away
       const iframe = document.createElement('iframe');
       iframe.style.display = 'none';
-      iframe.src = url;
+      
+      // Force the right extension based on the requested format
+      let downloadUrl = url;
+      if (!url.toLowerCase().endsWith(`.${format}`)) {
+        downloadUrl = url.replace(/\.\w+$/, `.${format}`);
+      }
+      
+      iframe.src = downloadUrl;
       document.body.appendChild(iframe);
       
       // Clean up after a moment
       setTimeout(() => {
         document.body.removeChild(iframe);
         toast.success(`Starting ${format.toUpperCase()} download through fallback method`);
+        
+        // If that still didn't work, offer to open in a new tab
+        setTimeout(() => {
+          toast("Download not working?", {
+            action: {
+              label: "Open in New Tab",
+              onClick: () => window.open(downloadUrl, '_blank')
+            },
+          });
+        }, 3000);
       }, 1000);
     } catch (error) {
       console.error('Fallback download error:', error);
@@ -358,14 +414,32 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
                   <FileText className="h-16 w-16 text-gray-300 animate-pulse mb-4" />
                   <p className="text-gray-500">Loading preview...</p>
                 </div>
+              ) : previewError ? (
+                <div className="flex flex-col items-center justify-center h-full w-full p-4">
+                  <FileText className="h-16 w-16 text-gray-300 mb-4" />
+                  <p className="text-red-500 mb-2">Preview error: {previewError}</p>
+                  <p className="text-gray-500 text-center">Unable to display preview. Try downloading instead or opening in a new tab.</p>
+                </div>
               ) : blobUrl ? (
                 <div className="w-full h-[500px] overflow-hidden">
-                  <iframe 
-                    src={blobUrl} 
-                    className="w-full h-full border-0" 
-                    title="Label Preview"
-                    ref={iframeRef}
-                  />
+                  {blobUrl.includes('.png') || blobUrl.toLowerCase().includes('image/png') ? (
+                    <img 
+                      src={blobUrl} 
+                      className="w-full h-full object-contain" 
+                      alt="Shipping Label"
+                    />
+                  ) : (
+                    <iframe 
+                      src={blobUrl} 
+                      className="w-full h-full border-0" 
+                      title="Label Preview"
+                      ref={iframeRef}
+                      onError={(e) => {
+                        console.error("Preview iframe error:", e);
+                        setPreviewError("Failed to load preview");
+                      }}
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full w-full">

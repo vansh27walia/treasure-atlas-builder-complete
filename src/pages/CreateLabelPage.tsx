@@ -22,7 +22,7 @@ const CreateLabelPage: React.FC = () => {
   // Update the URL when tab changes, but use React Router's navigate instead of modifying URL directly
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    // Update URL without full page refresh
+    // Update URL without full page refresh - use replace to avoid browser history buildup
     const newParams = new URLSearchParams(queryParams);
     newParams.set('tab', value);
     navigate(`${location.pathname}?${newParams.toString()}`, { replace: true });
@@ -33,7 +33,7 @@ const CreateLabelPage: React.FC = () => {
     if (tabFromQuery && tabFromQuery !== activeTab) {
       setActiveTab(tabFromQuery);
     }
-  }, [tabFromQuery]);
+  }, [tabFromQuery, activeTab]);
   
   // Listen for custom events to update workflow step
   useEffect(() => {
@@ -71,10 +71,12 @@ const CreateLabelPage: React.FC = () => {
     // Don't reset step when changing to calculator
     if (value === 'calculator') {
       // Don't reset the current step
-    } else {
-      // Reset step to address for other tabs
+    } else if (value !== activeTab) {
+      // Only reset step to address when changing to a different tab (not calculator)
       setCurrentStep('address');
     }
+    
+    // Let the normal tab change handler update the URL and state
   };
 
   return (
@@ -208,8 +210,7 @@ const CreateLabelPage: React.FC = () => {
           </Tabs>
         </Card>
 
-        {activeTab === 'domestic' && <ShippingRates />}
-        {activeTab === 'calculator' && <ShippingRates />}
+        {(activeTab === 'domestic' || activeTab === 'calculator') && <ShippingRates />}
       </div>
     </div>
   );

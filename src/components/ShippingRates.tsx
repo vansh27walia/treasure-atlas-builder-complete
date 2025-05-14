@@ -37,7 +37,7 @@ const ShippingRates: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   
   // Show empty state if no rates available
-  if (rates.length === 0) {
+  if (rates.length === 0 && !isLoading) {
     return (
       <div className="mt-8 w-full" id="shipping-rates-section">
         <EmptyRatesState />
@@ -56,7 +56,7 @@ const ShippingRates: React.FC = () => {
   // Sort the rates based on the selected sorting option
   const sortedRates = [...rates].sort((a, b) => {
     if (sortOrder === 'price') {
-      return parseFloat(a.rate) - parseFloat(b.rate);
+      return parseFloat(a.rate.toString()) - parseFloat(b.rate.toString());
     } else if (sortOrder === 'speed') {
       const aDays = a.delivery_days || 999;
       const bDays = b.delivery_days || 999;
@@ -142,27 +142,36 @@ const ShippingRates: React.FC = () => {
               
               <div className="space-y-4 mt-6">
                 <h3 className="text-lg font-semibold text-gray-700 mb-4">All Available Options</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sortedRates.map((rate) => (
-                    <ShippingRateCard
-                      key={rate.id}
-                      rate={rate}
-                      isSelected={selectedRateId === rate.id}
-                      onSelect={handleSelectRate}
-                      isBestValue={rate.id === bestValueRateId}
-                      isFastest={rate.id === fastestRateId}
-                      aiRecommendation={aiRecommendation && {
-                        rateId: aiRecommendation.bestOverall || '',
-                        reason: aiRecommendation.analysisText || ''
-                      }}
-                      showDiscount={true}
-                      originalRate={rate.original_rate}
-                      isPremium={false}
-                    />
-                  ))}
-                </div>
+                {isLoading ? (
+                  <div className="flex justify-center items-center p-12">
+                    <div className="flex flex-col items-center">
+                      <Loader className="h-8 w-8 text-blue-500 animate-spin mb-4" />
+                      <p className="text-blue-600">Loading shipping rates...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {sortedRates.map((rate) => (
+                      <ShippingRateCard
+                        key={rate.id}
+                        rate={rate}
+                        isSelected={selectedRateId === rate.id}
+                        onSelect={handleSelectRate}
+                        isBestValue={rate.id === bestValueRateId}
+                        isFastest={rate.id === fastestRateId}
+                        aiRecommendation={aiRecommendation && {
+                          rateId: aiRecommendation.bestOverall || '',
+                          reason: aiRecommendation.analysisText || ''
+                        }}
+                        showDiscount={true}
+                        originalRate={rate.original_rate}
+                        isPremium={false}
+                      />
+                    ))}
+                  </div>
+                )}
 
-                {sortedRates.length === 0 && (
+                {sortedRates.length === 0 && !isLoading && (
                   <div className="p-8 text-center">
                     <p className="text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
                     <Button 
