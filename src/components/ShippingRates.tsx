@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import ShippingRateCard from './shipping/ShippingRateCard';
@@ -39,6 +40,14 @@ const ShippingRates: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [showLabelPreview, setShowLabelPreview] = useState(false);
   const [labelFormat, setLabelFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
+  const isMountedRef = useRef(true);
+  
+  // Set up mount/unmount lifecycle
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
   
   // Show empty state if no rates available
   if (rates.length === 0) {
@@ -168,7 +177,6 @@ const ShippingRates: React.FC = () => {
             </h2>
             {/* ... keep existing code (filter and sort dropdowns) */}
             <div className="flex flex-wrap gap-2">
-              {/* ... keep existing code (dropdown menu for carrier filter) */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
@@ -242,7 +250,7 @@ const ShippingRates: React.FC = () => {
                       rate={{
                         ...rate,
                         // Ensure rate is treated as a number for compatibility with ShippingOption
-                        rate: typeof rate.rate === 'string' ? parseFloat(rate.rate) : rate.rate
+                        rate: typeof rate.rate === 'string' ? parseFloat(rate.rate) : Number(rate.rate)
                       }}
                       isSelected={selectedRateId === rate.id}
                       onSelect={handleSelectRate}

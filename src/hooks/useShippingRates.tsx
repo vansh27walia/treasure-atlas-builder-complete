@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
@@ -42,6 +41,16 @@ export const useShippingRates = () => {
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
 
+  // Add a mounted ref to prevent state updates after unmounting
+  const isMountedRef = useRef(true);
+  
+  useEffect(() => {
+    return () => {
+      // Set to false when component unmounts
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Process and enhance rates with original prices at 85-90% higher than actual rate
   const processRates = (incomingRates: ShippingRate[]) => {
     return incomingRates.map(rate => {
@@ -74,7 +83,7 @@ export const useShippingRates = () => {
   // Listen for rates from the shipping form component
   useEffect(() => {
     const handleRatesReceived = (event: CustomEvent<EasyPostRatesEvent['detail']>) => {
-      if (event.detail && event.detail.rates) {
+      if (event.detail && event.detail.rates && isMountedRef.current) {
         console.log("Rates received:", event.detail.rates);
         console.log("Shipment ID received:", event.detail.shipmentId);
         
@@ -84,19 +93,21 @@ export const useShippingRates = () => {
           shipment_id: event.detail.shipmentId
         }));
         
-        setRates(processedRates);
-        setFilteredRates(processedRates);
-        setShipmentId(event.detail.shipmentId);
-        setSelectedRateId(null);
-        setLabelUrl(null);
-        setTrackingCode(null);
-        
-        // Extract unique carriers for filtering
-        const carriers = [...new Set(processedRates.map(rate => 
-          rate.carrier.toUpperCase()
-        ))];
-        setUniqueCarriers(carriers);
-        setActiveCarrierFilter('all');
+        if (isMountedRef.current) {
+          setRates(processedRates);
+          setFilteredRates(processedRates);
+          setShipmentId(event.detail.shipmentId);
+          setSelectedRateId(null);
+          setLabelUrl(null);
+          setTrackingCode(null);
+          
+          // Extract unique carriers for filtering
+          const carriers = [...new Set(processedRates.map(rate => 
+            rate.carrier.toUpperCase()
+          ))];
+          setUniqueCarriers(carriers);
+          setActiveCarrierFilter('all');
+        }
         
         // Update workflow step
         document.dispatchEvent(new CustomEvent('shipping-step-change', { 
@@ -124,7 +135,7 @@ export const useShippingRates = () => {
     
     // Listen for rate selection from other components
     const handleRateSelected = (event: CustomEvent<{rateId: string}>) => {
-      if (event.detail && event.detail.rateId) {
+      if (event.detail && event.detail.rateId && isMountedRef.current) {
         setSelectedRateId(event.detail.rateId);
         
         // Dispatch event for step change
@@ -134,6 +145,8 @@ export const useShippingRates = () => {
         
         // Automatically create label when a rate is selected
         setTimeout(() => {
+          if (!isMountedRef.current) return;
+          
           const selectedRate = rates.find(rate => rate.id === event.detail.rateId);
           if (selectedRate && selectedRate.shipment_id) {
             handleCreateLabel(event.detail.rateId, selectedRate.shipment_id);
@@ -152,6 +165,8 @@ export const useShippingRates = () => {
   
   // Filter rates when carrier filter changes
   useEffect(() => {
+    if (!isMountedRef.current) return;
+
     if (activeCarrierFilter === 'all') {
       setFilteredRates(rates);
     } else {
@@ -163,6 +178,8 @@ export const useShippingRates = () => {
   }, [activeCarrierFilter, rates]);
 
   const handleSelectRate = (rateId: string) => {
+    if (!isMountedRef.current) return;
+    
     setSelectedRateId(rateId);
     
     // Dispatch rate-selected event
@@ -181,15 +198,18 @@ export const useShippingRates = () => {
     const selectedRateElement = document.querySelector(`[data-rate-id="${rateId}"]`);
     if (selectedRateElement) {
       setTimeout(() => {
-        window.scrollTo({
-          top: selectedRateElement.getBoundingClientRect().top + window.scrollY - 150,
-          behavior: 'smooth'
-        });
+        if (isMountedRef.current) {
+          window.scrollTo({
+            top: selectedRateElement.getBoundingClientRect().top + window.scrollY - 150,
+            behavior: 'smooth'
+          });
+        }
       }, 100);
     }
   };
   
   const handleFilterByCarrier = (carrier: string | 'all') => {
+    if (!isMountedRef.current) return;
     setActiveCarrierFilter(carrier);
   };
 
@@ -240,30 +260,38 @@ export const useShippingRates = () => {
       }
 
       console.log("Label created successfully:", data);
-      setLabelUrl(data.labelUrl);
-      setTrackingCode(data.trackingCode);
-      toast.success("Shipping label generated successfully");
       
-      // Update workflow step to complete
-      document.dispatchEvent(new CustomEvent('shipping-step-change', { 
-        detail: { step: 'complete' }
-      }));
-      
-      // Build the success URL with all needed parameters
-      const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`;
-      console.log("Navigating to:", labelSuccessUrl);
-      
-      // Use navigate with the correct URL
-      navigate(labelSuccessUrl, { replace: true });
-      
-      // Scroll to top of page before navigating
-      window.scrollTo(0, 0);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setLabelUrl(data.labelUrl);
+        setTrackingCode(data.trackingCode);
+        toast.success("Shipping label generated successfully");
+        
+        // Update workflow step to complete
+        document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+          detail: { step: 'complete' }
+        }));
+        
+        // Build the success URL with all needed parameters
+        const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`;
+        console.log("Navigating to:", labelSuccessUrl);
+        
+        // Use navigate with the correct URL
+        navigate(labelSuccessUrl, { replace: true });
+        
+        // Scroll to top of page before navigating
+        window.scrollTo(0, 0);
+      }
       
     } catch (error) {
       console.error('Error creating label:', error);
-      toast.error("Failed to generate shipping label. Please try again.");
+      if (isMountedRef.current) {
+        toast.error("Failed to generate shipping label. Please try again.");
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -292,9 +320,13 @@ export const useShippingRates = () => {
       
     } catch (error) {
       console.error('Error proceeding to payment:', error);
-      toast.error("Failed to process payment. Please try again.");
+      if (isMountedRef.current) {
+        toast.error("Failed to process payment. Please try again.");
+      }
     } finally {
-      setIsProcessingPayment(false);
+      if (isMountedRef.current) {
+        setIsProcessingPayment(false);
+      }
     }
   };
 
