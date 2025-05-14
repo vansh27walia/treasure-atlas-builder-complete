@@ -8,13 +8,10 @@ import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
-import { toast } from 'sonner';
-import { CreditCard, Loader, Download, Upload, Truck, Filter, Printer, File } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
+import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { supabase } from '@/integrations/supabase/client';
 
 const ShippingRates: React.FC = () => {
   const {
@@ -38,8 +35,6 @@ const ShippingRates: React.FC = () => {
   
   const { aiRecommendation, isAiLoading } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
-  const [showLabelPreview, setShowLabelPreview] = useState(false);
-  const [labelFormat, setLabelFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   
   // Show empty state if no rates available
   if (rates.length === 0) {
@@ -58,95 +53,10 @@ const ShippingRates: React.FC = () => {
     );
   }
 
-  // Ensure FedEx is always included in the rates if it exists in allRates
-  useEffect(() => {
-    if (allRates && allRates.length > 0) {
-      const hasFedEx = allRates.some(rate => 
-        rate.carrier.toLowerCase().includes('fedex')
-      );
-      
-      const fedExMissingInFilteredRates = hasFedEx && 
-        !rates.some(rate => rate.carrier.toLowerCase().includes('fedex'));
-      
-      if (fedExMissingInFilteredRates && activeCarrierFilter === 'all') {
-        // We might want to log this inconsistency for debugging
-        console.log('FedEx found in allRates but missing in filtered rates');
-      }
-    }
-  }, [rates, allRates, activeCarrierFilter]);
-
-  // Function to download the label in the selected format
-  const downloadLabel = async () => {
-    if (!labelUrl) {
-      toast.error("No label available to download");
-      return;
-    }
-
-    try {
-      // If we need to convert the format, call the backend
-      if (labelFormat !== 'pdf' && labelUrl.toLowerCase().endsWith('.pdf')) {
-        toast.loading(`Converting label to ${labelFormat.toUpperCase()}...`);
-        
-        // Call the edge function to convert the label format
-        const { data, error } = await supabase.functions.invoke('convert-label-format', {
-          body: { 
-            labelUrl, 
-            format: labelFormat, 
-            shipmentId 
-          }
-        });
-        
-        if (error) {
-          toast.error(`Failed to convert label: ${error.message}`);
-          return;
-        }
-        
-        // Use the converted URL
-        window.open(data.convertedUrl, '_blank');
-        toast.success(`Label downloaded as ${labelFormat.toUpperCase()}`);
-      } else {
-        // Just open the existing URL if it's already in the right format
-        window.open(labelUrl, '_blank');
-        toast.success(`Label downloaded`);
-      }
-    } catch (error: any) {
-      toast.error(`Error downloading label: ${error.message || 'Unknown error'}`);
-    }
-  };
-
-  // Function to print the label
-  const printLabel = () => {
-    if (!labelUrl) {
-      toast.error("No label available to print");
-      return;
-    }
-    
-    // Create an iframe to print without opening a new window
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = labelUrl;
-    
-    document.body.appendChild(iframe);
-    
-    iframe.onload = () => {
-      try {
-        iframe.contentWindow?.print();
-      } catch (error) {
-        toast.error("Unable to print. Opening label in new window instead.");
-        window.open(labelUrl, '_blank');
-      }
-      
-      // Remove the iframe after a delay
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 1000);
-    };
-  };
-
   // Sort the rates based on the selected sorting option
   const sortedRates = [...rates].sort((a, b) => {
     if (sortOrder === 'price') {
-      return parseFloat(a.rate.toString()) - parseFloat(b.rate.toString());
+      return parseFloat(a.rate) - parseFloat(b.rate);
     } else if (sortOrder === 'speed') {
       const aDays = a.delivery_days || 999;
       const bDays = b.delivery_days || 999;
@@ -246,7 +156,7 @@ const ShippingRates: React.FC = () => {
                         reason: aiRecommendation.analysisText || ''
                       }}
                       showDiscount={true}
-                      originalRate={parseFloat(rate.original_rate || '0')}
+                      originalRate={rate.original_rate}
                       isPremium={false}
                     />
                   ))}
@@ -307,91 +217,11 @@ const ShippingRates: React.FC = () => {
             </>
           )}
           
-          {labelUrl && (
-            <div className="mt-6 flex flex-col space-y-4">
-              <div className="flex flex-wrap justify-center gap-3">
-                <Button 
-                  onClick={() => setShowLabelPreview(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
-                >
-                  <File className="h-4 w-4" />
-                  Preview Label
-                </Button>
-                <Button 
-                  onClick={downloadLabel}
-                  className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-                >
-                  <Download className="h-4 w-4" />
-                  Download Label
-                </Button>
-                <Button 
-                  onClick={printLabel}
-                  variant="outline"
-                  className="border-gray-300 hover:bg-gray-50 flex items-center gap-2"
-                >
-                  <Printer className="h-4 w-4" />
-                  Print Label
-                </Button>
-              </div>
-            </div>
-          )}
-          
           <div className="mt-6 text-center text-sm text-gray-500">
             <p>* All rates include handling fees and applicable taxes</p>
           </div>
         </div>
       </Card>
-
-      {/* Label Preview Dialog */}
-      <Dialog open={showLabelPreview} onOpenChange={setShowLabelPreview}>
-        <DialogContent className="max-w-3xl h-[95vh] flex flex-col p-0 gap-0">
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle className="flex items-center">
-              <File className="mr-2 h-5 w-5" />
-              Shipping Label Preview
-            </DialogTitle>
-            <Tabs value={labelFormat} onValueChange={(value) => setLabelFormat(value as 'pdf' | 'png' | 'zpl')} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="pdf">PDF</TabsTrigger>
-                <TabsTrigger value="png">PNG</TabsTrigger>
-                <TabsTrigger value="zpl">ZPL</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </DialogHeader>
-          <div className="flex-1 overflow-auto p-4 bg-gray-100">
-            <div className="bg-white rounded shadow-md p-2 h-full flex items-center justify-center">
-              {labelUrl ? (
-                <iframe 
-                  src={labelUrl} 
-                  title="Shipping Label" 
-                  className="w-full h-full border-0"
-                />
-              ) : (
-                <div className="text-center text-gray-500">
-                  <p>Label preview not available</p>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="p-4 border-t flex justify-end gap-2">
-            <Button 
-              onClick={downloadLabel}
-              className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              Download as {labelFormat.toUpperCase()}
-            </Button>
-            <Button 
-              onClick={printLabel}
-              variant="outline"
-              className="border-gray-300 hover:bg-gray-50 flex items-center gap-2"
-            >
-              <Printer className="h-4 w-4" />
-              Print
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
