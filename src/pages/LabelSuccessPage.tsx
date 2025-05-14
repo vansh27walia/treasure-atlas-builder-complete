@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -16,13 +16,6 @@ const LabelSuccessPage: React.FC = () => {
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  const isMountedRef = useRef(true);
-
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -36,7 +29,7 @@ const LabelSuccessPage: React.FC = () => {
       shipmentId: shipmentIdParam
     });
 
-    if (labelUrlParam && isMountedRef.current) {
+    if (labelUrlParam) {
       setLabelUrl(decodeURIComponent(labelUrlParam));
       console.log("Decoded label URL:", decodeURIComponent(labelUrlParam));
     } else {
@@ -44,11 +37,11 @@ const LabelSuccessPage: React.FC = () => {
       toast.error('Missing label information');
     }
 
-    if (trackingCodeParam && isMountedRef.current) {
+    if (trackingCodeParam) {
       setTrackingCode(decodeURIComponent(trackingCodeParam));
     }
     
-    if (shipmentIdParam && isMountedRef.current) {
+    if (shipmentIdParam) {
       setShipmentId(decodeURIComponent(shipmentIdParam));
     }
 
@@ -64,11 +57,7 @@ const LabelSuccessPage: React.FC = () => {
     }));
     
     // Animate progress bar
-    const timer = setTimeout(() => {
-      if (isMountedRef.current) {
-        setProgress(100);
-      }
-    }, 100);
+    const timer = setTimeout(() => setProgress(100), 100);
     return () => clearTimeout(timer);
   }, [location]);
   
