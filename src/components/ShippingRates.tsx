@@ -153,6 +153,17 @@ const ShippingRates: React.FC = () => {
     };
   };
 
+  // Handle buying a label directly
+  const onBuyLabel = () => {
+    if (!selectedRateId) {
+      toast.error("Please select a shipping rate first");
+      return;
+    }
+    
+    // Directly call handleCreateLabel with the selected rate
+    handleCreateLabel();
+  };
+
   // Sort the rates based on the selected sorting option
   const sortedRates = [...rates].sort((a, b) => {
     if (sortOrder === 'price') {
@@ -177,7 +188,7 @@ const ShippingRates: React.FC = () => {
               <Truck className="mr-2 h-6 w-6 text-blue-600" />
               Available Shipping Rates
             </h2>
-            {/* ... keep existing code (filter and sort dropdowns) */}
+            
             <div className="flex flex-wrap gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -272,7 +283,6 @@ const ShippingRates: React.FC = () => {
                   ))}
                 </div>
 
-                {/* ... keep existing code (empty state for no matching rates) */}
                 {sortedRates.length === 0 && (
                   <div className="p-8 text-center">
                     <p className="text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
@@ -287,10 +297,9 @@ const ShippingRates: React.FC = () => {
                 )}
               </div>
               
-              {/* ... keep existing code (buy & print label and payment buttons) */}
               <div className="mt-8 flex flex-wrap justify-end gap-4">
                 <Button 
-                  onClick={() => handleCreateLabel()}
+                  onClick={onBuyLabel}
                   disabled={!selectedRateId || isLoading}
                   className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-6 py-2 h-12 text-base"
                 >
@@ -329,7 +338,6 @@ const ShippingRates: React.FC = () => {
             </>
           )}
           
-          {/* ... keep existing code (label preview and download section) */}
           {labelUrl && (
             <div className="mt-6 flex flex-col space-y-4">
               <div className="flex flex-wrap justify-center gap-3">

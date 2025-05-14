@@ -84,7 +84,9 @@ export const useShippingRates = () => {
   // Listen for rates from the shipping form component
   useEffect(() => {
     const handleRatesReceived = (event: CustomEvent<EasyPostRatesEvent['detail']>) => {
-      if (event.detail && event.detail.rates && isMountedRef.current) {
+      if (!isMountedRef.current) return;
+      
+      if (event.detail && event.detail.rates) {
         console.log("Rates received:", event.detail.rates);
         console.log("Shipment ID received:", event.detail.shipmentId);
         
@@ -94,21 +96,19 @@ export const useShippingRates = () => {
           shipment_id: event.detail.shipmentId
         }));
         
-        if (isMountedRef.current) {
-          setRates(processedRates);
-          setFilteredRates(processedRates);
-          setShipmentId(event.detail.shipmentId);
-          setSelectedRateId(null);
-          setLabelUrl(null);
-          setTrackingCode(null);
-          
-          // Extract unique carriers for filtering
-          const carriers = [...new Set(processedRates.map(rate => 
-            rate.carrier.toUpperCase()
-          ))];
-          setUniqueCarriers(carriers);
-          setActiveCarrierFilter('all');
-        }
+        setRates(processedRates);
+        setFilteredRates(processedRates);
+        setShipmentId(event.detail.shipmentId);
+        setSelectedRateId(null);
+        setLabelUrl(null);
+        setTrackingCode(null);
+        
+        // Extract unique carriers for filtering
+        const carriers = [...new Set(processedRates.map(rate => 
+          rate.carrier.toUpperCase()
+        ))];
+        setUniqueCarriers(carriers);
+        setActiveCarrierFilter('all');
         
         // Update workflow step
         document.dispatchEvent(new CustomEvent('shipping-step-change', { 
@@ -147,16 +147,6 @@ export const useShippingRates = () => {
         document.dispatchEvent(new CustomEvent('shipping-step-change', { 
           detail: { step: 'label' }
         }));
-        
-        // Automatically create label when a rate is selected
-        setTimeout(() => {
-          if (!isMountedRef.current) return;
-          
-          const selectedRate = rates.find(rate => rate.id === event.detail.rateId);
-          if (selectedRate && selectedRate.shipment_id) {
-            handleCreateLabel(event.detail.rateId, selectedRate.shipment_id);
-          }
-        }, 300);
       }
     };
     
@@ -166,7 +156,7 @@ export const useShippingRates = () => {
       document.removeEventListener('easypost-rates-received', handleRatesReceived as EventListener);
       document.removeEventListener('select-shipping-rate', handleRateSelected as EventListener);
     };
-  }, [rates]);
+  }, []);
   
   // Filter rates when carrier filter changes
   useEffect(() => {
@@ -218,12 +208,9 @@ export const useShippingRates = () => {
     setActiveCarrierFilter(carrier);
   };
 
-  // Modified to accept rateId and shipmentId params for automatic calling
-  const handleCreateLabel = async (rateIdParam?: string, shipmentIdParam?: string) => {
-    const effectiveRateId = rateIdParam || selectedRateId;
-    const effectiveShipmentId = shipmentIdParam || shipmentId;
-    
-    if (!effectiveRateId || !effectiveShipmentId) {
+  // Simplified create label function that follows the previous reliable pattern
+  const handleCreateLabel = async () => {
+    if (!selectedRateId || !shipmentId) {
       toast.error("Please select a shipping rate first");
       return;
     }
@@ -232,22 +219,13 @@ export const useShippingRates = () => {
     setIsLoading(true);
     
     try {
-      console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
+      console.log("Creating label with shipmentId:", shipmentId, "and rateId:", selectedRateId);
       
-      // Get the selected rate to determine if it's international
-      const selectedRate = rates.find(rate => rate.id === effectiveRateId);
-      const isInternational = selectedRate?.service?.toLowerCase().includes('international');
-      
-      // Choose the appropriate endpoint based on whether it's international
-      const endpoint = isInternational ? 'create-international-label' : 'create-label';
-      
-      console.log(`Using ${endpoint} endpoint for label creation with options`);
-      
-      // Add label format and size to options
-      const { data, error } = await supabase.functions.invoke(endpoint, {
+      // Direct approach without extra parameters to minimize complexity
+      const { data, error } = await supabase.functions.invoke('create-label', {
         body: { 
-          shipmentId: effectiveShipmentId, 
-          rateId: effectiveRateId,
+          shipmentId: shipmentId, 
+          rateId: selectedRateId,
           options: {
             label_format: "PDF",
             label_size: "4x6"
@@ -256,12 +234,12 @@ export const useShippingRates = () => {
       });
 
       if (error) {
-        console.error(`Error from ${endpoint} function:`, error);
+        console.error(`Error from create-label function:`, error);
         throw new Error(`Error creating label: ${error.message}`);
       }
 
       if (!data || !data.labelUrl) {
-        console.error(`No data returned from ${endpoint} function`);
+        console.error(`No data returned from create-label function`);
         throw new Error("No label data returned from server");
       }
 
@@ -279,7 +257,7 @@ export const useShippingRates = () => {
         }));
         
         // Build the success URL with all needed parameters
-        const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`;
+        const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || shipmentId)}`;
         console.log("Navigating to:", labelSuccessUrl);
         
         // Use navigate with the correct URL
@@ -288,7 +266,6 @@ export const useShippingRates = () => {
         // Scroll to top of page before navigating
         window.scrollTo(0, 0);
       }
-      
     } catch (error) {
       console.error('Error creating label:', error);
       if (isMountedRef.current) {
@@ -308,6 +285,7 @@ export const useShippingRates = () => {
       return;
     }
     
+    if (!isMountedRef.current) return;
     setIsProcessingPayment(true);
     
     try {

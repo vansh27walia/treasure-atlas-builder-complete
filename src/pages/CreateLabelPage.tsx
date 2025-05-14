@@ -30,43 +30,41 @@ const CreateLabelPage: React.FC = () => {
 
   // Update the URL when tab changes
   useEffect(() => {
-    if (activeTab && isMountedRef.current) {
-      queryParams.set('tab', activeTab);
-      navigate(`${location.pathname}?${queryParams.toString()}`, { replace: true });
-    }
+    if (!activeTab || !isMountedRef.current) return;
+    
+    queryParams.set('tab', activeTab);
+    navigate(`${location.pathname}?${queryParams.toString()}`, { replace: true });
   }, [activeTab, location.pathname, navigate]);
 
   // Handle tab change from URL
   useEffect(() => {
-    if (tabFromQuery && tabFromQuery !== activeTab && isMountedRef.current) {
-      setActiveTab(tabFromQuery);
-    }
+    if (!tabFromQuery || tabFromQuery === activeTab || !isMountedRef.current) return;
+    
+    setActiveTab(tabFromQuery);
   }, [tabFromQuery]);
   
   // Listen for custom events to update workflow step
   useEffect(() => {
     const handleStepChange = (event: CustomEvent<{step: 'address' | 'package' | 'rates' | 'label' | 'complete'}>) => {
-      if (event.detail && event.detail.step && isMountedRef.current) {
-        setCurrentStep(event.detail.step);
-      }
+      if (!event.detail || !event.detail.step || !isMountedRef.current) return;
+      
+      setCurrentStep(event.detail.step);
     };
     
     document.addEventListener('shipping-step-change', handleStepChange as EventListener);
     
     // Custom event listener for when shipping form is completed
     const handleFormCompleted = () => {
-      if (isMountedRef.current) {
-        setCurrentStep('rates');
-      }
+      if (!isMountedRef.current) return;
+      setCurrentStep('rates');
     };
     
     document.addEventListener('shipping-form-completed', handleFormCompleted);
     
     // Custom event listener for when a rate is selected
     const handleRateSelected = () => {
-      if (isMountedRef.current) {
-        setCurrentStep('label');
-      }
+      if (!isMountedRef.current) return;
+      setCurrentStep('label');
     };
     
     document.addEventListener('rate-selected', handleRateSelected);
