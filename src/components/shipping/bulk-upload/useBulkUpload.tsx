@@ -103,8 +103,8 @@ export const useBulkUpload = () => {
         )
       });
       
-      // Create the label with specified format
-      await handleCreateLabels([shipmentId], "PDF");
+      // Create the label with specified format - Fixed the function call here
+      await handleCreateLabels([shipmentId]);
       
       toast.success("Label generated successfully!");
       
