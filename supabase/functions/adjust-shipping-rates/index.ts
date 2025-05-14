@@ -46,13 +46,13 @@ serve(async (req) => {
     }
 
     // Default adjustment configs if none provided
-    // In production, these would be fetched from a database
+    // Higher markup percentages as requested
     const defaultAdjustments: Record<string, AdjustmentConfig> = {
-      'easypost': { api: 'easypost', type: 'percentage', value: 10, minRate: 0.5 }, // 10% markup
-      'ups': { api: 'ups', type: 'fixed', value: 1.5 }, // $1.50 markup
-      'fedex': { api: 'fedex', type: 'percentage', value: 15 }, // 15% markup
-      'usps': { api: 'usps', type: 'fixed', value: 2.0 }, // $2.00 markup
-      'default': { api: 'default', type: 'percentage', value: 5 } // 5% markup
+      'easypost': { api: 'easypost', type: 'percentage', value: 20, minRate: 0.5 }, // 20% markup (increased)
+      'ups': { api: 'ups', type: 'fixed', value: 2.5 }, // $2.50 markup (increased)
+      'fedex': { api: 'fedex', type: 'percentage', value: 25 }, // 25% markup (increased)
+      'usps': { api: 'usps', type: 'fixed', value: 3.0 }, // $3.00 markup (increased)
+      'default': { api: 'default', type: 'percentage', value: 15 } // 15% markup (increased)
     }
 
     const configs = adjustmentConfigs || defaultAdjustments

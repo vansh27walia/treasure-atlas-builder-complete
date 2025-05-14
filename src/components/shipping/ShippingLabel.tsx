@@ -90,7 +90,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
         console.log("Fetching label to cache as blob:", url);
         const response = await fetch(url, { 
           method: 'GET',
-          headers: { 'Accept': 'application/pdf' },
+          headers: { 'Accept': 'application/pdf, image/png, */*' },
           cache: 'force-cache'
         });
         

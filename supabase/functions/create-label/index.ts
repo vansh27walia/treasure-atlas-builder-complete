@@ -100,7 +100,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify({ rate: { id: rateId } }),
+      body: JSON.stringify(buyOptions),
     });
 
     const data = await response.json();
