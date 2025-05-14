@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -146,7 +145,8 @@ const ShippingRates: React.FC = () => {
   // Sort the rates based on the selected sorting option
   const sortedRates = [...rates].sort((a, b) => {
     if (sortOrder === 'price') {
-      return parseFloat(a.rate.toString()) - parseFloat(b.rate.toString());
+      // Ensure both rates are treated as numbers for comparison
+      return parseFloat(String(a.rate)) - parseFloat(String(b.rate));
     } else if (sortOrder === 'speed') {
       const aDays = a.delivery_days || 999;
       const bDays = b.delivery_days || 999;
@@ -160,12 +160,15 @@ const ShippingRates: React.FC = () => {
     <div className="mt-8 w-full px-4" id="shipping-rates-section">
       <Card className="border border-gray-200 shadow-md rounded-xl overflow-hidden w-full">
         <div className="p-6">
+          {/* Card header with title and filters */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
             <h2 className="text-2xl font-semibold text-blue-800 flex items-center mb-3 md:mb-0">
               <Truck className="mr-2 h-6 w-6 text-blue-600" />
               Available Shipping Rates
             </h2>
+            {/* ... keep existing code (filter and sort dropdowns) */}
             <div className="flex flex-wrap gap-2">
+              {/* ... keep existing code (dropdown menu for carrier filter) */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
@@ -236,7 +239,11 @@ const ShippingRates: React.FC = () => {
                   {sortedRates.map((rate) => (
                     <ShippingRateCard
                       key={rate.id}
-                      rate={rate}
+                      rate={{
+                        ...rate,
+                        // Ensure rate is treated as a number for compatibility with ShippingOption
+                        rate: typeof rate.rate === 'string' ? parseFloat(rate.rate) : rate.rate
+                      }}
                       isSelected={selectedRateId === rate.id}
                       onSelect={handleSelectRate}
                       isBestValue={rate.id === bestValueRateId}
@@ -246,12 +253,16 @@ const ShippingRates: React.FC = () => {
                         reason: aiRecommendation.analysisText || ''
                       }}
                       showDiscount={true}
-                      originalRate={parseFloat(rate.original_rate || '0')}
-                      isPremium={false}
+                      originalRate={typeof rate.original_rate === 'string' ? 
+                        parseFloat(rate.original_rate) : 
+                        (rate.original_rate || 0)
+                      }
+                      isPremium={!!rate.isPremium}
                     />
                   ))}
                 </div>
 
+                {/* ... keep existing code (empty state for no matching rates) */}
                 {sortedRates.length === 0 && (
                   <div className="p-8 text-center">
                     <p className="text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
@@ -266,6 +277,7 @@ const ShippingRates: React.FC = () => {
                 )}
               </div>
               
+              {/* ... keep existing code (buy & print label and payment buttons) */}
               <div className="mt-8 flex flex-wrap justify-end gap-4">
                 <Button 
                   onClick={() => handleCreateLabel()}
@@ -307,6 +319,7 @@ const ShippingRates: React.FC = () => {
             </>
           )}
           
+          {/* ... keep existing code (label preview and download section) */}
           {labelUrl && (
             <div className="mt-6 flex flex-col space-y-4">
               <div className="flex flex-wrap justify-center gap-3">
