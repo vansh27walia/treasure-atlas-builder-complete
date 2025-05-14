@@ -38,10 +38,10 @@ interface ShippingRequestData {
 // Get markup percentage from environment variable or use default value
 const getMarkupPercentage = (): number => {
   const markupStr = Deno.env.get('SHIPPING_MARKUP_PERCENTAGE');
-  if (!markupStr) return 25; // Default 25% markup (increased from 20%)
+  if (!markupStr) return 15; // Default 15% markup if not set (changed from 2% to 15% as requested)
   
   const markup = parseFloat(markupStr);
-  return isNaN(markup) ? 25 : markup;
+  return isNaN(markup) ? 15 : markup;
 };
 
 // Apply markup to rates
@@ -61,39 +61,6 @@ const applyMarkup = (rates: any[], markupPercentage: number): any[] => {
       original_rate: originalRate, // Store original rate
       rate: markedUpRate.toString() // Update rate with markup
     };
-  });
-};
-
-// Group rates by carrier for better organization
-const organizeRatesByCarrier = (rates: any[]): any[] => {
-  // Define carrier order for consistent presentation
-  const carrierOrder = ['USPS', 'UPS', 'FedEx', 'DHL'];
-  
-  // Sort rates by carrier first, then by price within each carrier
-  return rates.sort((a, b) => {
-    const carrierA = a.carrier.toUpperCase();
-    const carrierB = b.carrier.toUpperCase();
-    
-    // Compare carriers based on predefined order
-    const orderA = carrierOrder.indexOf(carrierA);
-    const orderB = carrierOrder.indexOf(carrierB);
-    
-    // If carriers are in our predefined list, sort by that order
-    if (orderA >= 0 && orderB >= 0) {
-      if (orderA !== orderB) return orderA - orderB;
-    } else if (orderA >= 0) {
-      return -1; // A is in the list, B is not
-    } else if (orderB >= 0) {
-      return 1; // B is in the list, A is not
-    }
-    
-    // If carriers are the same or neither is in our list, sort alphabetically
-    if (carrierA !== carrierB) {
-      return carrierA.localeCompare(carrierB);
-    }
-    
-    // Within same carrier, sort by price
-    return parseFloat(a.rate) - parseFloat(b.rate);
   });
 };
 
@@ -162,27 +129,26 @@ serve(async (req) => {
       );
     }
     
+    // Sort rates by price (cheapest first)
+    rates.sort((a: any, b: any) => parseFloat(a.rate) - parseFloat(b.rate));
+    
     // Get markup percentage and apply to rates
     const markupPercentage = getMarkupPercentage();
     console.log(`Applying ${markupPercentage}% markup to shipping rates`);
     const markedUpRates = applyMarkup(rates, markupPercentage);
-    
-    // Organize rates by carrier for better presentation
-    const organizedRates = organizeRatesByCarrier(markedUpRates);
 
     // Return the rates from the response
     return new Response(
       JSON.stringify({ 
-        rates: organizedRates,
+        rates: markedUpRates,
         shipmentId: data.id,
-        markupPercentage: markupPercentage // Include markup percentage for transparency
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error in get-shipping-rates function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

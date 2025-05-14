@@ -1,67 +1,20 @@
 
-import { z } from "zod";
-
-export type ShippingAddressType = "from" | "to";
+// Add the GoogleApiKeyResponse type
+export interface GoogleApiKeyResponse {
+  apiKey: string;
+  error?: string;
+  message?: string;
+}
 
 export type ShippingStep = 'address' | 'package' | 'rates' | 'label' | 'complete';
 
-export type ShippingWorkflowStep = {
+export interface ShippingWorkflowStep {
   id: ShippingStep;
   label: string;
   status: 'completed' | 'active' | 'upcoming';
-};
-
-export interface GoogleApiKeyResponse {
-  apiKey: string;
 }
 
-export interface ShippingAddress {
-  name: string;
-  company?: string;
-  street1: string;
-  street2?: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  phone?: string;
-  email?: string;
-  residential?: boolean;
-  addressType?: ShippingAddressType;
-}
-
-export interface Parcel {
-  length: number;
-  width: number;
-  height: number;
-  weight: number;
-  predefinedPackage?: string;
-}
-
-export interface ShippingOption {
-  id: string;
-  carrier: string;
-  service: string;
-  rate: number;
-  currency: string;
-  delivery_days: number;
-  estimated_delivery_date?: string;
-  listRate?: number;
-  retailRate?: number;
-}
-
-export interface ShippingLabelFormat {
-  format: 'pdf' | 'png' | 'zpl';
-  size: '4x6' | '8.5x11';
-}
-
-export interface AddressValidationResult {
-  original: ShippingAddress;
-  normalized: ShippingAddress;
-  status: 'valid' | 'invalid' | 'warning';
-  messages: string[];
-}
-
+// Add bulk upload-related types
 export interface BulkShipment {
   id: string;
   row: number;
@@ -70,8 +23,8 @@ export interface BulkShipment {
   service: string;
   rate: number;
   tracking_code?: string;
-  trackingCode?: string;
   label_url?: string;
+  trackingCode?: string; // For backward compatibility
   status: 'pending' | 'processing' | 'error' | 'completed';
   error?: string;
   details: {
@@ -84,26 +37,19 @@ export interface BulkShipment {
     zip: string;
     country: string;
     phone?: string;
-    email?: string;
     parcel_length?: number;
     parcel_width?: number;
     parcel_height?: number;
     parcel_weight?: number;
-    carrier_logo?: string;
-    carrier_colors?: {
-      primary: string;
-      secondary: string;
-    };
-    carrier_formats?: string[];
   };
-  availableRates?: ShippingOption[];
+  availableRates?: Array<{
+    id: string;
+    carrier: string;
+    service: string;
+    rate: number;
+    delivery_days?: number;
+  }>;
   selectedRateId?: string;
-}
-
-export interface BulkShipmentError {
-  row: number;
-  error: string;
-  details: string;
 }
 
 export interface BulkUploadResult {
@@ -112,52 +58,63 @@ export interface BulkUploadResult {
   failed: number;
   totalCost: number;
   processedShipments: BulkShipment[];
-  failedShipments: BulkShipmentError[];
-  uploadStatus?: 'idle' | 'success' | 'error' | 'editing';
+  failedShipments: Array<{
+    row: number;
+    error: string;
+    details: string;
+  }>;
 }
 
-export const CARRIER_OPTIONS = [
+export interface CarrierService {
+  id: string;
+  name: string;
+  carrier: string;
+}
+
+export interface CarrierOption {
+  id: string;
+  name: string;
+  services: CarrierService[];
+}
+
+export const CARRIER_OPTIONS: CarrierOption[] = [
   {
     id: 'usps',
     name: 'USPS',
-    logo: '/carriers/usps.svg',
     services: [
-      { id: 'priority', name: 'Priority' },
-      { id: 'priority_express', name: 'Priority Express' },
-      { id: 'first_class', name: 'First Class' },
-      { id: 'ground', name: 'Ground' }
+      { id: 'usps_priority', name: 'Priority', carrier: 'USPS' },
+      { id: 'usps_priority_express', name: 'Priority Express', carrier: 'USPS' },
+      { id: 'usps_first_class', name: 'First Class', carrier: 'USPS' },
+      { id: 'usps_parcel_select', name: 'Parcel Select', carrier: 'USPS' },
     ]
   },
   {
     id: 'ups',
     name: 'UPS',
-    logo: '/carriers/ups.svg',
     services: [
-      { id: 'ground', name: 'Ground' },
-      { id: '3day_select', name: '3-Day Select' },
-      { id: '2day_air', name: '2nd Day Air' },
-      { id: 'next_day_air', name: 'Next Day Air' }
+      { id: 'ups_ground', name: 'Ground', carrier: 'UPS' },
+      { id: 'ups_3_day_select', name: '3-Day Select', carrier: 'UPS' },
+      { id: 'ups_2nd_day_air', name: '2nd Day Air', carrier: 'UPS' },
+      { id: 'ups_next_day_air', name: 'Next Day Air', carrier: 'UPS' },
     ]
   },
   {
     id: 'fedex',
     name: 'FedEx',
-    logo: '/carriers/fedex.svg',
     services: [
-      { id: 'ground', name: 'Ground' },
-      { id: 'express_saver', name: 'Express Saver' },
-      { id: '2day', name: '2Day' },
-      { id: 'overnight', name: 'Overnight' }
+      { id: 'fedex_ground', name: 'Ground', carrier: 'FedEx' },
+      { id: 'fedex_express_saver', name: 'Express Saver', carrier: 'FedEx' },
+      { id: 'fedex_2day', name: '2Day', carrier: 'FedEx' },
+      { id: 'fedex_overnight', name: 'Overnight', carrier: 'FedEx' },
     ]
   },
   {
     id: 'dhl',
     name: 'DHL',
-    logo: '/carriers/dhl.svg',
     services: [
-      { id: 'express', name: 'Express' },
-      { id: 'express_worldwide', name: 'Express Worldwide' },
-      { id: 'express_economy', name: 'Express Economy' }
+      { id: 'dhl_express', name: 'Express', carrier: 'DHL' },
+      { id: 'dhl_express_worldwide', name: 'Express Worldwide', carrier: 'DHL' },
+      { id: 'dhl_express_economy', name: 'Express Economy', carrier: 'DHL' },
     ]
   }
 ];

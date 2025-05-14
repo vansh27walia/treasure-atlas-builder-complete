@@ -8,7 +8,6 @@ import SuccessNotification from './bulk-upload/SuccessNotification';
 import UploadError from './bulk-upload/UploadError';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
-import LabelOptionsModal from './bulk-upload/LabelOptionsModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -23,7 +22,6 @@ const BulkUpload: React.FC = () => {
     uploadStatus,
     results,
     progress,
-    showLabelOptions,
     searchTerm,
     sortField,
     sortDirection,
@@ -31,18 +29,14 @@ const BulkUpload: React.FC = () => {
     filteredShipments,
     handleUpload,
     handleProceedToPayment,
-    handleCreateLabels,
     handleDownloadAllLabels,
-    handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
-    handleEmailLabels,
     handleDownloadTemplate,
     handleSelectRate,
     handleRemoveShipment,
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
-    setShowLabelOptions,
     setSearchTerm,
     setSortField,
     setSortDirection,
@@ -171,7 +165,6 @@ const BulkUpload: React.FC = () => {
           onDownloadAllLabels={handleDownloadAllLabels}
           onDownloadSingleLabel={handleDownloadSingleLabel}
           onProceedToPayment={handleProceedToPayment}
-          onCreateLabels={handleCreateLabels}
           isPaying={isPaying}
           isCreatingLabels={isCreatingLabels}
         />
@@ -180,15 +173,6 @@ const BulkUpload: React.FC = () => {
       {uploadStatus === 'error' && (
         <UploadError />
       )}
-      
-      {/* Label download options modal */}
-      <LabelOptionsModal 
-        open={showLabelOptions}
-        onOpenChange={setShowLabelOptions}
-        onFormatSelect={handleDownloadLabelsWithFormat}
-        onEmailLabels={handleEmailLabels}
-        shipmentCount={results?.processedShipments.length || 0}
-      />
     </Card>
   );
 };

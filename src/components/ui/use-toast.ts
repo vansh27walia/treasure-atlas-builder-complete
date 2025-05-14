@@ -1,6 +1,3 @@
-
-// Re-export toast utilities from the correct locations
-import { useToast } from "@/hooks/use-toast";
-import { toast } from "sonner";
+import { useToast, toast } from "@/hooks/use-toast";
 
 export { useToast, toast };

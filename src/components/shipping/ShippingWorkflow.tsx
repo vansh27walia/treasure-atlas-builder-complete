@@ -1,84 +1,90 @@
 
 import React from 'react';
-import { Check, Package, DollarSign, Truck, Printer, MapPin } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { CheckCircle, Circle, MapPin, Package, Truck, FileCheck } from 'lucide-react';
+import { ShippingWorkflowStep, ShippingStep } from '@/types/shipping';
 
 interface ShippingWorkflowProps {
-  currentStep: 'address' | 'package' | 'rates' | 'label' | 'complete';
+  currentStep: ShippingStep;
 }
 
 const ShippingWorkflow: React.FC<ShippingWorkflowProps> = ({ currentStep }) => {
-  const steps = [
-    {
-      id: 'address',
-      name: 'Address',
-      icon: MapPin,
-      status: currentStep === 'address' ? 'current' : 
-              ['package', 'rates', 'label', 'complete'].includes(currentStep) ? 'complete' : 'upcoming'
-    },
-    {
-      id: 'package',
-      name: 'Package',
-      icon: Package,
-      status: currentStep === 'package' ? 'current' : 
-              ['rates', 'label', 'complete'].includes(currentStep) ? 'complete' : 'upcoming'
-    },
-    {
-      id: 'rates',
-      name: 'Rates',
-      icon: DollarSign,
-      status: currentStep === 'rates' ? 'current' : 
-              ['label', 'complete'].includes(currentStep) ? 'complete' : 'upcoming'
-    },
-    {
-      id: 'label',
-      name: 'Label',
-      icon: Printer,
-      status: currentStep === 'label' ? 'current' : 
-              ['complete'].includes(currentStep) ? 'complete' : 'upcoming'
-    },
-    {
-      id: 'complete',
-      name: 'Complete',
-      icon: Truck,
-      status: currentStep === 'complete' ? 'current' : 'upcoming'
-    }
+  const steps: ShippingWorkflowStep[] = [
+    { id: 'address', label: 'Address', status: 'upcoming' },
+    { id: 'package', label: 'Package Info', status: 'upcoming' },
+    { id: 'rates', label: 'Select Rate', status: 'upcoming' },
+    { id: 'label', label: 'Get Label', status: 'upcoming' },
+    { id: 'complete', label: 'Complete', status: 'upcoming' },
   ];
 
+  // Update steps based on currentStep
+  steps.forEach((step, index) => {
+    const currentStepIndex = steps.findIndex(s => s.id === currentStep);
+    
+    if (index < currentStepIndex) {
+      step.status = 'completed';
+    } else if (index === currentStepIndex) {
+      step.status = 'active';
+    } else {
+      step.status = 'upcoming';
+    }
+  });
+
+  const getStepIcon = (step: ShippingWorkflowStep) => {
+    switch (step.id) {
+      case 'address':
+        return MapPin;
+      case 'package':
+        return Package;
+      case 'rates':
+        return Truck;
+      case 'label':
+        return FileCheck;
+      case 'complete':
+        return CheckCircle;
+      default:
+        return Circle;
+    }
+  };
+
   return (
-    <div className="mb-6">
-      <ol className="flex items-center w-full text-sm font-medium text-center text-gray-500 dark:text-gray-400">
-        {steps.map((step, index) => (
-          <li 
-            key={step.id} 
-            className={cn(
-              "flex flex-col items-center md:flex-row w-full",
-              index < steps.length - 1 && "md:after:w-full md:after:h-0.5 md:after:bg-gray-200 md:after:border-0 after:inline-block after:mx-4"
-            )}
-          >
-            <span className={cn(
-              "flex items-center justify-center w-8 h-8 md:flex-shrink-0 border rounded-full transition-all",
-              step.status === 'complete' && "bg-blue-600 text-white border-blue-600",
-              step.status === 'current' && "border-blue-600 text-blue-600 border-[1px]",
-              step.status === 'upcoming' && "border-gray-300 text-gray-500"
-            )}>
-              {step.status === 'complete' ? (
-                <Check className="w-4 h-4" />
-              ) : (
-                <step.icon className="w-4 h-4" />
+    <div className="w-full bg-white rounded-lg border border-blue-200 p-3 mb-4 shadow-md sticky top-0 z-30">
+      <div className="flex justify-between items-center">
+        {steps.map((step, index) => {
+          const StepIcon = getStepIcon(step);
+          
+          return (
+            <React.Fragment key={step.id}>
+              <div className="flex flex-col items-center">
+                <div 
+                  className={`w-10 h-10 rounded-full flex items-center justify-center mb-1 transition-all duration-300
+                    ${step.status === 'completed' ? 'bg-green-100 text-green-600 ring-2 ring-green-400' : 
+                      step.status === 'active' ? 'bg-blue-100 text-blue-600 ring-2 ring-blue-400 scale-110' : 
+                      'bg-gray-100 text-gray-400'}
+                  `}
+                  data-step-id={step.id}
+                >
+                  <StepIcon className="h-5 w-5" />
+                </div>
+                <span 
+                  className={`text-xs font-medium 
+                    ${step.status === 'completed' ? 'text-green-600' : 
+                      step.status === 'active' ? 'text-blue-700 font-bold' : 
+                      'text-gray-400'}
+                  `}
+                >
+                  {step.label}
+                </span>
+              </div>
+              
+              {index < steps.length - 1 && (
+                <div className="hidden md:block flex-grow mx-1">
+                  <div className={`h-1 w-full ${step.status === 'completed' ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                </div>
               )}
-            </span>
-            <span className={cn(
-              "mt-1 md:ml-2 text-xs md:text-sm font-medium",
-              step.status === 'complete' && "text-blue-600",
-              step.status === 'current' && "text-blue-600",
-              step.status === 'upcoming' && "text-gray-500"
-            )}>
-              {step.name}
-            </span>
-          </li>
-        ))}
-      </ol>
+            </React.Fragment>
+          );
+        })}
+      </div>
     </div>
   );
 };
