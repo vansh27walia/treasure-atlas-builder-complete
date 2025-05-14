@@ -1,131 +1,113 @@
+import {
+  LayoutDashboard,
+  Settings,
+  Package,
+  Globe,
+  Upload,
+  Truck,
+  Calculator,
+  HelpCircle,
+  Plus,
+  Archive,
+  FileText,
+  Users,
+} from "lucide-react"
 
-import React from 'react';
-import { 
-  Home, Package, CreditCard, Settings, ShoppingBag, Truck, MapPin, 
-  BarChart3, Globe, HelpCircle, Tag, Upload, Calculator, Clock, Search
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import SidebarNavSection from './SidebarNavSection';
-import SidebarNavItem from './SidebarNavItem';
-import SidebarUserProfile from './SidebarUserProfile';
-import SidebarAuthButton from './SidebarAuthButton';
+import { Icons } from "@/components/icons"
 
-interface SidebarContentProps {
-  collapsed: boolean;
+export type SidebarNavItem = {
+  title: string
+  href: string
+  disabled?: boolean
+  external?: boolean
+  icon?: keyof typeof Icons
+  label?: string
 }
 
-const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
-  return (
-    <div className="flex flex-col flex-1 overflow-y-auto py-4">
-      {/* User Profile */}
-      <SidebarUserProfile collapsed={collapsed} />
+export type SidebarNavGroup = {
+  title: string
+  icon?: keyof typeof Icons
+  items: SidebarNavItem[]
+}
 
-      {/* Main Navigation */}
-      <div className="mt-8 flex-1">
-        <SidebarNavSection title="Main" collapsed={collapsed}>
-          <SidebarNavItem
-            icon={<Home size={18} />}
-            title="Dashboard"
-            to="/"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Package size={18} />}
-            title="Create Label"
-            to="/create-label"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Calculator size={18} />}
-            title="Rate Calculator"
-            to="/create-label?tab=calculator"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Globe size={18} />}
-            title="International"
-            to="/international"
-            collapsed={collapsed}
-          />
-        </SidebarNavSection>
+export type SidebarNav = {
+  items: (SidebarNavItem | SidebarNavGroup)[]
+}
 
-        <SidebarNavSection title="Shipping" collapsed={collapsed}>
-          <SidebarNavItem
-            icon={<MapPin size={18} />}
-            title="Pickup Service"
-            to="/pickup"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Truck size={18} />}
-            title="Tracking"
-            to="/tracking" 
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Upload size={18} />}
-            title="Bulk Upload"
-            to="/bulk-upload"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Truck size={18} />}
-            title="LTL Shipping"
-            to="/ltl-shipping"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Truck size={18} />}
-            title="Full Truckload"
-            to="/ftl-shipping"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Clock size={18} />}
-            title="Instant Delivery"
-            to="/instant-delivery"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<BarChart3 size={18} />}
-            title="Reports"
-            to="/dashboard?tab=history"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<CreditCard size={18} />}
-            title="Payment"
-            to="/payment"
-            collapsed={collapsed}
-          />
-        </SidebarNavSection>
-        
-        <SidebarNavSection title="More" collapsed={collapsed}>
-          <SidebarNavItem
-            icon={<Settings size={18} />}
-            title="Settings"
-            to="/settings"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<HelpCircle size={18} />}
-            title="Help Center"
-            to="/help"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Tag size={18} />}
-            title="Pricing"
-            to="/pricing"
-            collapsed={collapsed}
-          />
-        </SidebarNavSection>
-      </div>
+const sidebarNavItems: SidebarNav = {
+  items: [
+    {
+      title: "Dashboard",
+      href: "/dashboard",
+      icon: "dashboard",
+    },
+    {
+      title: "Analytics",
+      href: "/analytics",
+      icon: "analytics",
+    },
+    {
+      title: "Customers",
+      href: "/customers",
+      icon: "customers",
+    },
+    {
+      title: "Invoices",
+      href: "/invoices",
+      icon: "invoices",
+    },
+    {
+      title: "Products",
+      href: "/products",
+      icon: "products",
+    },
+    {
+      title: "Orders",
+      href: "/orders",
+      icon: "orders",
+    },
+    {
+      title: "Shipments",
+      href: "/shipments",
+      icon: "shipments",
+    },
+    {
+      title: "Returns",
+      href: "/returns",
+      icon: "returns",
+    },
+    {
+      title: "Disputes",
+      href: "/disputes",
+      icon: "disputes",
+    },
+    {
+      title: "Integrations",
+      href: "/integrations",
+      icon: "integrations",
+    },
+    {
+      title: "Settings",
+      href: "/settings",
+      icon: "settings",
+    },
+    {
+      title: "Subscription",
+      href: "/subscription",
+      icon: "subscription",
+      label: "pro",
+    },
+    {
+      title: "Shipping",
+      icon: Truck,
+      items: [
+        { title: "Create Label", href: "/create-label" },
+        { title: "Shipping 2.0", href: "/shipping-two" },
+        { title: "Bulk Upload", href: "/bulk-upload" },
+        { title: "International", href: "/international" },
+      ],
+    },
+  ],
+}
 
-      {/* Authentication Button */}
-      <SidebarAuthButton collapsed={collapsed} />
-    </div>
-  );
-};
-
-export default SidebarContent;
+export default sidebarNavItems
