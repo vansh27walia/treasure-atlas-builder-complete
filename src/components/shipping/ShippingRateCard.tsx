@@ -30,7 +30,6 @@ interface ShippingRateCardProps {
   showDiscount?: boolean;
   originalRate?: string;
   isPremium?: boolean;
-  isCompact?: boolean; // Added the missing isCompact prop
 }
 
 const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
@@ -42,7 +41,6 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   aiRecommendation,
   showDiscount = false,
   isPremium = false,
-  isCompact = false, // Add default value
 }) => {
   const isRecommended = aiRecommendation && aiRecommendation.rateId === rate.id;
   const deliveryDays = rate.delivery_days || rate.est_delivery_days;
@@ -65,7 +63,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   return (
     <div
       className={`
-        border rounded-lg ${isCompact ? 'p-3' : 'p-4'} cursor-pointer transition-all
+        border rounded-lg p-4 cursor-pointer transition-all
         ${isSelected ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'}
         ${isPremium ? 'border-amber-400 bg-amber-50/50' : ''}
       `}
@@ -73,9 +71,9 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
       data-testid={`rate-card-${rate.id}`}
       data-rate-id={rate.id}
     >
-      <div className={`flex justify-between ${isCompact ? 'items-center' : 'items-start'}`}>
+      <div className="flex justify-between items-center">
         <div className="flex items-center space-x-3">
-          {carrierLogo && !isCompact ? (
+          {carrierLogo ? (
             <div className="h-10 w-16 flex items-center justify-center bg-white p-1 rounded">
               <img 
                 src={carrierLogo} 
@@ -88,7 +86,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
               />
             </div>
           ) : (
-            <div className={`${isCompact ? 'h-8 w-12' : 'h-10 w-16'} flex items-center justify-center bg-gray-100 rounded`}>
+            <div className="h-10 w-16 flex items-center justify-center bg-gray-100 rounded">
               <span className="text-xs font-bold text-gray-700">{getCarrierDisplayName(rate.carrier)}</span>
             </div>
           )}
@@ -124,46 +122,29 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
         </div>
       </div>
       
-      {!isCompact && (
-        <div className="mt-3 flex justify-between items-center">
-          <div className="flex flex-wrap items-center gap-2">
-            {isBestValue && (
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
-                <TrendingDown className="h-3 w-3 mr-1" /> Best Value
-              </Badge>
-            )}
-            
-            {isFastest && (
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
-                <Zap className="h-3 w-3 mr-1" /> Fastest
-              </Badge>
-            )}
-          </div>
-          
-          <div className="flex items-center">
-            <span className="text-sm text-gray-600">
-              Est. Delivery: <span className="font-medium">{deliveryEstimate}</span>
-            </span>
-          </div>
-        </div>
-      )}
-      
-      {isCompact && (isBestValue || isFastest) && (
-        <div className="mt-2 flex items-center gap-2">
+      <div className="mt-3 flex justify-between items-center">
+        <div className="flex flex-wrap items-center gap-2">
           {isBestValue && (
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs">
-              Best Value
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+              <TrendingDown className="h-3 w-3 mr-1" /> Best Value
             </Badge>
           )}
+          
           {isFastest && (
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-xs">
-              Fastest
+            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+              <Zap className="h-3 w-3 mr-1" /> Fastest
             </Badge>
           )}
         </div>
-      )}
+        
+        <div className="flex items-center">
+          <span className="text-sm text-gray-600">
+            Est. Delivery: <span className="font-medium">{deliveryEstimate}</span>
+          </span>
+        </div>
+      </div>
       
-      {isRecommended && !isCompact && (
+      {isRecommended && (
         <div className="mt-2 text-sm text-gray-600 border-t border-gray-200 pt-2">
           <span className="font-medium text-blue-600">AI Recommended:</span> {aiRecommendation.reason}
         </div>

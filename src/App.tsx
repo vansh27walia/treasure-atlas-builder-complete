@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Index from './pages/Index';
@@ -21,7 +22,6 @@ import LabelSuccessPage from './pages/LabelSuccessPage';
 import PickupPage from './pages/PickupPage';
 import BulkUploadPage from './pages/BulkUploadPage';
 import TrackingPage from './pages/TrackingPage';
-import ShippingTwoPage from './pages/ShippingTwoPage';
 
 function App() {
   return (
@@ -41,7 +41,6 @@ function App() {
                   <Route path="/international" element={<InternationalShippingPage />} />
                   <Route path="/payment" element={<PaymentPage />} />
                   <Route path="/tracking" element={<TrackingPage />} />
-                  <Route path="/shipping-two" element={<ShippingTwoPage />} />
                   <Route
                     path="/dashboard"
                     element={<ProtectedRoute><Dashboard /></ProtectedRoute>}

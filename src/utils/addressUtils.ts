@@ -1,7 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { GoogleApiKeyResponse } from '@/types/shipping';
 import { SavedAddress } from '@/services/AddressService';
-import { z } from 'zod';
 
 // Helper function to create address selection handlers
 export const createAddressSelectHandler = (setAddressState: React.Dispatch<React.SetStateAction<SavedAddress | null>>) => {
@@ -9,21 +8,6 @@ export const createAddressSelectHandler = (setAddressState: React.Dispatch<React
     setAddressState(address);
   };
 };
-
-// Add the missing addressSchema
-export const addressSchema = z.object({
-  name: z.string().min(2, { message: "Name is required" }),
-  company: z.string().optional(),
-  street1: z.string().min(3, { message: "Street address is required" }),
-  street2: z.string().optional(),
-  city: z.string().min(2, { message: "City is required" }),
-  state: z.string().min(2, { message: "State is required" }),
-  zip: z.string().min(5, { message: "ZIP code is required" }),
-  country: z.string().min(2, { message: "Country is required" }),
-  phone: z.string().optional(),
-  email: z.string().email({ message: "Valid email is required" }).optional(),
-  residential: z.boolean().optional()
-});
 
 // Function to load the Google Maps API
 export const loadGoogleMapsAPI = async (): Promise<boolean> => {
