@@ -81,16 +81,16 @@ serve(async (req) => {
       // Continue anyway, the bucket might exist but we might not have permission to list buckets
     }
 
+    // Always use PDF format for consistency unless specified otherwise
+    const labelFormat = options.label_format || "PDF";
+    const labelSize = options.label_size || "4x6";
+
     // Create request body for EasyPost with label format options
     const buyOptions = {
-      rate: { id: rateId }
+      rate: { id: rateId },
+      label_format: labelFormat,
+      label_size: labelSize
     };
-    
-    // If label format and size are specified, add them to the request
-    if (options.label_format || options.label_size) {
-      buyOptions.label_format = options.label_format || "PDF";
-      buyOptions.label_size = options.label_size || "4x6";
-    }
 
     // Buy the label with EasyPost API
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
@@ -206,7 +206,7 @@ serve(async (req) => {
       );
     }
 
-    // Download the label PDF from EasyPost
+    // Download the label from EasyPost
     const labelURL = data.postage_label.label_url;
     console.log(`Label URL from EasyPost: ${labelURL}`);
     
@@ -310,11 +310,9 @@ serve(async (req) => {
           delivery_days: data.selected_rate?.delivery_days || null,
           charged_rate: data.selected_rate?.rate || null,
           easypost_rate: data.selected_rate?.rate || null,
-          currency: data.selected_rate?.currency || 'USD'
-          // The following fields may not be available in the DB schema yet
-          // label_format: options.label_format || "PDF",
-          // label_size: options.label_size || "4x6",
-          // created_at: new Date().toISOString()
+          currency: data.selected_rate?.currency || 'USD',
+          label_format: labelFormat,
+          label_size: labelSize
         });
         
       if (dbError) {
