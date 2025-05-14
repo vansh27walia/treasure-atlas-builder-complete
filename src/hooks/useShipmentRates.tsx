@@ -68,7 +68,7 @@ export const useShipmentRates = (
     }
   };
   
-  const fetchShipmentRates = async (shipment: BulkShipment) => {
+  const fetchShipmentRates = async (shipment: BulkShipment): Promise<ShippingOption[]> => {
     try {
       // Mock function - in a real app, you would call your API to get actual rates
       // Simulate API delay
@@ -100,7 +100,7 @@ export const useShipmentRates = (
             carrier: carrier.name,
             service: service.name,
             rate: parseFloat(rate.toFixed(2)),
-            currency: 'USD', // Add the required currency field
+            currency: 'USD', // Add the required currency property
             delivery_days: service.name.includes('Next Day') || service.name.includes('Overnight') 
               ? 1 
               : service.name.includes('2Day') || service.name.includes('2nd Day') 

@@ -1,74 +1,89 @@
+
 import React from 'react';
-import { CheckCircle, Package, Truck, FileText, MapPin } from 'lucide-react';
+import { CheckCircle, Circle, MapPin, Package, Truck, FileCheck } from 'lucide-react';
+import { ShippingWorkflowStep, ShippingStep } from '@/types/shipping';
 
 interface ShippingWorkflowProps {
-  currentStep: 'address' | 'package' | 'rates' | 'label' | 'complete';
+  currentStep: ShippingStep;
 }
 
 const ShippingWorkflow: React.FC<ShippingWorkflowProps> = ({ currentStep }) => {
-  const steps = [
-    { id: 'address', label: 'Address', icon: <MapPin className="h-5 w-5" /> },
-    { id: 'package', label: 'Package', icon: <Package className="h-5 w-5" /> },
-    { id: 'rates', label: 'Rates', icon: <Truck className="h-5 w-5" /> },
-    { id: 'label', label: 'Label', icon: <FileText className="h-5 w-5" /> },
-    { id: 'complete', label: 'Complete', icon: <CheckCircle className="h-5 w-5" /> },
+  const steps: ShippingWorkflowStep[] = [
+    { id: 'address', label: 'Address', status: 'upcoming' },
+    { id: 'package', label: 'Package Info', status: 'upcoming' },
+    { id: 'rates', label: 'Select Rate', status: 'upcoming' },
+    { id: 'label', label: 'Get Label', status: 'upcoming' },
+    { id: 'complete', label: 'Complete', status: 'upcoming' },
   ];
 
-  // Helper function to determine if a step is completed
-  const isCompleted = (stepId: string) => {
-    const stepOrder = { address: 1, package: 2, rates: 3, label: 4, complete: 5 };
-    return stepOrder[stepId as keyof typeof stepOrder] < stepOrder[currentStep];
+  // Update steps based on currentStep
+  steps.forEach((step, index) => {
+    const currentStepIndex = steps.findIndex(s => s.id === currentStep);
+    
+    if (index < currentStepIndex) {
+      step.status = 'completed';
+    } else if (index === currentStepIndex) {
+      step.status = 'active';
+    } else {
+      step.status = 'upcoming';
+    }
+  });
+
+  const getStepIcon = (step: ShippingWorkflowStep) => {
+    switch (step.id) {
+      case 'address':
+        return MapPin;
+      case 'package':
+        return Package;
+      case 'rates':
+        return Truck;
+      case 'label':
+        return FileCheck;
+      case 'complete':
+        return CheckCircle;
+      default:
+        return Circle;
+    }
   };
 
-  // Helper function to determine if a step is active
-  const isActive = (stepId: string) => stepId === currentStep;
-
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between">
-        {steps.map((step, index) => (
-          <React.Fragment key={step.id}>
-            {/* Step circle with icon */}
-            <div className="flex flex-col items-center">
-              <div 
-                className={`flex items-center justify-center h-10 w-10 rounded-full transition-all
-                  ${isCompleted(step.id) 
-                    ? 'bg-green-500 text-white bg-opacity-80' 
-                    : isActive(step.id)
-                      ? 'bg-blue-500 text-white shadow-md' 
-                      : 'bg-gray-200 text-gray-500 bg-opacity-70'}`}
-              >
-                {isCompleted(step.id) ? (
-                  <CheckCircle className="h-6 w-6" />
-                ) : (
-                  step.icon
-                )}
+    <div className="w-full bg-white rounded-lg border border-gray-100 p-4 mb-4 shadow-sm sticky top-0 z-30">
+      <div className="flex justify-between items-center">
+        {steps.map((step, index) => {
+          const StepIcon = getStepIcon(step);
+          
+          return (
+            <React.Fragment key={step.id}>
+              <div className="flex flex-col items-center">
+                <div 
+                  className={`w-10 h-10 rounded-full flex items-center justify-center mb-1.5 transition-all duration-300
+                    ${step.status === 'completed' ? 'bg-green-100 text-green-600 ring-1 ring-green-400' : 
+                      step.status === 'active' ? 'bg-blue-100 text-blue-600 ring-2 ring-blue-400 scale-110' : 
+                      'bg-gray-100 text-gray-400'}
+                  `}
+                  data-step-id={step.id}
+                >
+                  <StepIcon className="h-5 w-5" />
+                </div>
+                <span 
+                  className={`text-xs font-medium 
+                    ${step.status === 'completed' ? 'text-green-600' : 
+                      step.status === 'active' ? 'text-blue-700 font-bold' : 
+                      'text-gray-400'}
+                  `}
+                >
+                  {step.label}
+                </span>
               </div>
-              <span 
-                className={`mt-2 text-xs font-medium 
-                  ${isCompleted(step.id) 
-                    ? 'text-green-700' 
-                    : isActive(step.id)
-                      ? 'text-blue-700' 
-                      : 'text-gray-500'}`}
-              >
-                {step.label}
-              </span>
-            </div>
-            
-            {/* Connecting line between steps */}
-            {index < steps.length - 1 && (
-              <div 
-                className={`flex-1 h-0.5 mx-2
-                  ${isCompleted(step.id) && isCompleted(steps[index + 1].id)
-                    ? 'bg-green-500 bg-opacity-70'
-                    : isCompleted(step.id) && isActive(steps[index + 1].id)
-                      ? 'bg-blue-500 bg-opacity-70'
-                      : 'bg-gray-200 bg-opacity-70'}`}
-              />
-            )}
-          </React.Fragment>
-        ))}
+              
+              {index < steps.length - 1 && (
+                <div className="hidden md:block flex-grow mx-2">
+                  <div className={`h-0.5 w-full ${step.status === 'completed' ? 'bg-green-500' : 'bg-gray-200'}`}></div>
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
       </div>
     </div>
   );
