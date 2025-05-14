@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 interface ShippingLabelProps {
   labelUrl: string | null;
@@ -41,8 +42,8 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
         console.log("Fetching label to cache as blob:", url);
         const response = await fetch(url, { 
           method: 'GET',
-          headers: { 'Accept': 'application/pdf' },
-          cache: 'force-cache'
+          headers: { 'Accept': 'application/pdf, image/png, application/octet-stream' },
+          cache: 'no-cache' // Force fetch fresh content
         });
         
         if (!response.ok) {
@@ -76,12 +77,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
   }, [labelUrl, localLabelUrl]);
   
   if (!labelUrl && !localLabelUrl) {
-    console.log("No label URL available in ShippingLabel component");
-    return (
-      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md mb-6">
-        <p className="text-yellow-700">No label URL available. Please try generating the label again.</p>
-      </div>
-    );
+    return null;
   }
   
   const handleRefreshLabel = async () => {
@@ -160,6 +156,9 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
       iframe.style.display = 'none';
       iframe.src = url;
       document.body.appendChild(iframe);
+      
+      // Also try direct window.open as another fallback
+      window.open(url, '_blank');
       
       // Clean up after a moment
       setTimeout(() => {
@@ -260,75 +259,77 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
   
   return (
     <>
-      <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg shadow-sm border-2 border-green-200">
-        <div className="flex flex-col space-y-5">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-            <div>
-              <h3 className="font-semibold text-green-800 text-xl mb-2">Label Generated Successfully!</h3>
-              <p className="text-sm text-green-700 mb-1">Tracking Number: <span className="font-medium bg-white px-2 py-1 rounded border border-green-200">{trackingCode}</span></p>
-              <p className="text-sm text-green-700">Format: <span className="font-medium">{selectedFormat.toUpperCase()}</span></p>
+      {labelUrl || localLabelUrl ? (
+        <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg shadow-sm border-2 border-green-200">
+          <div className="flex flex-col space-y-5">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+              <div>
+                <h3 className="font-semibold text-green-800 text-xl mb-2">Label Generated Successfully!</h3>
+                <p className="text-sm text-green-700 mb-1">Tracking Number: <span className="font-medium bg-white px-2 py-1 rounded border border-green-200">{trackingCode}</span></p>
+                <p className="text-sm text-green-700">Format: <span className="font-medium">{selectedFormat.toUpperCase()}</span></p>
+              </div>
+              {shipmentId && (
+                <Button
+                  onClick={handleRefreshLabel}
+                  variant="outline"
+                  size="sm"
+                  className="mt-3 sm:mt-0 bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> 
+                  Refresh Label
+                </Button>
+              )}
             </div>
-            {shipmentId && (
-              <Button
-                onClick={handleRefreshLabel}
-                variant="outline"
-                size="sm"
-                className="mt-3 sm:mt-0 bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
-                disabled={isRefreshing}
-              >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> 
-                Refresh Label
-              </Button>
-            )}
-          </div>
-          
-          <div className="bg-white p-6 rounded-md border border-gray-200 shadow-sm">
-            <h4 className="text-gray-700 font-medium mb-4 text-lg">Your label is ready! How would you like to receive it?</h4>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Button 
-                onClick={() => setIsLabelModalOpen(true)}
-                variant="default" 
-                className="bg-green-600 hover:bg-green-700 text-white h-12"
-              >
-                <Download className="mr-2 h-5 w-5" /> View & Download Label
-              </Button>
+            <div className="bg-white p-6 rounded-md border border-gray-200 shadow-sm">
+              <h4 className="text-gray-700 font-medium mb-4 text-lg">Your label is ready! How would you like to receive it?</h4>
               
-              <Button 
-                onClick={handleOpenInNewTab}
-                variant="outline"
-                className="border-gray-300 hover:bg-gray-50 h-12"
-              >
-                <ExternalLink className="mr-2 h-5 w-5" /> Open in New Tab
-              </Button>
-              
-              <Button 
-                onClick={handleEmailLabel}
-                variant="outline"
-                className="border-gray-300 hover:bg-gray-50 h-12"
-                disabled={isEmailSending}
-              >
-                <Mail className="mr-2 h-5 w-5" /> 
-                {isEmailSending ? 'Sending...' : 'Email to My Inbox'}
-              </Button>
-              
-              <Button 
-                onClick={handleSaveToAccount}
-                variant="outline"
-                className="border-gray-300 hover:bg-gray-50 h-12"
-                disabled={isSaving}
-              >
-                <Save className="mr-2 h-5 w-5" /> 
-                {isSaving ? 'Saving...' : 'Save to My Labels'}
-              </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Button 
+                  onClick={() => setIsLabelModalOpen(true)}
+                  variant="default" 
+                  className="bg-green-600 hover:bg-green-700 text-white h-12"
+                >
+                  <Download className="mr-2 h-5 w-5" /> View & Download Label
+                </Button>
+                
+                <Button 
+                  onClick={handleOpenInNewTab}
+                  variant="outline"
+                  className="border-gray-300 hover:bg-gray-50 h-12"
+                >
+                  <ExternalLink className="mr-2 h-5 w-5" /> Open in New Tab
+                </Button>
+                
+                <Button 
+                  onClick={handleEmailLabel}
+                  variant="outline"
+                  className="border-gray-300 hover:bg-gray-50 h-12"
+                  disabled={isEmailSending}
+                >
+                  <Mail className="mr-2 h-5 w-5" /> 
+                  {isEmailSending ? 'Sending...' : 'Email to My Inbox'}
+                </Button>
+                
+                <Button 
+                  onClick={handleSaveToAccount}
+                  variant="outline"
+                  className="border-gray-300 hover:bg-gray-50 h-12"
+                  disabled={isSaving}
+                >
+                  <Save className="mr-2 h-5 w-5" /> 
+                  {isSaving ? 'Saving...' : 'Save to My Labels'}
+                </Button>
+              </div>
             </div>
-          </div>
 
-          <div className="text-sm text-center text-green-600">
-            <p>You can always access your labels later in your Order History</p>
+            <div className="text-sm text-center text-green-600">
+              <p>You can always access your labels later in your Order History</p>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
       
       <Dialog open={isLabelModalOpen} onOpenChange={setIsLabelModalOpen}>
         <DialogContent className="bg-white max-w-3xl">
@@ -348,11 +349,14 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
             
             <TabsContent value="preview" className="min-h-[400px] flex items-center justify-center border rounded-md">
               {blobUrl ? (
-                <iframe 
-                  src={blobUrl} 
-                  className="w-full h-[500px]" 
-                  title="Label Preview"
-                />
+                <AspectRatio ratio={8.5/11} className="w-full max-h-[500px]">
+                  <iframe 
+                    src={blobUrl} 
+                    className="w-full h-full" 
+                    title="Label Preview"
+                    sandbox="allow-same-origin"
+                  />
+                </AspectRatio>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full w-full">
                   <FileText className="h-16 w-16 text-gray-300 mb-4" />

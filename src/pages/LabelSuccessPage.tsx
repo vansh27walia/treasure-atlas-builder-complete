@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import ShippingLabel from '@/components/shipping/ShippingLabel';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import { Progress } from '@/components/ui/progress';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 const LabelSuccessPage: React.FC = () => {
   const location = useLocation();

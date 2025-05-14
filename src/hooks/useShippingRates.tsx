@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from 'sonner';
@@ -30,6 +31,7 @@ export const useShippingRates = () => {
   const navigate = useNavigate();
   const [rates, setRates] = useState<ShippingRate[]>([]);
   const [filteredRates, setFilteredRates] = useState<ShippingRate[]>([]);
+  const [allRates, setAllRates] = useState<ShippingRate[]>([]);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -84,6 +86,7 @@ export const useShippingRates = () => {
         }));
         
         setRates(processedRates);
+        setAllRates(processedRates);
         setFilteredRates(processedRates);
         setShipmentId(event.detail.shipmentId);
         setSelectedRateId(null);
@@ -92,7 +95,7 @@ export const useShippingRates = () => {
         
         // Extract unique carriers for filtering
         const carriers = [...new Set(processedRates.map(rate => 
-          rate.carrier.toUpperCase()
+          rate.carrier.toLowerCase()
         ))];
         setUniqueCarriers(carriers);
         setActiveCarrierFilter('all');
@@ -152,14 +155,14 @@ export const useShippingRates = () => {
   // Filter rates when carrier filter changes
   useEffect(() => {
     if (activeCarrierFilter === 'all') {
-      setFilteredRates(rates);
+      setFilteredRates(allRates);
     } else {
-      const filtered = rates.filter(rate => 
-        rate.carrier.toUpperCase() === activeCarrierFilter.toUpperCase()
+      const filtered = allRates.filter(rate => 
+        rate.carrier.toLowerCase() === activeCarrierFilter.toLowerCase()
       );
       setFilteredRates(filtered);
     }
-  }, [activeCarrierFilter, rates]);
+  }, [activeCarrierFilter, allRates]);
 
   const handleSelectRate = (rateId: string) => {
     setSelectedRateId(rateId);
@@ -168,7 +171,7 @@ export const useShippingRates = () => {
     document.dispatchEvent(new Event('rate-selected'));
     
     // Find the rate with this ID
-    const selectedRate = rates.find(rate => rate.id === rateId);
+    const selectedRate = allRates.find(rate => rate.id === rateId);
     console.log("Selected rate:", selectedRate);
     
     // Update workflow step
@@ -208,11 +211,11 @@ export const useShippingRates = () => {
       console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
       
       // Get the selected rate to determine if it's international
-      const selectedRate = rates.find(rate => rate.id === effectiveRateId);
+      const selectedRate = allRates.find(rate => rate.id === effectiveRateId);
       const isInternational = selectedRate?.service?.toLowerCase().includes('international');
       
       // Always use create-label endpoint for consistency
-      const endpoint = 'create-label';
+      const endpoint = isInternational ? 'create-international-label' : 'create-label';
       
       console.log(`Using ${endpoint} endpoint for label creation with options`);
       
@@ -278,7 +281,7 @@ export const useShippingRates = () => {
     
     try {
       // Get the selected rate to determine the amount
-      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      const selectedRate = allRates.find(rate => rate.id === selectedRateId);
       
       if (!selectedRate) {
         throw new Error("Selected rate not found");
@@ -333,7 +336,7 @@ export const useShippingRates = () => {
 
   return {
     rates: filteredRates,
-    allRates: rates,
+    allRates,
     isLoading,
     isProcessingPayment,
     selectedRateId,
