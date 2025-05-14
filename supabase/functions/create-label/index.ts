@@ -81,16 +81,16 @@ serve(async (req) => {
       // Continue anyway, the bucket might exist but we might not have permission to list buckets
     }
 
-    // Always use PDF format for consistency unless specified otherwise
-    const labelFormat = options.label_format || "PDF";
-    const labelSize = options.label_size || "4x6";
-
     // Create request body for EasyPost with label format options
     const buyOptions = {
-      rate: { id: rateId },
-      label_format: labelFormat,
-      label_size: labelSize
+      rate: { id: rateId }
     };
+    
+    // If label format and size are specified, add them to the request
+    if (options.label_format || options.label_size) {
+      buyOptions.label_format = options.label_format || "PDF";
+      buyOptions.label_size = options.label_size || "4x6";
+    }
 
     // Buy the label with EasyPost API
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
@@ -143,7 +143,7 @@ serve(async (req) => {
             const labelArrayBuffer = await labelBlob.arrayBuffer();
             const labelBuffer = new Uint8Array(labelArrayBuffer);
             
-            // Generate a unique filename for the label - make sure it has pdf extension
+            // Generate a unique filename for the label
             const fileName = `label_${shipmentId}_${Date.now()}.pdf`;
             
             // Upload the label to Supabase Storage
@@ -173,7 +173,7 @@ serve(async (req) => {
             const { data: signedURLData } = await supabase
               .storage
               .from('shipping-labels')
-              .createSignedUrl(fileName, 60 * 60 * 24 * 30); // 30 days expiration
+              .createSignedUrl(fileName, 60 * 60 * 24 * 14); // 2 weeks
               
             return new Response(
               JSON.stringify({
@@ -206,11 +206,10 @@ serve(async (req) => {
       );
     }
 
-    // Download the label from EasyPost
+    // Download the label PDF from EasyPost
     const labelURL = data.postage_label.label_url;
     console.log(`Label URL from EasyPost: ${labelURL}`);
     
-    // Make sure we're explicit about wanting PDF content
     const labelResponse = await fetch(labelURL, {
       headers: {
         'Accept': 'application/pdf'
@@ -227,7 +226,7 @@ serve(async (req) => {
     const labelArrayBuffer = await labelBlob.arrayBuffer();
     const labelBuffer = new Uint8Array(labelArrayBuffer);
     
-    // Generate a unique filename for the label with proper extension
+    // Generate a unique filename for the label
     const fileName = `label_${shipmentId}_${Date.now()}.pdf`;
     
     // Upload the label to Supabase Storage
@@ -255,11 +254,12 @@ serve(async (req) => {
       );
     }
 
-    // Create a signed URL for the label with 30 days expiration
+    // Create a signed URL for the label with 2 weeks expiration
+    const twoWeeksInSeconds = 60 * 60 * 24 * 14;
     const { data: signedURLData, error: signedURLError } = await supabase
       .storage
       .from('shipping-labels')
-      .createSignedUrl(fileName, 60 * 60 * 24 * 30);
+      .createSignedUrl(fileName, twoWeeksInSeconds);
       
     if (signedURLError) {
       console.error('Error creating signed URL:', signedURLError);
@@ -295,8 +295,8 @@ serve(async (req) => {
       );
     }
     
+    // Save the shipping record in the database if you have shipment_records table
     try {
-      // Save the shipping record in the database
       const { error: dbError } = await supabase
         .from('shipment_records')
         .insert({
@@ -310,8 +310,11 @@ serve(async (req) => {
           delivery_days: data.selected_rate?.delivery_days || null,
           charged_rate: data.selected_rate?.rate || null,
           easypost_rate: data.selected_rate?.rate || null,
-          currency: data.selected_rate?.currency || 'USD',
-          pdf_url: signedURLData.signedUrl
+          currency: data.selected_rate?.currency || 'USD'
+          // The following fields may not be available in the DB schema yet
+          // label_format: options.label_format || "PDF",
+          // label_size: options.label_size || "4x6",
+          // created_at: new Date().toISOString()
         });
         
       if (dbError) {
@@ -329,7 +332,6 @@ serve(async (req) => {
         labelUrl: signedURLData.signedUrl || labelURL, // Fall back to EasyPost URL if needed
         trackingCode: data.tracking_code,
         shipmentId: data.id,
-        format: labelFormat.toLowerCase()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

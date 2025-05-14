@@ -4,11 +4,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CheckCircle, Download, Home, Truck, Printer } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import ShippingLabel from '@/components/shipping/ShippingLabel';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import { Progress } from '@/components/ui/progress';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 const LabelSuccessPage: React.FC = () => {
   const location = useLocation();
@@ -16,7 +15,6 @@ const LabelSuccessPage: React.FC = () => {
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
-  const [format, setFormat] = useState<"pdf" | "png" | "zpl">("pdf");
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
@@ -24,13 +22,11 @@ const LabelSuccessPage: React.FC = () => {
     const labelUrlParam = params.get('labelUrl');
     const trackingCodeParam = params.get('trackingCode');
     const shipmentIdParam = params.get('shipmentId');
-    const formatParam = params.get('format') as "pdf" | "png" | "zpl" | null;
 
     console.log("URL Parameters:", {
       labelUrl: labelUrlParam,
       trackingCode: trackingCodeParam,
-      shipmentId: shipmentIdParam,
-      format: formatParam
+      shipmentId: shipmentIdParam
     });
 
     if (labelUrlParam) {
@@ -38,7 +34,7 @@ const LabelSuccessPage: React.FC = () => {
       console.log("Decoded label URL:", decodeURIComponent(labelUrlParam));
     } else {
       console.error('No label URL provided in the URL parameters');
-      toast("Missing label information");
+      toast.error('Missing label information');
     }
 
     if (trackingCodeParam) {
@@ -48,13 +44,9 @@ const LabelSuccessPage: React.FC = () => {
     if (shipmentIdParam) {
       setShipmentId(decodeURIComponent(shipmentIdParam));
     }
-    
-    if (formatParam && ["pdf", "png", "zpl"].includes(formatParam)) {
-      setFormat(formatParam as "pdf" | "png" | "zpl");
-    }
 
     // Show success toast
-    toast("Your shipping label is ready!");
+    toast.success('Your shipping label is ready!');
     
     // Scroll to top and prevent any unwanted scrolling
     window.scrollTo(0, 0);
@@ -101,7 +93,6 @@ const LabelSuccessPage: React.FC = () => {
             <p className="text-xs break-all">Label URL: {labelUrl}</p>
             <p className="text-xs">Tracking: {trackingCode}</p>
             <p className="text-xs">Shipment ID: {shipmentId}</p>
-            <p className="text-xs">Format: {format}</p>
           </div>
         )}
 
@@ -111,7 +102,6 @@ const LabelSuccessPage: React.FC = () => {
             labelUrl={labelUrl} 
             trackingCode={trackingCode} 
             shipmentId={shipmentId}
-            format={format}
           />
         )}
 
