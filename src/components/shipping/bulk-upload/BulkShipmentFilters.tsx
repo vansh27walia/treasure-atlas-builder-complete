@@ -18,6 +18,15 @@ interface BulkShipmentFiltersProps {
   activeFilter: string;
   isAllSelected?: boolean;
   totalCost?: number;
+  // Add the following props to match what's being passed in BulkUpload.tsx
+  searchTerm?: string;
+  onSearchChange?: React.Dispatch<React.SetStateAction<string>>;
+  sortField?: 'carrier' | 'rate' | 'recipient';
+  sortDirection?: 'asc' | 'desc';
+  onSortChange?: (field: any, direction: any) => void;
+  selectedCarrier?: string;
+  onCarrierFilterChange?: React.Dispatch<React.SetStateAction<string>>;
+  onApplyCarrierToAll?: (carrierId: string, serviceId: string) => void;
 }
 
 const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
@@ -27,19 +36,36 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
   onSelectAll,
   activeFilter,
   isAllSelected,
-  totalCost = 0
+  totalCost = 0,
+  searchTerm = '',
+  onSearchChange,
+  selectedCarrier,
+  onCarrierFilterChange,
+  sortField,
+  sortDirection,
+  onSortChange,
+  onApplyCarrierToAll
 }) => {
-  const [searchTerm, setSearchTerm] = React.useState('');
+  // If onSearchChange prop is provided, use it; otherwise use internal state
+  const [internalSearchTerm, setInternalSearchTerm] = React.useState('');
   
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setSearchTerm(value);
-    onSearch(value);
+    
+    if (onSearchChange) {
+      onSearchChange(value);
+    } else {
+      setInternalSearchTerm(value);
+      onSearch(value);
+    }
   };
   
   const handleFilter = (filter: string) => {
     onFilter(filter);
   };
+
+  // Use either the prop value or internal state
+  const displaySearchTerm = searchTerm !== undefined ? searchTerm : internalSearchTerm;
 
   return (
     <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center mb-4">
@@ -48,7 +74,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Search shipments..."
-            value={searchTerm}
+            value={displaySearchTerm}
             onChange={handleSearchChange}
             className="pl-9 pr-4 h-10"
           />
@@ -82,7 +108,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           </DropdownMenuContent>
         </DropdownMenu>
         
-        {onBulkApplyCarrier && (
+        {(onBulkApplyCarrier || onApplyCarrierToAll) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2 h-10">
@@ -90,16 +116,16 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onBulkApplyCarrier('usps', 'Priority')}>
+              <DropdownMenuItem onClick={() => (onApplyCarrierToAll ? onApplyCarrierToAll('usps', 'Priority') : onBulkApplyCarrier && onBulkApplyCarrier('usps', 'Priority'))}>
                 USPS Priority
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onBulkApplyCarrier('usps', 'Express')}>
+              <DropdownMenuItem onClick={() => (onApplyCarrierToAll ? onApplyCarrierToAll('usps', 'Express') : onBulkApplyCarrier && onBulkApplyCarrier('usps', 'Express'))}>
                 USPS Express
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onBulkApplyCarrier('ups', 'Ground')}>
+              <DropdownMenuItem onClick={() => (onApplyCarrierToAll ? onApplyCarrierToAll('ups', 'Ground') : onBulkApplyCarrier && onBulkApplyCarrier('ups', 'Ground'))}>
                 UPS Ground
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onBulkApplyCarrier('fedex', 'Ground')}>
+              <DropdownMenuItem onClick={() => (onApplyCarrierToAll ? onApplyCarrierToAll('fedex', 'Ground') : onBulkApplyCarrier && onBulkApplyCarrier('fedex', 'Ground'))}>
                 FedEx Ground
               </DropdownMenuItem>
             </DropdownMenuContent>
