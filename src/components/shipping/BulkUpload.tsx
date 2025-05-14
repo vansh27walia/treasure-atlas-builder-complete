@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -8,7 +9,6 @@ import UploadError from './bulk-upload/UploadError';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
 import LabelOptionsModal from './bulk-upload/LabelOptionsModal';
-import LabelPreviewModal from './bulk-upload/LabelPreviewModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -24,8 +24,6 @@ const BulkUpload: React.FC = () => {
     results,
     progress,
     showLabelOptions,
-    showLabelPreview,
-    labelPreviewUrl,
     searchTerm,
     sortField,
     sortDirection,
@@ -45,7 +43,6 @@ const BulkUpload: React.FC = () => {
     handleRefreshRates,
     handleBulkApplyCarrier,
     setShowLabelOptions,
-    setShowLabelPreview,
     setSearchTerm,
     setSortField,
     setSortDirection,
@@ -77,7 +74,7 @@ const BulkUpload: React.FC = () => {
       )}
       
       {uploadStatus === 'editing' && results && (
-        <div className="mt-6" id="shipment-options-section">
+        <div className="mt-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
             <h2 className="text-xl font-semibold flex items-center">
               <FileText className="mr-2 h-5 w-5 text-blue-600" />
@@ -131,7 +128,6 @@ const BulkUpload: React.FC = () => {
             onRemoveShipment={handleRemoveShipment}
             onEditShipment={handleEditShipment}
             onRefreshRates={handleRefreshRates}
-            onPreviewLabel={handleDownloadSingleLabel}
           />
           
           {results.processedShipments.length > 0 && (
@@ -192,28 +188,6 @@ const BulkUpload: React.FC = () => {
         onFormatSelect={handleDownloadLabelsWithFormat}
         onEmailLabels={handleEmailLabels}
         shipmentCount={results?.processedShipments.length || 0}
-      />
-      
-      {/* Label preview modal */}
-      <LabelPreviewModal
-        open={showLabelPreview}
-        onOpenChange={setShowLabelPreview}
-        labelUrl={labelPreviewUrl}
-        onPrint={() => {
-          window.open(labelPreviewUrl || '', '_blank');
-          setShowLabelPreview(false);
-        }}
-        onDownload={() => {
-          if (labelPreviewUrl) {
-            const a = document.createElement('a');
-            a.href = labelPreviewUrl;
-            a.download = `shipping-label-${Date.now()}.${labelPreviewUrl.endsWith('.pdf') ? 'pdf' : 'png'}`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setShowLabelPreview(false);
-          }
-        }}
       />
     </Card>
   );

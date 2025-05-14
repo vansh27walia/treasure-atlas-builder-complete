@@ -95,11 +95,6 @@ export const useShipmentRates = (
           const weight = shipment.details.parcel_weight || 5;
           rate += weight * 0.5; // Add $0.50 per pound
           
-          // Apply pricing markup from settings (can be configured in Supabase)
-          const markupPercentage = 15; // This would come from Supabase settings
-          const markupAmount = rate * (markupPercentage / 100);
-          rate = rate + markupAmount;
-          
           return {
             id: `${carrier.id}_${service.id}_${shipment.id}`,
             carrier: carrier.name,

@@ -42,8 +42,6 @@ export const useBulkUpload = () => {
     isPaying,
     isCreatingLabels,
     showLabelOptions,
-    showLabelPreview,
-    labelPreviewUrl,
     downloadFormat,
     handleRemoveShipment,
     handleEditShipment,
@@ -54,7 +52,6 @@ export const useBulkUpload = () => {
     handleDownloadSingleLabel,
     handleEmailLabels,
     setShowLabelOptions,
-    setShowLabelPreview,
     setDownloadFormat
   } = useShipmentManagement(results, updateResults);
 
@@ -101,8 +98,6 @@ export const useBulkUpload = () => {
     isPaying,
     isCreatingLabels,
     showLabelOptions,
-    showLabelPreview,
-    labelPreviewUrl,
     downloadFormat,
     
     // Filtering states and handlers
@@ -128,7 +123,6 @@ export const useBulkUpload = () => {
     handleEmailLabels,
     handleDownloadTemplate,
     setShowLabelOptions,
-    setShowLabelPreview,
     setDownloadFormat,
     setSearchTerm,
     setSortField,

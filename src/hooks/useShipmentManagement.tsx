@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from "sonner";
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
 
@@ -13,9 +13,6 @@ export const useShipmentManagement = (
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
-  const [showLabelOptions, setShowLabelOptions] = useState(false);
-  const [labelPreviewUrl, setLabelPreviewUrl] = useState<string | null>(null);
-  const [showLabelPreview, setShowLabelPreview] = useState(false);
 
   const handleRemoveShipment = (shipmentId: string) => {
     if (!initialResults) return;
@@ -130,16 +127,27 @@ export const useShipmentManagement = (
         if (!shipment.selectedRateId) continue;
         
         try {
-          // Generate label locally and save to indexedDB
-          const labelUrl = await generateAndSaveLabel(shipment, downloadFormat);
+          // Make API call to create label
+          const { data, error } = await supabase.functions.invoke('create-label', {
+            body: { 
+              shipmentId: shipment.id, 
+              rateId: shipment.selectedRateId,
+              options: {
+                label_format: downloadFormat.toUpperCase(),
+                label_size: "4x6"
+              }
+            }
+          });
+
+          if (error) throw new Error(error.message);
           
           // Update shipment with label URL and tracking code
           const index = updatedShipments.findIndex(s => s.id === shipment.id);
           if (index >= 0) {
             updatedShipments[index] = {
               ...shipment,
-              label_url: labelUrl,
-              tracking_code: generateTrackingCode(), // Generate locally
+              label_url: data.labelUrl,
+              tracking_code: data.trackingCode,
               status: 'completed' as const
             };
             successCount++;
@@ -156,7 +164,9 @@ export const useShipmentManagement = (
       });
       
       if (successCount > 0) {
-        toast.success(`Generated ${successCount} shipping labels`);
+        toast("Label generation complete", {
+          description: `Generated ${successCount} shipping labels`
+        });
         
         // Set status to success for the BulkUpload component to show success view
         updateResults({
@@ -164,58 +174,24 @@ export const useShipmentManagement = (
           processedShipments: updatedShipments,
           totalCost: initialResults.totalCost,
           successful: successCount,
-          failed: initialResults.processedShipments.length - successCount,
-          uploadStatus: 'success'
+          failed: initialResults.processedShipments.length - successCount
         });
+        
+        // Update upload status in parent component
+        setUploadStatus('success');
       } else {
-        toast.error("No labels were generated, please try again");
+        toast("Label generation failed", {
+          description: "No labels were generated, please try again"
+        });
       }
     } catch (error) {
       console.error('Error creating labels:', error);
-      toast.error(error instanceof Error ? error.message : "Failed to generate labels");
+      toast("Label generation failed", {
+        description: error instanceof Error ? error.message : "Failed to generate labels"
+      });
     } finally {
       setIsCreatingLabels(false);
     }
-  };
-
-  // Generate and save label locally
-  const generateAndSaveLabel = async (shipment: BulkShipment, format: string): Promise<string> => {
-    // In a real app, this would generate labels using client-side libraries
-    // For demo, we'll simulate with a delay and return a mock URL
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // For a real implementation, you would use:
-    // - PDF.js for PDF generation
-    // - Canvas API for PNG creation
-    // - A ZPL library for ZPL format
-    
-    let mockUrl;
-    
-    if (format === 'pdf') {
-      mockUrl = 'https://assets.easypost.com/shipping_labels/example_label.pdf';
-    } else if (format === 'png') {
-      mockUrl = 'https://assets.easypost.com/shipping_labels/example_label.png';
-    } else {
-      mockUrl = 'https://assets.easypost.com/shipping_labels/example_label.zpl';
-    }
-    
-    // Store in browser storage (IndexedDB or LocalStorage)
-    try {
-      const key = `label_${shipment.id}_${format}`;
-      localStorage.setItem(key, mockUrl);
-      console.log(`Label saved with key: ${key}`);
-    } catch (error) {
-      console.error('Error saving label locally:', error);
-    }
-    
-    return mockUrl;
-  };
-  
-  // Generate tracking code locally
-  const generateTrackingCode = (): string => {
-    const prefix = ['1Z', 'UPS', 'FEDEX', 'DHL', 'USPS'][Math.floor(Math.random() * 5)];
-    const numberPart = Math.floor(Math.random() * 1000000000).toString().padStart(9, '0');
-    return `${prefix}${numberPart}`;
   };
 
   const handleDownloadAllLabels = () => {
@@ -229,6 +205,8 @@ export const useShipmentManagement = (
     // Show label options modal
     setShowLabelOptions(true);
   };
+
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
   
   const handleDownloadLabelsWithFormat = (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!initialResults || !initialResults.processedShipments.length) return;
@@ -236,19 +214,21 @@ export const useShipmentManagement = (
     setShowLabelOptions(false);
     
     if (format === 'zip') {
-      // Handle ZIP download - in a real app this would create a ZIP file with all labels
+      // Handle ZIP download - in a real app this would call a backend endpoint
       toast("Preparing ZIP file", {
         description: `Creating ZIP archive with ${initialResults.processedShipments.length} labels`
       });
       
       // Simulate ZIP download for now
       setTimeout(() => {
-        toast.success("Your labels ZIP file is ready to download");
+        toast("Download ready", {
+          description: "Your labels ZIP file is ready to download"
+        });
         
         // Open first label as example
         const firstShipment = initialResults.processedShipments.find(s => s.label_url);
         if (firstShipment?.label_url) {
-          showLabelPreviewDialog(firstShipment.label_url);
+          window.open(firstShipment.label_url, '_blank');
         }
       }, 1500);
       return;
@@ -266,44 +246,26 @@ export const useShipmentManagement = (
       return;
     }
     
-    toast.success(`Opening ${labelsWithUrls.length} labels in ${format.toUpperCase()} format`);
+    toast("Opening labels", {
+      description: `Opening ${labelsWithUrls.length} labels in ${format.toUpperCase()} format`
+    });
     
-    // Show preview of first label
-    if (labelsWithUrls[0]?.label_url) {
-      showLabelPreviewDialog(labelsWithUrls[0].label_url);
-    }
-    
-    // Track which labels have been loaded
-    let loadedCount = 0;
-    
-    // Load labels sequentially to avoid browser popup blocking
-    const loadNextLabel = (index: number) => {
-      if (index >= labelsWithUrls.length) return;
-      
-      const shipment = labelsWithUrls[index];
+    // Open first 3 labels maximum to avoid browser popup blocking
+    labelsWithUrls.slice(0, 3).forEach(shipment => {
       if (shipment.label_url) {
-        // In a real app, use a print library like PrintJS to handle printing
-        setTimeout(() => {
-          loadedCount++;
-          if (loadedCount < 3) {
-            loadNextLabel(index + 1);
-          } else if (labelsWithUrls.length > 3) {
-            toast.success(`${labelsWithUrls.length - 3} more labels are available for individual download`);
-          }
-        }, 500);
+        window.open(shipment.label_url, '_blank');
       }
-    };
+    });
     
-    loadNextLabel(0);
-  };
-
-  const showLabelPreviewDialog = (labelUrl: string) => {
-    setLabelPreviewUrl(labelUrl);
-    setShowLabelPreview(true);
+    if (labelsWithUrls.length > 3) {
+      toast("More labels available", {
+        description: `${labelsWithUrls.length - 3} more labels are available for individual download`
+      });
+    }
   };
 
   const handleDownloadSingleLabel = (labelUrl: string) => {
-    showLabelPreviewDialog(labelUrl);
+    window.open(labelUrl, '_blank');
   };
   
   const handleEmailLabels = () => {
@@ -312,6 +274,7 @@ export const useShipmentManagement = (
     });
   };
   
+  // This function is needed for the updated component but doesn't exist in the original hook
   const setUploadStatus = (status: 'idle' | 'success' | 'error' | 'editing') => {
     // This should be passed from the parent hook
     if (initialResults) {
@@ -326,8 +289,6 @@ export const useShipmentManagement = (
     isPaying,
     isCreatingLabels,
     showLabelOptions,
-    showLabelPreview,
-    labelPreviewUrl,
     downloadFormat,
     handleRemoveShipment,
     handleEditShipment,
@@ -338,8 +299,6 @@ export const useShipmentManagement = (
     handleDownloadSingleLabel,
     handleEmailLabels,
     setShowLabelOptions,
-    setShowLabelPreview,
-    setDownloadFormat,
-    setUploadStatus
+    setDownloadFormat
   };
 };
