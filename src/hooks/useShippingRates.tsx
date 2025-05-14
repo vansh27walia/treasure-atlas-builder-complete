@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from 'sonner';
@@ -43,29 +44,31 @@ export const useShippingRates = () => {
 
   // Process and enhance rates with original prices at 85-90% higher than actual rate
   const processRates = (incomingRates: ShippingRate[]) => {
-    // Generate a random discount percentage between 85% and 90%
-    const discountPercentage = Math.random() * (90 - 85) + 85;
-    
-    // Calculate inflated original rate (actual rate + discount percentage)
-    const actualRate = parseFloat(rate.rate);
-    // Calculate what the "original" price would be before our massive discount
-    const inflatedRate = (actualRate * (100 / (100 - discountPercentage))).toFixed(2);
-    
-    // Generate premium flag - typically express, overnight, or most expensive services
-    const isPremium = 
-      rate.service.toLowerCase().includes('express') || 
-      rate.service.toLowerCase().includes('priority') || 
-      rate.service.toLowerCase().includes('overnight') ||
-      rate.service.toLowerCase().includes('next day') ||
-      rate.service.toLowerCase().includes('same day') ||
-      (rate.delivery_days === 1) ||
-      actualRate > 20; // If rate is above $20, consider it a premium service
-    
-    return {
-      ...rate,
-      original_rate: inflatedRate,
-      isPremium
-    };
+    return incomingRates.map(rateItem => {
+      // Generate a random discount percentage between 85% and 90%
+      const discountPercentage = Math.random() * (90 - 85) + 85;
+      
+      // Calculate inflated original rate (actual rate + discount percentage)
+      const actualRate = parseFloat(rateItem.rate);
+      // Calculate what the "original" price would be before our massive discount
+      const inflatedRate = (actualRate * (100 / (100 - discountPercentage))).toFixed(2);
+      
+      // Generate premium flag - typically express, overnight, or most expensive services
+      const isPremium = 
+        rateItem.service.toLowerCase().includes('express') || 
+        rateItem.service.toLowerCase().includes('priority') || 
+        rateItem.service.toLowerCase().includes('overnight') ||
+        rateItem.service.toLowerCase().includes('next day') ||
+        rateItem.service.toLowerCase().includes('same day') ||
+        (rateItem.delivery_days === 1) ||
+        actualRate > 20; // If rate is above $20, consider it a premium service
+      
+      return {
+        ...rateItem,
+        original_rate: inflatedRate,
+        isPremium
+      };
+    });
   };
 
   // Listen for rates from the shipping form component

@@ -8,7 +8,7 @@ import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
