@@ -60,12 +60,6 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
     return carrier.toUpperCase();
   };
   
-  // Prevent default to avoid any scroll issues
-  const handleRateClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    onSelect(rate.id);
-  };
-  
   return (
     <div
       className={`
@@ -73,7 +67,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
         ${isSelected ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'}
         ${isPremium ? 'border-amber-400 bg-amber-50/50' : ''}
       `}
-      onClick={handleRateClick}
+      onClick={() => onSelect(rate.id)}
       data-testid={`rate-card-${rate.id}`}
       data-rate-id={rate.id}
     >
