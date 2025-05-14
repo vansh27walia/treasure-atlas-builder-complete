@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useSupabaseClient } from '@supabase/supabase-client';
+import { supabase } from '@/integrations/supabase/client';
 
 const ShippingRates: React.FC = () => {
   const {
@@ -40,7 +40,6 @@ const ShippingRates: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [showLabelPreview, setShowLabelPreview] = useState(false);
   const [labelFormat, setLabelFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
-  const supabase = useSupabaseClient();
   
   // Show empty state if no rates available
   if (rates.length === 0) {
@@ -110,7 +109,7 @@ const ShippingRates: React.FC = () => {
         window.open(labelUrl, '_blank');
         toast.success(`Label downloaded`);
       }
-    } catch (error) {
+    } catch (error: any) {
       toast.error(`Error downloading label: ${error.message || 'Unknown error'}`);
     }
   };
@@ -147,7 +146,7 @@ const ShippingRates: React.FC = () => {
   // Sort the rates based on the selected sorting option
   const sortedRates = [...rates].sort((a, b) => {
     if (sortOrder === 'price') {
-      return parseFloat(a.rate) - parseFloat(b.rate);
+      return parseFloat(a.rate.toString()) - parseFloat(b.rate.toString());
     } else if (sortOrder === 'speed') {
       const aDays = a.delivery_days || 999;
       const bDays = b.delivery_days || 999;
@@ -247,7 +246,7 @@ const ShippingRates: React.FC = () => {
                         reason: aiRecommendation.analysisText || ''
                       }}
                       showDiscount={true}
-                      originalRate={rate.original_rate}
+                      originalRate={parseFloat(rate.original_rate || '0')}
                       isPremium={false}
                     />
                   ))}

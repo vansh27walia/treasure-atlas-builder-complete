@@ -84,7 +84,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
             {hasDiscount && (
               <div className="flex items-center gap-1">
                 <span className="text-xs line-through text-gray-500">${originalRate?.toFixed(2)}</span>
-                <Badge variant="success" className="text-xs py-0 px-1">-{discount}%</Badge>
+                <Badge variant="outline" className="bg-green-100 text-green-700 text-xs py-0 px-1">-{discount}%</Badge>
               </div>
             )}
           </div>
