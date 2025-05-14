@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 
 interface ShippingRate {
@@ -199,7 +199,11 @@ export const useShippingRates = () => {
     const effectiveShipmentId = shipmentIdParam || shipmentId;
     
     if (!effectiveRateId || !effectiveShipmentId) {
-      toast.error("Please select a shipping rate first");
+      toast({
+        title: "Error",
+        description: "Please select a shipping rate first",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -242,7 +246,10 @@ export const useShippingRates = () => {
       console.log("Label created successfully:", data);
       setLabelUrl(data.labelUrl);
       setTrackingCode(data.trackingCode);
-      toast.success("Shipping label generated successfully");
+      toast({
+        title: "Success",
+        description: "Shipping label generated successfully"
+      });
       
       // Update workflow step to complete
       document.dispatchEvent(new CustomEvent('shipping-step-change', { 
@@ -261,7 +268,11 @@ export const useShippingRates = () => {
       
     } catch (error) {
       console.error('Error creating label:', error);
-      toast.error("Failed to generate shipping label. Please try again.");
+      toast({
+        title: "Error",
+        description: "Failed to generate shipping label. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -270,7 +281,11 @@ export const useShippingRates = () => {
   // Function to handle payment process
   const handleProceedToPayment = () => {
     if (!selectedRateId || !shipmentId) {
-      toast.error("Please select a shipping rate first");
+      toast({
+        title: "Error",
+        description: "Please select a shipping rate first",
+        variant: "destructive"
+      });
       return;
     }
     
@@ -292,7 +307,11 @@ export const useShippingRates = () => {
       
     } catch (error) {
       console.error('Error proceeding to payment:', error);
-      toast.error("Failed to process payment. Please try again.");
+      toast({
+        title: "Payment Failed",
+        description: "Failed to process payment. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsProcessingPayment(false);
     }

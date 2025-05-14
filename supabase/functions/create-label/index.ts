@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -82,7 +81,7 @@ serve(async (req) => {
     }
 
     // Create request body for EasyPost with label format options
-    const buyOptions = {
+    const buyOptions: any = {
       rate: { id: rateId }
     };
     
@@ -310,11 +309,10 @@ serve(async (req) => {
           delivery_days: data.selected_rate?.delivery_days || null,
           charged_rate: data.selected_rate?.rate || null,
           easypost_rate: data.selected_rate?.rate || null,
-          currency: data.selected_rate?.currency || 'USD'
-          // The following fields may not be available in the DB schema yet
-          // label_format: options.label_format || "PDF",
-          // label_size: options.label_size || "4x6",
-          // created_at: new Date().toISOString()
+          currency: data.selected_rate?.currency || 'USD',
+          label_format: options.label_format || "PDF",
+          label_size: options.label_size || "4x6",
+          created_at: new Date().toISOString()
         });
         
       if (dbError) {
