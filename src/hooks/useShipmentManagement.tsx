@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -34,9 +33,7 @@ export const useShipmentManagement = (
       totalCost
     });
     
-    toast("Shipment removed", {
-      description: "The shipment has been removed from your list"
-    });
+    toast("Shipment removed");
   };
 
   const handleEditShipment = (shipmentId: string, details: BulkShipment['details']) => {
@@ -60,9 +57,7 @@ export const useShipmentManagement = (
       processedShipments: updatedShipments
     });
     
-    toast("Shipment updated", {
-      description: "The shipment details have been updated"
-    });
+    toast("Shipment updated");
   };
   
   const handleProceedToPayment = async () => {

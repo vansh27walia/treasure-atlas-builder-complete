@@ -50,6 +50,11 @@ const BulkUpload: React.FC = () => {
     setSelectedCarrierFilter
   } = useBulkUpload();
 
+  // Wrapper function to adapt the handleEditShipment signature for the BulkShipmentsList component
+  const onEditShipment = (shipment: BulkShipment) => {
+    handleEditShipment(shipment.id, shipment.details);
+  };
+
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
       <BulkUploadHeader onDownloadTemplate={handleDownloadTemplate} />
@@ -127,7 +132,7 @@ const BulkUpload: React.FC = () => {
             isFetchingRates={isFetchingRates}
             onSelectRate={handleSelectRate}
             onRemoveShipment={handleRemoveShipment}
-            onEditShipment={handleEditShipment}
+            onEditShipment={onEditShipment}
             onRefreshRates={handleRefreshRates}
             onRateSelectionAndLabel={handleRateSelectionAndLabel}
           />

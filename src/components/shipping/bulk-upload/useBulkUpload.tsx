@@ -5,7 +5,7 @@ import { useShipmentUpload } from '@/hooks/useShipmentUpload';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
 import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 export const useBulkUpload = () => {
   const {
@@ -91,9 +91,7 @@ export const useBulkUpload = () => {
       handleSelectRate(shipmentId, rateId);
       
       // Then create the label
-      toast({
-        description: "Generating label for selected rate..."
-      });
+      toast("Generating label for selected rate...");
       
       // Update the UI to show we're generating labels
       updateResults({
@@ -108,18 +106,11 @@ export const useBulkUpload = () => {
       // Create the label with specified format
       await handleCreateLabels([shipmentId], "PDF");
       
-      toast({
-        title: "Success",
-        description: "Label generated successfully!"
-      });
+      toast.success("Label generated successfully!");
       
     } catch (error) {
       console.error('Error in rate selection and label creation:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate label. Please try again.",
-        variant: "destructive"
-      });
+      toast.error("Failed to generate label. Please try again.");
     }
   };
 

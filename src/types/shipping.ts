@@ -45,9 +45,16 @@ export interface ShippingOption {
   rate: number;
   currency: string;
   delivery_days: number;
+  delivery_date?: string;
   estimated_delivery_date?: string;
   listRate?: number;
+  list_rate?: number;
   retailRate?: number;
+  retail_rate?: number;
+  est_delivery_days?: number;
+  shipment_id?: string;
+  original_rate?: number;
+  isPremium?: boolean;
 }
 
 export interface ShippingLabelFormat {
@@ -96,8 +103,29 @@ export interface BulkShipment {
     };
     carrier_formats?: string[];
   };
+  reference?: string;
+  to_address?: {
+    name: string;
+    street1: string;
+    city: string;
+    state: string;
+    zip: string;
+  };
+  from_address?: {
+    city: string;
+    state: string;
+  };
+  parcel?: {
+    weight: string | number;
+    length: string | number;
+    width: string | number;
+    height: string | number;
+  };
   availableRates?: ShippingOption[];
   selectedRateId?: string;
+  selected_rate_id?: string;
+  isLoadingRates?: boolean;
+  isGeneratingLabel?: boolean;
 }
 
 export interface BulkShipmentError {

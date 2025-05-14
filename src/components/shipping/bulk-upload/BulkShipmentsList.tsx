@@ -41,7 +41,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
             {/* Shipment info */}
             <div className="flex-1">
               <div className="flex justify-between items-start mb-3">
-                <h3 className="font-semibold">{shipment.to_address?.name || 'Unnamed Recipient'}</h3>
+                <h3 className="font-semibold">{shipment.to_address?.name || shipment.details.name || 'Unnamed Recipient'}</h3>
                 <div className="flex gap-2">
                   <Button 
                     variant="ghost" 
@@ -66,13 +66,20 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 text-sm">
                 <div>
-                  <span className="text-gray-600">To:</span> {shipment.to_address?.street1}, {shipment.to_address?.city}, {shipment.to_address?.state} {shipment.to_address?.zip}
+                  <span className="text-gray-600">To:</span> {shipment.to_address?.street1 || shipment.details.street1}, 
+                  {shipment.to_address?.city || shipment.details.city}, 
+                  {shipment.to_address?.state || shipment.details.state} 
+                  {shipment.to_address?.zip || shipment.details.zip}
                 </div>
                 <div>
-                  <span className="text-gray-600">From:</span> {shipment.from_address?.city}, {shipment.from_address?.state}
+                  <span className="text-gray-600">From:</span> {shipment.from_address?.city || "Origin City"}, 
+                  {shipment.from_address?.state || "Origin State"}
                 </div>
                 <div>
-                  <span className="text-gray-600">Package:</span> {shipment.parcel?.weight}oz, {shipment.parcel?.length}×{shipment.parcel?.width}×{shipment.parcel?.height} in
+                  <span className="text-gray-600">Package:</span> {shipment.parcel?.weight || shipment.details.parcel_weight}oz, 
+                  {shipment.parcel?.length || shipment.details.parcel_length}×
+                  {shipment.parcel?.width || shipment.details.parcel_width}×
+                  {shipment.parcel?.height || shipment.details.parcel_height} in
                 </div>
                 <div>
                   <span className="text-gray-600">Reference:</span> {shipment.reference || 'N/A'}
@@ -118,7 +125,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   {shipment.availableRates.map(rate => (
                     <div 
                       key={rate.id} 
-                      className={`border rounded-md p-2 text-xs cursor-pointer transition-colors ${shipment.selected_rate_id === rate.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'}`}
+                      className={`border rounded-md p-2 text-xs cursor-pointer transition-colors ${
+                        (shipment.selectedRateId === rate.id || shipment.selected_rate_id === rate.id) 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'hover:bg-gray-50'
+                      }`}
                       onClick={() => onSelectRate(shipment.id, rate.id)}
                     >
                       <div className="flex justify-between items-center">
@@ -127,9 +138,9 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                           <div className="text-gray-600">{rate.delivery_days ? `${rate.delivery_days} day${rate.delivery_days !== 1 ? 's' : ''}` : 'Delivery time varies'}</div>
                         </div>
                         <div className="text-right">
-                          <div className="font-semibold">${parseFloat(rate.rate).toFixed(2)}</div>
+                          <div className="font-semibold">${parseFloat(rate.rate.toString()).toFixed(2)}</div>
                           
-                          {shipment.selected_rate_id === rate.id && !shipment.label_url && (
+                          {(shipment.selectedRateId === rate.id || shipment.selected_rate_id === rate.id) && !shipment.label_url && (
                             <Button 
                               size="sm" 
                               variant="secondary" 
@@ -147,7 +158,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                             </Button>
                           )}
                           
-                          {shipment.selected_rate_id === rate.id && shipment.label_url && (
+                          {(shipment.selectedRateId === rate.id || shipment.selected_rate_id === rate.id) && shipment.label_url && (
                             <Badge className="mt-1 bg-green-100 text-green-800">
                               <Check className="mr-1 h-3 w-3" /> Label Ready
                             </Badge>
