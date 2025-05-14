@@ -21,6 +21,7 @@ interface BulkShipmentsListProps {
   onRemoveShipment: (shipmentId: string) => void;
   onEditShipment: (shipmentId: string, details: BulkShipment['details']) => void;
   onRefreshRates: (shipmentId: string) => void;
+  onPreviewLabel: (labelUrl: string) => void;
 }
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
@@ -29,7 +30,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   onSelectRate,
   onRemoveShipment,
   onEditShipment,
-  onRefreshRates
+  onRefreshRates,
+  onPreviewLabel
 }) => {
   const [openDialogs, setOpenDialogs] = useState<Record<string, boolean>>({});
 
@@ -189,6 +191,18 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         <RefreshCcw className={`h-4 w-4 mr-1 ${shipment.status === 'processing' ? 'animate-spin' : ''}`} />
                         Rates
                       </Button>
+
+                      {shipment.label_url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onPreviewLabel(shipment.label_url!)}
+                          className="text-blue-500 border-blue-200 hover:bg-blue-50"
+                        >
+                          <FileText className="h-4 w-4 mr-1" />
+                          Label
+                        </Button>
+                      )}
 
                       <Button 
                         variant="outline" 
