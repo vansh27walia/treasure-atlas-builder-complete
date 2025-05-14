@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, RefreshCw, ExternalLink, Mail, Save, FileText, X } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -59,10 +59,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
         setIsLabelModalOpen(true);
       } catch (error) {
         console.error("Error caching label:", error);
-        toast({
-          variant: "destructive",
-          description: "Error preparing label for download"
-        });
+        toast("Error preparing label for download");
       }
     };
     
@@ -89,10 +86,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
   
   const handleRefreshLabel = async () => {
     if (!shipmentId) {
-      toast({
-        variant: "destructive",
-        description: "Missing shipment ID"
-      });
+      toast("Missing shipment ID");
       return;
     }
     
@@ -113,18 +107,13 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
       
       if (data.labelUrl) {
         setLocalLabelUrl(data.labelUrl);
-        toast({
-          description: 'Label refreshed successfully'
-        });
+        toast("Label refreshed successfully");
       } else {
         throw new Error('No label URL found');
       }
     } catch (error) {
       console.error('Error refreshing label:', error);
-      toast({
-        variant: "destructive",
-        description: 'Failed to refresh label'
-      });
+      toast("Failed to refresh label");
     } finally {
       setIsRefreshing(false);
     }
@@ -144,16 +133,11 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
         // Clean up
         setTimeout(() => {
           document.body.removeChild(link);
-          toast({
-            description: `Your ${format.toUpperCase()} label has been downloaded`
-          });
+          toast(`Your ${format.toUpperCase()} label has been downloaded`);
         }, 100);
       } catch (error) {
         console.error('Direct download error:', error);
-        toast({
-          variant: "destructive",
-          description: 'Failed to download directly'
-        });
+        toast("Failed to download directly");
         tryFallbackDownload(format);
       }
     } else {
@@ -164,10 +148,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
   const tryFallbackDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
     const url = localLabelUrl || labelUrl;
     if (!url) {
-      toast({
-        variant: "destructive",
-        description: 'No label URL available'
-      });
+      toast("No label URL available");
       return;
     }
     
@@ -183,26 +164,18 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
       // Clean up after a moment
       setTimeout(() => {
         document.body.removeChild(iframe);
-        toast({
-          description: `Starting ${format.toUpperCase()} download through fallback method`
-        });
+        toast(`Starting ${format.toUpperCase()} download through fallback method`);
       }, 1000);
     } catch (error) {
       console.error('Fallback download error:', error);
-      toast({
-        variant: "destructive",
-        description: 'All download methods failed. Try the "Open in New Tab" option'
-      });
+      toast("All download methods failed. Try the \"Open in New Tab\" option");
     }
   };
 
   const handleOpenInNewTab = () => {
     const urlToOpen = blobUrl || localLabelUrl || labelUrl;
     if (!urlToOpen) {
-      toast({
-        variant: "destructive",
-        description: 'No label URL available'
-      });
+      toast("No label URL available");
       return;
     }
     
@@ -212,52 +185,37 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
       
       if (newWindow) {
         newWindow.focus();
-        toast({
-          description: 'Label opened in new tab'
-        });
+        toast("Label opened in new tab");
       } else {
         throw new Error('Popup blocked or failed to open');
       }
     } catch (error) {
       console.error('Open in new tab error:', error);
-      toast({
-        variant: "destructive",
-        description: 'Failed to open label in new tab. Please check your popup blocker settings.'
-      });
+      toast("Failed to open label in new tab. Please check your popup blocker settings.");
     }
   };
 
   const handleEmailLabel = async () => {
     if (!blobUrl && !labelUrl && !localLabelUrl) {
-      toast({
-        variant: "destructive",
-        description: 'No label available to email'
-      });
+      toast("No label available to email");
       return;
     }
 
     setIsEmailSending(true);
     try {
-      toast({
-        description: 'Sending label to your email...',
-      });
+      toast("Sending label to your email...");
       
       // For now, we'll simulate the email sending
       // In a real implementation, this would call a backend function
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      toast({
-        description: 'Label sent to your registered email'
-      });
+      toast("Label sent to your registered email");
       
       // Close the modal after emailing
       setIsLabelModalOpen(false);
     } catch (error) {
       console.error('Email label error:', error);
-      toast({
-        variant: "destructive",
-        description: 'Failed to email label'
-      });
+      toast("Failed to email label");
     } finally {
       setIsEmailSending(false);
     }
@@ -266,18 +224,13 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
   const handleSaveToAccount = async () => {
     const url = blobUrl || localLabelUrl || labelUrl;
     if (!url || !trackingCode) {
-      toast({
-        variant: "destructive",
-        description: 'Missing label data or tracking information'
-      });
+      toast("Missing label data or tracking information");
       return;
     }
     
     setIsSaving(true);
     try {
-      toast({
-        description: 'Saving label to your account...'
-      });
+      toast("Saving label to your account...");
       
       // Save to shipment_records table instead of creating a new table
       const { error } = await supabase
@@ -293,18 +246,13 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
         throw new Error(`Failed to save label: ${error.message}`);
       }
       
-      toast({
-        description: 'Label saved to your account'
-      });
+      toast("Label saved to your account");
       
       // Close the modal after saving
       setIsLabelModalOpen(false);
     } catch (error) {
       console.error('Save label error:', error);
-      toast({
-        variant: "destructive",
-        description: 'Failed to save label'
-      });
+      toast("Failed to save label");
     } finally {
       setIsSaving(false);
     }
