@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -56,16 +55,20 @@ serve(async (req) => {
 
     // Check if storage bucket exists, create if not
     try {
-      const { data: bucketData, error: bucketError } = await supabase.storage.listBuckets();
+      const { data: bucketData, error: bucketError } = await supabase
+        .storage
+        .listBuckets();
       
       const bucketExists = bucketData?.some(bucket => bucket.name === 'shipping-labels');
       
       if (!bucketExists) {
         console.log('Creating shipping-labels bucket');
-        const { error } = await supabase.storage.createBucket('shipping-labels', {
-          public: true,  // Make public to facilitate direct downloads
-          fileSizeLimit: 10485760, // 10MB limit for label files
-        });
+        const { error } = await supabase
+          .storage
+          .createBucket('shipping-labels', {
+            public: true,  // Make public to facilitate direct downloads
+            fileSizeLimit: 10485760, // 10MB limit for label files
+          });
           
         if (error) {
           console.error('Error creating bucket:', error);
@@ -82,10 +85,18 @@ serve(async (req) => {
       rate: { id: rateId }
     };
     
-    // If label format and size are specified, add them to the request
-    if (options.label_format || options.label_size) {
-      buyOptions.label_format = options.label_format || "PDF";
-      buyOptions.label_size = options.label_size || "4x6";
+    // Ensure we set the label_format correctly
+    if (options.label_format) {
+      buyOptions.label_format = options.label_format;
+      console.log(`Setting label format to: ${options.label_format}`);
+    } else {
+      // Default to PDF if not specified
+      buyOptions.label_format = "PDF";
+      console.log(`Using default label format: PDF`);
+    }
+    
+    if (options.label_size) {
+      buyOptions.label_size = options.label_size;
     }
 
     // Buy the label with EasyPost API
@@ -226,14 +237,21 @@ serve(async (req) => {
     const fileName = `label_${shipmentId}_${Date.now()}.pdf`;
     
     // Upload the label to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase
-      .storage
-      .from('shipping-labels')
-      .upload(fileName, labelBuffer, {
-        contentType: 'application/pdf',
-        cacheControl: '3600',
-        upsert: false
-      });
+    const contentType = options.label_format === 'PNG' 
+    ? 'image/png' 
+    : options.label_format === 'ZPL' 
+      ? 'text/plain' 
+      : 'application/pdf';
+      
+  // When uploading to storage, make sure to set the correct content type
+  const { data: uploadData, error: uploadError } = await supabase
+    .storage
+    .from('shipping-labels')
+    .upload(fileName, labelBuffer, {
+      contentType: contentType,
+      cacheControl: '3600',
+      upsert: false
+    });
       
     if (uploadError) {
       console.error('Error uploading label to storage:', uploadError);
@@ -291,7 +309,7 @@ serve(async (req) => {
       );
     }
     
-    // Save the shipping record in the database
+    // Save the shipping record in the database if you have shipment_records table
     try {
       const { error: dbError } = await supabase
         .from('shipment_records')
@@ -306,9 +324,11 @@ serve(async (req) => {
           delivery_days: data.selected_rate?.delivery_days || null,
           charged_rate: data.selected_rate?.rate || null,
           easypost_rate: data.selected_rate?.rate || null,
-          currency: data.selected_rate?.currency || 'USD',
-          label_format: options.label_format || "PDF",
-          label_size: options.label_size || "4x6"
+          currency: data.selected_rate?.currency || 'USD'
+          // The following fields may not be available in the DB schema yet
+          // label_format: options.label_format || "PDF",
+          // label_size: options.label_size || "4x6",
+          // created_at: new Date().toISOString()
         });
         
       if (dbError) {
@@ -320,12 +340,14 @@ serve(async (req) => {
       // Continue as this is non-critical
     }
 
-    // Return the label information with our internally stored URL
+    // Return additional details about the label format in the response
     return new Response(
       JSON.stringify({
-        labelUrl: signedURLData.signedUrl || labelURL, // Fall back to EasyPost URL if needed
+        labelUrl: signedURLData.signedUrl || labelURL,
         trackingCode: data.tracking_code,
         shipmentId: data.id,
+        labelFormat: options.label_format || "PDF",
+        labelSize: options.label_size || "4x6"
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

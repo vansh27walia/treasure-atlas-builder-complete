@@ -1,237 +1,131 @@
 
-import React, { useState } from 'react';
-import { Input } from '@/components/ui/input';
+import React from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import { CARRIER_OPTIONS } from '@/types/shipping';
-import { Search, SortAsc, SortDesc, Filter, Package } from 'lucide-react';
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { Search, Filter, Check, CreditCard } from 'lucide-react';
 
 interface BulkShipmentFiltersProps {
-  searchTerm: string;
-  onSearchChange: (value: string) => void;
-  sortField: string;
-  sortDirection: 'asc' | 'desc';
-  onSortChange: (field: any, direction: 'asc' | 'desc') => void;
-  selectedCarrier: string | null;
-  onCarrierFilterChange: (carrier: string | null) => void;
-  onApplyCarrierToAll: (carrier: string, service: string) => void;
+  onSearch: (term: string) => void;
+  onFilter: (filter: string) => void;
+  onBulkApplyCarrier?: (carrier: string, service: string) => void;
+  onSelectAll?: () => void;
+  activeFilter: string;
+  isAllSelected?: boolean;
+  totalCost?: number;
 }
 
 const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
-  searchTerm,
-  onSearchChange,
-  sortField,
-  sortDirection,
-  onSortChange,
-  selectedCarrier,
-  onCarrierFilterChange,
-  onApplyCarrierToAll
+  onSearch,
+  onFilter,
+  onBulkApplyCarrier,
+  onSelectAll,
+  activeFilter,
+  isAllSelected,
+  totalCost = 0
 }) => {
-  const [bulkCarrier, setBulkCarrier] = useState('');
-  const [bulkService, setBulkService] = useState('');
+  const [searchTerm, setSearchTerm] = React.useState('');
   
-  const handleSortToggle = (field: string) => {
-    if (field === sortField) {
-      onSortChange(field, sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      onSortChange(field, 'asc');
-    }
-  };
-
-  // Group carriers for organized display
-  const getServicesForCarrier = (carrierId: string) => {
-    const carrier = CARRIER_OPTIONS.find(c => c.id.toLowerCase() === carrierId.toLowerCase());
-    return carrier?.services || [];
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    onSearch(value);
   };
   
-  // Available carriers for bulk application
-  const availableCarriers = CARRIER_OPTIONS.map(c => ({
-    id: c.id,
-    name: c.name
-  }));
-  
-  // Available services based on selected carrier
-  const availableServices = bulkCarrier 
-    ? getServicesForCarrier(bulkCarrier) 
-    : [];
+  const handleFilter = (filter: string) => {
+    onFilter(filter);
+  };
 
   return (
-    <div className="space-y-4 mb-6">
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="relative flex-grow">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input 
-            placeholder="Search shipments..." 
+    <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center mb-4">
+      <div className="flex-1 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search shipments..."
             value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9"
+            onChange={handleSearchChange}
+            className="pl-9 pr-4 h-10"
           />
         </div>
         
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => handleSortToggle('recipient')}
-            className={`h-10 ${sortField === 'recipient' ? 'bg-gray-100' : ''}`}
-          >
-            Name
-            {sortField === 'recipient' && (
-              sortDirection === 'asc' 
-                ? <SortAsc className="ml-2 h-4 w-4" /> 
-                : <SortDesc className="ml-2 h-4 w-4" />
-            )}
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => handleSortToggle('carrier')}
-            className={`h-10 ${sortField === 'carrier' ? 'bg-gray-100' : ''}`}
-          >
-            Carrier
-            {sortField === 'carrier' && (
-              sortDirection === 'asc' 
-                ? <SortAsc className="ml-2 h-4 w-4" /> 
-                : <SortDesc className="ml-2 h-4 w-4" />
-            )}
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => handleSortToggle('rate')}
-            className={`h-10 ${sortField === 'rate' ? 'bg-gray-100' : ''}`}
-          >
-            Price
-            {sortField === 'rate' && (
-              sortDirection === 'asc' 
-                ? <SortAsc className="ml-2 h-4 w-4" /> 
-                : <SortDesc className="ml-2 h-4 w-4" />
-            )}
-          </Button>
-        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="flex items-center gap-2 h-10">
+              <Filter className="h-4 w-4" />
+              <span>
+                {activeFilter === 'all' ? 'All' : 
+                 activeFilter === 'pending' ? 'Pending' :
+                 activeFilter === 'completed' ? 'Completed' :
+                 activeFilter === 'error' ? 'Error' : 'Filter'}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleFilter('all')}>
+              All Shipments
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleFilter('pending')}>
+              Pending
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleFilter('completed')}>
+              Completed
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleFilter('error')}>
+              Error
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        
+        {onBulkApplyCarrier && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2 h-10">
+                <span>Apply Carrier</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onBulkApplyCarrier('usps', 'Priority')}>
+                USPS Priority
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onBulkApplyCarrier('usps', 'Express')}>
+                USPS Express
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onBulkApplyCarrier('ups', 'Ground')}>
+                UPS Ground
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onBulkApplyCarrier('fedex', 'Ground')}>
+                FedEx Ground
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
       
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-gray-50 p-4 rounded-lg border">
-        <div className="flex flex-col md:flex-row gap-4 w-full lg:w-auto">
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-gray-500" />
-            <span className="text-sm font-medium">Filter by carrier:</span>
-          </div>
-          
-          <div className="flex gap-2 flex-wrap">
-            <Button 
-              variant={selectedCarrier === null ? "secondary" : "outline"} 
-              size="sm"
-              onClick={() => onCarrierFilterChange(null)}
-            >
-              All
-            </Button>
-            
-            {CARRIER_OPTIONS.map(carrier => (
-              <Button 
-                key={carrier.id}
-                variant={selectedCarrier === carrier.id ? "secondary" : "outline"} 
-                size="sm"
-                onClick={() => onCarrierFilterChange(carrier.id)}
-                className="flex gap-2 items-center"
-              >
-                <img 
-                  src={`/images/carriers/${carrier.id.toLowerCase()}.svg`} 
-                  alt={carrier.name}
-                  className="h-4 w-4"
-                  onError={(e) => {
-                    // Hide broken images
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-                {carrier.name}
-              </Button>
-            ))}
-          </div>
-        </div>
+      <div className="flex flex-wrap gap-3 w-full sm:w-auto">
+        {onSelectAll && (
+          <Button 
+            variant={isAllSelected ? "default" : "outline"}
+            className={`flex items-center gap-2 h-10 ${isAllSelected ? "bg-blue-600 text-white" : ""}`}
+            onClick={onSelectAll}
+            size="sm"
+          >
+            {isAllSelected && <Check className="h-4 w-4" />}
+            Select All
+          </Button>
+        )}
         
-        <div className="w-full lg:w-auto">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full lg:w-auto">
-                <Package className="mr-2 h-4 w-4" />
-                Apply Carrier to All
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-4" align="end">
-              <div className="space-y-4">
-                <h4 className="font-medium">Apply Carrier to All Shipments</h4>
-                <p className="text-sm text-gray-500">This will apply the selected carrier and service to all shipments in your list where available.</p>
-                
-                <div className="space-y-3">
-                  <Select value={bulkCarrier} onValueChange={setBulkCarrier}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select carrier" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableCarriers.map(carrier => (
-                        <SelectItem key={carrier.id} value={carrier.id}>
-                          <div className="flex items-center gap-2">
-                            <img 
-                              src={`/images/carriers/${carrier.id.toLowerCase()}.svg`} 
-                              alt={carrier.name}
-                              className="h-4 w-4"
-                              onError={(e) => {
-                                // Hide broken images
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
-                            {carrier.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  
-                  {bulkCarrier && (
-                    <Select value={bulkService} onValueChange={setBulkService}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select service" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableServices.map(service => (
-                          <SelectItem key={service.id} value={service.id}>
-                            {service.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  
-                  <Button 
-                    className="w-full" 
-                    onClick={() => {
-                      if (bulkCarrier && bulkService) {
-                        onApplyCarrierToAll(bulkCarrier, bulkService);
-                      }
-                    }}
-                    disabled={!bulkCarrier || !bulkService}
-                  >
-                    Apply to All
-                  </Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
+        {totalCost > 0 && (
+          <Button className="bg-blue-600 hover:bg-blue-700 h-10 flex items-center gap-2" size="sm">
+            <CreditCard className="h-4 w-4" />
+            Pay ${totalCost.toFixed(2)}
+          </Button>
+        )}
       </div>
     </div>
   );
