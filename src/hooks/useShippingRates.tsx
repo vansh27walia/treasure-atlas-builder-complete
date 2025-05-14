@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
 interface ShippingRate {
@@ -44,31 +43,29 @@ export const useShippingRates = () => {
 
   // Process and enhance rates with original prices at 85-90% higher than actual rate
   const processRates = (incomingRates: ShippingRate[]) => {
-    return incomingRates.map(rate => {
-      // Generate a random discount percentage between 85% and 90%
-      const discountPercentage = Math.random() * (90 - 85) + 85;
-      
-      // Calculate inflated original rate (actual rate + discount percentage)
-      const actualRate = parseFloat(rate.rate);
-      // Calculate what the "original" price would be before our massive discount
-      const inflatedRate = (actualRate * (100 / (100 - discountPercentage))).toFixed(2);
-      
-      // Generate premium flag - typically express, overnight, or most expensive services
-      const isPremium = 
-        rate.service.toLowerCase().includes('express') || 
-        rate.service.toLowerCase().includes('priority') || 
-        rate.service.toLowerCase().includes('overnight') ||
-        rate.service.toLowerCase().includes('next day') ||
-        rate.service.toLowerCase().includes('same day') ||
-        (rate.delivery_days === 1) ||
-        actualRate > 20; // If rate is above $20, consider it a premium service
-      
-      return {
-        ...rate,
-        original_rate: inflatedRate,
-        isPremium
-      };
-    });
+    // Generate a random discount percentage between 85% and 90%
+    const discountPercentage = Math.random() * (90 - 85) + 85;
+    
+    // Calculate inflated original rate (actual rate + discount percentage)
+    const actualRate = parseFloat(rate.rate);
+    // Calculate what the "original" price would be before our massive discount
+    const inflatedRate = (actualRate * (100 / (100 - discountPercentage))).toFixed(2);
+    
+    // Generate premium flag - typically express, overnight, or most expensive services
+    const isPremium = 
+      rate.service.toLowerCase().includes('express') || 
+      rate.service.toLowerCase().includes('priority') || 
+      rate.service.toLowerCase().includes('overnight') ||
+      rate.service.toLowerCase().includes('next day') ||
+      rate.service.toLowerCase().includes('same day') ||
+      (rate.delivery_days === 1) ||
+      actualRate > 20; // If rate is above $20, consider it a premium service
+    
+    return {
+      ...rate,
+      original_rate: inflatedRate,
+      isPremium
+    };
   };
 
   // Listen for rates from the shipping form component
@@ -199,11 +196,7 @@ export const useShippingRates = () => {
     const effectiveShipmentId = shipmentIdParam || shipmentId;
     
     if (!effectiveRateId || !effectiveShipmentId) {
-      toast({
-        title: "Error",
-        description: "Please select a shipping rate first",
-        variant: "destructive"
-      });
+      toast.error("Please select a shipping rate first");
       return;
     }
     
@@ -246,10 +239,7 @@ export const useShippingRates = () => {
       console.log("Label created successfully:", data);
       setLabelUrl(data.labelUrl);
       setTrackingCode(data.trackingCode);
-      toast({
-        title: "Success",
-        description: "Shipping label generated successfully"
-      });
+      toast.success("Shipping label generated successfully");
       
       // Update workflow step to complete
       document.dispatchEvent(new CustomEvent('shipping-step-change', { 
@@ -268,11 +258,7 @@ export const useShippingRates = () => {
       
     } catch (error) {
       console.error('Error creating label:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate shipping label. Please try again.",
-        variant: "destructive"
-      });
+      toast.error("Failed to generate shipping label. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -281,11 +267,7 @@ export const useShippingRates = () => {
   // Function to handle payment process
   const handleProceedToPayment = () => {
     if (!selectedRateId || !shipmentId) {
-      toast({
-        title: "Error",
-        description: "Please select a shipping rate first",
-        variant: "destructive"
-      });
+      toast.error("Please select a shipping rate first");
       return;
     }
     
@@ -307,11 +289,7 @@ export const useShippingRates = () => {
       
     } catch (error) {
       console.error('Error proceeding to payment:', error);
-      toast({
-        title: "Payment Failed",
-        description: "Failed to process payment. Please try again.",
-        variant: "destructive"
-      });
+      toast.error("Failed to process payment. Please try again.");
     } finally {
       setIsProcessingPayment(false);
     }
