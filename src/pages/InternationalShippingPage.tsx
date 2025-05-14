@@ -16,7 +16,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { AddressData, ParcelData, ShippingRequestData, carrierService } from '@/services/CarrierService';
 import ShippingLabel from '@/components/shipping/ShippingLabel';
-import { ShippingOption } from '@/types/shipping';
 
 interface FormValues {
   fromName: string;
@@ -945,7 +944,7 @@ const InternationalShippingPage: React.FC = () => {
           </h2>
           
           <div className="space-y-4">
-            {rates.map((rate: ShippingOption) => (
+            {rates.map((rate) => (
               <div 
                 key={rate.id}
                 className={`p-4 border rounded-lg cursor-pointer transition-all ${
@@ -976,7 +975,7 @@ const InternationalShippingPage: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-bold text-indigo-700">${rate.rate}</p>
-                    {(rate.list_rate !== undefined && rate.list_rate !== rate.rate) && (
+                    {rate.list_rate && rate.list_rate !== rate.rate && (
                       <p className="text-sm text-gray-500 line-through">${rate.list_rate}</p>
                     )}
                   </div>
@@ -993,7 +992,7 @@ const InternationalShippingPage: React.FC = () => {
               disabled={!selectedRateId || isCreatingLabel}
               onClick={() => {
                 if (selectedRateId) {
-                  const rate = rates.find(r => r.id === selectedRateId) as ShippingOption;
+                  const rate = rates.find(r => r.id === selectedRateId);
                   if (rate && rate.shipment_id) {
                     handleCreateLabel(selectedRateId, rate.shipment_id);
                   } else {
@@ -1022,9 +1021,9 @@ const InternationalShippingPage: React.FC = () => {
               disabled={!selectedRateId}
               onClick={() => {
                 if (selectedRateId) {
-                  const rate = rates.find(r => r.id === selectedRateId) as ShippingOption;
+                  const rate = rates.find(r => r.id === selectedRateId);
                   if (rate && rate.shipment_id) {
-                    navigate(`/payment?amount=${rate.rate.toString()}&shipmentId=${rate.shipment_id}&rateId=${selectedRateId}`);
+                    navigate(`/payment?amount=${Math.round(parseFloat(rate.rate) * 100)}&shipmentId=${rate.shipment_id}&rateId=${selectedRateId}`);
                   } else {
                     toast.error("Missing shipment information");
                   }

@@ -1,253 +1,339 @@
 
 import { useState, useEffect } from 'react';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from '@/components/ui/sonner';
+import { useNavigate } from 'react-router-dom';
 
 interface ShippingRate {
   id: string;
   carrier: string;
   service: string;
-  rate: number;
-  delivery_days?: number;
+  rate: string;
   currency: string;
-  original_rate?: number;
+  delivery_days: number;
+  delivery_date: string;
+  list_rate?: string;
+  retail_rate?: string;
+  est_delivery_days?: number;
+  shipment_id?: string; 
+  original_rate?: string;
+  isPremium?: boolean;
 }
 
-const DEFAULT_MARKUP_PERCENTAGE = 20;
+interface EasyPostRatesEvent {
+  detail: {
+    rates: ShippingRate[];
+    shipmentId: string;
+  }
+}
 
 export const useShippingRates = () => {
+  const navigate = useNavigate();
   const [rates, setRates] = useState<ShippingRate[]>([]);
-  const [allRates, setAllRates] = useState<ShippingRate[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [filteredRates, setFilteredRates] = useState<ShippingRate[]>([]);
+  const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
-  const [shipmentId, setShipmentId] = useState<string | null>(null);
-  const [activeCarrierFilter, setActiveCarrierFilter] = useState<string>('all');
-  const [bestValueRateId, setBestValueRateId] = useState<string | null>(null);
-  const [fastestRateId, setFastestRateId] = useState<string | null>(null);
+  const [activeCarrierFilter, setActiveCarrierFilter] = useState<string | 'all'>('all');
+  
+  // Carrier filters
+  const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
 
+  // Process and enhance rates with original prices at 85-90% higher than actual rate
+  const processRates = (incomingRates: ShippingRate[]) => {
+    return incomingRates.map(rate => {
+      // Generate a random discount percentage between 85% and 90%
+      const discountPercentage = Math.random() * (90 - 85) + 85;
+      
+      // Calculate inflated original rate (actual rate + discount percentage)
+      const actualRate = parseFloat(rate.rate);
+      // Calculate what the "original" price would be before our massive discount
+      const inflatedRate = (actualRate * (100 / (100 - discountPercentage))).toFixed(2);
+      
+      // Generate premium flag - typically express, overnight, or most expensive services
+      const isPremium = 
+        rate.service.toLowerCase().includes('express') || 
+        rate.service.toLowerCase().includes('priority') || 
+        rate.service.toLowerCase().includes('overnight') ||
+        rate.service.toLowerCase().includes('next day') ||
+        rate.service.toLowerCase().includes('same day') ||
+        (rate.delivery_days === 1) ||
+        actualRate > 20; // If rate is above $20, consider it a premium service
+      
+      return {
+        ...rate,
+        original_rate: inflatedRate,
+        isPremium
+      };
+    });
+  };
+
+  // Listen for rates from the shipping form component
   useEffect(() => {
-    const getStoredRates = async () => {
-      try {
-        // Get rates from session storage
-        const storedRates = sessionStorage.getItem('shippingRates');
-        const storedShipmentId = sessionStorage.getItem('shipmentId');
+    const handleRatesReceived = (event: CustomEvent<EasyPostRatesEvent['detail']>) => {
+      if (event.detail && event.detail.rates) {
+        console.log("Rates received:", event.detail.rates);
+        console.log("Shipment ID received:", event.detail.shipmentId);
         
-        if (storedRates) {
-          const parsedRates = JSON.parse(storedRates);
-          setAllRates(parsedRates);
-          setRates(parsedRates);
-          determineBestRates(parsedRates);
-          
-          if (storedShipmentId) {
-            setShipmentId(storedShipmentId);
+        // Add shipmentId to each rate object and process rates
+        const processedRates = processRates(event.detail.rates).map(rate => ({
+          ...rate,
+          shipment_id: event.detail.shipmentId
+        }));
+        
+        setRates(processedRates);
+        setFilteredRates(processedRates);
+        setShipmentId(event.detail.shipmentId);
+        setSelectedRateId(null);
+        setLabelUrl(null);
+        setTrackingCode(null);
+        
+        // Extract unique carriers for filtering
+        const carriers = [...new Set(processedRates.map(rate => 
+          rate.carrier.toUpperCase()
+        ))];
+        setUniqueCarriers(carriers);
+        setActiveCarrierFilter('all');
+        
+        // Update workflow step
+        document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+          detail: { step: 'rates' }
+        }));
+        
+        // Scroll to rates section with smooth behavior and delay
+        setTimeout(() => {
+          const ratesSection = document.getElementById('shipping-rates-section');
+          if (ratesSection) {
+            // Use scrollIntoView with behavior smooth
+            ratesSection.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'start'
+            });
           }
-        } else {
-          // If no stored rates, call the API
-          await fetchShippingRates();
-        }
-      } catch (error) {
-        console.error('Error retrieving stored rates:', error);
+        }, 300);
+        
+        // Also dispatch a completed form event
+        document.dispatchEvent(new Event('shipping-form-completed'));
+      }
+    };
+
+    document.addEventListener('easypost-rates-received', handleRatesReceived as EventListener);
+    
+    // Listen for rate selection from other components
+    const handleRateSelected = (event: CustomEvent<{rateId: string}>) => {
+      if (event.detail && event.detail.rateId) {
+        setSelectedRateId(event.detail.rateId);
+        
+        // Dispatch event for step change
+        document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+          detail: { step: 'label' }
+        }));
+        
+        // Automatically create label when a rate is selected
+        setTimeout(() => {
+          const selectedRate = rates.find(rate => rate.id === event.detail.rateId);
+          if (selectedRate && selectedRate.shipment_id) {
+            handleCreateLabel(event.detail.rateId, selectedRate.shipment_id);
+          }
+        }, 300);
       }
     };
     
-    getStoredRates();
-  }, []);
+    document.addEventListener('select-shipping-rate', handleRateSelected as EventListener);
+    
+    return () => {
+      document.removeEventListener('easypost-rates-received', handleRatesReceived as EventListener);
+      document.removeEventListener('select-shipping-rate', handleRateSelected as EventListener);
+    };
+  }, [rates]);
   
-  // Determine the best value and fastest rates
-  const determineBestRates = (rates: ShippingRate[]) => {
-    if (rates.length === 0) return;
-    
-    // Best value is lowest rate
-    const bestValue = [...rates].sort((a, b) => a.rate - b.rate)[0];
-    setBestValueRateId(bestValue?.id);
-    
-    // Fastest is lowest delivery days
-    const fastest = [...rates]
-      .filter(rate => rate.delivery_days) // Only consider rates with defined delivery days
-      .sort((a, b) => (a.delivery_days || 99) - (b.delivery_days || 99))[0];
-    
-    setFastestRateId(fastest?.id);
-    
-    // Pre-select best value if no rate is selected yet
-    if (!selectedRateId && bestValue) {
-      setSelectedRateId(bestValue.id);
-    }
-  };
-  
-  // Get unique carriers from all rates
-  const uniqueCarriers = [...new Set(allRates.map(rate => rate.carrier.toLowerCase()))];
-  
-  // Filter rates by carrier
-  const handleFilterByCarrier = (carrier: string) => {
-    setActiveCarrierFilter(carrier);
-    
-    if (carrier === 'all') {
-      setRates(allRates);
+  // Filter rates when carrier filter changes
+  useEffect(() => {
+    if (activeCarrierFilter === 'all') {
+      setFilteredRates(rates);
     } else {
-      const filteredRates = allRates.filter(rate => 
-        rate.carrier.toLowerCase() === carrier.toLowerCase()
+      const filtered = rates.filter(rate => 
+        rate.carrier.toUpperCase() === activeCarrierFilter.toUpperCase()
       );
-      setRates(filteredRates);
-      
-      // If the currently selected rate is no longer visible, select the first filtered rate
-      if (filteredRates.length > 0 && selectedRateId) {
-        const isSelectedVisible = filteredRates.some(rate => rate.id === selectedRateId);
-        if (!isSelectedVisible) {
-          setSelectedRateId(filteredRates[0].id);
-        }
-      }
+      setFilteredRates(filtered);
     }
-  };
-  
-  const fetchShippingRates = async () => {
-    setIsLoading(true);
-    
-    try {
-      // Get the form data from session storage
-      const fromAddressStr = sessionStorage.getItem('fromAddress');
-      const toAddressStr = sessionStorage.getItem('toAddress');
-      const parcelStr = sessionStorage.getItem('parcel');
-      
-      if (!fromAddressStr || !toAddressStr || !parcelStr) {
-        toast.error('Missing shipping information. Please fill out the shipping form');
-        setIsLoading(false);
-        return;
-      }
-      
-      const fromAddress = JSON.parse(fromAddressStr);
-      const toAddress = JSON.parse(toAddressStr);
-      const parcel = JSON.parse(parcelStr);
-      
-      // Call the backend function to get shipping rates
-      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: {
-          fromAddress,
-          toAddress,
-          parcel,
-          // Send the markup percentage to the API
-          markupPercentage: DEFAULT_MARKUP_PERCENTAGE,
-        }
-      });
-      
-      if (error) {
-        console.error('Error fetching shipping rates:', error);
-        toast.error('Failed to fetch shipping rates');
-        setIsLoading(false);
-        return;
-      }
-      
-      if (!data || !data.rates || !Array.isArray(data.rates) || data.rates.length === 0) {
-        toast.error('No shipping rates available');
-        setIsLoading(false);
-        return;
-      }
-      
-      // Store shipment ID for later use
-      if (data.shipmentId) {
-        setShipmentId(data.shipmentId);
-        sessionStorage.setItem('shipmentId', data.shipmentId);
-      }
-      
-      // Process and store the rates
-      setAllRates(data.rates);
-      setRates(data.rates);
-      
-      // Store rates in session storage
-      sessionStorage.setItem('shippingRates', JSON.stringify(data.rates));
-      
-      // Identify best value and fastest shipping options
-      determineBestRates(data.rates);
-      
-      toast.success('Shipping rates fetched successfully');
-    } catch (error) {
-      console.error('Error in fetchShippingRates:', error);
-      toast.error('An error occurred while fetching shipping rates');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
+  }, [activeCarrierFilter, rates]);
+
   const handleSelectRate = (rateId: string) => {
     setSelectedRateId(rateId);
     
-    // Dispatch custom event for selected rate
-    document.dispatchEvent(new CustomEvent('rate-selected'));
+    // Dispatch rate-selected event
+    document.dispatchEvent(new Event('rate-selected'));
+    
+    // Find the rate with this ID
+    const selectedRate = rates.find(rate => rate.id === rateId);
+    console.log("Selected rate:", selectedRate);
+    
+    // Update workflow step
+    document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+      detail: { step: 'label' }
+    }));
+    
+    // Scroll to the selected rate without animation
+    const selectedRateElement = document.querySelector(`[data-rate-id="${rateId}"]`);
+    if (selectedRateElement) {
+      setTimeout(() => {
+        window.scrollTo({
+          top: selectedRateElement.getBoundingClientRect().top + window.scrollY - 150,
+          behavior: 'smooth'
+        });
+      }, 100);
+    }
   };
   
-  const handleCreateLabel = async () => {
-    if (!selectedRateId || !shipmentId) {
-      toast.error('Please select a shipping rate');
+  const handleFilterByCarrier = (carrier: string | 'all') => {
+    setActiveCarrierFilter(carrier);
+  };
+
+  // Modified to accept rateId and shipmentId params for automatic calling
+  const handleCreateLabel = async (rateIdParam?: string, shipmentIdParam?: string) => {
+    const effectiveRateId = rateIdParam || selectedRateId;
+    const effectiveShipmentId = shipmentIdParam || shipmentId;
+    
+    if (!effectiveRateId || !effectiveShipmentId) {
+      toast.error("Please select a shipping rate first");
       return;
     }
     
     setIsLoading(true);
     
     try {
-      // Call the backend function to create a shipping label
-      const { data, error } = await supabase.functions.invoke('create-label', {
-        body: {
-          shipmentId,
-          rateId: selectedRateId,
+      console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
+      
+      // Get the selected rate to determine if it's international
+      const selectedRate = rates.find(rate => rate.id === effectiveRateId);
+      const isInternational = selectedRate?.service?.toLowerCase().includes('international');
+      
+      // Choose the appropriate endpoint based on whether it's international
+      const endpoint = isInternational ? 'create-international-label' : 'create-label';
+      
+      console.log(`Using ${endpoint} endpoint for label creation with options`);
+      
+      // Add label format and size to options
+      const { data, error } = await supabase.functions.invoke(endpoint, {
+        body: { 
+          shipmentId: effectiveShipmentId, 
+          rateId: effectiveRateId,
           options: {
             label_format: "PDF",
             label_size: "4x6"
           }
         }
       });
-      
+
       if (error) {
-        console.error('Error creating label:', error);
-        toast.error('Failed to create shipping label');
-        setIsLoading(false);
-        return;
+        console.error(`Error from ${endpoint} function:`, error);
+        throw new Error(`Error creating label: ${error.message}`);
       }
-      
-      // Store the label URL and tracking code
+
+      if (!data || !data.labelUrl) {
+        console.error(`No data returned from ${endpoint} function`);
+        throw new Error("No label data returned from server");
+      }
+
+      console.log("Label created successfully:", data);
       setLabelUrl(data.labelUrl);
       setTrackingCode(data.trackingCode);
+      toast.success("Shipping label generated successfully");
       
-      toast.success('Shipping label created successfully');
+      // Update workflow step to complete
+      document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+        detail: { step: 'complete' }
+      }));
       
-      // Clear stored shipping information after successful label creation
-      // This prevents accidental re-submission
-      /*
-      sessionStorage.removeItem('fromAddress');
-      sessionStorage.removeItem('toAddress');
-      sessionStorage.removeItem('parcel');
-      sessionStorage.removeItem('shippingRates');
-      */
+      // Build the success URL with all needed parameters
+      const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`;
+      console.log("Navigating to:", labelSuccessUrl);
+      
+      // Use navigate with the correct URL
+      navigate(labelSuccessUrl, { replace: true });
+      
+      // Scroll to top of page before navigating
+      window.scrollTo(0, 0);
+      
     } catch (error) {
-      console.error('Error in handleCreateLabel:', error);
-      toast.error('An error occurred while creating the shipping label');
+      console.error('Error creating label:', error);
+      toast.error("Failed to generate shipping label. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
-  
+
+  // Function to handle payment process
   const handleProceedToPayment = () => {
-    if (!selectedRateId) {
-      toast.error('Please select a shipping rate');
+    if (!selectedRateId || !shipmentId) {
+      toast.error("Please select a shipping rate first");
       return;
     }
     
     setIsProcessingPayment(true);
     
-    // In a real application, this would redirect to a payment gateway
-    toast.loading('Processing payment...');
-    
-    setTimeout(() => {
-      toast.dismiss();
-      handleCreateLabel();
+    try {
+      // Get the selected rate to determine the amount
+      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      
+      if (!selectedRate) {
+        throw new Error("Selected rate not found");
+      }
+      
+      // Convert rate to cents for payment processing
+      const amountInCents = Math.round(parseFloat(selectedRate.rate) * 100);
+      
+      // Navigate to payment page with necessary information
+      navigate(`/payment?amount=${amountInCents}&shipmentId=${shipmentId}&rateId=${selectedRateId}`);
+      
+    } catch (error) {
+      console.error('Error proceeding to payment:', error);
+      toast.error("Failed to process payment. Please try again.");
+    } finally {
       setIsProcessingPayment(false);
-    }, 1500);
+    }
   };
-  
+
+  // Function to determine the best value rate
+  const getBestValueRate = () => {
+    if (filteredRates.length === 0) return null;
+    
+    // Sort by price and delivery days to find the best value
+    const sortedRates = [...filteredRates].sort((a, b) => {
+      // First compare price
+      const aPrice = parseFloat(a.rate);
+      const bPrice = parseFloat(b.rate);
+      if (aPrice !== bPrice) return aPrice - bPrice;
+      
+      // If price is the same, compare delivery days
+      return (a.delivery_days || 999) - (b.delivery_days || 999);
+    });
+    
+    return sortedRates[0]?.id;
+  };
+
+  // Function to determine the fastest rate
+  const getFastestRate = () => {
+    if (filteredRates.length === 0) return null;
+    
+    // Sort by delivery days to find the fastest
+    const sortedRates = [...filteredRates].sort((a, b) => 
+      (a.delivery_days || 999) - (b.delivery_days || 999)
+    );
+    
+    return sortedRates[0]?.id;
+  };
+
+  const bestValueRateId = getBestValueRate();
+  const fastestRateId = getFastestRate();
+
   return {
-    rates,
-    allRates,
+    rates: filteredRates,
+    allRates: rates,
     isLoading,
     isProcessingPayment,
     selectedRateId,

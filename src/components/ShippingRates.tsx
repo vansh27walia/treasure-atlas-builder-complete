@@ -8,10 +8,13 @@ import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
-import { toast } from '@/components/ui/sonner';
-import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
+import { toast } from 'sonner';
+import { CreditCard, Loader, Download, Upload, Truck, Filter, Printer, File } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from '@/integrations/supabase/client';
 
 const ShippingRates: React.FC = () => {
   const {
@@ -35,9 +38,11 @@ const ShippingRates: React.FC = () => {
   
   const { aiRecommendation, isAiLoading } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
+  const [showLabelPreview, setShowLabelPreview] = useState(false);
+  const [labelFormat, setLabelFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   
   // Show empty state if no rates available
-  if (rates.length === 0 && !isLoading) {
+  if (rates.length === 0) {
     return (
       <div className="mt-8 w-full" id="shipping-rates-section">
         <EmptyRatesState />
@@ -52,6 +57,91 @@ const ShippingRates: React.FC = () => {
       </div>
     );
   }
+
+  // Ensure FedEx is always included in the rates if it exists in allRates
+  useEffect(() => {
+    if (allRates && allRates.length > 0) {
+      const hasFedEx = allRates.some(rate => 
+        rate.carrier.toLowerCase().includes('fedex')
+      );
+      
+      const fedExMissingInFilteredRates = hasFedEx && 
+        !rates.some(rate => rate.carrier.toLowerCase().includes('fedex'));
+      
+      if (fedExMissingInFilteredRates && activeCarrierFilter === 'all') {
+        // We might want to log this inconsistency for debugging
+        console.log('FedEx found in allRates but missing in filtered rates');
+      }
+    }
+  }, [rates, allRates, activeCarrierFilter]);
+
+  // Function to download the label in the selected format
+  const downloadLabel = async () => {
+    if (!labelUrl) {
+      toast.error("No label available to download");
+      return;
+    }
+
+    try {
+      // If we need to convert the format, call the backend
+      if (labelFormat !== 'pdf' && labelUrl.toLowerCase().endsWith('.pdf')) {
+        toast.loading(`Converting label to ${labelFormat.toUpperCase()}...`);
+        
+        // Call the edge function to convert the label format
+        const { data, error } = await supabase.functions.invoke('convert-label-format', {
+          body: { 
+            labelUrl, 
+            format: labelFormat, 
+            shipmentId 
+          }
+        });
+        
+        if (error) {
+          toast.error(`Failed to convert label: ${error.message}`);
+          return;
+        }
+        
+        // Use the converted URL
+        window.open(data.convertedUrl, '_blank');
+        toast.success(`Label downloaded as ${labelFormat.toUpperCase()}`);
+      } else {
+        // Just open the existing URL if it's already in the right format
+        window.open(labelUrl, '_blank');
+        toast.success(`Label downloaded`);
+      }
+    } catch (error: any) {
+      toast.error(`Error downloading label: ${error.message || 'Unknown error'}`);
+    }
+  };
+
+  // Function to print the label
+  const printLabel = () => {
+    if (!labelUrl) {
+      toast.error("No label available to print");
+      return;
+    }
+    
+    // Create an iframe to print without opening a new window
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = labelUrl;
+    
+    document.body.appendChild(iframe);
+    
+    iframe.onload = () => {
+      try {
+        iframe.contentWindow?.print();
+      } catch (error) {
+        toast.error("Unable to print. Opening label in new window instead.");
+        window.open(labelUrl, '_blank');
+      }
+      
+      // Remove the iframe after a delay
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    };
+  };
 
   // Sort the rates based on the selected sorting option
   const sortedRates = [...rates].sort((a, b) => {
@@ -142,36 +232,27 @@ const ShippingRates: React.FC = () => {
               
               <div className="space-y-4 mt-6">
                 <h3 className="text-lg font-semibold text-gray-700 mb-4">All Available Options</h3>
-                {isLoading ? (
-                  <div className="flex justify-center items-center p-12">
-                    <div className="flex flex-col items-center">
-                      <Loader className="h-8 w-8 text-blue-500 animate-spin mb-4" />
-                      <p className="text-blue-600">Loading shipping rates...</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {sortedRates.map((rate) => (
-                      <ShippingRateCard
-                        key={rate.id}
-                        rate={rate}
-                        isSelected={selectedRateId === rate.id}
-                        onSelect={handleSelectRate}
-                        isBestValue={rate.id === bestValueRateId}
-                        isFastest={rate.id === fastestRateId}
-                        aiRecommendation={aiRecommendation && {
-                          rateId: aiRecommendation.bestOverall || '',
-                          reason: aiRecommendation.analysisText || ''
-                        }}
-                        showDiscount={true}
-                        originalRate={rate.original_rate}
-                        isPremium={false}
-                      />
-                    ))}
-                  </div>
-                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sortedRates.map((rate) => (
+                    <ShippingRateCard
+                      key={rate.id}
+                      rate={rate}
+                      isSelected={selectedRateId === rate.id}
+                      onSelect={handleSelectRate}
+                      isBestValue={rate.id === bestValueRateId}
+                      isFastest={rate.id === fastestRateId}
+                      aiRecommendation={aiRecommendation && {
+                        rateId: aiRecommendation.bestOverall || '',
+                        reason: aiRecommendation.analysisText || ''
+                      }}
+                      showDiscount={true}
+                      originalRate={parseFloat(rate.original_rate || '0')}
+                      isPremium={false}
+                    />
+                  ))}
+                </div>
 
-                {sortedRates.length === 0 && !isLoading && (
+                {sortedRates.length === 0 && (
                   <div className="p-8 text-center">
                     <p className="text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
                     <Button 
@@ -226,11 +307,91 @@ const ShippingRates: React.FC = () => {
             </>
           )}
           
+          {labelUrl && (
+            <div className="mt-6 flex flex-col space-y-4">
+              <div className="flex flex-wrap justify-center gap-3">
+                <Button 
+                  onClick={() => setShowLabelPreview(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+                >
+                  <File className="h-4 w-4" />
+                  Preview Label
+                </Button>
+                <Button 
+                  onClick={downloadLabel}
+                  className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Download Label
+                </Button>
+                <Button 
+                  onClick={printLabel}
+                  variant="outline"
+                  className="border-gray-300 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <Printer className="h-4 w-4" />
+                  Print Label
+                </Button>
+              </div>
+            </div>
+          )}
+          
           <div className="mt-6 text-center text-sm text-gray-500">
             <p>* All rates include handling fees and applicable taxes</p>
           </div>
         </div>
       </Card>
+
+      {/* Label Preview Dialog */}
+      <Dialog open={showLabelPreview} onOpenChange={setShowLabelPreview}>
+        <DialogContent className="max-w-3xl h-[95vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="flex items-center">
+              <File className="mr-2 h-5 w-5" />
+              Shipping Label Preview
+            </DialogTitle>
+            <Tabs value={labelFormat} onValueChange={(value) => setLabelFormat(value as 'pdf' | 'png' | 'zpl')} className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="pdf">PDF</TabsTrigger>
+                <TabsTrigger value="png">PNG</TabsTrigger>
+                <TabsTrigger value="zpl">ZPL</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto p-4 bg-gray-100">
+            <div className="bg-white rounded shadow-md p-2 h-full flex items-center justify-center">
+              {labelUrl ? (
+                <iframe 
+                  src={labelUrl} 
+                  title="Shipping Label" 
+                  className="w-full h-full border-0"
+                />
+              ) : (
+                <div className="text-center text-gray-500">
+                  <p>Label preview not available</p>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="p-4 border-t flex justify-end gap-2">
+            <Button 
+              onClick={downloadLabel}
+              className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Download as {labelFormat.toUpperCase()}
+            </Button>
+            <Button 
+              onClick={printLabel}
+              variant="outline"
+              className="border-gray-300 hover:bg-gray-50 flex items-center gap-2"
+            >
+              <Printer className="h-4 w-4" />
+              Print
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

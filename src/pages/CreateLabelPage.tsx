@@ -19,21 +19,20 @@ const CreateLabelPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
   const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
 
-  // Update the URL when tab changes, but use React Router's navigate instead of modifying URL directly
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    // Update URL without full page refresh - use replace to avoid browser history buildup
-    const newParams = new URLSearchParams(queryParams);
-    newParams.set('tab', value);
-    navigate(`${location.pathname}?${newParams.toString()}`, { replace: true });
-  };
+  // Update the URL when tab changes
+  useEffect(() => {
+    if (activeTab) {
+      queryParams.set('tab', activeTab);
+      navigate(`${location.pathname}?${queryParams.toString()}`, { replace: true });
+    }
+  }, [activeTab, location.pathname, navigate]);
 
   // Handle tab change from URL
   useEffect(() => {
     if (tabFromQuery && tabFromQuery !== activeTab) {
       setActiveTab(tabFromQuery);
     }
-  }, [tabFromQuery, activeTab]);
+  }, [tabFromQuery]);
   
   // Listen for custom events to update workflow step
   useEffect(() => {
@@ -66,19 +65,6 @@ const CreateLabelPage: React.FC = () => {
     };
   }, []);
 
-  // Handler for clicking on tab triggers - will prevent default if needed
-  const handleTabClick = (value: string) => (e: React.MouseEvent) => {
-    // Don't reset step when changing to calculator
-    if (value === 'calculator') {
-      // Don't reset the current step
-    } else if (value !== activeTab) {
-      // Only reset step to address when changing to a different tab (not calculator)
-      setCurrentStep('address');
-    }
-    
-    // Let the normal tab change handler update the URL and state
-  };
-
   return (
     <div className="w-full py-6 px-6">
       <div className="max-w-7xl mx-auto mb-6">
@@ -99,12 +85,12 @@ const CreateLabelPage: React.FC = () => {
       
       <div className="max-w-7xl mx-auto">
         <Card className="border border-gray-200 shadow-md bg-white rounded-lg">
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4 mb-4 bg-blue-50 p-1 rounded-lg">
               <TabsTrigger 
                 value="domestic" 
                 className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                onClick={handleTabClick('domestic')}
+                onClick={() => setCurrentStep('address')}
               >
                 <Package className="h-4 w-4" />
                 Domestic
@@ -112,7 +98,6 @@ const CreateLabelPage: React.FC = () => {
               <TabsTrigger 
                 value="international" 
                 className="flex items-center gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
-                onClick={handleTabClick('international')}
               >
                 <Globe className="h-4 w-4" />
                 International
@@ -120,7 +105,6 @@ const CreateLabelPage: React.FC = () => {
               <TabsTrigger 
                 value="calculator" 
                 className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-                onClick={handleTabClick('calculator')}
               >
                 <Calculator className="h-4 w-4" />
                 Rate Calculator
@@ -128,7 +112,6 @@ const CreateLabelPage: React.FC = () => {
               <TabsTrigger 
                 value="bulk" 
                 className="flex items-center gap-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white"
-                onClick={handleTabClick('bulk')}
               >
                 <Upload className="h-4 w-4" />
                 Bulk Shipping
@@ -210,7 +193,8 @@ const CreateLabelPage: React.FC = () => {
           </Tabs>
         </Card>
 
-        {(activeTab === 'domestic' || activeTab === 'calculator') && <ShippingRates />}
+        {activeTab === 'domestic' && <ShippingRates />}
+        {activeTab === 'calculator' && <ShippingRates />}
       </div>
     </div>
   );

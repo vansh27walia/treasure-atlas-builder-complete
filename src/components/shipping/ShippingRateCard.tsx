@@ -1,19 +1,13 @@
 
 import React from 'react';
-import { Check, Clock, CreditCard, ShoppingCart, Award, Zap } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ShippingOption } from '@/types/shipping';
+import { CheckCircle, Award, Timer, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ShippingRateCardProps {
-  rate: {
-    id: string;
-    carrier: string;
-    service: string;
-    rate: number;
-    delivery_days?: number;
-    logo_url?: string;
-    original_rate?: number;
-    currency: string;
-  };
+  rate: ShippingOption;
   isSelected: boolean;
   onSelect: (id: string) => void;
   isBestValue?: boolean;
@@ -27,21 +21,6 @@ interface ShippingRateCardProps {
   isPremium?: boolean;
 }
 
-const carrierLogos: Record<string, string> = {
-  'usps': 'https://easypost-files.s3.us-west-2.amazonaws.com/files/postage_label/20200805/dcb27bfdcc124573869eaaf6bc2795f506.png',
-  'fedex': 'https://easypost-files.s3.us-west-2.amazonaws.com/files/postage_label/20200805/fbe5d7d72d8e4849a4cc64c6984507872.png',
-  'ups': 'https://easypost-files.s3.us-west-2.amazonaws.com/files/postage_label/20200805/a9f72d1fc8f646c4ad7c5e69a73c1d9175.png',
-  'dhl': 'https://easypost-files.s3.us-west-2.amazonaws.com/files/postage_label/20200805/654bffc30eb949278ef0fcbe52a9c9b068.png',
-};
-
-// Colors for each carrier
-const carrierColors: Record<string, { primary: string, secondary: string }> = {
-  'usps': { primary: '#004B87', secondary: '#DA291C' },
-  'fedex': { primary: '#4D148C', secondary: '#FF6600' },
-  'ups': { primary: '#351C15', secondary: '#FFB500' },
-  'dhl': { primary: '#FFCC00', secondary: '#D40511' },
-};
-
 const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   rate,
   isSelected,
@@ -51,173 +30,130 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   aiRecommendation,
   showDiscount = false,
   originalRate,
-  isPremium = false
+  isPremium = false,
 }) => {
-  const isAiRecommended = aiRecommendation?.rateId === rate.id;
-  
-  // Determine carrier logo
-  const carrierKey = rate.carrier.toLowerCase();
-  const logoUrl = rate.logo_url || carrierLogos[carrierKey] || '';
-  
-  // Get carrier colors
-  const colors = carrierColors[carrierKey] || { primary: '#333', secondary: '#666' };
-  
-  // Calculate discount if original rate is provided
-  const displayOriginalRate = originalRate || rate.original_rate;
-  const hasDiscount = showDiscount && displayOriginalRate && displayOriginalRate > rate.rate;
-  const discountPercent = hasDiscount 
-    ? Math.round(((displayOriginalRate - rate.rate) / displayOriginalRate) * 100) 
-    : 0;
+  const handleSelect = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation(); // Prevent event bubbling
+    onSelect(rate.id);
+  };
+
+  const isRecommended = aiRecommendation?.rateId === rate.id;
+  const estimatedDays = rate.delivery_days ?? '?';
+  const deliveryEstimate = estimatedDays === 1 
+    ? 'Tomorrow'
+    : estimatedDays === 2
+      ? 'In 2 days'
+      : estimatedDays === '?'
+        ? 'Delivery time unknown'
+        : `In ${estimatedDays} days`;
+
+  const carrierLogo = getCarrierLogo(rate.carrier.toLowerCase());
+  const discount = showDiscount && originalRate ? Math.round(((originalRate - rate.rate) / originalRate) * 100) : 0;
+  const hasDiscount = discount > 0;
 
   return (
-    <div 
+    <Card
+      onClick={handleSelect}
       className={cn(
-        "border rounded-lg transition-all overflow-hidden",
-        isSelected 
-          ? "border-blue-500 bg-blue-50 shadow-md" 
-          : "border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/30",
-        isPremium && "border-amber-400",
+        'relative cursor-pointer transition-all overflow-hidden border border-gray-200',
+        isSelected ? 'ring-2 ring-blue-500 shadow-md bg-blue-50/70' : 'hover:border-blue-300 hover:shadow-sm',
+        isPremium ? 'bg-amber-50/50 border-amber-200' : ''
       )}
     >
-      {/* Badges */}
-      <div className="relative">
-        {(isBestValue || isFastest || isAiRecommended) && (
-          <div className="absolute top-0 left-0 right-0 flex space-x-2 p-2 justify-end">
-            {isBestValue && (
-              <span 
-                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
-              >
-                <Award className="h-3 w-3 mr-1" />
-                Best Value
-              </span>
-            )}
-            
-            {isFastest && (
-              <span 
-                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
-              >
-                <Zap className="h-3 w-3 mr-1" />
-                Fastest
-              </span>
-            )}
-            
-            {isAiRecommended && (
-              <span 
-                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-              >
-                <Award className="h-3 w-3 mr-1" />
-                AI Pick
-              </span>
-            )}
-          </div>
-        )}
-        
-        {/* Discount badge */}
-        {hasDiscount && (
-          <div className="absolute top-0 left-0 p-2">
-            <span 
-              className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800"
-            >
-              Save {discountPercent}%
-            </span>
-          </div>
-        )}
-      </div>
-      
-      {/* Rate Card Content */}
       <div className="p-4">
-        {/* Carrier Logo and Name */}
-        <div className="flex justify-between items-start mb-3">
-          <div className="flex items-center">
-            {logoUrl ? (
-              <img 
-                src={logoUrl} 
-                alt={rate.carrier} 
-                className="h-8 w-auto object-contain mr-3"
-              />
-            ) : (
-              <div 
-                className="h-8 w-12 flex items-center justify-center rounded bg-gray-100 mr-3"
-                style={{ backgroundColor: colors.primary, color: 'white' }}
-              >
-                <span className="text-xs font-bold">{rate.carrier.toUpperCase()}</span>
+        <div className="flex justify-between items-start">
+          <div className="flex items-center gap-3">
+            {carrierLogo && (
+              <div className="w-12 h-12 flex items-center justify-center">
+                <img 
+                  src={carrierLogo} 
+                  alt={`${rate.carrier} logo`} 
+                  className="max-w-full max-h-full object-contain" 
+                />
               </div>
             )}
             <div>
-              <h3 className="font-medium">{rate.carrier.toUpperCase()}</h3>
-              <p className="text-sm text-gray-600">{rate.service}</p>
+              <div className="font-medium">{rate.carrier}</div>
+              <div className="text-sm text-gray-600">{rate.service}</div>
             </div>
           </div>
           
-          <div 
-            className={cn(
-              "w-5 h-5 rounded-full border flex items-center justify-center",
-              isSelected 
-                ? "bg-blue-600 border-blue-600" 
-                : "bg-white border-gray-300"
-            )}
-          >
-            {isSelected && <Check className="h-3 w-3 text-white" />}
-          </div>
-        </div>
-        
-        {/* Price and Delivery Time */}
-        <div className="flex justify-between items-end">
-          <div>
-            <p className="text-sm text-gray-500 flex items-center">
-              <Clock className="h-3 w-3 mr-1" />
-              {rate.delivery_days 
-                ? rate.delivery_days === 1 
-                  ? "1 day delivery"
-                  : `${rate.delivery_days} days delivery`
-                : "Delivery time varies"
-              }
-            </p>
-          </div>
-          <div className="text-right">
+          <div className="flex flex-col items-end">
+            <div className="text-lg font-semibold">${rate.rate.toFixed(2)}</div>
             {hasDiscount && (
-              <p className="text-sm text-gray-500 line-through">
-                ${displayOriginalRate?.toFixed(2)}
-              </p>
+              <div className="flex items-center gap-1">
+                <span className="text-xs line-through text-gray-500">${originalRate?.toFixed(2)}</span>
+                <Badge variant="outline" className="bg-green-100 text-green-700 text-xs py-0 px-1">-{discount}%</Badge>
+              </div>
             )}
-            <p className="text-lg font-bold text-blue-700">
-              ${rate.rate.toFixed(2)} <span className="text-xs font-normal text-gray-500">{rate.currency}</span>
-            </p>
           </div>
         </div>
         
-        {isPremium && (
-          <div className="mt-3 bg-amber-50 p-2 rounded-md border border-amber-200">
-            <p className="text-xs text-amber-800 flex items-center">
-              <Award className="h-3 w-3 mr-1 text-amber-600" />
-              Premium service with additional insurance
-            </p>
+        <div className="flex justify-between items-center mt-3 text-sm">
+          <div className="text-gray-600 flex items-center gap-1">
+            <Timer className="h-3.5 w-3.5" />
+            {deliveryEstimate}
+          </div>
+          
+          {isSelected && (
+            <Badge variant="secondary" className="flex items-center gap-1 bg-blue-500 text-white">
+              <CheckCircle className="h-3.5 w-3.5" />
+              Selected
+            </Badge>
+          )}
+        </div>
+        
+        {(isBestValue || isFastest || isRecommended) && (
+          <div className="mt-3 flex gap-2">
+            {isBestValue && (
+              <Badge className="bg-green-500 text-xs flex items-center gap-1">
+                <CreditCard className="h-3 w-3" />
+                Best Value
+              </Badge>
+            )}
+            {isFastest && (
+              <Badge className="bg-blue-500 text-xs flex items-center gap-1">
+                <Timer className="h-3 w-3" />
+                Fastest
+              </Badge>
+            )}
+            {isRecommended && (
+              <Badge className="bg-purple-500 text-xs flex items-center gap-1">
+                <Award className="h-3 w-3" />
+                AI Pick
+              </Badge>
+            )}
           </div>
         )}
         
-        {isAiRecommended && aiRecommendation?.reason && (
-          <div className="mt-3 bg-blue-50 p-2 rounded-md border border-blue-200">
-            <p className="text-xs text-blue-800">
-              <strong>Why recommended:</strong> {aiRecommendation.reason}
-            </p>
+        {isRecommended && aiRecommendation?.reason && (
+          <div className="mt-2 text-sm text-purple-700 bg-purple-50 p-2 rounded-md">
+            {aiRecommendation.reason}
           </div>
         )}
       </div>
-      
-      {/* Select Button */}
-      <button
-        onClick={() => onSelect(rate.id)}
-        className={cn(
-          "w-full p-2 text-sm font-medium rounded-t-none transition-colors",
-          isSelected 
-            ? "bg-blue-600 text-white hover:bg-blue-700" 
-            : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-        )}
-      >
-        {isSelected ? "Selected" : "Select"}
-      </button>
-    </div>
+    </Card>
   );
+};
+
+// Helper function to get carrier logos
+const getCarrierLogo = (carrier: string): string | null => {
+  const logos: Record<string, string> = {
+    'usps': '/carriers/usps.png',
+    'fedex': '/carriers/fedex.png',
+    'ups': '/carriers/ups.png',
+    'dhl': '/carriers/dhl.png'
+  };
+  
+  // Try to find an exact match
+  if (logos[carrier]) {
+    return logos[carrier];
+  }
+  
+  // If not found, try to find a partial match
+  const carrierKey = Object.keys(logos).find(key => carrier.includes(key));
+  return carrierKey ? logos[carrierKey] : null;
 };
 
 export default ShippingRateCard;
