@@ -1,18 +1,16 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, RefreshCw, ExternalLink, Mail, Save, FileText, X, Printer } from 'lucide-react';
-import { toast } from 'sonner';
+import { Download, RefreshCw, ExternalLink, Mail, Save, FileText, X } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AspectRatio } from "@/components/ui/aspect-ratio";
 
 interface ShippingLabelProps {
   labelUrl: string | null;
   trackingCode: string | null;
   shipmentId?: string | null;
-  format?: 'pdf' | 'png' | 'zpl';
 }
 
 const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, shipmentId }) => {

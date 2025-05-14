@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
 
 interface ShippingRate {
@@ -41,7 +42,7 @@ export const useShippingRates = () => {
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
 
-  // Process and enhance rates
+  // Process and enhance rates with original prices at 85-90% higher than actual rate
   const processRates = (incomingRates: ShippingRate[]) => {
     return incomingRates.map(rate => {
       // Generate a random discount percentage between 85% and 90%
@@ -249,7 +250,7 @@ export const useShippingRates = () => {
       }));
       
       // Build the success URL with all needed parameters
-      const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}&format=${data.format || 'pdf'}`;
+      const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`;
       console.log("Navigating to:", labelSuccessUrl);
       
       // Use navigate with the correct URL

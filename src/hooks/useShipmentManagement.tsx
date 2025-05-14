@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -12,7 +13,6 @@ export const useShipmentManagement = (
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
-  const [showLabelOptions, setShowLabelOptions] = useState(false);
 
   const handleRemoveShipment = (shipmentId: string) => {
     if (!initialResults) return;
@@ -34,7 +34,9 @@ export const useShipmentManagement = (
       totalCost
     });
     
-    toast("Shipment removed");
+    toast("Shipment removed", {
+      description: "The shipment has been removed from your list"
+    });
   };
 
   const handleEditShipment = (shipmentId: string, details: BulkShipment['details']) => {
@@ -58,7 +60,9 @@ export const useShipmentManagement = (
       processedShipments: updatedShipments
     });
     
-    toast("Shipment updated");
+    toast("Shipment updated", {
+      description: "The shipment details have been updated"
+    });
   };
   
   const handleProceedToPayment = async () => {
@@ -104,9 +108,11 @@ export const useShipmentManagement = (
     }
   };
 
-  const handleCreateLabels = async (shipmentIds?: string[]) => {
+  const handleCreateLabels = async () => {
     if (!initialResults || initialResults.processedShipments.length === 0) {
-      toast("Error: No shipments to process");
+      toast("Error", {
+        description: "No shipments to process"
+      });
       return;
     }
     
@@ -117,12 +123,7 @@ export const useShipmentManagement = (
       const updatedShipments = [...initialResults.processedShipments];
       let successCount = 0;
       
-      // If specific shipmentIds are provided, only process those
-      const shipmentsToProcess = shipmentIds 
-        ? updatedShipments.filter(s => shipmentIds.includes(s.id))
-        : updatedShipments;
-      
-      for (const shipment of shipmentsToProcess) {
+      for (const shipment of updatedShipments) {
         if (!shipment.selectedRateId) continue;
         
         try {
@@ -147,22 +148,12 @@ export const useShipmentManagement = (
               ...shipment,
               label_url: data.labelUrl,
               tracking_code: data.trackingCode,
-              status: 'completed' as const,
-              isGeneratingLabel: false
+              status: 'completed' as const
             };
             successCount++;
           }
         } catch (error) {
           console.error(`Error creating label for shipment ${shipment.id}:`, error);
-          // Update shipment with error status
-          const index = updatedShipments.findIndex(s => s.id === shipment.id);
-          if (index >= 0) {
-            updatedShipments[index] = {
-              ...shipment,
-              error: error instanceof Error ? error.message : 'Label generation failed',
-              isGeneratingLabel: false
-            };
-          }
         }
       }
       
@@ -173,26 +164,31 @@ export const useShipmentManagement = (
       });
       
       if (successCount > 0) {
-        toast(`Generated ${successCount} shipping labels`);
+        toast("Label generation complete", {
+          description: `Generated ${successCount} shipping labels`
+        });
         
-        // Only set to success if processing all shipments
-        if (!shipmentIds || shipmentIds.length === updatedShipments.length) {
-          // Set status to success for the BulkUpload component to show success view
-          updateResults({
-            ...initialResults,
-            processedShipments: updatedShipments,
-            totalCost: initialResults.totalCost,
-            successful: successCount,
-            failed: initialResults.processedShipments.length - successCount,
-            uploadStatus: 'success'
-          });
-        }
+        // Set status to success for the BulkUpload component to show success view
+        updateResults({
+          ...initialResults,
+          processedShipments: updatedShipments,
+          totalCost: initialResults.totalCost,
+          successful: successCount,
+          failed: initialResults.processedShipments.length - successCount
+        });
+        
+        // Update upload status in parent component
+        setUploadStatus('success');
       } else {
-        toast.error("No labels were generated, please try again");
+        toast("Label generation failed", {
+          description: "No labels were generated, please try again"
+        });
       }
     } catch (error) {
       console.error('Error creating labels:', error);
-      toast.error(error instanceof Error ? error.message : "Failed to generate labels");
+      toast("Label generation failed", {
+        description: error instanceof Error ? error.message : "Failed to generate labels"
+      });
     } finally {
       setIsCreatingLabels(false);
     }
@@ -210,6 +206,8 @@ export const useShipmentManagement = (
     setShowLabelOptions(true);
   };
 
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
+  
   const handleDownloadLabelsWithFormat = (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!initialResults || !initialResults.processedShipments.length) return;
     

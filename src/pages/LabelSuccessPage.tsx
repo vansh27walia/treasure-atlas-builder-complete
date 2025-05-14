@@ -1,10 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
-import { useLocation, Link, useNavigate } from 'react-router-dom';
-import ShippingLabel from '@/components/shipping/ShippingLabel';
-import { Card } from '@/components/ui/card';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Truck } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { CheckCircle, Download, Home, Truck, Printer } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
+import ShippingLabel from '@/components/shipping/ShippingLabel';
+import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
+import { Progress } from '@/components/ui/progress';
 
 const LabelSuccessPage: React.FC = () => {
   const location = useLocation();
@@ -12,100 +15,131 @@ const LabelSuccessPage: React.FC = () => {
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
-  const [format, setFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
-  
-  useEffect(() => {
-    const queryParams = new URLSearchParams(location.search);
-    
-    const urlFromParams = queryParams.get('labelUrl');
-    const trackingFromParams = queryParams.get('trackingCode');
-    const shipmentIdFromParams = queryParams.get('shipmentId');
-    const formatFromParams = queryParams.get('format') as 'pdf' | 'png' | 'zpl' || 'pdf';
-    
-    console.log('Label success page params:', {
-      labelUrl: urlFromParams,
-      trackingCode: trackingFromParams,
-      shipmentId: shipmentIdFromParams,
-      format: formatFromParams
-    });
-    
-    if (urlFromParams) {
-      setLabelUrl(urlFromParams);
-    }
-    
-    if (trackingFromParams) {
-      setTrackingCode(trackingFromParams);
-    }
-    
-    if (shipmentIdFromParams) {
-      setShipmentId(shipmentIdFromParams);
-    }
-    
-    if (formatFromParams && ['pdf', 'png', 'zpl'].includes(formatFromParams)) {
-      setFormat(formatFromParams as 'pdf' | 'png' | 'zpl');
-    }
-    
-    // If we don't have a label URL, redirect back to create label
-    if (!urlFromParams) {
-      console.error("No label URL provided in query parameters");
-      setTimeout(() => navigate('/create-label', { replace: true }), 1000);
-    }
-  }, [location, navigate]);
+  const [progress, setProgress] = useState(0);
 
-  const handleCreateNewLabel = () => {
-    navigate('/create-label', { replace: true });
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const labelUrlParam = params.get('labelUrl');
+    const trackingCodeParam = params.get('trackingCode');
+    const shipmentIdParam = params.get('shipmentId');
+
+    console.log("URL Parameters:", {
+      labelUrl: labelUrlParam,
+      trackingCode: trackingCodeParam,
+      shipmentId: shipmentIdParam
+    });
+
+    if (labelUrlParam) {
+      setLabelUrl(decodeURIComponent(labelUrlParam));
+      console.log("Decoded label URL:", decodeURIComponent(labelUrlParam));
+    } else {
+      console.error('No label URL provided in the URL parameters');
+      toast.error('Missing label information');
+    }
+
+    if (trackingCodeParam) {
+      setTrackingCode(decodeURIComponent(trackingCodeParam));
+    }
+    
+    if (shipmentIdParam) {
+      setShipmentId(decodeURIComponent(shipmentIdParam));
+    }
+
+    // Show success toast
+    toast.success('Your shipping label is ready!');
+    
+    // Scroll to top and prevent any unwanted scrolling
+    window.scrollTo(0, 0);
+    
+    // Dispatch event to update workflow step
+    document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+      detail: { step: 'complete' }
+    }));
+    
+    // Animate progress bar
+    const timer = setTimeout(() => setProgress(100), 100);
+    return () => clearTimeout(timer);
+  }, [location]);
+  
+  const handleViewTracking = () => {
+    navigate(`/dashboard?tab=tracking&tracking=${trackingCode || ''}`);
   };
 
   return (
-    <div className="container mx-auto p-6 max-w-5xl">
-      <div className="mb-6 flex items-center justify-between">
-        <Button 
-          variant="outline" 
-          onClick={() => navigate(-1)}
-          className="flex items-center gap-1"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Button>
-        
-        <h1 className="text-2xl font-bold text-center text-green-800 flex items-center">
-          <Truck className="mr-2 h-6 w-6 text-green-700" />
-          Shipping Label Created
-        </h1>
-        
-        <div className="w-24"></div> {/* Spacer for centering */}
+    <div className="container mx-auto max-w-3xl px-4 py-8">
+      <div className="sticky top-0 z-10 bg-white pb-4 -mx-4 px-4 pt-4">
+        <ShippingWorkflow currentStep="complete" />
       </div>
       
-      <Card className="p-6 border-2 border-green-100 shadow-sm bg-white rounded-lg mb-8">
-        <div className="flex flex-col space-y-6">
-          <div className="text-center">
-            <h2 className="text-xl font-semibold text-green-800 mb-2">Your shipping label has been created!</h2>
-            <p className="text-gray-600">
-              You can download, print, or share your label using the options below.
-            </p>
+      <Progress value={progress} className="h-2 mb-2 bg-gray-200" />
+      
+      <Card className="p-8 text-center border-2 border-green-200 mt-6 shadow-lg bg-gradient-to-r from-green-50 to-emerald-50">
+        <div className="flex justify-center mb-6">
+          <div className="bg-green-100 p-4 rounded-full">
+            <CheckCircle className="h-16 w-16 text-green-600" />
           </div>
-          
-          {labelUrl && (
-            <ShippingLabel 
-              labelUrl={labelUrl} 
-              trackingCode={trackingCode} 
-              shipmentId={shipmentId}
-              format={format} 
-            />
-          )}
-          
-          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-4">
-            <Button 
-              variant="outline" 
-              className="border-gray-300"
-              onClick={handleCreateNewLabel}
-            >
-              Create Another Label
-            </Button>
-            
-            <Link to="/dashboard">
-              <Button>View All Shipments</Button>
-            </Link>
+        </div>
+
+        <h1 className="text-3xl font-bold text-green-800 mb-2">Label Created Successfully!</h1>
+        <p className="text-gray-600 mb-8">
+          Your shipping label has been generated successfully.
+          {trackingCode && <> Tracking number: <span className="font-semibold">{trackingCode}</span></>}
+        </p>
+
+        {/* Debug information - only in development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-gray-100 p-4 mb-6 text-left rounded">
+            <h4 className="font-medium mb-2">Debug Information:</h4>
+            <p className="text-xs break-all">Label URL: {labelUrl}</p>
+            <p className="text-xs">Tracking: {trackingCode}</p>
+            <p className="text-xs">Shipment ID: {shipmentId}</p>
           </div>
+        )}
+
+        {/* Render the ShippingLabel component to handle downloads */}
+        {labelUrl && (
+          <ShippingLabel 
+            labelUrl={labelUrl} 
+            trackingCode={trackingCode} 
+            shipmentId={shipmentId}
+          />
+        )}
+
+        <div className="flex flex-col sm:flex-row justify-center gap-4 mb-8 mt-6">
+          <Button 
+            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 h-12"
+            onClick={handleViewTracking}
+          >
+            <Truck className="h-5 w-5" />
+            View Tracking
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            className="flex items-center gap-2 h-12 border-blue-200"
+            onClick={() => navigate('/')}
+          >
+            <Home className="h-5 w-5" />
+            Back to Home
+          </Button>
+        </div>
+
+        <div className="bg-blue-50 p-6 rounded-md border border-blue-100 text-left">
+          <h3 className="font-semibold text-blue-800 mb-3 text-lg">What's Next?</h3>
+          <ul className="text-blue-700 space-y-3">
+            <li className="flex items-start">
+              <Printer className="h-5 w-5 mr-2 text-blue-500 mt-0.5" />
+              <span>Print your label and affix it to your package</span>
+            </li>
+            <li className="flex items-start">
+              <Truck className="h-5 w-5 mr-2 text-blue-500 mt-0.5" />
+              <span>Drop off your package at any authorized shipping location</span>
+            </li>
+            <li className="flex items-start">
+              <Download className="h-5 w-5 mr-2 text-blue-500 mt-0.5" />
+              <span>Track your shipment through our tracking dashboard</span>
+            </li>
+          </ul>
         </div>
       </Card>
     </div>

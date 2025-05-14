@@ -13,7 +13,6 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { FileText, UploadCloud, ChevronRight, AlertCircle } from 'lucide-react';
-import { BulkShipment } from '@/types/shipping'; // Added missing import
 
 const BulkUpload: React.FC = () => {
   const {
@@ -39,7 +38,6 @@ const BulkUpload: React.FC = () => {
     handleEmailLabels,
     handleDownloadTemplate,
     handleSelectRate,
-    handleRateSelectionAndLabel,
     handleRemoveShipment,
     handleEditShipment,
     handleRefreshRates,
@@ -50,11 +48,6 @@ const BulkUpload: React.FC = () => {
     setSortDirection,
     setSelectedCarrierFilter
   } = useBulkUpload();
-
-  // Wrapper function to adapt the handleEditShipment signature for the BulkShipmentsList component
-  const onEditShipment = (shipment: BulkShipment) => {
-    handleEditShipment(shipment.id, shipment.details);
-  };
 
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
@@ -110,7 +103,7 @@ const BulkUpload: React.FC = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Important</AlertTitle>
             <AlertDescription>
-              Select carrier and service options for each shipment. You can create labels individually or in bulk after selecting rates.
+              Select carrier and service options for each shipment. You can edit address details or remove shipments before proceeding.
             </AlertDescription>
           </Alert>
           
@@ -133,9 +126,8 @@ const BulkUpload: React.FC = () => {
             isFetchingRates={isFetchingRates}
             onSelectRate={handleSelectRate}
             onRemoveShipment={handleRemoveShipment}
-            onEditShipment={onEditShipment}
+            onEditShipment={handleEditShipment}
             onRefreshRates={handleRefreshRates}
-            onRateSelectionAndLabel={handleRateSelectionAndLabel}
           />
           
           {results.processedShipments.length > 0 && (

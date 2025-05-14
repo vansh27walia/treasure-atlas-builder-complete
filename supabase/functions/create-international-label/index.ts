@@ -83,10 +83,14 @@ serve(async (req) => {
 
     // Create request body for EasyPost with label format options
     const buyOptions = {
-      rate: { id: rateId },
-      label_format: options.label_format || "PDF",
-      label_size: options.label_size || "4x6"
+      rate: { id: rateId }
     };
+    
+    // If label format and size are specified, add them to the request
+    if (options.label_format || options.label_size) {
+      buyOptions.label_format = options.label_format || "PDF";
+      buyOptions.label_size = options.label_size || "4x6";
+    }
 
     // Buy the label with EasyPost API
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
@@ -132,8 +136,7 @@ serve(async (req) => {
               labelUrl: shipmentData.postage_label.label_url,
               trackingCode: shipmentData.tracking_code,
               shipmentId: shipmentData.id,
-              message: 'Retrieved existing label',
-              format: 'pdf'
+              message: 'Retrieved existing label'
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
@@ -183,8 +186,7 @@ serve(async (req) => {
           labelUrl: labelURL,
           trackingCode: data.tracking_code,
           shipmentId: data.id,
-          message: 'Using original EasyPost URL due to storage error',
-          format: 'pdf'
+          message: 'Using original EasyPost URL due to storage error'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -206,41 +208,36 @@ serve(async (req) => {
           labelUrl: labelURL,
           trackingCode: data.tracking_code,
           shipmentId: data.id,
-          message: 'Using original EasyPost URL due to signed URL error',
-          format: 'pdf'
+          message: 'Using original EasyPost URL due to signed URL error'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    try {
-      // Save the shipping record in the database
-      const { error: dbError } = await supabase
-        .from('shipment_records')
-        .insert({
-          shipment_id: shipmentId,
-          rate_id: rateId,
-          tracking_code: data.tracking_code,
-          label_url: signedURLData.signedUrl,
-          status: 'created',
-          carrier: data.selected_rate?.carrier,
-          service: data.selected_rate?.service,
-          delivery_days: data.selected_rate?.delivery_days || null,
-          charged_rate: data.selected_rate?.rate || null,
-          easypost_rate: data.selected_rate?.rate || null,
-          currency: data.selected_rate?.currency || 'USD',
-          label_format: options.label_format || "PDF",
-          label_size: options.label_size || "4x6",
-          is_international: true
-        });
-        
-      if (dbError) {
-        console.error('Error saving shipment record:', dbError);
-        // Continue anyway as we already have the label URL
-      }
-    } catch (error) {
-      console.error('Database error when saving shipment record:', error);
-      // Continue as this is non-critical
+    // Save the shipping record in the database
+    const { error: dbError } = await supabase
+      .from('shipment_records')
+      .insert({
+        shipment_id: shipmentId,
+        rate_id: rateId,
+        tracking_code: data.tracking_code,
+        label_url: signedURLData.signedUrl,
+        status: 'created',
+        carrier: data.selected_rate?.carrier,
+        service: data.selected_rate?.service,
+        delivery_days: data.selected_rate?.delivery_days || null,
+        charged_rate: data.selected_rate?.rate || null,
+        easypost_rate: data.selected_rate?.rate || null,
+        currency: data.selected_rate?.currency || 'USD',
+        label_format: options.label_format || "PDF",
+        label_size: options.label_size || "4x6",
+        is_international: true,
+        created_at: new Date().toISOString()
+      });
+      
+    if (dbError) {
+      console.error('Error saving shipment record:', dbError);
+      // Continue anyway as we already have the label URL
     }
 
     // Return the label information with our internally stored URL
@@ -249,7 +246,6 @@ serve(async (req) => {
         labelUrl: signedURLData.signedUrl || labelURL, // Fall back to EasyPost URL if needed
         trackingCode: data.tracking_code,
         shipmentId: data.id,
-        format: 'pdf'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

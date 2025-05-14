@@ -5,7 +5,6 @@ import { useShipmentUpload } from '@/hooks/useShipmentUpload';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
 import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
-import { toast } from 'sonner';
 
 export const useBulkUpload = () => {
   const {
@@ -84,36 +83,6 @@ export const useBulkUpload = () => {
     }
   }, [uploadStatus, results?.processedShipments]);
 
-  // Handle individual rate selection and label creation
-  const handleRateSelectionAndLabel = async (shipmentId: string, rateId: string) => {
-    try {
-      // First select the rate
-      handleSelectRate(shipmentId, rateId);
-      
-      // Then create the label
-      toast("Generating label for selected rate...");
-      
-      // Update the UI to show we're generating labels
-      updateResults({
-        ...results,
-        processedShipments: results.processedShipments.map(shipment => 
-          shipment.id === shipmentId 
-          ? { ...shipment, isGeneratingLabel: true } 
-          : shipment
-        )
-      });
-      
-      // Create the label with specified format - Fixed the function call here
-      await handleCreateLabels([shipmentId]);
-      
-      toast.success("Label generated successfully!");
-      
-    } catch (error) {
-      console.error('Error in rate selection and label creation:', error);
-      toast.error("Failed to generate label. Please try again.");
-    }
-  };
-
   return {
     // File upload states and handlers
     file,
@@ -142,7 +111,6 @@ export const useBulkUpload = () => {
     handleFileChange,
     handleUpload,
     handleSelectRate,
-    handleRateSelectionAndLabel, // New combined handler
     handleRemoveShipment,
     handleEditShipment,
     handleRefreshRates,
