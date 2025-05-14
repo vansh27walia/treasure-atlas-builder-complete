@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -78,7 +77,7 @@ const BulkUpload: React.FC = () => {
       )}
       
       {uploadStatus === 'editing' && results && (
-        <div className="mt-6">
+        <div className="mt-6" id="shipment-options-section">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
             <h2 className="text-xl font-semibold flex items-center">
               <FileText className="mr-2 h-5 w-5 text-blue-600" />

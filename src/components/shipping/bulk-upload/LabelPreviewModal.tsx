@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Download, Printer, Share, ZoomIn, ZoomOut, Check, X, ChevronsUpDown } from 'lucide-react';
+import { toast } from "sonner";
 
 interface LabelPreviewModalProps {
   open: boolean;
@@ -29,6 +30,15 @@ const LabelPreviewModal: React.FC<LabelPreviewModalProps> = ({
       setZoom(zoom + 25);
     } else if (direction === 'out' && zoom > 50) {
       setZoom(zoom - 25);
+    }
+  };
+
+  const handleDownload = () => {
+    try {
+      onDownload();
+      toast.success("Label downloaded successfully");
+    } catch (error) {
+      toast.error("Failed to download label");
     }
   };
   
@@ -155,7 +165,7 @@ const LabelPreviewModal: React.FC<LabelPreviewModalProps> = ({
           </Button>
           
           <div className="flex gap-2">
-            <Button variant="outline" onClick={onDownload}>
+            <Button variant="outline" onClick={handleDownload}>
               <Download className="h-4 w-4 mr-1" />
               Download
             </Button>

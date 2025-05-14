@@ -1,6 +1,7 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from "sonner";
 import { useNavigate } from 'react-router-dom';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
 
@@ -183,16 +184,20 @@ export const useShipmentManagement = (
     // For demo, we'll simulate with a delay and return a mock URL
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    // For real implementation, you would use:
+    // For a real implementation, you would use:
     // - PDF.js for PDF generation
     // - Canvas API for PNG creation
     // - A ZPL library for ZPL format
     
-    const mockUrl = format === 'pdf' 
-      ? 'https://assets.easypost.com/shipping_labels/example_label.pdf'
-      : format === 'png'
-        ? 'https://assets.easypost.com/shipping_labels/example_label.png'
-        : 'https://assets.easypost.com/shipping_labels/example_label.zpl';
+    let mockUrl;
+    
+    if (format === 'pdf') {
+      mockUrl = 'https://assets.easypost.com/shipping_labels/example_label.pdf';
+    } else if (format === 'png') {
+      mockUrl = 'https://assets.easypost.com/shipping_labels/example_label.png';
+    } else {
+      mockUrl = 'https://assets.easypost.com/shipping_labels/example_label.zpl';
+    }
     
     // Store in browser storage (IndexedDB or LocalStorage)
     try {
