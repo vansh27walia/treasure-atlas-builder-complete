@@ -54,22 +54,18 @@ serve(async (req) => {
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
     console.log(`Label options:`, options);
 
+    // Check if storage bucket exists, create if not
     try {
-      // Check if storage bucket exists, create if not
-      const { data: bucketData, error: bucketError } = await supabase
-        .storage
-        .listBuckets();
+      const { data: bucketData, error: bucketError } = await supabase.storage.listBuckets();
       
       const bucketExists = bucketData?.some(bucket => bucket.name === 'shipping-labels');
       
       if (!bucketExists) {
         console.log('Creating shipping-labels bucket');
-        const { error } = await supabase
-          .storage
-          .createBucket('shipping-labels', {
-            public: true,  // Make public to facilitate direct downloads
-            fileSizeLimit: 10485760, // 10MB limit for label files
-          });
+        const { error } = await supabase.storage.createBucket('shipping-labels', {
+          public: true,  // Make public to facilitate direct downloads
+          fileSizeLimit: 10485760, // 10MB limit for label files
+        });
           
         if (error) {
           console.error('Error creating bucket:', error);
@@ -295,7 +291,7 @@ serve(async (req) => {
       );
     }
     
-    // Save the shipping record in the database if you have shipment_records table
+    // Save the shipping record in the database
     try {
       const { error: dbError } = await supabase
         .from('shipment_records')
@@ -310,11 +306,9 @@ serve(async (req) => {
           delivery_days: data.selected_rate?.delivery_days || null,
           charged_rate: data.selected_rate?.rate || null,
           easypost_rate: data.selected_rate?.rate || null,
-          currency: data.selected_rate?.currency || 'USD'
-          // The following fields may not be available in the DB schema yet
-          // label_format: options.label_format || "PDF",
-          // label_size: options.label_size || "4x6",
-          // created_at: new Date().toISOString()
+          currency: data.selected_rate?.currency || 'USD',
+          label_format: options.label_format || "PDF",
+          label_size: options.label_size || "4x6"
         });
         
       if (dbError) {

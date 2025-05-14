@@ -64,6 +64,34 @@ const applyMarkup = (rates: any[], markupPercentage: number): any[] => {
   });
 };
 
+// Sort rates by carrier, then by service type
+const sortRatesByCarrierAndService = (rates: any[]): any[] => {
+  // Define carrier priority order (customize as needed)
+  const carrierPriority = {
+    'USPS': 1,
+    'UPS': 2,
+    'FEDEX': 3,
+    'DHL': 4
+  };
+  
+  return rates.sort((a, b) => {
+    // Normalize carrier names for comparison
+    const carrierA = a.carrier.toUpperCase();
+    const carrierB = b.carrier.toUpperCase();
+    
+    // First compare by carrier priority
+    const priorityA = carrierPriority[carrierA] || 999;
+    const priorityB = carrierPriority[carrierB] || 999;
+    
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+    
+    // If same carrier, compare by price
+    return parseFloat(a.rate) - parseFloat(b.rate);
+  });
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -129,8 +157,8 @@ serve(async (req) => {
       );
     }
     
-    // Sort rates by price (cheapest first)
-    rates.sort((a: any, b: any) => parseFloat(a.rate) - parseFloat(b.rate));
+    // Sort rates by carrier and service type
+    rates = sortRatesByCarrierAndService(rates);
     
     // Get markup percentage and apply to rates
     const markupPercentage = getMarkupPercentage();

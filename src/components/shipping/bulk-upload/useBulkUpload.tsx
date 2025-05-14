@@ -380,9 +380,10 @@ export const useBulkUpload = () => {
     if (!results) return;
     
     const updatedShipments = results.processedShipments.map(shipment => {
-      // Find a rate that matches the selected carrier and service
+      // Find a matching rate for the selected carrier/service
       const matchingRate = shipment.availableRates?.find(
-        rate => rate.carrier === carrierId && rate.service === serviceId
+        rate => rate.carrier.toLowerCase() === carrierId.toLowerCase() && 
+               rate.service.toLowerCase().includes(serviceId.toLowerCase())
       );
       
       if (matchingRate) {
@@ -524,6 +525,7 @@ export const useBulkUpload = () => {
         
         // Filter by carrier
         const matchesCarrier = !selectedCarrierFilter || 
+          shipment.carrier.toLowerCase() === selectedCarrierFilter.toLowerCase() || 
           (shipment.availableRates?.some(rate => 
             rate.carrier.toLowerCase() === selectedCarrierFilter.toLowerCase()
           ));
