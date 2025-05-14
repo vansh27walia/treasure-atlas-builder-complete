@@ -48,26 +48,38 @@ const ShippingRates: React.FC = () => {
       isMountedRef.current = false;
     };
   }, []);
-  
-  // Ensure FedEx is always included in the rates if it exists in allRates
-  useEffect(() => {
-    if (!isMountedRef.current) return;
-    
-    if (allRates && allRates.length > 0) {
-      const hasFedEx = allRates.some(rate => 
-        rate.carrier.toLowerCase().includes('fedex')
-      );
-      
-      const fedExMissingInFilteredRates = hasFedEx && 
-        !rates.some(rate => rate.carrier.toLowerCase().includes('fedex'));
-      
-      if (fedExMissingInFilteredRates && activeCarrierFilter === 'all') {
-        // We might want to log this inconsistency for debugging
-        console.log('FedEx found in allRates but missing in filtered rates');
-      }
-    }
-  }, [rates, allRates, activeCarrierFilter]);
 
+  // Handle buying a label directly
+  const onBuyLabel = () => {
+    if (!selectedRateId) {
+      toast.error("Please select a shipping rate first");
+      return;
+    }
+    
+    // Directly call handleCreateLabel with the selected rate
+    handleCreateLabel();
+  };
+
+  // Sort the rates based on the selected sorting option
+  const getSortedRates = () => {
+    if (!rates || !rates.length) return [];
+    
+    return [...rates].sort((a, b) => {
+      if (sortOrder === 'price') {
+        // Ensure both rates are treated as numbers for comparison
+        return parseFloat(String(a.rate)) - parseFloat(String(b.rate));
+      } else if (sortOrder === 'speed') {
+        const aDays = a.delivery_days || 999;
+        const bDays = b.delivery_days || 999;
+        return aDays - bDays;
+      } else {
+        return a.carrier.localeCompare(b.carrier);
+      }
+    });
+  };
+  
+  const sortedRates = getSortedRates();
+  
   // Function to download the label in the selected format
   const downloadLabel = async () => {
     if (!labelUrl) {
@@ -136,35 +148,9 @@ const ShippingRates: React.FC = () => {
     };
   };
 
-  // Handle buying a label directly
-  const onBuyLabel = () => {
-    if (!selectedRateId) {
-      toast.error("Please select a shipping rate first");
-      return;
-    }
-    
-    // Directly call handleCreateLabel with the selected rate
-    handleCreateLabel();
-  };
-
-  // Sort the rates based on the selected sorting option
-  const sortedRates = [...rates].sort((a, b) => {
-    if (sortOrder === 'price') {
-      // Ensure both rates are treated as numbers for comparison
-      return parseFloat(String(a.rate)) - parseFloat(String(b.rate));
-    } else if (sortOrder === 'speed') {
-      const aDays = a.delivery_days || 999;
-      const bDays = b.delivery_days || 999;
-      return aDays - bDays;
-    } else {
-      return a.carrier.localeCompare(b.carrier);
-    }
-  });
-  
   // Always render a component, regardless of rates.length
-  // This ensures hooks are always called in the same order
   const renderContent = () => {
-    if (rates.length === 0) {
+    if (!rates || rates.length === 0) {
       return (
         <div className="mt-8 w-full" id="shipping-rates-section">
           <EmptyRatesState />
@@ -239,11 +225,19 @@ const ShippingRates: React.FC = () => {
               </div>
             </div>
             
-            <ShippingLabel 
-              labelUrl={labelUrl} 
-              trackingCode={trackingCode} 
-              shipmentId={shipmentId}
-            />
+            {labelUrl && (
+              <ShippingLabel 
+                labelUrl={labelUrl} 
+                trackingCode={trackingCode} 
+                shipmentId={shipmentId}
+                showLabelPreview={showLabelPreview}
+                setShowLabelPreview={setShowLabelPreview}
+                labelFormat={labelFormat}
+                setLabelFormat={setLabelFormat}
+                downloadLabel={downloadLabel}
+                printLabel={printLabel}
+              />
+            )}
             
             {!labelUrl && (
               <>
@@ -340,91 +334,11 @@ const ShippingRates: React.FC = () => {
               </>
             )}
             
-            {labelUrl && (
-              <div className="mt-6 flex flex-col space-y-4">
-                <div className="flex flex-wrap justify-center gap-3">
-                  <Button 
-                    onClick={() => setShowLabelPreview(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
-                  >
-                    <File className="h-4 w-4" />
-                    Preview Label
-                  </Button>
-                  <Button 
-                    onClick={downloadLabel}
-                    className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Label
-                  </Button>
-                  <Button 
-                    onClick={printLabel}
-                    variant="outline"
-                    className="border-gray-300 hover:bg-gray-50 flex items-center gap-2"
-                  >
-                    <Printer className="h-4 w-4" />
-                    Print Label
-                  </Button>
-                </div>
-              </div>
-            )}
-            
             <div className="mt-6 text-center text-sm text-gray-500">
               <p>* All rates include handling fees and applicable taxes</p>
             </div>
           </div>
         </Card>
-
-        {/* Label Preview Dialog */}
-        <Dialog open={showLabelPreview} onOpenChange={setShowLabelPreview}>
-          <DialogContent className="max-w-3xl h-[95vh] flex flex-col p-0 gap-0">
-            <DialogHeader className="p-4 border-b">
-              <DialogTitle className="flex items-center">
-                <File className="mr-2 h-5 w-5" />
-                Shipping Label Preview
-              </DialogTitle>
-              <Tabs value={labelFormat} onValueChange={(value) => setLabelFormat(value as 'pdf' | 'png' | 'zpl')} className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="pdf">PDF</TabsTrigger>
-                  <TabsTrigger value="png">PNG</TabsTrigger>
-                  <TabsTrigger value="zpl">ZPL</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </DialogHeader>
-            <div className="flex-1 overflow-auto p-4 bg-gray-100">
-              <div className="bg-white rounded shadow-md p-2 h-full flex items-center justify-center">
-                {labelUrl ? (
-                  <iframe 
-                    src={labelUrl} 
-                    title="Shipping Label" 
-                    className="w-full h-full border-0"
-                  />
-                ) : (
-                  <div className="text-center text-gray-500">
-                    <p>Label preview not available</p>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="p-4 border-t flex justify-end gap-2">
-              <Button 
-                onClick={downloadLabel}
-                className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Download as {labelFormat.toUpperCase()}
-              </Button>
-              <Button 
-                onClick={printLabel}
-                variant="outline"
-                className="border-gray-300 hover:bg-gray-50 flex items-center gap-2"
-              >
-                <Printer className="h-4 w-4" />
-                Print
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     );
   };
@@ -433,4 +347,3 @@ const ShippingRates: React.FC = () => {
 };
 
 export default ShippingRates;
-

@@ -100,7 +100,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      body: JSON.stringify(buyOptions),
+      body: JSON.stringify({ rate: { id: rateId } }),
     });
 
     const data = await response.json();
@@ -169,15 +169,15 @@ serve(async (req) => {
               );
             }
             
-            // Create a signed URL for the label
-            const { data: signedURLData } = await supabase
+            // Create a public URL for the label
+            const { data: publicURLData } = await supabase
               .storage
               .from('shipping-labels')
-              .createSignedUrl(fileName, 60 * 60 * 24 * 14); // 2 weeks
+              .getPublicUrl(fileName);
               
             return new Response(
               JSON.stringify({
-                labelUrl: signedURLData?.signedUrl || labelURL,
+                labelUrl: publicURLData?.publicUrl || labelURL,
                 trackingCode: shipmentData.tracking_code,
                 shipmentId: shipmentId,
                 message: 'Retrieved existing label'
@@ -254,42 +254,22 @@ serve(async (req) => {
       );
     }
 
-    // Create a signed URL for the label with 2 weeks expiration
-    const twoWeeksInSeconds = 60 * 60 * 24 * 14;
-    const { data: signedURLData, error: signedURLError } = await supabase
+    // Create a public URL for the label
+    const { data: publicURLData } = await supabase
       .storage
       .from('shipping-labels')
-      .createSignedUrl(fileName, twoWeeksInSeconds);
+      .getPublicUrl(fileName);
       
-    if (signedURLError) {
-      console.error('Error creating signed URL:', signedURLError);
+    if (!publicURLData?.publicUrl) {
+      console.error('Error creating public URL');
       
-      // If we can't create a signed URL, try to get a public URL
-      const { data: publicURLData } = await supabase
-        .storage
-        .from('shipping-labels')
-        .getPublicUrl(fileName);
-        
-      if (publicURLData?.publicUrl) {
-        // We have a public URL, use that
-        return new Response(
-          JSON.stringify({ 
-            labelUrl: publicURLData.publicUrl,
-            trackingCode: data.tracking_code,
-            shipmentId: data.id,
-            message: 'Using public URL'
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      // If that also fails, return the original EasyPost URL
+      // If we can't create a public URL, return the original EasyPost URL
       return new Response(
         JSON.stringify({ 
           labelUrl: labelURL,
           trackingCode: data.tracking_code,
           shipmentId: data.id,
-          message: 'Using original EasyPost URL due to signed URL error'
+          message: 'Using original EasyPost URL due to public URL error'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -303,7 +283,7 @@ serve(async (req) => {
           shipment_id: shipmentId,
           rate_id: rateId,
           tracking_code: data.tracking_code,
-          label_url: signedURLData.signedUrl,
+          label_url: publicURLData.publicUrl,
           status: 'created',
           carrier: data.selected_rate?.carrier,
           service: data.selected_rate?.service,
@@ -311,10 +291,6 @@ serve(async (req) => {
           charged_rate: data.selected_rate?.rate || null,
           easypost_rate: data.selected_rate?.rate || null,
           currency: data.selected_rate?.currency || 'USD'
-          // The following fields may not be available in the DB schema yet
-          // label_format: options.label_format || "PDF",
-          // label_size: options.label_size || "4x6",
-          // created_at: new Date().toISOString()
         });
         
       if (dbError) {
@@ -329,7 +305,7 @@ serve(async (req) => {
     // Return the label information with our internally stored URL
     return new Response(
       JSON.stringify({
-        labelUrl: signedURLData.signedUrl || labelURL, // Fall back to EasyPost URL if needed
+        labelUrl: publicURLData.publicUrl || labelURL, // Fall back to EasyPost URL if needed
         trackingCode: data.tracking_code,
         shipmentId: data.id,
       }),

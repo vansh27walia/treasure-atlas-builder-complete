@@ -55,8 +55,9 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   return (
     <Card
       onClick={handleSelect}
+      data-rate-id={rate.id}
       className={cn(
-        'relative cursor-pointer transition-all overflow-hidden border border-gray-200',
+        'relative cursor-pointer transition-all overflow-hidden border border-gray-200 hover:shadow',
         isSelected ? 'ring-2 ring-blue-500 shadow-md bg-blue-50/70' : 'hover:border-blue-300 hover:shadow-sm',
         isPremium ? 'bg-amber-50/50 border-amber-200' : ''
       )}
@@ -65,7 +66,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-3">
             {carrierLogo && (
-              <div className="w-12 h-12 flex items-center justify-center">
+              <div className="w-12 h-12 flex items-center justify-center bg-white rounded-md border border-gray-100 p-1">
                 <img 
                   src={carrierLogo} 
                   alt={`${rate.carrier} logo`} 
@@ -74,13 +75,13 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
               </div>
             )}
             <div>
-              <div className="font-medium">{rate.carrier}</div>
+              <div className="font-medium text-gray-800">{rate.carrier}</div>
               <div className="text-sm text-gray-600">{rate.service}</div>
             </div>
           </div>
           
           <div className="flex flex-col items-end">
-            <div className="text-lg font-semibold">${rate.rate.toFixed(2)}</div>
+            <div className="text-lg font-semibold text-blue-700">${rate.rate.toFixed(2)}</div>
             {hasDiscount && (
               <div className="flex items-center gap-1">
                 <span className="text-xs line-through text-gray-500">${originalRate?.toFixed(2)}</span>
@@ -105,7 +106,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
         </div>
         
         {(isBestValue || isFastest || isRecommended) && (
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             {isBestValue && (
               <Badge className="bg-green-500 text-xs flex items-center gap-1">
                 <CreditCard className="h-3 w-3" />

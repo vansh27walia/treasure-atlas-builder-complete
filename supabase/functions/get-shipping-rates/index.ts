@@ -38,10 +38,10 @@ interface ShippingRequestData {
 // Get markup percentage from environment variable or use default value
 const getMarkupPercentage = (): number => {
   const markupStr = Deno.env.get('SHIPPING_MARKUP_PERCENTAGE');
-  if (!markupStr) return 15; // Default 15% markup if not set
+  if (!markupStr) return 20; // Default 20% markup if not set
   
   const markup = parseFloat(markupStr);
-  return isNaN(markup) ? 15 : markup;
+  return isNaN(markup) ? 20 : markup;
 };
 
 // Apply markup to rates

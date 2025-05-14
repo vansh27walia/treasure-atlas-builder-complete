@@ -1,5 +1,6 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, RefreshCw, ExternalLink, Mail, Save, FileText, X } from 'lucide-react';
+import { Download, RefreshCw, ExternalLink, Mail, Save, FileText, X, Printer } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -10,19 +11,61 @@ interface ShippingLabelProps {
   labelUrl: string | null;
   trackingCode: string | null;
   shipmentId?: string | null;
+  showLabelPreview?: boolean;
+  setShowLabelPreview?: (show: boolean) => void;
+  labelFormat?: 'pdf' | 'png' | 'zpl';
+  setLabelFormat?: (format: 'pdf' | 'png' | 'zpl') => void;
+  downloadLabel?: () => void;
+  printLabel?: () => void;
 }
 
-const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, shipmentId }) => {
+const ShippingLabel: React.FC<ShippingLabelProps> = ({ 
+  labelUrl, 
+  trackingCode, 
+  shipmentId,
+  showLabelPreview = false,
+  setShowLabelPreview = () => {},
+  labelFormat = 'pdf',
+  setLabelFormat = () => {},
+  downloadLabel = () => {},
+  printLabel = () => {}
+}) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [localLabelUrl, setLocalLabelUrl] = useState(labelUrl);
   const [isEmailSending, setIsEmailSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
-  const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
+  const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>(labelFormat);
   const downloadLinkRef = useRef<HTMLAnchorElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const isMountedRef = useRef(true);
+  
+  // When showLabelPreview from props changes, update local state
+  useEffect(() => {
+    if (showLabelPreview !== isLabelModalOpen) {
+      setIsLabelModalOpen(showLabelPreview);
+    }
+  }, [showLabelPreview]);
+  
+  // When isLabelModalOpen changes, update parent component
+  useEffect(() => {
+    if (showLabelPreview !== isLabelModalOpen && setShowLabelPreview) {
+      setShowLabelPreview(isLabelModalOpen);
+    }
+  }, [isLabelModalOpen, setShowLabelPreview, showLabelPreview]);
+  
+  // When labelFormat from props changes, update local state
+  useEffect(() => {
+    setSelectedFormat(labelFormat);
+  }, [labelFormat]);
+  
+  // When selectedFormat changes, update parent component
+  useEffect(() => {
+    if (labelFormat !== selectedFormat && setLabelFormat) {
+      setLabelFormat(selectedFormat);
+    }
+  }, [selectedFormat, setLabelFormat, labelFormat]);
   
   // Set mounted ref to false when component unmounts
   useEffect(() => {
@@ -82,11 +125,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   
   if (!labelUrl && !localLabelUrl) {
     console.log("No label URL available in ShippingLabel component");
-    return (
-      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md mb-6">
-        <p className="text-yellow-700">No label URL available. Please try generating the label again.</p>
-      </div>
-    );
+    return null;
   }
   
   const handleRefreshLabel = async () => {
@@ -130,6 +169,11 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   };
 
   const handleDirectDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+    if (downloadLabel) {
+      downloadLabel();
+      return;
+    }
+    
     if (blobUrl) {
       try {
         console.log(`Starting direct download with blob URL (${format}):`, blobUrl);
@@ -318,7 +362,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
                 variant="default" 
                 className="bg-green-600 hover:bg-green-700 text-white h-12"
               >
-                <Download className="mr-2 h-5 w-5" /> View & Download Label
+                <FileText className="mr-2 h-5 w-5" /> View & Download Label
               </Button>
               
               <Button 
@@ -379,6 +423,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
                   src={blobUrl} 
                   className="w-full h-[500px]" 
                   title="Label Preview"
+                  ref={iframeRef}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full w-full">
