@@ -185,26 +185,23 @@ export const initDomesticAddressAutocomplete = (
 export const getCarrierLogoUrl = (carrier: string): string => {
   const normalizedCarrier = carrier.toLowerCase();
   
-  // Map of carrier names to their logo URLs
-  const carrierLogos: Record<string, string> = {
-    'usps': 'https://upload.wikimedia.org/wikipedia/commons/1/1b/USPS_eagle_logo.svg',
-    'ups': 'https://upload.wikimedia.org/wikipedia/commons/6/6b/United_Parcel_Service_logo_2014.svg',
-    'fedex': 'https://upload.wikimedia.org/wikipedia/commons/b/b7/FedEx_Ground_logo.svg',
-    'dhl': 'https://upload.wikimedia.org/wikipedia/commons/5/5d/DHL_Logo.svg',
-    'ontrac': 'https://www.ontrac.com/images/ontrac-logo.png',
-    'lasership': 'https://www.lasership.com/wp-content/uploads/2022/05/LS_horizontal-blue-yellow.svg',
-    'amazon': 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg',
+  // Add more carrier mappings as needed
+  const carrierLogoMap: Record<string, string> = {
+    // Major carriers with proper casing for display
+    'usps': 'https://www.easypost.com/assets/images/carriers/usps.svg',
+    'ups': 'https://www.easypost.com/assets/images/carriers/ups.svg',
+    'fedex': 'https://www.easypost.com/assets/images/carriers/fedex.svg',
+    'dhl': 'https://www.easypost.com/assets/images/carriers/dhl.svg',
+    'dhl_express': 'https://www.easypost.com/assets/images/carriers/dhl.svg',
+    'dhl_ecommerce': 'https://www.easypost.com/assets/images/carriers/dhl.svg',
+    'canada_post': 'https://www.easypost.com/assets/images/carriers/canada-post.svg',
+    'royal_mail': 'https://www.easypost.com/assets/images/carriers/royal-mail.svg',
+    'australia_post': 'https://www.easypost.com/assets/images/carriers/australia-post.svg',
+    'purolator': 'https://www.easypost.com/assets/images/carriers/purolator.svg',
+    'ontrac': 'https://www.easypost.com/assets/images/carriers/ontrac.svg',
+    'lasership': 'https://www.easypost.com/assets/images/carriers/lasership.svg',
+    'amazon': 'https://www.easypost.com/assets/images/carriers/amazon.svg',
   };
-  
-  // Check if the carrier is in our map, accounting for partial matches
-  let logoUrl = '';
-  
-  Object.keys(carrierLogos).forEach(key => {
-    if (normalizedCarrier.includes(key)) {
-      logoUrl = carrierLogos[key];
-    }
-  });
-  
-  // Return logo URL or empty string if not found
-  return logoUrl;
+
+  return carrierLogoMap[normalizedCarrier] || '';
 };
