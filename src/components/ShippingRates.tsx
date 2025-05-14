@@ -68,6 +68,8 @@ const ShippingRates: React.FC = () => {
 
   // Ensure FedEx is always included in the rates if it exists in allRates
   useEffect(() => {
+    if (!isMountedRef.current) return;
+    
     if (allRates && allRates.length > 0) {
       const hasFedEx = allRates.some(rate => 
         rate.carrier.toLowerCase().includes('fedex')

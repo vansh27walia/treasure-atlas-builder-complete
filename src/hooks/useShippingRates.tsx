@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -116,6 +117,8 @@ export const useShippingRates = () => {
         
         // Scroll to rates section with smooth behavior and delay
         setTimeout(() => {
+          if (!isMountedRef.current) return;
+          
           const ratesSection = document.getElementById('shipping-rates-section');
           if (ratesSection) {
             // Use scrollIntoView with behavior smooth
@@ -135,7 +138,9 @@ export const useShippingRates = () => {
     
     // Listen for rate selection from other components
     const handleRateSelected = (event: CustomEvent<{rateId: string}>) => {
-      if (event.detail && event.detail.rateId && isMountedRef.current) {
+      if (!isMountedRef.current) return;
+      
+      if (event.detail && event.detail.rateId) {
         setSelectedRateId(event.detail.rateId);
         
         // Dispatch event for step change
@@ -223,6 +228,7 @@ export const useShippingRates = () => {
       return;
     }
     
+    if (!isMountedRef.current) return;
     setIsLoading(true);
     
     try {

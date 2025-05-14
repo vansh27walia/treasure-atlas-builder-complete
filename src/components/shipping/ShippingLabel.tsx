@@ -57,16 +57,16 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         }
         
         const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
         
-        // Only update state if component is still mounted
-        if (isMountedRef.current) {
-          setBlobUrl(blobUrl);
-          console.log("Label cached as blob URL:", blobUrl);
-          
-          // Automatically open the label modal when the blob is ready
-          setIsLabelModalOpen(true);
-        }
+        // Check if component is still mounted before creating blob URL and updating state
+        if (!isMountedRef.current) return;
+        
+        const blobUrl = URL.createObjectURL(blob);
+        setBlobUrl(blobUrl);
+        console.log("Label cached as blob URL:", blobUrl);
+        
+        // Automatically open the label modal when the blob is ready
+        setIsLabelModalOpen(true);
       } catch (error) {
         console.error("Error caching label:", error);
         if (isMountedRef.current) {
@@ -95,6 +95,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       return;
     }
     
+    if (!isMountedRef.current) return;
     setIsRefreshing(true);
     
     try {
@@ -210,7 +211,9 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       return;
     }
 
+    if (!isMountedRef.current) return;
     setIsEmailSending(true);
+    
     try {
       toast.loading('Sending label to your email...');
       
@@ -244,7 +247,9 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       return;
     }
     
+    if (!isMountedRef.current) return;
     setIsSaving(true);
+    
     try {
       toast.loading('Saving label to your account...');
       
