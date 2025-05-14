@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
 
 interface ShippingRate {
@@ -31,7 +31,6 @@ export const useShippingRates = () => {
   const navigate = useNavigate();
   const [rates, setRates] = useState<ShippingRate[]>([]);
   const [filteredRates, setFilteredRates] = useState<ShippingRate[]>([]);
-  const [allRates, setAllRates] = useState<ShippingRate[]>([]);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -86,7 +85,6 @@ export const useShippingRates = () => {
         }));
         
         setRates(processedRates);
-        setAllRates(processedRates);
         setFilteredRates(processedRates);
         setShipmentId(event.detail.shipmentId);
         setSelectedRateId(null);
@@ -95,7 +93,7 @@ export const useShippingRates = () => {
         
         // Extract unique carriers for filtering
         const carriers = [...new Set(processedRates.map(rate => 
-          rate.carrier.toLowerCase()
+          rate.carrier.toUpperCase()
         ))];
         setUniqueCarriers(carriers);
         setActiveCarrierFilter('all');
@@ -155,14 +153,14 @@ export const useShippingRates = () => {
   // Filter rates when carrier filter changes
   useEffect(() => {
     if (activeCarrierFilter === 'all') {
-      setFilteredRates(allRates);
+      setFilteredRates(rates);
     } else {
-      const filtered = allRates.filter(rate => 
-        rate.carrier.toLowerCase() === activeCarrierFilter.toLowerCase()
+      const filtered = rates.filter(rate => 
+        rate.carrier.toUpperCase() === activeCarrierFilter.toUpperCase()
       );
       setFilteredRates(filtered);
     }
-  }, [activeCarrierFilter, allRates]);
+  }, [activeCarrierFilter, rates]);
 
   const handleSelectRate = (rateId: string) => {
     setSelectedRateId(rateId);
@@ -171,7 +169,7 @@ export const useShippingRates = () => {
     document.dispatchEvent(new Event('rate-selected'));
     
     // Find the rate with this ID
-    const selectedRate = allRates.find(rate => rate.id === rateId);
+    const selectedRate = rates.find(rate => rate.id === rateId);
     console.log("Selected rate:", selectedRate);
     
     // Update workflow step
@@ -201,7 +199,7 @@ export const useShippingRates = () => {
     const effectiveShipmentId = shipmentIdParam || shipmentId;
     
     if (!effectiveRateId || !effectiveShipmentId) {
-      toast("Please select a shipping rate first");
+      toast.error("Please select a shipping rate first");
       return;
     }
     
@@ -211,10 +209,10 @@ export const useShippingRates = () => {
       console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
       
       // Get the selected rate to determine if it's international
-      const selectedRate = allRates.find(rate => rate.id === effectiveRateId);
+      const selectedRate = rates.find(rate => rate.id === effectiveRateId);
       const isInternational = selectedRate?.service?.toLowerCase().includes('international');
       
-      // Always use create-label endpoint for consistency
+      // Choose the appropriate endpoint based on whether it's international
       const endpoint = isInternational ? 'create-international-label' : 'create-label';
       
       console.log(`Using ${endpoint} endpoint for label creation with options`);
@@ -244,8 +242,7 @@ export const useShippingRates = () => {
       console.log("Label created successfully:", data);
       setLabelUrl(data.labelUrl);
       setTrackingCode(data.trackingCode);
-      
-      toast("Shipping label generated successfully");
+      toast.success("Shipping label generated successfully");
       
       // Update workflow step to complete
       document.dispatchEvent(new CustomEvent('shipping-step-change', { 
@@ -253,7 +250,7 @@ export const useShippingRates = () => {
       }));
       
       // Build the success URL with all needed parameters
-      const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}&format=pdf`;
+      const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`;
       console.log("Navigating to:", labelSuccessUrl);
       
       // Use navigate with the correct URL
@@ -264,7 +261,7 @@ export const useShippingRates = () => {
       
     } catch (error) {
       console.error('Error creating label:', error);
-      toast("Failed to generate shipping label. Please try again.");
+      toast.error("Failed to generate shipping label. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -273,7 +270,7 @@ export const useShippingRates = () => {
   // Function to handle payment process
   const handleProceedToPayment = () => {
     if (!selectedRateId || !shipmentId) {
-      toast("Please select a shipping rate first");
+      toast.error("Please select a shipping rate first");
       return;
     }
     
@@ -281,7 +278,7 @@ export const useShippingRates = () => {
     
     try {
       // Get the selected rate to determine the amount
-      const selectedRate = allRates.find(rate => rate.id === selectedRateId);
+      const selectedRate = rates.find(rate => rate.id === selectedRateId);
       
       if (!selectedRate) {
         throw new Error("Selected rate not found");
@@ -295,7 +292,7 @@ export const useShippingRates = () => {
       
     } catch (error) {
       console.error('Error proceeding to payment:', error);
-      toast("Failed to process payment. Please try again.");
+      toast.error("Failed to process payment. Please try again.");
     } finally {
       setIsProcessingPayment(false);
     }
@@ -336,7 +333,7 @@ export const useShippingRates = () => {
 
   return {
     rates: filteredRates,
-    allRates,
+    allRates: rates,
     isLoading,
     isProcessingPayment,
     selectedRateId,
