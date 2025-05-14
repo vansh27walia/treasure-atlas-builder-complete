@@ -48,6 +48,10 @@ export interface ShippingOption {
   estimated_delivery_date?: string;
   listRate?: number;
   retailRate?: number;
+  // Add properties for international shipping compatibility
+  list_rate?: number;
+  delivery_date?: string;
+  shipment_id?: string;
 }
 
 export interface ShippingLabelFormat {

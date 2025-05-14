@@ -1023,7 +1023,7 @@ const InternationalShippingPage: React.FC = () => {
                 if (selectedRateId) {
                   const rate = rates.find(r => r.id === selectedRateId);
                   if (rate && rate.shipment_id) {
-                    navigate(`/payment?amount=${Math.round(parseFloat(rate.rate) * 100)}&shipmentId=${rate.shipment_id}&rateId=${selectedRateId}`);
+                    navigate(`/payment?amount=${rate.rate.toString()}&shipmentId=${rate.shipment_id}&rateId=${selectedRateId}`);
                   } else {
                     toast.error("Missing shipment information");
                   }
