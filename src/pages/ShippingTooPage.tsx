@@ -51,7 +51,7 @@ const ShippingTooPage: React.FC = () => {
   const handleShippingFormSubmit = (data: any) => {
     setFormData(data);
     setCurrentStep('package');
-    toast({
+    toast.custom({
       title: "Address Saved",
       description: "Address information saved. Please complete customs information next",
     });
@@ -61,7 +61,7 @@ const ShippingTooPage: React.FC = () => {
     setCustomsData(data);
     setCurrentStep('rates');
     setShowRates(true);
-    toast({
+    toast.custom({
       title: "Customs Information Saved",
       description: "Customs information saved. Fetching shipping rates...",
     });

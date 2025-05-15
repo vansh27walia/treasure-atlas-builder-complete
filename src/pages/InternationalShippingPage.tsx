@@ -970,7 +970,7 @@ const InternationalShippingPage: React.FC = () => {
                       )}
                     </div>
                     <p className="text-gray-600">
-                      Estimated delivery: {rate.delivery_date || `${rate.delivery_days || '3-5'} days`}
+                      Estimated delivery: {rate.estimated_delivery_date || rate.delivery_date || `${rate.delivery_days || '3-5'} days`}
                     </p>
                   </div>
                   <div className="text-right">
@@ -1023,7 +1023,7 @@ const InternationalShippingPage: React.FC = () => {
                 if (selectedRateId) {
                   const rate = rates.find(r => r.id === selectedRateId);
                   if (rate && rate.shipment_id) {
-                    navigate(`/payment?amount=${Math.round(parseFloat(rate.rate) * 100)}&shipmentId=${rate.shipment_id}&rateId=${selectedRateId}`);
+                    navigate(`/payment?amount=${parseFloat(rate.rate) * 100}&shipmentId=${rate.shipment_id}&rateId=${selectedRateId}`);
                   } else {
                     toast.error("Missing shipment information");
                   }
