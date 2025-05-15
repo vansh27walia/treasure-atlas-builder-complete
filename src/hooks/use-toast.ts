@@ -1,5 +1,5 @@
 
-import { toast as sonnerToast, Toast, ToastT } from "sonner";
+import { toast as sonnerToast } from "sonner";
 import * as React from "react";
 
 // Re-export the sonner toast function
