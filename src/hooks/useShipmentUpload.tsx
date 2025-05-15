@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
 
 // Helper function to validate and normalize status values
@@ -43,7 +43,7 @@ export const useShipmentUpload = () => {
 
   const handleUpload = async (file: File): Promise<void> => {
     if (!file) {
-      toast.error('Please select a file to upload');
+      toast("Please select a file to upload");
       return;
     }
 
@@ -118,7 +118,7 @@ export const useShipmentUpload = () => {
       console.error('Bulk upload error:', error);
       setUploadStatus('error');
       setProgress(0);
-      toast.error(`Failed to process the uploaded file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast(`Failed to process the uploaded file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsUploading(false);
     }
@@ -136,7 +136,7 @@ export const useShipmentUpload = () => {
     a.click();
     document.body.removeChild(a);
     
-    toast.success('Template downloaded successfully');
+    toast("Template downloaded successfully");
   };
 
   return {

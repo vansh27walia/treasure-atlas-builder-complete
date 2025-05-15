@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -29,6 +28,7 @@ const BulkUpload: React.FC = () => {
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
+    handleFileChange,
     handleUpload,
     handleProceedToPayment,
     handleCreateLabels,
@@ -94,7 +94,7 @@ const BulkUpload: React.FC = () => {
               </Button>
               
               <Button onClick={() => {
-                // Convert this to a proper click handler with no parameters
+                // Create a file input element and trigger it
                 const input = document.createElement('input');
                 input.type = 'file';
                 input.accept = '.csv';

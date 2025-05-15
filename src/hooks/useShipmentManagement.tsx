@@ -46,7 +46,7 @@ export const useShipmentManagement = (
     const totalCost = updatedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0), 0);
     
     // Update the failed shipments - Convert BulkShipment to BulkShipmentError format
-    const failedShipments = [
+    const failedShipments: BulkShipmentError[] = [
       ...initialResults.failedShipments,
       ...initialResults.processedShipments
         .filter(shipment => shipment.id === shipmentId)
@@ -67,7 +67,7 @@ export const useShipmentManagement = (
       totalCost
     });
     
-    toast(`Shipment removed`);
+    toast("Shipment removed");
   };
 
   const handleEditShipment = (shipmentId: string, updatedDetails: any) => {
@@ -86,12 +86,12 @@ export const useShipmentManagement = (
       processedShipments: updatedShipments
     });
     
-    toast(`Shipment updated`);
+    toast("Shipment updated");
   };
 
   const handleProceedToPayment = async () => {
     if (!initialResults || initialResults.processedShipments.length === 0) {
-      toast(`No shipments to process`);
+      toast("No shipments to process");
       return;
     }
     
@@ -101,14 +101,14 @@ export const useShipmentManagement = (
       // For demo purposes, just show a success message and create labels
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      toast(`Payment processed successfully`);
+      toast("Payment processed successfully");
       
       // Now create labels for all shipments
       await handleCreateLabels();
       
     } catch (error) {
       console.error('Payment error:', error);
-      toast(`Payment processing failed`);
+      toast("Payment processing failed");
     } finally {
       setIsPaying(false);
     }
@@ -116,7 +116,7 @@ export const useShipmentManagement = (
 
   const handleCreateLabels = async () => {
     if (!initialResults || initialResults.processedShipments.length === 0) {
-      toast(`No shipments to process`);
+      toast("No shipments to process");
       return;
     }
     
@@ -127,7 +127,7 @@ export const useShipmentManagement = (
         .filter(s => !s.label_url && s.selectedRateId);
       
       if (shipmentsToLabel.length === 0) {
-        toast(`All labels have already been generated`);
+        toast("All labels have already been generated");
         return;
       }
       
@@ -182,11 +182,11 @@ export const useShipmentManagement = (
         uploadStatus: 'success' as const
       });
       
-      toast(`Labels created successfully`);
+      toast("Labels created successfully");
       
     } catch (error) {
       console.error('Error creating labels:', error);
-      toast(`Failed to create some labels`);
+      toast("Failed to create some labels");
     } finally {
       setIsCreatingLabels(false);
     }
@@ -207,15 +207,15 @@ export const useShipmentManagement = (
       .map(s => s.label_url);
     
     if (labelUrls.length === 0) {
-      toast(`No labels available to download`);
+      toast("No labels available to download");
       return;
     }
     
     if (format === 'zip') {
-      toast(`Preparing ZIP download of ${labelUrls.length} labels...`);
+      toast("Preparing ZIP download of " + labelUrls.length + " labels...");
       // In a real implementation, you would create a ZIP file
       setTimeout(() => {
-        toast(`ZIP download started`);
+        toast("ZIP download started");
       }, 1500);
     } else {
       // For individual formats, open each label in a new tab
@@ -225,13 +225,13 @@ export const useShipmentManagement = (
         }
       });
       
-      toast(`Opening ${labelUrls.length} labels in new tabs`);
+      toast("Opening " + labelUrls.length + " labels in new tabs");
     }
   };
 
   const handleDownloadSingleLabel = (labelUrl: string) => {
     if (!labelUrl) {
-      toast(`No label URL available`);
+      toast("No label URL available");
       return;
     }
     
@@ -245,16 +245,16 @@ export const useShipmentManagement = (
       .map(s => s.label_url);
     
     if (labelUrls.length === 0) {
-      toast(`No labels available to email`);
+      toast("No labels available to email");
       return;
     }
     
-    toast(`Emailing ${labelUrls.length} labels to your account...`);
+    toast("Emailing " + labelUrls.length + " labels to your account...");
     
     // Simulate email sending
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    toast(`Labels have been emailed to your account`);
+    toast("Labels have been emailed to your account");
     setShowLabelOptions(false);
   };
 
