@@ -87,13 +87,21 @@ const Shipping2Sheet: React.FC = () => {
   const handleContinue = () => {
     if (currentStep === 'address') {
       if (!isFromAddressValid || !isToAddressValid) {
-        toast("Please complete both addresses");
+        toast({
+          title: "Error",
+          description: "Please complete both addresses",
+          variant: "destructive"
+        });
         return;
       }
       
       // Check if both addresses are in the same country
       if (fromAddress?.country === toAddress?.country) {
-        toast("For shipments within the same country, please use the domestic shipping option");
+        toast({
+          title: "Error",
+          description: "For shipments within the same country, please use the domestic shipping option",
+          variant: "destructive"
+        });
         return;
       }
       
@@ -101,12 +109,20 @@ const Shipping2Sheet: React.FC = () => {
     } 
     else if (currentStep === 'package') {
       if (!isParcelValid) {
-        toast("Please complete package details");
+        toast({
+          title: "Error",
+          description: "Please complete package details",
+          variant: "destructive"
+        });
         return;
       }
       
       if (!isCustomsValid) {
-        toast("Please complete customs information");
+        toast({
+          title: "Error", 
+          description: "Please complete customs information",
+          variant: "destructive"
+        });
         return;
       }
       
