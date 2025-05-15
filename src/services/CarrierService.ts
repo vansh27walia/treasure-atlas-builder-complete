@@ -211,6 +211,34 @@ class CarrierService {
   }
   
   /**
+   * Creates an international shipping label
+   */
+  public async createInternationalLabel(shipmentId: string, rateId: string, options: Record<string, any> = {}): Promise<{
+    labelUrl: string;
+    trackingCode: string;
+    shipmentId: string;
+  }> {
+    try {
+      const { data, error } = await supabase.functions.invoke('create-international-label', {
+        body: { shipmentId, rateId, options }
+      });
+
+      if (error) {
+        throw new Error(`Error creating international label: ${error.message}`);
+      }
+
+      return {
+        labelUrl: data.labelUrl,
+        trackingCode: data.trackingCode,
+        shipmentId: data.shipmentId
+      };
+    } catch (error) {
+      console.error('Error creating international label:', error);
+      throw new Error('Failed to generate international shipping label');
+    }
+  }
+  
+  /**
    * Schedules a pickup
    */
   public async schedulePickup(pickupData: PickupRequestData): Promise<{
