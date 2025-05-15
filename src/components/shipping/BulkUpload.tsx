@@ -93,7 +93,19 @@ const BulkUpload: React.FC = () => {
                 Template
               </Button>
               
-              <Button onClick={handleUpload} className="text-sm">
+              <Button onClick={() => {
+                // Convert this to a proper click handler with no parameters
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.csv';
+                input.onchange = (e) => {
+                  const target = e.target as HTMLInputElement;
+                  if (target.files && target.files[0]) {
+                    handleUpload(target.files[0]);
+                  }
+                };
+                input.click();
+              }} className="text-sm">
                 <UploadCloud className="mr-1 h-4 w-4" />
                 Upload Another File
               </Button>

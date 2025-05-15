@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -103,7 +102,7 @@ export interface BulkShipment {
 export interface BulkShipmentError {
   row: number;
   error: string;
-  details: string;
+  details: string;  // Changed from type to a string to store stringified details
 }
 
 export interface BulkUploadResult {

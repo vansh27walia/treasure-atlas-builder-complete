@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { BulkUploadResult, BulkShipment } from '@/types/shipping';
+import { BulkUploadResult, BulkShipment, BulkShipmentError } from '@/types/shipping';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 
@@ -45,11 +45,16 @@ export const useShipmentManagement = (
     // Recalculate total cost
     const totalCost = updatedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0), 0);
     
-    // Update the failed shipments
+    // Update the failed shipments - Convert BulkShipment to BulkShipmentError format
     const failedShipments = [
       ...initialResults.failedShipments,
-      ...initialResults.processedShipments.filter(shipment => shipment.id === shipmentId)
-        .map(shipment => ({ ...shipment, error: 'Removed by user' }))
+      ...initialResults.processedShipments
+        .filter(shipment => shipment.id === shipmentId)
+        .map(shipment => ({
+          row: shipment.row,
+          error: 'Removed by user',
+          details: JSON.stringify(shipment.details) // Convert the details object to string
+        }))
     ];
     
     // Update the results
