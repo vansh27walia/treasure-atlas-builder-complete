@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -50,11 +49,11 @@ export interface ShippingOption {
   listRate?: string;
   retailRate?: string;
   shipment_id?: string;
-  original_rate?: string;
+  original_rate?: string; // Added this property to fix the error
   list_rate?: string;
   retail_rate?: string;
   est_delivery_days?: number;
-  isPremium?: boolean;
+  isPremium?: boolean; // Added this property to fix the error
 }
 
 export interface ShippingLabelFormat {
