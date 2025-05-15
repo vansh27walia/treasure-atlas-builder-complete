@@ -42,6 +42,7 @@ const BulkUpload: React.FC = () => {
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
+    handleViewLabel,
     setShowLabelOptions,
     setSearchTerm,
     setSortField,
@@ -92,7 +93,7 @@ const BulkUpload: React.FC = () => {
                 Template
               </Button>
               
-              <Button onClick={() => handleUpload} className="text-sm">
+              <Button onClick={handleUpload} className="text-sm">
                 <UploadCloud className="mr-1 h-4 w-4" />
                 Upload Another File
               </Button>
@@ -169,7 +170,7 @@ const BulkUpload: React.FC = () => {
         <SuccessNotification
           results={results}
           onDownloadAllLabels={handleDownloadAllLabels}
-          onDownloadSingleLabel={handleDownloadSingleLabel}
+          onDownloadSingleLabel={handleViewLabel}
           onProceedToPayment={handleProceedToPayment}
           onCreateLabels={handleCreateLabels}
           isPaying={isPaying}
