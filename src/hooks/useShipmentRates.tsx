@@ -1,5 +1,6 @@
+
 import { useState } from 'react';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
 import { CARRIER_OPTIONS } from '@/types/shipping';
 
@@ -56,11 +57,7 @@ export const useShipmentRates = (
         });
       }
       
-      toast.default({
-        title: "Rates fetched",
-        description: `Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`
-      });
-      
+      toast.success(`Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`);
       return updatedShipments;
     } catch (error) {
       console.error('Error fetching shipment rates:', error);
@@ -110,11 +107,7 @@ export const useShipmentRates = (
                 ? 2 
                 : service.name.includes('3-Day') 
                   ? 3 
-                  : Math.floor(3 + Math.random() * 5), // 3-7 days for standard services
-            estimated_delivery_date: new Date(Date.now() + 86400000 * (service.name.includes('Next Day') ? 1 : 
-                                              service.name.includes('2Day') ? 2 : 
-                                              service.name.includes('3-Day') ? 3 : 
-                                              Math.floor(3 + Math.random() * 5))).toISOString().split('T')[0]
+                  : Math.floor(3 + Math.random() * 5) // 3-7 days for standard services
           };
         });
       });
@@ -249,7 +242,7 @@ export const useShipmentRates = (
       totalCost
     });
     
-    toast.info(`Applied ${carrierId} ${serviceId} to all eligible shipments`);
+    toast.success(`Applied ${carrierId} ${serviceId} to all eligible shipments`);
   };
 
   return {

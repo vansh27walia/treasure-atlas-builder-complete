@@ -22,7 +22,6 @@ import LabelSuccessPage from './pages/LabelSuccessPage';
 import PickupPage from './pages/PickupPage';
 import BulkUploadPage from './pages/BulkUploadPage';
 import TrackingPage from './pages/TrackingPage';
-import ShippingTooPage from './pages/ShippingTooPage';
 
 function App() {
   return (
@@ -40,7 +39,6 @@ function App() {
                   <Route path="/ftl-shipping" element={<FtlShippingPage />} />
                   <Route path="/instant-delivery" element={<InstantDeliveryPage />} />
                   <Route path="/international" element={<InternationalShippingPage />} />
-                  <Route path="/shipping-too" element={<ShippingTooPage />} />
                   <Route path="/payment" element={<PaymentPage />} />
                   <Route path="/tracking" element={<TrackingPage />} />
                   <Route

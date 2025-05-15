@@ -11,21 +11,6 @@ export type ShippingWorkflowStep = {
   status: 'completed' | 'active' | 'upcoming';
 };
 
-export interface ShippingRate {
-  id: string;
-  carrier: string;
-  service: string;
-  rate: string;  // Changed from number to string
-  currency: string;
-  delivery_days: number;
-  estimated_delivery_date?: string;
-  delivery_date?: string; // Added this field
-  original_rate?: string; // Changed from number to string
-  shipment_id?: string; // Added this field
-  list_rate?: string; // Added this field
-  retail_rate?: string; // Added this field
-}
-
 export interface GoogleApiKeyResponse {
   apiKey: string;
 }

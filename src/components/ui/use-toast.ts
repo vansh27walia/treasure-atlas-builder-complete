@@ -1,5 +1,6 @@
 
-// Re-export from the main hooks folder
-import { toast, useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
-export { toast, useToast };
+// Re-export both toast utilities
+export { useToast, toast };
