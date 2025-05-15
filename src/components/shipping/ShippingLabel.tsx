@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, RefreshCw, ExternalLink, Mail, Save, FileText, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -49,8 +50,8 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         setBlobUrl(blobUrl);
         console.log("Label cached as blob URL:", blobUrl);
         
-        // Automatically open the label modal when the blob is ready
-        setIsLabelModalOpen(true);
+        // Don't automatically open the modal - let user click the button
+        // setIsLabelModalOpen(true);
       } catch (error) {
         console.error("Error caching label:", error);
         toast.error("Error preparing label for download");
@@ -263,14 +264,17 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     try {
       toast.success("Saving label to your account...");
       
-      // Save to shipment_records table instead of creating a new table
+      // Save to shipment_records table with updated fields
       const { error } = await supabase
         .from('shipment_records')
         .insert({
           tracking_code: trackingCode,
           label_url: url,
           shipment_id: shipmentId || '',
-          status: 'completed'
+          status: 'completed',
+          label_format: 'PDF',
+          label_size: '4x6',
+          is_international: false
         });
       
       if (error) {

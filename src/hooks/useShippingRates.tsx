@@ -217,7 +217,7 @@ export const useShippingRates = () => {
       
       console.log(`Using ${endpoint} endpoint for label creation with options`);
       
-      // Add label format and size to options
+      // Add standardized label format and size to options
       const { data, error } = await supabase.functions.invoke(endpoint, {
         body: { 
           shipmentId: effectiveShipmentId, 
