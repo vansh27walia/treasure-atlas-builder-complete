@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   X, ChevronsUpDown, Check, ArrowDown, CreditCard, Package,
@@ -87,20 +86,13 @@ const Shipping2Sheet: React.FC<Shipping2SheetProps> = ({ onClose }) => {
       // Simulate API call
       setTimeout(() => {
         setIsLoading(false);
-        toast({
-          title: "Success",
-          description: "Shipping details saved successfully"
-        });
+        toast("Shipping details saved successfully");
         setActiveTab('rates');
       }, 1500);
     } else if (activeTab === 'rates' && selectedRate) {
       setActiveTab('label');
     } else if (activeTab === 'rates') {
-      toast({
-        title: "Error",
-        description: "Please select a shipping rate",
-        variant: "destructive"
-      });
+      toast("Please select a shipping rate");
     }
   };
 
@@ -130,10 +122,7 @@ const Shipping2Sheet: React.FC<Shipping2SheetProps> = ({ onClose }) => {
       setLabelGenerated(true);
       setLabelUrl('https://example.com/shipping-label.pdf');
       setTrackingNumber('SHIP2' + Math.floor(10000000 + Math.random() * 90000000));
-      toast({
-        title: "Success",
-        description: "Shipping label created successfully"
-      });
+      toast("Shipping label created successfully");
     }, 2000);
   };
 

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { toast } from '@/components/ui/use-toast';
 import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
@@ -57,18 +56,11 @@ export const useShipmentRates = (
         });
       }
       
-      toast({
-        title: "Rates fetched",
-        description: `Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`
-      });
+      toast(`Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`);
       return updatedShipments;
     } catch (error) {
       console.error('Error fetching shipment rates:', error);
-      toast({
-        title: "Fetch failed",
-        description: 'Failed to fetch rates for some shipments',
-        variant: "destructive"
-      });
+      toast('Failed to fetch rates for some shipments');
       return shipments;
     } finally {
       setIsFetchingRates(false);
@@ -194,10 +186,7 @@ export const useShipmentRates = (
         processedShipments: finalShipments
       });
       
-      toast({
-        title: "Rates updated",
-        description: "Rates updated successfully"
-      });
+      toast("Rates updated successfully");
     } catch (error) {
       // Update shipment with error
       const errorShipments = updatedShipments.map(s => 
@@ -213,11 +202,7 @@ export const useShipmentRates = (
         processedShipments: errorShipments
       });
       
-      toast({
-        title: "Rate update failed",
-        description: "Failed to update rates",
-        variant: "destructive"
-      });
+      toast("Failed to update rates");
     }
   };
   
@@ -256,10 +241,7 @@ export const useShipmentRates = (
       totalCost
     });
     
-    toast({
-      title: "Carrier applied",
-      description: `Applied ${carrierId} ${serviceId} to all eligible shipments`
-    });
+    toast(`Applied ${carrierId} ${serviceId} to all eligible shipments`);
   };
 
   return {
