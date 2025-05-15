@@ -269,4 +269,3 @@ const CreateLabelPage: React.FC = () => {
 };
 
 export default CreateLabelPage;
-
