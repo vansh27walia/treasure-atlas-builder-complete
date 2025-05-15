@@ -1,506 +1,228 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Download, RefreshCw, ExternalLink, Mail, Save, FileText, X } from 'lucide-react';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from '@/hooks/use-toast';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
+import { Download, Printer, RefreshCcw, ArrowRight, Link, Mail } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ShippingLabelProps {
   labelUrl: string | null;
   trackingCode: string | null;
-  shipmentId?: string | null;
+  shipmentId: string | null;
+  onRefresh?: () => void;
 }
 
-const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, shipmentId }) => {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [localLabelUrl, setLocalLabelUrl] = useState(labelUrl);
-  const [isEmailSending, setIsEmailSending] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
-  const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
-  const [isPrinting, setIsPrinting] = useState(false);
-  const downloadLinkRef = useRef<HTMLAnchorElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+const ShippingLabel: React.FC<ShippingLabelProps> = ({
+  labelUrl,
+  trackingCode,
+  shipmentId,
+  onRefresh
+}) => {
+  const [cachedUrl, setCachedUrl] = useState<string | null>(labelUrl);
+  const [isLoading, setIsLoading] = useState(false);
   
-  // Effect to fetch and cache the label as a blob when URL changes
+  // Use a ref to store the object URL to clean up properly
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  
+  // Update cached URL when props change
   useEffect(() => {
-    console.log("ShippingLabel component received props:", { labelUrl, trackingCode, shipmentId });
-    const fetchAndCacheLabel = async () => {
-      const url = localLabelUrl || labelUrl;
-      if (!url) return;
-      
-      try {
-        console.log("Fetching label to cache as blob:", url);
-        const response = await fetch(url, { 
-          method: 'GET',
-          headers: { 'Accept': 'application/pdf' },
-          cache: 'force-cache'
-        });
-        
-        if (!response.ok) {
-          console.error(`Failed to fetch label: ${response.status} ${response.statusText}`);
-          throw new Error(`Failed to fetch label: ${response.status}`);
-        }
-        
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        setBlobUrl(blobUrl);
-        console.log("Label cached as blob URL:", blobUrl);
-        
-        // Don't automatically open the modal - let user click the button
-        // setIsLabelModalOpen(true);
-      } catch (error) {
-        console.error("Error caching label:", error);
-        toast.error("Error preparing label for download");
-      }
-    };
-    
-    if (labelUrl || localLabelUrl) {
-      fetchAndCacheLabel();
+    if (labelUrl && labelUrl !== cachedUrl) {
+      setCachedUrl(labelUrl);
     }
-    
-    // Clean up blob URL on unmount
+  }, [labelUrl]);
+
+  // Cleanup object URL on component unmount
+  useEffect(() => {
     return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [labelUrl, localLabelUrl]);
-  
-  if (!labelUrl && !localLabelUrl) {
-    console.log("No label URL available in ShippingLabel component");
-    return (
-      <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md mb-6">
-        <p className="text-yellow-700">No label URL available. Please try generating the label again.</p>
-      </div>
-    );
-  }
-  
-  const handleRefreshLabel = async () => {
-    if (!shipmentId) {
-      toast.error("Missing shipment ID");
-      return;
-    }
+  }, [objectUrl]);
+
+  // Function to retrieve the label
+  const fetchLabel = async () => {
+    if (!shipmentId || !labelUrl) return;
     
-    setIsRefreshing(true);
+    setIsLoading(true);
     
     try {
-      // Use the Supabase edge function to fetch the stored label
-      const { data, error } = await supabase.functions.invoke('get-stored-label', {
-        body: { shipment_id: shipmentId }
+      // First try to get the stored label from Supabase
+      const { data: labelData, error: labelError } = await supabase.functions.invoke('get-stored-label', {
+        body: { shipmentId }
       });
       
-      if (error) {
-        console.error("Error from get-stored-label function:", error);
-        throw new Error('Failed to refresh label: ' + error.message);
+      if (labelError || !labelData?.labelUrl) {
+        throw new Error('Failed to retrieve stored label');
       }
       
-      console.log("Refreshed label data:", data);
-      
-      if (data.labelUrl) {
-        setLocalLabelUrl(data.labelUrl);
-        toast.success("Label refreshed successfully");
-      } else {
-        throw new Error('No label URL found');
-      }
+      setCachedUrl(labelData.labelUrl);
+      toast({ title: "Label refreshed successfully" });
     } catch (error) {
-      console.error('Error refreshing label:', error);
-      toast.error("Failed to refresh label");
+      console.error('Error fetching label:', error);
+      toast({
+        title: "Failed to refresh label", 
+        description: "Using previously generated label instead"
+      });
     } finally {
-      setIsRefreshing(false);
+      setIsLoading(false);
     }
   };
 
-  const handleDirectDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    if (blobUrl) {
-      try {
-        console.log(`Starting direct download with blob URL (${format}):`, blobUrl);
-        
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = `shipping_label_${trackingCode || 'download'}.${format}`;
-        document.body.appendChild(link);
-        link.click();
-        
-        // Clean up
+  const handleDownload = async () => {
+    if (!cachedUrl) return;
+    
+    try {
+      // Create an anchor element and trigger download
+      const a = document.createElement('a');
+      a.href = cachedUrl;
+      a.download = `shipping-label-${trackingCode || shipmentId || 'download'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      toast({ title: "Label download started" });
+    } catch (error) {
+      console.error('Error downloading label:', error);
+      toast({ 
+        title: "Download failed", 
+        description: "Please try again or contact support" 
+      });
+    }
+  };
+
+  const handlePrint = async () => {
+    if (!cachedUrl) return;
+    
+    try {
+      // Open the label in a new window and print it
+      const printWindow = window.open(cachedUrl, '_blank');
+      if (printWindow) {
         setTimeout(() => {
-          document.body.removeChild(link);
-          toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
-        }, 100);
-      } catch (error) {
-        console.error('Direct download error:', error);
-        toast.error("Failed to download directly");
-        tryFallbackDownload(format);
-      }
-    } else {
-      tryFallbackDownload(format);
-    }
-  };
-  
-  const tryFallbackDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    const url = localLabelUrl || labelUrl;
-    if (!url) {
-      toast.error("No label URL available");
-      return;
-    }
-    
-    try {
-      console.log(`Trying fallback download with URL (${format}):`, url);
-      
-      // Create a hidden iframe to download without navigating away
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = url;
-      document.body.appendChild(iframe);
-      
-      // Clean up after a moment
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-        toast.success(`Starting ${format.toUpperCase()} download through fallback method`);
-      }, 1000);
-    } catch (error) {
-      console.error('Fallback download error:', error);
-      toast.error("All download methods failed. Try the \"Open in New Tab\" option");
-    }
-  };
-
-  const handleOpenInNewTab = () => {
-    const urlToOpen = blobUrl || localLabelUrl || labelUrl;
-    if (!urlToOpen) {
-      toast.error("No label URL available");
-      return;
-    }
-    
-    try {
-      console.log("Opening URL in new tab:", urlToOpen);
-      const newWindow = window.open(urlToOpen, '_blank', 'noopener,noreferrer');
-      
-      if (newWindow) {
-        newWindow.focus();
-        toast.success("Label opened in new tab");
+          printWindow.print();
+        }, 1000); // Short delay to ensure PDF is loaded
       } else {
-        throw new Error('Popup blocked or failed to open');
-      }
-    } catch (error) {
-      console.error('Open in new tab error:', error);
-      toast.error("Failed to open label in new tab. Please check your popup blocker settings.");
-    }
-  };
-
-  const handlePrint = () => {
-    setIsPrinting(true);
-    
-    try {
-      const printUrl = blobUrl || localLabelUrl || labelUrl;
-      if (!printUrl) {
-        throw new Error("No label URL available for printing");
-      }
-      
-      // Print using iframe
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.onload = function() {
-        try {
-          setTimeout(() => {
-            iframe.contentWindow?.print();
-            toast.success("Print dialog opened");
-          }, 500);
-        } catch (printError) {
-          console.error("Print error:", printError);
-          toast.error("Could not open print dialog");
-        } finally {
-          setTimeout(() => {
-            document.body.removeChild(iframe);
-            setIsPrinting(false);
-          }, 2000);
-        }
-      };
-      iframe.src = printUrl;
-      document.body.appendChild(iframe);
-    } catch (error) {
-      console.error("Error setting up print:", error);
-      setIsPrinting(false);
-      toast.error("Failed to prepare document for printing");
-    }
-  };
-
-  const handleEmailLabel = async () => {
-    if (!blobUrl && !labelUrl && !localLabelUrl) {
-      toast.error("No label available to email");
-      return;
-    }
-
-    setIsEmailSending(true);
-    try {
-      toast.success("Sending label to your email...");
-      
-      // For now, we'll simulate the email sending
-      // In a real implementation, this would call a backend function
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      toast.success("Label sent to your registered email");
-      
-      // Close the modal after emailing
-      setIsLabelModalOpen(false);
-    } catch (error) {
-      console.error('Email label error:', error);
-      toast.error("Failed to email label");
-    } finally {
-      setIsEmailSending(false);
-    }
-  };
-
-  const handleSaveToAccount = async () => {
-    const url = blobUrl || localLabelUrl || labelUrl;
-    if (!url || !trackingCode) {
-      toast.error("Missing label data or tracking information");
-      return;
-    }
-    
-    setIsSaving(true);
-    try {
-      toast.success("Saving label to your account...");
-      
-      // Save to shipment_records table with updated fields
-      const { error } = await supabase
-        .from('shipment_records')
-        .insert({
-          tracking_code: trackingCode,
-          label_url: url,
-          shipment_id: shipmentId || '',
-          status: 'completed',
-          label_format: 'PDF',
-          label_size: '4x6',
-          is_international: false
+        toast({
+          title: "Popup blocked",
+          description: "Please allow popups to print the label"
         });
-      
-      if (error) {
-        throw new Error(`Failed to save label: ${error.message}`);
       }
-      
-      toast.success("Label saved to your account");
-      
-      // Close the modal after saving
-      setIsLabelModalOpen(false);
     } catch (error) {
-      console.error('Save label error:', error);
-      toast.error("Failed to save label");
-    } finally {
-      setIsSaving(false);
+      console.error('Error printing label:', error);
+      toast({ 
+        title: "Print failed", 
+        description: "Please try again or download the label first" 
+      });
     }
   };
   
+  const handleRefresh = () => {
+    if (onRefresh) {
+      onRefresh();
+    } else {
+      fetchLabel();
+    }
+  };
+  
+  const handleEmailLabel = () => {
+    toast({
+      title: "Email feature coming soon", 
+      description: "Please download the label for now."
+    });
+  };
+
+  // If no label, show nothing
+  if (!labelUrl && !cachedUrl) {
+    return null;
+  }
+
   return (
-    <>
-      <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg shadow-sm border-2 border-green-200">
-        <div className="flex flex-col space-y-5">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-            <div>
-              <h3 className="font-semibold text-green-800 text-xl mb-2">Label Generated Successfully!</h3>
-              <p className="text-sm text-green-700 mb-1">Tracking Number: <span className="font-medium bg-white px-2 py-1 rounded border border-green-200">{trackingCode}</span></p>
-            </div>
-            {shipmentId && (
-              <Button
-                onClick={handleRefreshLabel}
-                variant="outline"
-                size="sm"
-                className="mt-3 sm:mt-0 bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
-                disabled={isRefreshing}
-              >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> 
-                Refresh Label
-              </Button>
+    <Card className="mb-6 border-green-100 bg-gradient-to-r from-green-50 to-emerald-50">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg text-green-800 flex items-center">
+          <Download className="mr-2 h-5 w-5 text-green-600" />
+          Shipping Label Ready
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="p-4 bg-white rounded-md border-2 border-green-200">
+            {cachedUrl && (
+              <div className="mb-4">
+                <AspectRatio ratio={1/1.4} className="bg-white">
+                  <iframe
+                    src={cachedUrl}
+                    className="h-full w-full rounded"
+                    title="Shipping Label"
+                  />
+                </AspectRatio>
+              </div>
             )}
-          </div>
-          
-          <div className="bg-white p-6 rounded-md border border-gray-200 shadow-sm">
-            <h4 className="text-gray-700 font-medium mb-4 text-lg">Your label is ready! How would you like to receive it?</h4>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {trackingCode && (
+              <div className="mb-4 p-3 bg-green-50 rounded-md">
+                <p className="font-semibold text-green-800">Tracking Code:</p>
+                <p className="font-mono text-green-700">{trackingCode}</p>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
               <Button 
-                onClick={() => setIsLabelModalOpen(true)}
-                variant="default" 
-                className="bg-green-600 hover:bg-green-700 text-white h-12"
+                onClick={handleDownload}
+                variant="outline" 
+                className="flex-1 sm:flex-none border-green-300 hover:bg-green-50"
               >
-                <Download className="mr-2 h-5 w-5" /> View & Download Label
+                <Download className="mr-2 h-4 w-4" />
+                Download
               </Button>
               
               <Button 
-                onClick={handleOpenInNewTab}
+                onClick={handlePrint} 
                 variant="outline"
-                className="border-gray-300 hover:bg-gray-50 h-12"
+                className="flex-1 sm:flex-none border-green-300 hover:bg-green-50"
               >
-                <ExternalLink className="mr-2 h-5 w-5" /> Open in New Tab
+                <Printer className="mr-2 h-4 w-4" />
+                Print
+              </Button>
+              
+              <Button 
+                onClick={handleRefresh} 
+                variant="outline"
+                className="flex-1 sm:flex-none border-green-300 hover:bg-green-50"
+                disabled={isLoading}
+              >
+                <RefreshCcw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
               </Button>
               
               <Button 
                 onClick={handleEmailLabel}
                 variant="outline"
-                className="border-gray-300 hover:bg-gray-50 h-12"
-                disabled={isEmailSending}
+                className="flex-1 sm:flex-none border-green-300 hover:bg-green-50"
               >
-                <Mail className="mr-2 h-5 w-5" /> 
-                {isEmailSending ? 'Sending...' : 'Email to My Inbox'}
-              </Button>
-              
-              <Button 
-                onClick={handlePrint}
-                variant="outline"
-                className="border-gray-300 hover:bg-gray-50 h-12"
-                disabled={isPrinting}
-              >
-                <FileText className="mr-2 h-5 w-5" /> 
-                {isPrinting ? 'Opening Print Dialog...' : 'Print Label'}
+                <Mail className="mr-2 h-4 w-4" />
+                Email
               </Button>
             </div>
           </div>
 
-          <div className="text-sm text-center text-green-600">
-            <p>You can always access your labels later in your Order History</p>
+          <div className="text-center">
+            <Button 
+              asChild 
+              variant="default"
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Link href="/dashboard">
+                <ArrowRight className="mr-2 h-4 w-4" />
+                Back to Dashboard
+              </Link>
+            </Button>
           </div>
         </div>
-      </div>
-      
-      <Dialog open={isLabelModalOpen} onOpenChange={setIsLabelModalOpen}>
-        <DialogContent className="bg-white max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Shipping Label</DialogTitle>
-            <DialogDescription>
-              Tracking #: {trackingCode}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <Tabs defaultValue="preview" className="w-full">
-            <TabsList className="grid grid-cols-3 mb-4">
-              <TabsTrigger value="preview">Preview</TabsTrigger>
-              <TabsTrigger value="download">Download</TabsTrigger>
-              <TabsTrigger value="share">Share</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="preview" className="min-h-[400px] flex items-center justify-center border rounded-md">
-              {blobUrl ? (
-                <iframe 
-                  src={blobUrl} 
-                  className="w-full h-[500px]" 
-                  title="Label Preview"
-                  ref={iframeRef}
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full w-full">
-                  <FileText className="h-16 w-16 text-gray-300 mb-4" />
-                  <p className="text-gray-500">Loading preview...</p>
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="download">
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div 
-                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
-                      ${selectedFormat === 'pdf' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
-                    `}
-                    onClick={() => setSelectedFormat('pdf')}
-                  >
-                    <FileText className="h-12 w-12 mx-auto mb-2 text-blue-600" />
-                    <h4 className="font-medium">PDF Format</h4>
-                    <p className="text-xs text-gray-500">Best for printing</p>
-                  </div>
-                  
-                  <div 
-                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
-                      ${selectedFormat === 'png' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
-                    `}
-                    onClick={() => setSelectedFormat('png')}
-                  >
-                    <FileText className="h-12 w-12 mx-auto mb-2 text-green-600" />
-                    <h4 className="font-medium">PNG Format</h4>
-                    <p className="text-xs text-gray-500">Image format</p>
-                  </div>
-                  
-                  <div 
-                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
-                      ${selectedFormat === 'zpl' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
-                    `}
-                    onClick={() => setSelectedFormat('zpl')}
-                  >
-                    <FileText className="h-12 w-12 mx-auto mb-2 text-purple-600" />
-                    <h4 className="font-medium">ZPL Format</h4>
-                    <p className="text-xs text-gray-500">For thermal printers</p>
-                  </div>
-                </div>
-                
-                <Button 
-                  onClick={() => handleDirectDownload(selectedFormat)} 
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700"
-                >
-                  <Download className="mr-2 h-5 w-5" />
-                  Download {selectedFormat.toUpperCase()} File
-                </Button>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="share">
-              <div className="space-y-6">
-                <div className="border rounded-md p-4">
-                  <h4 className="font-medium mb-2">Email Label</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Send this label to your email address for easy access later
-                  </p>
-                  <Button 
-                    onClick={handleEmailLabel}
-                    disabled={isEmailSending}
-                    className="w-full"
-                  >
-                    <Mail className="mr-2 h-4 w-4" />
-                    {isEmailSending ? 'Sending...' : 'Email to My Inbox'}
-                  </Button>
-                </div>
-                
-                <div className="border rounded-md p-4">
-                  <h4 className="font-medium mb-2">Save to Account</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Save this label to your account for easy access later
-                  </p>
-                  <Button 
-                    onClick={handleSaveToAccount}
-                    disabled={isSaving}
-                    className="w-full"
-                  >
-                    <Save className="mr-2 h-4 w-4" />
-                    {isSaving ? 'Saving...' : 'Save to My Labels'}
-                  </Button>
-                </div>
-
-                <div className="border rounded-md p-4">
-                  <h4 className="font-medium mb-2">Print Label</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Print the shipping label directly
-                  </p>
-                  <Button 
-                    onClick={handlePrint}
-                    disabled={isPrinting}
-                    className="w-full"
-                  >
-                    <FileText className="mr-2 h-4 w-4" />
-                    {isPrinting ? 'Opening Print Dialog...' : 'Print Label'}
-                  </Button>
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsLabelModalOpen(false)}>
-              <X className="mr-2 h-4 w-4" /> Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+      </CardContent>
+    </Card>
   );
 };
 

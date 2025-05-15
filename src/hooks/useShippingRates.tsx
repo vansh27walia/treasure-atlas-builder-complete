@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from 'sonner';
@@ -265,7 +264,7 @@ export const useShippingRates = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
   // Function to handle payment process
   const handleProceedToPayment = () => {

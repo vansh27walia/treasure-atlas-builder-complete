@@ -1,30 +1,17 @@
 
 import { toast as sonnerToast } from "sonner";
+import * as React from "react";
 
-type ToastProps = {
-  title?: string;
-  description?: string;
-  action?: React.ReactNode;
-  variant?: "default" | "destructive";
-};
+type ToastProps = React.ComponentPropsWithoutRef<typeof sonnerToast>;
 
 const useToast = () => {
-  const toast = ({ title, description, variant = "default", action }: ToastProps) => {
-    sonnerToast(title || "", {
-      description,
-      action,
-      className: variant === "destructive" ? "bg-red-100" : "",
-    });
+  const toast = (props: ToastProps) => {
+    sonnerToast(props);
   };
 
-  // For compatibility with the Toaster component
-  const toasts: any[] = [];
-
   return {
-    toast,
-    toasts
+    toast: sonnerToast,
   };
 };
 
-// Export the toast function directly
 export { useToast, sonnerToast as toast };
