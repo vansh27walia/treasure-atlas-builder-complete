@@ -1,5 +1,5 @@
 
-import { toast as sonnerToast, type ToastT } from "sonner";
+import { toast as sonnerToast } from "sonner";
 
 export function useToast() {
   return {
@@ -25,7 +25,7 @@ export function useToast() {
         sonnerToast.dismiss();
       }
     },
-    custom: (props: ToastT) => {
+    custom: (props: any) => {
       return sonnerToast(props);
     }
   };

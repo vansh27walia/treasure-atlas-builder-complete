@@ -51,6 +51,10 @@ export interface ShippingOption {
   retailRate?: string;
   shipment_id?: string;
   original_rate?: string;
+  list_rate?: string;
+  retail_rate?: string;
+  est_delivery_days?: number;
+  isPremium?: boolean;
 }
 
 export interface ShippingLabelFormat {
