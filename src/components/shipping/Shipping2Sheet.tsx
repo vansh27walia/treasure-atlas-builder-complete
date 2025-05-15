@@ -1,11 +1,11 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Globe, Upload, Truck, Calculator } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from "sonner";
 import { useShippingRates } from '@/hooks/useShippingRates';
 
 interface Shipping2SheetProps {
@@ -33,17 +33,10 @@ const Shipping2Sheet: React.FC<Shipping2SheetProps> = ({
   const handleLabelGeneration = async () => {
     try {
       await handleCreateLabel();
-      toast({
-        title: "Success",
-        description: "Shipping 2 label created successfully!"
-      });
+      toast.success("Shipping 2 label created successfully!");
     } catch (error) {
       console.error("Error generating Shipping 2 label:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create Shipping 2 label",
-        variant: "destructive"
-      });
+      toast.error("Failed to create Shipping 2 label");
     }
   };
 
