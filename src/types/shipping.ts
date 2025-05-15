@@ -42,12 +42,12 @@ export interface ShippingOption {
   id: string;
   carrier: string;
   service: string;
-  rate: number;
+  rate: string;
   currency: string;
   delivery_days: number;
   estimated_delivery_date?: string;
-  listRate?: number;
-  retailRate?: number;
+  listRate?: string;
+  retailRate?: string;
 }
 
 export interface ShippingLabelFormat {
@@ -68,7 +68,7 @@ export interface BulkShipment {
   recipient: string;
   carrier: string;
   service: string;
-  rate: number;
+  rate: number | string;
   tracking_code?: string;
   trackingCode?: string;
   label_url?: string;

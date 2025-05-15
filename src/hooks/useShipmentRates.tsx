@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
@@ -150,7 +149,10 @@ export const useShipmentRates = (
     // Calculate new total cost
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate?.rate || 0);
+      if (selectedRate) {
+        return sum + parseFloat(selectedRate.rate);
+      }
+      return sum;
     }, 0);
     
     updateResults({
@@ -242,7 +244,10 @@ export const useShipmentRates = (
     // Calculate new total cost
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate?.rate || 0);
+      if (selectedRate) {
+        return sum + parseFloat(selectedRate.rate);
+      }
+      return sum;
     }, 0);
     
     updateResults({
