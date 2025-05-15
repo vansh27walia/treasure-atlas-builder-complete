@@ -41,7 +41,7 @@ export interface ShippingOption {
   id: string;
   carrier: string;
   service: string;
-  rate: string; // Changed from number to string to match API responses
+  rate: string;
   currency: string;
   delivery_days: number;
   delivery_date?: string | null;
@@ -49,11 +49,11 @@ export interface ShippingOption {
   listRate?: string;
   retailRate?: string;
   shipment_id?: string;
-  original_rate?: string; // Explicitly added property to fix the error
+  original_rate?: string;
   list_rate?: string;
   retail_rate?: string;
   est_delivery_days?: number;
-  isPremium?: boolean; // Explicitly added property to fix the error
+  isPremium?: boolean;
 }
 
 export interface ShippingLabelFormat {
@@ -74,7 +74,7 @@ export interface BulkShipment {
   recipient: string;
   carrier: string;
   service: string;
-  rate: string; // Changed from number to string to match API responses
+  rate: string;
   tracking_code?: string;
   trackingCode?: string;
   label_url?: string;

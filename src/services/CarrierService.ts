@@ -1,5 +1,5 @@
-
 import { supabase } from '@/integrations/supabase/client';
+import { ShippingOption } from '@/types/shipping';
 
 export interface AddressData {
   name: string;
@@ -18,20 +18,6 @@ export interface ParcelData {
   width: number;
   height: number;
   weight: number;
-}
-
-export interface ShippingOption {
-  id: string;
-  carrier: string;
-  service: string;
-  rate: string;
-  currency: string;
-  delivery_days: number;
-  delivery_date: string | null;
-  list_rate?: string;
-  retail_rate?: string;
-  est_delivery_days?: number;
-  shipment_id?: string;
 }
 
 export interface ShippingRequestData {

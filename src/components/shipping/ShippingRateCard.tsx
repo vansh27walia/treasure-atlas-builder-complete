@@ -1,24 +1,11 @@
-
 import React from 'react';
 import { Check, Zap, TrendingDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getCarrierLogoUrl } from '@/utils/addressUtils';
+import { ShippingOption } from '@/types/shipping';
 
 interface ShippingRateCardProps {
-  rate: {
-    id: string;
-    carrier: string;
-    service: string;
-    rate: string;
-    currency: string;
-    delivery_days?: number;
-    delivery_date?: string | null;
-    list_rate?: string;
-    retail_rate?: string;
-    est_delivery_days?: number;
-    isPremium?: boolean;
-    original_rate?: string;
-  };
+  rate: ShippingOption;
   isSelected: boolean;
   onSelect: (rateId: string) => void;
   isBestValue: boolean;
