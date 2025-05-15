@@ -78,7 +78,7 @@ const InternationalShippingForm: React.FC<InternationalShippingFormProps> = ({
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Sender Information</h3>
 
-            <Alert variant="outline" className="bg-blue-50 text-blue-800 border-blue-200 mb-4">
+            <Alert className="bg-blue-50 text-blue-800 border-blue-200 mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 This is your pickup address where the package will be collected from.
@@ -231,7 +231,7 @@ const InternationalShippingForm: React.FC<InternationalShippingFormProps> = ({
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Recipient Information</h3>
 
-            <Alert variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 mb-4">
+            <Alert className="bg-amber-50 text-amber-800 border-amber-200 mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 International addresses must be complete and accurate for customs clearance.

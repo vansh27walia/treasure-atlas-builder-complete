@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Globe, Package, ArrowLeft, AlertCircle, Check, Truck } from 'lucide-react';
-import { toast } from '@/components/ui/sonner';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
 import { carrierService } from '@/services/CarrierService';
@@ -14,6 +13,7 @@ import InternationalShippingForm from '@/components/shipping/InternationalShippi
 import CustomsInfoForm from '@/components/shipping/CustomsInfoForm';
 import ShippingRates from '@/components/ShippingRates';
 import { useShippingRates } from '@/hooks/useShippingRates';
+import { useToast } from '@/hooks/use-toast';
 
 const ShippingTooPage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,18 +23,21 @@ const ShippingTooPage: React.FC = () => {
   const [showRates, setShowRates] = useState(false);
   const [formData, setFormData] = useState(null);
   const [customsData, setCustomsData] = useState(null);
+  const { toast } = useToast();
   
   const {
     rates,
     shipmentId,
     labelUrl,
-    trackingCode
+    trackingCode,
+    resetShippingState
   } = useShippingRates();
 
   useEffect(() => {
     // Reset workflow
     setCurrentStep('address');
     setShowRates(false);
+    resetShippingState();
   }, []);
 
   // Effect to update step when label is created
@@ -48,8 +51,8 @@ const ShippingTooPage: React.FC = () => {
     setFormData(data);
     setCurrentStep('package'); // This matches the ShippingStep type in shipping.ts
     toast({
+      title: "Address Saved",
       description: "Address information saved. Please complete customs information next",
-      icon: <Check className="h-4 w-4" />
     });
   };
 
@@ -58,8 +61,8 @@ const ShippingTooPage: React.FC = () => {
     setCurrentStep('rates');
     setShowRates(true);
     toast({
+      title: "Customs Information Saved",
       description: "Customs information saved. Fetching shipping rates...",
-      icon: <Check className="h-4 w-4" />
     });
   };
 
@@ -213,6 +216,7 @@ const ShippingTooPage: React.FC = () => {
                           setShowRates(false);
                           setFormData(null);
                           setCustomsData(null);
+                          resetShippingState();
                         }}
                       >
                         Create Another Label
