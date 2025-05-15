@@ -5,8 +5,6 @@ import OrderSummary from './OrderSummary';
 import SuccessfulShipmentsTable from './SuccessfulShipmentsTable';
 import FailedShipmentsTable from './FailedShipmentsTable';
 import { BulkUploadResult, BulkShipment } from '@/types/shipping';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
@@ -29,24 +27,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 }) => {
   // Check if any shipment is missing a label
   const missingLabels = results.processedShipments.some(s => !s.label_url);
-  const navigate = useNavigate();
-
-  // Function to view individual label
-  const handleViewLabel = (shipment: BulkShipment) => {
-    if (shipment.label_url) {
-      // Navigate to label success page with the label information
-      const params = new URLSearchParams({
-        labelUrl: shipment.label_url,
-        trackingCode: shipment.tracking_code || '',
-        shipmentId: shipment.id
-      });
-      
-      navigate(`/label-success?${params.toString()}`);
-    } else {
-      // Fallback if no label URL
-      onDownloadSingleLabel(shipment.label_url || '');
-    }
-  };
 
   return (
     <div className="bg-green-50 border border-green-200 rounded-md mb-6">
@@ -85,8 +65,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       
       <SuccessfulShipmentsTable 
         shipments={results.processedShipments}
-        onDownloadSingleLabel={onDownloadSingleLabel}
-        onViewLabel={handleViewLabel}  
+        onDownloadSingleLabel={onDownloadSingleLabel} 
       />
       
       <FailedShipmentsTable 

@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CheckCircle, Download, Home, Truck, Printer } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import ShippingLabel from '@/components/shipping/ShippingLabel';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import { Progress } from '@/components/ui/progress';
@@ -34,7 +34,7 @@ const LabelSuccessPage: React.FC = () => {
       console.log("Decoded label URL:", decodeURIComponent(labelUrlParam));
     } else {
       console.error('No label URL provided in the URL parameters');
-      toast("Missing label information");
+      toast.error('Missing label information');
     }
 
     if (trackingCodeParam) {
@@ -46,7 +46,7 @@ const LabelSuccessPage: React.FC = () => {
     }
 
     // Show success toast
-    toast("Your shipping label is ready!");
+    toast.success('Your shipping label is ready!');
     
     // Scroll to top and prevent any unwanted scrolling
     window.scrollTo(0, 0);
@@ -55,9 +55,6 @@ const LabelSuccessPage: React.FC = () => {
     document.dispatchEvent(new CustomEvent('shipping-step-change', { 
       detail: { step: 'complete' }
     }));
-    
-    // Also dispatch a completion event
-    document.dispatchEvent(new Event('shipping-complete'));
     
     // Animate progress bar
     const timer = setTimeout(() => setProgress(100), 100);

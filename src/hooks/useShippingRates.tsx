@@ -1,6 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
 
 interface ShippingRate {
@@ -198,7 +199,7 @@ export const useShippingRates = () => {
     const effectiveShipmentId = shipmentIdParam || shipmentId;
     
     if (!effectiveRateId || !effectiveShipmentId) {
-      toast("Please select a shipping rate first");
+      toast.error("Please select a shipping rate first");
       return;
     }
     
@@ -241,15 +242,12 @@ export const useShippingRates = () => {
       console.log("Label created successfully:", data);
       setLabelUrl(data.labelUrl);
       setTrackingCode(data.trackingCode);
-      toast("Shipping label generated successfully");
+      toast.success("Shipping label generated successfully");
       
       // Update workflow step to complete
       document.dispatchEvent(new CustomEvent('shipping-step-change', { 
         detail: { step: 'complete' }
       }));
-      
-      // Also dispatch a completion event
-      document.dispatchEvent(new Event('shipping-complete'));
       
       // Build the success URL with all needed parameters
       const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`;
@@ -263,7 +261,7 @@ export const useShippingRates = () => {
       
     } catch (error) {
       console.error('Error creating label:', error);
-      toast("Failed to generate shipping label. Please try again.");
+      toast.error("Failed to generate shipping label. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -272,7 +270,7 @@ export const useShippingRates = () => {
   // Function to handle payment process
   const handleProceedToPayment = () => {
     if (!selectedRateId || !shipmentId) {
-      toast("Please select a shipping rate first");
+      toast.error("Please select a shipping rate first");
       return;
     }
     
@@ -294,7 +292,7 @@ export const useShippingRates = () => {
       
     } catch (error) {
       console.error('Error proceeding to payment:', error);
-      toast("Failed to process payment. Please try again.");
+      toast.error("Failed to process payment. Please try again.");
     } finally {
       setIsProcessingPayment(false);
     }

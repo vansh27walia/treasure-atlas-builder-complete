@@ -29,7 +29,6 @@ const BulkUpload: React.FC = () => {
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
-    handleFileChange,
     handleUpload,
     handleProceedToPayment,
     handleCreateLabels,
@@ -43,7 +42,6 @@ const BulkUpload: React.FC = () => {
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
-    handleViewLabel,
     setShowLabelOptions,
     setSearchTerm,
     setSortField,
@@ -94,19 +92,7 @@ const BulkUpload: React.FC = () => {
                 Template
               </Button>
               
-              <Button onClick={() => {
-                // Create a file input element and trigger it
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.csv';
-                input.onchange = (e) => {
-                  const target = e.target as HTMLInputElement;
-                  if (target.files && target.files[0]) {
-                    handleUpload(target.files[0]);
-                  }
-                };
-                input.click();
-              }} className="text-sm">
+              <Button onClick={() => handleUpload} className="text-sm">
                 <UploadCloud className="mr-1 h-4 w-4" />
                 Upload Another File
               </Button>
@@ -183,7 +169,7 @@ const BulkUpload: React.FC = () => {
         <SuccessNotification
           results={results}
           onDownloadAllLabels={handleDownloadAllLabels}
-          onDownloadSingleLabel={handleViewLabel}
+          onDownloadSingleLabel={handleDownloadSingleLabel}
           onProceedToPayment={handleProceedToPayment}
           onCreateLabels={handleCreateLabels}
           isPaying={isPaying}

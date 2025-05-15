@@ -5,10 +5,8 @@ import { useShipmentUpload } from '@/hooks/useShipmentUpload';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
 import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
-import { useNavigate } from 'react-router-dom';
 
 export const useBulkUpload = () => {
-  const navigate = useNavigate();
   const {
     file,
     isUploading,
@@ -85,20 +83,6 @@ export const useBulkUpload = () => {
     }
   }, [uploadStatus, results?.processedShipments]);
 
-  // Function to view individual label
-  const handleViewLabel = (shipment: any) => {
-    if (shipment.label_url) {
-      // Navigate to label success page with the label information
-      const params = new URLSearchParams({
-        labelUrl: shipment.label_url,
-        trackingCode: shipment.tracking_code || '',
-        shipmentId: shipment.id
-      });
-      
-      navigate(`/label-success?${params.toString()}`);
-    }
-  };
-
   return {
     // File upload states and handlers
     file,
@@ -138,7 +122,6 @@ export const useBulkUpload = () => {
     handleDownloadSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,
-    handleViewLabel,
     setShowLabelOptions,
     setDownloadFormat,
     setSearchTerm,
