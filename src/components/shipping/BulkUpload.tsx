@@ -123,7 +123,10 @@ const BulkUpload: React.FC = () => {
                 Template
               </Button>
               
-              <Button onClick={handleUpload} className="text-sm">
+              <Button 
+                onClick={() => handleUpload()} // Modified this line to fix the type error
+                className="text-sm"
+              >
                 <UploadCloud className="mr-1 h-4 w-4" />
                 Upload Another File
               </Button>
