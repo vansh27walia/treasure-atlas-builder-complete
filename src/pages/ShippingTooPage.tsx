@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Package } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext'; // Changed from '@/hooks/useAuth'
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import ShippingRates from '@/components/ShippingRates';
 import { useShippingRates } from '@/hooks/useShippingRates';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 // Import the step components
 import AddressStep from '@/components/shipping/steps/AddressStep';
@@ -51,9 +51,8 @@ const ShippingTooPage: React.FC = () => {
   const handleShippingFormSubmit = (data: any) => {
     setFormData(data);
     setCurrentStep('package');
-    toast.custom({
-      title: "Address Saved",
-      description: "Address information saved. Please complete customs information next",
+    toast.success("Address Saved", {
+      description: "Address information saved. Please complete customs information next"
     });
   };
 
@@ -61,9 +60,8 @@ const ShippingTooPage: React.FC = () => {
     setCustomsData(data);
     setCurrentStep('rates');
     setShowRates(true);
-    toast.custom({
-      title: "Customs Information Saved",
-      description: "Customs information saved. Fetching shipping rates...",
+    toast.success("Customs Information Saved", {
+      description: "Customs information saved. Fetching shipping rates..."
     });
   };
 
