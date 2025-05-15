@@ -10,8 +10,6 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
-import InternationalShippingSheet from '@/components/shipping/InternationalShippingSheet';
-import ShippingToSheet from '@/components/shipping/ShippingToSheet';
 
 const CreateLabelPage: React.FC = () => {
   const location = useLocation();
@@ -20,8 +18,6 @@ const CreateLabelPage: React.FC = () => {
   const tabFromQuery = queryParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
   const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
-  const [isInternationalSheetOpen, setIsInternationalSheetOpen] = useState(false);
-  const [isShippingToSheetOpen, setIsShippingToSheetOpen] = useState(false);
 
   // Update the URL when tab changes
   useEffect(() => {
@@ -69,18 +65,6 @@ const CreateLabelPage: React.FC = () => {
     };
   }, []);
 
-  // Handle international tab click to open sheet instead
-  const handleInternationalTabClick = () => {
-    setIsInternationalSheetOpen(true);
-    return false; // Prevent default tab switching
-  };
-
-  // Handle shipping to tab click to open sheet instead
-  const handleShippingToTabClick = () => {
-    setIsShippingToSheetOpen(true);
-    return false; // Prevent default tab switching
-  };
-
   return (
     <div className="w-full py-6 px-6">
       <div className="max-w-7xl mx-auto mb-6">
@@ -102,7 +86,7 @@ const CreateLabelPage: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <Card className="border border-gray-200 shadow-md bg-white rounded-lg">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 mb-4 bg-blue-50 p-1 rounded-lg">
+            <TabsList className="grid w-full grid-cols-4 mb-4 bg-blue-50 p-1 rounded-lg">
               <TabsTrigger 
                 value="domestic" 
                 className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
@@ -114,24 +98,9 @@ const CreateLabelPage: React.FC = () => {
               <TabsTrigger 
                 value="international" 
                 className="flex items-center gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
-                onClick={() => {
-                  handleInternationalTabClick();
-                  return false; // Prevent default tab switching
-                }}
               >
                 <Globe className="h-4 w-4" />
                 International
-              </TabsTrigger>
-              <TabsTrigger 
-                value="shipping-to" 
-                className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                onClick={() => {
-                  handleShippingToTabClick();
-                  return false; // Prevent default tab switching
-                }}
-              >
-                <Truck className="h-4 w-4" />
-                Shipping To
               </TabsTrigger>
               <TabsTrigger 
                 value="calculator" 
@@ -184,31 +153,6 @@ const CreateLabelPage: React.FC = () => {
                 </div>
               </div>
             </TabsContent>
-
-            <TabsContent value="shipping-to">
-              <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg mb-4 border border-blue-100 shadow-sm">
-                <h2 className="text-lg font-semibold text-blue-800 flex items-center mb-2">
-                  <Truck className="h-5 w-5 mr-2 text-blue-600" />
-                  Shipping To
-                </h2>
-                <p className="text-blue-700 text-sm">Send packages to specific destinations with automated shipping procedures.</p>
-              </div>
-              
-              <div className="flex justify-center items-center py-8 px-4">
-                <div className="text-center max-w-md">
-                  <Truck className="h-12 w-12 mx-auto text-blue-500 mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Shipping To</h3>
-                  <p className="text-gray-600 mb-6 text-sm">
-                    Ship to specific destinations with our shipping service, including automated documentation.
-                  </p>
-                  <Link to="/shipping-to">
-                    <Button className="bg-blue-600 hover:bg-blue-700">
-                      Go to Shipping To
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </TabsContent>
             
             <TabsContent value="calculator">
               <div className="p-4 bg-gradient-to-r from-green-50 to-teal-50 rounded-lg mb-4 border border-green-100 shadow-sm">
@@ -252,18 +196,6 @@ const CreateLabelPage: React.FC = () => {
         {activeTab === 'domestic' && <ShippingRates />}
         {activeTab === 'calculator' && <ShippingRates />}
       </div>
-      
-      {/* International Shipping Sheet */}
-      <InternationalShippingSheet 
-        open={isInternationalSheetOpen}
-        onOpenChange={setIsInternationalSheetOpen}
-      />
-
-      {/* Shipping To Sheet */}
-      <ShippingToSheet 
-        open={isShippingToSheetOpen}
-        onOpenChange={setIsShippingToSheetOpen}
-      />
     </div>
   );
 };
