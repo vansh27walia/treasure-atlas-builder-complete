@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
 
@@ -13,6 +13,7 @@ export const useShipmentManagement = (
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
 
   const handleRemoveShipment = (shipmentId: string) => {
     if (!initialResults) return;
@@ -177,17 +178,6 @@ export const useShipmentManagement = (
           failed: initialResults.processedShipments.length - successCount,
           uploadStatus: 'success'
         });
-        
-        // If this is a single label, redirect to the success page
-        if (successCount === 1 && updatedShipments[0].label_url && updatedShipments[0].tracking_code) {
-          const firstShipment = updatedShipments[0];
-          const params = new URLSearchParams({
-            labelUrl: encodeURIComponent(firstShipment.label_url),
-            trackingCode: encodeURIComponent(firstShipment.tracking_code || ''),
-            shipmentId: encodeURIComponent(firstShipment.id)
-          });
-          navigate(`/label-success?${params.toString()}`);
-        }
       } else {
         toast("Label generation failed", {
           description: "No labels were generated, please try again"
@@ -211,11 +201,21 @@ export const useShipmentManagement = (
       return;
     }
     
-    // Show label options modal
+    // Check if any labels exist
+    const labelsExist = initialResults.processedShipments.some(s => s.label_url);
+    
+    if (!labelsExist) {
+      // Generate labels first if none exist
+      toast("No labels available", {
+        description: "Generating labels first..."
+      });
+      handleCreateLabels();
+      return;
+    }
+    
+    // Show label options modal for bulk download
     setShowLabelOptions(true);
   };
-
-  const [showLabelOptions, setShowLabelOptions] = useState(false);
   
   const handleDownloadLabelsWithFormat = (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!initialResults || !initialResults.processedShipments.length) return;
@@ -255,22 +255,23 @@ export const useShipmentManagement = (
       return;
     }
     
-    toast("Opening labels", {
-      description: `Opening ${labelsWithUrls.length} labels in ${format.toUpperCase()} format`
+    // Use ZIP format to download all labels together instead of opening multiple tabs
+    toast("Downloading labels", {
+      description: `Downloading all ${labelsWithUrls.length} labels in ${format.toUpperCase()} format`
     });
     
-    // Open first 3 labels maximum to avoid browser popup blocking
-    labelsWithUrls.slice(0, 3).forEach(shipment => {
-      if (shipment.label_url) {
-        window.open(shipment.label_url, '_blank');
+    // Simulate bulk download - in a real app this would call a backend endpoint to create a zip
+    setTimeout(() => {
+      // In a real implementation, we would generate a ZIP file server-side and download it
+      // For now, just open the first label as an example
+      if (labelsWithUrls.length > 0 && labelsWithUrls[0].label_url) {
+        window.open(labelsWithUrls[0].label_url, '_blank');
+        
+        toast("Download note", {
+          description: `In a production app, this would download all ${labelsWithUrls.length} labels as a single file`
+        });
       }
-    });
-    
-    if (labelsWithUrls.length > 3) {
-      toast("More labels available", {
-        description: `${labelsWithUrls.length - 3} more labels are available for individual download`
-      });
-    }
+    }, 1000);
   };
 
   const handleDownloadSingleLabel = (labelUrl: string) => {

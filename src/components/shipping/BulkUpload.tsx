@@ -61,9 +61,7 @@ const BulkUpload: React.FC = () => {
 
   // Handle "Upload Another File" button click by resetting to the upload form state
   const handleUploadAnotherFile = () => {
-    // Reset to the upload form state - this will show the BulkUploadForm again
     if (uploadStatus === 'editing' || uploadStatus === 'success') {
-      // No need to pass a file here as we're just resetting the UI state
       setUploadStatus('idle');
     }
   };
