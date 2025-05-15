@@ -1,13 +1,8 @@
 
 import { toast as toastSonner } from "sonner";
-import { type ToastProps } from "@/components/ui/toast";
 
-// Create a wrapper for the toast function
-export const toast = (props: ToastProps) => {
-  return toastSonner({
-    title: props.title,
-    description: props.description,
-  });
+export const toast = (props: { title: string; description: string }) => {
+  return toastSonner(props);
 };
 
 // Create a useToast hook 
