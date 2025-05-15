@@ -19,7 +19,7 @@ const ShippingTooPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('boxShipping');
-  const [currentStep, setCurrentStep] = useState<'address' | 'customs' | 'rates' | 'complete'>('address');
+  const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
   const [showRates, setShowRates] = useState(false);
   const [formData, setFormData] = useState(null);
   const [customsData, setCustomsData] = useState(null);
@@ -28,14 +28,10 @@ const ShippingTooPage: React.FC = () => {
     rates,
     shipmentId,
     labelUrl,
-    trackingCode,
-    resetShippingState
+    trackingCode
   } = useShippingRates();
 
   useEffect(() => {
-    // Reset shipping state when component mounts
-    resetShippingState();
-    
     // Reset workflow
     setCurrentStep('address');
     setShowRates(false);
@@ -50,10 +46,9 @@ const ShippingTooPage: React.FC = () => {
 
   const handleShippingFormSubmit = (data: any) => {
     setFormData(data);
-    setCurrentStep('customs');
+    setCurrentStep('package'); // This matches the ShippingStep type in shipping.ts
     toast({
-      title: "Address information saved",
-      description: "Please complete customs information next",
+      description: "Address information saved. Please complete customs information next",
       icon: <Check className="h-4 w-4" />
     });
   };
@@ -63,8 +58,7 @@ const ShippingTooPage: React.FC = () => {
     setCurrentStep('rates');
     setShowRates(true);
     toast({
-      title: "Customs information saved",
-      description: "Fetching shipping rates...",
+      description: "Customs information saved. Fetching shipping rates...",
       icon: <Check className="h-4 w-4" />
     });
   };
@@ -75,7 +69,7 @@ const ShippingTooPage: React.FC = () => {
   };
 
   const handleBackToCustomsForm = () => {
-    setCurrentStep('customs');
+    setCurrentStep('package');
     setShowRates(false);
   };
 
@@ -94,12 +88,6 @@ const ShippingTooPage: React.FC = () => {
         <div className="sticky top-0 z-20 bg-white py-4 border-b mb-6">
           <ShippingWorkflow 
             currentStep={currentStep}
-            steps={[
-              { id: 'address', label: 'Address Information', status: currentStep === 'address' ? 'active' : (currentStep === 'customs' || currentStep === 'rates' || currentStep === 'complete' ? 'completed' : 'upcoming') },
-              { id: 'customs', label: 'Customs Information', status: currentStep === 'customs' ? 'active' : (currentStep === 'rates' || currentStep === 'complete' ? 'completed' : 'upcoming') },
-              { id: 'rates', label: 'Shipping Rates', status: currentStep === 'rates' ? 'active' : (currentStep === 'complete' ? 'completed' : 'upcoming') },
-              { id: 'complete', label: 'Completed', status: currentStep === 'complete' ? 'active' : 'upcoming' }
-            ]}
           />
         </div>
         
@@ -137,7 +125,7 @@ const ShippingTooPage: React.FC = () => {
                 </div>
               )}
               
-              {currentStep === 'customs' && (
+              {currentStep === 'package' && (
                 <div>
                   <div className="flex justify-between items-center mb-6">
                     <Button 
@@ -221,7 +209,6 @@ const ShippingTooPage: React.FC = () => {
                         variant="outline" 
                         className="flex-1"
                         onClick={() => {
-                          resetShippingState();
                           setCurrentStep('address');
                           setShowRates(false);
                           setFormData(null);

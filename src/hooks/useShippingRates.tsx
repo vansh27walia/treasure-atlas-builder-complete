@@ -42,6 +42,18 @@ export const useShippingRates = () => {
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
 
+  // Reset shipping state function
+  const resetShippingState = () => {
+    setRates([]);
+    setFilteredRates([]);
+    setShipmentId(null);
+    setSelectedRateId(null);
+    setLabelUrl(null);
+    setTrackingCode(null);
+    setActiveCarrierFilter('all');
+    setUniqueCarriers([]);
+  };
+
   // Process and enhance rates with original prices at 85-90% higher than actual rate
   const processRates = (incomingRates: ShippingRate[]) => {
     return incomingRates.map(rate => {
@@ -347,6 +359,7 @@ export const useShippingRates = () => {
     handleSelectRate,
     handleCreateLabel,
     handleProceedToPayment,
-    handleFilterByCarrier
+    handleFilterByCarrier,
+    resetShippingState
   };
 };

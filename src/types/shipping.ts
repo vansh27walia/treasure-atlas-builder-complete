@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
 
-export type ShippingStep = 'address' | 'package' | 'rates' | 'label' | 'complete';
+export type ShippingStep = 'address' | 'package' | 'customs' | 'rates' | 'label' | 'complete';
 
 export type ShippingWorkflowStep = {
   id: ShippingStep;
