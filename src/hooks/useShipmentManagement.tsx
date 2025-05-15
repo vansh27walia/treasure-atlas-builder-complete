@@ -46,15 +46,15 @@ export const useShipmentManagement = (
     const totalCost = updatedShipments.reduce((sum, shipment) => sum + (shipment.rate || 0), 0);
     
     // Update the failed shipments - Convert BulkShipment to BulkShipmentError format
+    const removedShipment = initialResults.processedShipments.find(s => s.id === shipmentId);
+    
     const failedShipments: BulkShipmentError[] = [
       ...initialResults.failedShipments,
-      ...initialResults.processedShipments
-        .filter(shipment => shipment.id === shipmentId)
-        .map(shipment => ({
-          row: shipment.row,
-          error: 'Removed by user',
-          details: JSON.stringify(shipment.details) // Convert the details object to string
-        }))
+      ...(removedShipment ? [{
+        row: removedShipment.row,
+        error: 'Removed by user',
+        details: removedShipment.details
+      }] : [])
     ];
     
     // Update the results
@@ -128,6 +128,7 @@ export const useShipmentManagement = (
       
       if (shipmentsToLabel.length === 0) {
         toast("All labels have already been generated");
+        setIsCreatingLabels(false);
         return;
       }
       
@@ -183,6 +184,14 @@ export const useShipmentManagement = (
       });
       
       toast("Labels created successfully");
+      
+      // Navigate to label success page if only one label was created
+      if (updatedShipments.filter(s => s.label_url).length === 1) {
+        const shipment = updatedShipments.find(s => s.label_url);
+        if (shipment) {
+          navigate(`/label-success?labelUrl=${encodeURIComponent(shipment.label_url || '')}&trackingCode=${encodeURIComponent(shipment.tracking_code || '')}&shipmentId=${encodeURIComponent(shipment.id)}`);
+        }
+      }
       
     } catch (error) {
       console.error('Error creating labels:', error);

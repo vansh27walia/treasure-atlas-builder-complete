@@ -56,6 +56,9 @@ const LabelSuccessPage: React.FC = () => {
       detail: { step: 'complete' }
     }));
     
+    // Also dispatch a completion event
+    document.dispatchEvent(new Event('shipping-complete'));
+    
     // Animate progress bar
     const timer = setTimeout(() => setProgress(100), 100);
     return () => clearTimeout(timer);

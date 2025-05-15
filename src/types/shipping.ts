@@ -103,7 +103,7 @@ export interface BulkShipment {
 export interface BulkShipmentError {
   row: number;
   error: string;
-  details: string;  // Changed from type to a string to store stringified details
+  details: any;  // Changed from string to any type to be more flexible
 }
 
 export interface BulkUploadResult {

@@ -58,10 +58,18 @@ const CreateLabelPage: React.FC = () => {
     
     document.addEventListener('rate-selected', handleRateSelected);
     
+    // Custom event listener for when shipping is complete (label generated)
+    const handleShippingComplete = () => {
+      setCurrentStep('complete');
+    };
+    
+    document.addEventListener('shipping-complete', handleShippingComplete);
+    
     return () => {
       document.removeEventListener('shipping-step-change', handleStepChange as EventListener);
       document.removeEventListener('shipping-form-completed', handleFormCompleted);
       document.removeEventListener('rate-selected', handleRateSelected);
+      document.removeEventListener('shipping-complete', handleShippingComplete);
     };
   }, []);
 

@@ -248,6 +248,9 @@ export const useShippingRates = () => {
         detail: { step: 'complete' }
       }));
       
+      // Also dispatch a completion event
+      document.dispatchEvent(new Event('shipping-complete'));
+      
       // Build the success URL with all needed parameters
       const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`;
       console.log("Navigating to:", labelSuccessUrl);
