@@ -1,7 +1,8 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { carrierService, ShippingOption } from '@/services/CarrierService';
+import { carrierService } from '@/services/CarrierService';
+import { ShippingOption } from '@/types/shipping';
 import { useShippingContext } from '@/contexts/ShippingContext';
 
 export const useShippingRates = () => {
