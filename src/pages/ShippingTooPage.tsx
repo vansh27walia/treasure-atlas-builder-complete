@@ -1,200 +1,253 @@
 
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import ShippingRates from '@/components/ShippingRates';
-import RateCalculator from '@/components/shipping/RateCalculator';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
-import { Package, Globe, Upload, Truck, Calculator } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
+import { Globe, Package, ArrowLeft, AlertCircle, Check, Truck } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { useAuth } from '@/hooks/useAuth';
+import { carrierService } from '@/services/CarrierService';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
+import InternationalShippingForm from '@/components/shipping/InternationalShippingForm';
+import CustomsInfoForm from '@/components/shipping/CustomsInfoForm';
+import ShippingRates from '@/components/ShippingRates';
+import { useShippingRates } from '@/hooks/useShippingRates';
 
 const ShippingTooPage: React.FC = () => {
-  const location = useLocation();
   const navigate = useNavigate();
-  const queryParams = new URLSearchParams(location.search);
-  const tabFromQuery = queryParams.get('tab');
-  const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
-  const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
-
-  // Update the URL when tab changes
-  useEffect(() => {
-    if (activeTab) {
-      queryParams.set('tab', activeTab);
-      navigate(`${location.pathname}?${queryParams.toString()}`, { replace: true });
-    }
-  }, [activeTab, location.pathname, navigate]);
-
-  // Handle tab change from URL
-  useEffect(() => {
-    if (tabFromQuery && tabFromQuery !== activeTab) {
-      setActiveTab(tabFromQuery);
-    }
-  }, [tabFromQuery]);
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<string>('boxShipping');
+  const [currentStep, setCurrentStep] = useState<'address' | 'customs' | 'rates' | 'complete'>('address');
+  const [showRates, setShowRates] = useState(false);
+  const [formData, setFormData] = useState(null);
+  const [customsData, setCustomsData] = useState(null);
   
-  // Listen for custom events to update workflow step
+  const {
+    rates,
+    shipmentId,
+    labelUrl,
+    trackingCode,
+    resetShippingState
+  } = useShippingRates();
+
   useEffect(() => {
-    const handleStepChange = (event: CustomEvent<{step: 'address' | 'package' | 'rates' | 'label' | 'complete'}>) => {
-      if (event.detail && event.detail.step) {
-        setCurrentStep(event.detail.step);
-      }
-    };
+    // Reset shipping state when component mounts
+    resetShippingState();
     
-    document.addEventListener('shipping-step-change', handleStepChange as EventListener);
-    
-    // Custom event listener for when shipping form is completed
-    const handleFormCompleted = () => {
-      setCurrentStep('rates');
-    };
-    
-    document.addEventListener('shipping-form-completed', handleFormCompleted);
-    
-    // Custom event listener for when a rate is selected
-    const handleRateSelected = () => {
-      setCurrentStep('label');
-    };
-    
-    document.addEventListener('rate-selected', handleRateSelected);
-    
-    return () => {
-      document.removeEventListener('shipping-step-change', handleStepChange as EventListener);
-      document.removeEventListener('shipping-form-completed', handleFormCompleted);
-      document.removeEventListener('rate-selected', handleRateSelected);
-    };
+    // Reset workflow
+    setCurrentStep('address');
+    setShowRates(false);
   }, []);
 
+  // Effect to update step when label is created
+  useEffect(() => {
+    if (labelUrl) {
+      setCurrentStep('complete');
+    }
+  }, [labelUrl]);
+
+  const handleShippingFormSubmit = (data: any) => {
+    setFormData(data);
+    setCurrentStep('customs');
+    toast({
+      title: "Address information saved",
+      description: "Please complete customs information next",
+      icon: <Check className="h-4 w-4" />
+    });
+  };
+
+  const handleCustomsFormSubmit = (data: any) => {
+    setCustomsData(data);
+    setCurrentStep('rates');
+    setShowRates(true);
+    toast({
+      title: "Customs information saved",
+      description: "Fetching shipping rates...",
+      icon: <Check className="h-4 w-4" />
+    });
+  };
+
+  const handleBackToEditForm = () => {
+    setCurrentStep('address');
+    setShowRates(false);
+  };
+
+  const handleBackToCustomsForm = () => {
+    setCurrentStep('customs');
+    setShowRates(false);
+  };
+
   return (
-    <div className="w-full py-6 px-6">
-      <div className="max-w-7xl mx-auto mb-6">
-        <div className="flex justify-between items-center mb-4">
+    <div className="w-full py-6 px-4 md:px-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-6">
           <h1 className="text-2xl font-bold text-blue-800 flex items-center">
             <Package className="mr-3 h-7 w-7 text-blue-600" />
-            Shipping Too
+            Shipping Too - Box Shipping
           </h1>
+          <p className="text-gray-600">Ship boxes internationally with automatic customs forms generation.</p>
         </div>
-      </div>
-      
-      {/* Floating workflow steps */}
-      <div className="sticky top-0 z-20 bg-white py-4 shadow-sm">
-        <div className="max-w-7xl mx-auto">
-          <ShippingWorkflow currentStep={currentStep} />
+        
+        {/* Workflow steps */}
+        <div className="sticky top-0 z-20 bg-white py-4 border-b mb-6">
+          <ShippingWorkflow 
+            currentStep={currentStep}
+            steps={[
+              { id: 'address', label: 'Address Information', status: currentStep === 'address' ? 'active' : (currentStep === 'customs' || currentStep === 'rates' || currentStep === 'complete' ? 'completed' : 'upcoming') },
+              { id: 'customs', label: 'Customs Information', status: currentStep === 'customs' ? 'active' : (currentStep === 'rates' || currentStep === 'complete' ? 'completed' : 'upcoming') },
+              { id: 'rates', label: 'Shipping Rates', status: currentStep === 'rates' ? 'active' : (currentStep === 'complete' ? 'completed' : 'upcoming') },
+              { id: 'complete', label: 'Completed', status: currentStep === 'complete' ? 'active' : 'upcoming' }
+            ]}
+          />
         </div>
-      </div>
-      
-      <div className="max-w-7xl mx-auto">
-        <Card className="border border-gray-200 shadow-md bg-white rounded-lg">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-4 bg-blue-50 p-1 rounded-lg">
-              <TabsTrigger 
-                value="domestic" 
-                className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                onClick={() => setCurrentStep('address')}
-              >
-                <Package className="h-4 w-4" />
-                Domestic
-              </TabsTrigger>
-              <TabsTrigger 
-                value="international" 
-                className="flex items-center gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
-              >
-                <Globe className="h-4 w-4" />
-                International
-              </TabsTrigger>
-              <TabsTrigger 
-                value="calculator" 
-                className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-              >
-                <Calculator className="h-4 w-4" />
-                Rate Calculator
-              </TabsTrigger>
-              <TabsTrigger 
-                value="bulk" 
-                className="flex items-center gap-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white"
-              >
-                <Upload className="h-4 w-4" />
-                Bulk Shipping
+        
+        <Card className="mb-8 border border-gray-200 shadow-md">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="w-full bg-muted grid grid-cols-1">
+              <TabsTrigger value="boxShipping" className="flex items-center">
+                <Package className="h-4 w-4 mr-2" />
+                Box Shipping
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="domestic">
-              <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-4 border border-blue-100 shadow-sm">
-                <h2 className="text-lg font-semibold text-blue-800 flex items-center mb-2">
-                  <Truck className="h-5 w-5 mr-2 text-blue-600" />
-                  Domestic Shipping
-                </h2>
-                <p className="text-blue-700 text-sm">Ship packages within the country with our various carrier options.</p>
-              </div>
-              <EnhancedShippingForm />
-            </TabsContent>
-            
-            <TabsContent value="international">
-              <div className="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg mb-4 border border-indigo-100 shadow-sm">
-                <h2 className="text-lg font-semibold text-indigo-800 flex items-center mb-2">
-                  <Globe className="h-5 w-5 mr-2 text-indigo-600" />
-                  International Shipping
-                </h2>
-                <p className="text-indigo-700 text-sm">Send packages worldwide with customs forms automatically generated.</p>
-              </div>
-              
-              <div className="flex justify-center items-center py-8 px-4">
-                <div className="text-center max-w-md">
-                  <Globe className="h-12 w-12 mx-auto text-indigo-500 mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">International Shipping</h3>
-                  <p className="text-gray-600 mb-6 text-sm">
-                    Ship to over 200+ countries with our international shipping service, including automated customs documentation.
-                  </p>
-                  <Link to="/international">
-                    <Button className="bg-indigo-600 hover:bg-indigo-700">
-                      Go to International Shipping
-                    </Button>
-                  </Link>
+            <TabsContent value="boxShipping" className="p-4">
+              {currentStep === 'address' && (
+                <div>
+                  <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-6 border border-blue-100">
+                    <h2 className="text-lg font-semibold text-blue-800 flex items-center mb-2">
+                      <Globe className="h-5 w-5 mr-2 text-blue-600" />
+                      Address Information
+                    </h2>
+                    <p className="text-blue-700 text-sm">
+                      Enter the shipping details for your international package.
+                    </p>
+                  </div>
+                  
+                  <Alert className="mb-6 bg-amber-50 border-amber-200">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <AlertTitle className="text-amber-800">Important</AlertTitle>
+                    <AlertDescription className="text-amber-700">
+                      International shipments require complete and accurate address information. Make sure to provide the correct postal code and phone number.
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <InternationalShippingForm onSubmit={handleShippingFormSubmit} initialData={formData} />
                 </div>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="calculator">
-              <div className="p-4 bg-gradient-to-r from-green-50 to-teal-50 rounded-lg mb-4 border border-green-100 shadow-sm">
-                <h2 className="text-lg font-semibold text-green-800 flex items-center mb-2">
-                  <Calculator className="h-5 w-5 mr-2 text-green-600" />
-                  Shipping Rate Calculator
-                </h2>
-                <p className="text-green-700 text-sm">Calculate shipping rates for different carriers without creating a shipment.</p>
-              </div>
+              )}
               
-              <RateCalculator />
-            </TabsContent>
-            
-            <TabsContent value="bulk">
-              <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg mb-4 border border-amber-100 shadow-sm">
-                <h2 className="text-lg font-semibold text-amber-800 flex items-center mb-2">
-                  <Upload className="h-5 w-5 mr-2 text-amber-600" />
-                  Bulk Shipping
-                </h2>
-                <p className="text-amber-700 text-sm">Upload CSV files to process multiple shipments at once.</p>
-              </div>
-              
-              <div className="flex justify-center items-center py-8 px-4">
-                <div className="text-center max-w-md">
-                  <Upload className="h-12 w-12 mx-auto text-amber-500 mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Bulk Upload Shipping</h3>
-                  <p className="text-gray-600 mb-6 text-sm">
-                    Process multiple shipments at once by uploading a CSV file with all your shipping details.
-                  </p>
-                  <Link to="/bulk-upload">
-                    <Button className="bg-amber-600 hover:bg-amber-700">
-                      Go to Bulk Upload
+              {currentStep === 'customs' && (
+                <div>
+                  <div className="flex justify-between items-center mb-6">
+                    <Button 
+                      variant="outline"
+                      onClick={handleBackToEditForm}
+                      className="flex items-center"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back to Address
                     </Button>
-                  </Link>
+                    <h2 className="text-lg font-semibold text-blue-800">Customs Information</h2>
+                  </div>
+                  
+                  <Alert className="mb-6 bg-amber-50 border-amber-200">
+                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                    <AlertTitle className="text-amber-800">Customs Declaration Required</AlertTitle>
+                    <AlertDescription className="text-amber-700">
+                      International shipments require customs declaration. Provide accurate item descriptions, values, and country of origin.
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <CustomsInfoForm onSubmit={handleCustomsFormSubmit} initialData={customsData} />
                 </div>
-              </div>
+              )}
+              
+              {currentStep === 'rates' && (
+                <div>
+                  <div className="flex justify-between items-center mb-6">
+                    <Button 
+                      variant="outline"
+                      onClick={handleBackToCustomsForm}
+                      className="flex items-center"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back to Customs
+                    </Button>
+                    <h2 className="text-lg font-semibold text-blue-800 flex items-center">
+                      <Truck className="mr-2 h-5 w-5" />
+                      Select Shipping Rate
+                    </h2>
+                  </div>
+                  
+                  <Alert className="mb-6 bg-blue-50 border-blue-200">
+                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                    <AlertTitle className="text-blue-800">International Rates</AlertTitle>
+                    <AlertDescription className="text-blue-700">
+                      Compare rates from multiple carriers for your international shipment. Transit times are estimated and may vary.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+              
+              {currentStep === 'complete' && labelUrl && (
+                <div className="text-center p-6">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
+                    <Check className="h-8 w-8 text-green-600" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Shipping Label Created!</h2>
+                  <p className="text-gray-600 mb-6">
+                    Your international shipping label has been successfully created. You can download it below.
+                  </p>
+                  
+                  <div className="flex flex-col space-y-4">
+                    <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <h3 className="font-medium text-gray-800 mb-1">Tracking Information</h3>
+                      <p className="text-gray-600 mb-2">Tracking number: <span className="font-mono">{trackingCode}</span></p>
+                      
+                      <Button 
+                        onClick={() => {
+                          // Open label in new window
+                          window.open(labelUrl, '_blank');
+                        }}
+                        className="w-full mt-2"
+                      >
+                        Download Shipping Label
+                      </Button>
+                    </div>
+                    
+                    <div className="flex space-x-4">
+                      <Button 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => {
+                          resetShippingState();
+                          setCurrentStep('address');
+                          setShowRates(false);
+                          setFormData(null);
+                          setCustomsData(null);
+                        }}
+                      >
+                        Create Another Label
+                      </Button>
+                      
+                      <Button 
+                        className="flex-1"
+                        onClick={() => navigate('/tracking')}
+                      >
+                        Track Shipment
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </Card>
-
-        {activeTab === 'domestic' && <ShippingRates />}
-        {activeTab === 'calculator' && <ShippingRates />}
+        
+        {showRates && (
+          <ShippingRates />
+        )}
       </div>
     </div>
   );
