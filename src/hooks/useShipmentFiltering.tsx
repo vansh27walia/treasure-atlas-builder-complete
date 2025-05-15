@@ -22,6 +22,7 @@ export const useShipmentFiltering = (
           shipment.details.name,
           shipment.details.company || '',
           shipment.details.street1,
+          shipment.details.street2 || '',
           shipment.details.city,
           shipment.details.state,
           shipment.details.zip,
@@ -52,11 +53,14 @@ export const useShipmentFiltering = (
             : b.carrier.localeCompare(a.carrier);
         }
         
-        // Sort by rate
-        const rateA = a.availableRates?.find(rate => rate.id === a.selectedRateId)?.rate || 0;
-        const rateB = b.availableRates?.find(rate => rate.id === b.selectedRateId)?.rate || 0;
+        // Sort by rate - Convert string rates to numbers before comparing
+        const rateA = a.availableRates?.find(rate => rate.id === a.selectedRateId)?.rate;
+        const rateB = b.availableRates?.find(rate => rate.id === b.selectedRateId)?.rate;
         
-        return sortDirection === 'asc' ? rateA - rateB : rateB - rateA;
+        const numericRateA = typeof rateA === 'string' ? parseFloat(rateA) : (rateA || 0);
+        const numericRateB = typeof rateB === 'string' ? parseFloat(rateB) : (rateB || 0);
+        
+        return sortDirection === 'asc' ? numericRateA - numericRateB : numericRateB - numericRateA;
       });
   }, [results, searchTerm, sortField, sortDirection, selectedCarrierFilter]);
 
