@@ -51,11 +51,21 @@ const BulkUpload: React.FC = () => {
     setSearchTerm,
     setSortField,
     setSortDirection,
-    setSelectedCarrierFilter
+    setSelectedCarrierFilter,
+    file
   } = useBulkUpload();
 
   // Get selected shipment data for the ShippingLabel component
   const selectedShipmentData = getSelectedShipmentData();
+
+  // Handle "Upload Another File" button click by resetting to the upload form state
+  const handleUploadAnotherFile = () => {
+    // Reset to the upload form state - this will show the BulkUploadForm again
+    if (uploadStatus === 'editing' || uploadStatus === 'success') {
+      // No need to pass a file here as we're just resetting the UI state
+      setUploadStatus('idle');
+    }
+  };
 
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
@@ -124,7 +134,7 @@ const BulkUpload: React.FC = () => {
               </Button>
               
               <Button 
-                onClick={() => handleUpload()} // Modified this line to fix the type error
+                onClick={handleUploadAnotherFile}
                 className="text-sm"
               >
                 <UploadCloud className="mr-1 h-4 w-4" />
