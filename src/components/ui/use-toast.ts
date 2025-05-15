@@ -1,7 +1,6 @@
 
-import { useToast as useShadcnToast } from "@/hooks/use-toast";
-import { toast as sonnerToast } from "@/components/ui/sonner";
+import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
-// Re-export both toast implementations
-export const useToast = useShadcnToast;
-export const toast = sonnerToast;
+// Re-export both toast utilities
+export { useToast, toast };

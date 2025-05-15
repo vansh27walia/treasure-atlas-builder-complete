@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
 
@@ -13,7 +13,6 @@ export const useShipmentManagement = (
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
-  const [showLabelOptions, setShowLabelOptions] = useState(false);
 
   const handleRemoveShipment = (shipmentId: string) => {
     if (!initialResults) return;
@@ -35,7 +34,9 @@ export const useShipmentManagement = (
       totalCost
     });
     
-    toast("The shipment has been removed from your list");
+    toast("Shipment removed", {
+      description: "The shipment has been removed from your list"
+    });
   };
 
   const handleEditShipment = (shipmentId: string, details: BulkShipment['details']) => {
@@ -59,12 +60,16 @@ export const useShipmentManagement = (
       processedShipments: updatedShipments
     });
     
-    toast("The shipment details have been updated");
+    toast("Shipment updated", {
+      description: "The shipment details have been updated"
+    });
   };
   
   const handleProceedToPayment = async () => {
     if (!initialResults) {
-      toast("No shipments to process");
+      toast("Error", {
+        description: "No shipments to process"
+      });
       return;
     }
     
@@ -95,7 +100,9 @@ export const useShipmentManagement = (
       window.location.href = data.url;
     } catch (error) {
       console.error('Payment error:', error);
-      toast("Failed to process payment");
+      toast("Payment failed", {
+        description: error instanceof Error ? error.message : "Failed to process payment"
+      });
     } finally {
       setIsPaying(false);
     }
@@ -103,7 +110,9 @@ export const useShipmentManagement = (
 
   const handleCreateLabels = async () => {
     if (!initialResults || initialResults.processedShipments.length === 0) {
-      toast("No shipments to process");
+      toast("Error", {
+        description: "No shipments to process"
+      });
       return;
     }
     
@@ -155,7 +164,9 @@ export const useShipmentManagement = (
       });
       
       if (successCount > 0) {
-        toast(`Generated ${successCount} shipping labels`);
+        toast("Label generation complete", {
+          description: `Generated ${successCount} shipping labels`
+        });
         
         // Set status to success for the BulkUpload component to show success view
         updateResults({
@@ -163,15 +174,21 @@ export const useShipmentManagement = (
           processedShipments: updatedShipments,
           totalCost: initialResults.totalCost,
           successful: successCount,
-          failed: initialResults.processedShipments.length - successCount,
-          uploadStatus: 'success'
+          failed: initialResults.processedShipments.length - successCount
         });
+        
+        // Update upload status in parent component
+        setUploadStatus('success');
       } else {
-        toast("No labels were generated, please try again");
+        toast("Label generation failed", {
+          description: "No labels were generated, please try again"
+        });
       }
     } catch (error) {
       console.error('Error creating labels:', error);
-      toast(error instanceof Error ? error.message : "Failed to generate labels");
+      toast("Label generation failed", {
+        description: error instanceof Error ? error.message : "Failed to generate labels"
+      });
     } finally {
       setIsCreatingLabels(false);
     }
@@ -179,13 +196,17 @@ export const useShipmentManagement = (
 
   const handleDownloadAllLabels = () => {
     if (!initialResults || !initialResults.processedShipments.length) {
-      toast("No labels available to download");
+      toast("No labels", {
+        description: "No labels available to download"
+      });
       return;
     }
     
     // Show label options modal
     setShowLabelOptions(true);
   };
+
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
   
   const handleDownloadLabelsWithFormat = (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!initialResults || !initialResults.processedShipments.length) return;
@@ -194,11 +215,15 @@ export const useShipmentManagement = (
     
     if (format === 'zip') {
       // Handle ZIP download - in a real app this would call a backend endpoint
-      toast("Creating ZIP archive with " + initialResults.processedShipments.length + " labels");
+      toast("Preparing ZIP file", {
+        description: `Creating ZIP archive with ${initialResults.processedShipments.length} labels`
+      });
       
       // Simulate ZIP download for now
       setTimeout(() => {
-        toast("Your labels ZIP file is ready to download");
+        toast("Download ready", {
+          description: "Your labels ZIP file is ready to download"
+        });
         
         // Open first label as example
         const firstShipment = initialResults.processedShipments.find(s => s.label_url);
@@ -221,7 +246,9 @@ export const useShipmentManagement = (
       return;
     }
     
-    toast(`Opening ${labelsWithUrls.length} labels in ${format.toUpperCase()} format`);
+    toast("Opening labels", {
+      description: `Opening ${labelsWithUrls.length} labels in ${format.toUpperCase()} format`
+    });
     
     // Open first 3 labels maximum to avoid browser popup blocking
     labelsWithUrls.slice(0, 3).forEach(shipment => {
@@ -231,7 +258,9 @@ export const useShipmentManagement = (
     });
     
     if (labelsWithUrls.length > 3) {
-      toast(`${labelsWithUrls.length - 3} more labels are available for individual download`);
+      toast("More labels available", {
+        description: `${labelsWithUrls.length - 3} more labels are available for individual download`
+      });
     }
   };
 
@@ -240,7 +269,9 @@ export const useShipmentManagement = (
   };
   
   const handleEmailLabels = () => {
-    toast("Email labels feature will be implemented soon");
+    toast("Email feature", {
+      description: "Email labels feature will be implemented soon"
+    });
   };
   
   // This function is needed for the updated component but doesn't exist in the original hook

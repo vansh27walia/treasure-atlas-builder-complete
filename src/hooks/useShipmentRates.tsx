@@ -1,5 +1,6 @@
+
 import { useState } from 'react';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
 import { CARRIER_OPTIONS } from '@/types/shipping';
 
@@ -56,11 +57,11 @@ export const useShipmentRates = (
         });
       }
       
-      toast(`Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`);
+      toast.success(`Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`);
       return updatedShipments;
     } catch (error) {
       console.error('Error fetching shipment rates:', error);
-      toast('Failed to fetch rates for some shipments');
+      toast.error('Failed to fetch rates for some shipments');
       return shipments;
     } finally {
       setIsFetchingRates(false);
@@ -99,7 +100,7 @@ export const useShipmentRates = (
             carrier: carrier.name,
             service: service.name,
             rate: parseFloat(rate.toFixed(2)),
-            currency: 'USD',
+            currency: 'USD', // Add the required currency property
             delivery_days: service.name.includes('Next Day') || service.name.includes('Overnight') 
               ? 1 
               : service.name.includes('2Day') || service.name.includes('2nd Day') 
@@ -186,7 +187,7 @@ export const useShipmentRates = (
         processedShipments: finalShipments
       });
       
-      toast("Rates updated successfully");
+      toast.success('Rates updated successfully');
     } catch (error) {
       // Update shipment with error
       const errorShipments = updatedShipments.map(s => 
@@ -202,7 +203,7 @@ export const useShipmentRates = (
         processedShipments: errorShipments
       });
       
-      toast("Failed to update rates");
+      toast.error('Failed to update rates');
     }
   };
   
@@ -241,7 +242,7 @@ export const useShipmentRates = (
       totalCost
     });
     
-    toast(`Applied ${carrierId} ${serviceId} to all eligible shipments`);
+    toast.success(`Applied ${carrierId} ${serviceId} to all eligible shipments`);
   };
 
   return {
