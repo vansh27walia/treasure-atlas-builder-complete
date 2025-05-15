@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    // Get the API key from Supabase secrets
+    // Get the EasyPost API key from Supabase secrets
     const apiKey = Deno.env.get('EASYPOST_API_KEY');
     if (!apiKey) {
       console.error('API key not configured');
@@ -54,8 +54,8 @@ serve(async (req) => {
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
     console.log(`Label options:`, options);
 
-    // Ensure storage bucket exists
     try {
+      // Check if storage bucket exists, create if not
       const { data: bucketData, error: bucketError } = await supabase
         .storage
         .listBuckets();
@@ -81,8 +81,8 @@ serve(async (req) => {
       // Continue anyway, the bucket might exist but we might not have permission to list buckets
     }
 
-    // Create request body with label format options
-    const buyOptions: any = {
+    // Create request body for EasyPost with label format options
+    const buyOptions = {
       rate: { id: rateId }
     };
     
@@ -92,7 +92,7 @@ serve(async (req) => {
       buyOptions.label_size = options.label_size || "4x6";
     }
 
-    // Buy the label
+    // Buy the label with EasyPost API
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
       method: 'POST',
       headers: {
@@ -107,7 +107,7 @@ serve(async (req) => {
     
     // Check for API errors
     if (!response.ok) {
-      console.error('API error:', JSON.stringify(data, null, 2));
+      console.error('EasyPost API error:', JSON.stringify(data, null, 2));
       
       // If postage already exists, try to get the existing label
       if (data.error?.code === 'SHIPMENT.POSTAGE.EXISTS') {
@@ -192,7 +192,7 @@ serve(async (req) => {
                 labelUrl: labelURL,
                 trackingCode: shipmentData.tracking_code,
                 shipmentId: shipmentId,
-                message: 'Using original URL due to download error'
+                message: 'Using original EasyPost URL due to download error'
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
@@ -206,9 +206,9 @@ serve(async (req) => {
       );
     }
 
-    // Download the label PDF from API
+    // Download the label PDF from EasyPost
     const labelURL = data.postage_label.label_url;
-    console.log(`Label URL from API: ${labelURL}`);
+    console.log(`Label URL from EasyPost: ${labelURL}`);
     
     const labelResponse = await fetch(labelURL, {
       headers: {
@@ -217,8 +217,8 @@ serve(async (req) => {
     });
     
     if (!labelResponse.ok) {
-      console.error('Failed to download label');
-      throw new Error('Failed to download label');
+      console.error('Failed to download label from EasyPost');
+      throw new Error('Failed to download label from EasyPost');
     }
     
     // Convert the label to a blob
@@ -242,13 +242,13 @@ serve(async (req) => {
     if (uploadError) {
       console.error('Error uploading label to storage:', uploadError);
       
-      // If storage upload fails, still return the original label URL
+      // If storage upload fails, still return the original EasyPost label URL
       return new Response(
         JSON.stringify({ 
           labelUrl: labelURL,
           trackingCode: data.tracking_code,
           shipmentId: data.id,
-          message: 'Using original URL due to storage error'
+          message: 'Using original EasyPost URL due to storage error'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -283,19 +283,19 @@ serve(async (req) => {
         );
       }
       
-      // If that also fails, return the original URL
+      // If that also fails, return the original EasyPost URL
       return new Response(
         JSON.stringify({ 
           labelUrl: labelURL,
           trackingCode: data.tracking_code,
           shipmentId: data.id,
-          message: 'Using original URL due to signed URL error'
+          message: 'Using original EasyPost URL due to signed URL error'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    // Save the shipping record in the database with the new schema columns
+    // Save the shipping record in the database if you have shipment_records table
     try {
       const { error: dbError } = await supabase
         .from('shipment_records')
@@ -310,11 +310,11 @@ serve(async (req) => {
           delivery_days: data.selected_rate?.delivery_days || null,
           charged_rate: data.selected_rate?.rate || null,
           easypost_rate: data.selected_rate?.rate || null,
-          currency: data.selected_rate?.currency || 'USD',
-          label_format: options.label_format || "PDF",
-          label_size: options.label_size || "4x6",
-          is_international: false,
-          created_at: new Date().toISOString()
+          currency: data.selected_rate?.currency || 'USD'
+          // The following fields may not be available in the DB schema yet
+          // label_format: options.label_format || "PDF",
+          // label_size: options.label_size || "4x6",
+          // created_at: new Date().toISOString()
         });
         
       if (dbError) {
@@ -329,7 +329,7 @@ serve(async (req) => {
     // Return the label information with our internally stored URL
     return new Response(
       JSON.stringify({
-        labelUrl: signedURLData.signedUrl || labelURL, // Fall back to original URL if needed
+        labelUrl: signedURLData.signedUrl || labelURL, // Fall back to EasyPost URL if needed
         trackingCode: data.tracking_code,
         shipmentId: data.id,
       }),

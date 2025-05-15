@@ -15,23 +15,11 @@ serve(async (req) => {
   }
 
   try {
-    // Parse the request body
-    const requestData = await req.json();
-    const { shipmentId } = requestData;
-    
-    if (!shipmentId) {
-      return new Response(
-        JSON.stringify({ error: 'Missing shipmentId parameter' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
-
     // Create a Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Supabase configuration not found');
       return new Response(
         JSON.stringify({ error: 'Supabase configuration not found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
@@ -40,64 +28,90 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Look up the shipment record
-    const { data: shipmentData, error: shipmentError } = await supabase
-      .from('shipment_records')
-      .select('label_url, tracking_code, shipment_id')
-      .eq('shipment_id', shipmentId)
-      .single();
-
-    if (shipmentError || !shipmentData) {
-      console.error('Error retrieving shipment record:', shipmentError);
+    // Parse the request body
+    const requestData = await req.json();
+    const shipmentId = requestData.shipment_id;
+    
+    if (!shipmentId) {
       return new Response(
-        JSON.stringify({ error: 'Failed to retrieve shipment record' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        JSON.stringify({ error: 'Missing shipment_id parameter' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
-    // Check if we need to create a fresh signed URL for the label
-    if (shipmentData.label_url && shipmentData.label_url.includes('storage.googleapis.com')) {
-      // URL appears to be from storage - extract the path
-      const urlParts = shipmentData.label_url.split('/');
-      const fileName = urlParts[urlParts.length - 1];
+    console.log(`Retrieving label for shipment ID: ${shipmentId}`);
+
+    // Get the label URL from the database
+    const { data, error } = await supabase
+      .from('shipment_records')
+      .select('label_url, tracking_code')
+      .eq('shipment_id', shipmentId)
+      .single();
+    
+    if (error || !data) {
+      console.error('Error retrieving label from database:', error);
       
-      if (fileName) {
-        // Create a fresh signed URL with 24 hours expiration
-        const { data: signedURLData, error: signedURLError } = await supabase
-          .storage
-          .from('shipping-labels')
-          .createSignedUrl(fileName, 60 * 60 * 24); // 24 hours
-          
-        if (!signedURLError && signedURLData?.signedUrl) {
-          // Update the label_url in the database
-          const { error: updateError } = await supabase
-            .from('shipment_records')
-            .update({ label_url: signedURLData.signedUrl })
-            .eq('shipment_id', shipmentId);
-            
-          if (updateError) {
-            console.error('Error updating label URL:', updateError);
+      // If not found in database, try to get it from EasyPost API
+      console.log('Label not found in database, trying EasyPost API...');
+      
+      // Get EasyPost API key
+      const apiKey = Deno.env.get('EASYPOST_API_KEY');
+      if (!apiKey) {
+        return new Response(
+          JSON.stringify({ error: 'EasyPost API key not configured' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+      
+      // Try to retrieve the shipment from EasyPost
+      try {
+        const easypostResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
           }
-          
-          // Return the updated URL
+        });
+        
+        if (!easypostResponse.ok) {
+          return new Response(
+            JSON.stringify({ error: 'Failed to retrieve shipment from EasyPost', status: easypostResponse.status }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: easypostResponse.status }
+          );
+        }
+        
+        const shipmentData = await easypostResponse.json();
+        
+        if (shipmentData.postage_label?.label_url) {
           return new Response(
             JSON.stringify({
-              labelUrl: signedURLData.signedUrl,
+              labelUrl: shipmentData.postage_label.label_url,
               trackingCode: shipmentData.tracking_code,
-              shipmentId: shipmentData.shipment_id
+              source: 'easypost_api'
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
+        } else {
+          return new Response(
+            JSON.stringify({ error: 'No label URL found in EasyPost response' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+          );
         }
+      } catch (easypostError) {
+        console.error('Error retrieving shipment from EasyPost:', easypostError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to retrieve shipment', details: easypostError.message }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
       }
     }
 
-    // If we can't create a fresh signed URL, return the existing label URL
+    // Return the label URL and tracking code
     return new Response(
       JSON.stringify({
-        labelUrl: shipmentData.label_url,
-        trackingCode: shipmentData.tracking_code,
-        shipmentId: shipmentData.shipment_id
+        labelUrl: data.label_url,
+        trackingCode: data.tracking_code,
+        source: 'database'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
