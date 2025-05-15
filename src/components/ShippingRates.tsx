@@ -8,11 +8,10 @@ import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/components/ui/sonner';
 import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import Shipping2Sheet from './shipping/Shipping2Sheet';
 
 const ShippingRates: React.FC = () => {
   const {
@@ -36,22 +35,13 @@ const ShippingRates: React.FC = () => {
   
   const { aiRecommendation, isAiLoading } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
-  const [isShipping2Open, setIsShipping2Open] = useState(false);
   
   // Show empty state if no rates available
   if (rates.length === 0) {
     return (
       <div className="mt-8 w-full" id="shipping-rates-section">
         <EmptyRatesState />
-        <div className="mt-4 flex justify-end gap-2">
-          <Button 
-            variant="outline" 
-            className="flex items-center gap-2"
-            onClick={() => setIsShipping2Open(true)}
-          >
-            <Truck className="h-4 w-4" />
-            Shipping 2
-          </Button>
+        <div className="mt-4 flex justify-end">
           <Link to="/bulk-upload">
             <Button variant="outline" className="flex items-center gap-2">
               <Upload className="h-4 w-4" />
@@ -59,7 +49,6 @@ const ShippingRates: React.FC = () => {
             </Button>
           </Link>
         </div>
-        <Shipping2Sheet open={isShipping2Open} onOpenChange={setIsShipping2Open} />
       </div>
     );
   }
@@ -87,14 +76,6 @@ const ShippingRates: React.FC = () => {
               Available Shipping Rates
             </h2>
             <div className="flex flex-wrap gap-2">
-              <Button 
-                variant="outline" 
-                className="flex items-center gap-2 border-blue-200 hover:bg-blue-50"
-                onClick={() => setIsShipping2Open(true)}
-              >
-                <Truck className="h-4 w-4" />
-                Shipping 2
-              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
@@ -145,7 +126,7 @@ const ShippingRates: React.FC = () => {
           <ShippingLabel 
             labelUrl={labelUrl} 
             trackingCode={trackingCode} 
-            shipmentId={shipmentId} 
+            shipmentId={shipmentId}
           />
           
           {!labelUrl && (
@@ -241,9 +222,6 @@ const ShippingRates: React.FC = () => {
           </div>
         </div>
       </Card>
-      
-      {/* Include the Shipping2Sheet component */}
-      <Shipping2Sheet open={isShipping2Open} onOpenChange={setIsShipping2Open} />
     </div>
   );
 };
