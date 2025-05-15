@@ -9,10 +9,11 @@ import UploadError from './bulk-upload/UploadError';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
 import LabelOptionsModal from './bulk-upload/LabelOptionsModal';
+import ShippingLabel from './ShippingLabel';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { FileText, UploadCloud, ChevronRight, AlertCircle } from 'lucide-react';
+import { FileText, UploadCloud, ChevronRight, AlertCircle, X } from 'lucide-react';
 
 const BulkUpload: React.FC = () => {
   const {
@@ -29,6 +30,7 @@ const BulkUpload: React.FC = () => {
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
+    selectedShipment,
     handleUpload,
     handleProceedToPayment,
     handleCreateLabels,
@@ -42,12 +44,18 @@ const BulkUpload: React.FC = () => {
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
+    handlePreviewLabel,
+    getSelectedShipmentData,
+    clearSelectedShipment,
     setShowLabelOptions,
     setSearchTerm,
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter
   } = useBulkUpload();
+
+  // Get selected shipment data for the ShippingLabel component
+  const selectedShipmentData = getSelectedShipmentData();
 
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
@@ -73,6 +81,29 @@ const BulkUpload: React.FC = () => {
         </div>
       )}
       
+      {/* Selected shipment label preview */}
+      {selectedShipmentData && (
+        <div className="relative mt-6 mb-8">
+          <div className="absolute top-4 right-4 z-10">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-full h-8 w-8 p-0 bg-white"
+              onClick={clearSelectedShipment}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="bg-white p-4 rounded-lg border-2 border-green-200 shadow-md">
+            <ShippingLabel 
+              labelUrl={selectedShipmentData.labelUrl} 
+              trackingCode={selectedShipmentData.trackingCode}
+              shipmentId={selectedShipmentData.shipmentId} 
+            />
+          </div>
+        </div>
+      )}
+      
       {uploadStatus === 'editing' && results && (
         <div className="mt-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
@@ -92,7 +123,7 @@ const BulkUpload: React.FC = () => {
                 Template
               </Button>
               
-              <Button onClick={() => handleUpload} className="text-sm">
+              <Button onClick={handleUpload} className="text-sm">
                 <UploadCloud className="mr-1 h-4 w-4" />
                 Upload Another File
               </Button>
@@ -128,6 +159,7 @@ const BulkUpload: React.FC = () => {
             onRemoveShipment={handleRemoveShipment}
             onEditShipment={handleEditShipment}
             onRefreshRates={handleRefreshRates}
+            onPreviewLabel={handlePreviewLabel}
           />
           
           {results.processedShipments.length > 0 && (
@@ -151,9 +183,17 @@ const BulkUpload: React.FC = () => {
                   </Button>
                   
                   <Button
+                    onClick={handleCreateLabels}
+                    disabled={isPaying || isCreatingLabels || results.processedShipments.length === 0}
+                    className="px-6 bg-green-600 hover:bg-green-700"
+                  >
+                    {isCreatingLabels ? 'Generating Labels...' : 'Generate Labels'} 
+                  </Button>
+                  
+                  <Button
                     onClick={handleProceedToPayment}
                     disabled={isPaying || results.processedShipments.length === 0}
-                    className="px-6 bg-green-600 hover:bg-green-700"
+                    className="px-6 bg-blue-600 hover:bg-blue-700"
                   >
                     {isPaying ? 'Processing...' : 'Process Payment'} 
                     <ChevronRight className="ml-1 h-4 w-4" />
@@ -174,6 +214,7 @@ const BulkUpload: React.FC = () => {
           onCreateLabels={handleCreateLabels}
           isPaying={isPaying}
           isCreatingLabels={isCreatingLabels}
+          onPreviewLabel={handlePreviewLabel}
         />
       )}
       

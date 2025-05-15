@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
 
@@ -174,11 +174,20 @@ export const useShipmentManagement = (
           processedShipments: updatedShipments,
           totalCost: initialResults.totalCost,
           successful: successCount,
-          failed: initialResults.processedShipments.length - successCount
+          failed: initialResults.processedShipments.length - successCount,
+          uploadStatus: 'success'
         });
         
-        // Update upload status in parent component
-        setUploadStatus('success');
+        // If this is a single label, redirect to the success page
+        if (successCount === 1 && updatedShipments[0].label_url && updatedShipments[0].tracking_code) {
+          const firstShipment = updatedShipments[0];
+          const params = new URLSearchParams({
+            labelUrl: encodeURIComponent(firstShipment.label_url),
+            trackingCode: encodeURIComponent(firstShipment.tracking_code || ''),
+            shipmentId: encodeURIComponent(firstShipment.id)
+          });
+          navigate(`/label-success?${params.toString()}`);
+        }
       } else {
         toast("Label generation failed", {
           description: "No labels were generated, please try again"
@@ -272,17 +281,6 @@ export const useShipmentManagement = (
     toast("Email feature", {
       description: "Email labels feature will be implemented soon"
     });
-  };
-  
-  // This function is needed for the updated component but doesn't exist in the original hook
-  const setUploadStatus = (status: 'idle' | 'success' | 'error' | 'editing') => {
-    // This should be passed from the parent hook
-    if (initialResults) {
-      updateResults({
-        ...initialResults,
-        uploadStatus: status
-      });
-    }
   };
 
   return {

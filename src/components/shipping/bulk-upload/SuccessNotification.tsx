@@ -12,6 +12,7 @@ interface SuccessNotificationProps {
   onDownloadSingleLabel: (labelUrl: string) => void;
   onProceedToPayment: () => void;
   onCreateLabels: () => void;
+  onPreviewLabel?: (shipmentId: string) => void;
   isPaying: boolean;
   isCreatingLabels: boolean;
 }
@@ -22,6 +23,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   onDownloadSingleLabel,
   onProceedToPayment,
   onCreateLabels,
+  onPreviewLabel,
   isPaying,
   isCreatingLabels
 }) => {
@@ -66,6 +68,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       <SuccessfulShipmentsTable 
         shipments={results.processedShipments}
         onDownloadSingleLabel={onDownloadSingleLabel} 
+        onPreviewLabel={onPreviewLabel}
       />
       
       <FailedShipmentsTable 

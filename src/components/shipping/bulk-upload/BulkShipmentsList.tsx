@@ -1,26 +1,35 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { BulkShipment } from '@/types/shipping';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Package, PackageCheck, Edit, RefreshCcw, X, FileText, Truck, ArrowUp, ArrowDown, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Label } from '@/components/ui/label';
-import { Form, FormField, FormItem, FormLabel, FormControl } from '@/components/ui/form';
-import { useForm } from 'react-hook-form';
+import { 
+  Package, 
+  Trash2, 
+  RefreshCw, 
+  CheckCircle, 
+  AlertCircle, 
+  Edit2, 
+  ExternalLink,
+  FileText 
+} from 'lucide-react';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
   isFetchingRates: boolean;
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRemoveShipment: (shipmentId: string) => void;
-  onEditShipment: (shipmentId: string, details: BulkShipment['details']) => void;
+  onEditShipment: (shipmentId: string, details: any) => void;
   onRefreshRates: (shipmentId: string) => void;
+  onPreviewLabel?: (shipmentId: string) => void;
 }
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
@@ -29,318 +38,170 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   onSelectRate,
   onRemoveShipment,
   onEditShipment,
-  onRefreshRates
+  onRefreshRates,
+  onPreviewLabel
 }) => {
-  const [openDialogs, setOpenDialogs] = useState<Record<string, boolean>>({});
-
-  const handleOpenEditDialog = (shipmentId: string) => {
-    setOpenDialogs({
-      ...openDialogs,
-      [shipmentId]: true
-    });
-  };
-
-  const handleCloseEditDialog = (shipmentId: string) => {
-    setOpenDialogs({
-      ...openDialogs,
-      [shipmentId]: false
-    });
-  };
+  if (shipments.length === 0) {
+    return (
+      <div className="text-center p-8 border rounded-lg bg-gray-50">
+        <p className="text-gray-500">No shipments found matching the current filters.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      {shipments.length === 0 ? (
-        <Card className="p-6 text-center">
-          <p className="text-gray-500">No shipments found.</p>
+    <div className="space-y-4 mt-4">
+      {shipments.map((shipment) => (
+        <Card 
+          key={shipment.id} 
+          className={`p-4 shadow-sm overflow-hidden border-l-4 ${
+            shipment.status === 'completed' ? 'border-l-green-500' : 
+            shipment.status === 'error' ? 'border-l-red-500' : 
+            shipment.selectedRateId ? 'border-l-blue-500' : 'border-l-gray-300'
+          }`}
+        >
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center">
+                  <Package className="h-5 w-5 text-gray-500 mr-2" />
+                  <h3 className="font-medium text-gray-800">
+                    {shipment.recipient || shipment.details.name}
+                  </h3>
+                  {shipment.status === 'completed' && (
+                    <Badge className="ml-2 bg-green-100 text-green-800 border-green-200">
+                      Label Created
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRefreshRates(shipment.id)}
+                    disabled={isFetchingRates}
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRemoveShipment(shipment.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                <div>
+                  <p className="text-xs text-gray-500">Recipient</p>
+                  <p className="text-sm">
+                    {shipment.details.name}
+                    {shipment.details.company && `, ${shipment.details.company}`}
+                  </p>
+                </div>
+                
+                <div>
+                  <p className="text-xs text-gray-500">Address</p>
+                  <p className="text-sm">{shipment.details.street1}</p>
+                  <p className="text-sm">
+                    {shipment.details.city}, {shipment.details.state} {shipment.details.zip}
+                  </p>
+                </div>
+                
+                <div>
+                  <p className="text-xs text-gray-500">Package</p>
+                  <p className="text-sm">
+                    {shipment.details.parcel_weight ? `${shipment.details.parcel_weight} lbs` : 'Weight not specified'}
+                    {(shipment.details.parcel_length && shipment.details.parcel_width && shipment.details.parcel_height) ? 
+                      ` - ${shipment.details.parcel_length}x${shipment.details.parcel_width}x${shipment.details.parcel_height} in` : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="w-full md:w-64 flex flex-col justify-between border-t md:border-t-0 md:border-l pt-4 md:pt-0 md:pl-4 mt-2 md:mt-0">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Shipping Option</p>
+                {shipment.status === 'completed' ? (
+                  <div className="flex items-center text-sm font-medium text-gray-800">
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
+                    {shipment.carrier} - {shipment.service}
+                    <span className="ml-auto font-semibold">${shipment.rate.toFixed(2)}</span>
+                  </div>
+                ) : (
+                  <Select
+                    defaultValue={shipment.selectedRateId || ''}
+                    onValueChange={(value) => onSelectRate(shipment.id, value)}
+                    disabled={!shipment.availableRates || shipment.availableRates.length === 0}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a carrier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {!shipment.availableRates || shipment.availableRates.length === 0 ? (
+                        <SelectItem value="loading" disabled>
+                          {isFetchingRates ? 'Loading rates...' : 'No rates available'}
+                        </SelectItem>
+                      ) : (
+                        shipment.availableRates.map((rate) => (
+                          <SelectItem key={rate.id} value={rate.id}>
+                            {rate.carrier} {rate.service} - ${rate.rate.toFixed(2)}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              
+              <div className="flex justify-between mt-3">
+                {shipment.status === 'completed' && shipment.label_url ? (
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="text-blue-600 border-blue-200"
+                      onClick={() => onPreviewLabel && onPreviewLabel(shipment.id)}
+                    >
+                      <FileText className="h-4 w-4 mr-1" />
+                      Preview
+                    </Button>
+                    
+                    {shipment.tracking_code && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-600"
+                        asChild
+                      >
+                        <a href={`/tracking?code=${shipment.tracking_code}`} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4 mr-1" />
+                          Track
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      /* You would implement the edit shipment modal here */
+                      console.log('Edit shipment:', shipment.id);
+                    }}
+                  >
+                    <Edit2 className="h-4 w-4 mr-1" />
+                    Edit
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
         </Card>
-      ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-1/12">Row</TableHead>
-                <TableHead className="w-2/12">Recipient</TableHead>
-                <TableHead className="w-2/12">Address</TableHead>
-                <TableHead className="w-2/12">Carrier & Service</TableHead>
-                <TableHead className="w-1/12">Rate</TableHead>
-                <TableHead className="w-1/12">Status</TableHead>
-                <TableHead className="w-3/12 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {shipments.map((shipment) => (
-                <TableRow key={shipment.id}>
-                  <TableCell>{shipment.row}</TableCell>
-                  <TableCell>
-                    <div className="font-medium">{shipment.details.name}</div>
-                    {shipment.details.company && (
-                      <div className="text-xs text-gray-500">{shipment.details.company}</div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div>{shipment.details.street1}</div>
-                    <div>
-                      {shipment.details.city}, {shipment.details.state} {shipment.details.zip}
-                    </div>
-                    <div className="text-xs">{shipment.details.country}</div>
-                  </TableCell>
-                  <TableCell>
-                    {shipment.status === 'completed' ? (
-                      <div>
-                        <Select 
-                          value={shipment.selectedRateId}
-                          onValueChange={(value) => onSelectRate(shipment.id, value)}
-                        >
-                          <SelectTrigger className="min-w-[180px]">
-                            <SelectValue placeholder="Select a carrier" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(shipment.availableRates || []).map((rate) => (
-                              <SelectItem key={rate.id} value={rate.id}>
-                                <span className="flex items-center">
-                                  <Truck className="mr-2 h-4 w-4" />
-                                  <span>
-                                    {rate.carrier} - {rate.service}
-                                    <span className="ml-2 text-xs text-gray-500">
-                                      ({rate.delivery_days} days)
-                                    </span>
-                                  </span>
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ) : shipment.status === 'processing' ? (
-                      <div className="flex items-center">
-                        <Skeleton className="h-8 w-[180px]" />
-                      </div>
-                    ) : (
-                      <Badge variant="outline" className="bg-red-50 text-red-700">
-                        {shipment.error || 'Error loading rates'}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {shipment.status === 'completed' && shipment.selectedRateId ? (
-                      <div className="font-semibold">
-                        ${(shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate || 0).toFixed(2)}
-                      </div>
-                    ) : shipment.status === 'processing' ? (
-                      <Skeleton className="h-6 w-16" />
-                    ) : (
-                      <span className="text-gray-500">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {shipment.status === 'completed' ? (
-                      <Badge className="bg-green-100 text-green-700 border-green-200">
-                        <PackageCheck className="mr-1 h-3 w-3" />
-                        Ready
-                      </Badge>
-                    ) : shipment.status === 'processing' ? (
-                      <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-                        <Package className="mr-1 h-3 w-3 animate-pulse" />
-                        Processing
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-red-100 text-red-700 border-red-200">
-                        <X className="mr-1 h-3 w-3" />
-                        Error
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end space-x-2">
-                      <Dialog open={openDialogs[shipment.id]} onOpenChange={(open) => {
-                        if (!open) handleCloseEditDialog(shipment.id);
-                      }}>
-                        <DialogTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleOpenEditDialog(shipment.id)}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Edit Shipment Details</DialogTitle>
-                          </DialogHeader>
-                          <ShipmentEditForm
-                            shipment={shipment}
-                            onSubmit={(data) => {
-                              onEditShipment(shipment.id, data);
-                              handleCloseEditDialog(shipment.id);
-                            }}
-                            onCancel={() => handleCloseEditDialog(shipment.id)}
-                          />
-                        </DialogContent>
-                      </Dialog>
-
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => onRefreshRates(shipment.id)}
-                        disabled={shipment.status === 'processing'}
-                      >
-                        <RefreshCcw className={`h-4 w-4 mr-1 ${shipment.status === 'processing' ? 'animate-spin' : ''}`} />
-                        Rates
-                      </Button>
-
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => onRemoveShipment(shipment.id)}
-                        className="text-red-500 border-red-200 hover:bg-red-50"
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      ))}
     </div>
-  );
-};
-
-interface ShipmentEditFormProps {
-  shipment: BulkShipment;
-  onSubmit: (data: BulkShipment['details']) => void;
-  onCancel: () => void;
-}
-
-const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit, onCancel }) => {
-  const form = useForm({
-    defaultValues: {
-      name: shipment.details.name,
-      company: shipment.details.company || '',
-      street1: shipment.details.street1,
-      street2: shipment.details.street2 || '',
-      city: shipment.details.city,
-      state: shipment.details.state,
-      zip: shipment.details.zip,
-      country: shipment.details.country,
-      phone: shipment.details.phone || '',
-      parcel_length: shipment.details.parcel_length || 12,
-      parcel_width: shipment.details.parcel_width || 8,
-      parcel_height: shipment.details.parcel_height || 2,
-      parcel_weight: shipment.details.parcel_weight || 16
-    }
-  });
-
-  const handleFormSubmit = (data: any) => {
-    onSubmit(data);
-  };
-
-  return (
-    <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="name">Name</Label>
-          <Input id="name" {...form.register('name')} required />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="company">Company</Label>
-          <Input id="company" {...form.register('company')} />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="street1">Address Line 1</Label>
-        <Input id="street1" {...form.register('street1')} required />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="street2">Address Line 2</Label>
-        <Input id="street2" {...form.register('street2')} />
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="city">City</Label>
-          <Input id="city" {...form.register('city')} required />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="state">State</Label>
-          <Input id="state" {...form.register('state')} required />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="zip">ZIP Code</Label>
-          <Input id="zip" {...form.register('zip')} required />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="country">Country</Label>
-          <Input id="country" {...form.register('country')} required />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="phone">Phone</Label>
-          <Input id="phone" {...form.register('phone')} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-4 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="parcel_length">Length (in)</Label>
-          <Input 
-            id="parcel_length" 
-            type="number" 
-            {...form.register('parcel_length', { valueAsNumber: true })} 
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="parcel_width">Width (in)</Label>
-          <Input 
-            id="parcel_width"
-            type="number" 
-            {...form.register('parcel_width', { valueAsNumber: true })} 
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="parcel_height">Height (in)</Label>
-          <Input 
-            id="parcel_height"
-            type="number"
-            {...form.register('parcel_height', { valueAsNumber: true })} 
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="parcel_weight">Weight (lbs)</Label>
-          <Input 
-            id="parcel_weight"
-            type="number" 
-            {...form.register('parcel_weight', { valueAsNumber: true })} 
-          />
-        </div>
-      </div>
-
-      <div className="flex justify-end space-x-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit">
-          <Check className="h-4 w-4 mr-1" />
-          Save Changes
-        </Button>
-      </div>
-    </form>
   );
 };
 
