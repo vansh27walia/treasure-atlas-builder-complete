@@ -48,6 +48,7 @@ const BulkUpload: React.FC = () => {
     getSelectedShipmentData,
     clearSelectedShipment,
     setShowLabelOptions,
+    setUploadStatus,
     setSearchTerm,
     setSortField,
     setSortDirection,
