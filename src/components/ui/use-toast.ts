@@ -1,5 +1,5 @@
 
-// Import from React Hot Toast library
-import { useToast as useToastFromUI } from "@/components/ui/toast"
+// Re-export from the main hooks folder
+import { toast, useToast } from "@/hooks/use-toast";
 
-export const useToast = useToastFromUI
+export { toast, useToast };

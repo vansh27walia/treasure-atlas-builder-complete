@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
 import { CARRIER_OPTIONS } from '@/types/shipping';
 

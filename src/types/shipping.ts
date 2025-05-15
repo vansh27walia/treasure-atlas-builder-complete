@@ -1,15 +1,25 @@
-
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
 
-export type ShippingStep = 'address' | 'package' | 'customs' | 'rates' | 'label' | 'complete';
+export type ShippingStep = 'address' | 'package' | 'rates' | 'label' | 'complete';
 
 export type ShippingWorkflowStep = {
   id: ShippingStep;
   label: string;
   status: 'completed' | 'active' | 'upcoming';
 };
+
+export interface ShippingRate {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: number;
+  currency: string;
+  delivery_days: number;
+  estimated_delivery_date?: string;
+  original_rate?: number;
+}
 
 export interface GoogleApiKeyResponse {
   apiKey: string;
