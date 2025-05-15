@@ -1,6 +1,7 @@
+
 import { useState } from 'react';
-import { toast } from '@/components/ui/sonner';
-import { BulkShipment, BulkUploadResult } from '@/types/shipping';
+import { toast } from '@/components/ui/use-toast';
+import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
 import { CARRIER_OPTIONS } from '@/types/shipping';
 
 export const useShipmentRates = (
@@ -56,25 +57,32 @@ export const useShipmentRates = (
         });
       }
       
-      toast.success(`Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`);
+      toast({
+        title: "Rates fetched",
+        description: `Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`
+      });
       return updatedShipments;
     } catch (error) {
       console.error('Error fetching shipment rates:', error);
-      toast.error('Failed to fetch rates for some shipments');
+      toast({
+        title: "Fetch failed",
+        description: 'Failed to fetch rates for some shipments',
+        variant: "destructive"
+      });
       return shipments;
     } finally {
       setIsFetchingRates(false);
     }
   };
   
-  const fetchShipmentRates = async (shipment: BulkShipment) => {
+  const fetchShipmentRates = async (shipment: BulkShipment): Promise<ShippingOption[]> => {
     try {
       // Mock function - in a real app, you would call your API to get actual rates
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
       
       // Generate mock rates for each carrier
-      const mockRates = CARRIER_OPTIONS.flatMap(carrier => {
+      const mockRates: ShippingOption[] = CARRIER_OPTIONS.flatMap(carrier => {
         return carrier.services.map(service => {
           // Base rate between $5-25 with some carrier-specific modifiers
           const baseRate = 5 + Math.random() * 20;
@@ -99,6 +107,7 @@ export const useShipmentRates = (
             carrier: carrier.name,
             service: service.name,
             rate: parseFloat(rate.toFixed(2)),
+            currency: 'USD',
             delivery_days: service.name.includes('Next Day') || service.name.includes('Overnight') 
               ? 1 
               : service.name.includes('2Day') || service.name.includes('2nd Day') 
@@ -185,7 +194,10 @@ export const useShipmentRates = (
         processedShipments: finalShipments
       });
       
-      toast.success('Rates updated successfully');
+      toast({
+        title: "Rates updated",
+        description: "Rates updated successfully"
+      });
     } catch (error) {
       // Update shipment with error
       const errorShipments = updatedShipments.map(s => 
@@ -201,7 +213,11 @@ export const useShipmentRates = (
         processedShipments: errorShipments
       });
       
-      toast.error('Failed to update rates');
+      toast({
+        title: "Rate update failed",
+        description: "Failed to update rates",
+        variant: "destructive"
+      });
     }
   };
   
@@ -240,7 +256,10 @@ export const useShipmentRates = (
       totalCost
     });
     
-    toast.success(`Applied ${carrierId} ${serviceId} to all eligible shipments`);
+    toast({
+      title: "Carrier applied",
+      description: `Applied ${carrierId} ${serviceId} to all eligible shipments`
+    });
   };
 
   return {

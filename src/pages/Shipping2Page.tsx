@@ -5,6 +5,7 @@ import ShippingRates from '@/components/ShippingRates';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { useLocation } from 'react-router-dom';
+import Shipping2Sheet from '@/components/shipping/Shipping2Sheet';
 
 const Shipping2Page: React.FC = () => {
   const [showShipping2, setShowShipping2] = React.useState(false);

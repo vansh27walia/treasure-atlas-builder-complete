@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { Badge } from '@/components/ui/badge';
@@ -87,13 +87,20 @@ const Shipping2Sheet: React.FC<Shipping2SheetProps> = ({ onClose }) => {
       // Simulate API call
       setTimeout(() => {
         setIsLoading(false);
-        toast.success("Shipping details saved successfully");
+        toast({
+          title: "Success",
+          description: "Shipping details saved successfully"
+        });
         setActiveTab('rates');
       }, 1500);
     } else if (activeTab === 'rates' && selectedRate) {
       setActiveTab('label');
     } else if (activeTab === 'rates') {
-      toast.error("Please select a shipping rate");
+      toast({
+        title: "Error",
+        description: "Please select a shipping rate",
+        variant: "destructive"
+      });
     }
   };
 
@@ -123,7 +130,10 @@ const Shipping2Sheet: React.FC<Shipping2SheetProps> = ({ onClose }) => {
       setLabelGenerated(true);
       setLabelUrl('https://example.com/shipping-label.pdf');
       setTrackingNumber('SHIP2' + Math.floor(10000000 + Math.random() * 90000000));
-      toast.success("Shipping label created successfully");
+      toast({
+        title: "Success",
+        description: "Shipping label created successfully"
+      });
     }, 2000);
   };
 
@@ -497,7 +507,7 @@ const Shipping2Sheet: React.FC<Shipping2SheetProps> = ({ onClose }) => {
                     <div className="border rounded-lg p-6 bg-gray-50">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="font-medium text-lg">Your Label is Ready!</h3>
-                        <Badge variant="success" className="bg-green-100 text-green-800 border-green-200">
+                        <Badge className="bg-green-100 text-green-800 border-green-200">
                           Generated
                         </Badge>
                       </div>
@@ -533,9 +543,7 @@ const Shipping2Sheet: React.FC<Shipping2SheetProps> = ({ onClose }) => {
                     <div className="flex flex-col sm:flex-row gap-4">
                       <Button 
                         className="bg-blue-600 hover:bg-blue-700 flex-1"
-                        href={labelUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        onClick={() => window.open(labelUrl, '_blank')}
                       >
                         <Download className="mr-2 h-4 w-4" />
                         Download Label
