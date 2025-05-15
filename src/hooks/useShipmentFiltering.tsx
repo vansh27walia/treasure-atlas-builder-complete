@@ -4,7 +4,8 @@ import { BulkUploadResult } from '@/types/shipping';
 
 export const useShipmentFiltering = (results: BulkUploadResult | null) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<'name' | 'tracking' | 'rate' | 'carrier'>('name');
+  // Update the types to include 'recipient' instead of 'name'
+  const [sortField, setSortField] = useState<'recipient' | 'tracking' | 'rate' | 'carrier'>('recipient');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedCarrierFilter, setSelectedCarrierFilter] = useState('all');
   
@@ -42,7 +43,7 @@ export const useShipmentFiltering = (results: BulkUploadResult | null) => {
       })
       .sort((a, b) => {
         // Sort by specified field
-        if (sortField === 'name') {
+        if (sortField === 'recipient') {
           // Sort by recipient name
           return sortDirection === 'asc' 
             ? a.details.name.localeCompare(b.details.name)
@@ -57,16 +58,16 @@ export const useShipmentFiltering = (results: BulkUploadResult | null) => {
         } else if (sortField === 'carrier') {
           // Sort by carrier
           return sortDirection === 'asc' 
-            ? a.carrier?.localeCompare(b.carrier || '') || 0
-            : b.carrier?.localeCompare(a.carrier || '') || 0;
+            ? (a.carrier || '').localeCompare(b.carrier || '')
+            : (b.carrier || '').localeCompare(a.carrier || '');
         }
         
         // Sort by rate - Convert string rates to numbers before comparing
         const rateA = a.availableRates?.find(rate => rate.id === a.selectedRateId)?.rate;
         const rateB = b.availableRates?.find(rate => rate.id === b.selectedRateId)?.rate;
         
-        const numericRateA = typeof rateA === 'string' ? parseFloat(rateA) : (rateA || 0);
-        const numericRateB = typeof rateB === 'string' ? parseFloat(rateB) : (rateB || 0);
+        const numericRateA = rateA ? parseFloat(rateA) : 0;
+        const numericRateB = rateB ? parseFloat(rateB) : 0;
         
         return sortDirection === 'asc' ? numericRateA - numericRateB : numericRateB - numericRateA;
       });
