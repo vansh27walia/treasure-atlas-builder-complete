@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
+import InternationalShippingSheet from '@/components/shipping/InternationalShippingSheet';
 
 const CreateLabelPage: React.FC = () => {
   const location = useLocation();
@@ -18,6 +19,7 @@ const CreateLabelPage: React.FC = () => {
   const tabFromQuery = queryParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
   const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
+  const [isInternationalSheetOpen, setIsInternationalSheetOpen] = useState(false);
 
   // Update the URL when tab changes
   useEffect(() => {
@@ -65,6 +67,12 @@ const CreateLabelPage: React.FC = () => {
     };
   }, []);
 
+  // Handle international tab click to open sheet instead
+  const handleInternationalTabClick = () => {
+    setIsInternationalSheetOpen(true);
+    return false; // Prevent default tab switching
+  };
+
   return (
     <div className="w-full py-6 px-6">
       <div className="max-w-7xl mx-auto mb-6">
@@ -98,6 +106,10 @@ const CreateLabelPage: React.FC = () => {
               <TabsTrigger 
                 value="international" 
                 className="flex items-center gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
+                onClick={() => {
+                  handleInternationalTabClick();
+                  return false; // Prevent default tab switching
+                }}
               >
                 <Globe className="h-4 w-4" />
                 International
@@ -196,6 +208,12 @@ const CreateLabelPage: React.FC = () => {
         {activeTab === 'domestic' && <ShippingRates />}
         {activeTab === 'calculator' && <ShippingRates />}
       </div>
+      
+      {/* International Shipping Sheet */}
+      <InternationalShippingSheet 
+        open={isInternationalSheetOpen}
+        onOpenChange={setIsInternationalSheetOpen}
+      />
     </div>
   );
 };
