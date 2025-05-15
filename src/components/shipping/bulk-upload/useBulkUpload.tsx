@@ -19,9 +19,6 @@ export const useBulkUpload = () => {
     handleUpload,
     handleDownloadTemplate
   } = useShipmentUpload();
-  
-  // Selected shipment for label preview
-  const [selectedShipment, setSelectedShipment] = useState<string | null>(null);
 
   // Update results wrapper function
   const updateResults = (newResults: BulkUploadResult) => {
@@ -86,30 +83,6 @@ export const useBulkUpload = () => {
     }
   }, [uploadStatus, results?.processedShipments]);
 
-  // Handle preview of a specific shipment's label
-  const handlePreviewLabel = (shipmentId: string) => {
-    setSelectedShipment(shipmentId);
-  };
-
-  // Get the selected shipment data
-  const getSelectedShipmentData = () => {
-    if (!results || !selectedShipment) return null;
-    
-    const shipment = results.processedShipments.find(s => s.id === selectedShipment);
-    if (!shipment) return null;
-    
-    return {
-      labelUrl: shipment.label_url,
-      trackingCode: shipment.tracking_code || shipment.trackingCode,
-      shipmentId: shipment.id
-    };
-  };
-
-  // Clear the selected shipment
-  const clearSelectedShipment = () => {
-    setSelectedShipment(null);
-  };
-
   return {
     // File upload states and handlers
     file,
@@ -126,9 +99,6 @@ export const useBulkUpload = () => {
     isCreatingLabels,
     showLabelOptions,
     downloadFormat,
-    
-    // Selected shipment for label preview
-    selectedShipment,
     
     // Filtering states and handlers
     searchTerm,
@@ -152,12 +122,6 @@ export const useBulkUpload = () => {
     handleDownloadSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,
-    handlePreviewLabel,
-    getSelectedShipmentData,
-    clearSelectedShipment,
-    
-    // Include setters
-    setUploadStatus,
     setShowLabelOptions,
     setDownloadFormat,
     setSearchTerm,

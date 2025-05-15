@@ -13,7 +13,6 @@ export const useShipmentManagement = (
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
-  const [showLabelOptions, setShowLabelOptions] = useState(false);
 
   const handleRemoveShipment = (shipmentId: string) => {
     if (!initialResults) return;
@@ -175,9 +174,11 @@ export const useShipmentManagement = (
           processedShipments: updatedShipments,
           totalCost: initialResults.totalCost,
           successful: successCount,
-          failed: initialResults.processedShipments.length - successCount,
-          uploadStatus: 'success'
+          failed: initialResults.processedShipments.length - successCount
         });
+        
+        // Update upload status in parent component
+        setUploadStatus('success');
       } else {
         toast("Label generation failed", {
           description: "No labels were generated, please try again"
@@ -201,21 +202,11 @@ export const useShipmentManagement = (
       return;
     }
     
-    // Check if any labels exist
-    const labelsExist = initialResults.processedShipments.some(s => s.label_url);
-    
-    if (!labelsExist) {
-      // Generate labels first if none exist
-      toast("No labels available", {
-        description: "Generating labels first..."
-      });
-      handleCreateLabels();
-      return;
-    }
-    
-    // Show label options modal for bulk download
+    // Show label options modal
     setShowLabelOptions(true);
   };
+
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
   
   const handleDownloadLabelsWithFormat = (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!initialResults || !initialResults.processedShipments.length) return;
@@ -255,23 +246,22 @@ export const useShipmentManagement = (
       return;
     }
     
-    // Use ZIP format to download all labels together instead of opening multiple tabs
-    toast("Downloading labels", {
-      description: `Downloading all ${labelsWithUrls.length} labels in ${format.toUpperCase()} format`
+    toast("Opening labels", {
+      description: `Opening ${labelsWithUrls.length} labels in ${format.toUpperCase()} format`
     });
     
-    // Simulate bulk download - in a real app this would call a backend endpoint to create a zip
-    setTimeout(() => {
-      // In a real implementation, we would generate a ZIP file server-side and download it
-      // For now, just open the first label as an example
-      if (labelsWithUrls.length > 0 && labelsWithUrls[0].label_url) {
-        window.open(labelsWithUrls[0].label_url, '_blank');
-        
-        toast("Download note", {
-          description: `In a production app, this would download all ${labelsWithUrls.length} labels as a single file`
-        });
+    // Open first 3 labels maximum to avoid browser popup blocking
+    labelsWithUrls.slice(0, 3).forEach(shipment => {
+      if (shipment.label_url) {
+        window.open(shipment.label_url, '_blank');
       }
-    }, 1000);
+    });
+    
+    if (labelsWithUrls.length > 3) {
+      toast("More labels available", {
+        description: `${labelsWithUrls.length - 3} more labels are available for individual download`
+      });
+    }
   };
 
   const handleDownloadSingleLabel = (labelUrl: string) => {
@@ -282,6 +272,17 @@ export const useShipmentManagement = (
     toast("Email feature", {
       description: "Email labels feature will be implemented soon"
     });
+  };
+  
+  // This function is needed for the updated component but doesn't exist in the original hook
+  const setUploadStatus = (status: 'idle' | 'success' | 'error' | 'editing') => {
+    // This should be passed from the parent hook
+    if (initialResults) {
+      updateResults({
+        ...initialResults,
+        uploadStatus: status
+      });
+    }
   };
 
   return {
