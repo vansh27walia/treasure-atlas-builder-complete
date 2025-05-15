@@ -61,15 +61,10 @@ const Shipping2Sheet: React.FC<Shipping2SheetProps> = ({ open, onOpenChange }) =
       
       setRates(mockRates);
       setStep('rates');
-      toast({
-        description: "Successfully retrieved shipping rates",
-      });
+      toast("Successfully retrieved shipping rates");
     } catch (error) {
       console.error("Error fetching rates:", error);
-      toast({
-        variant: "destructive",
-        description: "Failed to get shipping rates. Please try again.",
-      });
+      toast("Failed to get shipping rates. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -81,10 +76,7 @@ const Shipping2Sheet: React.FC<Shipping2SheetProps> = ({ open, onOpenChange }) =
 
   const handleCreateLabel = async () => {
     if (!selectedRateId) {
-      toast({
-        variant: "destructive",
-        description: "Please select a shipping rate first",
-      });
+      toast("Please select a shipping rate first");
       return;
     }
     
@@ -94,15 +86,10 @@ const Shipping2Sheet: React.FC<Shipping2SheetProps> = ({ open, onOpenChange }) =
       await new Promise(resolve => setTimeout(resolve, 1500));
       setLabelUrl('https://example.com/mock-label.pdf');
       setStep('label');
-      toast({
-        description: "Label created successfully!",
-      });
+      toast("Label created successfully!");
     } catch (error) {
       console.error("Error creating label:", error);
-      toast({
-        variant: "destructive",
-        description: "Failed to create shipping label. Please try again.",
-      });
+      toast("Failed to create shipping label. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -332,10 +319,7 @@ const Shipping2Sheet: React.FC<Shipping2SheetProps> = ({ open, onOpenChange }) =
               <div className="border border-dashed p-8 rounded-md flex flex-col items-center justify-center">
                 <p className="text-gray-500 mb-4">Label Preview</p>
                 <Button 
-                  as="a"
-                  href={labelUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => window.open(labelUrl, '_blank', 'noopener,noreferrer')}
                   className="flex items-center"
                 >
                   Download Label
