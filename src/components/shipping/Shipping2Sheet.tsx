@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import { ShippingStep } from '@/types/shipping';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/components/ui/use-toast';
 import { Package, ArrowRight } from 'lucide-react';
 
 const Shipping2Sheet: React.FC = () => {
@@ -159,16 +159,16 @@ const Shipping2Sheet: React.FC = () => {
           <div>
             <h2 className="text-lg font-semibold mb-4">Sender Information</h2>
             <AddressSelector 
-              addressType="from"
-              onAddressChange={handleFromAddressChange}
+              type="from"
+              onAddressSelect={handleFromAddressChange}
             />
           </div>
           
           <div>
             <h2 className="text-lg font-semibold mb-4">Recipient Information</h2>
             <AddressSelector 
-              addressType="to"
-              onAddressChange={handleToAddressChange}
+              type="to"
+              onAddressSelect={handleToAddressChange}
             />
           </div>
         </div>
@@ -183,10 +183,10 @@ const Shipping2Sheet: React.FC = () => {
             </h2>
             
             <EnhancedShippingForm 
-              onParcelChange={handleParcelChange}
-              onCustomsChange={handleCustomsChange}
-              initialParcel={parcelDetails}
-              initialCustoms={customsInfo}
+              onParcelDetailsChange={handleParcelChange}
+              onCustomsDetailsChange={handleCustomsChange}
+              initialParcelDetails={parcelDetails}
+              initialCustomsDetails={customsInfo}
               isInternational={true}
             />
           </Card>
