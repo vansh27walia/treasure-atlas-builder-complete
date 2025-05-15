@@ -12,6 +12,7 @@ type ToasterToast = {
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
+  onOpenChange?: (open: boolean) => void
 } & Pick<
   ToastProps,
   "variant" | "duration"
