@@ -10,7 +10,6 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
-import Shipping2Sheet from '@/components/shipping/Shipping2Sheet';
 
 const CreateLabelPage: React.FC = () => {
   const location = useLocation();
@@ -19,7 +18,6 @@ const CreateLabelPage: React.FC = () => {
   const tabFromQuery = queryParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
   const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
-  const [isShipping2SheetOpen, setIsShipping2SheetOpen] = useState(false);
 
   // Update the URL when tab changes
   useEffect(() => {
@@ -67,11 +65,6 @@ const CreateLabelPage: React.FC = () => {
     };
   }, []);
 
-  // Handle shipping 2 tab click
-  const handleShipping2Click = () => {
-    setIsShipping2SheetOpen(true);
-  };
-
   return (
     <div className="w-full py-6 px-6">
       <div className="max-w-7xl mx-auto mb-6">
@@ -93,7 +86,7 @@ const CreateLabelPage: React.FC = () => {
       <div className="max-w-7xl mx-auto">
         <Card className="border border-gray-200 shadow-md bg-white rounded-lg">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 mb-4 bg-blue-50 p-1 rounded-lg">
+            <TabsList className="grid w-full grid-cols-4 mb-4 bg-blue-50 p-1 rounded-lg">
               <TabsTrigger 
                 value="domestic" 
                 className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
@@ -108,14 +101,6 @@ const CreateLabelPage: React.FC = () => {
               >
                 <Globe className="h-4 w-4" />
                 International
-              </TabsTrigger>
-              <TabsTrigger 
-                value="shipping-2" 
-                className="flex items-center gap-2 data-[state=active]:bg-purple-600 data-[state=active]:text-white"
-                onClick={handleShipping2Click}
-              >
-                <Truck className="h-4 w-4" />
-                Shipping 2
               </TabsTrigger>
               <TabsTrigger 
                 value="calculator" 
@@ -211,12 +196,6 @@ const CreateLabelPage: React.FC = () => {
         {activeTab === 'domestic' && <ShippingRates />}
         {activeTab === 'calculator' && <ShippingRates />}
       </div>
-      
-      {/* Shipping 2 Sheet */}
-      <Shipping2Sheet 
-        open={isShipping2SheetOpen} 
-        onOpenChange={setIsShipping2SheetOpen} 
-      />
     </div>
   );
 };
