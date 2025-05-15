@@ -1,6 +1,5 @@
-
 import { useState } from 'react';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
 import { CARRIER_OPTIONS } from '@/types/shipping';
 
@@ -57,17 +56,11 @@ export const useShipmentRates = (
         });
       }
       
-      toast({
-        title: `Successfully fetched rates`,
-        description: `for ${successCount} out of ${shipments.length} shipments`
-      });
+      toast(`Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`);
       return updatedShipments;
     } catch (error) {
       console.error('Error fetching shipment rates:', error);
-      toast({
-        title: 'Failed to fetch rates',
-        description: 'Failed to fetch rates for some shipments'
-      });
+      toast("Failed to fetch rates for some shipments");
       return shipments;
     } finally {
       setIsFetchingRates(false);

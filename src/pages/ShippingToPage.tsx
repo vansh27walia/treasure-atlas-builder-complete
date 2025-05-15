@@ -63,7 +63,6 @@ const ShippingToPage: React.FC = () => {
             <p className="text-blue-700 text-sm">Send packages internationally with automated customs documentation and competitive rates.</p>
           </div>
           
-          {/* Remove isInternational prop if not supported by EnhancedShippingForm */}
           <EnhancedShippingForm />
         </Card>
       </div>
