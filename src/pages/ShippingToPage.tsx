@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Package, Truck, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
@@ -63,7 +63,8 @@ const ShippingToPage: React.FC = () => {
             <p className="text-blue-700 text-sm">Send packages internationally with automated customs documentation and competitive rates.</p>
           </div>
           
-          <EnhancedShippingForm isInternational={true} />
+          {/* Remove isInternational prop if not supported by EnhancedShippingForm */}
+          <EnhancedShippingForm />
         </Card>
       </div>
     </div>
