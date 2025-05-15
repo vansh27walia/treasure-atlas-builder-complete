@@ -49,11 +49,11 @@ export interface ShippingOption {
   listRate?: string;
   retailRate?: string;
   shipment_id?: string;
-  original_rate?: string; // Added this property to fix the error
+  original_rate?: string; // Explicitly added property to fix the error
   list_rate?: string;
   retail_rate?: string;
   est_delivery_days?: number;
-  isPremium?: boolean; // Added this property to fix the error
+  isPremium?: boolean; // Explicitly added property to fix the error
 }
 
 export interface ShippingLabelFormat {
