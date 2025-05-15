@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { BulkUploadResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -155,6 +154,9 @@ export const useBulkUpload = () => {
     handlePreviewLabel,
     getSelectedShipmentData,
     clearSelectedShipment,
+    
+    // Missing setters - need to add these
+    setUploadStatus,
     setShowLabelOptions,
     setDownloadFormat,
     setSearchTerm,
