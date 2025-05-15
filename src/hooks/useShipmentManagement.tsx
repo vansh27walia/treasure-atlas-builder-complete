@@ -12,6 +12,7 @@ export const useShipmentManagement = (
   const navigate = useNavigate();
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
 
   const handleRemoveShipment = (shipmentId: string) => {
@@ -63,7 +64,7 @@ export const useShipmentManagement = (
   
   const handleProceedToPayment = async () => {
     if (!initialResults) {
-      toast("Error - No shipments to process");
+      toast.error("No shipments to process");
       return;
     }
     
@@ -94,7 +95,7 @@ export const useShipmentManagement = (
       window.location.href = data.url;
     } catch (error) {
       console.error('Payment error:', error);
-      toast(`Payment failed - ${error instanceof Error ? error.message : "Failed to process payment"}`);
+      toast.error(`Payment failed - ${error instanceof Error ? error.message : "Failed to process payment"}`);
     } finally {
       setIsPaying(false);
     }
@@ -102,7 +103,7 @@ export const useShipmentManagement = (
 
   const handleCreateLabels = async () => {
     if (!initialResults || initialResults.processedShipments.length === 0) {
-      toast("Error - No shipments to process");
+      toast.error("No shipments to process");
       return;
     }
     
@@ -154,7 +155,7 @@ export const useShipmentManagement = (
       });
       
       if (successCount > 0) {
-        toast(`Label generation complete - Generated ${successCount} shipping labels`);
+        toast.success(`Label generation complete - Generated ${successCount} shipping labels`);
         
         // Set status to success for the BulkUpload component to show success view
         updateResults({
@@ -162,17 +163,15 @@ export const useShipmentManagement = (
           processedShipments: updatedShipments,
           totalCost: initialResults.totalCost,
           successful: successCount,
-          failed: initialResults.processedShipments.length - successCount
+          failed: initialResults.processedShipments.length - successCount,
+          uploadStatus: 'success'
         });
-        
-        // Update upload status in parent component
-        setUploadStatus('success');
       } else {
-        toast("Label generation failed - No labels were generated, please try again");
+        toast.error("Label generation failed - No labels were generated, please try again");
       }
     } catch (error) {
       console.error('Error creating labels:', error);
-      toast(`Label generation failed - ${error instanceof Error ? error.message : "Failed to generate labels"}`);
+      toast.error(`Label generation failed - ${error instanceof Error ? error.message : "Failed to generate labels"}`);
     } finally {
       setIsCreatingLabels(false);
     }
@@ -180,15 +179,13 @@ export const useShipmentManagement = (
 
   const handleDownloadAllLabels = () => {
     if (!initialResults || !initialResults.processedShipments.length) {
-      toast("No labels - No labels available to download");
+      toast.error("No labels - No labels available to download");
       return;
     }
     
     // Show label options modal
     setShowLabelOptions(true);
   };
-
-  const [showLabelOptions, setShowLabelOptions] = useState(false);
   
   const handleDownloadLabelsWithFormat = (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!initialResults || !initialResults.processedShipments.length) return;
@@ -197,11 +194,11 @@ export const useShipmentManagement = (
     
     if (format === 'zip') {
       // Handle ZIP download - in a real app this would call a backend endpoint
-      toast("Preparing ZIP file - Creating ZIP archive with " + initialResults.processedShipments.length + " labels");
+      toast.loading("Preparing ZIP file - Creating ZIP archive with " + initialResults.processedShipments.length + " labels");
       
       // Simulate ZIP download for now
       setTimeout(() => {
-        toast("Download ready - Your labels ZIP file is ready to download");
+        toast.success("Download ready - Your labels ZIP file is ready to download");
         
         // Open first label as example
         const firstShipment = initialResults.processedShipments.find(s => s.label_url);
@@ -246,9 +243,8 @@ export const useShipmentManagement = (
     toast("Email feature - Email labels feature will be implemented soon");
   };
   
-  // This function is needed for the updated component but doesn't exist in the original hook
+  // This function sets the upload status in the parent component
   const setUploadStatus = (status: 'idle' | 'success' | 'error' | 'editing') => {
-    // This should be passed from the parent hook
     if (initialResults) {
       updateResults({
         ...initialResults,
