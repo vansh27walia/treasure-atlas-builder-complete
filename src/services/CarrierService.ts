@@ -1,5 +1,5 @@
+
 import { supabase } from '@/integrations/supabase/client';
-import { ShippingOption } from '@/types/shipping';
 
 export interface AddressData {
   name: string;
@@ -18,6 +18,20 @@ export interface ParcelData {
   width: number;
   height: number;
   weight: number;
+}
+
+export interface ShippingOption {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: string;
+  currency: string;
+  delivery_days: number;
+  delivery_date: string | null;
+  list_rate?: string;
+  retail_rate?: string;
+  est_delivery_days?: number;
+  shipment_id?: string;
 }
 
 export interface ShippingRequestData {
@@ -49,17 +63,13 @@ class CarrierService {
    */
   public async getShippingRates(requestData: ShippingRequestData): Promise<ShippingOption[]> {
     try {
-      console.log('Getting shipping rates for:', requestData);
-      
       // First get EasyPost rates
       const easyPostRates = await this.getEasyPostRates(requestData);
-      console.log('EasyPost rates received:', easyPostRates.length);
       
       // Try to get UPS rates if available
       let upsRates: ShippingOption[] = [];
       try {
         upsRates = await this.getUPSRates(requestData);
-        console.log('UPS rates received:', upsRates.length);
       } catch (error) {
         console.log('UPS API may not be configured yet:', error);
       }
@@ -68,16 +78,12 @@ class CarrierService {
       let dhlRates: ShippingOption[] = [];
       try {
         dhlRates = await this.getDHLRates(requestData);
-        console.log('DHL rates received:', dhlRates.length);
       } catch (error) {
         console.log('DHL API may not be configured yet:', error);
       }
       
-      // Combine all rates
-      const allRates = [...easyPostRates, ...upsRates, ...dhlRates];
-      console.log('Total combined rates:', allRates.length);
-      
-      return allRates;
+      // Return combined rates
+      return [...easyPostRates, ...upsRates, ...dhlRates];
     } catch (error) {
       console.error('Error fetching shipping rates:', error);
       throw new Error('Failed to get shipping rates');
@@ -89,22 +95,14 @@ class CarrierService {
    */
   private async getEasyPostRates(requestData: ShippingRequestData): Promise<ShippingOption[]> {
     try {
-      console.log('Calling get-shipping-rates edge function');
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
         body: { ...requestData, carrier: 'easypost' }
       });
 
       if (error) {
-        console.error('Error from get-shipping-rates function:', error);
         throw new Error(`Error fetching EasyPost rates: ${error.message}`);
       }
 
-      if (!data || !data.rates) {
-        console.error('No rates returned from edge function:', data);
-        return [];
-      }
-
-      console.log('EasyPost rates returned from edge function:', data.rates.length);
       return data.rates;
     } catch (error) {
       console.error('EasyPost API error:', error);
@@ -209,34 +207,6 @@ class CarrierService {
     } catch (error) {
       console.error('Error creating label:', error);
       throw new Error('Failed to generate shipping label');
-    }
-  }
-  
-  /**
-   * Creates an international shipping label
-   */
-  public async createInternationalLabel(shipmentId: string, rateId: string, options: Record<string, any> = {}): Promise<{
-    labelUrl: string;
-    trackingCode: string;
-    shipmentId: string;
-  }> {
-    try {
-      const { data, error } = await supabase.functions.invoke('create-international-label', {
-        body: { shipmentId, rateId, options }
-      });
-
-      if (error) {
-        throw new Error(`Error creating international label: ${error.message}`);
-      }
-
-      return {
-        labelUrl: data.labelUrl,
-        trackingCode: data.trackingCode,
-        shipmentId: data.shipmentId
-      };
-    } catch (error) {
-      console.error('Error creating international label:', error);
-      throw new Error('Failed to generate international shipping label');
     }
   }
   

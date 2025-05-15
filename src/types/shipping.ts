@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -41,19 +42,12 @@ export interface ShippingOption {
   id: string;
   carrier: string;
   service: string;
-  rate: string;
+  rate: number;
   currency: string;
   delivery_days: number;
-  delivery_date?: string | null;
   estimated_delivery_date?: string;
-  listRate?: string;
-  retailRate?: string;
-  shipment_id?: string;
-  original_rate?: string;
-  list_rate?: string;
-  retail_rate?: string;
-  est_delivery_days?: number;
-  isPremium?: boolean;
+  listRate?: number;
+  retailRate?: number;
 }
 
 export interface ShippingLabelFormat {
@@ -74,7 +68,7 @@ export interface BulkShipment {
   recipient: string;
   carrier: string;
   service: string;
-  rate: string;
+  rate: number;
   tracking_code?: string;
   trackingCode?: string;
   label_url?: string;

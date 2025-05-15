@@ -1,7 +1,6 @@
-
 import { useState } from 'react';
-import { toast } from 'sonner';
-import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
+import { toast } from '@/components/ui/sonner';
+import { BulkShipment, BulkUploadResult } from '@/types/shipping';
 import { CARRIER_OPTIONS } from '@/types/shipping';
 
 export const useShipmentRates = (
@@ -12,7 +11,6 @@ export const useShipmentRates = (
   
   const fetchAllShipmentRates = async (shipments: BulkShipment[]) => {
     setIsFetchingRates(true);
-    console.log('Starting to fetch rates for all shipments:', shipments.length);
     
     try {
       const updatedShipments: BulkShipment[] = [...shipments];
@@ -22,8 +20,6 @@ export const useShipmentRates = (
         const shipment = updatedShipments[i];
         
         try {
-          console.log(`Processing shipment ${i+1}/${shipments.length}: ${shipment.id}`);
-          
           // Update status to show we're processing this shipment
           updatedShipments[i] = { ...shipment, status: 'processing' as const };
           updateResults({
@@ -33,7 +29,6 @@ export const useShipmentRates = (
           
           // Fetch rates for this shipment
           const rates = await fetchShipmentRates(shipment);
-          console.log(`Rates received for shipment ${shipment.id}:`, rates.length);
           
           // Update shipment with rates
           updatedShipments[i] = { 
@@ -41,9 +36,7 @@ export const useShipmentRates = (
             availableRates: rates,
             status: 'completed' as const,
             // Set default selected rate to the cheapest option
-            selectedRateId: rates.length > 0 ? rates.sort((a, b) => 
-              parseFloat(a.rate) - parseFloat(b.rate)
-            )[0].id : undefined
+            selectedRateId: rates.length > 0 ? rates.sort((a, b) => a.rate - b.rate)[0].id : undefined
           };
           
           successCount++;
@@ -63,27 +56,25 @@ export const useShipmentRates = (
         });
       }
       
-      toast(`Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`);
+      toast.success(`Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`);
       return updatedShipments;
     } catch (error) {
       console.error('Error fetching shipment rates:', error);
-      toast("Failed to fetch rates for some shipments");
+      toast.error('Failed to fetch rates for some shipments');
       return shipments;
     } finally {
       setIsFetchingRates(false);
     }
   };
   
-  const fetchShipmentRates = async (shipment: BulkShipment): Promise<ShippingOption[]> => {
+  const fetchShipmentRates = async (shipment: BulkShipment) => {
     try {
-      console.log('Fetching rates for shipment:', shipment.id);
-      
       // Mock function - in a real app, you would call your API to get actual rates
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
       
       // Generate mock rates for each carrier
-      const mockRates: ShippingOption[] = CARRIER_OPTIONS.flatMap(carrier => {
+      const mockRates = CARRIER_OPTIONS.flatMap(carrier => {
         return carrier.services.map(service => {
           // Base rate between $5-25 with some carrier-specific modifiers
           const baseRate = 5 + Math.random() * 20;
@@ -103,15 +94,11 @@ export const useShipmentRates = (
           const weight = shipment.details.parcel_weight || 5;
           rate += weight * 0.5; // Add $0.50 per pound
           
-          // Convert rate to string to match expected type
-          const rateString = rate.toFixed(2);
-          
           return {
             id: `${carrier.id}_${service.id}_${shipment.id}`,
             carrier: carrier.name,
             service: service.name,
-            rate: rateString,
-            currency: 'USD',
+            rate: parseFloat(rate.toFixed(2)),
             delivery_days: service.name.includes('Next Day') || service.name.includes('Overnight') 
               ? 1 
               : service.name.includes('2Day') || service.name.includes('2nd Day') 
@@ -123,7 +110,6 @@ export const useShipmentRates = (
         });
       });
       
-      console.log('Generated rates:', mockRates.length);
       return mockRates;
     } catch (error) {
       console.error('Error fetching shipment rates:', error);
@@ -153,10 +139,7 @@ export const useShipmentRates = (
     // Calculate new total cost
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      if (selectedRate) {
-        return sum + parseFloat(selectedRate.rate);
-      }
-      return sum;
+      return sum + (selectedRate?.rate || 0);
     }, 0);
     
     updateResults({
@@ -248,10 +231,7 @@ export const useShipmentRates = (
     // Calculate new total cost
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      if (selectedRate) {
-        return sum + parseFloat(selectedRate.rate);
-      }
-      return sum;
+      return sum + (selectedRate?.rate || 0);
     }, 0);
     
     updateResults({
