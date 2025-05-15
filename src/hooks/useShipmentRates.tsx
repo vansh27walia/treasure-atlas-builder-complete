@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
 import { CARRIER_OPTIONS } from '@/types/shipping';
 
@@ -57,11 +57,18 @@ export const useShipmentRates = (
         });
       }
       
-      toast.success(`Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`);
+      toast({
+        title: "Rates Fetched",
+        description: `Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`,
+      });
       return updatedShipments;
     } catch (error) {
       console.error('Error fetching shipment rates:', error);
-      toast.error('Failed to fetch rates for some shipments');
+      toast({
+        title: "Error",
+        description: "Failed to fetch rates for some shipments",
+        variant: "destructive"
+      });
       return shipments;
     } finally {
       setIsFetchingRates(false);
@@ -187,7 +194,10 @@ export const useShipmentRates = (
         processedShipments: finalShipments
       });
       
-      toast.success('Rates updated successfully');
+      toast({
+        title: "Success",
+        description: "Rates updated successfully",
+      });
     } catch (error) {
       // Update shipment with error
       const errorShipments = updatedShipments.map(s => 
@@ -203,7 +213,11 @@ export const useShipmentRates = (
         processedShipments: errorShipments
       });
       
-      toast.error('Failed to update rates');
+      toast({
+        title: "Error",
+        description: "Failed to update rates",
+        variant: "destructive"
+      });
     }
   };
   
@@ -242,7 +256,10 @@ export const useShipmentRates = (
       totalCost
     });
     
-    toast.success(`Applied ${carrierId} ${serviceId} to all eligible shipments`);
+    toast({
+      title: "Carrier Applied",
+      description: `Applied ${carrierId} ${serviceId} to all eligible shipments`,
+    });
   };
 
   return {

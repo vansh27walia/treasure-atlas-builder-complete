@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CheckCircle, Download, Home, Truck, Printer } from 'lucide-react';
-import { toast } from '@/components/ui/sonner';
+import { toast } from '@/components/ui/use-toast';
 import ShippingLabel from '@/components/shipping/ShippingLabel';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import { Progress } from '@/components/ui/progress';
@@ -34,7 +34,11 @@ const LabelSuccessPage: React.FC = () => {
       console.log("Decoded label URL:", decodeURIComponent(labelUrlParam));
     } else {
       console.error('No label URL provided in the URL parameters');
-      toast.error('Missing label information');
+      toast({
+        title: "Error",
+        description: "Missing label information",
+        variant: "destructive"
+      });
     }
 
     if (trackingCodeParam) {
@@ -46,7 +50,10 @@ const LabelSuccessPage: React.FC = () => {
     }
 
     // Show success toast
-    toast.success('Your shipping label is ready!');
+    toast({
+      title: "Success",
+      description: "Your shipping label is ready!",
+    });
     
     // Scroll to top and prevent any unwanted scrolling
     window.scrollTo(0, 0);
