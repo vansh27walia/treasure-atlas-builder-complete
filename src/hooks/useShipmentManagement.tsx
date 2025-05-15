@@ -13,6 +13,7 @@ export const useShipmentManagement = (
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
 
   const handleRemoveShipment = (shipmentId: string) => {
     if (!initialResults) return;
@@ -162,11 +163,9 @@ export const useShipmentManagement = (
           processedShipments: updatedShipments,
           totalCost: initialResults.totalCost,
           successful: successCount,
-          failed: initialResults.processedShipments.length - successCount
+          failed: initialResults.processedShipments.length - successCount,
+          uploadStatus: 'success'
         });
-        
-        // Update upload status in parent component
-        setUploadStatus('success');
       } else {
         toast("No labels were generated, please try again");
       }
@@ -187,8 +186,6 @@ export const useShipmentManagement = (
     // Show label options modal
     setShowLabelOptions(true);
   };
-
-  const [showLabelOptions, setShowLabelOptions] = useState(false);
   
   const handleDownloadLabelsWithFormat = (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!initialResults || !initialResults.processedShipments.length) return;
