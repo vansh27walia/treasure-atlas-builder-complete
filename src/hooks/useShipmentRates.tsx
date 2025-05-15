@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
@@ -102,11 +103,14 @@ export const useShipmentRates = (
           const weight = shipment.details.parcel_weight || 5;
           rate += weight * 0.5; // Add $0.50 per pound
           
+          // Convert rate to string to match expected type
+          const rateString = rate.toFixed(2);
+          
           return {
             id: `${carrier.id}_${service.id}_${shipment.id}`,
             carrier: carrier.name,
             service: service.name,
-            rate: rate.toFixed(2),
+            rate: rateString,
             currency: 'USD',
             delivery_days: service.name.includes('Next Day') || service.name.includes('Overnight') 
               ? 1 

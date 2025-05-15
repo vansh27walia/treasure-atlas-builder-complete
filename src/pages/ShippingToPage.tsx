@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, Truck, Globe, FileText, Users } from 'lucide-react';
@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
+import ShippingRates from '@/components/ShippingRates';
 
 const ShippingToPage: React.FC = () => {
   const navigate = useNavigate();
@@ -83,6 +84,11 @@ const ShippingToPage: React.FC = () => {
               </div>
               
               <EnhancedShippingForm />
+              
+              {/* Add ShippingRates component to display rates */}
+              {currentStep === 'rates' && (
+                <ShippingRates />
+              )}
             </Card>
           </TabsContent>
           

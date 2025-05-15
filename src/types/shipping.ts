@@ -42,12 +42,15 @@ export interface ShippingOption {
   id: string;
   carrier: string;
   service: string;
-  rate: string;
+  rate: string; // Changed from number to string to match API responses
   currency: string;
   delivery_days: number;
+  delivery_date?: string | null;
   estimated_delivery_date?: string;
   listRate?: string;
   retailRate?: string;
+  shipment_id?: string;
+  original_rate?: string;
 }
 
 export interface ShippingLabelFormat {
@@ -68,7 +71,7 @@ export interface BulkShipment {
   recipient: string;
   carrier: string;
   service: string;
-  rate: number | string;
+  rate: string; // Changed from number to string to match API responses
   tracking_code?: string;
   trackingCode?: string;
   label_url?: string;

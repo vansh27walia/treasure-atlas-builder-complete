@@ -1,24 +1,31 @@
 
 import { useState, useMemo } from 'react';
-import { BulkShipment, BulkUploadResult } from '@/types/shipping';
+import { BulkUploadResult } from '@/types/shipping';
 
-export const useShipmentFiltering = (
-  results: BulkUploadResult | null
-) => {
+export const useShipmentFiltering = (results: BulkUploadResult | null) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<'recipient' | 'rate' | 'carrier'>('recipient');
+  const [sortField, setSortField] = useState<'name' | 'tracking' | 'rate' | 'carrier'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [selectedCarrierFilter, setSelectedCarrierFilter] = useState<string | null>(null);
-
-  // Filter and sort shipments
+  const [selectedCarrierFilter, setSelectedCarrierFilter] = useState('all');
+  
+  // Filter and sort the shipments based on search, sort, and filter criteria
   const filteredShipments = useMemo(() => {
-    if (!results) return [];
+    if (!results || !results.processedShipments) {
+      return [];
+    }
     
     return results.processedShipments
       .filter(shipment => {
-        // Filter by search term
-        const searchFields = [
-          shipment.recipient,
+        // Filter by carrier if a specific carrier is selected
+        if (selectedCarrierFilter !== 'all') {
+          const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
+          if (selectedRate && selectedRate.carrier.toLowerCase() !== selectedCarrierFilter.toLowerCase()) {
+            return false;
+          }
+        }
+        
+        // Search by term
+        const searchString = [
           shipment.details.name,
           shipment.details.company || '',
           shipment.details.street1,
@@ -26,31 +33,32 @@ export const useShipmentFiltering = (
           shipment.details.city,
           shipment.details.state,
           shipment.details.zip,
-          shipment.carrier,
-          shipment.service
+          shipment.details.country,
+          shipment.carrier || '',
+          shipment.tracking_code || '',
         ].join(' ').toLowerCase();
         
-        const matchesSearch = !searchTerm || searchFields.includes(searchTerm.toLowerCase());
-        
-        // Filter by carrier
-        const matchesCarrier = !selectedCarrierFilter || 
-          (shipment.availableRates?.some(rate => 
-            rate.carrier.toLowerCase() === selectedCarrierFilter.toLowerCase()
-          ));
-          
-        return matchesSearch && matchesCarrier;
+        return !searchTerm || searchString.includes(searchTerm.toLowerCase());
       })
       .sort((a, b) => {
-        if (sortField === 'recipient') {
+        // Sort by specified field
+        if (sortField === 'name') {
+          // Sort by recipient name
           return sortDirection === 'asc' 
-            ? a.recipient.localeCompare(b.recipient)
-            : b.recipient.localeCompare(a.recipient);
-        }
-        
-        if (sortField === 'carrier') {
+            ? a.details.name.localeCompare(b.details.name)
+            : b.details.name.localeCompare(a.details.name);
+        } else if (sortField === 'tracking') {
+          // Sort by tracking code
+          const trackingA = a.tracking_code || '';
+          const trackingB = b.tracking_code || '';
           return sortDirection === 'asc' 
-            ? a.carrier.localeCompare(b.carrier)
-            : b.carrier.localeCompare(a.carrier);
+            ? trackingA.localeCompare(trackingB)
+            : trackingB.localeCompare(trackingA);
+        } else if (sortField === 'carrier') {
+          // Sort by carrier
+          return sortDirection === 'asc' 
+            ? a.carrier?.localeCompare(b.carrier || '') || 0
+            : b.carrier?.localeCompare(a.carrier || '') || 0;
         }
         
         // Sort by rate - Convert string rates to numbers before comparing
