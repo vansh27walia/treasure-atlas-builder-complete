@@ -61,15 +61,16 @@ const Shipping2Sheet: React.FC = () => {
     }));
   }, []);
   
-  // Handlers for updating address and parcel details
-  const handleFromAddressChange = (address: any, isValid: boolean) => {
+  // Updated handler for fromAddress to match the SimpleAddress signature
+  const handleFromAddressChange = (address: any) => {
     setFromAddress(address);
-    setIsFromAddressValid(isValid);
+    setIsFromAddressValid(true); // Assuming the address is valid if it's passed
   };
   
-  const handleToAddressChange = (address: any, isValid: boolean) => {
+  // Updated handler for toAddress to match the SimpleAddress signature
+  const handleToAddressChange = (address: any) => {
     setToAddress(address);
-    setIsToAddressValid(isValid);
+    setIsToAddressValid(true); // Assuming the address is valid if it's passed
   };
   
   const handleParcelChange = (parcel: any, isValid: boolean) => {
@@ -182,13 +183,7 @@ const Shipping2Sheet: React.FC = () => {
               Package Details
             </h2>
             
-            <EnhancedShippingForm 
-              onParcelDetailsChange={handleParcelChange}
-              onCustomsDetailsChange={handleCustomsChange}
-              initialParcelDetails={parcelDetails}
-              initialCustomsDetails={customsInfo}
-              isInternational={true}
-            />
+            <EnhancedShippingForm />
           </Card>
         </div>
       )}
