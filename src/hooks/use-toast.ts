@@ -1,17 +1,13 @@
 
-import { toast as sonnerToast } from "sonner";
+import { toast as sonnerToast, Toast, ToastT } from "sonner";
 import * as React from "react";
 
-type ToastProps = React.ComponentPropsWithoutRef<typeof sonnerToast>;
+// Re-export the sonner toast function
+export { sonnerToast as toast };
 
-const useToast = () => {
-  const toast = (props: ToastProps) => {
-    sonnerToast(props);
-  };
-
+// Create a hook wrapper around the toast functionality
+export const useToast = () => {
   return {
-    toast: sonnerToast,
+    toast: sonnerToast
   };
 };
-
-export { useToast, sonnerToast as toast };

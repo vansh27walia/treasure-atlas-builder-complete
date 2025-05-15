@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { Download, Printer, RefreshCcw, ArrowRight, Link, Mail } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -59,11 +59,10 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
       }
       
       setCachedUrl(labelData.labelUrl);
-      toast({ title: "Label refreshed successfully" });
+      toast.success("Label refreshed successfully");
     } catch (error) {
       console.error('Error fetching label:', error);
-      toast({
-        title: "Failed to refresh label", 
+      toast.error("Failed to refresh label", {
         description: "Using previously generated label instead"
       });
     } finally {
@@ -83,12 +82,11 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
       a.click();
       document.body.removeChild(a);
       
-      toast({ title: "Label download started" });
+      toast.success("Label download started");
     } catch (error) {
       console.error('Error downloading label:', error);
-      toast({ 
-        title: "Download failed", 
-        description: "Please try again or contact support" 
+      toast.error("Download failed", {
+        description: "Please try again or contact support"
       });
     }
   };
@@ -104,16 +102,14 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
           printWindow.print();
         }, 1000); // Short delay to ensure PDF is loaded
       } else {
-        toast({
-          title: "Popup blocked",
+        toast.error("Popup blocked", {
           description: "Please allow popups to print the label"
         });
       }
     } catch (error) {
       console.error('Error printing label:', error);
-      toast({ 
-        title: "Print failed", 
-        description: "Please try again or download the label first" 
+      toast.error("Print failed", {
+        description: "Please try again or download the label first"
       });
     }
   };
@@ -127,8 +123,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
   };
   
   const handleEmailLabel = () => {
-    toast({
-      title: "Email feature coming soon", 
+    toast.info("Email feature coming soon", {
       description: "Please download the label for now."
     });
   };
