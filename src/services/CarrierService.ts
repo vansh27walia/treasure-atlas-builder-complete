@@ -63,13 +63,17 @@ class CarrierService {
    */
   public async getShippingRates(requestData: ShippingRequestData): Promise<ShippingOption[]> {
     try {
+      console.log('Getting shipping rates for:', requestData);
+      
       // First get EasyPost rates
       const easyPostRates = await this.getEasyPostRates(requestData);
+      console.log('EasyPost rates received:', easyPostRates.length);
       
       // Try to get UPS rates if available
       let upsRates: ShippingOption[] = [];
       try {
         upsRates = await this.getUPSRates(requestData);
+        console.log('UPS rates received:', upsRates.length);
       } catch (error) {
         console.log('UPS API may not be configured yet:', error);
       }
@@ -78,12 +82,16 @@ class CarrierService {
       let dhlRates: ShippingOption[] = [];
       try {
         dhlRates = await this.getDHLRates(requestData);
+        console.log('DHL rates received:', dhlRates.length);
       } catch (error) {
         console.log('DHL API may not be configured yet:', error);
       }
       
-      // Return combined rates
-      return [...easyPostRates, ...upsRates, ...dhlRates];
+      // Combine all rates
+      const allRates = [...easyPostRates, ...upsRates, ...dhlRates];
+      console.log('Total combined rates:', allRates.length);
+      
+      return allRates;
     } catch (error) {
       console.error('Error fetching shipping rates:', error);
       throw new Error('Failed to get shipping rates');
@@ -95,14 +103,22 @@ class CarrierService {
    */
   private async getEasyPostRates(requestData: ShippingRequestData): Promise<ShippingOption[]> {
     try {
+      console.log('Calling get-shipping-rates edge function');
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
         body: { ...requestData, carrier: 'easypost' }
       });
 
       if (error) {
+        console.error('Error from get-shipping-rates function:', error);
         throw new Error(`Error fetching EasyPost rates: ${error.message}`);
       }
 
+      if (!data || !data.rates) {
+        console.error('No rates returned from edge function:', data);
+        return [];
+      }
+
+      console.log('EasyPost rates returned from edge function:', data.rates.length);
       return data.rates;
     } catch (error) {
       console.error('EasyPost API error:', error);

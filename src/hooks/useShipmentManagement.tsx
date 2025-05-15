@@ -25,7 +25,7 @@ export const useShipmentManagement = (
     // Recalculate totals
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate?.rate || 0);
+      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
     }, 0);
     
     updateResults({
@@ -108,16 +108,23 @@ export const useShipmentManagement = (
     }
     
     setIsCreatingLabels(true);
+    console.log("Creating labels for", initialResults.processedShipments.length, "shipments");
     
     try {
       // Process each shipment to create labels
       const updatedShipments = [...initialResults.processedShipments];
       let successCount = 0;
       
-      for (const shipment of updatedShipments) {
-        if (!shipment.selectedRateId) continue;
+      for (let i = 0; i < updatedShipments.length; i++) {
+        const shipment = updatedShipments[i];
+        if (!shipment.selectedRateId) {
+          console.log("Skipping shipment without selected rate:", shipment.id);
+          continue;
+        }
         
         try {
+          console.log(`Creating label for shipment ${i+1}/${updatedShipments.length}: ${shipment.id}`);
+          
           // Make API call to create label
           const { data, error } = await supabase.functions.invoke('create-label', {
             body: { 
@@ -131,6 +138,8 @@ export const useShipmentManagement = (
           });
 
           if (error) throw new Error(error.message);
+          
+          console.log("Label created successfully:", data);
           
           // Update shipment with label URL and tracking code
           const index = updatedShipments.findIndex(s => s.id === shipment.id);
