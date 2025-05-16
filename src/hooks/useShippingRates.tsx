@@ -39,6 +39,7 @@ export const useShippingRates = () => {
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [activeCarrierFilter, setActiveCarrierFilter] = useState<string | 'all'>('all');
+  const [isInternational, setIsInternational] = useState<boolean>(false);
   
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
@@ -78,6 +79,11 @@ export const useShippingRates = () => {
       if (event.detail && event.detail.rates) {
         console.log("Rates received:", event.detail.rates);
         console.log("Shipment ID received:", event.detail.shipmentId);
+        
+        // Check if this is an international shipment from data attributes
+        const isIntl = document.querySelector('[data-shipping-type="international"]') !== null;
+        setIsInternational(isIntl);
+        console.log("Is international shipment:", isIntl);
         
         // Add shipmentId to each rate object and process rates
         const processedRates = processRates(event.detail.rates).map(rate => ({
@@ -186,7 +192,7 @@ export const useShippingRates = () => {
     setActiveCarrierFilter(carrier);
   };
 
-  // Modified to accept rateId and shipmentId params for automatic calling
+  // Modified to use a consistent approach for both domestic and international labels
   const handleCreateLabel = async (rateIdParam?: string, shipmentIdParam?: string) => {
     const effectiveRateId = rateIdParam || selectedRateId;
     const effectiveShipmentId = shipmentIdParam || shipmentId;
@@ -201,7 +207,8 @@ export const useShippingRates = () => {
     try {
       console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
       
-      // Always use the same endpoint for consistent behavior
+      // Using one consistent label creation function for both domestic and international
+      // This is the key change - always use create-label endpoint with proper PDF handling
       const endpoint = 'create-label';
       
       console.log(`Using ${endpoint} endpoint for label creation`);
@@ -333,6 +340,7 @@ export const useShippingRates = () => {
     fastestRateId,
     uniqueCarriers,
     activeCarrierFilter,
+    isInternational,
     handleSelectRate,
     handleCreateLabel,
     handleProceedToPayment,

@@ -340,134 +340,127 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
             <DialogDescription>
               Tracking #: {trackingCode}
             </DialogDescription>
+            <Button 
+              variant="ghost" 
+              className="absolute top-2 right-2 h-8 w-8 p-0" 
+              onClick={() => setIsLabelModalOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </DialogHeader>
           
-          <Tabs defaultValue="preview" value={activeTab} onValueChange={(value) => setActiveTab(value as 'preview' | 'download' | 'share')} className="w-full">
-            <TabsList className="grid grid-cols-3 px-6">
+          <Tabs defaultValue="preview" value={activeTab} onValueChange={(value) => setActiveTab(value as 'preview' | 'download' | 'share')}>
+            <TabsList className="grid grid-cols-3 mx-6">
               <TabsTrigger value="preview">Preview</TabsTrigger>
               <TabsTrigger value="download">Download</TabsTrigger>
               <TabsTrigger value="share">Share</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="preview" className="px-6 py-4">
-              <div className="min-h-[400px] flex items-center justify-center border rounded-md">
+            <TabsContent value="preview" className="p-6 pt-4">
+              <div className="bg-gray-100 border rounded-md overflow-hidden h-[60vh]">
                 {blobUrl ? (
                   <iframe 
-                    src={blobUrl} 
-                    className="w-full h-[500px]" 
-                    title="Label Preview"
                     ref={iframeRef}
+                    src={blobUrl} 
+                    className="w-full h-full"
+                    title="Shipping Label"
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full w-full">
-                    {isLoading ? (
-                      <>
-                        <RefreshCw className="h-16 w-16 text-blue-400 animate-spin mb-4" />
-                        <p className="text-gray-500">Loading preview...</p>
-                      </>
-                    ) : (
-                      <>
-                        <FileText className="h-16 w-16 text-gray-300 mb-4" />
-                        <p className="text-gray-500">Preview not available</p>
-                        <Button 
-                          variant="outline" 
-                          className="mt-4"
-                          onClick={handleOpenInNewTab}
-                        >
-                          Open in New Tab
-                        </Button>
-                      </>
-                    )}
+                  <div className="flex items-center justify-center h-full">
+                    <RefreshCw className="h-8 w-8 text-gray-400 animate-spin" />
+                    <span className="ml-2 text-gray-500">Loading preview...</span>
                   </div>
                 )}
               </div>
             </TabsContent>
             
-            <TabsContent value="download" className="px-6 py-4">
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div 
-                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
-                      ${selectedFormat === 'pdf' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
-                    `}
-                    onClick={() => setSelectedFormat('pdf')}
-                  >
-                    <FileText className="h-12 w-12 mx-auto mb-2 text-blue-600" />
-                    <h4 className="font-medium">PDF Format</h4>
-                    <p className="text-xs text-gray-500">Best for printing</p>
-                  </div>
+            <TabsContent value="download" className="p-6 pt-4">
+              <div className="space-y-4">
+                <div className="bg-blue-50 p-4 rounded-md">
+                  <h3 className="font-semibold mb-2 flex items-center">
+                    <Download className="mr-2 h-4 w-4 text-blue-600" />
+                    Download Options
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Select your preferred label format:
+                  </p>
                   
-                  <div 
-                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
-                      ${selectedFormat === 'png' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
-                    `}
-                    onClick={() => setSelectedFormat('png')}
-                  >
-                    <FileText className="h-12 w-12 mx-auto mb-2 text-green-600" />
-                    <h4 className="font-medium">PNG Format</h4>
-                    <p className="text-xs text-gray-500">Image format</p>
-                  </div>
-                  
-                  <div 
-                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
-                      ${selectedFormat === 'zpl' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
-                    `}
-                    onClick={() => setSelectedFormat('zpl')}
-                  >
-                    <FileText className="h-12 w-12 mx-auto mb-2 text-purple-600" />
-                    <h4 className="font-medium">ZPL Format</h4>
-                    <p className="text-xs text-gray-500">For thermal printers</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <Button
+                      variant={selectedFormat === 'pdf' ? 'default' : 'outline'}
+                      className={selectedFormat === 'pdf' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                      onClick={() => setSelectedFormat('pdf')}
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      PDF Format
+                    </Button>
+                    <Button
+                      variant={selectedFormat === 'png' ? 'default' : 'outline'}
+                      className={selectedFormat === 'png' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                      onClick={() => setSelectedFormat('png')}
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      PNG Format
+                    </Button>
+                    <Button
+                      variant={selectedFormat === 'zpl' ? 'default' : 'outline'}
+                      className={selectedFormat === 'zpl' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+                      onClick={() => setSelectedFormat('zpl')}
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      ZPL Format
+                    </Button>
                   </div>
                 </div>
                 
                 <Button 
-                  onClick={() => handleDirectDownload(selectedFormat)} 
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700"
+                  className="w-full bg-green-600 hover:bg-green-700 h-12"
+                  onClick={() => handleDirectDownload(selectedFormat)}
                 >
                   <Download className="mr-2 h-5 w-5" />
-                  Download {selectedFormat.toUpperCase()} File
+                  Download {selectedFormat.toUpperCase()} Label
                 </Button>
+                
+                <a 
+                  ref={downloadLinkRef} 
+                  className="hidden" 
+                  download={`shipping_label_${trackingCode}.${selectedFormat}`}
+                  href={blobUrl || labelUrl || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Hidden download link
+                </a>
               </div>
             </TabsContent>
             
-            <TabsContent value="share" className="px-6 py-4">
-              <div className="space-y-6">
-                <div className="border rounded-md p-4">
-                  <h4 className="font-medium mb-2">Email Label</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Send this label to your email address for easy access later
-                  </p>
-                  <Button 
-                    onClick={handleEmailLabel}
-                    disabled={isEmailSending}
-                    className="w-full"
-                  >
-                    <Mail className="mr-2 h-4 w-4" />
-                    {isEmailSending ? 'Sending...' : 'Email to My Inbox'}
-                  </Button>
-                </div>
+            <TabsContent value="share" className="p-6 pt-4">
+              <div className="space-y-4">
+                <Button 
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700"
+                  onClick={handleEmailLabel}
+                  disabled={isEmailSending}
+                >
+                  <Mail className="mr-2 h-5 w-5" />
+                  {isEmailSending ? 'Sending...' : 'Email to My Address'}
+                </Button>
                 
-                <div className="border rounded-md p-4">
-                  <h4 className="font-medium mb-2">Save to Account</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Save this label to your account for easy access later
-                  </p>
-                  <Button 
-                    onClick={handleSaveToAccount}
-                    disabled={isSaving}
-                    className="w-full"
-                  >
-                    <Save className="mr-2 h-4 w-4" />
-                    {isSaving ? 'Saving...' : 'Save to My Labels'}
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  className="w-full h-12 border-blue-200 hover:bg-blue-50"
+                  onClick={handleSaveToAccount}
+                  disabled={isSaving}
+                >
+                  <Save className="mr-2 h-5 w-5" />
+                  {isSaving ? 'Saving...' : 'Save to My Account'}
+                </Button>
               </div>
             </TabsContent>
           </Tabs>
           
-          <DialogFooter className="p-4 pt-0">
+          <DialogFooter className="p-6 pt-2">
             <Button variant="outline" onClick={() => setIsLabelModalOpen(false)}>
-              <X className="mr-2 h-4 w-4" /> Close
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>

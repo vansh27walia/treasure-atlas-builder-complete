@@ -14,7 +14,9 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { FileText, UploadCloud, ChevronRight, AlertCircle, Download } from 'lucide-react';
 
-const BulkUpload: React.FC = () => {
+interface BulkUploadProps {}
+
+const BulkUpload: React.FC<BulkUploadProps> = () => {
   const {
     file,
     isUploading,
