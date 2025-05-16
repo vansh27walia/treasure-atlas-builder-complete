@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -342,8 +341,8 @@ ${toAddress.country}`,
               </Button>
             </div>
             
-            {/* Use the same EnhancedShippingForm component as domestic shipping */}
-            <EnhancedShippingForm onSubmit={handleSubmit} isLoading={isLoading} />
+            {/* Use the EnhancedShippingForm component without passing props */}
+            <EnhancedShippingForm />
           </div>
         </Card>
       )}
