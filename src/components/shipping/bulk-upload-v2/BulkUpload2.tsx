@@ -22,10 +22,11 @@ const BulkUpload2: React.FC = () => {
   return (
     <div className="space-y-6">
       <Card className="p-6">
-        <h2 className="text-2xl font-semibold mb-4">Bulk Upload V2</h2>
+        <h2 className="text-2xl font-semibold mb-4">Bulk Upload</h2>
         <p className="text-gray-600 mb-6">
           Upload a CSV file with multiple shipping addresses to generate labels individually. 
           Each shipment will be processed separately for better tracking and error handling.
+          You can specify carrier and service preferences in the CSV template.
         </p>
 
         {(!results || uploadStatus === 'idle') && (

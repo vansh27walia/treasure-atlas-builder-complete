@@ -24,6 +24,8 @@ const FailedShipmentsTable2: React.FC<FailedShipmentsTable2Props> = ({
             <TableRow>
               <TableHead>Row</TableHead>
               <TableHead>Recipient</TableHead>
+              <TableHead>Carrier</TableHead>
+              <TableHead>Service</TableHead>
               <TableHead>Error</TableHead>
             </TableRow>
           </TableHeader>
@@ -32,6 +34,8 @@ const FailedShipmentsTable2: React.FC<FailedShipmentsTable2Props> = ({
               <TableRow key={shipment.id}>
                 <TableCell>{shipment.row}</TableCell>
                 <TableCell>{shipment.recipient}</TableCell>
+                <TableCell>{shipment.carrier || 'N/A'}</TableCell>
+                <TableCell>{shipment.service || 'N/A'}</TableCell>
                 <TableCell>
                   <div className="flex items-center text-red-600">
                     <AlertCircle className="h-4 w-4 mr-1" />
@@ -45,6 +49,8 @@ const FailedShipmentsTable2: React.FC<FailedShipmentsTable2Props> = ({
               <TableRow key={`failed-${shipment.row}-${idx}`}>
                 <TableCell>{shipment.row}</TableCell>
                 <TableCell>Row {shipment.row}</TableCell>
+                <TableCell>—</TableCell>
+                <TableCell>—</TableCell>
                 <TableCell>
                   <div className="flex items-center text-red-600">
                     <AlertCircle className="h-4 w-4 mr-1" />
