@@ -42,12 +42,13 @@ const InternationalShippingV2 = () => {
             
             <div className="p-6">
               <TabsContent value="shipping">
-                <EnhancedShippingForm isInternational={true} />
+                {/* Use EnhancedShippingForm without any props as they're not defined in the component */}
+                <EnhancedShippingForm />
               </TabsContent>
               <TabsContent value="calculator">
                 <div className="py-4">
-                  {/* Rate calculator content is loaded from EnhancedShippingForm */}
-                  <EnhancedShippingForm isInternational={true} calculatorMode={true} />
+                  {/* Use EnhancedShippingForm without any props */}
+                  <EnhancedShippingForm />
                 </div>
               </TabsContent>
             </div>
