@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,7 +56,7 @@ const ShippingRates: React.FC = () => {
   // Sort the rates based on the selected sorting option
   const sortedRates = [...rates].sort((a, b) => {
     if (sortOrder === 'price') {
-      return a.rate - b.rate;
+      return parseFloat(a.rate) - parseFloat(b.rate);
     } else if (sortOrder === 'speed') {
       const aDays = a.delivery_days || 999;
       const bDays = b.delivery_days || 999;
@@ -145,11 +146,7 @@ const ShippingRates: React.FC = () => {
                   {sortedRates.map((rate) => (
                     <ShippingRateCard
                       key={rate.id}
-                      rate={{
-                        ...rate,
-                        rate: rate.rate.toString(),
-                        original_rate: rate.retailRate?.toString() || (rate.rate * 1.2).toString()
-                      }}
+                      rate={rate}
                       isSelected={selectedRateId === rate.id}
                       onSelect={handleSelectRate}
                       isBestValue={rate.id === bestValueRateId}
@@ -159,7 +156,7 @@ const ShippingRates: React.FC = () => {
                         reason: aiRecommendation.analysisText || ''
                       }}
                       showDiscount={true}
-                      originalRate={rate.retailRate?.toString() || (rate.rate * 1.2).toString()}
+                      originalRate={rate.original_rate}
                       isPremium={false}
                     />
                   ))}

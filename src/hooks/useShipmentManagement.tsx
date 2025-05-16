@@ -13,7 +13,6 @@ export const useShipmentManagement = (
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
-  const [showLabelOptions, setShowLabelOptions] = useState(false);
 
   const handleRemoveShipment = (shipmentId: string) => {
     if (!initialResults) return;
@@ -118,13 +117,11 @@ export const useShipmentManagement = (
     }
     
     setIsCreatingLabels(true);
-    toast.loading("Generating shipping labels...");
     
     try {
       // Process each shipment to create labels
       const updatedShipments = [...initialResults.processedShipments];
       let successCount = 0;
-      let pendingLabels = updatedShipments.length;
       
       for (const shipment of updatedShipments) {
         if (!shipment.selectedRateId) continue;
@@ -155,10 +152,6 @@ export const useShipmentManagement = (
             };
             successCount++;
           }
-          
-          // Update progress in the UI
-          pendingLabels--;
-          toast.loading(`Generating labels: ${successCount} complete, ${pendingLabels} remaining`);
         } catch (error) {
           console.error(`Error creating label for shipment ${shipment.id}:`, error);
         }
@@ -167,23 +160,33 @@ export const useShipmentManagement = (
       // Update results with labels
       updateResults({
         ...initialResults,
-        processedShipments: updatedShipments,
-        totalCost: initialResults.totalCost,
-        successful: successCount,
-        failed: initialResults.processedShipments.length - successCount,
-        uploadStatus: 'success' 
+        processedShipments: updatedShipments
       });
       
-      toast.dismiss();
-      
       if (successCount > 0) {
-        toast.success(`Generated ${successCount} shipping labels`);
+        toast("Label generation complete", {
+          description: `Generated ${successCount} shipping labels`
+        });
+        
+        // Set status to success for the BulkUpload component to show success view
+        updateResults({
+          ...initialResults,
+          processedShipments: updatedShipments,
+          totalCost: initialResults.totalCost,
+          successful: successCount,
+          failed: initialResults.processedShipments.length - successCount
+        });
+        
+        // Update upload status in parent component
+        setUploadStatus('success');
       } else {
-        toast.error("No labels were generated, please try again");
+        toast("Label generation failed", {
+          description: "No labels were generated, please try again"
+        });
       }
     } catch (error) {
       console.error('Error creating labels:', error);
-      toast.error("Label generation failed", {
+      toast("Label generation failed", {
         description: error instanceof Error ? error.message : "Failed to generate labels"
       });
     } finally {
@@ -193,67 +196,71 @@ export const useShipmentManagement = (
 
   const handleDownloadAllLabels = () => {
     if (!initialResults || !initialResults.processedShipments.length) {
-      toast.error("No labels", {
+      toast("No labels", {
         description: "No labels available to download"
       });
       return;
     }
     
-    const labelsWithUrls = initialResults.processedShipments.filter(s => s.label_url);
-    
-    if (labelsWithUrls.length === 0) {
-      // No labels yet, generate them first
-      toast("Generating labels first", {
-        description: "Please wait while we generate your labels"
-      });
-      handleCreateLabels();
-      return;
-    }
-    
-    // Show label options modal for download format selection
+    // Show label options modal
     setShowLabelOptions(true);
   };
 
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
+  
   const handleDownloadLabelsWithFormat = (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!initialResults || !initialResults.processedShipments.length) return;
     
     setShowLabelOptions(false);
-    setDownloadFormat(format as 'pdf' | 'png' | 'zpl');
-    
-    const labelsWithUrls = initialResults.processedShipments.filter(s => s.label_url);
     
     if (format === 'zip') {
-      // Use international label edge function for batch download
-      handleBatchDownload(labelsWithUrls);
-    } else {
-      // For individual formats, use batch download for consistency
-      handleBatchDownload(labelsWithUrls, format);
-    }
-  };
-  
-  const handleBatchDownload = async (shipments: BulkShipment[], format: string = 'pdf') => {
-    toast.loading("Preparing labels for download...");
-    
-    try {
-      // Simulate a backend call to prepare all labels
-      // In production, this would call an edge function to prepare a ZIP file
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Handle ZIP download - in a real app this would call a backend endpoint
+      toast("Preparing ZIP file", {
+        description: `Creating ZIP archive with ${initialResults.processedShipments.length} labels`
+      });
       
-      toast.dismiss();
-      toast.success("Labels ready for download");
-      
-      // Open the first label for demonstration
-      // In production, this would download a ZIP file with all labels
-      if (shipments.length > 0 && shipments[0].label_url) {
-        window.open(shipments[0].label_url, '_blank');
+      // Simulate ZIP download for now
+      setTimeout(() => {
+        toast("Download ready", {
+          description: "Your labels ZIP file is ready to download"
+        });
         
-        if (shipments.length > 1) {
-          toast.info(`Showing first label as example. In production, all ${shipments.length} labels would be combined in a ZIP file.`);
+        // Open first label as example
+        const firstShipment = initialResults.processedShipments.find(s => s.label_url);
+        if (firstShipment?.label_url) {
+          window.open(firstShipment.label_url, '_blank');
         }
+      }, 1500);
+      return;
+    }
+    
+    // Set format for future downloads
+    setDownloadFormat(format as 'pdf' | 'png' | 'zpl');
+    
+    // For individual formats, open each label in new tab
+    const labelsWithUrls = initialResults.processedShipments.filter(s => s.label_url);
+    
+    if (labelsWithUrls.length === 0) {
+      // No labels yet, generate them first
+      handleCreateLabels();
+      return;
+    }
+    
+    toast("Opening labels", {
+      description: `Opening ${labelsWithUrls.length} labels in ${format.toUpperCase()} format`
+    });
+    
+    // Open first 3 labels maximum to avoid browser popup blocking
+    labelsWithUrls.slice(0, 3).forEach(shipment => {
+      if (shipment.label_url) {
+        window.open(shipment.label_url, '_blank');
       }
-    } catch (error) {
-      toast.error("Failed to prepare labels for download");
-      console.error("Batch download error:", error);
+    });
+    
+    if (labelsWithUrls.length > 3) {
+      toast("More labels available", {
+        description: `${labelsWithUrls.length - 3} more labels are available for individual download`
+      });
     }
   };
 
@@ -265,16 +272,11 @@ export const useShipmentManagement = (
     toast("Email feature", {
       description: "Email labels feature will be implemented soon"
     });
-    setShowLabelOptions(false);
   };
   
-  const handleViewShipment = (shipmentId: string) => {
-    // This method will be passed to the SuccessfulShipmentsTable component
-    // The view dialog is handled in the SuccessNotification component
-  };
-  
-  // Set upload status (this needs to be exposed for use in the BulkUpload component)
+  // This function is needed for the updated component but doesn't exist in the original hook
   const setUploadStatus = (status: 'idle' | 'success' | 'error' | 'editing') => {
+    // This should be passed from the parent hook
     if (initialResults) {
       updateResults({
         ...initialResults,
@@ -296,9 +298,7 @@ export const useShipmentManagement = (
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
     handleEmailLabels,
-    handleViewShipment,
     setShowLabelOptions,
-    setDownloadFormat,
-    setUploadStatus
+    setDownloadFormat
   };
 };

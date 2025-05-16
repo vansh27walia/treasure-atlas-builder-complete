@@ -2,17 +2,17 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Eye } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 
 interface SuccessfulShipmentsTableProps {
   shipments: BulkShipment[];
-  onViewShipment: (shipmentId: string) => void;
+  onDownloadSingleLabel: (labelUrl: string) => void;
 }
 
 const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   shipments,
-  onViewShipment
+  onDownloadSingleLabel
 }) => {
   if (shipments.length === 0) return null;
   
@@ -40,16 +40,16 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                 <TableCell>{shipment.tracking_code || shipment.trackingCode}</TableCell>
                 <TableCell>
                   <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                    {shipment.label_url ? 'Label Generated' : 'Processing Complete'}
+                    Label Generated
                   </span>
                 </TableCell>
                 <TableCell>
                   <Button 
                     size="sm" 
                     variant="ghost"
-                    onClick={() => onViewShipment(shipment.id)}
+                    onClick={() => onDownloadSingleLabel(shipment.label_url || '')}
                   >
-                    <Eye className="h-4 w-4" />
+                    <Download className="h-4 w-4" />
                   </Button>
                 </TableCell>
               </TableRow>

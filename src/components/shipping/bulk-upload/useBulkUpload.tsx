@@ -51,10 +51,8 @@ export const useBulkUpload = () => {
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
     handleEmailLabels,
-    handleViewShipment,
     setShowLabelOptions,
-    setDownloadFormat,
-    setUploadStatus: setShipmentStatus
+    setDownloadFormat
   } = useShipmentManagement(results, updateResults);
 
   const {
@@ -124,13 +122,11 @@ export const useBulkUpload = () => {
     handleDownloadSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,
-    handleViewShipment,
     setShowLabelOptions,
     setDownloadFormat,
     setSearchTerm,
     setSortField,
     setSortDirection,
-    setSelectedCarrierFilter,
-    setUploadStatus
+    setSelectedCarrierFilter
   };
 };
