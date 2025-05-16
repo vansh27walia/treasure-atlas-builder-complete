@@ -221,20 +221,30 @@ serve(async (req) => {
       throw new Error('Failed to download label from EasyPost');
     }
     
+    // Determine content type based on URL extension or response header
+    let contentType = 'application/pdf'; // Default to PDF
+    const contentTypeHeader = labelResponse.headers.get('content-type');
+    if (contentTypeHeader) {
+      contentType = contentTypeHeader;
+    } else if (labelURL.toLowerCase().endsWith('.png')) {
+      contentType = 'image/png';
+    }
+    
     // Convert the label to a blob
     const labelBlob = await labelResponse.blob();
     const labelArrayBuffer = await labelBlob.arrayBuffer();
     const labelBuffer = new Uint8Array(labelArrayBuffer);
     
-    // Generate a unique filename for the label
-    const fileName = `label_${shipmentId}_${Date.now()}.pdf`;
+    // Generate a unique filename for the label with appropriate extension
+    const fileExtension = contentType === 'image/png' ? 'png' : 'pdf';
+    const fileName = `label_${shipmentId}_${Date.now()}.${fileExtension}`;
     
     // Upload the label to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase
       .storage
       .from('shipping-labels')
       .upload(fileName, labelBuffer, {
-        contentType: 'application/pdf',
+        contentType: contentType,
         cacheControl: '3600',
         upsert: false
       });
@@ -310,11 +320,10 @@ serve(async (req) => {
           delivery_days: data.selected_rate?.delivery_days || null,
           charged_rate: data.selected_rate?.rate || null,
           easypost_rate: data.selected_rate?.rate || null,
-          currency: data.selected_rate?.currency || 'USD'
-          // The following fields may not be available in the DB schema yet
-          // label_format: options.label_format || "PDF",
-          // label_size: options.label_size || "4x6",
-          // created_at: new Date().toISOString()
+          currency: data.selected_rate?.currency || 'USD',
+          label_format: options.label_format || "PDF",
+          label_size: options.label_size || "4x6",
+          created_at: new Date().toISOString()
         });
         
       if (dbError) {

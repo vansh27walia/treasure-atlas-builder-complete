@@ -210,13 +210,13 @@ export const useShippingRates = () => {
       
       console.log(`Using ${endpoint} endpoint for label creation with options`);
       
-      // Add label format and size to options
+      // Add label format and size to options - ensuring PDF format for all shipping types
       const { data, error } = await supabase.functions.invoke(endpoint, {
         body: { 
           shipmentId: effectiveShipmentId, 
           rateId: effectiveRateId,
           options: {
-            label_format: "PDF",
+            label_format: "PDF",  // Always use PDF format for consistency
             label_size: "4x6"
           }
         }
