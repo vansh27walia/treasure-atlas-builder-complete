@@ -1,11 +1,14 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { ShippingOption } from '@/types/shipping';
-import { useShippingContext } from '@/contexts/ShippingContext';
 
 export const useShippingRates = () => {
-  const { fromAddress, toAddress, parcel, shipmentId, setShipmentId } = useShippingContext();
+  const [fromAddress, setFromAddress] = useState<any>(null);
+  const [toAddress, setToAddress] = useState<any>(null);
+  const [parcel, setParcel] = useState<any>(null);
+  const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [rates, setRates] = useState<ShippingOption[]>([]);
   const [allRates, setAllRates] = useState<ShippingOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,7 +39,7 @@ export const useShippingRates = () => {
     if (allRates.length > 0) {
       // Find cheapest rate
       const cheapestRate = [...allRates].sort((a, b) => 
-        parseFloat(a.rate) - parseFloat(b.rate)
+        a.rate - b.rate
       )[0];
       
       // Find fastest rate
@@ -128,7 +131,7 @@ export const useShippingRates = () => {
       if (!selectedRate) throw new Error("Selected rate not found");
       
       // Calculate amount in cents for Stripe
-      const amountInCents = Math.round(parseFloat(selectedRate.rate) * 100);
+      const amountInCents = Math.round(selectedRate.rate * 100);
       
       // Create checkout session with Stripe
       const { data, error } = await supabase.functions.invoke('create-checkout', {
@@ -178,6 +181,10 @@ export const useShippingRates = () => {
     activeCarrierFilter,
     setRates: setAllRates,
     setSelectedRateId,
+    setFromAddress,
+    setToAddress,
+    setParcel,
+    setShipmentId,
     handleSelectRate,
     handleCreateLabel,
     handleProceedToPayment,
