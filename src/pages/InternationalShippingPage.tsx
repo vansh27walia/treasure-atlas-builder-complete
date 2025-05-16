@@ -944,44 +944,48 @@ const InternationalShippingPage: React.FC = () => {
           </h2>
           
           <div className="space-y-4">
-            {rates.map((rate) => (
-              <div 
-                key={rate.id}
-                className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                  selectedRateId === rate.id
-                    ? 'border-indigo-500 bg-indigo-50 shadow-sm'
-                    : 'border-gray-200 hover:border-indigo-300'
-                }`}
-                onClick={() => handleSelectRate(rate.id)}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center">
-                      <h3 className="font-semibold text-lg">{rate.carrier.toUpperCase()} - {rate.service}</h3>
-                      {bestValueRateId === rate.id && (
-                        <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
-                          Best Value
-                        </span>
-                      )}
-                      {fastestRateId === rate.id && (
-                        <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
-                          Fastest
-                        </span>
+            {rates.map((rate) => {
+              const deliveryDateStr = rate.delivery_date || rate.estimated_delivery_date || 'N/A';
+              const hasDiscount = rate.listRate && parseFloat(rate.listRate) > rate.rate;
+              return (
+                <div 
+                  key={rate.id}
+                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                    selectedRateId === rate.id
+                      ? 'border-indigo-500 bg-indigo-50 shadow-sm'
+                      : 'border-gray-200 hover:border-indigo-300'
+                  }`}
+                  onClick={() => handleSelectRate(rate.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center">
+                        <h3 className="font-semibold text-lg">{rate.carrier.toUpperCase()} - {rate.service}</h3>
+                        {bestValueRateId === rate.id && (
+                          <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
+                            Best Value
+                          </span>
+                        )}
+                        {fastestRateId === rate.id && (
+                          <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
+                            Fastest
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-gray-600">
+                        Estimated delivery: {deliveryDateStr}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-indigo-700">${rate.rate}</p>
+                      {hasDiscount && (
+                        <p className="text-sm text-gray-500 line-through">${rate.listRate}</p>
                       )}
                     </div>
-                    <p className="text-gray-600">
-                      Estimated delivery: {rate.estimated_delivery_date || `${rate.delivery_days || '3-5'} days`}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-indigo-700">${rate.rate}</p>
-                    {rate.listRate && rate.listRate !== rate.rate && (
-                      <p className="text-sm text-gray-500 line-through">${rate.listRate}</p>
-                    )}
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           
           <div className="mt-6 flex justify-end gap-4">
