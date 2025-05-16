@@ -239,8 +239,8 @@ serve(async (req) => {
       parcel_height: headers.indexOf('parcel_height'),
       parcel_weight: headers.indexOf('parcel_weight'),
       email: headers.indexOf('email'),
-      carrier: headers.indexOf('carrier'), // New field for carrier preference
-      service: headers.indexOf('service'), // New field for service preference
+      carrier_preference: headers.indexOf('carrier_preference'),
+      service_preference: headers.indexOf('service_preference'),
       package_type: headers.indexOf('package_type')
     };
     
@@ -249,7 +249,7 @@ serve(async (req) => {
     const processedShipments: ShipmentResult[] = [];
     const failedShipments: ProcessingError[] = [];
     
-    // Process each row individually (skip header)
+    // Process each row (skip header)
     for (let i = 1; i < rows.length; i++) {
       const rowData = rows[i].split(',');
       
@@ -273,8 +273,8 @@ serve(async (req) => {
           parcel_width: fieldIndexes.parcel_width >= 0 ? parseFloat(rowData[fieldIndexes.parcel_width]) || 0 : 0,
           parcel_height: fieldIndexes.parcel_height >= 0 ? parseFloat(rowData[fieldIndexes.parcel_height]) || 0 : 0,
           parcel_weight: fieldIndexes.parcel_weight >= 0 ? parseFloat(rowData[fieldIndexes.parcel_weight]) || 0 : 0,
-          carrier: fieldIndexes.carrier >= 0 ? rowData[fieldIndexes.carrier] : undefined, // Get carrier preference
-          service: fieldIndexes.service >= 0 ? rowData[fieldIndexes.service] : undefined, // Get service preference
+          carrier_preference: fieldIndexes.carrier_preference >= 0 ? rowData[fieldIndexes.carrier_preference] : undefined,
+          service_preference: fieldIndexes.service_preference >= 0 ? rowData[fieldIndexes.service_preference] : undefined,
           package_type: fieldIndexes.package_type >= 0 ? rowData[fieldIndexes.package_type] : undefined
         };
         
@@ -289,22 +289,20 @@ serve(async (req) => {
         if (recipientDetails.parcel_height === 0) recipientDetails.parcel_height = 4;
         if (recipientDetails.parcel_weight === 0) recipientDetails.parcel_weight = 16;
         
-        // In a real implementation, we would make an individual API call to EasyPost for EACH shipment here
+        // In a real implementation, we would call EasyPost API here
+        // const shipment = await createEasyPostShipment(origin, toAddress, parcelData, apiKey);
         
         // For this demo, we'll generate mock data
         const recipient = recipientDetails.name;
         
         // Use carrier preference if specified
-        let selectedCarrier = recipientDetails.carrier;
-        let selectedService = recipientDetails.service;
+        let selectedCarrier = recipientDetails.carrier_preference;
+        let selectedService = recipientDetails.service_preference;
         
-        // If no carrier preference, assign a random carrier
+        // If no preference, assign a random carrier
         if (!selectedCarrier) {
           const availableCarriers = ['USPS', 'UPS', 'FedEx', 'DHL'];
           selectedCarrier = availableCarriers[Math.floor(Math.random() * availableCarriers.length)];
-        } else {
-          // Normalize carrier name to uppercase for consistency
-          selectedCarrier = selectedCarrier.toUpperCase();
         }
         
         // Get carrier-specific services

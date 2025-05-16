@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ShippingRates from '@/components/ShippingRates';
 import RateCalculator from '@/components/shipping/RateCalculator';
@@ -18,7 +18,6 @@ const CreateLabelPage: React.FC = () => {
   const tabFromQuery = queryParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
   const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
-  const ratesRef = useRef<HTMLDivElement>(null);
 
   // Update the URL when tab changes
   useEffect(() => {
@@ -40,17 +39,6 @@ const CreateLabelPage: React.FC = () => {
     const handleStepChange = (event: CustomEvent<{step: 'address' | 'package' | 'rates' | 'label' | 'complete'}>) => {
       if (event.detail && event.detail.step) {
         setCurrentStep(event.detail.step);
-        
-        // When changing to rates step, smoothly scroll to the rates section
-        if (event.detail.step === 'rates' && ratesRef.current) {
-          // Use setTimeout to ensure DOM is updated before scrolling
-          setTimeout(() => {
-            ratesRef.current?.scrollIntoView({ 
-              behavior: 'smooth', 
-              block: 'start'
-            });
-          }, 100);
-        }
       }
     };
     
@@ -59,13 +47,6 @@ const CreateLabelPage: React.FC = () => {
     // Custom event listener for when shipping form is completed
     const handleFormCompleted = () => {
       setCurrentStep('rates');
-      // Smoothly scroll to rates section
-      setTimeout(() => {
-        ratesRef.current?.scrollIntoView({ 
-          behavior: 'smooth',
-          block: 'start' 
-        });
-      }, 100);
     };
     
     document.addEventListener('shipping-form-completed', handleFormCompleted);
@@ -212,10 +193,8 @@ const CreateLabelPage: React.FC = () => {
           </Tabs>
         </Card>
 
-        <div ref={ratesRef}>
-          {activeTab === 'domestic' && <ShippingRates />}
-          {activeTab === 'calculator' && <ShippingRates />}
-        </div>
+        {activeTab === 'domestic' && <ShippingRates />}
+        {activeTab === 'calculator' && <ShippingRates />}
       </div>
     </div>
   );

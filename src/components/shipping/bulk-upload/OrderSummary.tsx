@@ -1,8 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { CreditCard, Download, Loader, Printer } from 'lucide-react';
-import { toast } from 'sonner';
+import { CreditCard, Download, Loader } from 'lucide-react';
 
 interface OrderSummaryProps {
   successfulCount: number;
@@ -21,26 +20,8 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  const handlePayment = () => {
-    try {
-      onProceedToPayment();
-    } catch (error) {
-      console.error('Payment error:', error);
-      toast.error('There was an issue processing your payment. Please check your EasyPost account settings.');
-    }
-  };
-
-  const handleDownload = () => {
-    try {
-      onDownloadAllLabels();
-    } catch (error) {
-      console.error('Download error:', error);
-      toast.error('There was an issue downloading your labels. Please try again later.');
-    }
-  };
-
   return (
-    <div className="bg-white p-4 rounded-md border border-green-100 shadow-sm">
+    <div className="bg-white p-4 rounded-md border border-green-100">
       <h5 className="font-medium mb-2">Order Summary</h5>
       <div className="flex justify-between mb-1 text-sm">
         <span>Number of labels:</span>
@@ -58,35 +39,25 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
       <div className="flex justify-end gap-3 mt-4">
         <Button 
           variant="outline" 
-          onClick={handleDownload}
+          onClick={onDownloadAllLabels}
           disabled={isCreatingLabels}
-          className="flex items-center gap-2"
         >
-          {isCreatingLabels ? (
-            <>
-              <Loader className="h-4 w-4 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              <Printer className="h-4 w-4" />
-              Download Labels
-            </>
-          )}
+          <Download className="mr-2 h-4 w-4" />
+          Download All Labels
         </Button>
         <Button 
-          onClick={handlePayment}
+          onClick={onProceedToPayment}
           disabled={isPaying}
-          className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+          className="bg-blue-600 hover:bg-blue-700"
         >
           {isPaying ? (
             <>
-              <Loader className="h-4 w-4 animate-spin" />
+              <Loader className="mr-2 h-4 w-4 animate-spin" />
               Processing...
             </>
           ) : (
             <>
-              <CreditCard className="h-4 w-4" />
+              <CreditCard className="mr-2 h-4 w-4" />
               Pay ${totalCost.toFixed(2)}
             </>
           )}
