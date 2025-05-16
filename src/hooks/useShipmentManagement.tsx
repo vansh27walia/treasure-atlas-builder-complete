@@ -68,7 +68,8 @@ export const useShipmentManagement = (
   const handleProceedToPayment = async () => {
     if (!initialResults) {
       toast("Error", {
-        description: "No shipments to process"
+        description: "No shipments to process",
+        variant: "destructive"
       });
       return;
     }
@@ -101,7 +102,8 @@ export const useShipmentManagement = (
     } catch (error) {
       console.error('Payment error:', error);
       toast("Payment failed", {
-        description: error instanceof Error ? error.message : "Failed to process payment"
+        description: error instanceof Error ? error.message : "Failed to process payment",
+        variant: "destructive"
       });
     } finally {
       setIsPaying(false);
@@ -111,7 +113,8 @@ export const useShipmentManagement = (
   const handleCreateLabels = async () => {
     if (!initialResults || initialResults.processedShipments.length === 0) {
       toast("Error", {
-        description: "No shipments to process"
+        description: "No shipments to process",
+        variant: "destructive"
       });
       return;
     }
@@ -181,13 +184,15 @@ export const useShipmentManagement = (
         setUploadStatus('success');
       } else {
         toast("Label generation failed", {
-          description: "No labels were generated, please try again"
+          description: "No labels were generated, please try again",
+          variant: "destructive"
         });
       }
     } catch (error) {
       console.error('Error creating labels:', error);
       toast("Label generation failed", {
-        description: error instanceof Error ? error.message : "Failed to generate labels"
+        description: error instanceof Error ? error.message : "Failed to generate labels",
+        variant: "destructive"
       });
     } finally {
       setIsCreatingLabels(false);
@@ -197,7 +202,8 @@ export const useShipmentManagement = (
   const handleDownloadAllLabels = () => {
     if (!initialResults || !initialResults.processedShipments.length) {
       toast("No labels", {
-        description: "No labels available to download"
+        description: "No labels available to download",
+        variant: "destructive"
       });
       return;
     }
