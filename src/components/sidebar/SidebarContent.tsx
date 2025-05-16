@@ -49,7 +49,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
           />
           <SidebarNavItem
             icon={<Globe size={18} />}
-            title="International Second"
+            title="International V2"
             to="/international-second"
             collapsed={collapsed}
           />
