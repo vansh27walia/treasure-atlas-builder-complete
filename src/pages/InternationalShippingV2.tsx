@@ -6,14 +6,15 @@ import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import ShippingRates from '@/components/ShippingRates';
 import { Card, CardContent } from "@/components/ui/card";
 import { Globe } from 'lucide-react';
+import { ShippingStep } from '@/types/shipping';
 
 const InternationalShippingV2: React.FC = () => {
-  const [step, setStep] = React.useState<'form' | 'rates' | 'label' | 'complete'>('form');
+  const [step, setStep] = React.useState<ShippingStep>('address');
   
   React.useEffect(() => {
     const handleStepChange = (event: CustomEvent<{step: string}>) => {
       if (event.detail && event.detail.step) {
-        setStep(event.detail.step as any);
+        setStep(event.detail.step as ShippingStep);
       }
     };
     
@@ -40,7 +41,7 @@ const InternationalShippingV2: React.FC = () => {
         </CardContent>
       </Card>
       
-      {step === 'form' && (
+      {step === 'address' && (
         <Card>
           <CardContent className="p-6">
             <EnhancedShippingForm />
