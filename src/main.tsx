@@ -54,7 +54,8 @@ URL.createObjectURL = function(object) {
 
 // Add PDF viewer capability check
 const checkPdfViewerCapability = () => {
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  // Fix: Removed MSStream check and used a more TypeScript-compatible approach
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   
   if (isIOS || isSafari) {
@@ -70,3 +71,4 @@ createRoot(rootElement).render(
     <App />
   </React.StrictMode>
 );
+
