@@ -1,14 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import ShippingRates from '@/components/ShippingRates';
-import RateCalculator from '@/components/shipping/RateCalculator';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Package, Globe, Upload, Truck, Calculator } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
+import ShippingRates from '@/components/shipping/ShippingRates';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 
 const CreateLabelPage: React.FC = () => {
@@ -44,24 +43,8 @@ const CreateLabelPage: React.FC = () => {
     
     document.addEventListener('shipping-step-change', handleStepChange as EventListener);
     
-    // Custom event listener for when shipping form is completed
-    const handleFormCompleted = () => {
-      setCurrentStep('rates');
-    };
-    
-    document.addEventListener('shipping-form-completed', handleFormCompleted);
-    
-    // Custom event listener for when a rate is selected
-    const handleRateSelected = () => {
-      setCurrentStep('label');
-    };
-    
-    document.addEventListener('rate-selected', handleRateSelected);
-    
     return () => {
       document.removeEventListener('shipping-step-change', handleStepChange as EventListener);
-      document.removeEventListener('shipping-form-completed', handleFormCompleted);
-      document.removeEventListener('rate-selected', handleRateSelected);
     };
   }, []);
 
@@ -162,8 +145,6 @@ const CreateLabelPage: React.FC = () => {
                 </h2>
                 <p className="text-green-700 text-sm">Calculate shipping rates for different carriers without creating a shipment.</p>
               </div>
-              
-              <RateCalculator />
             </TabsContent>
             
             <TabsContent value="bulk">
@@ -194,7 +175,6 @@ const CreateLabelPage: React.FC = () => {
         </Card>
 
         {activeTab === 'domestic' && <ShippingRates />}
-        {activeTab === 'calculator' && <ShippingRates />}
       </div>
     </div>
   );
