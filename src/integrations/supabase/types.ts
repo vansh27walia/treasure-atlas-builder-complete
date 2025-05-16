@@ -128,6 +128,9 @@ export type Database = {
           easypost_rate: number | null
           from_address_json: Json | null
           id: number
+          is_international: boolean | null
+          label_format: string | null
+          label_size: string | null
           label_url: string | null
           non_delivery_option: string | null
           parcel_json: Json | null
@@ -154,6 +157,9 @@ export type Database = {
           easypost_rate?: number | null
           from_address_json?: Json | null
           id?: number
+          is_international?: boolean | null
+          label_format?: string | null
+          label_size?: string | null
           label_url?: string | null
           non_delivery_option?: string | null
           parcel_json?: Json | null
@@ -180,6 +186,9 @@ export type Database = {
           easypost_rate?: number | null
           from_address_json?: Json | null
           id?: number
+          is_international?: boolean | null
+          label_format?: string | null
+          label_size?: string | null
           label_url?: string | null
           non_delivery_option?: string | null
           parcel_json?: Json | null
