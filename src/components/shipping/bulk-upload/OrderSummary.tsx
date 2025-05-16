@@ -1,7 +1,13 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { CreditCard, Download, Loader } from 'lucide-react';
+import { CreditCard, Download, Printer } from 'lucide-react';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface OrderSummaryProps {
   successfulCount: number;
@@ -20,6 +26,11 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
+  const handlePrintAllLabels = () => {
+    // This will trigger the download format modal, which will have a print option
+    onDownloadAllLabels();
+  };
+
   return (
     <div className="bg-white p-4 rounded-md border border-green-100">
       <h5 className="font-medium mb-2">Order Summary</h5>
@@ -37,30 +48,42 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
       </div>
     
       <div className="flex justify-end gap-3 mt-4">
-        <Button 
-          variant="outline" 
-          onClick={onDownloadAllLabels}
-          disabled={isCreatingLabels}
-        >
-          <Download className="mr-2 h-4 w-4" />
-          Download All Labels
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="outline"
+              disabled={isCreatingLabels}
+              className="flex items-center"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Download Options
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem 
+              onClick={onDownloadAllLabels}
+              className="cursor-pointer"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              <span>Download PDF</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={handlePrintAllLabels}
+              className="cursor-pointer"
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              <span>Print All Labels</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <Button 
           onClick={onProceedToPayment}
           disabled={isPaying}
           className="bg-blue-600 hover:bg-blue-700"
         >
-          {isPaying ? (
-            <>
-              <Loader className="mr-2 h-4 w-4 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              <CreditCard className="mr-2 h-4 w-4" />
-              Pay ${totalCost.toFixed(2)}
-            </>
-          )}
+          <CreditCard className="mr-2 h-4 w-4" />
+          Pay ${totalCost.toFixed(2)}
         </Button>
       </div>
     </div>

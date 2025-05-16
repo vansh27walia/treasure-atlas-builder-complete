@@ -5,12 +5,33 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileText, Upload, CheckCircle } from 'lucide-react';
 import BulkUpload from '@/components/shipping/BulkUpload';
 import { Button } from '@/components/ui/button';
+import { CARRIER_OPTIONS } from '@/types/shipping';
 
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
 
   const handleDownloadTemplate = () => {
-    const csvContent = 'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight\nJohn Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16';
+    // Create headers with carrier and service choice columns
+    const headers = 'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight,carrier,service';
+    
+    // Add sample data with carrier and service choices
+    // Format: name,company,street1,street2,city,state,zip,country,phone,length,width,height,weight,carrier,service
+    const sampleData = 'John Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16,USPS,Priority';
+    
+    // Add dropdown options as comments in the CSV
+    // List all available carriers and their services
+    let carrierOptions = '# Available carrier options (copy and paste into the carrier column):\n';
+    let serviceOptions = '# Available service options by carrier (copy and paste into the service column):\n';
+    
+    CARRIER_OPTIONS.forEach(carrier => {
+      carrierOptions += `# ${carrier.name}\n`;
+      serviceOptions += `# ${carrier.name}: ${carrier.services.map(s => s.name).join(', ')}\n`;
+    });
+    
+    // Combine all content with instructions
+    const csvContent = `${headers}\n${sampleData}\n\n${carrierOptions}\n${serviceOptions}\n# Note: If carrier or service is left blank, the system will automatically select the best option`;
+
+    // Create and download the file
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -68,6 +89,8 @@ const BulkUploadPage = () => {
                   <ul className="list-disc pl-5 space-y-1 text-sm">
                     <li><strong>Required fields:</strong> name, street1, city, state, zip, country</li>
                     <li><strong>Optional fields:</strong> company, street2, phone, parcel_length, parcel_width, parcel_height, parcel_weight</li>
+                    <li><strong>Carrier options:</strong> USPS, UPS, FedEx, DHL (leave blank for best rate)</li>
+                    <li><strong>Service options:</strong> Choose from available services for each carrier</li>
                     <li>Format addresses according to the template example</li>
                     <li>Dimensions must be in inches (Length x Width x Height)</li>
                     <li>Weight must be in pounds</li>
