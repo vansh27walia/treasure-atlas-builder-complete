@@ -1,5 +1,4 @@
 
-import React from 'react';
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -39,7 +38,6 @@ export const useShippingRates = () => {
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [activeCarrierFilter, setActiveCarrierFilter] = useState<string | 'all'>('all');
-  const [isInternational, setIsInternational] = useState<boolean>(false);
   
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
@@ -79,11 +77,6 @@ export const useShippingRates = () => {
       if (event.detail && event.detail.rates) {
         console.log("Rates received:", event.detail.rates);
         console.log("Shipment ID received:", event.detail.shipmentId);
-        
-        // Check if this is an international shipment from data attributes
-        const isIntl = document.querySelector('[data-shipping-type="international"]') !== null;
-        setIsInternational(isIntl);
-        console.log("Is international shipment:", isIntl);
         
         // Add shipmentId to each rate object and process rates
         const processedRates = processRates(event.detail.rates).map(rate => ({
@@ -138,6 +131,14 @@ export const useShippingRates = () => {
         document.dispatchEvent(new CustomEvent('shipping-step-change', { 
           detail: { step: 'label' }
         }));
+        
+        // Automatically create label when a rate is selected
+        setTimeout(() => {
+          const selectedRate = rates.find(rate => rate.id === event.detail.rateId);
+          if (selectedRate && selectedRate.shipment_id) {
+            handleCreateLabel(event.detail.rateId, selectedRate.shipment_id);
+          }
+        }, 300);
       }
     };
     
@@ -192,7 +193,7 @@ export const useShippingRates = () => {
     setActiveCarrierFilter(carrier);
   };
 
-  // Modified to use a consistent approach for both domestic and international labels
+  // Modified to accept rateId and shipmentId params for automatic calling
   const handleCreateLabel = async (rateIdParam?: string, shipmentIdParam?: string) => {
     const effectiveRateId = rateIdParam || selectedRateId;
     const effectiveShipmentId = shipmentIdParam || shipmentId;
@@ -207,19 +208,22 @@ export const useShippingRates = () => {
     try {
       console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
       
-      // Using one consistent label creation function for both domestic and international
-      // This is the key change - always use create-label endpoint with proper PDF handling
-      const endpoint = 'create-label';
+      // Get the selected rate to determine if it's international
+      const selectedRate = rates.find(rate => rate.id === effectiveRateId);
+      const isInternational = selectedRate?.service?.toLowerCase().includes('international');
       
-      console.log(`Using ${endpoint} endpoint for label creation`);
+      // Choose the appropriate endpoint based on whether it's international
+      const endpoint = isInternational ? 'create-international-label' : 'create-label';
       
-      // Add label format and size options - always specify PDF format
+      console.log(`Using ${endpoint} endpoint for label creation with options`);
+      
+      // Add label format and size to options
       const { data, error } = await supabase.functions.invoke(endpoint, {
         body: { 
           shipmentId: effectiveShipmentId, 
           rateId: effectiveRateId,
           options: {
-            label_format: "PDF",  // Always use PDF format for consistency
+            label_format: "PDF",
             label_size: "4x6"
           }
         }
@@ -340,7 +344,6 @@ export const useShippingRates = () => {
     fastestRateId,
     uniqueCarriers,
     activeCarrierFilter,
-    isInternational,
     handleSelectRate,
     handleCreateLabel,
     handleProceedToPayment,

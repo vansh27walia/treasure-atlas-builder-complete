@@ -83,10 +83,14 @@ serve(async (req) => {
 
     // Create request body for EasyPost with label format options
     const buyOptions = {
-      rate: { id: rateId },
-      label_format: options.label_format || "PDF", // Always default to PDF format
-      label_size: options.label_size || "4x6"
+      rate: { id: rateId }
     };
+    
+    // If label format and size are specified, add them to the request
+    if (options.label_format || options.label_size) {
+      buyOptions.label_format = options.label_format || "PDF";
+      buyOptions.label_size = options.label_size || "4x6";
+    }
 
     // Buy the label with EasyPost API
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
@@ -165,11 +169,11 @@ serve(async (req) => {
               );
             }
             
-            // Create a signed URL for the label with 2 weeks expiration
+            // Create a signed URL for the label
             const { data: signedURLData } = await supabase
               .storage
               .from('shipping-labels')
-              .createSignedUrl(fileName, 60 * 60 * 24 * 14); 
+              .createSignedUrl(fileName, 60 * 60 * 24 * 14); // 2 weeks
               
             return new Response(
               JSON.stringify({
@@ -217,24 +221,20 @@ serve(async (req) => {
       throw new Error('Failed to download label from EasyPost');
     }
     
-    // Determine content type - Force PDF format for consistency
-    let contentType = 'application/pdf';
-    
     // Convert the label to a blob
     const labelBlob = await labelResponse.blob();
     const labelArrayBuffer = await labelBlob.arrayBuffer();
     const labelBuffer = new Uint8Array(labelArrayBuffer);
     
-    // Generate a unique filename for the label - always use PDF extension for consistency
-    const fileExtension = 'pdf';
-    const fileName = `label_${shipmentId}_${Date.now()}.${fileExtension}`;
+    // Generate a unique filename for the label
+    const fileName = `label_${shipmentId}_${Date.now()}.pdf`;
     
     // Upload the label to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase
       .storage
       .from('shipping-labels')
       .upload(fileName, labelBuffer, {
-        contentType: contentType,
+        contentType: 'application/pdf',
         cacheControl: '3600',
         upsert: false
       });
@@ -310,10 +310,11 @@ serve(async (req) => {
           delivery_days: data.selected_rate?.delivery_days || null,
           charged_rate: data.selected_rate?.rate || null,
           easypost_rate: data.selected_rate?.rate || null,
-          currency: data.selected_rate?.currency || 'USD',
-          label_format: "PDF", // Always store as PDF for consistency
-          label_size: options.label_size || "4x6",
-          created_at: new Date().toISOString()
+          currency: data.selected_rate?.currency || 'USD'
+          // The following fields may not be available in the DB schema yet
+          // label_format: options.label_format || "PDF",
+          // label_size: options.label_size || "4x6",
+          // created_at: new Date().toISOString()
         });
         
       if (dbError) {

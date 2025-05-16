@@ -123,13 +123,11 @@ const ShippingRates: React.FC = () => {
             </div>
           </div>
           
-          {labelUrl && trackingCode && (
-            <ShippingLabel 
-              labelUrl={labelUrl} 
-              trackingCode={trackingCode} 
-              shipmentId={shipmentId}
-            />
-          )}
+          <ShippingLabel 
+            labelUrl={labelUrl} 
+            trackingCode={trackingCode} 
+            shipmentId={shipmentId}
+          />
           
           {!labelUrl && (
             <>

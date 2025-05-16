@@ -12,13 +12,10 @@ import LabelOptionsModal from './bulk-upload/LabelOptionsModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { FileText, UploadCloud, ChevronRight, AlertCircle, Download } from 'lucide-react';
+import { FileText, UploadCloud, ChevronRight, AlertCircle } from 'lucide-react';
 
-interface BulkUploadProps {}
-
-const BulkUpload: React.FC<BulkUploadProps> = () => {
+const BulkUpload: React.FC = () => {
   const {
-    file,
     isUploading,
     isPaying,
     isCreatingLabels,
@@ -32,7 +29,6 @@ const BulkUpload: React.FC<BulkUploadProps> = () => {
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
-    handleFileChange,
     handleUpload,
     handleProceedToPayment,
     handleCreateLabels,
@@ -96,14 +92,7 @@ const BulkUpload: React.FC<BulkUploadProps> = () => {
                 Template
               </Button>
               
-              <Button onClick={() => {
-                if (file) {
-                  handleUpload(file);
-                } else {
-                  // Alert the user if there's no file selected
-                  console.warn('No file selected for upload');
-                }
-              }} className="text-sm">
+              <Button onClick={() => handleUpload} className="text-sm">
                 <UploadCloud className="mr-1 h-4 w-4" />
                 Upload Another File
               </Button>
@@ -154,11 +143,10 @@ const BulkUpload: React.FC<BulkUploadProps> = () => {
                 <div className="flex gap-3 mt-4 lg:mt-0">
                   <Button 
                     variant="outline" 
-                    className="px-6 flex items-center gap-2"
-                    onClick={() => setShowLabelOptions(true)}
-                    disabled={isPaying || isCreatingLabels || results.processedShipments.length === 0}
+                    className="px-6"
+                    onClick={handleDownloadAllLabels}
+                    disabled={isPaying || isCreatingLabels}
                   >
-                    <Download className="h-4 w-4" />
                     Download All Labels
                   </Button>
                   
@@ -180,7 +168,7 @@ const BulkUpload: React.FC<BulkUploadProps> = () => {
       {uploadStatus === 'success' && results && (
         <SuccessNotification
           results={results}
-          onDownloadAllLabels={() => setShowLabelOptions(true)}
+          onDownloadAllLabels={handleDownloadAllLabels}
           onDownloadSingleLabel={handleDownloadSingleLabel}
           onProceedToPayment={handleProceedToPayment}
           onCreateLabels={handleCreateLabels}

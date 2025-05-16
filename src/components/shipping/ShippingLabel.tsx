@@ -23,8 +23,6 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   const downloadLinkRef = useRef<HTMLAnchorElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [activeTab, setActiveTab] = useState<'preview' | 'download' | 'share'>('preview');
-  const [isLoading, setIsLoading] = useState(false);
   
   // Effect to fetch and cache the label as a blob when URL changes
   useEffect(() => {
@@ -33,13 +31,12 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       const url = localLabelUrl || labelUrl;
       if (!url) return;
       
-      setIsLoading(true);
       try {
         console.log("Fetching label to cache as blob:", url);
         const response = await fetch(url, { 
           method: 'GET',
-          headers: { 'Accept': 'application/pdf, image/*' },
-          cache: 'no-cache' 
+          headers: { 'Accept': 'application/pdf' },
+          cache: 'force-cache'
         });
         
         if (!response.ok) {
@@ -48,20 +45,15 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         }
         
         const blob = await response.blob();
-        
-        // Force PDF content type for all labels for consistency
-        const typedBlob = new Blob([blob], { type: 'application/pdf' });
-        const blobUrl = URL.createObjectURL(typedBlob);
+        const blobUrl = URL.createObjectURL(blob);
         setBlobUrl(blobUrl);
-        console.log("Label cached as blob URL:", blobUrl, "Content type:", typedBlob.type);
+        console.log("Label cached as blob URL:", blobUrl);
         
         // Automatically open the label modal when the blob is ready
         setIsLabelModalOpen(true);
       } catch (error) {
         console.error("Error caching label:", error);
-        toast.error("Error preparing label for preview. Please try downloading directly instead.");
-      } finally {
-        setIsLoading(false);
+        toast.error("Error preparing label for download");
       }
     };
     
@@ -122,14 +114,40 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   };
 
   const handleDirectDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    const url = blobUrl || localLabelUrl || labelUrl;
+    if (blobUrl) {
+      try {
+        console.log(`Starting direct download with blob URL (${format}):`, blobUrl);
+        
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `shipping_label_${trackingCode || 'download'}.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(link);
+          toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
+        }, 100);
+      } catch (error) {
+        console.error('Direct download error:', error);
+        toast.error('Failed to download directly');
+        tryFallbackDownload(format);
+      }
+    } else {
+      tryFallbackDownload(format);
+    }
+  };
+  
+  const tryFallbackDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+    const url = localLabelUrl || labelUrl;
     if (!url) {
       toast.error('No label URL available');
       return;
     }
     
     try {
-      console.log(`Starting direct download with URL (${format}):`, url);
+      console.log(`Trying fallback download with URL (${format}):`, url);
       
       // Create a hidden iframe to download without navigating away
       const iframe = document.createElement('iframe');
@@ -137,31 +155,15 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       iframe.src = url;
       document.body.appendChild(iframe);
       
-      // Create an anchor element for downloading
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `shipping_label_${trackingCode || 'download'}.${format}`;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      
-      // Clean up
+      // Clean up after a moment
       setTimeout(() => {
-        document.body.removeChild(link);
         document.body.removeChild(iframe);
-        toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
+        toast.success(`Starting ${format.toUpperCase()} download through fallback method`);
       }, 1000);
     } catch (error) {
-      console.error('Direct download error:', error);
-      toast.error('Failed to download directly');
-      fallbackDownload(url, format);
+      console.error('Fallback download error:', error);
+      toast.error('All download methods failed. Try the "Open in New Tab" option');
     }
-  };
-  
-  const fallbackDownload = (url: string, format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    // Open in new tab as fallback
-    window.open(url, '_blank');
-    toast.success(`Opened ${format.toUpperCase()} label in new tab`);
   };
 
   const handleOpenInNewTab = () => {
@@ -283,17 +285,8 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
                 onClick={() => setIsLabelModalOpen(true)}
                 variant="default" 
                 className="bg-green-600 hover:bg-green-700 text-white h-12"
-                disabled={isLoading}
               >
-                {isLoading ? (
-                  <>
-                    <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Preparing Label...
-                  </>
-                ) : (
-                  <>
-                    <Download className="mr-2 h-5 w-5" /> View & Download Label
-                  </>
-                )}
+                <Download className="mr-2 h-5 w-5" /> View & Download Label
               </Button>
               
               <Button 
@@ -332,135 +325,122 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         </div>
       </div>
       
-      {/* Modal for label preview and download - improved for better PDF support */}
       <Dialog open={isLabelModalOpen} onOpenChange={setIsLabelModalOpen}>
-        <DialogContent className="bg-white max-w-3xl p-0">
-          <DialogHeader className="p-6 pb-2">
+        <DialogContent className="bg-white max-w-3xl">
+          <DialogHeader>
             <DialogTitle>Shipping Label</DialogTitle>
             <DialogDescription>
               Tracking #: {trackingCode}
             </DialogDescription>
-            <Button 
-              variant="ghost" 
-              className="absolute top-2 right-2 h-8 w-8 p-0" 
-              onClick={() => setIsLabelModalOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
           </DialogHeader>
           
-          <Tabs defaultValue="preview" value={activeTab} onValueChange={(value) => setActiveTab(value as 'preview' | 'download' | 'share')}>
-            <TabsList className="grid grid-cols-3 mx-6">
+          <Tabs defaultValue="preview" className="w-full">
+            <TabsList className="grid grid-cols-3 mb-4">
               <TabsTrigger value="preview">Preview</TabsTrigger>
               <TabsTrigger value="download">Download</TabsTrigger>
               <TabsTrigger value="share">Share</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="preview" className="p-6 pt-4">
-              <div className="bg-gray-100 border rounded-md overflow-hidden h-[60vh]">
-                {blobUrl ? (
-                  <iframe 
-                    ref={iframeRef}
-                    src={blobUrl} 
-                    className="w-full h-full"
-                    title="Shipping Label"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <RefreshCw className="h-8 w-8 text-gray-400 animate-spin" />
-                    <span className="ml-2 text-gray-500">Loading preview...</span>
-                  </div>
-                )}
-              </div>
+            <TabsContent value="preview" className="min-h-[400px] flex items-center justify-center border rounded-md">
+              {blobUrl ? (
+                <iframe 
+                  src={blobUrl} 
+                  className="w-full h-[500px]" 
+                  title="Label Preview"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full w-full">
+                  <FileText className="h-16 w-16 text-gray-300 mb-4" />
+                  <p className="text-gray-500">Loading preview...</p>
+                </div>
+              )}
             </TabsContent>
             
-            <TabsContent value="download" className="p-6 pt-4">
-              <div className="space-y-4">
-                <div className="bg-blue-50 p-4 rounded-md">
-                  <h3 className="font-semibold mb-2 flex items-center">
-                    <Download className="mr-2 h-4 w-4 text-blue-600" />
-                    Download Options
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Select your preferred label format:
-                  </p>
+            <TabsContent value="download">
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div 
+                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
+                      ${selectedFormat === 'pdf' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
+                    `}
+                    onClick={() => setSelectedFormat('pdf')}
+                  >
+                    <FileText className="h-12 w-12 mx-auto mb-2 text-blue-600" />
+                    <h4 className="font-medium">PDF Format</h4>
+                    <p className="text-xs text-gray-500">Best for printing</p>
+                  </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <Button
-                      variant={selectedFormat === 'pdf' ? 'default' : 'outline'}
-                      className={selectedFormat === 'pdf' ? 'bg-blue-600 hover:bg-blue-700' : ''}
-                      onClick={() => setSelectedFormat('pdf')}
-                    >
-                      <FileText className="mr-2 h-4 w-4" />
-                      PDF Format
-                    </Button>
-                    <Button
-                      variant={selectedFormat === 'png' ? 'default' : 'outline'}
-                      className={selectedFormat === 'png' ? 'bg-blue-600 hover:bg-blue-700' : ''}
-                      onClick={() => setSelectedFormat('png')}
-                    >
-                      <FileText className="mr-2 h-4 w-4" />
-                      PNG Format
-                    </Button>
-                    <Button
-                      variant={selectedFormat === 'zpl' ? 'default' : 'outline'}
-                      className={selectedFormat === 'zpl' ? 'bg-blue-600 hover:bg-blue-700' : ''}
-                      onClick={() => setSelectedFormat('zpl')}
-                    >
-                      <FileText className="mr-2 h-4 w-4" />
-                      ZPL Format
-                    </Button>
+                  <div 
+                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
+                      ${selectedFormat === 'png' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
+                    `}
+                    onClick={() => setSelectedFormat('png')}
+                  >
+                    <FileText className="h-12 w-12 mx-auto mb-2 text-green-600" />
+                    <h4 className="font-medium">PNG Format</h4>
+                    <p className="text-xs text-gray-500">Image format</p>
+                  </div>
+                  
+                  <div 
+                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
+                      ${selectedFormat === 'zpl' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
+                    `}
+                    onClick={() => setSelectedFormat('zpl')}
+                  >
+                    <FileText className="h-12 w-12 mx-auto mb-2 text-purple-600" />
+                    <h4 className="font-medium">ZPL Format</h4>
+                    <p className="text-xs text-gray-500">For thermal printers</p>
                   </div>
                 </div>
                 
                 <Button 
-                  className="w-full bg-green-600 hover:bg-green-700 h-12"
-                  onClick={() => handleDirectDownload(selectedFormat)}
+                  onClick={() => handleDirectDownload(selectedFormat)} 
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700"
                 >
                   <Download className="mr-2 h-5 w-5" />
-                  Download {selectedFormat.toUpperCase()} Label
+                  Download {selectedFormat.toUpperCase()} File
                 </Button>
-                
-                <a 
-                  ref={downloadLinkRef} 
-                  className="hidden" 
-                  download={`shipping_label_${trackingCode}.${selectedFormat}`}
-                  href={blobUrl || labelUrl || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Hidden download link
-                </a>
               </div>
             </TabsContent>
             
-            <TabsContent value="share" className="p-6 pt-4">
-              <div className="space-y-4">
-                <Button 
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700"
-                  onClick={handleEmailLabel}
-                  disabled={isEmailSending}
-                >
-                  <Mail className="mr-2 h-5 w-5" />
-                  {isEmailSending ? 'Sending...' : 'Email to My Address'}
-                </Button>
+            <TabsContent value="share">
+              <div className="space-y-6">
+                <div className="border rounded-md p-4">
+                  <h4 className="font-medium mb-2">Email Label</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Send this label to your email address for easy access later
+                  </p>
+                  <Button 
+                    onClick={handleEmailLabel}
+                    disabled={isEmailSending}
+                    className="w-full"
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    {isEmailSending ? 'Sending...' : 'Email to My Inbox'}
+                  </Button>
+                </div>
                 
-                <Button
-                  variant="outline"
-                  className="w-full h-12 border-blue-200 hover:bg-blue-50"
-                  onClick={handleSaveToAccount}
-                  disabled={isSaving}
-                >
-                  <Save className="mr-2 h-5 w-5" />
-                  {isSaving ? 'Saving...' : 'Save to My Account'}
-                </Button>
+                <div className="border rounded-md p-4">
+                  <h4 className="font-medium mb-2">Save to Account</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Save this label to your account for easy access later
+                  </p>
+                  <Button 
+                    onClick={handleSaveToAccount}
+                    disabled={isSaving}
+                    className="w-full"
+                  >
+                    <Save className="mr-2 h-4 w-4" />
+                    {isSaving ? 'Saving...' : 'Save to My Labels'}
+                  </Button>
+                </div>
               </div>
             </TabsContent>
           </Tabs>
           
-          <DialogFooter className="p-6 pt-2">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setIsLabelModalOpen(false)}>
-              Close
+              <X className="mr-2 h-4 w-4" /> Close
             </Button>
           </DialogFooter>
         </DialogContent>
