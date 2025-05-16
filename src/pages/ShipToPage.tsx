@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
@@ -76,23 +76,40 @@ const ShipToPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showRates, setShowRates] = useState(false);
   const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
-  const { rates, selectedRateId, handleSelectRate, bestValueRateId, fastestRateId } = useShippingRates();
+  const { 
+    rates, 
+    allRates, 
+    selectedRateId, 
+    handleSelectRate, 
+    bestValueRateId, 
+    fastestRateId,
+    isLoading: ratesLoading,
+    handleCreateLabel: createLabel,
+    labelUrl,
+    trackingCode,
+    shipmentId,
+    uniqueCarriers,
+    activeCarrierFilter,
+    handleFilterByCarrier
+  } = useShippingRates();
   
-  // Create form
-  const form = useForm<FormValues>({
-    defaultValues: {
-      fromCountry: 'US',
-      toCountry: '',
-      carrier: 'all',
-      packageType: activeTab === 'document' ? 'envelope' : 'box',
-    }
-  });
+  useEffect(() => {
+    // Listen for custom events to update workflow step
+    const handleStepChange = (event: CustomEvent<{step: 'address' | 'package' | 'rates' | 'label' | 'complete'}>) => {
+      if (event.detail && event.detail.step) {
+        setCurrentStep(event.detail.step);
+      }
+    };
+    
+    document.addEventListener('shipping-step-change', handleStepChange as EventListener);
+    
+    return () => {
+      document.removeEventListener('shipping-step-change', handleStepChange as EventListener);
+    };
+  }, []);
   
   // Add this for label-related functionality
-  const [labelUrl, setLabelUrl] = useState<string | null>(null);
-  const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
-  const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [shipmentDetails, setShipmentDetails] = useState<{
     fromAddress: string;
     toAddress: string;
@@ -177,7 +194,7 @@ ${toAddress.country}`,
       
       // Store shipment ID for label creation
       if (shippingRates.length > 0 && shippingRates[0]?.shipment_id) {
-        setShipmentId(shippingRates[0].shipment_id);
+        // setShipmentId(shippingRates[0].shipment_id);
       }
       
       // Dispatch custom event with shipping rates
@@ -224,10 +241,7 @@ ${toAddress.country}`,
   const handleSelectFromAddress = (addressId: string) => {
     const address = savedAddresses.find(addr => addr.id === addressId);
     if (address) {
-      form.setValue('fromAddress1', address.street);
-      form.setValue('fromCity', address.city);
-      form.setValue('fromState', address.state);
-      form.setValue('fromZip', address.zip);
+      // Set address fields in form
       setSelectedFromAddress(addressId);
     }
   };
@@ -255,35 +269,10 @@ ${toAddress.country}`,
     setIsCreatingLabel(true);
     
     try {
-      const { data, error } = await supabase.functions.invoke('create-international-label', {
-        body: { shipmentId, rateId: selectedRateId }
-      });
+      createLabel();
       
-      if (error || !data) {
-        console.error("Error creating shipping label:", error);
-        throw new Error(error?.message || "Failed to create shipping label");
-      }
-      
-      if (!data.labelUrl) {
-        throw new Error("No label URL returned");
-      }
-      
-      // Update the selected rate information in shipment details
-      if (shipmentDetails && selectedRateId) {
-        const selectedRate = rates.find(rate => rate.id === selectedRateId);
-        if (selectedRate) {
-          setShipmentDetails(prev => ({
-            ...prev!,
-            service: selectedRate.service,
-            carrier: selectedRate.carrier.toUpperCase(),
-          }));
-        }
-      }
-      
-      setLabelUrl(data.labelUrl);
-      setTrackingCode(data.trackingCode);
-      setCurrentStep('label'); // Move to label step
-      toast.success("Shipping label created successfully");
+      // Update workflow step
+      setCurrentStep('label');
       
     } catch (error) {
       console.error("Label creation error:", error);
@@ -304,12 +293,15 @@ ${toAddress.country}`,
     link.click();
     document.body.removeChild(link);
   };
+  
+  // Sort rates by price for display
+  const sortedRates = rates ? [...rates].sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate)) : [];
 
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100 shadow-sm">
         <h1 className="text-2xl font-bold flex items-center text-blue-800">
-          <Truck className="mr-3 h-7 w-7 text-blue-600" /> 
+          <Globe className="mr-3 h-7 w-7 text-blue-600" /> 
           International Shipping
         </h1>
       </div>
@@ -351,13 +343,13 @@ ${toAddress.country}`,
             </div>
             
             {/* Use the same EnhancedShippingForm component as domestic shipping */}
-            <EnhancedShippingForm />
+            <EnhancedShippingForm onSubmit={handleSubmit} isLoading={isLoading} />
           </div>
         </Card>
       )}
 
       {/* Rates Section - Only shown in rates step */}
-      {currentStep === 'rates' && showRates && rates.length > 0 && (
+      {currentStep === 'rates' && (
         <Card className="border border-blue-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
           <div className="p-6">
             <h2 className="text-xl font-semibold text-blue-800 flex items-center mb-6">
@@ -365,65 +357,87 @@ ${toAddress.country}`,
               Select Shipping Option
             </h2>
             
-            {/* Use the same dropdown component as in domestic shipping */}
-            <ShippingRateDropdown
-              rates={rates}
-              selectedRateId={selectedRateId}
-              onSelectRate={handleSelectRate}
-              bestValueRateId={bestValueRateId}
-              fastestRateId={fastestRateId}
-              isLoading={isCreatingLabel}
-              onCreateLabel={handleCreateLabel}
-            />
-            
-            <div className="mt-8 flex flex-wrap justify-end gap-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setCurrentStep('address')}
-                className="border-blue-200 hover:bg-blue-50"
-              >
-                Back to Address
-              </Button>
-              
-              <Button
-                type="button"
-                disabled={!selectedRateId || isCreatingLabel}
-                onClick={handleCreateLabel}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {isCreatingLabel ? (
-                  <>
-                    <Package className="h-5 w-5 animate-spin mr-2" />
-                    Creating Label...
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-5 w-5 mr-2" />
-                    Create & Print Label
-                  </>
-                )}
-              </Button>
-              
-              <Button
-                type="button"
-                className="bg-blue-600 hover:bg-blue-700"
-                disabled={!selectedRateId}
-                onClick={() => {
-                  if (selectedRateId) {
-                    const rate = rates.find(r => r.id === selectedRateId);
-                    if (rate && rate.shipment_id) {
-                      navigate(`/payment?amount=${Math.round(parseFloat(rate.rate) * 100)}&shipmentId=${rate.shipment_id}&rateId=${selectedRateId}`);
-                    } else {
-                      toast.error("Missing shipment information");
-                    }
-                  }
-                }}
-              >
-                <CreditCard className="h-5 w-5 mr-2" />
-                Proceed to Payment
-              </Button>
-            </div>
+            {ratesLoading ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                <p className="text-blue-800">Loading shipping rates...</p>
+              </div>
+            ) : sortedRates.length > 0 ? (
+              <>
+                {/* Use the shipping rate dropdown component */}
+                <ShippingRateDropdown
+                  rates={sortedRates}
+                  selectedRateId={selectedRateId}
+                  onSelectRate={handleSelectRate}
+                  bestValueRateId={bestValueRateId}
+                  fastestRateId={fastestRateId}
+                  isLoading={isCreatingLabel}
+                />
+                
+                <div className="mt-8 flex flex-wrap justify-end gap-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCurrentStep('address')}
+                    className="border-blue-200 hover:bg-blue-50"
+                  >
+                    Back to Address
+                  </Button>
+                  
+                  <Button
+                    type="button"
+                    disabled={!selectedRateId || isCreatingLabel}
+                    onClick={handleCreateLabel}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {isCreatingLabel ? (
+                      <>
+                        <Package className="h-5 w-5 animate-spin mr-2" />
+                        Creating Label...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-5 w-5 mr-2" />
+                        Create & Print Label
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    type="button"
+                    className="bg-blue-600 hover:bg-blue-700"
+                    disabled={!selectedRateId}
+                    onClick={() => {
+                      if (selectedRateId) {
+                        const rate = sortedRates.find(r => r.id === selectedRateId);
+                        if (rate && rate.shipment_id) {
+                          navigate(`/payment?amount=${Math.round(parseFloat(rate.rate) * 100)}&shipmentId=${rate.shipment_id}&rateId=${selectedRateId}`);
+                        } else {
+                          toast.error("Missing shipment information");
+                        }
+                      }
+                    }}
+                  >
+                    <CreditCard className="h-5 w-5 mr-2" />
+                    Proceed to Payment
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-10 border rounded-lg bg-gray-50">
+                <Package className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-800 mb-2">No Shipping Rates Available</h3>
+                <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                  We couldn't find any shipping rates for the provided details. Please try adjusting your shipping information.
+                </p>
+                <Button 
+                  onClick={() => setCurrentStep('address')}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Back to Shipping Details
+                </Button>
+              </div>
+            )}
           </div>
         </Card>
       )}
@@ -517,15 +531,7 @@ ${toAddress.country}`,
                 variant="outline"
                 onClick={() => {
                   setCurrentStep('address');
-                  setLabelUrl(null);
-                  setTrackingCode(null);
                   setShowRates(false);
-                  form.reset({
-                    fromCountry: 'US',
-                    toCountry: '',
-                    carrier: 'all',
-                    packageType: activeTab === 'document' ? 'envelope' : 'box',
-                  });
                 }}
               >
                 Ship Another Package
