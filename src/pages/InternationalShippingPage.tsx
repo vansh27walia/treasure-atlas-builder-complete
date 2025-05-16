@@ -970,13 +970,13 @@ const InternationalShippingPage: React.FC = () => {
                       )}
                     </div>
                     <p className="text-gray-600">
-                      Estimated delivery: {rate.delivery_date || `${rate.delivery_days || '3-5'} days`}
+                      Estimated delivery: {rate.estimated_delivery_date || `${rate.delivery_days || '3-5'} days`}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-bold text-indigo-700">${rate.rate}</p>
-                    {rate.list_rate && rate.list_rate !== rate.rate && (
-                      <p className="text-sm text-gray-500 line-through">${rate.list_rate}</p>
+                    {rate.listRate && rate.listRate !== rate.rate && (
+                      <p className="text-sm text-gray-500 line-through">${rate.listRate}</p>
                     )}
                   </div>
                 </div>
@@ -993,8 +993,9 @@ const InternationalShippingPage: React.FC = () => {
               onClick={() => {
                 if (selectedRateId) {
                   const rate = rates.find(r => r.id === selectedRateId);
-                  if (rate && rate.shipment_id) {
-                    handleCreateLabel(selectedRateId, rate.shipment_id);
+                  // Add shipment_id to custom property for handling the creation
+                  if (rate) {
+                    handleCreateLabel(selectedRateId, shipmentId || undefined);
                   } else {
                     toast.error("Missing shipment information");
                   }
@@ -1022,8 +1023,8 @@ const InternationalShippingPage: React.FC = () => {
               onClick={() => {
                 if (selectedRateId) {
                   const rate = rates.find(r => r.id === selectedRateId);
-                  if (rate && rate.shipment_id) {
-                    navigate(`/payment?amount=${Math.round(parseFloat(rate.rate) * 100)}&shipmentId=${rate.shipment_id}&rateId=${selectedRateId}`);
+                  if (rate && shipmentId) {
+                    navigate(`/payment?amount=${Math.round(parseFloat(rate.rate.toString()) * 100).toString()}&shipmentId=${shipmentId}&rateId=${selectedRateId}`);
                   } else {
                     toast.error("Missing shipment information");
                   }
