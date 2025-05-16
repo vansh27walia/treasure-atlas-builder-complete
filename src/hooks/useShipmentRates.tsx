@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
 import { CARRIER_OPTIONS } from '@/types/shipping';
 
@@ -100,7 +100,7 @@ export const useShipmentRates = (
             carrier: carrier.name,
             service: service.name,
             rate: parseFloat(rate.toFixed(2)),
-            currency: 'USD',
+            currency: 'USD', // Add the required currency property
             delivery_days: service.name.includes('Next Day') || service.name.includes('Overnight') 
               ? 1 
               : service.name.includes('2Day') || service.name.includes('2nd Day') 
