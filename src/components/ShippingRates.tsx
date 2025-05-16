@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import ShippingRateCard from './shipping/ShippingRateCard';
@@ -11,12 +11,7 @@ import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
 import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const ShippingRates: React.FC = () => {
   const {
@@ -40,13 +35,6 @@ const ShippingRates: React.FC = () => {
   
   const { aiRecommendation, isAiLoading } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
-  const ratesContainerRef = useRef<HTMLDivElement>(null);
-  
-  // Fix for scrolling issue - maintain the scroll position when clicking on rates
-  const handleRateSelect = (rateId: string) => {
-    handleSelectRate(rateId);
-    // Prevent scroll to bottom by stopping event propagation or default behavior
-  };
   
   // Show empty state if no rates available
   if (rates.length === 0) {
@@ -79,7 +67,7 @@ const ShippingRates: React.FC = () => {
   });
 
   return (
-    <div className="mt-8 w-full px-4" id="shipping-rates-section" ref={ratesContainerRef}>
+    <div className="mt-8 w-full px-4" id="shipping-rates-section">
       <Card className="border border-gray-200 shadow-md rounded-xl overflow-hidden w-full">
         <div className="p-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -148,7 +136,7 @@ const ShippingRates: React.FC = () => {
                 <ShippingAIRecommendation 
                   aiRecommendation={aiRecommendation}
                   isLoading={isAiLoading}
-                  onSelectRecommendation={handleRateSelect}
+                  onSelectRecommendation={handleSelectRate}
                 />
               )}
               
@@ -160,7 +148,7 @@ const ShippingRates: React.FC = () => {
                       key={rate.id}
                       rate={rate}
                       isSelected={selectedRateId === rate.id}
-                      onSelect={handleRateSelect}
+                      onSelect={handleSelectRate}
                       isBestValue={rate.id === bestValueRateId}
                       isFastest={rate.id === fastestRateId}
                       aiRecommendation={aiRecommendation && {

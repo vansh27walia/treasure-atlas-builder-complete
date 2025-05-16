@@ -3,13 +3,12 @@ import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { FileText, Image, FileCode, Archive, Mail, Printer } from 'lucide-react';
+import { FileText, Image, FileCode, Archive, Mail } from 'lucide-react';
 
 interface LabelOptionsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onFormatSelect: (format: 'pdf' | 'png' | 'zpl' | 'zip') => void;
-  onPrint: () => void;
   onEmailLabels: () => void;
   shipmentCount: number;
 }
@@ -18,7 +17,6 @@ const LabelOptionsModal: React.FC<LabelOptionsModalProps> = ({
   open,
   onOpenChange,
   onFormatSelect,
-  onPrint,
   onEmailLabels,
   shipmentCount
 }) => {
@@ -32,14 +30,13 @@ const LabelOptionsModal: React.FC<LabelOptionsModalProps> = ({
           </DialogDescription>
         </DialogHeader>
         
-        <Tabs defaultValue="download" className="mt-4">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="download">Download</TabsTrigger>
-            <TabsTrigger value="print">Print</TabsTrigger>
-            <TabsTrigger value="email">Email</TabsTrigger>
+        <Tabs defaultValue="single" className="mt-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="single">Individual Labels</TabsTrigger>
+            <TabsTrigger value="bulk">Bulk Download</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="download" className="pt-4">
+          <TabsContent value="single" className="pt-4">
             <div className="grid grid-cols-3 gap-4">
               <Button 
                 variant="outline" 
@@ -70,34 +67,34 @@ const LabelOptionsModal: React.FC<LabelOptionsModalProps> = ({
             </div>
             
             <p className="text-sm text-gray-500 mt-4">
-              Download labels in your preferred format
+              Individual labels will open in new browser tabs
             </p>
           </TabsContent>
           
-          <TabsContent value="print" className="pt-4">
-            <div className="text-center p-6">
-              <Printer className="h-12 w-12 mx-auto mb-4 text-blue-600" />
-              <h3 className="text-lg font-medium mb-2">Print Labels</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Print {shipmentCount} shipping labels directly to your printer
-              </p>
-              <Button onClick={onPrint} className="w-full">
-                <Printer className="mr-2 h-4 w-4" /> Print Now
+          <TabsContent value="bulk" className="pt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                variant="outline"
+                className="flex flex-col h-auto py-4"
+                onClick={() => onFormatSelect('zip')}
+              >
+                <Archive className="h-8 w-8 mb-2" />
+                <span>ZIP File</span>
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="flex flex-col h-auto py-4"
+                onClick={onEmailLabels}
+              >
+                <Mail className="h-8 w-8 mb-2" />
+                <span>Email</span>
               </Button>
             </div>
-          </TabsContent>
-          
-          <TabsContent value="email" className="pt-4">
-            <div className="text-center p-6">
-              <Mail className="h-12 w-12 mx-auto mb-4 text-blue-600" />
-              <h3 className="text-lg font-medium mb-2">Email Labels</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Send {shipmentCount} shipping labels to your email
-              </p>
-              <Button onClick={onEmailLabels} className="w-full">
-                <Mail className="mr-2 h-4 w-4" /> Send Email
-              </Button>
-            </div>
+            
+            <p className="text-sm text-gray-500 mt-4">
+              Bulk download options will package all labels together
+            </p>
           </TabsContent>
         </Tabs>
         

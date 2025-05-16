@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
-import { CARRIER_OPTIONS } from '@/types/shipping';
 
 // Helper function to validate and normalize status values
 const normalizeStatus = (status: string): 'pending' | 'processing' | 'error' | 'completed' => {
@@ -126,24 +125,7 @@ export const useShipmentUpload = () => {
   };
 
   const handleDownloadTemplate = () => {
-    // Create headers with carrier and service choice columns
-    const headers = 'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight,carrier,service';
-    
-    // Add sample data with carrier and service choices
-    const sampleData = 'John Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16,USPS,Priority';
-    
-    // Add dropdown options as comments in the CSV
-    let carrierOptions = '# Available carrier options (copy and paste into the carrier column):\n';
-    let serviceOptions = '# Available service options by carrier (copy and paste into the service column):\n';
-    
-    CARRIER_OPTIONS.forEach(carrier => {
-      carrierOptions += `# ${carrier.name}\n`;
-      serviceOptions += `# ${carrier.name}: ${carrier.services.map(s => s.name).join(', ')}\n`;
-    });
-    
-    // Combine all content with instructions
-    const csvContent = `${headers}\n${sampleData}\n\n${carrierOptions}\n${serviceOptions}\n# Note: If carrier or service is left blank, the system will automatically select the best option`;
-
+    const csvContent = 'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight\nJohn Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16';
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');

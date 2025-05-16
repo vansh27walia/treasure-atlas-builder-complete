@@ -1,209 +1,288 @@
 
 import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
 
 export const useShipmentManagement = (
-  results: BulkUploadResult | null,
+  initialResults: BulkUploadResult | null,
   updateResults: (results: BulkUploadResult) => void
 ) => {
+  const navigate = useNavigate();
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
-  const [showLabelOptions, setShowLabelOptions] = useState(false);
-  const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl' | 'zip'>('pdf');
-  
+  const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
+
   const handleRemoveShipment = (shipmentId: string) => {
-    if (!results) return;
+    if (!initialResults) return;
     
-    const updatedShipments = results.processedShipments.filter(s => s.id !== shipmentId);
+    const updatedShipments = initialResults.processedShipments.filter(
+      shipment => shipment.id !== shipmentId
+    );
     
-    // Recalculate total cost
+    // Recalculate totals
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
       return sum + (selectedRate?.rate || 0);
     }, 0);
     
     updateResults({
-      ...results,
+      ...initialResults,
       processedShipments: updatedShipments,
       successful: updatedShipments.length,
       totalCost
     });
     
-    toast.success('Shipment removed');
+    toast("Shipment removed", {
+      description: "The shipment has been removed from your list"
+    });
   };
-  
-  const handleEditShipment = (shipmentId: string, updatedShipment: BulkShipment) => {
-    if (!results) return;
+
+  const handleEditShipment = (shipmentId: string, details: BulkShipment['details']) => {
+    if (!initialResults) return;
     
-    const updatedShipments = results.processedShipments.map(s => 
-      s.id === shipmentId ? updatedShipment : s
-    );
+    const updatedShipments = initialResults.processedShipments.map(shipment => {
+      if (shipment.id === shipmentId) {
+        return { 
+          ...shipment, 
+          details: {
+            ...shipment.details,
+            ...details
+          }
+        };
+      }
+      return shipment;
+    });
     
     updateResults({
-      ...results,
+      ...initialResults,
       processedShipments: updatedShipments
     });
     
-    toast.success('Shipment updated');
+    toast("Shipment updated", {
+      description: "The shipment details have been updated"
+    });
   };
   
   const handleProceedToPayment = async () => {
-    if (!results?.processedShipments || results.processedShipments.length === 0) {
-      toast.error('No shipments to process');
+    if (!initialResults) {
+      toast("Error", {
+        description: "No shipments to process"
+      });
       return;
     }
     
     setIsPaying(true);
     
     try {
-      // In a real app, you would call your API to process payment
-      // Here we'll just simulate an API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Calculate total amount in cents for Stripe
+      const amountInCents = Math.round(initialResults.totalCost * 100);
       
-      // Update status to success
-      updateResults({
-        ...results,
-        uploadStatus: 'success'
+      // Create checkout session with Stripe
+      const { data, error } = await supabase.functions.invoke('create-bulk-checkout', {
+        body: { 
+          amount: amountInCents,
+          quantity: initialResults.successful,
+          description: `Bulk Shipping - ${initialResults.successful} labels`,
+          metadata: {
+            shipment_ids: initialResults.processedShipments.map(s => s.id).join(',')
+          }
+        }
       });
+
+      if (error) throw new Error(error.message);
       
-      toast.success('Payment processed successfully!');
+      // Update with label creation before redirecting to payment
+      await handleCreateLabels();
+      
+      // Redirect to Stripe checkout
+      window.location.href = data.url;
     } catch (error) {
       console.error('Payment error:', error);
-      toast.error('Failed to process payment');
+      toast("Payment failed", {
+        description: error instanceof Error ? error.message : "Failed to process payment"
+      });
     } finally {
       setIsPaying(false);
     }
   };
-  
+
   const handleCreateLabels = async () => {
-    if (!results?.processedShipments || results.processedShipments.length === 0) {
-      toast.error('No shipments to process');
+    if (!initialResults || initialResults.processedShipments.length === 0) {
+      toast("Error", {
+        description: "No shipments to process"
+      });
       return;
     }
     
     setIsCreatingLabels(true);
     
     try {
-      // Simulate API delay for label creation
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Process each shipment to create labels
+      const updatedShipments = [...initialResults.processedShipments];
+      let successCount = 0;
       
-      // Create fake label URLs for all shipments
-      const updatedShipments = results.processedShipments.map(shipment => {
-        if (!shipment.label_url) {
-          return { 
-            ...shipment,
-            label_url: `https://example.com/labels/${shipment.id}.pdf`,
-            tracking_code: `TRACK${Math.random().toString(36).substring(2, 10).toUpperCase()}`
-          };
+      for (const shipment of updatedShipments) {
+        if (!shipment.selectedRateId) continue;
+        
+        try {
+          // Make API call to create label
+          const { data, error } = await supabase.functions.invoke('create-label', {
+            body: { 
+              shipmentId: shipment.id, 
+              rateId: shipment.selectedRateId,
+              options: {
+                label_format: downloadFormat.toUpperCase(),
+                label_size: "4x6"
+              }
+            }
+          });
+
+          if (error) throw new Error(error.message);
+          
+          // Update shipment with label URL and tracking code
+          const index = updatedShipments.findIndex(s => s.id === shipment.id);
+          if (index >= 0) {
+            updatedShipments[index] = {
+              ...shipment,
+              label_url: data.labelUrl,
+              tracking_code: data.trackingCode,
+              status: 'completed' as const
+            };
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Error creating label for shipment ${shipment.id}:`, error);
         }
-        return shipment;
-      });
+      }
       
+      // Update results with labels
       updateResults({
-        ...results,
+        ...initialResults,
         processedShipments: updatedShipments
       });
       
-      toast.success('Labels created successfully!');
+      if (successCount > 0) {
+        toast("Label generation complete", {
+          description: `Generated ${successCount} shipping labels`
+        });
+        
+        // Set status to success for the BulkUpload component to show success view
+        updateResults({
+          ...initialResults,
+          processedShipments: updatedShipments,
+          totalCost: initialResults.totalCost,
+          successful: successCount,
+          failed: initialResults.processedShipments.length - successCount
+        });
+        
+        // Update upload status in parent component
+        setUploadStatus('success');
+      } else {
+        toast("Label generation failed", {
+          description: "No labels were generated, please try again"
+        });
+      }
     } catch (error) {
-      console.error('Label creation error:', error);
-      toast.error('Failed to create labels');
+      console.error('Error creating labels:', error);
+      toast("Label generation failed", {
+        description: error instanceof Error ? error.message : "Failed to generate labels"
+      });
     } finally {
       setIsCreatingLabels(false);
     }
   };
-  
+
   const handleDownloadAllLabels = () => {
-    if (!results?.processedShipments || results.processedShipments.length === 0) {
-      toast.error('No labels to download');
+    if (!initialResults || !initialResults.processedShipments.length) {
+      toast("No labels", {
+        description: "No labels available to download"
+      });
       return;
     }
     
-    // Open the label options modal
+    // Show label options modal
     setShowLabelOptions(true);
   };
 
-  const handlePrintAllLabels = () => {
-    if (!results?.processedShipments || results.processedShipments.length === 0) {
-      toast.error('No labels to print');
-      return;
-    }
-    
-    // In real implementation, we would open all labels in a printable format
-    // For now, we'll just show a success message
-    toast.success('Print preview opened in a new window');
-    
-    // We could open a single window with all labels
-    const allLabels = results.processedShipments
-      .filter(s => s.label_url)
-      .map(s => s.label_url);
-    
-    if (allLabels.length > 0) {
-      const printWindow = window.open(allLabels[0], '_blank');
-      if (printWindow) {
-        printWindow.addEventListener('load', () => {
-          printWindow.print();
-        });
-      }
-    }
-  };
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
   
   const handleDownloadLabelsWithFormat = (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
-    if (!results?.processedShipments || results.processedShipments.length === 0) {
-      toast.error('No labels to download');
-      return;
-    }
+    if (!initialResults || !initialResults.processedShipments.length) return;
     
-    setDownloadFormat(format);
     setShowLabelOptions(false);
     
-    // Here we would normally call an API to get the labels in the selected format
-    // For now, we'll just simulate success
-    toast.success(`Labels downloaded in ${format.toUpperCase()} format`);
-    
-    // Simulate download by opening the first label
-    const firstLabel = results.processedShipments.find(s => s.label_url);
-    if (firstLabel?.label_url) {
-      window.open(firstLabel.label_url, '_blank');
-    }
-  };
-  
-  const handleDownloadSingleLabel = (labelUrl: string) => {
-    if (!labelUrl) {
-      toast.error('Label URL not found');
-      return;
-    }
-    
-    // Open the label in a new tab
-    window.open(labelUrl, '_blank');
-    toast.success('Label opened in a new tab');
-  };
-  
-  const handlePrintSingleLabel = (labelUrl: string) => {
-    if (!labelUrl) {
-      toast.error('Label URL not found');
-      return;
-    }
-    
-    // Open the label in a new tab and trigger print
-    const printWindow = window.open(labelUrl, '_blank');
-    if (printWindow) {
-      printWindow.addEventListener('load', () => {
-        printWindow.print();
+    if (format === 'zip') {
+      // Handle ZIP download - in a real app this would call a backend endpoint
+      toast("Preparing ZIP file", {
+        description: `Creating ZIP archive with ${initialResults.processedShipments.length} labels`
       });
-      toast.success('Print dialog opened in a new tab');
-    } else {
-      toast.error('Unable to open print window. Check your popup blocker.');
+      
+      // Simulate ZIP download for now
+      setTimeout(() => {
+        toast("Download ready", {
+          description: "Your labels ZIP file is ready to download"
+        });
+        
+        // Open first label as example
+        const firstShipment = initialResults.processedShipments.find(s => s.label_url);
+        if (firstShipment?.label_url) {
+          window.open(firstShipment.label_url, '_blank');
+        }
+      }, 1500);
+      return;
     }
+    
+    // Set format for future downloads
+    setDownloadFormat(format as 'pdf' | 'png' | 'zpl');
+    
+    // For individual formats, open each label in new tab
+    const labelsWithUrls = initialResults.processedShipments.filter(s => s.label_url);
+    
+    if (labelsWithUrls.length === 0) {
+      // No labels yet, generate them first
+      handleCreateLabels();
+      return;
+    }
+    
+    toast("Opening labels", {
+      description: `Opening ${labelsWithUrls.length} labels in ${format.toUpperCase()} format`
+    });
+    
+    // Open first 3 labels maximum to avoid browser popup blocking
+    labelsWithUrls.slice(0, 3).forEach(shipment => {
+      if (shipment.label_url) {
+        window.open(shipment.label_url, '_blank');
+      }
+    });
+    
+    if (labelsWithUrls.length > 3) {
+      toast("More labels available", {
+        description: `${labelsWithUrls.length - 3} more labels are available for individual download`
+      });
+    }
+  };
+
+  const handleDownloadSingleLabel = (labelUrl: string) => {
+    window.open(labelUrl, '_blank');
   };
   
   const handleEmailLabels = () => {
-    setShowLabelOptions(false);
-    
-    // Here we would call an API to email the labels
-    // For now, just show success message
-    toast.success('Labels sent to your email!');
+    toast("Email feature", {
+      description: "Email labels feature will be implemented soon"
+    });
+  };
+  
+  // This function is needed for the updated component but doesn't exist in the original hook
+  const setUploadStatus = (status: 'idle' | 'success' | 'error' | 'editing') => {
+    // This should be passed from the parent hook
+    if (initialResults) {
+      updateResults({
+        ...initialResults,
+        uploadStatus: status
+      });
+    }
   };
 
   return {
@@ -216,10 +295,8 @@ export const useShipmentManagement = (
     handleProceedToPayment,
     handleCreateLabels,
     handleDownloadAllLabels,
-    handlePrintAllLabels,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
-    handlePrintSingleLabel,
     handleEmailLabels,
     setShowLabelOptions,
     setDownloadFormat

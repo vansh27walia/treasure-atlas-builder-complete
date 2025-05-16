@@ -1,29 +1,21 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Printer, ChevronDown } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 interface SuccessfulShipmentsTableProps {
   shipments: BulkShipment[];
   onDownloadSingleLabel: (labelUrl: string) => void;
-  onPrintSingleLabel: (labelUrl: string) => void;
 }
 
 const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   shipments,
-  onDownloadSingleLabel,
-  onPrintSingleLabel
+  onDownloadSingleLabel
 }) => {
   if (shipments.length === 0) return null;
-
+  
   return (
     <div className="p-4">
       <h5 className="font-medium text-green-800 mb-3">Successfully Processed Shipments</h5>
@@ -52,35 +44,13 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                   </span>
                 </TableCell>
                 <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        className="flex items-center"
-                      >
-                        <Download className="h-4 w-4 mr-1" />
-                        <span>Actions</span>
-                        <ChevronDown className="h-3 w-3 ml-1" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem 
-                        onClick={() => onDownloadSingleLabel(shipment.label_url || '')}
-                        className="cursor-pointer"
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        <span>Download PDF</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => onPrintSingleLabel(shipment.label_url || '')}
-                        className="cursor-pointer"
-                      >
-                        <Printer className="h-4 w-4 mr-2" />
-                        <span>Print Label</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={() => onDownloadSingleLabel(shipment.label_url || '')}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

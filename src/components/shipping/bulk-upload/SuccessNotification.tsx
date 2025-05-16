@@ -9,9 +9,7 @@ import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 interface SuccessNotificationProps {
   results: BulkUploadResult;
   onDownloadAllLabels: () => void;
-  onPrintAllLabels: () => void;
   onDownloadSingleLabel: (labelUrl: string) => void;
-  onPrintSingleLabel: (labelUrl: string) => void;
   onProceedToPayment: () => void;
   onCreateLabels: () => void;
   isPaying: boolean;
@@ -21,9 +19,7 @@ interface SuccessNotificationProps {
 const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   results,
   onDownloadAllLabels,
-  onPrintAllLabels,
   onDownloadSingleLabel,
-  onPrintSingleLabel,
   onProceedToPayment,
   onCreateLabels,
   isPaying,
@@ -49,7 +45,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           successfulCount={results.successful}
           totalCost={results.totalCost}
           onDownloadAllLabels={onDownloadAllLabels}
-          onPrintAllLabels={onPrintAllLabels}
           onProceedToPayment={onProceedToPayment}
           isPaying={isPaying}
           isCreatingLabels={isCreatingLabels}
@@ -71,7 +66,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       <SuccessfulShipmentsTable 
         shipments={results.processedShipments}
         onDownloadSingleLabel={onDownloadSingleLabel} 
-        onPrintSingleLabel={onPrintSingleLabel}
       />
       
       <FailedShipmentsTable 
