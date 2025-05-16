@@ -4,9 +4,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-// Add PDF.js worker for better PDF handling
-// This ensures PDF files are displayed correctly in both domestic and international shipping
-
+// Add better PDF handling for all shipping types
 const rootElement = document.getElementById("root");
 if (!rootElement) throw new Error('Root element not found');
 rootElement.style.width = '100%';
@@ -20,7 +18,7 @@ meta.name = 'format-detection';
 meta.content = 'telephone=no, date=no, email=no, address=no';
 document.head.appendChild(meta);
 
-// Improved PDF MIME type and object URL handling
+// Ensure consistent PDF MIME type support
 if (!window.navigator.mimeTypes['application/pdf']) {
   console.log('Adding PDF MIME type support');
   // This is a polyfill for browsers that might not recognize PDFs correctly
@@ -37,19 +35,35 @@ if (!window.navigator.mimeTypes['application/pdf']) {
   });
 }
 
-// Improve PDF blob handling
+// Improve handling of PDF blob objects
 const originalCreateObjectURL = URL.createObjectURL;
 URL.createObjectURL = function(object) {
   // Ensure proper content type is set for PDF blobs
-  if (object instanceof Blob && 
-     (object.type === 'application/pdf' || 
-      object.type === '' || 
-      object.type === 'application/octet-stream')) {
-    const newBlob = new Blob([object], { type: 'application/pdf' });
-    return originalCreateObjectURL(newBlob);
+  if (object instanceof Blob) {
+    // If it's a PDF or if no content type is set, treat as PDF
+    if (object.type === 'application/pdf' || 
+        object.type === '' || 
+        object.type === 'application/octet-stream' ||
+        /pdf/i.test(object.type)) {
+      const newBlob = new Blob([object], { type: 'application/pdf' });
+      return originalCreateObjectURL(newBlob);
+    }
   }
   return originalCreateObjectURL(object);
 };
+
+// Add PDF viewer capability check
+const checkPdfViewerCapability = () => {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  
+  if (isIOS || isSafari) {
+    console.log('Device may have limited PDF viewer capabilities, considering fallbacks');
+    // In a real implementation, you might set a flag to use image alternatives
+  }
+};
+
+checkPdfViewerCapability();
 
 createRoot(rootElement).render(
   <React.StrictMode>

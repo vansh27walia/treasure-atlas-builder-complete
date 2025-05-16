@@ -84,7 +84,7 @@ serve(async (req) => {
     // Create request body for EasyPost with label format options
     const buyOptions = {
       rate: { id: rateId },
-      label_format: options.label_format || "PDF",
+      label_format: options.label_format || "PDF", // Always default to PDF format
       label_size: options.label_size || "4x6"
     };
 
@@ -165,11 +165,11 @@ serve(async (req) => {
               );
             }
             
-            // Create a signed URL for the label
+            // Create a signed URL for the label with 2 weeks expiration
             const { data: signedURLData } = await supabase
               .storage
               .from('shipping-labels')
-              .createSignedUrl(fileName, 60 * 60 * 24 * 14); // 2 weeks
+              .createSignedUrl(fileName, 60 * 60 * 24 * 14); 
               
             return new Response(
               JSON.stringify({
@@ -217,7 +217,7 @@ serve(async (req) => {
       throw new Error('Failed to download label from EasyPost');
     }
     
-    // Always treat domestic labels as PDF for consistency with international labels
+    // Determine content type - Force PDF format for consistency
     let contentType = 'application/pdf';
     
     // Convert the label to a blob
@@ -225,7 +225,7 @@ serve(async (req) => {
     const labelArrayBuffer = await labelBlob.arrayBuffer();
     const labelBuffer = new Uint8Array(labelArrayBuffer);
     
-    // Generate a unique filename for the label with appropriate extension
+    // Generate a unique filename for the label - always use PDF extension for consistency
     const fileExtension = 'pdf';
     const fileName = `label_${shipmentId}_${Date.now()}.${fileExtension}`;
     
@@ -311,7 +311,7 @@ serve(async (req) => {
           charged_rate: data.selected_rate?.rate || null,
           easypost_rate: data.selected_rate?.rate || null,
           currency: data.selected_rate?.currency || 'USD',
-          label_format: options.label_format || "PDF",
+          label_format: "PDF", // Always store as PDF for consistency
           label_size: options.label_size || "4x6",
           created_at: new Date().toISOString()
         });

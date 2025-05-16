@@ -24,6 +24,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   const downloadLinkRef = useRef<HTMLAnchorElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [activeTab, setActiveTab] = useState<'preview' | 'download' | 'share'>('preview');
+  const [isLoading, setIsLoading] = useState(false);
   
   // Effect to fetch and cache the label as a blob when URL changes
   useEffect(() => {
@@ -32,12 +33,13 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       const url = localLabelUrl || labelUrl;
       if (!url) return;
       
+      setIsLoading(true);
       try {
         console.log("Fetching label to cache as blob:", url);
         const response = await fetch(url, { 
           method: 'GET',
-          headers: { 'Accept': 'application/pdf' },
-          cache: 'no-cache' // Changed to no-cache to ensure fresh content
+          headers: { 'Accept': 'application/pdf, image/*' },
+          cache: 'no-cache' 
         });
         
         if (!response.ok) {
@@ -57,7 +59,9 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         setIsLabelModalOpen(true);
       } catch (error) {
         console.error("Error caching label:", error);
-        toast.error("Error preparing label for download");
+        toast.error("Error preparing label for preview. Please try downloading directly instead.");
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -118,40 +122,14 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   };
 
   const handleDirectDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    if (blobUrl) {
-      try {
-        console.log(`Starting direct download with blob URL (${format}):`, blobUrl);
-        
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = `shipping_label_${trackingCode || 'download'}.${format}`;
-        document.body.appendChild(link);
-        link.click();
-        
-        // Clean up
-        setTimeout(() => {
-          document.body.removeChild(link);
-          toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
-        }, 100);
-      } catch (error) {
-        console.error('Direct download error:', error);
-        toast.error('Failed to download directly');
-        tryFallbackDownload(format);
-      }
-    } else {
-      tryFallbackDownload(format);
-    }
-  };
-  
-  const tryFallbackDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    const url = localLabelUrl || labelUrl;
+    const url = blobUrl || localLabelUrl || labelUrl;
     if (!url) {
       toast.error('No label URL available');
       return;
     }
     
     try {
-      console.log(`Trying fallback download with URL (${format}):`, url);
+      console.log(`Starting direct download with URL (${format}):`, url);
       
       // Create a hidden iframe to download without navigating away
       const iframe = document.createElement('iframe');
@@ -159,15 +137,31 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
       iframe.src = url;
       document.body.appendChild(iframe);
       
-      // Clean up after a moment
+      // Create an anchor element for downloading
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `shipping_label_${trackingCode || 'download'}.${format}`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
       setTimeout(() => {
+        document.body.removeChild(link);
         document.body.removeChild(iframe);
-        toast.success(`Starting ${format.toUpperCase()} download through fallback method`);
+        toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
       }, 1000);
     } catch (error) {
-      console.error('Fallback download error:', error);
-      toast.error('All download methods failed. Try the "Open in New Tab" option');
+      console.error('Direct download error:', error);
+      toast.error('Failed to download directly');
+      fallbackDownload(url, format);
     }
+  };
+  
+  const fallbackDownload = (url: string, format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+    // Open in new tab as fallback
+    window.open(url, '_blank');
+    toast.success(`Opened ${format.toUpperCase()} label in new tab`);
   };
 
   const handleOpenInNewTab = () => {
@@ -289,8 +283,17 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
                 onClick={() => setIsLabelModalOpen(true)}
                 variant="default" 
                 className="bg-green-600 hover:bg-green-700 text-white h-12"
+                disabled={isLoading}
               >
-                <Download className="mr-2 h-5 w-5" /> View & Download Label
+                {isLoading ? (
+                  <>
+                    <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Preparing Label...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-5 w-5" /> View & Download Label
+                  </>
+                )}
               </Button>
               
               <Button 
@@ -329,7 +332,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         </div>
       </div>
       
-      {/* Modal for label preview and download - updated to match reference images */}
+      {/* Modal for label preview and download - improved for better PDF support */}
       <Dialog open={isLabelModalOpen} onOpenChange={setIsLabelModalOpen}>
         <DialogContent className="bg-white max-w-3xl p-0">
           <DialogHeader className="p-6 pb-2">
@@ -357,8 +360,24 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full w-full">
-                    <FileText className="h-16 w-16 text-gray-300 mb-4" />
-                    <p className="text-gray-500">Loading preview...</p>
+                    {isLoading ? (
+                      <>
+                        <RefreshCw className="h-16 w-16 text-blue-400 animate-spin mb-4" />
+                        <p className="text-gray-500">Loading preview...</p>
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-16 w-16 text-gray-300 mb-4" />
+                        <p className="text-gray-500">Preview not available</p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-4"
+                          onClick={handleOpenInNewTab}
+                        >
+                          Open in New Tab
+                        </Button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

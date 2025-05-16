@@ -17,6 +17,7 @@ const LabelSuccessPage: React.FC = () => {
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [isBulkLabel, setIsBulkLabel] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -34,6 +35,7 @@ const LabelSuccessPage: React.FC = () => {
 
     // Check if this is a bulk label
     setIsBulkLabel(bulkParam === 'true');
+    setIsLoading(false);
 
     if (labelUrlParam) {
       setLabelUrl(decodeURIComponent(labelUrlParam));
@@ -104,6 +106,7 @@ const LabelSuccessPage: React.FC = () => {
             <p className="text-xs">Tracking: {trackingCode}</p>
             <p className="text-xs">Shipment ID: {shipmentId}</p>
             <p className="text-xs">Bulk: {isBulkLabel ? 'Yes' : 'No'}</p>
+            <p className="text-xs">Loading: {isLoading ? 'Yes' : 'No'}</p>
           </div>
         )}
 
