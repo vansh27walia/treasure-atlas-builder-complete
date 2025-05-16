@@ -48,7 +48,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
             collapsed={collapsed}
           />
           <SidebarNavItem
-            icon={<Globe size={18} />}
+            icon={<Package size={18} />}
             title="Ship To"
             to="/ship-to"
             collapsed={collapsed}
