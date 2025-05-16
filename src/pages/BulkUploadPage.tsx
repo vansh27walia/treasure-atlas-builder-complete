@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileText, Upload, CheckCircle } from 'lucide-react';
 import BulkUpload from '@/components/shipping/BulkUpload';
+import BulkUpload2 from '@/components/shipping/bulk-upload-v2/BulkUpload2';
 import { Button } from '@/components/ui/button';
 
 const BulkUploadPage = () => {
@@ -32,6 +33,10 @@ const BulkUploadPage = () => {
             <Upload className="h-4 w-4 mr-2" />
             Upload
           </TabsTrigger>
+          <TabsTrigger value="upload2">
+            <Upload className="h-4 w-4 mr-2" />
+            Upload V2
+          </TabsTrigger>
           <TabsTrigger value="template">
             <FileText className="h-4 w-4 mr-2" />
             Template
@@ -40,6 +45,10 @@ const BulkUploadPage = () => {
         
         <TabsContent value="upload">
           <BulkUpload />
+        </TabsContent>
+        
+        <TabsContent value="upload2">
+          <BulkUpload2 />
         </TabsContent>
         
         <TabsContent value="template">
@@ -67,8 +76,9 @@ const BulkUploadPage = () => {
                   <h4 className="font-medium mb-2">Template Instructions</h4>
                   <ul className="list-disc pl-5 space-y-1 text-sm">
                     <li><strong>Required fields:</strong> name, street1, city, state, zip, country</li>
-                    <li><strong>Optional fields:</strong> company, street2, phone, carrier, service</li>
+                    <li><strong>Optional fields:</strong> company, street2, phone</li>
                     <li><strong>Parcel fields:</strong> parcel_length, parcel_width, parcel_height, parcel_weight</li>
+                    <li><strong>Shipping options:</strong> carrier, service</li>
                     <li><strong>Supported carriers:</strong> usps, ups, fedex, dhl</li>
                     <li><strong>Recommended services:</strong> Priority, Express, Ground, Standard</li>
                     <li>Format addresses according to the template example</li>
