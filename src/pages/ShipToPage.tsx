@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -13,10 +12,10 @@ import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { AddressData, ParcelData, ShippingRequestData, carrierService } from '@/services/CarrierService';
-import VerticalShippingForm from '@/components/shipping/VerticalShippingForm';
-import ShippingRateDropdown from '@/components/shipping/ShippingRateDropdown';
-import ShippingLabel from '@/components/shipping/ShippingLabel';
+import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
+import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import PrintPreview from '@/components/shipping/PrintPreview';
+import ShippingRateDropdown from '@/components/shipping/ShippingRateDropdown';
 
 interface FormValues {
   fromName: string;
@@ -76,7 +75,7 @@ const ShipToPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'document' | 'package'>('document');
   const [isLoading, setIsLoading] = useState(false);
   const [showRates, setShowRates] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
   const { rates, selectedRateId, handleSelectRate, bestValueRateId, fastestRateId } = useShippingRates();
   
   // Create form
@@ -89,9 +88,20 @@ const ShipToPage: React.FC = () => {
     }
   });
   
-  // Define total steps in shipping workflow
-  const totalSteps = 3; // 1: Address, 2: Rates, 3: Label
-
+  // Add this for label-related functionality
+  const [labelUrl, setLabelUrl] = useState<string | null>(null);
+  const [trackingCode, setTrackingCode] = useState<string | null>(null);
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  const [shipmentId, setShipmentId] = useState<string | null>(null);
+  const [shipmentDetails, setShipmentDetails] = useState<{
+    fromAddress: string;
+    toAddress: string;
+    weight: string;
+    dimensions?: string;
+    service: string;
+    carrier: string;
+  } | undefined>();
+  
   const handleSubmit = async (values: FormValues) => {
     setIsLoading(true);
     setShowRates(false);
@@ -180,7 +190,7 @@ ${toAddress.country}`,
       
       document.dispatchEvent(ratesEvent);
       setShowRates(true);
-      setCurrentStep(2); // Move to rates step
+      setCurrentStep('rates'); // Move to rates step
       toast.success("Shipping rates retrieved successfully");
       
       // Update service and carrier in shipment details
@@ -236,20 +246,6 @@ ${toAddress.country}`,
     }
   };
 
-  // Add this for label-related functionality
-  const [labelUrl, setLabelUrl] = useState<string | null>(null);
-  const [trackingCode, setTrackingCode] = useState<string | null>(null);
-  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
-  const [shipmentId, setShipmentId] = useState<string | null>(null);
-  const [shipmentDetails, setShipmentDetails] = useState<{
-    fromAddress: string;
-    toAddress: string;
-    weight: string;
-    dimensions?: string;
-    service: string;
-    carrier: string;
-  } | undefined>();
-  
   const handleCreateLabel = async () => {
     if (!selectedRateId || !shipmentId) {
       toast.error("Cannot create label: Missing rate or shipment information");
@@ -286,26 +282,8 @@ ${toAddress.country}`,
       
       setLabelUrl(data.labelUrl);
       setTrackingCode(data.trackingCode);
-      setCurrentStep(3); // Move to final step
+      setCurrentStep('label'); // Move to label step
       toast.success("Shipping label created successfully");
-      
-      // Download the label automatically
-      setTimeout(() => {
-        try {
-          // Method 1: Using anchor element
-          const link = document.createElement('a');
-          link.href = data.labelUrl;
-          link.setAttribute('download', `shipping_label_${data.trackingCode || 'download'}.pdf`);
-          link.setAttribute('target', '_blank');
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        } catch (downloadError) {
-          console.error("Download error:", downloadError);
-          // Last resort: Just open the URL in a new tab
-          window.open(data.labelUrl, '_blank');
-        }
-      }, 1000);
       
     } catch (error) {
       console.error("Label creation error:", error);
@@ -315,78 +293,49 @@ ${toAddress.country}`,
     }
   };
 
-  // Progress indicator component
-  const ProgressIndicator = () => (
-    <div className="mb-8 w-full">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <div className="relative">
-            {/* Progress bar */}
-            <div className="h-2 bg-gray-200 rounded-full">
-              <div 
-                className="h-2 bg-purple-600 rounded-full" 
-                style={{ width: `${((currentStep - 1) / (totalSteps - 1)) * 100}%` }}
-              ></div>
-            </div>
-            
-            {/* Step indicators */}
-            <div className="absolute top-0 left-0 -mt-2 w-full flex justify-between">
-              <div className={`flex flex-col items-center ${currentStep >= 1 ? 'text-purple-600' : 'text-gray-400'}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${currentStep >= 1 ? 'bg-purple-600 text-white' : 'bg-gray-200'}`}>
-                  {currentStep > 1 ? <CheckCircle size={16} /> : 1}
-                </div>
-                <span className="mt-1 text-xs font-medium">Addresses</span>
-              </div>
-              
-              <div className={`flex flex-col items-center ${currentStep >= 2 ? 'text-purple-600' : 'text-gray-400'}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${currentStep >= 2 ? 'bg-purple-600 text-white' : 'bg-gray-200'}`}>
-                  {currentStep > 2 ? <CheckCircle size={16} /> : 2}
-                </div>
-                <span className="mt-1 text-xs font-medium">Rates</span>
-              </div>
-              
-              <div className={`flex flex-col items-center ${currentStep >= 3 ? 'text-purple-600' : 'text-gray-400'}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${currentStep >= 3 ? 'bg-purple-600 text-white' : 'bg-gray-200'}`}>
-                  3
-                </div>
-                <span className="mt-1 text-xs font-medium">Label</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-  
+  const downloadLabel = () => {
+    if (!labelUrl) return;
+    
+    const link = document.createElement('a');
+    link.href = labelUrl;
+    link.setAttribute('download', `shipping_label_${trackingCode || 'download'}.pdf`);
+    link.setAttribute('target', '_blank');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6 bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-100 shadow-sm">
-        <h1 className="text-3xl font-bold flex items-center text-purple-800">
-          <Truck className="mr-3 h-8 w-8 text-purple-600" /> 
-          Ship To
+      <div className="flex items-center justify-between mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100 shadow-sm">
+        <h1 className="text-2xl font-bold flex items-center text-blue-800">
+          <Truck className="mr-3 h-7 w-7 text-blue-600" /> 
+          International Shipping
         </h1>
       </div>
 
-      {/* Progress tracker */}
-      <ProgressIndicator />
+      {/* Workflow steps */}
+      <div className="mb-6">
+        <ShippingWorkflow currentStep={currentStep} />
+      </div>
 
-      <Alert className="mb-6 bg-purple-50 border-2 border-purple-200">
-        <Info className="h-5 w-5 text-purple-600" />
-        <AlertTitle className="text-purple-800 font-bold">Ship To Information</AlertTitle>
-        <AlertDescription className="text-purple-700">
-          Ship to over 200+ countries worldwide with our reliable shipping services. Make sure to provide accurate information to avoid delays.
+      <Alert className="mb-6 bg-blue-50 border border-blue-200">
+        <Info className="h-5 w-5 text-blue-600" />
+        <AlertTitle className="text-blue-800 font-bold">International Shipping</AlertTitle>
+        <AlertDescription className="text-blue-700">
+          Ship to over 200+ countries worldwide with our reliable shipping services. Complete the form below to get started.
         </AlertDescription>
       </Alert>
 
-      {/* Step 1: Address Form */}
-      {currentStep === 1 && (
-        <>
-          <div className="mb-6">
+      {/* Address Form - Only shown in address step */}
+      {currentStep === 'address' && (
+        <Card className="border border-blue-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
+          <div className="p-6">
             <div className="flex items-center mb-4 gap-2">
               <Button
                 variant={activeTab === 'document' ? 'default' : 'outline'}
                 onClick={() => setActiveTab('document')}
-                className={activeTab === 'document' ? 'bg-purple-600 hover:bg-purple-700' : 'border-purple-200 hover:bg-purple-50'}
+                className={activeTab === 'document' ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-200 hover:bg-blue-50'}
               >
                 <Package className="mr-2 h-5 w-5" />
                 Ship Documents
@@ -394,64 +343,29 @@ ${toAddress.country}`,
               <Button
                 variant={activeTab === 'package' ? 'default' : 'outline'}
                 onClick={() => setActiveTab('package')}
-                className={activeTab === 'package' ? 'bg-purple-600 hover:bg-purple-700' : 'border-purple-200 hover:bg-purple-50'}
+                className={activeTab === 'package' ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-200 hover:bg-blue-50'}
               >
                 <Package className="mr-2 h-5 w-5" />
                 Ship Packages
               </Button>
             </div>
             
-            <VerticalShippingForm 
-              form={form}
-              onSubmit={handleSubmit}
-              isLoading={isLoading}
-              countries={countries}
-              carriers={carriers}
-              savedAddresses={savedAddresses}
-              selectedFromAddress={selectedFromAddress}
-              onSelectFromAddress={handleSelectFromAddress}
-              verifyAddress={verifyAddress}
-              shipmentType={activeTab}
-            />
+            {/* Use the same EnhancedShippingForm component as domestic shipping */}
+            <EnhancedShippingForm />
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-            <Card className="p-6 border-2 border-purple-100 bg-purple-50">
-              <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
-                <Globe className="mr-2 h-5 w-5 text-purple-600" />
-                Global Coverage
-              </h3>
-              <p className="text-purple-700 mb-2">Ship to over 200 countries and territories worldwide with our reliable shipping services.</p>
-            </Card>
-            
-            <Card className="p-6 border-2 border-purple-100 bg-purple-50">
-              <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
-                <AlertCircle className="mr-2 h-5 w-5 text-purple-600" />
-                Documentation
-              </h3>
-              <p className="text-purple-700 mb-2">Proper documentation is required for all shipments. We'll guide you through the process.</p>
-            </Card>
-            
-            <Card className="p-6 border-2 border-purple-100 bg-purple-50">
-              <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
-                <Package className="mr-2 h-5 w-5 text-purple-600" />
-                Carrier Options
-              </h3>
-              <p className="text-purple-700 mb-2">Compare rates and services from USPS, UPS, DHL, and FedEx for your shipping needs.</p>
-            </Card>
-          </div>
-        </>
+        </Card>
       )}
 
-      {/* Step 2: Rates */}
-      {currentStep === 2 && showRates && rates.length > 0 && (
-        <div className="space-y-6">
-          <Card className="border-2 border-purple-200 shadow-sm p-6 bg-white rounded-xl">
-            <h2 className="text-2xl font-bold mb-6 flex items-center text-purple-800">
-              <Package className="mr-2 h-6 w-6 text-purple-600" /> 
+      {/* Rates Section - Only shown in rates step */}
+      {currentStep === 'rates' && showRates && rates.length > 0 && (
+        <Card className="border border-blue-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
+          <div className="p-6">
+            <h2 className="text-xl font-semibold text-blue-800 flex items-center mb-6">
+              <Package className="mr-2 h-6 w-6 text-blue-600" /> 
               Select Shipping Option
             </h2>
             
+            {/* Use the same dropdown component as in domestic shipping */}
             <ShippingRateDropdown
               rates={rates}
               selectedRateId={selectedRateId}
@@ -466,8 +380,8 @@ ${toAddress.country}`,
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setCurrentStep(1)}
-                className="border-purple-200 hover:bg-purple-50"
+                onClick={() => setCurrentStep('address')}
+                className="border-blue-200 hover:bg-blue-50"
               >
                 Back to Address
               </Button>
@@ -493,7 +407,7 @@ ${toAddress.country}`,
               
               <Button
                 type="button"
-                className="bg-purple-600 hover:bg-purple-700"
+                className="bg-blue-600 hover:bg-blue-700"
                 disabled={!selectedRateId}
                 onClick={() => {
                   if (selectedRateId) {
@@ -510,61 +424,99 @@ ${toAddress.country}`,
                 Proceed to Payment
               </Button>
             </div>
-          </Card>
-          
-          <div className="text-center text-sm text-gray-500">
-            <p>* All rates include handling fees and applicable taxes</p>
           </div>
-        </div>
+        </Card>
       )}
 
-      {/* Step 3: Label */}
-      {currentStep === 3 && labelUrl && (
-        <Card className="border-2 border-purple-200 shadow-sm p-6 bg-white rounded-xl">
-          <div className="py-6 flex flex-col items-center">
-            <div className="rounded-full bg-green-100 p-4 mb-4">
-              <CheckCircle className="h-10 w-10 text-green-600" />
+      {/* Label Section - Only shown in label step */}
+      {currentStep === 'label' && labelUrl && (
+        <Card className="border border-blue-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-blue-800 flex items-center">
+                <CheckCircle className="mr-2 h-6 w-6 text-green-600" /> 
+                Label Created Successfully
+              </h2>
+              
+              <div className="flex gap-2">
+                <PrintPreview 
+                  labelUrl={labelUrl} 
+                  trackingCode={trackingCode}
+                  shipmentDetails={shipmentDetails}
+                />
+                <Button
+                  variant="outline"
+                  onClick={downloadLabel}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" /> Download Label
+                </Button>
+              </div>
             </div>
-            <h2 className="text-2xl font-bold text-green-800 mb-2">Label Created Successfully!</h2>
-            <p className="text-gray-600 mb-6 text-center">
-              Your shipping label has been created and is ready for download.
-              {trackingCode && (
-                <span className="block mt-2">
-                  Tracking number: <span className="font-semibold">{trackingCode}</span>
-                </span>
-              )}
-            </p>
-
-            <div className="mb-6 p-4 border rounded-lg w-full max-w-md">
-              <h3 className="font-semibold mb-2 text-gray-800">Shipping Label</h3>
-              <div className="bg-gray-100 p-3 rounded">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Label Preview */}
+              <div className="p-4 border rounded-md bg-white">
+                <h3 className="font-semibold mb-3">Shipping Label</h3>
                 <img 
                   src={labelUrl} 
                   alt="Shipping Label Preview" 
-                  className="max-w-full h-auto mb-3 border border-gray-300"
+                  className="max-w-full h-auto border border-gray-300 mb-3"
                 />
-                <div className="flex justify-end gap-2">
-                  <PrintPreview 
-                    labelUrl={labelUrl} 
-                    trackingCode={trackingCode}
-                    shipmentDetails={shipmentDetails}
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(labelUrl, '_blank')}
-                  >
-                    <Download className="h-4 w-4 mr-2" /> Download
-                  </Button>
-                </div>
+                {trackingCode && (
+                  <div className="bg-blue-50 p-3 rounded-md mt-3">
+                    <p className="text-sm font-medium">Tracking Number:</p>
+                    <p className="font-mono text-sm">{trackingCode}</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Shipment Summary */}
+              <div className="p-4 border rounded-md bg-white">
+                <h3 className="font-semibold mb-3">Shipping Details</h3>
+                
+                {shipmentDetails && (
+                  <div className="space-y-4 text-sm">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="font-medium text-gray-700">From:</p>
+                        <p className="whitespace-pre-line">{shipmentDetails.fromAddress}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">To:</p>
+                        <p className="whitespace-pre-line">{shipmentDetails.toAddress}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="border-t pt-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="font-medium text-gray-700">Service:</p>
+                          <p>{shipmentDetails.carrier} - {shipmentDetails.service}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-700">Weight:</p>
+                          <p>{shipmentDetails.weight}</p>
+                        </div>
+                      </div>
+                      
+                      {shipmentDetails.dimensions && (
+                        <div className="mt-2">
+                          <p className="font-medium text-gray-700">Dimensions:</p>
+                          <p>{shipmentDetails.dimensions}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-
-            <div className="flex gap-4">
+            
+            <div className="flex justify-end gap-4 mt-6">
               <Button
                 variant="outline"
-                className="border-purple-200 hover:bg-purple-50"
                 onClick={() => {
-                  setCurrentStep(1);
+                  setCurrentStep('address');
                   setLabelUrl(null);
                   setTrackingCode(null);
                   setShowRates(false);
@@ -579,14 +531,43 @@ ${toAddress.country}`,
                 Ship Another Package
               </Button>
               <Button
-                className="bg-purple-600 hover:bg-purple-700"
                 onClick={() => navigate('/tracking')}
+                className="bg-blue-600 hover:bg-blue-700"
               >
-                Track My Shipment
+                Track This Shipment
               </Button>
             </div>
           </div>
         </Card>
+      )}
+
+      {/* Informational cards at the bottom - Only shown in address step */}
+      {currentStep === 'address' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="p-6 border-2 border-blue-100 bg-blue-50">
+            <h3 className="text-lg font-semibold mb-3 text-blue-800 flex items-center">
+              <Globe className="mr-2 h-5 w-5 text-blue-600" />
+              Global Coverage
+            </h3>
+            <p className="text-blue-700 mb-2">Ship to over 200 countries worldwide with reliable carriers and competitive rates.</p>
+          </Card>
+          
+          <Card className="p-6 border-2 border-blue-100 bg-blue-50">
+            <h3 className="text-lg font-semibold mb-3 text-blue-800 flex items-center">
+              <AlertCircle className="mr-2 h-5 w-5 text-blue-600" />
+              Documentation Help
+            </h3>
+            <p className="text-blue-700 mb-2">We'll automatically generate the customs forms needed for your international shipment.</p>
+          </Card>
+          
+          <Card className="p-6 border-2 border-blue-100 bg-blue-50">
+            <h3 className="text-lg font-semibold mb-3 text-blue-800 flex items-center">
+              <Truck className="mr-2 h-5 w-5 text-blue-600" />
+              Multiple Carriers
+            </h3>
+            <p className="text-blue-700 mb-2">Compare rates from USPS, FedEx, UPS, and DHL to find the best shipping option.</p>
+          </Card>
+        </div>
       )}
     </div>
   );
