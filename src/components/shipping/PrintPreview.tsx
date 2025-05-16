@@ -25,10 +25,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ labelUrl, trackingCode, shi
   const handlePrint = useReactToPrint({
     documentTitle: `Shipping_Label_${trackingCode || 'Print'}`,
     onAfterPrint: () => setIsOpen(false),
-    bodyClass: "print-shipping",
-    // Use printable instead of content
-    printable: contentRef.current,
-    removeAfterPrint: true
+    // The correct property is content, which expects a function that returns the element
+    content: () => contentRef.current
   });
 
   return (
