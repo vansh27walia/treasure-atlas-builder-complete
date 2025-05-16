@@ -2,6 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { CreditCard, Download, Loader, Printer } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface OrderSummaryProps {
   successfulCount: number;
@@ -20,8 +21,26 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
+  const handlePayment = () => {
+    try {
+      onProceedToPayment();
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('There was an issue processing your payment. Please check your EasyPost account settings.');
+    }
+  };
+
+  const handleDownload = () => {
+    try {
+      onDownloadAllLabels();
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('There was an issue downloading your labels. Please try again later.');
+    }
+  };
+
   return (
-    <div className="bg-white p-4 rounded-md border border-green-100">
+    <div className="bg-white p-4 rounded-md border border-green-100 shadow-sm">
       <h5 className="font-medium mb-2">Order Summary</h5>
       <div className="flex justify-between mb-1 text-sm">
         <span>Number of labels:</span>
@@ -39,15 +58,24 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
       <div className="flex justify-end gap-3 mt-4">
         <Button 
           variant="outline" 
-          onClick={onDownloadAllLabels}
+          onClick={handleDownload}
           disabled={isCreatingLabels}
           className="flex items-center gap-2"
         >
-          <Printer className="h-4 w-4" />
-          Download Labels
+          {isCreatingLabels ? (
+            <>
+              <Loader className="h-4 w-4 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            <>
+              <Printer className="h-4 w-4" />
+              Download Labels
+            </>
+          )}
         </Button>
         <Button 
-          onClick={onProceedToPayment}
+          onClick={handlePayment}
           disabled={isPaying}
           className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
         >

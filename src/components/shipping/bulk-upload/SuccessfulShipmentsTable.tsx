@@ -2,8 +2,9 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, Printer } from 'lucide-react';
+import { Download, Loader, Printer } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
+import { toast } from 'sonner';
 
 interface SuccessfulShipmentsTableProps {
   shipments: BulkShipment[];
@@ -15,6 +16,20 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   onDownloadSingleLabel
 }) => {
   if (shipments.length === 0) return null;
+  
+  const handleLabelDownload = (labelUrl: string) => {
+    try {
+      if (!labelUrl) {
+        toast.error('Label URL is missing. There may have been an issue with the EasyPost API.');
+        return;
+      }
+      
+      onDownloadSingleLabel(labelUrl);
+    } catch (error) {
+      console.error('Error downloading label:', error);
+      toast.error('Failed to download label. Please try again.');
+    }
+  };
   
   return (
     <div className="p-4">
@@ -47,8 +62,9 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                   <Button 
                     size="sm" 
                     variant="ghost"
-                    onClick={() => onDownloadSingleLabel(shipment.label_url || '')}
+                    onClick={() => handleLabelDownload(shipment.label_url || '')}
                     className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
+                    disabled={!shipment.label_url}
                   >
                     <Printer className="h-4 w-4" />
                     Print
