@@ -1,26 +1,22 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card } from '@/components/ui/card';
-import { Form } from '@/components/ui/form';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useForm } from 'react-hook-form';
-import { 
-  Globe, AlertCircle, Info, Package, MapPin, Scale, CircleDollarSign, 
-  Loader2, Download, ArrowRight, CheckCircle 
-} from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
+import { 
+  Globe, AlertCircle, Package, CheckCircle, 
+  Info, Truck, Download, CreditCard
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { AddressData, ParcelData, ShippingRequestData, carrierService } from '@/services/CarrierService';
+import VerticalShippingForm from '@/components/shipping/VerticalShippingForm';
+import ShippingRateDropdown from '@/components/shipping/ShippingRateDropdown';
 import ShippingLabel from '@/components/shipping/ShippingLabel';
-import ShippingRates from '@/components/ShippingRates';
+import PrintPreview from '@/components/shipping/PrintPreview';
 
 interface FormValues {
   fromName: string;
@@ -77,12 +73,13 @@ const countries = [
 
 const ShipToPage: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('document');
+  const [activeTab, setActiveTab] = useState<'document' | 'package'>('document');
   const [isLoading, setIsLoading] = useState(false);
   const [showRates, setShowRates] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const { rates, selectedRateId, handleSelectRate, bestValueRateId, fastestRateId } = useShippingRates();
   
+  // Create form
   const form = useForm<FormValues>({
     defaultValues: {
       fromCountry: 'US',
@@ -92,6 +89,7 @@ const ShipToPage: React.FC = () => {
     }
   });
   
+  // Define total steps in shipping workflow
   const totalSteps = 3; // 1: Address, 2: Rates, 3: Label
 
   const handleSubmit = async (values: FormValues) => {
@@ -144,6 +142,26 @@ const ShipToPage: React.FC = () => {
         }
       };
       
+      // Save form data for label printing information
+      setShipmentDetails({
+        fromAddress: `${fromAddress.name}${fromAddress.company ? '\n' + fromAddress.company : ''}
+${fromAddress.street1}${fromAddress.street2 ? '\n' + fromAddress.street2 : ''}
+${fromAddress.city}, ${fromAddress.state} ${fromAddress.zip}
+${fromAddress.country}`,
+        toAddress: `${toAddress.name}${toAddress.company ? '\n' + toAddress.company : ''}
+${toAddress.street1}${toAddress.street2 ? '\n' + toAddress.street2 : ''}
+${toAddress.city}, ${toAddress.state} ${toAddress.zip}
+${toAddress.country}`,
+        weight: values.weightLb ? 
+          `${values.weightLb} lb ${values.weightOz ? values.weightOz + ' oz' : ''}` : 
+          `${values.weightOz || 0} oz`,
+        dimensions: values.length ? 
+          `${values.length}" × ${values.width}" × ${values.height}"` : 
+          undefined,
+        service: '',  // Will be populated when a rate is selected
+        carrier: '',  // Will be populated when a rate is selected
+      });
+      
       // Fetch shipping rates
       const shippingRates = await carrierService.getShippingRates(requestData);
       
@@ -164,6 +182,18 @@ const ShipToPage: React.FC = () => {
       setShowRates(true);
       setCurrentStep(2); // Move to rates step
       toast.success("Shipping rates retrieved successfully");
+      
+      // Update service and carrier in shipment details
+      if (shipmentDetails && selectedRateId) {
+        const selectedRate = shippingRates.find(rate => rate.id === selectedRateId);
+        if (selectedRate) {
+          setShipmentDetails(prev => ({
+            ...prev!,
+            service: selectedRate.service,
+            carrier: selectedRate.carrier.toUpperCase(),
+          }));
+        }
+      }
     } catch (error) {
       console.error("Error getting shipping rates:", error);
       toast.error("Failed to get shipping rates. Please try again.");
@@ -172,6 +202,7 @@ const ShipToPage: React.FC = () => {
     }
   };
   
+  // Saved addresses for quick selection
   const [savedAddresses, setSavedAddresses] = useState([
     { id: '1', name: 'Home Office', street: '123 Main St', city: 'Boston', state: 'MA', zip: '02101' },
     { id: '2', name: 'Warehouse', street: '456 Storage Ave', city: 'Chicago', state: 'IL', zip: '60007' },
@@ -210,9 +241,17 @@ const ShipToPage: React.FC = () => {
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
+  const [shipmentDetails, setShipmentDetails] = useState<{
+    fromAddress: string;
+    toAddress: string;
+    weight: string;
+    dimensions?: string;
+    service: string;
+    carrier: string;
+  } | undefined>();
   
-  const handleCreateLabel = async (rateId: string, shipmentId: string | undefined) => {
-    if (!rateId || !shipmentId) {
+  const handleCreateLabel = async () => {
+    if (!selectedRateId || !shipmentId) {
       toast.error("Cannot create label: Missing rate or shipment information");
       return;
     }
@@ -221,7 +260,7 @@ const ShipToPage: React.FC = () => {
     
     try {
       const { data, error } = await supabase.functions.invoke('create-international-label', {
-        body: { shipmentId, rateId }
+        body: { shipmentId, rateId: selectedRateId }
       });
       
       if (error || !data) {
@@ -231,6 +270,18 @@ const ShipToPage: React.FC = () => {
       
       if (!data.labelUrl) {
         throw new Error("No label URL returned");
+      }
+      
+      // Update the selected rate information in shipment details
+      if (shipmentDetails && selectedRateId) {
+        const selectedRate = rates.find(rate => rate.id === selectedRateId);
+        if (selectedRate) {
+          setShipmentDetails(prev => ({
+            ...prev!,
+            service: selectedRate.service,
+            carrier: selectedRate.carrier.toUpperCase(),
+          }));
+        }
       }
       
       setLabelUrl(data.labelUrl);
@@ -249,11 +300,6 @@ const ShipToPage: React.FC = () => {
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          
-          // Method 2: Fallback to window.open
-          setTimeout(() => {
-            window.open(data.labelUrl, '_blank');
-          }, 500);
         } catch (downloadError) {
           console.error("Download error:", downloadError);
           // Last resort: Just open the URL in a new tab
@@ -261,8 +307,6 @@ const ShipToPage: React.FC = () => {
         }
       }, 1000);
       
-      // Navigate to success page
-      // navigate(`/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}`);
     } catch (error) {
       console.error("Label creation error:", error);
       toast.error("Failed to create label. Please try again.");
@@ -318,13 +362,9 @@ const ShipToPage: React.FC = () => {
     <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6 bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-100 shadow-sm">
         <h1 className="text-3xl font-bold flex items-center text-purple-800">
-          <Package className="mr-3 h-8 w-8 text-purple-600" /> 
+          <Truck className="mr-3 h-8 w-8 text-purple-600" /> 
           Ship To
         </h1>
-        
-        <Button variant="outline" className="bg-white hover:bg-purple-50 border-purple-200">
-          <Info className="mr-2 h-5 w-5 text-purple-500" /> Shipping Guidelines
-        </Button>
       </div>
 
       {/* Progress tracker */}
@@ -334,723 +374,98 @@ const ShipToPage: React.FC = () => {
         <Info className="h-5 w-5 text-purple-600" />
         <AlertTitle className="text-purple-800 font-bold">Ship To Information</AlertTitle>
         <AlertDescription className="text-purple-700">
-          Ship to over 200+ countries worldwide with our reliable shipping services. Make sure to provide accurate customs information to avoid delays.
+          Ship to over 200+ countries worldwide with our reliable shipping services. Make sure to provide accurate information to avoid delays.
         </AlertDescription>
       </Alert>
 
       {/* Step 1: Address Form */}
       {currentStep === 1 && (
-        <Card className="border-2 border-gray-200 shadow-sm mb-8">
-          <Tabs defaultValue="document" onValueChange={setActiveTab} className="w-full">
-            <TabsList className="mb-6 grid w-full grid-cols-2 p-2 bg-purple-50">
-              <TabsTrigger value="document" className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-sm">
+        <>
+          <div className="mb-6">
+            <div className="flex items-center mb-4 gap-2">
+              <Button
+                variant={activeTab === 'document' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('document')}
+                className={activeTab === 'document' ? 'bg-purple-600 hover:bg-purple-700' : 'border-purple-200 hover:bg-purple-50'}
+              >
                 <Package className="mr-2 h-5 w-5" />
                 Ship Documents
-              </TabsTrigger>
-              <TabsTrigger value="package" className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-sm">
+              </Button>
+              <Button
+                variant={activeTab === 'package' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('package')}
+                className={activeTab === 'package' ? 'bg-purple-600 hover:bg-purple-700' : 'border-purple-200 hover:bg-purple-50'}
+              >
                 <Package className="mr-2 h-5 w-5" />
                 Ship Packages
-              </TabsTrigger>
-            </TabsList>
-            
-            <div className="p-6">
-              <TabsContent value="document">
-                <div className="flex items-center mb-6 bg-purple-50 p-4 rounded-md">
-                  <Package className="h-6 w-6 text-purple-600 mr-3" />
-                  <div>
-                    <h2 className="text-xl font-medium text-purple-800 mb-1">Ship Documents</h2>
-                    <p className="text-purple-600">Use this option for shipping letters, documents, and flat envelopes up to 1/4" thick.</p>
-                  </div>
-                </div>
-
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div>
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-lg font-medium flex items-center">
-                            <MapPin className="mr-2 h-5 w-5 text-purple-500" />
-                            Origin Address
-                          </h3>
-                          <div className="flex gap-2">
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => verifyAddress('from')}
-                            >
-                              Verify Address
-                            </Button>
-                            <Select value={selectedFromAddress} onValueChange={handleSelectFromAddress}>
-                              <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Saved Addresses" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {savedAddresses.map((address) => (
-                                  <SelectItem key={address.id} value={address.id}>
-                                    {address.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="fromName">Name</Label>
-                            <Input id="fromName" {...form.register('fromName')} placeholder="Name" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="fromCompany">Company (optional)</Label>
-                            <Input id="fromCompany" {...form.register('fromCompany')} placeholder="Company" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="phone">Phone Number</Label>
-                            <Input id="phone" {...form.register('phone')} placeholder="Phone Number" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="fromAddress1">Address Line 1</Label>
-                            <Input id="fromAddress1" {...form.register('fromAddress1')} placeholder="Street address" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="fromAddress2">Address Line 2 (optional)</Label>
-                            <Input id="fromAddress2" {...form.register('fromAddress2')} placeholder="Apt, Suite, Unit, etc." />
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="fromCity">City</Label>
-                              <Input id="fromCity" {...form.register('fromCity')} placeholder="City" />
-                            </div>
-                            
-                            <div>
-                              <Label htmlFor="fromState">State</Label>
-                              <Input id="fromState" {...form.register('fromState')} placeholder="State" />
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="fromZip">ZIP Code</Label>
-                            <Input id="fromZip" {...form.register('fromZip')} placeholder="ZIP Code" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="fromCountry">Country</Label>
-                            <Select defaultValue="US" onValueChange={(value) => form.setValue('fromCountry', value)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select Country" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {countries.map((country) => (
-                                  <SelectItem key={country.value} value={country.value}>
-                                    {country.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-lg font-medium flex items-center">
-                            <MapPin className="mr-2 h-5 w-5 text-purple-500" />
-                            Destination Address
-                          </h3>
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => verifyAddress('to')}
-                          >
-                            Verify Address
-                          </Button>
-                        </div>
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="toName">Name</Label>
-                            <Input id="toName" {...form.register('toName')} placeholder="Name" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="toCompany">Company (optional)</Label>
-                            <Input id="toCompany" {...form.register('toCompany')} placeholder="Company" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="toPhone">Phone Number</Label>
-                            <Input id="toPhone" {...form.register('toPhone')} placeholder="Phone Number" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="toAddress1">Address Line 1</Label>
-                            <Input id="toAddress1" {...form.register('toAddress1')} placeholder="Street address" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="toAddress2">Address Line 2 (optional)</Label>
-                            <Input id="toAddress2" {...form.register('toAddress2')} placeholder="Apt, Suite, Unit, etc." />
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="toCity">City</Label>
-                              <Input id="toCity" {...form.register('toCity')} placeholder="City" />
-                            </div>
-                            
-                            <div>
-                              <Label htmlFor="toState">State/Province</Label>
-                              <Input id="toState" {...form.register('toState')} placeholder="State/Province" />
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="toZip">Postal Code</Label>
-                            <Input id="toZip" {...form.register('toZip')} placeholder="Postal Code" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="toCountry">Country</Label>
-                            <Select onValueChange={(value) => form.setValue('toCountry', value)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select Country" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {countries.map((country) => (
-                                  <SelectItem key={country.value} value={country.value}>
-                                    {country.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <Separator className="my-8" />
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div>
-                        <h3 className="text-lg font-medium mb-4 flex items-center">
-                          <CircleDollarSign className="mr-2 h-5 w-5 text-purple-500" />
-                          Customs Information
-                        </h3>
-                        
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="contents">Contents Description</Label>
-                            <Input id="contents" {...form.register('contents')} placeholder="Business documents, printed materials, etc." />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="packageValue">Declared Value ($)</Label>
-                            <Input 
-                              id="packageValue" 
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              {...form.register('packageValue', { valueAsNumber: true })}
-                              placeholder="0.00" 
-                            />
-                            <p className="text-sm text-gray-500 mt-1">Required for customs declaration</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-lg font-medium mb-4 flex items-center">
-                          <Package className="mr-2 h-5 w-5 text-purple-500" />
-                          Carrier &amp; Package Info
-                        </h3>
-                        
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="carrier">Shipping Carrier</Label>
-                            <Select defaultValue="all" onValueChange={(value) => form.setValue('carrier', value)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select Carrier" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {carriers.map((carrier) => (
-                                  <SelectItem key={carrier.value} value={carrier.value}>
-                                    {carrier.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="packageType">Package Type</Label>
-                            <Select defaultValue="envelope" onValueChange={(value) => form.setValue('packageType', value)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select Package Type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="envelope">Envelope</SelectItem>
-                                <SelectItem value="flat">Flat</SelectItem>
-                                <SelectItem value="letter">Letter</SelectItem>
-                                <SelectItem value="custom">Custom Package</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          
-                          <div className="flex gap-4">
-                            <div className="flex-1">
-                              <Label htmlFor="weightLb">Weight (oz)</Label>
-                              <Input 
-                                id="weightOz"
-                                type="number"
-                                min="0"
-                                {...form.register('weightOz', { valueAsNumber: true })}
-                                placeholder="0" 
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-8 flex justify-end">
-                      <Button 
-                        type="submit" 
-                        size="lg" 
-                        className="bg-purple-600 hover:bg-purple-700 flex items-center gap-2 text-white px-8"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Getting Rates...
-                          </>
-                        ) : (
-                          <>
-                            Continue
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </TabsContent>
-              
-              <TabsContent value="package">
-                <div className="flex items-center mb-6 bg-purple-50 p-4 rounded-md">
-                  <Package className="h-6 w-6 text-purple-600 mr-3" />
-                  <div>
-                    <h2 className="text-xl font-medium text-purple-800 mb-1">Ship Packages</h2>
-                    <p className="text-purple-600">Use this option for shipping boxes and parcels that aren't flat documents.</p>
-                  </div>
-                </div>
-                
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div>
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-lg font-medium flex items-center">
-                            <MapPin className="mr-2 h-5 w-5 text-purple-500" />
-                            Origin Address
-                          </h3>
-                          <div className="flex gap-2">
-                            <Button 
-                              type="button" 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => verifyAddress('from')}
-                            >
-                              Verify Address
-                            </Button>
-                            <Select value={selectedFromAddress} onValueChange={handleSelectFromAddress}>
-                              <SelectTrigger className="w-[180px]">
-                                <SelectValue placeholder="Saved Addresses" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {savedAddresses.map((address) => (
-                                  <SelectItem key={address.id} value={address.id}>
-                                    {address.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="fromName">Name</Label>
-                            <Input id="fromName" {...form.register('fromName')} placeholder="Name" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="fromCompany">Company (optional)</Label>
-                            <Input id="fromCompany" {...form.register('fromCompany')} placeholder="Company" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="phone">Phone Number</Label>
-                            <Input id="phone" {...form.register('phone')} placeholder="Phone Number" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="fromAddress1">Address Line 1</Label>
-                            <Input id="fromAddress1" {...form.register('fromAddress1')} placeholder="Street address" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="fromAddress2">Address Line 2 (optional)</Label>
-                            <Input id="fromAddress2" {...form.register('fromAddress2')} placeholder="Apt, Suite, Unit, etc." />
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="fromCity">City</Label>
-                              <Input id="fromCity" {...form.register('fromCity')} placeholder="City" />
-                            </div>
-                            
-                            <div>
-                              <Label htmlFor="fromState">State</Label>
-                              <Input id="fromState" {...form.register('fromState')} placeholder="State" />
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="fromZip">ZIP Code</Label>
-                            <Input id="fromZip" {...form.register('fromZip')} placeholder="ZIP Code" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="fromCountry">Country</Label>
-                            <Select defaultValue="US" onValueChange={(value) => form.setValue('fromCountry', value)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select Country" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {countries.map((country) => (
-                                  <SelectItem key={country.value} value={country.value}>
-                                    {country.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-lg font-medium flex items-center">
-                            <MapPin className="mr-2 h-5 w-5 text-purple-500" />
-                            Destination Address
-                          </h3>
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => verifyAddress('to')}
-                          >
-                            Verify Address
-                          </Button>
-                        </div>
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="toName">Name</Label>
-                            <Input id="toName" {...form.register('toName')} placeholder="Name" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="toCompany">Company (optional)</Label>
-                            <Input id="toCompany" {...form.register('toCompany')} placeholder="Company" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="toPhone">Phone Number</Label>
-                            <Input id="toPhone" {...form.register('toPhone')} placeholder="Phone Number" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="toAddress1">Address Line 1</Label>
-                            <Input id="toAddress1" {...form.register('toAddress1')} placeholder="Street address" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="toAddress2">Address Line 2 (optional)</Label>
-                            <Input id="toAddress2" {...form.register('toAddress2')} placeholder="Apt, Suite, Unit, etc." />
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="toCity">City</Label>
-                              <Input id="toCity" {...form.register('toCity')} placeholder="City" />
-                            </div>
-                            
-                            <div>
-                              <Label htmlFor="toState">State/Province</Label>
-                              <Input id="toState" {...form.register('toState')} placeholder="State/Province" />
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="toZip">Postal Code</Label>
-                            <Input id="toZip" {...form.register('toZip')} placeholder="Postal Code" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="toCountry">Country</Label>
-                            <Select onValueChange={(value) => form.setValue('toCountry', value)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select Country" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {countries.map((country) => (
-                                  <SelectItem key={country.value} value={country.value}>
-                                    {country.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <Separator className="my-8" />
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div>
-                        <h3 className="text-lg font-medium mb-4 flex items-center">
-                          <Scale className="mr-2 h-5 w-5 text-purple-500" />
-                          Package Measurements
-                        </h3>
-                        
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="packageType">Package Type</Label>
-                            <Select defaultValue="box" onValueChange={(value) => form.setValue('packageType', value)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select Package Type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="box">Box</SelectItem>
-                                <SelectItem value="tube">Tube</SelectItem>
-                                <SelectItem value="custom">Custom Package</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          
-                          <div className="grid grid-cols-3 gap-4">
-                            <div>
-                              <Label htmlFor="length">Length (in)</Label>
-                              <Input 
-                                id="length"
-                                type="number"
-                                min="0"
-                                {...form.register('length', { valueAsNumber: true })}
-                                placeholder="0" 
-                              />
-                            </div>
-                            
-                            <div>
-                              <Label htmlFor="width">Width (in)</Label>
-                              <Input 
-                                id="width"
-                                type="number"
-                                min="0"
-                                {...form.register('width', { valueAsNumber: true })}
-                                placeholder="0" 
-                              />
-                            </div>
-                            
-                            <div>
-                              <Label htmlFor="height">Height (in)</Label>
-                              <Input 
-                                id="height"
-                                type="number"
-                                min="0"
-                                {...form.register('height', { valueAsNumber: true })}
-                                placeholder="0" 
-                              />
-                            </div>
-                          </div>
-                          
-                          <div className="flex gap-4">
-                            <div className="flex-1">
-                              <Label htmlFor="weightLb">Weight (lb)</Label>
-                              <Input 
-                                id="weightLb"
-                                type="number"
-                                min="0"
-                                {...form.register('weightLb', { valueAsNumber: true })}
-                                placeholder="0" 
-                              />
-                            </div>
-                            
-                            <div className="flex-1">
-                              <Label htmlFor="weightOz">oz</Label>
-                              <Input 
-                                id="weightOz"
-                                type="number"
-                                min="0"
-                                max="15"
-                                {...form.register('weightOz', { valueAsNumber: true })}
-                                placeholder="0" 
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-lg font-medium mb-4 flex items-center">
-                          <CircleDollarSign className="mr-2 h-5 w-5 text-purple-500" />
-                          Customs Information
-                        </h3>
-                        
-                        <div className="space-y-4">
-                          <div>
-                            <Label htmlFor="description">Package Description</Label>
-                            <Input id="description" {...form.register('description')} placeholder="Detailed description of contents" />
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="contents">Contents Type</Label>
-                            <Select defaultValue="merchandise" onValueChange={(value) => form.setValue('contents', value)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select Contents Type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="merchandise">Merchandise</SelectItem>
-                                <SelectItem value="gift">Gift</SelectItem>
-                                <SelectItem value="sample">Sample</SelectItem>
-                                <SelectItem value="return">Return</SelectItem>
-                                <SelectItem value="repair">Repair</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="packageValue">Declared Value ($)</Label>
-                            <Input 
-                              id="packageValue" 
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              {...form.register('packageValue', { valueAsNumber: true })}
-                              placeholder="0.00" 
-                            />
-                            <p className="text-sm text-gray-500 mt-1">Required for customs declaration</p>
-                          </div>
-                          
-                          <div>
-                            <Label htmlFor="carrier">Shipping Carrier</Label>
-                            <Select defaultValue="all" onValueChange={(value) => form.setValue('carrier', value)}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select Carrier" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {carriers.map((carrier) => (
-                                  <SelectItem key={carrier.value} value={carrier.value}>
-                                    {carrier.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-8 flex justify-end">
-                      <Button 
-                        type="submit" 
-                        size="lg" 
-                        className="bg-purple-600 hover:bg-purple-700 flex items-center gap-2 text-white px-8"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Getting Rates...
-                          </>
-                        ) : (
-                          <>
-                            Continue
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </TabsContent>
+              </Button>
             </div>
-          </Tabs>
-        </Card>
+            
+            <VerticalShippingForm 
+              form={form}
+              onSubmit={handleSubmit}
+              isLoading={isLoading}
+              countries={countries}
+              carriers={carriers}
+              savedAddresses={savedAddresses}
+              selectedFromAddress={selectedFromAddress}
+              onSelectFromAddress={handleSelectFromAddress}
+              verifyAddress={verifyAddress}
+              shipmentType={activeTab}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            <Card className="p-6 border-2 border-purple-100 bg-purple-50">
+              <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
+                <Globe className="mr-2 h-5 w-5 text-purple-600" />
+                Global Coverage
+              </h3>
+              <p className="text-purple-700 mb-2">Ship to over 200 countries and territories worldwide with our reliable shipping services.</p>
+            </Card>
+            
+            <Card className="p-6 border-2 border-purple-100 bg-purple-50">
+              <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
+                <AlertCircle className="mr-2 h-5 w-5 text-purple-600" />
+                Documentation
+              </h3>
+              <p className="text-purple-700 mb-2">Proper documentation is required for all shipments. We'll guide you through the process.</p>
+            </Card>
+            
+            <Card className="p-6 border-2 border-purple-100 bg-purple-50">
+              <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
+                <Package className="mr-2 h-5 w-5 text-purple-600" />
+                Carrier Options
+              </h3>
+              <p className="text-purple-700 mb-2">Compare rates and services from USPS, UPS, DHL, and FedEx for your shipping needs.</p>
+            </Card>
+          </div>
+        </>
       )}
 
       {/* Step 2: Rates */}
       {currentStep === 2 && showRates && rates.length > 0 && (
         <div className="space-y-6">
           <Card className="border-2 border-purple-200 shadow-sm p-6 bg-white rounded-xl">
-            <h2 className="text-2xl font-bold mb-4 flex items-center text-purple-800">
+            <h2 className="text-2xl font-bold mb-6 flex items-center text-purple-800">
               <Package className="mr-2 h-6 w-6 text-purple-600" /> 
-              Available Shipping Options
+              Select Shipping Option
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {rates.map((rate) => (
-                <div 
-                  key={rate.id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    selectedRateId === rate.id
-                      ? 'border-purple-500 bg-purple-50 shadow-sm'
-                      : 'border-gray-200 hover:border-purple-300'
-                  }`}
-                  onClick={() => handleSelectRate(rate.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center">
-                        <h3 className="font-semibold text-lg">{rate.carrier.toUpperCase()} - {rate.service}</h3>
-                        {bestValueRateId === rate.id && (
-                          <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded">
-                            Best Value
-                          </span>
-                        )}
-                        {fastestRateId === rate.id && (
-                          <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
-                            Fastest
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-gray-600">
-                        Estimated delivery: {rate.delivery_date || `${rate.delivery_days || '3-5'} days`}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xl font-bold text-purple-700">${rate.rate}</p>
-                      {rate.list_rate && rate.list_rate !== rate.rate && (
-                        <p className="text-sm text-gray-500 line-through">${rate.list_rate}</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ShippingRateDropdown
+              rates={rates}
+              selectedRateId={selectedRateId}
+              onSelectRate={handleSelectRate}
+              bestValueRateId={bestValueRateId}
+              fastestRateId={fastestRateId}
+              isLoading={isCreatingLabel}
+              onCreateLabel={handleCreateLabel}
+            />
             
-            <div className="mt-6 flex justify-end gap-4">
+            <div className="mt-8 flex flex-wrap justify-end gap-4">
               <Button
                 type="button"
                 variant="outline"
-                size="lg"
                 onClick={() => setCurrentStep(1)}
                 className="border-purple-200 hover:bg-purple-50"
               >
@@ -1059,37 +474,25 @@ const ShipToPage: React.FC = () => {
               
               <Button
                 type="button"
-                variant="outline"
-                size="lg"
                 disabled={!selectedRateId || isCreatingLabel}
-                onClick={() => {
-                  if (selectedRateId) {
-                    const rate = rates.find(r => r.id === selectedRateId);
-                    if (rate && rate.shipment_id) {
-                      handleCreateLabel(selectedRateId, rate.shipment_id);
-                    } else {
-                      toast.error("Missing shipment information");
-                    }
-                  }
-                }}
-                className="border-purple-200 hover:bg-purple-50"
+                onClick={handleCreateLabel}
+                className="bg-green-600 hover:bg-green-700 text-white"
               >
                 {isCreatingLabel ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <Package className="h-5 w-5 animate-spin mr-2" />
                     Creating Label...
                   </>
                 ) : (
                   <>
-                    <Download className="h-4 w-4 mr-2" />
-                    Create & Download Label
+                    <Download className="h-5 w-5 mr-2" />
+                    Create & Print Label
                   </>
                 )}
               </Button>
               
               <Button
                 type="button"
-                size="lg"
                 className="bg-purple-600 hover:bg-purple-700"
                 disabled={!selectedRateId}
                 onClick={() => {
@@ -1103,6 +506,7 @@ const ShipToPage: React.FC = () => {
                   }
                 }}
               >
+                <CreditCard className="h-5 w-5 mr-2" />
                 Proceed to Payment
               </Button>
             </div>
@@ -1133,14 +537,25 @@ const ShipToPage: React.FC = () => {
 
             <div className="mb-6 p-4 border rounded-lg w-full max-w-md">
               <h3 className="font-semibold mb-2 text-gray-800">Shipping Label</h3>
-              <div className="bg-gray-100 p-3 rounded flex items-center justify-between">
-                <span className="text-gray-600 truncate mr-2">{labelUrl}</span>
-                <Button
-                  size="sm"
-                  onClick={() => window.open(labelUrl, '_blank')}
-                >
-                  <Download className="h-4 w-4 mr-1" /> Download
-                </Button>
+              <div className="bg-gray-100 p-3 rounded">
+                <img 
+                  src={labelUrl} 
+                  alt="Shipping Label Preview" 
+                  className="max-w-full h-auto mb-3 border border-gray-300"
+                />
+                <div className="flex justify-end gap-2">
+                  <PrintPreview 
+                    labelUrl={labelUrl} 
+                    trackingCode={trackingCode}
+                    shipmentDetails={shipmentDetails}
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => window.open(labelUrl, '_blank')}
+                  >
+                    <Download className="h-4 w-4 mr-2" /> Download
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -1153,6 +568,12 @@ const ShipToPage: React.FC = () => {
                   setLabelUrl(null);
                   setTrackingCode(null);
                   setShowRates(false);
+                  form.reset({
+                    fromCountry: 'US',
+                    toCountry: '',
+                    carrier: 'all',
+                    packageType: activeTab === 'document' ? 'envelope' : 'box',
+                  });
                 }}
               >
                 Ship Another Package
@@ -1166,34 +587,6 @@ const ShipToPage: React.FC = () => {
             </div>
           </div>
         </Card>
-      )}
-
-      {currentStep === 1 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-          <Card className="p-6 border-2 border-purple-100 bg-purple-50">
-            <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
-              <Globe className="mr-2 h-5 w-5 text-purple-600" />
-              Global Coverage
-            </h3>
-            <p className="text-purple-700 mb-2">Ship to over 200 countries and territories worldwide with our reliable shipping services.</p>
-          </Card>
-          
-          <Card className="p-6 border-2 border-purple-100 bg-purple-50">
-            <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
-              <AlertCircle className="mr-2 h-5 w-5 text-purple-600" />
-              Documentation
-            </h3>
-            <p className="text-purple-700 mb-2">Proper documentation is required for all shipments. We'll guide you through the process.</p>
-          </Card>
-          
-          <Card className="p-6 border-2 border-purple-100 bg-purple-50">
-            <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
-              <Package className="mr-2 h-5 w-5 text-purple-600" />
-              Carrier Options
-            </h3>
-            <p className="text-purple-700 mb-2">Compare rates and services from USPS, UPS, DHL, and FedEx for your shipping needs.</p>
-          </Card>
-        </div>
       )}
     </div>
   );
