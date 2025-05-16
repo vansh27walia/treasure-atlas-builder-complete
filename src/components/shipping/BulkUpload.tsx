@@ -34,7 +34,7 @@ const BulkUpload: React.FC = () => {
     handleCreateLabels,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat,
-    handleDownloadSingleLabel,
+    handleViewShipment,
     handleEmailLabels,
     handleDownloadTemplate,
     handleSelectRate,
@@ -46,7 +46,8 @@ const BulkUpload: React.FC = () => {
     setSearchTerm,
     setSortField,
     setSortDirection,
-    setSelectedCarrierFilter
+    setSelectedCarrierFilter,
+    setUploadStatus
   } = useBulkUpload();
 
   return (
@@ -92,7 +93,7 @@ const BulkUpload: React.FC = () => {
                 Template
               </Button>
               
-              <Button onClick={() => handleUpload} className="text-sm">
+              <Button onClick={() => setUploadStatus('idle')} className="text-sm">
                 <UploadCloud className="mr-1 h-4 w-4" />
                 Upload Another File
               </Button>
@@ -144,10 +145,10 @@ const BulkUpload: React.FC = () => {
                   <Button 
                     variant="outline" 
                     className="px-6"
-                    onClick={handleDownloadAllLabels}
-                    disabled={isPaying || isCreatingLabels}
+                    onClick={handleCreateLabels}
+                    disabled={isPaying || isCreatingLabels || results.processedShipments.length === 0}
                   >
-                    Download All Labels
+                    {isCreatingLabels ? 'Generating...' : 'Create & Print Labels'}
                   </Button>
                   
                   <Button
@@ -169,7 +170,7 @@ const BulkUpload: React.FC = () => {
         <SuccessNotification
           results={results}
           onDownloadAllLabels={handleDownloadAllLabels}
-          onDownloadSingleLabel={handleDownloadSingleLabel}
+          onViewShipment={handleViewShipment}
           onProceedToPayment={handleProceedToPayment}
           onCreateLabels={handleCreateLabels}
           isPaying={isPaying}
