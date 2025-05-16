@@ -23,9 +23,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ labelUrl, trackingCode, shi
   const contentRef = useRef<HTMLDivElement>(null);
   
   const handlePrint = useReactToPrint({
-    content: () => contentRef.current,
     documentTitle: `Shipping_Label_${trackingCode || 'Print'}`,
     onAfterPrint: () => setIsOpen(false),
+    // Replace 'content' with 'contentRef'
+    documentRef: contentRef,
   });
 
   return (
