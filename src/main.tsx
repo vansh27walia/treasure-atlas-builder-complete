@@ -20,7 +20,7 @@ meta.name = 'format-detection';
 meta.content = 'telephone=no, date=no, email=no, address=no';
 document.head.appendChild(meta);
 
-// Fix for PDF content type issues in some browsers
+// Improved PDF MIME type and object URL handling
 if (!window.navigator.mimeTypes['application/pdf']) {
   console.log('Adding PDF MIME type support');
   // This is a polyfill for browsers that might not recognize PDFs correctly
@@ -36,6 +36,20 @@ if (!window.navigator.mimeTypes['application/pdf']) {
     configurable: true
   });
 }
+
+// Improve PDF blob handling
+const originalCreateObjectURL = URL.createObjectURL;
+URL.createObjectURL = function(object) {
+  // Ensure proper content type is set for PDF blobs
+  if (object instanceof Blob && 
+     (object.type === 'application/pdf' || 
+      object.type === '' || 
+      object.type === 'application/octet-stream')) {
+    const newBlob = new Blob([object], { type: 'application/pdf' });
+    return originalCreateObjectURL(newBlob);
+  }
+  return originalCreateObjectURL(object);
+};
 
 createRoot(rootElement).render(
   <React.StrictMode>

@@ -16,18 +16,24 @@ const LabelSuccessPage: React.FC = () => {
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [isBulkLabel, setIsBulkLabel] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const labelUrlParam = params.get('labelUrl');
     const trackingCodeParam = params.get('trackingCode');
     const shipmentIdParam = params.get('shipmentId');
+    const bulkParam = params.get('bulk');
 
     console.log("URL Parameters:", {
       labelUrl: labelUrlParam,
       trackingCode: trackingCodeParam,
-      shipmentId: shipmentIdParam
+      shipmentId: shipmentIdParam,
+      bulk: bulkParam
     });
+
+    // Check if this is a bulk label
+    setIsBulkLabel(bulkParam === 'true');
 
     if (labelUrlParam) {
       setLabelUrl(decodeURIComponent(labelUrlParam));
@@ -46,7 +52,7 @@ const LabelSuccessPage: React.FC = () => {
     }
 
     // Show success toast
-    toast.success('Your shipping label is ready!');
+    toast.success(bulkParam === 'true' ? 'Your shipping labels are ready!' : 'Your shipping label is ready!');
     
     // Scroll to top and prevent any unwanted scrolling
     window.scrollTo(0, 0);
@@ -80,10 +86,14 @@ const LabelSuccessPage: React.FC = () => {
           </div>
         </div>
 
-        <h1 className="text-3xl font-bold text-green-800 mb-2">Label Created Successfully!</h1>
+        <h1 className="text-3xl font-bold text-green-800 mb-2">
+          {isBulkLabel ? 'Labels Created Successfully!' : 'Label Created Successfully!'}
+        </h1>
         <p className="text-gray-600 mb-8">
-          Your shipping label has been generated successfully.
-          {trackingCode && <> Tracking number: <span className="font-semibold">{trackingCode}</span></>}
+          {isBulkLabel 
+            ? 'Your shipping labels have been generated successfully.' 
+            : 'Your shipping label has been generated successfully.'}
+          {trackingCode && !isBulkLabel && <> Tracking number: <span className="font-semibold">{trackingCode}</span></>}
         </p>
 
         {/* Debug information - only in development */}
@@ -93,16 +103,44 @@ const LabelSuccessPage: React.FC = () => {
             <p className="text-xs break-all">Label URL: {labelUrl}</p>
             <p className="text-xs">Tracking: {trackingCode}</p>
             <p className="text-xs">Shipment ID: {shipmentId}</p>
+            <p className="text-xs">Bulk: {isBulkLabel ? 'Yes' : 'No'}</p>
           </div>
         )}
 
         {/* Render the ShippingLabel component to handle downloads */}
-        {labelUrl && (
+        {labelUrl && !isBulkLabel && (
           <ShippingLabel 
             labelUrl={labelUrl} 
             trackingCode={trackingCode} 
             shipmentId={shipmentId}
           />
+        )}
+
+        {/* For bulk labels, show a different UI */}
+        {isBulkLabel && (
+          <div className="mb-8 p-6 bg-white rounded-lg shadow-sm border-2 border-green-100">
+            <div className="flex flex-col space-y-4">
+              <h3 className="font-semibold text-green-800 text-xl">Bulk Labels Ready</h3>
+              <p className="text-gray-600">Your bulk shipping labels have been generated and are ready for download.</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <Button 
+                  className="bg-green-600 hover:bg-green-700 text-white h-12"
+                  onClick={() => navigate('/dashboard?tab=labels')}
+                >
+                  <Download className="mr-2 h-5 w-5" /> View & Download Labels
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  className="border-gray-300 hover:bg-gray-50 h-12"
+                  onClick={() => navigate('/bulk-upload')}
+                >
+                  <Truck className="mr-2 h-5 w-5" /> Create More Labels
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
 
         <div className="flex flex-col sm:flex-row justify-center gap-4 mb-8 mt-6">
@@ -129,15 +167,15 @@ const LabelSuccessPage: React.FC = () => {
           <ul className="text-blue-700 space-y-3">
             <li className="flex items-start">
               <Printer className="h-5 w-5 mr-2 text-blue-500 mt-0.5" />
-              <span>Print your label and affix it to your package</span>
+              <span>Print your {isBulkLabel ? 'labels' : 'label'} and affix {isBulkLabel ? 'them' : 'it'} to your {isBulkLabel ? 'packages' : 'package'}</span>
             </li>
             <li className="flex items-start">
               <Truck className="h-5 w-5 mr-2 text-blue-500 mt-0.5" />
-              <span>Drop off your package at any authorized shipping location</span>
+              <span>Drop off your {isBulkLabel ? 'packages' : 'package'} at any authorized shipping location</span>
             </li>
             <li className="flex items-start">
               <Download className="h-5 w-5 mr-2 text-blue-500 mt-0.5" />
-              <span>Track your shipment through our tracking dashboard</span>
+              <span>Track your {isBulkLabel ? 'shipments' : 'shipment'} through our tracking dashboard</span>
             </li>
           </ul>
         </div>

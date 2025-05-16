@@ -46,12 +46,12 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         }
         
         const blob = await response.blob();
-        // Force content type for both domestic and international labels
-        const contentType = url.toLowerCase().endsWith('.png') ? 'image/png' : 'application/pdf';
-        const typedBlob = new Blob([blob], { type: contentType });
+        
+        // Force PDF content type for all labels for consistency
+        const typedBlob = new Blob([blob], { type: 'application/pdf' });
         const blobUrl = URL.createObjectURL(typedBlob);
         setBlobUrl(blobUrl);
-        console.log("Label cached as blob URL:", blobUrl, "Content type:", contentType);
+        console.log("Label cached as blob URL:", blobUrl, "Content type:", typedBlob.type);
         
         // Automatically open the label modal when the blob is ready
         setIsLabelModalOpen(true);
@@ -353,6 +353,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
                     src={blobUrl} 
                     className="w-full h-[500px]" 
                     title="Label Preview"
+                    ref={iframeRef}
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full w-full">

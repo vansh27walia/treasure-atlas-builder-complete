@@ -201,16 +201,12 @@ export const useShippingRates = () => {
     try {
       console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
       
-      // Get the selected rate to determine if it's international
-      const selectedRate = rates.find(rate => rate.id === effectiveRateId);
-      const isInternational = selectedRate?.service?.toLowerCase().includes('international');
+      // Always use the same endpoint for consistent behavior
+      const endpoint = 'create-label';
       
-      // Choose the appropriate endpoint based on whether it's international
-      const endpoint = isInternational ? 'create-international-label' : 'create-label';
+      console.log(`Using ${endpoint} endpoint for label creation`);
       
-      console.log(`Using ${endpoint} endpoint for label creation with options`);
-      
-      // Add label format and size to options - ensuring PDF format for all shipping types
+      // Add label format and size options - always specify PDF format
       const { data, error } = await supabase.functions.invoke(endpoint, {
         body: { 
           shipmentId: effectiveShipmentId, 

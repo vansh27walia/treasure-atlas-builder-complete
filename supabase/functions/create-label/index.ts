@@ -83,14 +83,10 @@ serve(async (req) => {
 
     // Create request body for EasyPost with label format options
     const buyOptions = {
-      rate: { id: rateId }
+      rate: { id: rateId },
+      label_format: options.label_format || "PDF",
+      label_size: options.label_size || "4x6"
     };
-    
-    // If label format and size are specified, add them to the request
-    if (options.label_format || options.label_size) {
-      buyOptions.label_format = options.label_format || "PDF";
-      buyOptions.label_size = options.label_size || "4x6";
-    }
 
     // Buy the label with EasyPost API
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
@@ -221,14 +217,8 @@ serve(async (req) => {
       throw new Error('Failed to download label from EasyPost');
     }
     
-    // Determine content type based on URL extension or response header
-    let contentType = 'application/pdf'; // Default to PDF
-    const contentTypeHeader = labelResponse.headers.get('content-type');
-    if (contentTypeHeader) {
-      contentType = contentTypeHeader;
-    } else if (labelURL.toLowerCase().endsWith('.png')) {
-      contentType = 'image/png';
-    }
+    // Always treat domestic labels as PDF for consistency with international labels
+    let contentType = 'application/pdf';
     
     // Convert the label to a blob
     const labelBlob = await labelResponse.blob();
@@ -236,7 +226,7 @@ serve(async (req) => {
     const labelBuffer = new Uint8Array(labelArrayBuffer);
     
     // Generate a unique filename for the label with appropriate extension
-    const fileExtension = contentType === 'image/png' ? 'png' : 'pdf';
+    const fileExtension = 'pdf';
     const fileName = `label_${shipmentId}_${Date.now()}.${fileExtension}`;
     
     // Upload the label to Supabase Storage

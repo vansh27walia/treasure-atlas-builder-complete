@@ -96,7 +96,7 @@ const BulkUpload: React.FC = () => {
               
               <Button onClick={() => {
                 if (file) {
-                  handleUpload(file);
+                  handleUpload(file); // Fixed: Passing file parameter to handleUpload
                 }
               }} className="text-sm">
                 <UploadCloud className="mr-1 h-4 w-4" />
