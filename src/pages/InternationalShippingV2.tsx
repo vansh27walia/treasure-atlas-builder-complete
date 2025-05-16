@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { EnhancedShippingForm } from '@/components/shipping/EnhancedShippingForm'; 
+import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm'; 
 import ShippingRates from '@/components/ShippingRates';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import { Globe, Package, Truck } from 'lucide-react';
@@ -19,7 +19,7 @@ const InternationalShippingV2 = () => {
       </p>
 
       <div className="mb-8">
-        <ShippingWorkflow />
+        <ShippingWorkflow currentStep="address" />
       </div>
       
       <div className="grid grid-cols-1 gap-6">
