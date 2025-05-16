@@ -12,7 +12,7 @@ import LabelOptionsModal from './bulk-upload/LabelOptionsModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { FileText, UploadCloud, ChevronRight, AlertCircle } from 'lucide-react';
+import { FileText, UploadCloud, ChevronRight, AlertCircle, Download } from 'lucide-react';
 
 const BulkUpload: React.FC = () => {
   const {
@@ -92,7 +92,7 @@ const BulkUpload: React.FC = () => {
                 Template
               </Button>
               
-              <Button onClick={() => handleUpload} className="text-sm">
+              <Button onClick={() => handleUpload()} className="text-sm">
                 <UploadCloud className="mr-1 h-4 w-4" />
                 Upload Another File
               </Button>
@@ -143,10 +143,11 @@ const BulkUpload: React.FC = () => {
                 <div className="flex gap-3 mt-4 lg:mt-0">
                   <Button 
                     variant="outline" 
-                    className="px-6"
-                    onClick={handleDownloadAllLabels}
-                    disabled={isPaying || isCreatingLabels}
+                    className="px-6 flex items-center gap-2"
+                    onClick={() => setShowLabelOptions(true)}
+                    disabled={isPaying || isCreatingLabels || results.processedShipments.length === 0}
                   >
+                    <Download className="h-4 w-4" />
                     Download All Labels
                   </Button>
                   
@@ -168,7 +169,7 @@ const BulkUpload: React.FC = () => {
       {uploadStatus === 'success' && results && (
         <SuccessNotification
           results={results}
-          onDownloadAllLabels={handleDownloadAllLabels}
+          onDownloadAllLabels={() => setShowLabelOptions(true)}
           onDownloadSingleLabel={handleDownloadSingleLabel}
           onProceedToPayment={handleProceedToPayment}
           onCreateLabels={handleCreateLabels}

@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -131,14 +132,6 @@ export const useShippingRates = () => {
         document.dispatchEvent(new CustomEvent('shipping-step-change', { 
           detail: { step: 'label' }
         }));
-        
-        // Automatically create label when a rate is selected
-        setTimeout(() => {
-          const selectedRate = rates.find(rate => rate.id === event.detail.rateId);
-          if (selectedRate && selectedRate.shipment_id) {
-            handleCreateLabel(event.detail.rateId, selectedRate.shipment_id);
-          }
-        }, 300);
       }
     };
     

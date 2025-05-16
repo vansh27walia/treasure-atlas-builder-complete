@@ -23,6 +23,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   const downloadLinkRef = useRef<HTMLAnchorElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [activeTab, setActiveTab] = useState<'preview' | 'download' | 'share'>('preview');
   
   // Effect to fetch and cache the label as a blob when URL changes
   useEffect(() => {
@@ -325,38 +326,41 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         </div>
       </div>
       
+      {/* Modal for label preview and download - updated to match reference images */}
       <Dialog open={isLabelModalOpen} onOpenChange={setIsLabelModalOpen}>
-        <DialogContent className="bg-white max-w-3xl">
-          <DialogHeader>
+        <DialogContent className="bg-white max-w-3xl p-0">
+          <DialogHeader className="p-6 pb-2">
             <DialogTitle>Shipping Label</DialogTitle>
             <DialogDescription>
               Tracking #: {trackingCode}
             </DialogDescription>
           </DialogHeader>
           
-          <Tabs defaultValue="preview" className="w-full">
-            <TabsList className="grid grid-cols-3 mb-4">
+          <Tabs defaultValue="preview" value={activeTab} onValueChange={(value) => setActiveTab(value as 'preview' | 'download' | 'share')} className="w-full">
+            <TabsList className="grid grid-cols-3 px-6">
               <TabsTrigger value="preview">Preview</TabsTrigger>
               <TabsTrigger value="download">Download</TabsTrigger>
               <TabsTrigger value="share">Share</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="preview" className="min-h-[400px] flex items-center justify-center border rounded-md">
-              {blobUrl ? (
-                <iframe 
-                  src={blobUrl} 
-                  className="w-full h-[500px]" 
-                  title="Label Preview"
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full w-full">
-                  <FileText className="h-16 w-16 text-gray-300 mb-4" />
-                  <p className="text-gray-500">Loading preview...</p>
-                </div>
-              )}
+            <TabsContent value="preview" className="px-6 py-4">
+              <div className="min-h-[400px] flex items-center justify-center border rounded-md">
+                {blobUrl ? (
+                  <iframe 
+                    src={blobUrl} 
+                    className="w-full h-[500px]" 
+                    title="Label Preview"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full w-full">
+                    <FileText className="h-16 w-16 text-gray-300 mb-4" />
+                    <p className="text-gray-500">Loading preview...</p>
+                  </div>
+                )}
+              </div>
             </TabsContent>
             
-            <TabsContent value="download">
+            <TabsContent value="download" className="px-6 py-4">
               <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div 
@@ -403,7 +407,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
               </div>
             </TabsContent>
             
-            <TabsContent value="share">
+            <TabsContent value="share" className="px-6 py-4">
               <div className="space-y-6">
                 <div className="border rounded-md p-4">
                   <h4 className="font-medium mb-2">Email Label</h4>
@@ -438,7 +442,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
             </TabsContent>
           </Tabs>
           
-          <DialogFooter>
+          <DialogFooter className="p-4 pt-0">
             <Button variant="outline" onClick={() => setIsLabelModalOpen(false)}>
               <X className="mr-2 h-4 w-4" /> Close
             </Button>
