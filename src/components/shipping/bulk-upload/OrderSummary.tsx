@@ -13,6 +13,7 @@ interface OrderSummaryProps {
   successfulCount: number;
   totalCost: number;
   onDownloadAllLabels: () => void;
+  onPrintAllLabels: () => void;
   onProceedToPayment: () => void;
   isPaying: boolean;
   isCreatingLabels: boolean;
@@ -22,15 +23,11 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   successfulCount,
   totalCost,
   onDownloadAllLabels,
+  onPrintAllLabels,
   onProceedToPayment,
   isPaying,
   isCreatingLabels
 }) => {
-  const handlePrintAllLabels = () => {
-    // This will trigger the download format modal, which will have a print option
-    onDownloadAllLabels();
-  };
-
   return (
     <div className="bg-white p-4 rounded-md border border-green-100">
       <h5 className="font-medium mb-2">Order Summary</h5>
@@ -68,7 +65,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
               <span>Download PDF</span>
             </DropdownMenuItem>
             <DropdownMenuItem 
-              onClick={handlePrintAllLabels}
+              onClick={onPrintAllLabels}
               className="cursor-pointer"
             >
               <Printer className="h-4 w-4 mr-2" />

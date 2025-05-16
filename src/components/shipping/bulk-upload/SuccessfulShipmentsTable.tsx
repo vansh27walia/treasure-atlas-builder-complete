@@ -14,24 +14,15 @@ import {
 interface SuccessfulShipmentsTableProps {
   shipments: BulkShipment[];
   onDownloadSingleLabel: (labelUrl: string) => void;
+  onPrintSingleLabel: (labelUrl: string) => void;
 }
 
 const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   shipments,
-  onDownloadSingleLabel
+  onDownloadSingleLabel,
+  onPrintSingleLabel
 }) => {
-  const [selectedFormat, setSelectedFormat] = useState<string>('pdf');
-  
   if (shipments.length === 0) return null;
-  
-  const handlePrintLabel = (labelUrl: string) => {
-    const printWindow = window.open(labelUrl, '_blank');
-    if (printWindow) {
-      printWindow.addEventListener('load', () => {
-        printWindow.print();
-      });
-    }
-  };
 
   return (
     <div className="p-4">
@@ -82,7 +73,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                         <span>Download PDF</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem 
-                        onClick={() => handlePrintLabel(shipment.label_url || '')}
+                        onClick={() => onPrintSingleLabel(shipment.label_url || '')}
                         className="cursor-pointer"
                       >
                         <Printer className="h-4 w-4 mr-2" />

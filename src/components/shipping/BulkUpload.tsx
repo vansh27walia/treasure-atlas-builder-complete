@@ -33,8 +33,10 @@ const BulkUpload: React.FC = () => {
     handleProceedToPayment,
     handleCreateLabels,
     handleDownloadAllLabels,
+    handlePrintAllLabels,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
+    handlePrintSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,
     handleSelectRate,
@@ -169,7 +171,9 @@ const BulkUpload: React.FC = () => {
         <SuccessNotification
           results={results}
           onDownloadAllLabels={handleDownloadAllLabels}
+          onPrintAllLabels={handlePrintAllLabels}
           onDownloadSingleLabel={handleDownloadSingleLabel}
+          onPrintSingleLabel={handlePrintSingleLabel}
           onProceedToPayment={handleProceedToPayment}
           onCreateLabels={handleCreateLabels}
           isPaying={isPaying}
@@ -186,6 +190,7 @@ const BulkUpload: React.FC = () => {
         open={showLabelOptions}
         onOpenChange={setShowLabelOptions}
         onFormatSelect={handleDownloadLabelsWithFormat}
+        onPrint={handlePrintAllLabels}
         onEmailLabels={handleEmailLabels}
         shipmentCount={results?.processedShipments.length || 0}
       />
