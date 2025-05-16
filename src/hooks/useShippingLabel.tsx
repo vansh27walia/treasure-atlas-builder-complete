@@ -23,6 +23,8 @@ export function useShippingLabel() {
     setIsCreatingLabel(true);
 
     try {
+      console.log('Creating label for shipment:', shipmentId, 'with rate:', rateId);
+      
       // Create the shipping label
       const result = await carrierService.createLabel(shipmentId, rateId);
       
@@ -45,6 +47,12 @@ export function useShippingLabel() {
     // Encode the label URL to pass as a query parameter
     const encodedLabelUrl = encodeURIComponent(labelResult.labelUrl);
     const encodedTrackingCode = encodeURIComponent(labelResult.trackingCode);
+    
+    console.log('Navigating to success page with:', {
+      labelUrl: encodedLabelUrl,
+      trackingCode: encodedTrackingCode,
+      shipmentId: labelResult.shipmentId
+    });
     
     // Navigate to success page with label information
     navigate(`/label-success?labelUrl=${encodedLabelUrl}&trackingCode=${encodedTrackingCode}&shipmentId=${labelResult.shipmentId}`);

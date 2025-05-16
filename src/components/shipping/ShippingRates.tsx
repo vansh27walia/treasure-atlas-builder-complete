@@ -14,6 +14,7 @@ import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
 import { carrierService, ShippingOption } from '@/services/CarrierService';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useShippingLabel } from '@/hooks/useShippingLabel';
 import {
   Accordion,
   AccordionContent,
@@ -23,10 +24,10 @@ import {
 
 const ShippingRates: React.FC = () => {
   const navigate = useNavigate();
+  const { createLabel, navigateToSuccessPage, isCreatingLabel } = useShippingLabel();
   const [rates, setRates] = useState<ShippingOption[]>([]);
   const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
-  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
 
@@ -78,27 +79,22 @@ const ShippingRates: React.FC = () => {
       return;
     }
 
-    setIsCreatingLabel(true);
+    if (isCreatingLabel) {
+      // Prevent duplicate clicks
+      return;
+    }
+
     setError(null);
 
     try {
-      // Create the shipping label
-      const result = await carrierService.createLabel(shipmentId, selectedRateId);
+      const labelResult = await createLabel(shipmentId, selectedRateId);
       
-      // Encode the label URL to pass as a query parameter
-      const encodedLabelUrl = encodeURIComponent(result.labelUrl);
-      const encodedTrackingCode = encodeURIComponent(result.trackingCode);
-      
-      // Navigate to success page with label information
-      navigate(`/label-success?labelUrl=${encodedLabelUrl}&trackingCode=${encodedTrackingCode}&shipmentId=${shipmentId}`);
-      
-      toast.success('Shipping label created successfully!');
+      if (labelResult) {
+        navigateToSuccessPage(labelResult);
+      }
     } catch (error) {
-      console.error('Error creating label:', error);
+      console.error('Error in handlePurchaseLabel:', error);
       setError('Failed to create shipping label. Please try again.');
-      toast.error('Failed to create shipping label');
-    } finally {
-      setIsCreatingLabel(false);
     }
   };
 
