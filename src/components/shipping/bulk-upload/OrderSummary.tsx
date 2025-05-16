@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { CreditCard, Download, Loader } from 'lucide-react';
+import { CreditCard, Download, Loader, Printer } from 'lucide-react';
 
 interface OrderSummaryProps {
   successfulCount: number;
@@ -41,23 +41,24 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           variant="outline" 
           onClick={onDownloadAllLabels}
           disabled={isCreatingLabels}
+          className="flex items-center gap-2"
         >
-          <Download className="mr-2 h-4 w-4" />
-          Download All Labels
+          <Printer className="h-4 w-4" />
+          Download Labels
         </Button>
         <Button 
           onClick={onProceedToPayment}
           disabled={isPaying}
-          className="bg-blue-600 hover:bg-blue-700"
+          className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
         >
           {isPaying ? (
             <>
-              <Loader className="mr-2 h-4 w-4 animate-spin" />
+              <Loader className="h-4 w-4 animate-spin" />
               Processing...
             </>
           ) : (
             <>
-              <CreditCard className="mr-2 h-4 w-4" />
+              <CreditCard className="h-4 w-4" />
               Pay ${totalCost.toFixed(2)}
             </>
           )}

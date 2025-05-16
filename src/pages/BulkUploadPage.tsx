@@ -10,7 +10,7 @@ const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
 
   const handleDownloadTemplate = () => {
-    const csvContent = 'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight\nJohn Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16';
+    const csvContent = 'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight,carrier,service\nJohn Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16,usps,Priority';
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -67,7 +67,10 @@ const BulkUploadPage = () => {
                   <h4 className="font-medium mb-2">Template Instructions</h4>
                   <ul className="list-disc pl-5 space-y-1 text-sm">
                     <li><strong>Required fields:</strong> name, street1, city, state, zip, country</li>
-                    <li><strong>Optional fields:</strong> company, street2, phone, parcel_length, parcel_width, parcel_height, parcel_weight</li>
+                    <li><strong>Optional fields:</strong> company, street2, phone, carrier, service</li>
+                    <li><strong>Parcel fields:</strong> parcel_length, parcel_width, parcel_height, parcel_weight</li>
+                    <li><strong>Supported carriers:</strong> usps, ups, fedex, dhl</li>
+                    <li><strong>Recommended services:</strong> Priority, Express, Ground, Standard</li>
                     <li>Format addresses according to the template example</li>
                     <li>Dimensions must be in inches (Length x Width x Height)</li>
                     <li>Weight must be in pounds</li>

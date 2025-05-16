@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download } from 'lucide-react';
+import { Download, Printer } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 
 interface SuccessfulShipmentsTableProps {
@@ -48,8 +48,10 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                     size="sm" 
                     variant="ghost"
                     onClick={() => onDownloadSingleLabel(shipment.label_url || '')}
+                    className="flex items-center gap-1 text-blue-600 hover:text-blue-700"
                   >
-                    <Download className="h-4 w-4" />
+                    <Printer className="h-4 w-4" />
+                    Print
                   </Button>
                 </TableCell>
               </TableRow>
