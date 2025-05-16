@@ -16,6 +16,7 @@ import { FileText, UploadCloud, ChevronRight, AlertCircle, Download } from 'luci
 
 const BulkUpload: React.FC = () => {
   const {
+    file,
     isUploading,
     isPaying,
     isCreatingLabels,
@@ -29,6 +30,7 @@ const BulkUpload: React.FC = () => {
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
+    handleFileChange,
     handleUpload,
     handleProceedToPayment,
     handleCreateLabels,
@@ -92,7 +94,11 @@ const BulkUpload: React.FC = () => {
                 Template
               </Button>
               
-              <Button onClick={() => handleUpload()} className="text-sm">
+              <Button onClick={() => {
+                if (file) {
+                  handleUpload(file);
+                }
+              }} className="text-sm">
                 <UploadCloud className="mr-1 h-4 w-4" />
                 Upload Another File
               </Button>
