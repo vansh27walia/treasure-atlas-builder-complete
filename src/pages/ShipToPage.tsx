@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -269,6 +268,16 @@ ${toAddress.country}`,
     setIsCreatingLabel(true);
     
     try {
+      // Get the selected rate to update shipment details before creating label
+      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      if (selectedRate && shipmentDetails) {
+        setShipmentDetails(prev => ({
+          ...prev!,
+          service: selectedRate.service,
+          carrier: selectedRate.carrier.toUpperCase(),
+        }));
+      }
+      
       await createLabel();
       
       // Update workflow step
@@ -352,7 +361,7 @@ ${toAddress.country}`,
       {currentStep === 'rates' && (
         <Card className="border border-blue-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
           <div className="p-6">
-            <h2 className="text-xl font-semibold text-blue-800 flex items-center mb-6">
+            <h2 className="text-xl font-semibold text-blue-800 flex items-center mb-6" id="shipping-rates-section">
               <Package className="mr-2 h-6 w-6 text-blue-600" /> 
               Select Shipping Option
             </h2>
