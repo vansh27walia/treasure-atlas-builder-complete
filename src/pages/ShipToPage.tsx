@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -91,6 +91,9 @@ const ShipToPage: React.FC = () => {
     activeCarrierFilter,
     handleFilterByCarrier
   } = useShippingRates();
+  
+  // Add ref for print functionality
+  const printContainerRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     // Listen for custom events to update workflow step
@@ -220,6 +223,14 @@ ${toAddress.country}`,
           }));
         }
       }
+      
+      // Scroll to the rates section
+      setTimeout(() => {
+        const ratesSection = document.getElementById('shipping-rates-section');
+        if (ratesSection) {
+          ratesSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
     } catch (error) {
       console.error("Error getting shipping rates:", error);
       toast.error("Failed to get shipping rates. Please try again.");
@@ -301,6 +312,8 @@ ${toAddress.country}`,
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    toast.success("Label download started");
   };
   
   // Sort rates by price for display
@@ -308,10 +321,10 @@ ${toAddress.country}`,
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="flex items-center justify-between mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100 shadow-sm">
-        <h1 className="text-2xl font-bold flex items-center text-blue-800">
-          <Globe className="mr-3 h-7 w-7 text-blue-600" /> 
-          International Shipping
+      <div className="flex items-center justify-between mb-6 bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-100 shadow-sm">
+        <h1 className="text-2xl font-bold flex items-center text-purple-800">
+          <Globe className="mr-3 h-7 w-7 text-purple-600" /> 
+          Ship To
         </h1>
       </div>
 
@@ -320,23 +333,23 @@ ${toAddress.country}`,
         <ShippingWorkflow currentStep={currentStep} />
       </div>
 
-      <Alert className="mb-6 bg-blue-50 border border-blue-200">
-        <Info className="h-5 w-5 text-blue-600" />
-        <AlertTitle className="text-blue-800 font-bold">International Shipping</AlertTitle>
-        <AlertDescription className="text-blue-700">
-          Ship to over 200+ countries worldwide with our reliable shipping services. Complete the form below to get started.
+      <Alert className="mb-6 bg-purple-50 border border-purple-200">
+        <Info className="h-5 w-5 text-purple-600" />
+        <AlertTitle className="text-purple-800 font-bold">Ship To</AlertTitle>
+        <AlertDescription className="text-purple-700">
+          Ship to addresses within your country or internationally with our reliable shipping services. Complete the form below to get started.
         </AlertDescription>
       </Alert>
 
       {/* Address Form - Only shown in address step */}
       {currentStep === 'address' && (
-        <Card className="border border-blue-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
+        <Card className="border border-purple-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
           <div className="p-6">
             <div className="flex items-center mb-4 gap-2">
               <Button
                 variant={activeTab === 'document' ? 'default' : 'outline'}
                 onClick={() => setActiveTab('document')}
-                className={activeTab === 'document' ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-200 hover:bg-blue-50'}
+                className={activeTab === 'document' ? 'bg-purple-600 hover:bg-purple-700' : 'border-purple-200 hover:bg-purple-50'}
               >
                 <Package className="mr-2 h-5 w-5" />
                 Ship Documents
@@ -344,14 +357,13 @@ ${toAddress.country}`,
               <Button
                 variant={activeTab === 'package' ? 'default' : 'outline'}
                 onClick={() => setActiveTab('package')}
-                className={activeTab === 'package' ? 'bg-blue-600 hover:bg-blue-700' : 'border-blue-200 hover:bg-blue-50'}
+                className={activeTab === 'package' ? 'bg-purple-600 hover:bg-purple-700' : 'border-purple-200 hover:bg-purple-50'}
               >
                 <Package className="mr-2 h-5 w-5" />
                 Ship Packages
               </Button>
             </div>
             
-            {/* Use the EnhancedShippingForm component without passing props */}
             <EnhancedShippingForm />
           </div>
         </Card>
@@ -359,21 +371,21 @@ ${toAddress.country}`,
 
       {/* Rates Section - Only shown in rates step */}
       {currentStep === 'rates' && (
-        <Card className="border border-blue-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
+        <Card className="border border-purple-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
           <div className="p-6">
-            <h2 className="text-xl font-semibold text-blue-800 flex items-center mb-6" id="shipping-rates-section">
-              <Package className="mr-2 h-6 w-6 text-blue-600" /> 
+            <h2 className="text-xl font-semibold text-purple-800 flex items-center mb-6" id="shipping-rates-section">
+              <Package className="mr-2 h-6 w-6 text-purple-600" /> 
               Select Shipping Option
             </h2>
             
             {ratesLoading ? (
               <div className="flex flex-col items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                <p className="text-blue-800">Loading shipping rates...</p>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+                <p className="text-purple-800">Loading shipping rates...</p>
               </div>
             ) : sortedRates.length > 0 ? (
               <>
-                {/* Display shipping rates in a vertical list instead of dropdown */}
+                {/* Display shipping rates in a vertical list */}
                 <div className="space-y-4">
                   {sortedRates.map((rate) => (
                     <ShippingRateCard
@@ -393,7 +405,7 @@ ${toAddress.country}`,
                     type="button"
                     variant="outline"
                     onClick={() => setCurrentStep('address')}
-                    className="border-blue-200 hover:bg-blue-50"
+                    className="border-purple-200 hover:bg-purple-50"
                   >
                     Back to Address
                   </Button>
@@ -419,7 +431,7 @@ ${toAddress.country}`,
                   
                   <Button
                     type="button"
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-purple-600 hover:bg-purple-700"
                     disabled={!selectedRateId}
                     onClick={() => {
                       if (selectedRateId) {
@@ -446,7 +458,7 @@ ${toAddress.country}`,
                 </p>
                 <Button 
                   onClick={() => setCurrentStep('address')}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-purple-600 hover:bg-purple-700"
                 >
                   Back to Shipping Details
                 </Button>
@@ -458,10 +470,10 @@ ${toAddress.country}`,
 
       {/* Label Section - Only shown in label step */}
       {currentStep === 'label' && labelUrl && (
-        <Card className="border border-blue-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
+        <Card className="border border-purple-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
           <div className="p-6">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-blue-800 flex items-center">
+              <h2 className="text-xl font-semibold text-purple-800 flex items-center">
                 <CheckCircle className="mr-2 h-6 w-6 text-green-600" /> 
                 Label Created Successfully
               </h2>
@@ -482,7 +494,7 @@ ${toAddress.country}`,
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6" ref={printContainerRef}>
               {/* Label Preview */}
               <div className="p-4 border rounded-md bg-white">
                 <h3 className="font-semibold mb-3">Shipping Label</h3>
@@ -492,7 +504,7 @@ ${toAddress.country}`,
                   className="max-w-full h-auto border border-gray-300 mb-3"
                 />
                 {trackingCode && (
-                  <div className="bg-blue-50 p-3 rounded-md mt-3">
+                  <div className="bg-purple-50 p-3 rounded-md mt-3">
                     <p className="text-sm font-medium">Tracking Number:</p>
                     <p className="font-mono text-sm">{trackingCode}</p>
                   </div>
@@ -552,7 +564,7 @@ ${toAddress.country}`,
               </Button>
               <Button
                 onClick={() => navigate('/tracking')}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-purple-600 hover:bg-purple-700"
               >
                 Track This Shipment
               </Button>
@@ -564,28 +576,28 @@ ${toAddress.country}`,
       {/* Informational cards at the bottom - Only shown in address step */}
       {currentStep === 'address' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="p-6 border-2 border-blue-100 bg-blue-50">
-            <h3 className="text-lg font-semibold mb-3 text-blue-800 flex items-center">
-              <Globe className="mr-2 h-5 w-5 text-blue-600" />
+          <Card className="p-6 border-2 border-purple-100 bg-purple-50">
+            <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
+              <Globe className="mr-2 h-5 w-5 text-purple-600" />
               Global Coverage
             </h3>
-            <p className="text-blue-700 mb-2">Ship to over 200 countries worldwide with reliable carriers and competitive rates.</p>
+            <p className="text-purple-700 mb-2">Ship to over 200 countries worldwide with reliable carriers and competitive rates.</p>
           </Card>
           
-          <Card className="p-6 border-2 border-blue-100 bg-blue-50">
-            <h3 className="text-lg font-semibold mb-3 text-blue-800 flex items-center">
-              <AlertCircle className="mr-2 h-5 w-5 text-blue-600" />
+          <Card className="p-6 border-2 border-purple-100 bg-purple-50">
+            <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
+              <AlertCircle className="mr-2 h-5 w-5 text-purple-600" />
               Documentation Help
             </h3>
-            <p className="text-blue-700 mb-2">We'll automatically generate the customs forms needed for your international shipment.</p>
+            <p className="text-purple-700 mb-2">We'll automatically generate the customs forms needed for your international shipment.</p>
           </Card>
           
-          <Card className="p-6 border-2 border-blue-100 bg-blue-50">
-            <h3 className="text-lg font-semibold mb-3 text-blue-800 flex items-center">
-              <Truck className="mr-2 h-5 w-5 text-blue-600" />
+          <Card className="p-6 border-2 border-purple-100 bg-purple-50">
+            <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
+              <Truck className="mr-2 h-5 w-5 text-purple-600" />
               Multiple Carriers
             </h3>
-            <p className="text-blue-700 mb-2">Compare rates from USPS, FedEx, UPS, and DHL to find the best shipping option.</p>
+            <p className="text-purple-700 mb-2">Compare rates from USPS, FedEx, UPS, and DHL to find the best shipping option.</p>
           </Card>
         </div>
       )}
