@@ -31,7 +31,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ labelUrl, trackingCode, shi
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
+        <Button variant="outline" className="flex items-center gap-2 bg-white border-purple-200 hover:bg-purple-50">
           <Printer className="h-4 w-4" /> Print Label
         </Button>
       </DialogTrigger>
@@ -44,6 +44,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ labelUrl, trackingCode, shi
                 variant="outline" 
                 size="sm" 
                 onClick={handlePrint}
+                className="border-purple-200 hover:bg-purple-50"
               >
                 <Printer className="h-4 w-4 mr-2" /> Print
               </Button>
@@ -51,6 +52,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ labelUrl, trackingCode, shi
                 variant="outline" 
                 size="sm" 
                 onClick={() => window.open(labelUrl, '_blank')}
+                className="border-purple-200 hover:bg-purple-50"
               >
                 <Download className="h-4 w-4 mr-2" /> Download
               </Button>

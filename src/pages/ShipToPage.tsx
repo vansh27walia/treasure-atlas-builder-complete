@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -277,6 +278,7 @@ ${toAddress.country}`,
     }
     
     setIsCreatingLabel(true);
+    console.log("Creating label with rate:", selectedRateId, "and shipment:", shipmentId);
     
     try {
       // Get the selected rate to update shipment details before creating label
@@ -289,10 +291,12 @@ ${toAddress.country}`,
         }));
       }
       
+      // Call the createLabel function from useShippingRates hook
       await createLabel();
       
       // Update workflow step
       setCurrentStep('label');
+      toast.success("Label created successfully!");
       
     } catch (error) {
       console.error("Label creation error:", error);
@@ -487,7 +491,7 @@ ${toAddress.country}`,
                 <Button
                   variant="outline"
                   onClick={downloadLabel}
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-2 border-purple-200 hover:bg-purple-50"
                 >
                   <Download className="h-4 w-4" /> Download Label
                 </Button>
@@ -559,6 +563,7 @@ ${toAddress.country}`,
                   setCurrentStep('address');
                   setShowRates(false);
                 }}
+                className="border-purple-200 hover:bg-purple-50"
               >
                 Ship Another Package
               </Button>
