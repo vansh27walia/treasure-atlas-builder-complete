@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -121,6 +120,13 @@ const ShipToPage: React.FC = () => {
     service: string;
     carrier: string;
   } | undefined>();
+  
+  useEffect(() => {
+    // If we have a labelUrl but we're not in the label step, update the step
+    if (labelUrl && currentStep !== 'label' && currentStep !== 'complete') {
+      setCurrentStep('label');
+    }
+  }, [labelUrl, currentStep]);
   
   const handleSubmit = async (values: FormValues) => {
     setIsLoading(true);
