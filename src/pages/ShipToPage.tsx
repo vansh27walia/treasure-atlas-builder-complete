@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -14,7 +15,7 @@ import { AddressData, ParcelData, ShippingRequestData, carrierService } from '@/
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import PrintPreview from '@/components/shipping/PrintPreview';
-import ShippingRateDropdown from '@/components/shipping/ShippingRateDropdown';
+import ShippingRateCard from '@/components/shipping/ShippingRateCard';
 
 interface FormValues {
   fromName: string;
@@ -268,7 +269,7 @@ ${toAddress.country}`,
     setIsCreatingLabel(true);
     
     try {
-      createLabel();
+      await createLabel();
       
       // Update workflow step
       setCurrentStep('label');
@@ -363,15 +364,20 @@ ${toAddress.country}`,
               </div>
             ) : sortedRates.length > 0 ? (
               <>
-                {/* Use the shipping rate dropdown component */}
-                <ShippingRateDropdown
-                  rates={sortedRates}
-                  selectedRateId={selectedRateId}
-                  onSelectRate={handleSelectRate}
-                  bestValueRateId={bestValueRateId}
-                  fastestRateId={fastestRateId}
-                  isLoading={isCreatingLabel}
-                />
+                {/* Display shipping rates in a vertical list instead of dropdown */}
+                <div className="space-y-4">
+                  {sortedRates.map((rate) => (
+                    <ShippingRateCard
+                      key={rate.id}
+                      rate={rate}
+                      isSelected={selectedRateId === rate.id}
+                      onSelect={handleSelectRate}
+                      isBestValue={rate.id === bestValueRateId}
+                      isFastest={rate.id === fastestRateId}
+                      showDiscount={true}
+                    />
+                  ))}
+                </div>
                 
                 <div className="mt-8 flex flex-wrap justify-end gap-4">
                   <Button

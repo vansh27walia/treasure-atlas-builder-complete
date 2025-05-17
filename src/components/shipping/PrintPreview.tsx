@@ -32,7 +32,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ labelUrl, trackingCode, shi
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="flex items-center gap-2">
-          <Printer className="h-4 w-4" /> Print Preview
+          <Printer className="h-4 w-4" /> Print Label
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl">
