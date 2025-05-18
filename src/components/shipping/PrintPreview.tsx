@@ -4,6 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Printer, Download, X } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const labelFormats = [
+  { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
+  { value: '8.5x11-left', label: '8.5x11" - 1 Label per Page - Left Side', description: 'One 4x6" label on the left side of a letter-sized page' },
+  { value: '8.5x11-right', label: '8.5x11" - 1 Label per Page - Right Side', description: 'One 4x6" label on the right side of a letter-sized page' },
+  { value: '8.5x11-2up', label: '8.5x11" - 2 Labels per Page', description: 'Two 4x6" labels per letter-sized page' }
+];
 
 interface PrintPreviewProps {
   labelUrl: string;
@@ -16,10 +24,17 @@ interface PrintPreviewProps {
     service: string;
     carrier: string;
   };
+  onFormatChange?: (format: string) => void;
 }
 
-const PrintPreview: React.FC<PrintPreviewProps> = ({ labelUrl, trackingCode, shipmentDetails }) => {
+const PrintPreview: React.FC<PrintPreviewProps> = ({ 
+  labelUrl, 
+  trackingCode, 
+  shipmentDetails,
+  onFormatChange
+}) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState('4x6');
   const contentRef = useRef<HTMLDivElement>(null);
   
   const handlePrint = useReactToPrint({
@@ -27,6 +42,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ labelUrl, trackingCode, shi
     onAfterPrint: () => setIsOpen(false),
     content: () => contentRef.current,
   });
+
+  const handleFormatChange = (format: string) => {
+    setSelectedFormat(format);
+    if (onFormatChange) {
+      onFormatChange(format);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -40,6 +62,21 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ labelUrl, trackingCode, shi
           <DialogTitle className="flex items-center justify-between">
             <span>Print Preview</span>
             <div className="flex gap-2">
+              <Select
+                value={selectedFormat}
+                onValueChange={handleFormatChange}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select Format" />
+                </SelectTrigger>
+                <SelectContent>
+                  {labelFormats.map(format => (
+                    <SelectItem key={format.value} value={format.value}>
+                      {format.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -70,11 +107,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({ labelUrl, trackingCode, shi
         <div ref={contentRef} className="p-6 bg-white">
           {/* Label Image */}
           <div className="mb-6">
-            <img 
-              src={labelUrl} 
-              alt="Shipping Label" 
-              className="max-w-full h-auto border border-gray-300"
-            />
+            <div className="mb-3 text-sm text-gray-500">
+              {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}
+            </div>
+            <div className={`mx-auto ${selectedFormat === '4x6' ? 'max-w-md' : 'max-w-2xl'}`}>
+              <img 
+                src={labelUrl} 
+                alt="Shipping Label" 
+                className="max-w-full h-auto border border-gray-300"
+              />
+            </div>
           </div>
           
           {/* Shipment Details */}

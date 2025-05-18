@@ -20,6 +20,12 @@ interface ShippingRate {
   isPremium?: boolean;
 }
 
+interface LabelOptions {
+  label_format?: string;
+  label_size?: string;
+  [key: string]: any;
+}
+
 interface EasyPostRatesEvent {
   detail: {
     rates: ShippingRate[];
@@ -129,16 +135,11 @@ export const useShippingRates = () => {
         
         // Dispatch event for step change
         document.dispatchEvent(new CustomEvent('shipping-step-change', { 
-          detail: { step: 'label' }
+          detail: { step: 'rates' }
         }));
         
-        // Automatically create label when a rate is selected
-        setTimeout(() => {
-          const selectedRate = rates.find(rate => rate.id === event.detail.rateId);
-          if (selectedRate && selectedRate.shipment_id) {
-            handleCreateLabel(event.detail.rateId, selectedRate.shipment_id);
-          }
-        }, 300);
+        // Note: We don't auto-create the label here anymore
+        // This allows users to select their format first
       }
     };
     
@@ -172,11 +173,6 @@ export const useShippingRates = () => {
     const selectedRate = rates.find(rate => rate.id === rateId);
     console.log("Selected rate:", selectedRate);
     
-    // Update workflow step
-    document.dispatchEvent(new CustomEvent('shipping-step-change', { 
-      detail: { step: 'label' }
-    }));
-    
     // Scroll to the selected rate without animation
     const selectedRateElement = document.querySelector(`[data-rate-id="${rateId}"]`);
     if (selectedRateElement) {
@@ -194,7 +190,12 @@ export const useShippingRates = () => {
   };
 
   // Modified to accept rateId and shipmentId params for automatic calling
-  const handleCreateLabel = async (rateIdParam?: string, shipmentIdParam?: string) => {
+  // Added labelOptions parameter to support different label formats
+  const handleCreateLabel = async (
+    rateIdParam?: string, 
+    shipmentIdParam?: string, 
+    labelOptions?: LabelOptions
+  ) => {
     const effectiveRateId = rateIdParam || selectedRateId;
     const effectiveShipmentId = shipmentIdParam || shipmentId;
     
@@ -207,6 +208,7 @@ export const useShippingRates = () => {
     
     try {
       console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
+      console.log("Label options:", labelOptions);
       
       // Get the selected rate to determine if it's international
       const selectedRate = rates.find(rate => rate.id === effectiveRateId);
@@ -217,15 +219,18 @@ export const useShippingRates = () => {
       
       console.log(`Using ${endpoint} endpoint for label creation with options`);
       
-      // Add label format and size to options
+      // Add default label format and size if not provided
+      const options = {
+        label_format: "PDF",
+        label_size: "4x6",
+        ...labelOptions
+      };
+      
       const { data, error } = await supabase.functions.invoke(endpoint, {
         body: { 
           shipmentId: effectiveShipmentId, 
           rateId: effectiveRateId,
-          options: {
-            label_format: "PDF",
-            label_size: "4x6"
-          }
+          options
         }
       });
 
@@ -242,26 +247,20 @@ export const useShippingRates = () => {
       console.log("Label created successfully:", data);
       setLabelUrl(data.labelUrl);
       setTrackingCode(data.trackingCode);
-      toast.success("Shipping label generated successfully");
       
-      // Update workflow step to complete
+      // Force step update to label step
       document.dispatchEvent(new CustomEvent('shipping-step-change', { 
-        detail: { step: 'complete' }
+        detail: { step: 'label' }
       }));
       
-      // Build the success URL with all needed parameters
-      const labelSuccessUrl = `/label-success?labelUrl=${encodeURIComponent(data.labelUrl)}&trackingCode=${encodeURIComponent(data.trackingCode || '')}&shipmentId=${encodeURIComponent(data.shipmentId || effectiveShipmentId)}`;
-      console.log("Navigating to:", labelSuccessUrl);
+      toast.success("Shipping label generated successfully");
       
-      // Use navigate with the correct URL
-      navigate(labelSuccessUrl, { replace: true });
-      
-      // Scroll to top of page before navigating
-      window.scrollTo(0, 0);
+      return data;
       
     } catch (error) {
       console.error('Error creating label:', error);
       toast.error("Failed to generate shipping label. Please try again.");
+      throw error;
     } finally {
       setIsLoading(false);
     }

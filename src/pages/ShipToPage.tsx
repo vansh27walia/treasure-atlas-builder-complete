@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -15,6 +16,7 @@ import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import ShippingRateCard from '@/components/shipping/ShippingRateCard';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface FormValues {
   fromName: string;
@@ -69,12 +71,20 @@ const countries = [
   { value: 'BR', label: 'Brazil' },
 ];
 
+const labelFormats = [
+  { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
+  { value: '8.5x11-left', label: '8.5x11" - 1 Label per Page - Left Side', description: 'One 4x6" label on the left side of a letter-sized page' },
+  { value: '8.5x11-right', label: '8.5x11" - 1 Label per Page - Right Side', description: 'One 4x6" label on the right side of a letter-sized page' },
+  { value: '8.5x11-2up', label: '8.5x11" - 2 Labels per Page', description: 'Two 4x6" labels per letter-sized page' }
+];
+
 const ShipToPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'document' | 'package'>('document');
   const [isLoading, setIsLoading] = useState(false);
   const [showRates, setShowRates] = useState(false);
   const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
+  const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
   const { 
     rates, 
     allRates, 
@@ -121,12 +131,26 @@ const ShipToPage: React.FC = () => {
     carrier: string;
   } | undefined>();
   
+  // Force step update when label is created
   useEffect(() => {
-    // If we have a labelUrl but we're not in the label step, update the step
     if (labelUrl && currentStep !== 'label' && currentStep !== 'complete') {
       setCurrentStep('label');
     }
   }, [labelUrl, currentStep]);
+  
+  // Listen for rate selection and automatically update the step
+  useEffect(() => {
+    if (selectedRateId) {
+      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      if (selectedRate && shipmentDetails) {
+        setShipmentDetails(prev => ({
+          ...prev!,
+          service: selectedRate.service,
+          carrier: selectedRate.carrier.toUpperCase(),
+        }));
+      }
+    }
+  }, [selectedRateId, rates, shipmentDetails]);
   
   const handleSubmit = async (values: FormValues) => {
     setIsLoading(true);
@@ -173,7 +197,7 @@ const ShipToPage: React.FC = () => {
         toAddress,
         parcel,
         options: {
-          label_format: 'PDF',
+          label_format: "PDF",
           insurance: values.packageValue > 0 ? values.packageValue : undefined,
         }
       };
@@ -285,6 +309,7 @@ ${toAddress.country}`,
     
     setIsCreatingLabel(true);
     console.log("Creating label with rate:", selectedRateId, "and shipment:", shipmentId);
+    console.log("Using label format:", selectedLabelFormat);
     
     try {
       // Get the selected rate to update shipment details before creating label
@@ -298,9 +323,13 @@ ${toAddress.country}`,
       }
       
       // Call the createLabel function from useShippingRates hook
-      await createLabel();
+      // Pass the selected format
+      await createLabel(selectedRateId, shipmentId, {
+        label_format: "PDF",
+        label_size: selectedLabelFormat
+      });
       
-      // Update workflow step
+      // Force update workflow step
       setCurrentStep('label');
       toast.success("Label created successfully!");
       
@@ -402,7 +431,10 @@ ${toAddress.country}`,
                       key={rate.id}
                       rate={rate}
                       isSelected={selectedRateId === rate.id}
-                      onSelect={handleSelectRate}
+                      onSelect={(rateId) => {
+                        handleSelectRate(rateId);
+                        // Don't auto-create the label yet to give users time to select format
+                      }}
                       isBestValue={rate.id === bestValueRateId}
                       isFastest={rate.id === fastestRateId}
                       showDiscount={true}
@@ -419,6 +451,30 @@ ${toAddress.country}`,
                   >
                     Back to Address
                   </Button>
+                  
+                  <div className="flex-1">
+                    <div className="flex flex-col gap-2">
+                      <h3 className="text-sm font-medium text-purple-800">Label Format</h3>
+                      <Select 
+                        value={selectedLabelFormat} 
+                        onValueChange={setSelectedLabelFormat}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select Label Format" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {labelFormats.map(format => (
+                            <SelectItem key={format.value} value={format.value}>
+                              <div>
+                                <div className="font-medium">{format.label}</div>
+                                <div className="text-xs text-gray-500">{format.description}</div>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                   
                   <Button
                     type="button"
@@ -508,6 +564,31 @@ ${toAddress.country}`,
               {/* Label Preview */}
               <div className="p-4 border rounded-md bg-white">
                 <h3 className="font-semibold mb-3">Shipping Label</h3>
+                <div className="flex justify-between items-center mb-3">
+                  <p className="text-sm font-medium text-gray-700">{selectedLabelFormat} Format</p>
+                  
+                  <Select 
+                    value={selectedLabelFormat} 
+                    onValueChange={(format) => {
+                      setSelectedLabelFormat(format);
+                      if (selectedRateId && shipmentId) {
+                        // Regenerate label with new format
+                        handleCreateLabel();
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Select Label Format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {labelFormats.map(format => (
+                        <SelectItem key={format.value} value={format.value}>
+                          {format.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <img 
                   src={labelUrl} 
                   alt="Shipping Label Preview" 

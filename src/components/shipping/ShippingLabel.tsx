@@ -6,23 +6,52 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const labelFormats = [
+  { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
+  { value: '8.5x11-left', label: '8.5x11" - 1 Label per Page - Left Side', description: 'One 4x6" label on the left side of a letter-sized page' },
+  { value: '8.5x11-right', label: '8.5x11" - 1 Label per Page - Right Side', description: 'One 4x6" label on the right side of a letter-sized page' },
+  { value: '8.5x11-2up', label: '8.5x11" - 2 Labels per Page', description: 'Two 4x6" labels per letter-sized page' }
+];
 
 interface ShippingLabelProps {
   labelUrl: string | null;
   trackingCode: string | null;
   shipmentId?: string | null;
+  onFormatChange?: (format: string) => void;
 }
 
-const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, shipmentId }) => {
+const ShippingLabel: React.FC<ShippingLabelProps> = ({ 
+  labelUrl, 
+  trackingCode, 
+  shipmentId,
+  onFormatChange
+}) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [localLabelUrl, setLocalLabelUrl] = useState(labelUrl);
   const [isEmailSending, setIsEmailSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
-  const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
+  const [selectedFormat, setSelectedFormat] = useState<string>('4x6');
   const downloadLinkRef = useRef<HTMLAnchorElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  
+  // Update local URL when prop changes
+  useEffect(() => {
+    if (labelUrl !== localLabelUrl) {
+      setLocalLabelUrl(labelUrl);
+    }
+  }, [labelUrl]);
+  
+  // Handle format changes
+  const handleFormatChange = (format: string) => {
+    setSelectedFormat(format);
+    if (onFormatChange) {
+      onFormatChange(format);
+    }
+  };
   
   // Effect to fetch and cache the label as a blob when URL changes
   useEffect(() => {
@@ -48,9 +77,6 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
         const blobUrl = URL.createObjectURL(blob);
         setBlobUrl(blobUrl);
         console.log("Label cached as blob URL:", blobUrl);
-        
-        // Automatically open the label modal when the blob is ready
-        setIsLabelModalOpen(true);
       } catch (error) {
         console.error("Error caching label:", error);
         toast.error("Error preparing label for download");
@@ -89,7 +115,10 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
     try {
       // Use the Supabase edge function to fetch the stored label
       const { data, error } = await supabase.functions.invoke('get-stored-label', {
-        body: { shipment_id: shipmentId }
+        body: { 
+          shipment_id: shipmentId,
+          label_format: selectedFormat 
+        }
       });
       
       if (error) {
@@ -234,7 +263,8 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
           tracking_code: trackingCode,
           label_url: url,
           shipment_id: shipmentId || '',
-          status: 'completed'
+          status: 'completed',
+          label_format: selectedFormat
         });
       
       if (error) {
@@ -256,25 +286,52 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
   
   return (
     <>
-      <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg shadow-sm border-2 border-green-200">
+      <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg shadow-sm border-2 border-purple-200">
         <div className="flex flex-col space-y-5">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
             <div>
-              <h3 className="font-semibold text-green-800 text-xl mb-2">Label Generated Successfully!</h3>
-              <p className="text-sm text-green-700 mb-1">Tracking Number: <span className="font-medium bg-white px-2 py-1 rounded border border-green-200">{trackingCode}</span></p>
+              <h3 className="font-semibold text-purple-800 text-xl mb-2">Label Generated Successfully!</h3>
+              <p className="text-sm text-purple-700 mb-1">Tracking Number: <span className="font-medium bg-white px-2 py-1 rounded border border-purple-200">{trackingCode}</span></p>
             </div>
-            {shipmentId && (
-              <Button
-                onClick={handleRefreshLabel}
-                variant="outline"
-                size="sm"
-                className="mt-3 sm:mt-0 bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
-                disabled={isRefreshing}
+            <div className="flex gap-2 mt-3 sm:mt-0">
+              <Select
+                value={selectedFormat}
+                onValueChange={(value) => {
+                  handleFormatChange(value);
+                  // Refresh label with new format
+                  if (shipmentId) {
+                    setTimeout(() => handleRefreshLabel(), 100);
+                  }
+                }}
               >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> 
-                Refresh Label
-              </Button>
-            )}
+                <SelectTrigger className="w-[200px] bg-white text-purple-800 border-purple-200">
+                  <SelectValue placeholder="Select Label Format" />
+                </SelectTrigger>
+                <SelectContent>
+                  {labelFormats.map(format => (
+                    <SelectItem key={format.value} value={format.value}>
+                      <div>
+                        <div className="font-medium">{format.label}</div>
+                        <div className="text-xs text-gray-500">{format.description}</div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {shipmentId && (
+                <Button
+                  onClick={handleRefreshLabel}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white text-purple-600 border-purple-200 hover:bg-purple-50"
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> 
+                  Refresh
+                </Button>
+              )}
+            </div>
           </div>
           
           <div className="bg-white p-6 rounded-md border border-gray-200 shadow-sm">
@@ -284,7 +341,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
               <Button 
                 onClick={() => setIsLabelModalOpen(true)}
                 variant="default" 
-                className="bg-green-600 hover:bg-green-700 text-white h-12"
+                className="bg-purple-600 hover:bg-purple-700 text-white h-12"
               >
                 <Download className="mr-2 h-5 w-5" /> View & Download Label
               </Button>
@@ -319,7 +376,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
             </div>
           </div>
 
-          <div className="text-sm text-center text-green-600">
+          <div className="text-sm text-center text-purple-600">
             <p>You can always access your labels later in your Order History</p>
           </div>
         </div>
@@ -342,18 +399,47 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
             </TabsList>
             
             <TabsContent value="preview" className="min-h-[400px] flex items-center justify-center border rounded-md">
-              {blobUrl ? (
-                <iframe 
-                  src={blobUrl} 
-                  className="w-full h-[500px]" 
-                  title="Label Preview"
-                />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full w-full">
-                  <FileText className="h-16 w-16 text-gray-300 mb-4" />
-                  <p className="text-gray-500">Loading preview...</p>
+              <div className="w-full flex flex-col items-center">
+                <div className="mb-4 flex justify-center">
+                  <Select
+                    value={selectedFormat}
+                    onValueChange={(value) => {
+                      handleFormatChange(value);
+                      // Refresh label with new format
+                      if (shipmentId) {
+                        setTimeout(() => handleRefreshLabel(), 100);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-[280px]">
+                      <SelectValue placeholder="Select Label Format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {labelFormats.map(format => (
+                        <SelectItem key={format.value} value={format.value}>
+                          <div>
+                            <div className="font-medium">{format.label}</div>
+                            <div className="text-xs text-gray-500">{format.description}</div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
+                
+                {blobUrl ? (
+                  <iframe 
+                    src={blobUrl} 
+                    className="w-full h-[500px]" 
+                    title="Label Preview"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full w-full">
+                    <FileText className="h-16 w-16 text-gray-300 mb-4" />
+                    <p className="text-gray-500">Loading preview...</p>
+                  </div>
+                )}
+              </div>
             </TabsContent>
             
             <TabsContent value="download">
@@ -394,7 +480,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({ labelUrl, trackingCode, s
                 </div>
                 
                 <Button 
-                  onClick={() => handleDirectDownload(selectedFormat)} 
+                  onClick={() => handleDirectDownload('pdf')} 
                   className="w-full h-12 bg-blue-600 hover:bg-blue-700"
                 >
                   <Download className="mr-2 h-5 w-5" />
