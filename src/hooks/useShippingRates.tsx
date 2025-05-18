@@ -211,7 +211,7 @@ export const useShippingRates = () => {
       // Choose the appropriate endpoint based on whether it's international
       const endpoint = isInternational ? 'create-international-label' : 'create-label';
       
-      console.log(`Using ${endpoint} endpoint for label creation with options`);
+      console.log(`Using ${endpoint} endpoint for label creation with options:`, labelOptions);
       
       // Add default label format and size if not provided
       const options = {

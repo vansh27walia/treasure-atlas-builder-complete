@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -105,8 +104,19 @@ const ShipToPage: React.FC = () => {
   // Add ref for print functionality
   const printContainerRef = useRef<HTMLDivElement>(null);
   
+  // Add this for label-related functionality
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  const [shipmentDetails, setShipmentDetails] = useState<{
+    fromAddress: string;
+    toAddress: string;
+    weight: string;
+    dimensions?: string;
+    service: string;
+    carrier: string;
+  } | undefined>();
+  
+  // Listen for step changes
   useEffect(() => {
-    // Listen for custom events to update workflow step
     const handleStepChange = (event: CustomEvent<{step: 'address' | 'package' | 'rates' | 'label' | 'complete'}>) => {
       if (event.detail && event.detail.step) {
         setCurrentStep(event.detail.step);
@@ -120,17 +130,6 @@ const ShipToPage: React.FC = () => {
     };
   }, []);
   
-  // Add this for label-related functionality
-  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
-  const [shipmentDetails, setShipmentDetails] = useState<{
-    fromAddress: string;
-    toAddress: string;
-    weight: string;
-    dimensions?: string;
-    service: string;
-    carrier: string;
-  } | undefined>();
-  
   // Force step update when label is created
   useEffect(() => {
     if (labelUrl && currentStep !== 'label' && currentStep !== 'complete') {
@@ -143,11 +142,11 @@ const ShipToPage: React.FC = () => {
     if (selectedRateId) {
       const selectedRate = rates.find(rate => rate.id === selectedRateId);
       if (selectedRate && shipmentDetails) {
-        setShipmentDetails(prev => ({
-          ...prev!,
+        setShipmentDetails({
+          ...shipmentDetails,
           service: selectedRate.service,
           carrier: selectedRate.carrier.toUpperCase(),
-        }));
+        });
       }
     }
   }, [selectedRateId, rates, shipmentDetails]);
@@ -301,6 +300,7 @@ ${toAddress.country}`,
     }
   };
 
+  // Function to create label with proper handling of format changes
   const handleCreateLabel = async () => {
     if (!selectedRateId || !shipmentId) {
       toast.error("Cannot create label: Missing rate or shipment information");
@@ -343,7 +343,8 @@ ${toAddress.country}`,
     }
   };
 
-  const handleLabelFormatChange = async (format: string) => {
+  // Function to handle label format changes
+  const handleLabelFormatChange = async (format: string): Promise<void> => {
     setSelectedLabelFormat(format);
     
     // If we already have a label and rate, regenerate the label with the new format
@@ -357,6 +358,7 @@ ${toAddress.country}`,
       } catch (error) {
         console.error("Error updating label format:", error);
         toast.error("Failed to update label format");
+        throw error; // Important: Throw the error to be handled by the PrintPreview component
       }
     }
   };
@@ -569,13 +571,6 @@ ${toAddress.country}`,
                   onFormatChange={handleLabelFormatChange}
                   shipmentId={shipmentId || undefined}
                 />
-                <Button
-                  variant="outline"
-                  onClick={downloadLabel}
-                  className="flex items-center gap-2 border-purple-200 hover:bg-purple-50"
-                >
-                  <Download className="h-4 w-4" /> Download Label
-                </Button>
               </div>
             </div>
             

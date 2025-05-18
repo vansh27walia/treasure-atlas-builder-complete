@@ -12,6 +12,7 @@ import { toast } from '@/components/ui/sonner';
 import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import PrintPreview from './shipping/PrintPreview';
 
 const ShippingRates: React.FC = () => {
   const {
@@ -35,6 +36,51 @@ const ShippingRates: React.FC = () => {
   
   const { aiRecommendation, isAiLoading } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
+  const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
+  const [shipmentDetails, setShipmentDetails] = useState<{ 
+    fromAddress: string; 
+    toAddress: string; 
+    weight: string; 
+    dimensions?: string; 
+    service: string; 
+    carrier: string; 
+  } | undefined>();
+  
+  // Update shipment details when a rate is selected
+  useEffect(() => {
+    if (selectedRateId && rates.length > 0) {
+      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      if (selectedRate) {
+        // Construct basic shipment details
+        setShipmentDetails({
+          fromAddress: "Your shipping address",
+          toAddress: "Recipient address",
+          weight: "Package weight",
+          service: selectedRate.service,
+          carrier: selectedRate.carrier.toUpperCase(),
+        });
+      }
+    }
+  }, [selectedRateId, rates]);
+  
+  // Function to handle label format changes
+  const handleLabelFormatChange = async (format: string): Promise<void> => {
+    setSelectedLabelFormat(format);
+    
+    if (selectedRateId && shipmentId && labelUrl) {
+      try {
+        console.log("Regenerating label with new format:", format);
+        await handleCreateLabel(selectedRateId, shipmentId, {
+          label_format: "PDF",
+          label_size: format
+        });
+      } catch (error) {
+        console.error("Error updating label format:", error);
+        toast.error("Failed to update label format");
+        throw error;
+      }
+    }
+  };
   
   // Show empty state if no rates available
   if (rates.length === 0) {
@@ -123,13 +169,19 @@ const ShippingRates: React.FC = () => {
             </div>
           </div>
           
-          <ShippingLabel 
-            labelUrl={labelUrl} 
-            trackingCode={trackingCode} 
-            shipmentId={shipmentId}
-          />
+          {labelUrl && trackingCode && (
+            <div className="mb-6">
+              <PrintPreview 
+                labelUrl={labelUrl} 
+                trackingCode={trackingCode} 
+                shipmentId={shipmentId}
+                shipmentDetails={shipmentDetails}
+                onFormatChange={handleLabelFormatChange}
+              />
+            </div>
+          )}
           
-          {!labelUrl && (
+          {!labelUrl ? (
             <>
               {/* AI Recommendations */}
               {(aiRecommendation || isAiLoading) && (
@@ -178,7 +230,16 @@ const ShippingRates: React.FC = () => {
               
               <div className="mt-8 flex flex-wrap justify-end gap-4">
                 <Button 
-                  onClick={() => handleCreateLabel()}
+                  onClick={() => {
+                    // Set up label options based on selected format
+                    const labelOptions = {
+                      label_format: "PDF",
+                      label_size: selectedLabelFormat
+                    };
+                    
+                    // Call handleCreateLabel with the selected format
+                    handleCreateLabel(undefined, undefined, labelOptions);
+                  }}
                   disabled={!selectedRateId || isLoading}
                   className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-6 py-2 h-12 text-base"
                 >
@@ -215,6 +276,16 @@ const ShippingRates: React.FC = () => {
                 </Button>
               </div>
             </>
+          ) : (
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => document.dispatchEvent(new Event('shipping-form-completed'))}
+                className="border-blue-200 hover:bg-blue-50"
+              >
+                Ship Another Package
+              </Button>
+            </div>
           )}
           
           <div className="mt-6 text-center text-sm text-gray-500">
