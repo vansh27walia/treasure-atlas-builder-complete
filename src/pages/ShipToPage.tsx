@@ -315,11 +315,11 @@ ${toAddress.country}`,
       // Get the selected rate to update shipment details before creating label
       const selectedRate = rates.find(rate => rate.id === selectedRateId);
       if (selectedRate && shipmentDetails) {
-        setShipmentDetails(prev => ({
-          ...prev!,
+        setShipmentDetails({
+          ...shipmentDetails,
           service: selectedRate.service,
           carrier: selectedRate.carrier.toUpperCase(),
-        }));
+        });
       }
       
       // Call the createLabel function from useShippingRates hook
@@ -348,20 +348,15 @@ ${toAddress.country}`,
     
     // If we already have a label and rate, regenerate the label with the new format
     if (selectedRateId && shipmentId && labelUrl) {
-      setIsCreatingLabel(true);
-      
       try {
         console.log("Regenerating label with new format:", format);
         await createLabel(selectedRateId, shipmentId, {
           label_format: "PDF",
           label_size: format
         });
-        toast.success("Label updated with new format");
       } catch (error) {
         console.error("Error updating label format:", error);
         toast.error("Failed to update label format");
-      } finally {
-        setIsCreatingLabel(false);
       }
     }
   };

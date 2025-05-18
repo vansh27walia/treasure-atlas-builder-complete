@@ -146,7 +146,7 @@ export const useShippingRates = () => {
       document.removeEventListener('easypost-rates-received', handleRatesReceived as EventListener);
       document.removeEventListener('select-shipping-rate', handleRateSelected as EventListener);
     };
-  }, [rates]);
+  }, []);
   
   // Filter rates when carrier filter changes
   useEffect(() => {
@@ -189,7 +189,7 @@ export const useShippingRates = () => {
     rateIdParam?: string, 
     shipmentIdParam?: string, 
     labelOptions?: LabelOptions
-  ) => {
+  ): Promise<any> => {
     const effectiveRateId = rateIdParam || selectedRateId;
     const effectiveShipmentId = shipmentIdParam || shipmentId;
     

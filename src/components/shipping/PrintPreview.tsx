@@ -25,7 +25,7 @@ interface PrintPreviewProps {
     service: string;
     carrier: string;
   };
-  onFormatChange?: (format: string) => void;
+  onFormatChange?: (format: string) => Promise<void>;
   shipmentId?: string;
 }
 
@@ -40,6 +40,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [selectedFormat, setSelectedFormat] = useState('4x6');
   const contentRef = useRef<HTMLDivElement>(null);
   const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
+  const [currentLabelUrl, setCurrentLabelUrl] = useState(labelUrl);
+  
+  // Update currentLabelUrl when labelUrl prop changes
+  useEffect(() => {
+    setCurrentLabelUrl(labelUrl);
+  }, [labelUrl]);
   
   const handlePrint = useReactToPrint({
     documentTitle: `Shipping_Label_${trackingCode || 'Print'}`,
@@ -54,11 +60,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       try {
         setIsRegeneratingLabel(true);
         // Call the provided function to update the label format
-        onFormatChange(format);
+        await onFormatChange(format);
         setIsRegeneratingLabel(false);
+        toast.success(`Label format changed to ${format}`);
       } catch (error) {
         console.error("Error changing label format:", error);
         setIsRegeneratingLabel(false);
+        toast.error("Failed to change label format");
       }
     }
   };
@@ -103,7 +111,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => window.open(labelUrl, '_blank')}
+                onClick={() => window.open(currentLabelUrl, '_blank')}
                 className="border-purple-200 hover:bg-purple-50"
                 disabled={isRegeneratingLabel}
               >
@@ -144,7 +152,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 </div>
               ) : (
                 <img 
-                  src={labelUrl} 
+                  src={currentLabelUrl} 
                   alt="Shipping Label" 
                   className="max-w-full h-auto border border-gray-300"
                 />
