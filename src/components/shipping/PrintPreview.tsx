@@ -1,10 +1,11 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Printer, Download, X } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from '@/components/ui/sonner';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
@@ -25,17 +26,20 @@ interface PrintPreviewProps {
     carrier: string;
   };
   onFormatChange?: (format: string) => void;
+  shipmentId?: string;
 }
 
 const PrintPreview: React.FC<PrintPreviewProps> = ({ 
   labelUrl, 
   trackingCode, 
   shipmentDetails,
-  onFormatChange
+  onFormatChange,
+  shipmentId
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState('4x6');
   const contentRef = useRef<HTMLDivElement>(null);
+  const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
   
   const handlePrint = useReactToPrint({
     documentTitle: `Shipping_Label_${trackingCode || 'Print'}`,
@@ -43,10 +47,19 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     content: () => contentRef.current,
   });
 
-  const handleFormatChange = (format: string) => {
+  const handleFormatChange = async (format: string) => {
     setSelectedFormat(format);
+    
     if (onFormatChange) {
-      onFormatChange(format);
+      try {
+        setIsRegeneratingLabel(true);
+        // Call the provided function to update the label format
+        onFormatChange(format);
+        setIsRegeneratingLabel(false);
+      } catch (error) {
+        console.error("Error changing label format:", error);
+        setIsRegeneratingLabel(false);
+      }
     }
   };
 
@@ -65,6 +78,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               <Select
                 value={selectedFormat}
                 onValueChange={handleFormatChange}
+                disabled={isRegeneratingLabel}
               >
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Select Format" />
@@ -82,6 +96,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 size="sm" 
                 onClick={handlePrint}
                 className="border-purple-200 hover:bg-purple-50"
+                disabled={isRegeneratingLabel}
               >
                 <Printer className="h-4 w-4 mr-2" /> Print
               </Button>
@@ -90,6 +105,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 size="sm" 
                 onClick={() => window.open(labelUrl, '_blank')}
                 className="border-purple-200 hover:bg-purple-50"
+                disabled={isRegeneratingLabel}
               >
                 <Download className="h-4 w-4 mr-2" /> Download
               </Button>
@@ -97,6 +113,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 variant="ghost" 
                 size="sm" 
                 onClick={() => setIsOpen(false)}
+                disabled={isRegeneratingLabel}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -108,14 +125,30 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           {/* Label Image */}
           <div className="mb-6">
             <div className="mb-3 text-sm text-gray-500">
-              {labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}
+              {isRegeneratingLabel ? (
+                <div className="flex items-center">
+                  <span className="mr-2">Regenerating label with {selectedFormat} format...</span>
+                  <div className="w-4 h-4 border-2 border-t-transparent border-blue-500 rounded-full animate-spin"></div>
+                </div>
+              ) : (
+                labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'
+              )}
             </div>
             <div className={`mx-auto ${selectedFormat === '4x6' ? 'max-w-md' : 'max-w-2xl'}`}>
-              <img 
-                src={labelUrl} 
-                alt="Shipping Label" 
-                className="max-w-full h-auto border border-gray-300"
-              />
+              {isRegeneratingLabel ? (
+                <div className="border border-gray-300 h-64 flex items-center justify-center">
+                  <div className="flex flex-col items-center">
+                    <div className="w-8 h-8 border-4 border-t-transparent border-purple-600 rounded-full animate-spin mb-4"></div>
+                    <p className="text-purple-800">Regenerating label...</p>
+                  </div>
+                </div>
+              ) : (
+                <img 
+                  src={labelUrl} 
+                  alt="Shipping Label" 
+                  className="max-w-full h-auto border border-gray-300"
+                />
+              )}
             </div>
           </div>
           

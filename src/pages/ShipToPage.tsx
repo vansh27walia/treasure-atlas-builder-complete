@@ -324,20 +324,45 @@ ${toAddress.country}`,
       
       // Call the createLabel function from useShippingRates hook
       // Pass the selected format
-      await createLabel(selectedRateId, shipmentId, {
+      const labelData = await createLabel(selectedRateId, shipmentId, {
         label_format: "PDF",
         label_size: selectedLabelFormat
       });
       
-      // Force update workflow step
-      setCurrentStep('label');
-      toast.success("Label created successfully!");
+      if (labelData) {
+        // Force update workflow step
+        setCurrentStep('label');
+        toast.success("Label created successfully!");
+      }
       
     } catch (error) {
       console.error("Label creation error:", error);
       toast.error("Failed to create label. Please try again.");
     } finally {
       setIsCreatingLabel(false);
+    }
+  };
+
+  const handleLabelFormatChange = async (format: string) => {
+    setSelectedLabelFormat(format);
+    
+    // If we already have a label and rate, regenerate the label with the new format
+    if (selectedRateId && shipmentId && labelUrl) {
+      setIsCreatingLabel(true);
+      
+      try {
+        console.log("Regenerating label with new format:", format);
+        await createLabel(selectedRateId, shipmentId, {
+          label_format: "PDF",
+          label_size: format
+        });
+        toast.success("Label updated with new format");
+      } catch (error) {
+        console.error("Error updating label format:", error);
+        toast.error("Failed to update label format");
+      } finally {
+        setIsCreatingLabel(false);
+      }
     }
   };
 
@@ -431,10 +456,7 @@ ${toAddress.country}`,
                       key={rate.id}
                       rate={rate}
                       isSelected={selectedRateId === rate.id}
-                      onSelect={(rateId) => {
-                        handleSelectRate(rateId);
-                        // Don't auto-create the label yet to give users time to select format
-                      }}
+                      onSelect={handleSelectRate}
                       isBestValue={rate.id === bestValueRateId}
                       isFastest={rate.id === fastestRateId}
                       showDiscount={true}
@@ -549,6 +571,8 @@ ${toAddress.country}`,
                   labelUrl={labelUrl} 
                   trackingCode={trackingCode}
                   shipmentDetails={shipmentDetails}
+                  onFormatChange={handleLabelFormatChange}
+                  shipmentId={shipmentId || undefined}
                 />
                 <Button
                   variant="outline"
@@ -569,13 +593,7 @@ ${toAddress.country}`,
                   
                   <Select 
                     value={selectedLabelFormat} 
-                    onValueChange={(format) => {
-                      setSelectedLabelFormat(format);
-                      if (selectedRateId && shipmentId) {
-                        // Regenerate label with new format
-                        handleCreateLabel();
-                      }
-                    }}
+                    onValueChange={handleLabelFormatChange}
                   >
                     <SelectTrigger className="w-[200px]">
                       <SelectValue placeholder="Select Label Format" />
@@ -589,11 +607,20 @@ ${toAddress.country}`,
                     </SelectContent>
                   </Select>
                 </div>
-                <img 
-                  src={labelUrl} 
-                  alt="Shipping Label Preview" 
-                  className="max-w-full h-auto border border-gray-300 mb-3"
-                />
+                {isCreatingLabel ? (
+                  <div className="border border-gray-300 h-64 flex items-center justify-center">
+                    <div className="flex flex-col items-center">
+                      <div className="w-8 h-8 border-4 border-t-transparent border-purple-600 rounded-full animate-spin mb-4"></div>
+                      <p className="text-purple-800">Regenerating label...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <img 
+                    src={labelUrl} 
+                    alt="Shipping Label Preview" 
+                    className="max-w-full h-auto border border-gray-300 mb-3"
+                  />
+                )}
                 {trackingCode && (
                   <div className="bg-purple-50 p-3 rounded-md mt-3">
                     <p className="text-sm font-medium">Tracking Number:</p>

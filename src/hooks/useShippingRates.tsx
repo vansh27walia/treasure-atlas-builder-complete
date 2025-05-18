@@ -137,9 +137,6 @@ export const useShippingRates = () => {
         document.dispatchEvent(new CustomEvent('shipping-step-change', { 
           detail: { step: 'rates' }
         }));
-        
-        // Note: We don't auto-create the label here anymore
-        // This allows users to select their format first
       }
     };
     
@@ -166,14 +163,11 @@ export const useShippingRates = () => {
   const handleSelectRate = (rateId: string) => {
     setSelectedRateId(rateId);
     
-    // Dispatch rate-selected event
-    document.dispatchEvent(new Event('rate-selected'));
-    
     // Find the rate with this ID
     const selectedRate = rates.find(rate => rate.id === rateId);
     console.log("Selected rate:", selectedRate);
     
-    // Scroll to the selected rate without animation
+    // Scroll to the selected rate
     const selectedRateElement = document.querySelector(`[data-rate-id="${rateId}"]`);
     if (selectedRateElement) {
       setTimeout(() => {
