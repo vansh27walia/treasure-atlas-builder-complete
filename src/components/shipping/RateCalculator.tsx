@@ -8,9 +8,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { Loader, Search } from 'lucide-react';
+import { Loader, Search, Truck, Box, ArrowRight } from 'lucide-react';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { useNavigate } from 'react-router-dom';
+import { Checkbox } from "@/components/ui/checkbox";
+import { COUNTRIES_LIST } from '@/lib/countries';
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const rateFormSchema = z.object({
   fromZip: z.string().min(3, { message: 'ZIP/Postal code is required' }),
@@ -23,9 +26,16 @@ const rateFormSchema = z.object({
   height: z.coerce.number().min(0.1, { message: 'Height must be greater than 0' }),
   weightUnit: z.enum(['lb', 'kg']),
   dimensionUnit: z.enum(['in', 'cm']),
+  usps: z.boolean().default(true),
+  ups: z.boolean().default(true),
+  fedex: z.boolean().default(true),
+  dhl: z.boolean().default(true),
 });
 
 type RateFormValues = z.infer<typeof rateFormSchema>;
+
+// Sort countries alphabetically
+const sortedCountries = [...COUNTRIES_LIST].sort((a, b) => a.name.localeCompare(b.name));
 
 const RateCalculator: React.FC = () => {
   const navigate = useNavigate();
@@ -45,6 +55,10 @@ const RateCalculator: React.FC = () => {
       height: 2,
       weightUnit: 'lb',
       dimensionUnit: 'in',
+      usps: true,
+      ups: true,
+      fedex: true,
+      dhl: true,
     },
   });
 
@@ -66,6 +80,13 @@ const RateCalculator: React.FC = () => {
       // Convert dimensions to inches if in cm
       const conversionFactor = data.dimensionUnit === 'cm' ? 0.393701 : 1;
       
+      // Get selected carriers
+      const selectedCarriers: string[] = [];
+      if (data.usps) selectedCarriers.push('usps');
+      if (data.ups) selectedCarriers.push('ups');
+      if (data.fedex) selectedCarriers.push('fedex');
+      if (data.dhl) selectedCarriers.push('dhl');
+      
       // Prepare the request data for the API
       const requestData = {
         fromAddress: {
@@ -81,8 +102,11 @@ const RateCalculator: React.FC = () => {
           length: data.length * conversionFactor,
           width: data.width * conversionFactor,
           height: data.height * conversionFactor,
-        }
+        },
+        carriers: selectedCarriers.length > 0 ? selectedCarriers : ['usps', 'ups', 'fedex', 'dhl']
       };
+      
+      console.log("Sending rate request with data:", requestData);
 
       // Fetch rates from the API
       await fetchRates(requestData);
@@ -124,12 +148,13 @@ const RateCalculator: React.FC = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="US">United States</SelectItem>
-                          <SelectItem value="CA">Canada</SelectItem>
-                          <SelectItem value="MX">Mexico</SelectItem>
-                          <SelectItem value="GB">United Kingdom</SelectItem>
-                          <SelectItem value="AU">Australia</SelectItem>
-                          <SelectItem value="DE">Germany</SelectItem>
+                          <ScrollArea className="h-72">
+                            {sortedCountries.map((country) => (
+                              <SelectItem key={country.code} value={country.code}>
+                                {country.name}
+                              </SelectItem>
+                            ))}
+                          </ScrollArea>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -171,12 +196,13 @@ const RateCalculator: React.FC = () => {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="US">United States</SelectItem>
-                          <SelectItem value="CA">Canada</SelectItem>
-                          <SelectItem value="MX">Mexico</SelectItem>
-                          <SelectItem value="GB">United Kingdom</SelectItem>
-                          <SelectItem value="AU">Australia</SelectItem>
-                          <SelectItem value="DE">Germany</SelectItem>
+                          <ScrollArea className="h-72">
+                            {sortedCountries.map((country) => (
+                              <SelectItem key={country.code} value={country.code}>
+                                {country.name}
+                              </SelectItem>
+                            ))}
+                          </ScrollArea>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -244,9 +270,7 @@ const RateCalculator: React.FC = () => {
                       )}
                     />
                   </div>
-                </div>
-                
-                <div className="space-y-4">
+                  
                   <FormField
                     control={form.control}
                     name="dimensionUnit"
@@ -316,6 +340,75 @@ const RateCalculator: React.FC = () => {
                     </FormItem>
                   )}
                 />
+              </div>
+              
+              <div className="mt-6">
+                <h4 className="text-base font-medium mb-2">Carriers</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="usps"
+                    render={({ field }) => (
+                      <FormItem className="flex space-x-2 space-y-0 items-center">
+                        <FormControl>
+                          <Checkbox 
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal cursor-pointer">USPS</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="ups"
+                    render={({ field }) => (
+                      <FormItem className="flex space-x-2 space-y-0 items-center">
+                        <FormControl>
+                          <Checkbox 
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal cursor-pointer">UPS</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="fedex"
+                    render={({ field }) => (
+                      <FormItem className="flex space-x-2 space-y-0 items-center">
+                        <FormControl>
+                          <Checkbox 
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal cursor-pointer">FedEx</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="dhl"
+                    render={({ field }) => (
+                      <FormItem className="flex space-x-2 space-y-0 items-center">
+                        <FormControl>
+                          <Checkbox 
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal cursor-pointer">DHL</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
             </div>
             

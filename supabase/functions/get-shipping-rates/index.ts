@@ -32,7 +32,7 @@ interface ShippingRequestData {
   toAddress: AddressData;
   parcel: ParcelData;
   options?: Record<string, any>;
-  carrier?: string;
+  carriers?: string[];
 }
 
 // Get markup percentage from environment variable or use default value
@@ -116,14 +116,43 @@ serve(async (req) => {
     // Parse the request body
     const requestData: ShippingRequestData = await req.json();
     
-    // Add carrier specific options if requested
-    const carrierAccounts: string[] = [];
-    let specificCarrier = '';
+    // Set up carrier account options for EasyPost
+    let carrierAccounts: any[] = [];
+    const specificCarriers: string[] = [];
     
-    if (requestData.carrier && requestData.carrier !== 'all' && requestData.carrier !== 'easypost') {
-      // Filter to specific carrier if requested
-      specificCarrier = requestData.carrier.toLowerCase();
+    // Process requested carriers
+    if (requestData.carriers && requestData.carriers.length > 0) {
+      console.log(`Requested carriers: ${requestData.carriers.join(', ')}`);
+      
+      // Map specific carrier strings to EasyPost carrier IDs
+      // Note: This part would need to be updated with your actual carrier account IDs
+      requestData.carriers.forEach(carrier => {
+        if (carrier !== 'all' && carrier !== 'easypost') {
+          specificCarriers.push(carrier.toLowerCase());
+        }
+      });
     }
+    
+    console.log(`Filtered carriers for API request: ${specificCarriers.join(', ')}`);
+    
+    // Create shipment request for EasyPost API
+    const shipmentRequest = {
+      shipment: {
+        from_address: requestData.fromAddress,
+        to_address: requestData.toAddress,
+        parcel: requestData.parcel,
+        options: requestData.options || {},
+      }
+    };
+    
+    // If specific carriers are requested, add carrier_accounts parameter
+    if (specificCarriers.length > 0) {
+      // Note: In EasyPost API v2, you would typically filter carriers at request time
+      // This is just a placeholder - the actual implementation depends on your EasyPost setup
+      console.log("Setting up carrier filtering for EasyPost");
+    }
+    
+    console.log("Sending request to EasyPost API:", JSON.stringify(shipmentRequest, null, 2));
     
     // Create a shipment with EasyPost API
     const response = await fetch('https://api.easypost.com/v2/shipments', {
@@ -132,15 +161,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        shipment: {
-          from_address: requestData.fromAddress,
-          to_address: requestData.toAddress,
-          parcel: requestData.parcel,
-          options: requestData.options || {},
-          carrier_accounts: carrierAccounts.length > 0 ? carrierAccounts : undefined,
-        }
-      }),
+      body: JSON.stringify(shipmentRequest),
     });
 
     const data = await response.json();
@@ -155,11 +176,16 @@ serve(async (req) => {
     }
 
     // Filter rates by carrier if specified
-    let rates = data.rates;
-    if (specificCarrier) {
+    let rates = data.rates || [];
+    console.log(`Raw rates returned from EasyPost: ${rates.length}`);
+    
+    if (specificCarriers.length > 0) {
       rates = rates.filter((rate: any) => 
-        rate.carrier.toLowerCase().includes(specificCarrier)
+        specificCarriers.some(carrier => 
+          rate.carrier.toLowerCase().includes(carrier)
+        )
       );
+      console.log(`Filtered to ${rates.length} rates matching requested carriers`);
     }
     
     // Get markup percentage and apply to rates

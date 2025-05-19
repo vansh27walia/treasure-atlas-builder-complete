@@ -21,6 +21,7 @@ interface RateRequestData {
   fromAddress: AddressData;
   toAddress: AddressData;
   parcel: ParcelData;
+  carriers?: string[]; // Add carriers option
 }
 
 interface AIRecommendation {
@@ -63,10 +64,14 @@ const useRateCalculator = () => {
           phone: "555-555-5555"
         },
         parcel: requestData.parcel,
+        // Ensure all carriers are requested by default
+        carriers: requestData.carriers || ['usps', 'ups', 'fedex', 'dhl']
       };
 
       // Check if international to use the right endpoint
       const isInternational = requestData.fromAddress.country !== requestData.toAddress.country;
+      
+      console.log('Fetching rates with data:', enhancedRequestData);
       
       // Call the Edge Function to get shipping rates
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
@@ -84,6 +89,8 @@ const useRateCalculator = () => {
         return;
       }
 
+      console.log('Received rates:', data.rates);
+      
       // Get rates and shipment ID
       const { rates, shipmentId } = data;
       
