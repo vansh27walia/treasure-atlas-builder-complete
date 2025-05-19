@@ -45,6 +45,13 @@ const useRateCalculator = () => {
     setAiRecommendation(null);
     
     try {
+      // Ensure carrier array is properly formatted
+      const selectedCarriers = requestData.carriers && requestData.carriers.length > 0 
+        ? requestData.carriers 
+        : ['usps', 'ups', 'fedex', 'dhl'];
+      
+      console.log('Selected carriers for rate request:', selectedCarriers);
+      
       // Construct a more complete address data structure required by EasyPost
       const enhancedRequestData = {
         fromAddress: {
@@ -64,10 +71,8 @@ const useRateCalculator = () => {
           phone: "555-555-5555"
         },
         parcel: requestData.parcel,
-        // Ensure all carriers are requested if not specifically provided
-        carriers: requestData.carriers && requestData.carriers.length > 0 
-          ? requestData.carriers 
-          : ['usps', 'ups', 'fedex', 'dhl']
+        // Make sure we're passing the selected carriers explicitly
+        carriers: selectedCarriers
       };
 
       // Check if international to use the right endpoint
@@ -92,6 +97,7 @@ const useRateCalculator = () => {
       }
 
       console.log('Received rates:', data.rates);
+      console.log('Carriers in returned rates:', [...new Set(data.rates.map(rate => rate.carrier))].join(', '));
       
       // Get rates and shipment ID
       const { rates, shipmentId } = data;

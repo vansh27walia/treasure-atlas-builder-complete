@@ -122,13 +122,9 @@ serve(async (req) => {
     // Process requested carriers - make sure we're correctly handling the carriers parameter
     if (requestData.carriers && requestData.carriers.length > 0) {
       console.log(`Requested carriers: ${requestData.carriers.join(', ')}`);
-      
-      // Map specific carrier strings to EasyPost carrier IDs
-      requestData.carriers.forEach(carrier => {
-        if (carrier !== 'all' && carrier !== 'easypost') {
-          specificCarriers.push(carrier.toLowerCase());
-        }
-      });
+      specificCarriers = requestData.carriers.filter(carrier => 
+        carrier !== 'all' && carrier !== 'easypost'
+      ).map(carrier => carrier.toLowerCase());
     }
     
     console.log(`Filtered carriers for API request: ${specificCarriers.join(', ')}`);
@@ -142,12 +138,6 @@ serve(async (req) => {
         options: requestData.options || {},
       }
     };
-    
-    // If specific carriers are requested, add carrier_accounts parameter
-    if (specificCarriers.length > 0) {
-      // Note: In EasyPost API v2, you would typically filter carriers at request time
-      console.log("Setting up carrier filtering for EasyPost");
-    }
     
     console.log("Sending request to EasyPost API:", JSON.stringify(shipmentRequest, null, 2));
     
@@ -187,6 +177,16 @@ serve(async (req) => {
         )
       );
       console.log(`Filtered to ${rates.length} rates matching requested carriers`);
+      
+      // If no rates match our filter but we have rates, it might be a carrier name mismatch
+      if (rates.length === 0 && data.rates.length > 0) {
+        console.log("No rates matched the carrier filter. Available carriers:", 
+          [...new Set(data.rates.map((r: any) => r.carrier.toLowerCase()))].join(', '));
+        
+        // Return all rates if filter results in no matches
+        rates = data.rates;
+        console.log("Returning all available rates instead of empty result");
+      }
     }
     
     // Get markup percentage and apply to rates

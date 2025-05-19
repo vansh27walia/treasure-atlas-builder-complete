@@ -87,6 +87,14 @@ const RateCalculator: React.FC = () => {
       if (data.fedex) selectedCarriers.push('fedex');
       if (data.dhl) selectedCarriers.push('dhl');
       
+      // If no carriers are selected, show an error
+      if (selectedCarriers.length === 0) {
+        form.setError('usps', { message: 'Please select at least one carrier' });
+        return;
+      }
+      
+      console.log("Selected carriers:", selectedCarriers);
+      
       // Prepare the request data for the API
       const requestData = {
         fromAddress: {
@@ -103,7 +111,7 @@ const RateCalculator: React.FC = () => {
           width: data.width * conversionFactor,
           height: data.height * conversionFactor,
         },
-        carriers: selectedCarriers.length > 0 ? selectedCarriers : ['usps', 'ups', 'fedex', 'dhl']
+        carriers: selectedCarriers
       };
       
       console.log("Sending rate request with data:", requestData);
@@ -120,6 +128,14 @@ const RateCalculator: React.FC = () => {
       console.error('Error fetching rates:', error);
     }
   };
+
+  // Watch carrier checkboxes to ensure at least one is selected
+  const watchUsps = form.watch('usps');
+  const watchUps = form.watch('ups');
+  const watchFedex = form.watch('fedex');
+  const watchDhl = form.watch('dhl');
+  
+  const anyCarrierSelected = watchUsps || watchUps || watchFedex || watchDhl;
 
   return (
     <Card className="border-2 border-gray-200 shadow-lg rounded-xl overflow-hidden mb-8">
@@ -343,7 +359,7 @@ const RateCalculator: React.FC = () => {
               </div>
               
               <div className="mt-6">
-                <h4 className="text-base font-medium mb-2">Carriers</h4>
+                <h4 className="text-base font-medium mb-2">Carriers (Select at least one)</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <FormField
                     control={form.control}
@@ -409,13 +425,16 @@ const RateCalculator: React.FC = () => {
                     )}
                   />
                 </div>
+                {!anyCarrierSelected && (
+                  <p className="text-red-500 text-sm mt-2">Please select at least one carrier</p>
+                )}
               </div>
             </div>
             
             <div className="flex justify-end">
               <Button 
                 type="submit" 
-                disabled={isLoading}
+                disabled={isLoading || !anyCarrierSelected}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2"
               >
                 {isLoading ? (
