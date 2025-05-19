@@ -51,8 +51,8 @@ type AddressFormValues = z.infer<typeof addressSchema>;
 
 interface AddressSelectorProps {
   type?: 'from' | 'to';
-  form?: UseFormReturn<any, any, any>; // Add the form prop to the interface
-  prefix?: string; // Add the prefix prop to the interface
+  form?: UseFormReturn<any, any, any>; 
+  prefix?: string;
   onAddressSelect?: (address: SimpleAddress) => void;
   selectedAddressId?: number;
   inputRef?: React.RefObject<HTMLInputElement>;
@@ -60,13 +60,13 @@ interface AddressSelectorProps {
 }
 
 const AddressSelector: React.FC<AddressSelectorProps> = ({ 
-  type = 'from', // Provide default value
-  form: externalForm, // Rename to avoid naming conflicts
+  type = 'from',
+  form: externalForm,
   prefix,
   onAddressSelect,
   selectedAddressId,
   inputRef,
-  useGoogleAutocomplete = true // Enable by default
+  useGoogleAutocomplete = true
 }) => {
   const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(false);
   const streetInputRef = useRef<HTMLInputElement>(null);
@@ -97,32 +97,41 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   };
   
   // Auto-submit form when all required fields are filled
-  const watchRequired = prefix 
-    ? [getFieldName('name'), getFieldName('street1'), getFieldName('city'), getFieldName('state'), getFieldName('zip')].map(field => form.watch(field))
-    : form.watch(['name', 'street1', 'city', 'state', 'zip']);
-  
   useEffect(() => {
     if (!onAddressSelect) return;
     
-    const allFilled = watchRequired.every(field => field && field.trim() !== '');
-    if (allFilled) {
-      const values = prefix 
-        ? {
-            name: form.getValues(getFieldName('name')),
-            company: form.getValues(getFieldName('company')),
-            street1: form.getValues(getFieldName('street1')),
-            street2: form.getValues(getFieldName('street2')),
-            city: form.getValues(getFieldName('city')),
-            state: form.getValues(getFieldName('state')),
-            zip: form.getValues(getFieldName('zip')),
-            country: form.getValues(getFieldName('country')),
-            phone: form.getValues(getFieldName('phone')),
-          }
-        : form.getValues();
+    // Create a subscription to watch multiple fields
+    const subscription = form.watch((formValues) => {
+      if (!formValues) return;
+      
+      // Check if required fields are filled
+      const requiredFields = ['name', 'street1', 'city', 'state', 'zip'];
+      const allFilled = requiredFields.every(field => {
+        const fieldName = getFieldName(field);
+        const value = form.getValues(fieldName);
+        return value && value.trim() !== '';
+      });
+      
+      if (allFilled) {
+        const values = {
+          name: form.getValues(getFieldName('name')),
+          company: form.getValues(getFieldName('company')),
+          street1: form.getValues(getFieldName('street1')),
+          street2: form.getValues(getFieldName('street2')),
+          city: form.getValues(getFieldName('city')),
+          state: form.getValues(getFieldName('state')),
+          zip: form.getValues(getFieldName('zip')),
+          country: form.getValues(getFieldName('country')),
+          phone: form.getValues(getFieldName('phone')),
+        };
         
-      onAddressSelect(values);
-    }
-  }, [watchRequired, form, onAddressSelect, prefix]);
+        onAddressSelect(values);
+      }
+    });
+    
+    // Clean up subscription
+    return () => subscription.unsubscribe();
+  }, [form, onAddressSelect, prefix]);
   
   // Initialize Google Places API
   useEffect(() => {
@@ -143,14 +152,30 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                 const addressComponents = extractAddressComponents(place);
                 
                 // Update form values with extracted address components
-                form.setValue('street1', addressComponents.street1 || '');
-                form.setValue('city', addressComponents.city || '');
-                form.setValue('state', addressComponents.state || '');
-                form.setValue('zip', addressComponents.zip || '');
-                form.setValue('country', addressComponents.country || 'US');
+                if (addressComponents.street1) {
+                  form.setValue(getFieldName('street1'), addressComponents.street1);
+                }
+                if (addressComponents.city) {
+                  form.setValue(getFieldName('city'), addressComponents.city);
+                }
+                if (addressComponents.state) {
+                  form.setValue(getFieldName('state'), addressComponents.state);
+                }
+                if (addressComponents.zip) {
+                  form.setValue(getFieldName('zip'), addressComponents.zip);
+                }
+                if (addressComponents.country) {
+                  form.setValue(getFieldName('country'), addressComponents.country);
+                }
                 
                 // Trigger form validation
-                form.trigger(['street1', 'city', 'state', 'zip', 'country']);
+                form.trigger([
+                  getFieldName('street1'), 
+                  getFieldName('city'), 
+                  getFieldName('state'), 
+                  getFieldName('zip'), 
+                  getFieldName('country')
+                ]);
                 
                 toast.success('Address found and auto-filled');
               }
