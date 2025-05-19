@@ -38,11 +38,16 @@ const useRateCalculator = () => {
   const [aiRecommendation, setAiRecommendation] = useState<AIRecommendation | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const { rates } = useShippingRates();
+  const [completedAddresses, setCompletedAddresses] = useState<{
+    from: any;
+    to: any;
+  } | null>(null);
 
   // Function to fetch shipping rates
   const fetchRates = async (requestData: RateRequestData) => {
     setIsLoading(true);
     setAiRecommendation(null);
+    setCompletedAddresses(null);
     
     try {
       // Ensure carrier array is properly formatted
@@ -52,23 +57,18 @@ const useRateCalculator = () => {
       
       console.log('Selected carriers for rate request:', selectedCarriers);
       
-      // Construct a more complete address data structure required by EasyPost
+      // Send only the minimum required information - ZIP code and country
+      // The edge function will handle address completion
       const enhancedRequestData = {
         fromAddress: {
           ...requestData.fromAddress,
-          name: "Rate Calculator Origin",
-          street1: "Main Street", // EasyPost requires a street address even for rate calculations
-          city: "City", // Generic placeholders that won't affect the rate calculation
-          state: "State",
-          phone: "555-555-5555"
+          zip: requestData.fromAddress.zip,
+          country: requestData.fromAddress.country || 'US'
         },
         toAddress: {
           ...requestData.toAddress,
-          name: "Rate Calculator Destination",
-          street1: "Destination Street", 
-          city: "City",
-          state: "State",
-          phone: "555-555-5555"
+          zip: requestData.toAddress.zip,
+          country: requestData.toAddress.country || 'US'
         },
         parcel: requestData.parcel,
         // Make sure we're passing the selected carriers explicitly
@@ -98,6 +98,12 @@ const useRateCalculator = () => {
 
       console.log('Received rates:', data.rates);
       console.log('Carriers in returned rates:', [...new Set(data.rates.map(rate => rate.carrier))].join(', '));
+      
+      // Store the completed addresses for display if needed
+      if (data.completedAddresses) {
+        setCompletedAddresses(data.completedAddresses);
+        console.log('Completed addresses:', data.completedAddresses);
+      }
       
       // Get rates and shipment ID
       const { rates, shipmentId } = data;
@@ -162,6 +168,38 @@ const useRateCalculator = () => {
     }
   };
 
+  // Function to create a shipping label
+  const createShippingLabel = async (rateId: string, shipmentId: string) => {
+    try {
+      setIsLoading(true);
+      
+      // Call the Edge Function to create a label
+      const { data, error } = await supabase.functions.invoke('create-label', {
+        body: { rateId, shipmentId }
+      });
+      
+      if (error) {
+        throw new Error(`Error creating label: ${error.message}`);
+      }
+      
+      if (!data?.labelUrl) {
+        throw new Error("No label URL received");
+      }
+      
+      // Return label data
+      return {
+        labelUrl: data.labelUrl,
+        trackingCode: data.trackingCode || 'N/A'
+      };
+      
+    } catch (error) {
+      console.error('Error creating label:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Enhanced function to navigate to shipping tab with selected rate
   const selectRateAndProceed = (rateId: string) => {
     const rate = rates.find(r => r.id === rateId);
@@ -190,7 +228,9 @@ const useRateCalculator = () => {
     aiRecommendation,
     isLoading,
     isAiLoading,
-    selectRateAndProceed
+    selectRateAndProceed,
+    createShippingLabel,
+    completedAddresses
   };
 };
 
