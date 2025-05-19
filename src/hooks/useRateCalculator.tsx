@@ -37,7 +37,7 @@ const useRateCalculator = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [aiRecommendation, setAiRecommendation] = useState<AIRecommendation | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const { rates, setRates } = useShippingRates();
+  const { rates } = useShippingRates();
 
   // Function to fetch shipping rates
   const fetchRates = async (requestData: RateRequestData) => {
