@@ -11,7 +11,6 @@ import * as z from 'zod';
 import { Loader, Search } from 'lucide-react';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { useNavigate } from 'react-router-dom';
-import { COUNTRIES_LIST } from '@/lib/countries';
 
 const rateFormSchema = z.object({
   fromZip: z.string().min(3, { message: 'ZIP/Postal code is required' }),
@@ -82,14 +81,10 @@ const RateCalculator: React.FC = () => {
           length: data.length * conversionFactor,
           width: data.width * conversionFactor,
           height: data.height * conversionFactor,
-        },
-        // Store original form values for passing to shipping form
-        formData: {
-          ...data
         }
       };
 
-      // Fetch rates from the API using the real shipping API
+      // Fetch rates from the API
       await fetchRates(requestData);
       
       // Scroll to the rates section
@@ -128,12 +123,13 @@ const RateCalculator: React.FC = () => {
                             <SelectValue placeholder="Select country" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent className="max-h-[300px]">
-                          {COUNTRIES_LIST.map((country) => (
-                            <SelectItem key={`from-${country.code}`} value={country.code}>
-                              {country.name}
-                            </SelectItem>
-                          ))}
+                        <SelectContent>
+                          <SelectItem value="US">United States</SelectItem>
+                          <SelectItem value="CA">Canada</SelectItem>
+                          <SelectItem value="MX">Mexico</SelectItem>
+                          <SelectItem value="GB">United Kingdom</SelectItem>
+                          <SelectItem value="AU">Australia</SelectItem>
+                          <SelectItem value="DE">Germany</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -174,12 +170,13 @@ const RateCalculator: React.FC = () => {
                             <SelectValue placeholder="Select country" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent className="max-h-[300px]">
-                          {COUNTRIES_LIST.map((country) => (
-                            <SelectItem key={`to-${country.code}`} value={country.code}>
-                              {country.name}
-                            </SelectItem>
-                          ))}
+                        <SelectContent>
+                          <SelectItem value="US">United States</SelectItem>
+                          <SelectItem value="CA">Canada</SelectItem>
+                          <SelectItem value="MX">Mexico</SelectItem>
+                          <SelectItem value="GB">United Kingdom</SelectItem>
+                          <SelectItem value="AU">Australia</SelectItem>
+                          <SelectItem value="DE">Germany</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
+import { useShippingRates } from '@/hooks/useShippingRates';
 import { useNavigate } from 'react-router-dom';
 
 interface AddressData {
@@ -20,7 +21,6 @@ interface RateRequestData {
   fromAddress: AddressData;
   toAddress: AddressData;
   parcel: ParcelData;
-  formData?: any; // Store original form data for passing to shipping page
 }
 
 interface AIRecommendation {
@@ -36,22 +36,14 @@ const useRateCalculator = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [aiRecommendation, setAiRecommendation] = useState<AIRecommendation | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const [calculatedRates, setCalculatedRates] = useState<any[]>([]);
-  const [calculatedShipmentId, setCalculatedShipmentId] = useState<string | null>(null);
-  const [calculatorFormData, setCalculatorFormData] = useState<any>(null);
-  
-  // Function to fetch shipping rates using the same API as used in other shipping workflows
+  const { rates } = useShippingRates();
+
+  // Function to fetch shipping rates
   const fetchRates = async (requestData: RateRequestData) => {
     setIsLoading(true);
     setAiRecommendation(null);
-    setCalculatedRates([]);
     
     try {
-      // Store the form data for later use when redirecting
-      if (requestData.formData) {
-        setCalculatorFormData(requestData.formData);
-      }
-      
       // Construct a more complete address data structure required by EasyPost
       const enhancedRequestData = {
         fromAddress: {
@@ -76,7 +68,7 @@ const useRateCalculator = () => {
       // Check if international to use the right endpoint
       const isInternational = requestData.fromAddress.country !== requestData.toAddress.country;
       
-      // Call the same Edge Function used by other shipping workflows to get real rates
+      // Call the Edge Function to get shipping rates
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
         body: enhancedRequestData
       });
@@ -94,11 +86,6 @@ const useRateCalculator = () => {
 
       // Get rates and shipment ID
       const { rates, shipmentId } = data;
-      setCalculatedRates(rates);
-      setCalculatedShipmentId(shipmentId);
-      
-      console.log("Rates calculated:", rates);
-      console.log("Shipment ID:", shipmentId);
       
       // Dispatch a custom event to notify the ShippingRates component
       const ratesEvent = new CustomEvent('easypost-rates-received', {
@@ -160,34 +147,23 @@ const useRateCalculator = () => {
     }
   };
 
-  // Function to navigate to shipping tab with selected rate and pre-fill the form
+  // Function to navigate to shipping tab with selected rate
   const selectRateAndProceed = (rateId: string) => {
-    const rate = calculatedRates.find(r => r.id === rateId);
+    const rate = rates.find(r => r.id === rateId);
     if (!rate) {
       toast.error("Selected rate not found");
       return;
     }
     
-    // Navigate to domestic shipping tab
+    // Navigate to domestic shipping tab and select the rate
     navigate('/create-label?tab=domestic');
     
-    // Create a shipping data object to pass to the shipping form
-    const shippingData = {
-      rateId: rateId,
-      shipmentId: calculatedShipmentId,
-      rate: rate,
-      formData: calculatorFormData
-    };
-    
-    // Wait for component to mount before sending data
+    // Wait for component to mount before selecting the rate
     setTimeout(() => {
-      // Dispatch event with the selected rate and form data
-      const customEvent = new CustomEvent('calculator-rate-selected', {
-        detail: shippingData
+      const customEvent = new CustomEvent('select-shipping-rate', {
+        detail: { rateId }
       });
       document.dispatchEvent(customEvent);
-      
-      toast.success("Selected rate applied. Complete your shipping details to continue.");
     }, 300);
   };
 
@@ -196,8 +172,7 @@ const useRateCalculator = () => {
     aiRecommendation,
     isLoading,
     isAiLoading,
-    selectRateAndProceed,
-    calculatedRates
+    selectRateAndProceed
   };
 };
 

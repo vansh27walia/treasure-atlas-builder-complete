@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,15 +10,11 @@ import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
 import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PrintPreview from './shipping/PrintPreview';
 
 const ShippingRates: React.FC = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const isCalculator = location.pathname.includes('calculator') || location.search.includes('calculator');
-  
   const {
     rates,
     allRates,
@@ -37,7 +34,7 @@ const ShippingRates: React.FC = () => {
     handleFilterByCarrier
   } = useShippingRates();
   
-  const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
+  const { aiRecommendation, isAiLoading } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
   const [shipmentDetails, setShipmentDetails] = useState<{ 
@@ -82,17 +79,6 @@ const ShippingRates: React.FC = () => {
         toast.error("Failed to update label format");
         throw error;
       }
-    }
-  };
-  
-  // Handle rate selection from calculator and redirect to domestic shipping
-  const handleSelectAndProceed = (rateId: string) => {
-    if (isCalculator) {
-      // If we're in calculator mode, use the calculator's function to redirect with the selected rate
-      selectRateAndProceed(rateId);
-    } else {
-      // Otherwise use the normal rate selection
-      handleSelectRate(rateId);
     }
   };
   
@@ -202,7 +188,7 @@ const ShippingRates: React.FC = () => {
                 <ShippingAIRecommendation 
                   aiRecommendation={aiRecommendation}
                   isLoading={isAiLoading}
-                  onSelectRecommendation={handleSelectAndProceed}
+                  onSelectRecommendation={handleSelectRate}
                 />
               )}
               
@@ -214,7 +200,7 @@ const ShippingRates: React.FC = () => {
                       key={rate.id}
                       rate={rate}
                       isSelected={selectedRateId === rate.id}
-                      onSelect={handleSelectAndProceed}
+                      onSelect={handleSelectRate}
                       isBestValue={rate.id === bestValueRateId}
                       isFastest={rate.id === fastestRateId}
                       aiRecommendation={aiRecommendation && {
@@ -243,72 +229,51 @@ const ShippingRates: React.FC = () => {
               </div>
               
               <div className="mt-8 flex flex-wrap justify-end gap-4">
-                {isCalculator ? (
-                  // Show "Use this rate" button in calculator mode
-                  <Button 
-                    onClick={() => {
-                      if (selectedRateId) {
-                        selectRateAndProceed(selectedRateId);
-                      } else {
-                        toast.warning("Please select a shipping rate first");
-                      }
-                    }}
-                    disabled={!selectedRateId || isLoading}
-                    className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-6 py-2 h-12 text-base"
-                  >
-                    <Truck className="h-5 w-5" />
-                    Use This Rate
-                  </Button>
-                ) : (
-                  // Normal buttons for other shipping workflows
-                  <Button 
-                    onClick={() => {
-                      // Set up label options based on selected format
-                      const labelOptions = {
-                        label_format: "PDF",
-                        label_size: selectedLabelFormat
-                      };
-                      
-                      // Call handleCreateLabel with the selected format
-                      handleCreateLabel(undefined, undefined, labelOptions);
-                    }}
-                    disabled={!selectedRateId || isLoading}
-                    className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-6 py-2 h-12 text-base"
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader className="h-5 w-5 animate-spin" />
-                        Creating Label...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-5 w-5" />
-                        Buy & Print Label
-                      </>
-                    )}
-                  </Button>
-                )}
+                <Button 
+                  onClick={() => {
+                    // Set up label options based on selected format
+                    const labelOptions = {
+                      label_format: "PDF",
+                      label_size: selectedLabelFormat
+                    };
+                    
+                    // Call handleCreateLabel with the selected format
+                    handleCreateLabel(undefined, undefined, labelOptions);
+                  }}
+                  disabled={!selectedRateId || isLoading}
+                  className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-6 py-2 h-12 text-base"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader className="h-5 w-5 animate-spin" />
+                      Creating Label...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-5 w-5" />
+                      Buy & Print Label
+                    </>
+                  )}
+                </Button>
 
-                {!isCalculator && (
-                  <Button 
-                    onClick={handleProceedToPayment}
-                    disabled={!selectedRateId || isProcessingPayment}
-                    variant="outline"
-                    className="border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-6 py-2 h-12 text-base"
-                  >
-                    {isProcessingPayment ? (
-                      <>
-                        <Loader className="h-5 w-5 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard className="h-5 w-5" />
-                        Proceed to Payment
-                      </>
-                    )}
-                  </Button>
-                )}
+                <Button 
+                  onClick={handleProceedToPayment}
+                  disabled={!selectedRateId || isProcessingPayment}
+                  variant="outline"
+                  className="border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-6 py-2 h-12 text-base"
+                >
+                  {isProcessingPayment ? (
+                    <>
+                      <Loader className="h-5 w-5 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="h-5 w-5" />
+                      Proceed to Payment
+                    </>
+                  )}
+                </Button>
               </div>
             </>
           ) : (
