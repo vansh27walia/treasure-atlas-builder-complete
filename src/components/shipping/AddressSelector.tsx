@@ -101,28 +101,32 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     if (!onAddressSelect) return;
     
     // Create a subscription to watch multiple fields
-    const subscription = form.watch((formValues) => {
+    const subscription = form.watch((formValues: any) => {
       if (!formValues) return;
       
       // Check if required fields are filled
       const requiredFields = ['name', 'street1', 'city', 'state', 'zip'];
       const allFilled = requiredFields.every(field => {
         const fieldName = getFieldName(field);
-        const value = form.getValues(fieldName);
+        // Get value without passing arguments to form.getValues()
+        const formValues = form.getValues();
+        const value = formValues[fieldName];
         return value && value.trim() !== '';
       });
       
       if (allFilled) {
+        // Get all form values at once without individual calls
+        const formValues = form.getValues();
         const values: SimpleAddress = {
-          name: form.getValues(getFieldName('name')),
-          company: form.getValues(getFieldName('company')),
-          street1: form.getValues(getFieldName('street1')),
-          street2: form.getValues(getFieldName('street2')),
-          city: form.getValues(getFieldName('city')),
-          state: form.getValues(getFieldName('state')),
-          zip: form.getValues(getFieldName('zip')),
-          country: form.getValues(getFieldName('country')),
-          phone: form.getValues(getFieldName('phone')),
+          name: formValues[getFieldName('name')],
+          company: formValues[getFieldName('company')],
+          street1: formValues[getFieldName('street1')],
+          street2: formValues[getFieldName('street2')],
+          city: formValues[getFieldName('city')],
+          state: formValues[getFieldName('state')],
+          zip: formValues[getFieldName('zip')],
+          country: formValues[getFieldName('country')],
+          phone: formValues[getFieldName('phone')],
         };
         
         onAddressSelect(values);
