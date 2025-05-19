@@ -92,7 +92,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   const form = externalForm || internalForm;
   
   // When using an external form with a prefix, we need to handle field names differently
-  const getFieldName = (name: string) => {
+  const getFieldName = (name: string): string => {
     return prefix ? `${prefix}${name.charAt(0).toUpperCase() + name.slice(1)}` : name;
   };
   
@@ -113,7 +113,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       });
       
       if (allFilled) {
-        const values = {
+        const values: SimpleAddress = {
           name: form.getValues(getFieldName('name')),
           company: form.getValues(getFieldName('company')),
           street1: form.getValues(getFieldName('street1')),
@@ -151,31 +151,51 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
               if (place && place.address_components) {
                 const addressComponents = extractAddressComponents(place);
                 
+                // Type guard to handle form setValue for both internal and external forms
+                const setValue = (field: string, value: string) => {
+                  const fieldName = getFieldName(field);
+                  if (externalForm) {
+                    (externalForm.setValue as any)(fieldName, value);
+                  } else {
+                    internalForm.setValue(field as any, value);
+                  }
+                };
+                
                 // Update form values with extracted address components
                 if (addressComponents.street1) {
-                  form.setValue(getFieldName('street1'), addressComponents.street1);
+                  setValue('street1', addressComponents.street1);
                 }
                 if (addressComponents.city) {
-                  form.setValue(getFieldName('city'), addressComponents.city);
+                  setValue('city', addressComponents.city);
                 }
                 if (addressComponents.state) {
-                  form.setValue(getFieldName('state'), addressComponents.state);
+                  setValue('state', addressComponents.state);
                 }
                 if (addressComponents.zip) {
-                  form.setValue(getFieldName('zip'), addressComponents.zip);
+                  setValue('zip', addressComponents.zip);
                 }
                 if (addressComponents.country) {
-                  form.setValue(getFieldName('country'), addressComponents.country);
+                  setValue('country', addressComponents.country);
                 }
                 
-                // Trigger form validation
-                form.trigger([
-                  getFieldName('street1'), 
-                  getFieldName('city'), 
-                  getFieldName('state'), 
-                  getFieldName('zip'), 
-                  getFieldName('country')
-                ]);
+                // Trigger form validation - create a proper typed array of field names
+                const fieldsToValidate = [
+                  'street1',
+                  'city',
+                  'state', 
+                  'zip',
+                  'country'
+                ].map(field => getFieldName(field));
+                
+                if (externalForm) {
+                  // For external form, pass the array of field names
+                  externalForm.trigger(fieldsToValidate as any);
+                } else {
+                  // For internal form, we can safely use the field names directly
+                  internalForm.trigger(
+                    ['street1', 'city', 'state', 'zip', 'country'] as const
+                  );
+                }
                 
                 toast.success('Address found and auto-filled');
               }
@@ -198,7 +218,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     }, 500);
     
     return () => clearTimeout(timer);
-  }, [form, useGoogleAutocomplete, combinedRef]);
+  }, [form, useGoogleAutocomplete, combinedRef, externalForm, internalForm]);
   
   const handleSubmit = (values: AddressFormValues) => {
     if (onAddressSelect) {
@@ -380,6 +400,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     );
   }
   
+  // Default case when no external form or prefix is provided
   return (
     <Card className="border border-gray-100 shadow-sm">
       <CardContent className="pt-3">
