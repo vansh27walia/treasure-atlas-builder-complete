@@ -117,15 +117,13 @@ serve(async (req) => {
     const requestData: ShippingRequestData = await req.json();
     
     // Set up carrier account options for EasyPost
-    let carrierAccounts: any[] = [];
-    const specificCarriers: string[] = [];
+    let specificCarriers: string[] = [];
     
-    // Process requested carriers
+    // Process requested carriers - make sure we're correctly handling the carriers parameter
     if (requestData.carriers && requestData.carriers.length > 0) {
       console.log(`Requested carriers: ${requestData.carriers.join(', ')}`);
       
       // Map specific carrier strings to EasyPost carrier IDs
-      // Note: This part would need to be updated with your actual carrier account IDs
       requestData.carriers.forEach(carrier => {
         if (carrier !== 'all' && carrier !== 'easypost') {
           specificCarriers.push(carrier.toLowerCase());
@@ -148,7 +146,6 @@ serve(async (req) => {
     // If specific carriers are requested, add carrier_accounts parameter
     if (specificCarriers.length > 0) {
       // Note: In EasyPost API v2, you would typically filter carriers at request time
-      // This is just a placeholder - the actual implementation depends on your EasyPost setup
       console.log("Setting up carrier filtering for EasyPost");
     }
     
@@ -180,8 +177,12 @@ serve(async (req) => {
     console.log(`Raw rates returned from EasyPost: ${rates.length}`);
     
     if (specificCarriers.length > 0) {
+      // Converting requested carriers to lowercase for case-insensitive comparison
+      const lowercaseCarriers = specificCarriers.map(c => c.toLowerCase());
+      
+      // Filter rates based on carrier
       rates = rates.filter((rate: any) => 
-        specificCarriers.some(carrier => 
+        lowercaseCarriers.some(carrier => 
           rate.carrier.toLowerCase().includes(carrier)
         )
       );

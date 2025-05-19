@@ -9,7 +9,7 @@ import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
-import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
+import { CreditCard, Loader, Download, Upload, Truck, Filter, ArrowRightCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PrintPreview from './shipping/PrintPreview';
@@ -34,7 +34,7 @@ const ShippingRates: React.FC = () => {
     handleFilterByCarrier
   } = useShippingRates();
   
-  const { aiRecommendation, isAiLoading } = useRateCalculator();
+  const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
   const [shipmentDetails, setShipmentDetails] = useState<{ 
@@ -45,6 +45,14 @@ const ShippingRates: React.FC = () => {
     service: string; 
     carrier: string; 
   } | undefined>();
+  
+  // Determine if we're in calculator mode based on the URL
+  const [isCalculatorMode, setIsCalculatorMode] = useState(false);
+  
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    setIsCalculatorMode(url.searchParams.get('tab') === 'calculator');
+  }, []);
   
   // Update shipment details when a rate is selected
   useEffect(() => {
@@ -200,7 +208,7 @@ const ShippingRates: React.FC = () => {
                       key={rate.id}
                       rate={rate}
                       isSelected={selectedRateId === rate.id}
-                      onSelect={handleSelectRate}
+                      onSelect={isCalculatorMode ? selectRateAndProceed : handleSelectRate}
                       isBestValue={rate.id === bestValueRateId}
                       isFastest={rate.id === fastestRateId}
                       aiRecommendation={aiRecommendation && {
@@ -229,6 +237,17 @@ const ShippingRates: React.FC = () => {
               </div>
               
               <div className="mt-8 flex flex-wrap justify-end gap-4">
+                {/* Show "Use Selected Rate" button when in calculator mode */}
+                {isCalculatorMode && selectedRateId && (
+                  <Button 
+                    onClick={() => selectRateAndProceed(selectedRateId)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 px-6 py-2 h-12 text-base"
+                  >
+                    <ArrowRightCircle className="h-5 w-5" />
+                    Use Selected Rate
+                  </Button>
+                )}
+                
                 <Button 
                   onClick={() => {
                     // Set up label options based on selected format

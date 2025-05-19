@@ -37,7 +37,7 @@ const useRateCalculator = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [aiRecommendation, setAiRecommendation] = useState<AIRecommendation | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
-  const { rates } = useShippingRates();
+  const { rates, setRates } = useShippingRates();
 
   // Function to fetch shipping rates
   const fetchRates = async (requestData: RateRequestData) => {
@@ -64,8 +64,10 @@ const useRateCalculator = () => {
           phone: "555-555-5555"
         },
         parcel: requestData.parcel,
-        // Ensure all carriers are requested by default
-        carriers: requestData.carriers || ['usps', 'ups', 'fedex', 'dhl']
+        // Ensure all carriers are requested if not specifically provided
+        carriers: requestData.carriers && requestData.carriers.length > 0 
+          ? requestData.carriers 
+          : ['usps', 'ups', 'fedex', 'dhl']
       };
 
       // Check if international to use the right endpoint
@@ -154,7 +156,7 @@ const useRateCalculator = () => {
     }
   };
 
-  // Function to navigate to shipping tab with selected rate
+  // Enhanced function to navigate to shipping tab with selected rate
   const selectRateAndProceed = (rateId: string) => {
     const rate = rates.find(r => r.id === rateId);
     if (!rate) {
@@ -171,6 +173,9 @@ const useRateCalculator = () => {
         detail: { rateId }
       });
       document.dispatchEvent(customEvent);
+      
+      // Show success toast
+      toast.success(`Selected "${rate.carrier.toUpperCase()} ${rate.service}"`);
     }, 300);
   };
 
