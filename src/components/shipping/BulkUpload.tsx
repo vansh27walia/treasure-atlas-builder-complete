@@ -193,7 +193,7 @@ const BulkUpload: React.FC = () => {
         open={showLabelOptions}
         onOpenChange={setShowLabelOptions}
         onFormatSelect={handleDownloadLabelsWithFormat}
-        onEmailLabels={(email: string) => handleEmailLabels(email)}
+        onEmailLabels={handleEmailLabels}
         shipmentCount={results?.processedShipments.length || 0}
       />
     </Card>

@@ -59,7 +59,7 @@ const ShippingRates: React.FC = () => {
     if (selectedRateId && rates.length > 0) {
       const selectedRate = rates.find(rate => rate.id === selectedRateId);
       if (selectedRate) {
-        // Construct basic shipment details
+        // Construct basic shipment details with null checks for parcel property
         setShipmentDetails({
           fromAddress: "Your shipping address",
           toAddress: "Recipient address",
