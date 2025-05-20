@@ -5,13 +5,13 @@ import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { 
   Sidebar, 
-  SidebarContent,
+  SidebarContent as ShadcnSidebarContent,
   SidebarProvider, 
   SidebarTrigger, 
   SidebarHeader,
   useSidebar
 } from '@/components/ui/sidebar';
-import SidebarContent from './sidebar/SidebarContent';
+import CustomSidebarContent from './sidebar/SidebarContent';
 
 interface SidebarNavigationProps {
   children: React.ReactNode;
@@ -19,6 +19,7 @@ interface SidebarNavigationProps {
 
 const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
   const isMobile = useIsMobile();
+  const sidebarState = useSidebar();
   
   return (
     <SidebarProvider defaultOpen={!isMobile}>
@@ -28,9 +29,9 @@ const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
           <SidebarHeader className="flex items-center justify-between p-4">
             <SidebarTrigger />
           </SidebarHeader>
-          <SidebarContent>
-            <SidebarContent collapsed={useSidebar().state === "collapsed"} />
-          </SidebarContent>
+          <ShadcnSidebarContent>
+            <CustomSidebarContent collapsed={sidebarState.state === "collapsed"} />
+          </ShadcnSidebarContent>
         </Sidebar>
         
         {/* Main Content */}
