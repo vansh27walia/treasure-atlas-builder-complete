@@ -1,12 +1,7 @@
 
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-interface FailedShipment {
-  row: number;
-  error: string;
-  details: string;
-}
+import { FailedShipment } from '@/types/shipping';
 
 interface FailedShipmentsTableProps {
   shipments: FailedShipment[];
@@ -38,7 +33,9 @@ const FailedShipmentsTable: React.FC<FailedShipmentsTableProps> = ({
                     {shipment.error}
                   </span>
                 </TableCell>
-                <TableCell>{shipment.details}</TableCell>
+                <TableCell>
+                  {shipment.details.name}, {shipment.details.street1}, {shipment.details.city}, {shipment.details.state}
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>

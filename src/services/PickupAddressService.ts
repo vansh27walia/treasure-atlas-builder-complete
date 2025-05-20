@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface PickupAddress {
@@ -42,6 +41,13 @@ export class PickupAddressService {
       console.error('Error fetching saved addresses:', error);
       return [];
     }
+  }
+  
+  /**
+   * Alias for getSavedAddresses to maintain compatibility
+   */
+  public async getAddresses(): Promise<PickupAddress[]> {
+    return this.getSavedAddresses();
   }
   
   /**
