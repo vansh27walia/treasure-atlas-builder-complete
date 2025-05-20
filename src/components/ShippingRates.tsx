@@ -9,10 +9,11 @@ import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
-import { CreditCard, Loader, Download, Upload, Truck, Filter, ArrowRightCircle } from 'lucide-react';
+import { CreditCard, Loader, Download, Upload, Truck, Filter, ArrowRightCircle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PrintPreview from './shipping/PrintPreview';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const ShippingRates: React.FC = () => {
   const {
@@ -28,15 +29,19 @@ const ShippingRates: React.FC = () => {
     fastestRateId,
     uniqueCarriers,
     activeCarrierFilter,
+    labelError,
+    selectedLabelFormat,
+    selectedFileType,
     handleSelectRate,
     handleCreateLabel,
     handleProceedToPayment,
-    handleFilterByCarrier
+    handleFilterByCarrier,
+    setLabelFormat,
+    setFileType
   } = useShippingRates();
   
   const { aiRecommendation, isAiLoading, selectRateAndProceed, updateLabelFormat } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
-  const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
   const [shipmentDetails, setShipmentDetails] = useState<{ 
     fromAddress: string; 
     toAddress: string; 
@@ -75,13 +80,16 @@ const ShippingRates: React.FC = () => {
   }, [selectedRateId, rates]);
   
   // Function to handle label format changes
-  const handleLabelFormatChange = async (format: string): Promise<void> => {
-    setSelectedLabelFormat(format);
+  const handleLabelFormatChange = async (format: string, fileType?: string): Promise<void> => {
+    setLabelFormat(format);
+    if (fileType) {
+      setFileType(fileType as 'pdf' | 'png');
+    }
     
     if (updateLabelFormat) {
       try {
-        console.log("Regenerating label with new format:", format);
-        await updateLabelFormat(format);
+        console.log("Regenerating label with new format:", format, "and file type:", fileType);
+        await updateLabelFormat(format, fileType);
       } catch (error) {
         console.error("Error updating label format:", error);
         toast.error("Failed to update label format");
@@ -89,10 +97,11 @@ const ShippingRates: React.FC = () => {
       }
     } else if (selectedRateId && shipmentId && labelUrl) {
       try {
-        console.log("Using fallback method to regenerate label with format:", format);
+        console.log("Using fallback method to regenerate label with format:", format, "and file type:", fileType);
         await handleCreateLabel(selectedRateId, shipmentId, {
           label_format: "PDF",
-          label_size: format
+          label_size: format,
+          file_type: fileType || selectedFileType
         });
       } catch (error) {
         console.error("Error updating label format:", error);
@@ -194,11 +203,20 @@ const ShippingRates: React.FC = () => {
               <PrintPreview 
                 labelUrl={labelUrl} 
                 trackingCode={trackingCode} 
-                shipmentId={shipmentId}
+                shipmentId={shipmentId || undefined}
                 shipmentDetails={shipmentDetails}
                 onFormatChange={handleLabelFormatChange}
               />
             </div>
+          )}
+          
+          {labelError && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {labelError}
+              </AlertDescription>
+            </Alert>
           )}
           
           {!labelUrl ? (
@@ -266,7 +284,8 @@ const ShippingRates: React.FC = () => {
                     // Set up label options based on selected format
                     const labelOptions = {
                       label_format: "PDF",
-                      label_size: selectedLabelFormat
+                      label_size: selectedLabelFormat,
+                      file_type: selectedFileType
                     };
                     
                     // Call handleCreateLabel with the selected format

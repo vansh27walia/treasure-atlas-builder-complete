@@ -35,6 +35,7 @@ interface AIRecommendation {
 interface LabelFormatOptions {
   label_format?: string;
   label_size?: string;
+  file_type?: string;
 }
 
 const useRateCalculator = () => {
@@ -50,6 +51,8 @@ const useRateCalculator = () => {
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [activeShipmentId, setActiveShipmentId] = useState<string | null>(null);
+  const [selectedLabelFormat, setSelectedLabelFormat] = useState<string>('4x6');
+  const [selectedFileType, setSelectedFileType] = useState<string>('pdf');
 
   // Function to fetch shipping rates
   const fetchRates = async (requestData: RateRequestData) => {
@@ -189,7 +192,8 @@ const useRateCalculator = () => {
           shipmentId,
           options: {
             label_format: options.label_format || "PDF",
-            label_size: options.label_size || "4x6"
+            label_size: options.label_size || selectedLabelFormat || "4x6",
+            file_type: options.file_type || selectedFileType || "pdf"
           }
         }
       });
@@ -244,10 +248,16 @@ const useRateCalculator = () => {
   };
 
   // Function to update label format
-  const updateLabelFormat = async (format: string): Promise<void> => {
+  const updateLabelFormat = async (format: string, fileType?: string): Promise<void> => {
     if (!activeShipmentId || !rates || rates.length === 0) {
       toast.error("No active shipment available");
       return Promise.reject("No active shipment");
+    }
+    
+    // Store the selected format and file type
+    setSelectedLabelFormat(format);
+    if (fileType) {
+      setSelectedFileType(fileType);
     }
     
     // Find the selected rate ID
@@ -262,7 +272,8 @@ const useRateCalculator = () => {
       // Generate a new label with the updated format
       const result = await createShippingLabel(selectedRateId, activeShipmentId, {
         label_format: "PDF",
-        label_size: format
+        label_size: format,
+        file_type: fileType || selectedFileType
       });
       
       return Promise.resolve();
@@ -283,7 +294,9 @@ const useRateCalculator = () => {
     labelUrl,
     trackingCode,
     shipmentId: activeShipmentId,
-    updateLabelFormat
+    updateLabelFormat,
+    selectedLabelFormat,
+    selectedFileType
   };
 };
 
