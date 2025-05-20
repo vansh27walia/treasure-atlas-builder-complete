@@ -32,6 +32,3 @@ verify_jwt = false
 [functions.get-google-api-key]
 verify_jwt = false
 
-[functions.create-address]
-verify_jwt = false
-

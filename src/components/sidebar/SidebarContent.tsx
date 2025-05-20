@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { useLocation } from 'react-router-dom';
 import { 
   Home, Package, CreditCard, Settings, ShoppingBag, Truck, MapPin, 
   BarChart3, Globe, HelpCircle, Tag, Upload, Calculator, Clock, Search
@@ -16,8 +15,6 @@ interface SidebarContentProps {
 }
 
 const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
-  const location = useLocation();
-  
   return (
     <div className="flex flex-col flex-1 overflow-y-auto py-4">
       {/* User Profile */}
@@ -29,7 +26,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
           <SidebarNavItem
             icon={<Home size={18} />}
             title="Dashboard"
-            to="/dashboard"
+            to="/"
             collapsed={collapsed}
           />
           <SidebarNavItem
@@ -47,7 +44,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
           <SidebarNavItem
             icon={<Globe size={18} />}
             title="International"
-            to="/international-shipping"
+            to="/international"
             collapsed={collapsed}
           />
           <SidebarNavItem

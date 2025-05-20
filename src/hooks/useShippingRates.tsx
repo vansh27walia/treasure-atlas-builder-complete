@@ -1,8 +1,24 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
-import { ShippingRate } from '@/types/shipping';
+
+interface ShippingRate {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: string;
+  currency: string;
+  delivery_days: number;
+  delivery_date: string;
+  list_rate?: string;
+  retail_rate?: string;
+  est_delivery_days?: number;
+  shipment_id?: string; 
+  original_rate?: string;
+  isPremium?: boolean;
+}
 
 interface LabelOptions {
   label_format?: string;
@@ -68,16 +84,11 @@ export const useShippingRates = () => {
         console.log("Rates received:", event.detail.rates);
         console.log("Shipment ID received:", event.detail.shipmentId);
         
-        // Ensure all rates are strings and add shipmentId to each rate
-        const normalizedRates = event.detail.rates.map(rate => ({
+        // Add shipmentId to each rate object and process rates
+        const processedRates = processRates(event.detail.rates).map(rate => ({
           ...rate,
-          rate: typeof rate.rate === 'number' ? String(rate.rate) : rate.rate,
-          currency: rate.currency || 'USD', // Add default currency if missing
           shipment_id: event.detail.shipmentId
         }));
-        
-        // Add shipmentId to each rate object and process rates
-        const processedRates = processRates(normalizedRates);
         
         setRates(processedRates);
         setFilteredRates(processedRates);

@@ -4,7 +4,7 @@ import { Check } from 'lucide-react';
 import OrderSummary from './OrderSummary';
 import SuccessfulShipmentsTable from './SuccessfulShipmentsTable';
 import FailedShipmentsTable from './FailedShipmentsTable';
-import { BulkUploadResult, BulkShipment, FailedShipment } from '@/types/shipping';
+import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;

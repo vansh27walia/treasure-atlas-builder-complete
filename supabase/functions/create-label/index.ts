@@ -82,20 +82,15 @@ serve(async (req) => {
     }
 
     // Create request body for EasyPost with label format options
-    const buyOptions: any = {
+    const buyOptions = {
       rate: { id: rateId }
     };
     
     // If label format and size are specified, add them to the request
-    if (options.label_format) {
-      buyOptions.label_format = options.label_format;
+    if (options.label_format || options.label_size) {
+      buyOptions.label_format = options.label_format || "PDF";
+      buyOptions.label_size = options.label_size || "4x6";
     }
-    
-    if (options.label_size) {
-      buyOptions.label_size = options.label_size;
-    }
-    
-    console.log("Buy options:", buyOptions);
 
     // Buy the label with EasyPost API
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
@@ -315,9 +310,11 @@ serve(async (req) => {
           delivery_days: data.selected_rate?.delivery_days || null,
           charged_rate: data.selected_rate?.rate || null,
           easypost_rate: data.selected_rate?.rate || null,
-          currency: data.selected_rate?.currency || 'USD',
-          label_format: options.label_format || "PDF",
-          label_size: options.label_size || "4x6"
+          currency: data.selected_rate?.currency || 'USD'
+          // The following fields may not be available in the DB schema yet
+          // label_format: options.label_format || "PDF",
+          // label_size: options.label_size || "4x6",
+          // created_at: new Date().toISOString()
         });
         
       if (dbError) {
@@ -335,15 +332,13 @@ serve(async (req) => {
         labelUrl: signedURLData.signedUrl || labelURL, // Fall back to EasyPost URL if needed
         trackingCode: data.tracking_code,
         shipmentId: data.id,
-        label_format: options.label_format || "PDF",
-        label_size: options.label_size || "4x6"
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error in create-label function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

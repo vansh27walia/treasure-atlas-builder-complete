@@ -1,162 +1,130 @@
 
-import { useState, useCallback, useRef } from 'react';
-import { BulkUploadResult, BulkShipment } from '@/types/shipping';
-import Papa from 'papaparse';
+import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
-import { pickupAddressService } from '@/services/PickupAddressService';
+import { BulkShipment, BulkUploadResult } from '@/types/shipping';
+
+// Helper function to validate and normalize status values
+const normalizeStatus = (status: string): 'pending' | 'processing' | 'error' | 'completed' => {
+  if (status === 'pending' || status === 'processing' || status === 'error' || status === 'completed') {
+    return status;
+  }
+  // Map other potential statuses to one of our allowed values
+  if (status === 'created') return 'pending';
+  if (status === 'success') return 'completed';
+  if (status === 'failed') return 'error';
+  // Default fallback
+  return 'pending';
+};
 
 export const useShipmentUpload = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'editing' | 'success' | 'error'>('idle');
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'editing'>('idle');
   const [results, setResults] = useState<BulkUploadResult | null>(null);
   const [progress, setProgress] = useState(0);
-  const abortController = useRef(new AbortController());
 
-  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0] || null;
-    setFile(selectedFile);
-  }, []);
-
-  const parseCSV = useCallback((csvFile: File): Promise<BulkShipment[]> => {
-    return new Promise((resolve, reject) => {
-      Papa.parse(csvFile, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          try {
-            const shipments: BulkShipment[] = results.data.map((row: any, index) => {
-              // Validate required fields
-              if (!row.name || !row.street1 || !row.city || !row.state || !row.zip || !row.country) {
-                throw new Error(`Row ${index + 1} is missing required address fields`);
-              }
-
-              return {
-                id: `shipment-${index}`,
-                row: index + 1,
-                recipient: row.name,
-                details: {
-                  name: row.name,
-                  company: row.company || '',
-                  street1: row.street1,
-                  street2: row.street2 || '',
-                  city: row.city,
-                  state: row.state,
-                  zip: row.zip,
-                  country: row.country,
-                  phone: row.phone || '',
-                  parcel_length: parseFloat(row.parcel_length) || undefined,
-                  parcel_width: parseFloat(row.parcel_width) || undefined,
-                  parcel_height: parseFloat(row.parcel_height) || undefined,
-                  parcel_weight: parseFloat(row.parcel_weight) || undefined,
-                },
-                toAddress: {
-                  name: row.name,
-                  company: row.company || '',
-                  street1: row.street1,
-                  street2: row.street2 || '',
-                  city: row.city,
-                  state: row.state,
-                  zip: row.zip,
-                  country: row.country,
-                  phone: row.phone || '',
-                },
-                parcel: {
-                  length: parseFloat(row.parcel_length) || 10,
-                  width: parseFloat(row.parcel_width) || 8,
-                  height: parseFloat(row.parcel_height) || 2,
-                  weight: parseFloat(row.parcel_weight) || 16,
-                },
-                availableRates: [],
-                selectedRateId: null,
-                status: 'pending'
-              };
-            });
-
-            resolve(shipments);
-          } catch (error) {
-            reject(error);
-          }
-        },
-        error: (error) => {
-          reject(error);
-        }
-      });
-    });
-  }, []);
-
-  const processUpload = useCallback(async (csvFile: File) => {
-    try {
-      setIsUploading(true);
-      setUploadStatus('uploading');
-      setProgress(10);
-
-      // Get default from address
-      const defaultAddress = await pickupAddressService.getDefaultAddress();
-      if (!defaultAddress) {
-        toast.error("No default pickup address found. Please set a default address in Settings.");
-        setIsUploading(false);
-        setUploadStatus('idle');
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      
+      // Check if it's a CSV file
+      if (selectedFile.type !== 'text/csv' && !selectedFile.name.endsWith('.csv')) {
+        toast.error('Please upload a CSV file');
         return;
       }
       
-      const fromAddress = {
-        name: defaultAddress.name,
-        company: defaultAddress.company || '',
-        street1: defaultAddress.street1,
-        street2: defaultAddress.street2 || '',
-        city: defaultAddress.city,
-        state: defaultAddress.state,
-        zip: defaultAddress.zip,
-        country: defaultAddress.country,
-        phone: defaultAddress.phone || '',
-      };
-      
-      setProgress(30);
-      
-      // Parse the CSV file
-      const shipments = await parseCSV(csvFile);
-      setProgress(60);
-      
-      // Create the result object
-      const uploadResult: BulkUploadResult = {
-        uploadStatus: 'editing',
-        successful: shipments.length,
-        failed: 0,
-        total: shipments.length,
-        processedShipments: shipments.map(s => ({ ...s, fromAddress })),
-        failedShipments: [],
-        totalCost: 0,
-      };
-      
-      setProgress(100);
-      setResults(uploadResult);
-      setUploadStatus('editing');
-    } catch (error) {
-      console.error('Error processing upload:', error);
-      toast.error(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setUploadStatus('error');
-    } finally {
-      setIsUploading(false);
+      setFile(selectedFile);
+      setUploadStatus('idle');
+      setResults(null);
+      setProgress(0);
     }
-  }, [parseCSV]);
+  };
 
-  const handleUpload = useCallback(async () => {
+  const handleUpload = async (file: File): Promise<void> => {
     if (!file) {
       toast.error('Please select a file to upload');
       return;
     }
 
-    // Validate file type
-    if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
-      toast.error('Please upload a CSV file');
-      return;
+    setIsUploading(true);
+    setUploadStatus('idle');
+    setProgress(10); // Start progress
+
+    try {
+      // Read the file
+      const text = await file.text();
+      setProgress(20); // File read
+      
+      // Validate CSV structure
+      const rows = text.split('\n');
+      if (rows.length < 2) {
+        throw new Error('CSV file must have at least a header row and one data row');
+      }
+      
+      // Check CSV headers
+      const headers = rows[0].toLowerCase().split(',');
+      const requiredFields = ['name', 'street1', 'city', 'state', 'zip', 'country'];
+      const missingFields = requiredFields.filter(field => !headers.includes(field));
+      
+      if (missingFields.length > 0) {
+        throw new Error(`CSV is missing required fields: ${missingFields.join(', ')}`);
+      }
+      
+      setProgress(30); // File validated
+
+      // Process file and generate labels via the API
+      const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
+        body: { 
+          csvContent: text,
+          origin: {
+            name: "Shipping Company",
+            street1: "123 Main St",
+            city: "San Francisco",
+            state: "CA",
+            zip: "94111",
+            country: "US",
+            phone: "555-555-5555"
+          }
+        }
+      });
+
+      if (error) throw new Error(error.message);
+
+      setProgress(90); // Processing complete
+      
+      // Initialize the shipments with empty available rates and properly typed status
+      const processedShipments: BulkShipment[] = data.processedShipments.map((shipment: any) => ({
+        ...shipment,
+        availableRates: [],
+        status: normalizeStatus(shipment.status || 'pending')
+      }));
+
+      const resultData = {
+        total: data.total,
+        successful: data.successful,
+        failed: data.failed,
+        totalCost: data.totalCost,
+        processedShipments,
+        failedShipments: data.failedShipments || []
+      };
+      
+      setResults(resultData);
+      setUploadStatus('editing');
+      setProgress(100);
+      
+      toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments. Ready for carrier selection.`);
+    } catch (error) {
+      console.error('Bulk upload error:', error);
+      setUploadStatus('error');
+      setProgress(0);
+      toast.error(`Failed to process the uploaded file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsUploading(false);
     }
+  };
 
-    await processUpload(file);
-  }, [file, processUpload]);
-
-  const handleDownloadTemplate = useCallback(() => {
+  const handleDownloadTemplate = () => {
     const csvContent = 'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight\nJohn Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16';
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -167,15 +135,9 @@ export const useShipmentUpload = () => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-  }, []);
-
-  const cancelUpload = useCallback(() => {
-    abortController.current.abort();
-    abortController.current = new AbortController();
-    setIsUploading(false);
-    setUploadStatus('idle');
-    setProgress(0);
-  }, []);
+    
+    toast.success('Template downloaded successfully');
+  };
 
   return {
     file,
@@ -187,7 +149,6 @@ export const useShipmentUpload = () => {
     setUploadStatus,
     handleFileChange,
     handleUpload,
-    cancelUpload,
     handleDownloadTemplate
   };
 };

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
-import { CreditCard, Loader, Download, Upload, Truck, Filter, ArrowRightCircle } from 'lucide-react';
+import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PrintPreview from './shipping/PrintPreview';
@@ -33,7 +34,7 @@ const ShippingRates: React.FC = () => {
     handleFilterByCarrier
   } = useShippingRates();
   
-  const { aiRecommendation, isAiLoading, selectRateAndProceed, updateLabelFormat } = useRateCalculator();
+  const { aiRecommendation, isAiLoading } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
   const [shipmentDetails, setShipmentDetails] = useState<{ 
@@ -45,27 +46,16 @@ const ShippingRates: React.FC = () => {
     carrier: string; 
   } | undefined>();
   
-  // Determine if we're in calculator mode based on the URL
-  const [isCalculatorMode, setIsCalculatorMode] = useState(false);
-  
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    setIsCalculatorMode(url.searchParams.get('tab') === 'calculator');
-  }, []);
-  
   // Update shipment details when a rate is selected
   useEffect(() => {
     if (selectedRateId && rates.length > 0) {
       const selectedRate = rates.find(rate => rate.id === selectedRateId);
       if (selectedRate) {
-        // Construct basic shipment details with null checks for parcel property
+        // Construct basic shipment details
         setShipmentDetails({
           fromAddress: "Your shipping address",
           toAddress: "Recipient address",
-          weight: selectedRate.parcel ? `${selectedRate.parcel.weight || 'Unknown'} oz` : 'Unknown',
-          dimensions: selectedRate.parcel ? 
-            `${selectedRate.parcel.length || 0}" x ${selectedRate.parcel.width || 0}" x ${selectedRate.parcel.height || 0}"` : 
-            'Unknown dimensions',
+          weight: "Package weight",
           service: selectedRate.service,
           carrier: selectedRate.carrier.toUpperCase(),
         });
@@ -77,18 +67,9 @@ const ShippingRates: React.FC = () => {
   const handleLabelFormatChange = async (format: string): Promise<void> => {
     setSelectedLabelFormat(format);
     
-    if (updateLabelFormat) {
+    if (selectedRateId && shipmentId && labelUrl) {
       try {
         console.log("Regenerating label with new format:", format);
-        await updateLabelFormat(format);
-      } catch (error) {
-        console.error("Error updating label format:", error);
-        toast.error("Failed to update label format");
-        throw error;
-      }
-    } else if (selectedRateId && shipmentId && labelUrl) {
-      try {
-        console.log("Using fallback method to regenerate label with format:", format);
         await handleCreateLabel(selectedRateId, shipmentId, {
           label_format: "PDF",
           label_size: format
@@ -100,7 +81,7 @@ const ShippingRates: React.FC = () => {
       }
     }
   };
-
+  
   // Show empty state if no rates available
   if (rates.length === 0) {
     return (
@@ -219,7 +200,7 @@ const ShippingRates: React.FC = () => {
                       key={rate.id}
                       rate={rate}
                       isSelected={selectedRateId === rate.id}
-                      onSelect={isCalculatorMode ? selectRateAndProceed : handleSelectRate}
+                      onSelect={handleSelectRate}
                       isBestValue={rate.id === bestValueRateId}
                       isFastest={rate.id === fastestRateId}
                       aiRecommendation={aiRecommendation && {
@@ -229,7 +210,6 @@ const ShippingRates: React.FC = () => {
                       showDiscount={true}
                       originalRate={rate.original_rate}
                       isPremium={false}
-                      data-rate-id={rate.id}
                     />
                   ))}
                 </div>
@@ -249,17 +229,6 @@ const ShippingRates: React.FC = () => {
               </div>
               
               <div className="mt-8 flex flex-wrap justify-end gap-4">
-                {/* Show "Use Selected Rate" button when in calculator mode */}
-                {isCalculatorMode && selectedRateId && (
-                  <Button 
-                    onClick={() => selectRateAndProceed(selectedRateId)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 px-6 py-2 h-12 text-base"
-                  >
-                    <ArrowRightCircle className="h-5 w-5" />
-                    Use Selected Rate
-                  </Button>
-                )}
-                
                 <Button 
                   onClick={() => {
                     // Set up label options based on selected format
@@ -269,7 +238,7 @@ const ShippingRates: React.FC = () => {
                     };
                     
                     // Call handleCreateLabel with the selected format
-                    handleCreateLabel(selectedRateId, shipmentId, labelOptions);
+                    handleCreateLabel(undefined, undefined, labelOptions);
                   }}
                   disabled={!selectedRateId || isLoading}
                   className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-6 py-2 h-12 text-base"
@@ -308,22 +277,14 @@ const ShippingRates: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="mt-4">
-              <ShippingLabel 
-                labelUrl={labelUrl} 
-                trackingCode={trackingCode} 
-                shipmentId={shipmentId}
-                onFormatChange={handleLabelFormatChange}
-              />
-              <div className="mt-4 flex justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => document.dispatchEvent(new Event('shipping-form-completed'))}
-                  className="border-blue-200 hover:bg-blue-50"
-                >
-                  Ship Another Package
-                </Button>
-              </div>
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => document.dispatchEvent(new Event('shipping-form-completed'))}
+                className="border-blue-200 hover:bg-blue-50"
+              >
+                Ship Another Package
+              </Button>
             </div>
           )}
           
