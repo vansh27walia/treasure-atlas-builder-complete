@@ -143,7 +143,7 @@ export const useShipmentRates = (
           return {
             ...shipment,
             availableRates: rates.sort((a, b) => Number(a.rate) - Number(b.rate)),
-            status: 'pending'
+            status: 'pending' as const
           };
         }
         return shipment;
