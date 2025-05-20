@@ -25,7 +25,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels,
 }) => {
-  const successCount = results.processedShipments.filter(s => s.status === 'success').length;
+  const successCount = results.processedShipments.filter(s => s.status === 'completed').length;
   const pendingCount = results.processedShipments.filter(s => s.status === 'pending').length;
 
   return (
@@ -47,7 +47,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-blue-50 p-4 rounded-lg">
             <p className="text-sm text-blue-700">Total Shipments</p>
-            <p className="text-2xl font-semibold">{results.totalShipments}</p>
+            <p className="text-2xl font-semibold">{results.total}</p>
           </div>
           
           <div className="bg-green-50 p-4 rounded-lg">
@@ -137,23 +137,23 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 </thead>
                 <tbody>
                   {results.processedShipments
-                    .filter(shipment => shipment.status === 'success' && shipment.trackingCode)
+                    .filter(shipment => shipment.status === 'completed' && shipment.tracking_code)
                     .map((shipment, index) => (
                       <tr key={index} className="border-b">
-                        <td className="py-2 px-4 text-sm font-mono">{shipment.trackingCode}</td>
+                        <td className="py-2 px-4 text-sm font-mono">{shipment.tracking_code}</td>
                         <td className="py-2 px-4 text-sm">
-                          {shipment.toAddress?.city}, {shipment.toAddress?.state} {shipment.toAddress?.zip}
+                          {shipment.details?.city}, {shipment.details?.state} {shipment.details?.zip}
                         </td>
-                        <td className="py-2 px-4 text-sm">{shipment.selectedRate?.carrier.toUpperCase()}</td>
-                        <td className="py-2 px-4 text-sm">{shipment.selectedRate?.service}</td>
-                        <td className="py-2 px-4 text-right text-sm">${parseFloat(shipment.selectedRate?.rate || '0').toFixed(2)}</td>
+                        <td className="py-2 px-4 text-sm">{shipment.carrier.toUpperCase()}</td>
+                        <td className="py-2 px-4 text-sm">{shipment.service}</td>
+                        <td className="py-2 px-4 text-right text-sm">${parseFloat(shipment.rate.toString()).toFixed(2)}</td>
                         <td className="py-2 px-4 text-right">
                           <Button 
                             variant="ghost" 
                             className="text-blue-600 hover:text-blue-800" 
                             size="sm"
-                            onClick={() => shipment.shipmentId && shipment.trackingCode && 
-                              onDownloadSingleLabel(shipment.shipmentId, shipment.trackingCode)
+                            onClick={() => shipment.id && shipment.tracking_code && 
+                              onDownloadSingleLabel(shipment.id, shipment.tracking_code)
                             }
                           >
                             <Download className="h-4 w-4" />
