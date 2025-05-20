@@ -18,7 +18,7 @@ interface ShippingRate {
   shipment_id?: string; 
   original_rate?: string;
   isPremium?: boolean;
-  // Add the parcel property to fix the TypeScript error
+  // Include parcel data in shipping rates
   parcel?: {
     weight: number;
     length: number;
@@ -357,6 +357,37 @@ export const useShippingRates = () => {
     setSelectedFileType(type);
   };
 
+  // Function to get a label archive (zip file with all formats)
+  const getLabelArchive = async (): Promise<string | null> => {
+    if (!shipmentId) {
+      toast.error("No active shipment available");
+      return null;
+    }
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('create-label-archive', {
+        body: { 
+          shipmentId,
+          formats: ['pdf', 'png', 'zpl'],
+        }
+      });
+      
+      if (error) {
+        throw new Error(`Error creating label archive: ${error.message}`);
+      }
+      
+      if (!data?.archiveUrl) {
+        throw new Error("No archive URL received");
+      }
+      
+      return data.archiveUrl;
+    } catch (error) {
+      console.error("Error creating label archive:", error);
+      toast.error("Failed to create label archive");
+      return null;
+    }
+  };
+
   const bestValueRateId = getBestValueRate();
   const fastestRateId = getFastestRate();
 
@@ -381,6 +412,7 @@ export const useShippingRates = () => {
     handleProceedToPayment,
     handleFilterByCarrier,
     setLabelFormat,
-    setFileType
+    setFileType,
+    getLabelArchive
   };
 };

@@ -53,6 +53,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   // Update currentLabelUrl when labelUrl prop changes
   useEffect(() => {
     setCurrentLabelUrl(labelUrl);
+    
+    // When we get a new label URL, try to determine the file type
+    const fileType = labelUrl?.toLowerCase().includes('.png') ? 'png' : 
+                    labelUrl?.toLowerCase().includes('.zpl') ? 'zpl' : 'pdf';
+    setSelectedFileType(fileType as 'pdf' | 'png' | 'zpl');
+    
   }, [labelUrl]);
   
   // Effect to fetch and cache the label as a blob when URL changes
@@ -121,28 +127,84 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const handleDirectDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    if (blobUrl) {
-      try {
-        console.log(`Starting direct download with blob URL:`, blobUrl);
-        
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = `shipping_label_${trackingCode || 'download'}.${format}`;
-        document.body.appendChild(link);
-        link.click();
-        
-        // Clean up
-        setTimeout(() => {
-          document.body.removeChild(link);
-          toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
-        }, 100);
-      } catch (error) {
-        console.error('Direct download error:', error);
-        toast.error('Failed to download directly');
+  const handleDirectDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+    if (!shipmentId) {
+      // Try direct download from blob URL if no shipmentId
+      if (blobUrl) {
+        downloadFromBlob(format);
+        return;
+      }
+      
+      tryFallbackDownload();
+      return;
+    }
+    
+    try {
+      setIsRegeneratingLabel(true);
+      toast.loading(`Preparing ${format.toUpperCase()} download...`);
+      
+      // If we have a shipmentId, use get-stored-label to get the label in the proper format
+      const { data, error } = await supabase.functions.invoke('get-stored-label', {
+        body: { 
+          shipment_id: shipmentId,
+          label_format: selectedFormat,
+          file_type: format
+        }
+      });
+      
+      if (error) {
+        throw new Error(`Error getting label: ${error.message}`);
+      }
+      
+      if (!data?.labelUrl) {
+        throw new Error("No label URL received");
+      }
+      
+      // Download the label
+      const downloadLink = document.createElement('a');
+      downloadLink.href = data.labelUrl;
+      downloadLink.download = `shipping_label_${trackingCode || 'download'}.${format}`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      
+      toast.dismiss();
+      toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
+      
+    } catch (error) {
+      console.error(`Error downloading ${format} label:`, error);
+      toast.dismiss();
+      toast.error(`Failed to download ${format.toUpperCase()} label`);
+      
+      // Try direct download as fallback
+      if (blobUrl) {
+        downloadFromBlob(format);
+      } else {
         tryFallbackDownload();
       }
-    } else {
+    } finally {
+      setIsRegeneratingLabel(false);
+    }
+  };
+  
+  const downloadFromBlob = (format: string) => {
+    try {
+      console.log(`Starting direct download with blob URL:`, blobUrl);
+      
+      const link = document.createElement('a');
+      link.href = blobUrl!;
+      link.download = `shipping_label_${trackingCode || 'download'}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+        toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
+      }, 100);
+    } catch (error) {
+      console.error('Direct download error:', error);
+      toast.error('Failed to download directly');
       tryFallbackDownload();
     }
   };
@@ -400,9 +462,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     </div>
                     
                     <Button 
-                      onClick={() => handleFormatChange(selectedFormat, 'pdf').then(() => handleDirectDownload('pdf'))} 
+                      onClick={() => handleDirectDownload('pdf')} 
                       className="w-full h-12 bg-blue-600 hover:bg-blue-700"
-                      disabled={isRegeneratingLabel || selectedFileType === 'pdf'}
+                      disabled={isRegeneratingLabel}
                     >
                       <Download className="mr-2 h-5 w-5" />
                       Download PDF File
@@ -419,9 +481,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     </div>
                     
                     <Button 
-                      onClick={() => handleFormatChange(selectedFormat, 'png').then(() => handleDirectDownload('png'))}
+                      onClick={() => handleDirectDownload('png')}
                       className="w-full h-12 bg-green-600 hover:bg-green-700"
-                      disabled={isRegeneratingLabel || selectedFileType === 'png'}
+                      disabled={isRegeneratingLabel}
                     >
                       <Download className="mr-2 h-5 w-5" />
                       Download PNG Image
@@ -493,40 +555,43 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="font-medium">From:</p>
-                  <p className="whitespace-pre-line">{shipmentDetails.fromAddress}</p>
+                  <p>{shipmentDetails.fromAddress}</p>
                 </div>
                 
                 <div>
                   <p className="font-medium">To:</p>
-                  <p className="whitespace-pre-line">{shipmentDetails.toAddress}</p>
-                </div>
-              </div>
-              
-              <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="font-medium">Service:</p>
-                  <p>{shipmentDetails.carrier} - {shipmentDetails.service}</p>
+                  <p>{shipmentDetails.toAddress}</p>
                 </div>
                 
                 <div>
                   <p className="font-medium">Weight:</p>
                   <p>{shipmentDetails.weight}</p>
                 </div>
+                
+                {shipmentDetails.dimensions && (
+                  <div>
+                    <p className="font-medium">Dimensions:</p>
+                    <p>{shipmentDetails.dimensions}</p>
+                  </div>
+                )}
+                
+                <div>
+                  <p className="font-medium">Service:</p>
+                  <p>{shipmentDetails.service}</p>
+                </div>
+                
+                <div>
+                  <p className="font-medium">Carrier:</p>
+                  <p>{shipmentDetails.carrier}</p>
+                </div>
+                
+                {trackingCode && (
+                  <div className="col-span-2">
+                    <p className="font-medium">Tracking Number:</p>
+                    <p className="font-mono">{trackingCode}</p>
+                  </div>
+                )}
               </div>
-              
-              {shipmentDetails.dimensions && (
-                <div className="mt-2 text-sm">
-                  <p className="font-medium">Dimensions:</p>
-                  <p>{shipmentDetails.dimensions}</p>
-                </div>
-              )}
-              
-              {trackingCode && (
-                <div className="mt-4 text-sm">
-                  <p className="font-medium">Tracking Number:</p>
-                  <p className="font-mono">{trackingCode}</p>
-                </div>
-              )}
             </div>
           )}
         </div>

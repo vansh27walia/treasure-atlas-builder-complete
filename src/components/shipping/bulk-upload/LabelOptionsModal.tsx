@@ -1,14 +1,22 @@
 
-import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import React, { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { FileText, Image, FileCode, Archive, Mail } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { InfoIcon, Download, MailIcon, Archive } from 'lucide-react';
 
 interface LabelOptionsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onFormatSelect: (format: 'pdf' | 'png' | 'zpl' | 'zip') => void;
+  onFormatSelect: (format: string, fileType: string) => void;
   onEmailLabels: () => void;
   shipmentCount: number;
 }
@@ -18,90 +26,112 @@ const LabelOptionsModal: React.FC<LabelOptionsModalProps> = ({
   onOpenChange,
   onFormatSelect,
   onEmailLabels,
-  shipmentCount
+  shipmentCount,
 }) => {
+  const [selectedFormat, setSelectedFormat] = useState('4x6');
+  const [selectedFileType, setSelectedFileType] = useState('pdf');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleDownload = async () => {
+    setIsSubmitting(true);
+    try {
+      await onFormatSelect(selectedFormat, selectedFileType);
+      onOpenChange(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Download Labels</DialogTitle>
+          <DialogTitle>Download Label Options</DialogTitle>
           <DialogDescription>
-            Select format and download options for {shipmentCount} shipping labels
+            Choose your preferred label format and file type.
           </DialogDescription>
         </DialogHeader>
         
-        <Tabs defaultValue="single" className="mt-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="single">Individual Labels</TabsTrigger>
-            <TabsTrigger value="bulk">Bulk Download</TabsTrigger>
-          </TabsList>
+        <div className="grid gap-6 py-4">
+          <Alert variant="default" className="bg-blue-50 border-blue-200">
+            <InfoIcon className="h-4 w-4 text-blue-700" />
+            <AlertDescription className="text-blue-700">
+              You are about to download {shipmentCount} {shipmentCount === 1 ? 'label' : 'labels'}.
+            </AlertDescription>
+          </Alert>
           
-          <TabsContent value="single" className="pt-4">
-            <div className="grid grid-cols-3 gap-4">
-              <Button 
-                variant="outline" 
-                className="flex flex-col h-auto py-4"
-                onClick={() => onFormatSelect('pdf')}
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="label-size" className="text-base font-medium">Label Size</Label>
+              <RadioGroup 
+                id="label-size" 
+                value={selectedFormat} 
+                onValueChange={setSelectedFormat}
+                className="grid grid-cols-1 gap-2 mt-2"
               >
-                <FileText className="h-8 w-8 mb-2" />
-                <span>PDF</span>
-              </Button>
-              
-              <Button
-                variant="outline"
-                className="flex flex-col h-auto py-4"
-                onClick={() => onFormatSelect('png')}
-              >
-                <Image className="h-8 w-8 mb-2" />
-                <span>PNG</span>
-              </Button>
-              
-              <Button
-                variant="outline"
-                className="flex flex-col h-auto py-4"
-                onClick={() => onFormatSelect('zpl')}
-              >
-                <FileCode className="h-8 w-8 mb-2" />
-                <span>ZPL</span>
-              </Button>
+                <div className="flex items-center space-x-2 rounded-md border p-3">
+                  <RadioGroupItem value="4x6" id="r1" />
+                  <Label htmlFor="r1" className="flex-grow">4x6" (Thermal Printer)</Label>
+                </div>
+                <div className="flex items-center space-x-2 rounded-md border p-3">
+                  <RadioGroupItem value="8.5x11-left" id="r2" />
+                  <Label htmlFor="r2" className="flex-grow">8.5x11" - 1 Label Left Side</Label>
+                </div>
+                <div className="flex items-center space-x-2 rounded-md border p-3">
+                  <RadioGroupItem value="8.5x11-right" id="r3" />
+                  <Label htmlFor="r3" className="flex-grow">8.5x11" - 1 Label Right Side</Label>
+                </div>
+                <div className="flex items-center space-x-2 rounded-md border p-3">
+                  <RadioGroupItem value="8.5x11-2up" id="r4" />
+                  <Label htmlFor="r4" className="flex-grow">8.5x11" - 2 Labels per Page</Label>
+                </div>
+              </RadioGroup>
             </div>
             
-            <p className="text-sm text-gray-500 mt-4">
-              Individual labels will open in new browser tabs
-            </p>
-          </TabsContent>
-          
-          <TabsContent value="bulk" className="pt-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Button
-                variant="outline"
-                className="flex flex-col h-auto py-4"
-                onClick={() => onFormatSelect('zip')}
+            <div>
+              <Label htmlFor="file-type" className="text-base font-medium">File Format</Label>
+              <RadioGroup 
+                id="file-type" 
+                value={selectedFileType} 
+                onValueChange={setSelectedFileType}
+                className="grid grid-cols-2 gap-2 mt-2"
               >
-                <Archive className="h-8 w-8 mb-2" />
-                <span>ZIP File</span>
-              </Button>
-              
-              <Button
-                variant="outline"
-                className="flex flex-col h-auto py-4"
-                onClick={onEmailLabels}
-              >
-                <Mail className="h-8 w-8 mb-2" />
-                <span>Email</span>
-              </Button>
+                <div className="flex items-center space-x-2 rounded-md border p-3">
+                  <RadioGroupItem value="pdf" id="f1" />
+                  <Label htmlFor="f1" className="flex-grow">PDF Document</Label>
+                </div>
+                <div className="flex items-center space-x-2 rounded-md border p-3">
+                  <RadioGroupItem value="png" id="f2" />
+                  <Label htmlFor="f2" className="flex-grow">PNG Image</Label>
+                </div>
+                <div className="flex items-center space-x-2 rounded-md border p-3 col-span-2">
+                  <RadioGroupItem value="zip" id="f3" />
+                  <Label htmlFor="f3" className="flex-grow">ZIP Archive (All Formats)</Label>
+                </div>
+              </RadioGroup>
             </div>
+          </div>
+          
+          <div className="flex flex-col gap-2 mt-4">
+            <Button 
+              onClick={handleDownload}
+              className="w-full" 
+              disabled={isSubmitting}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {isSubmitting ? 'Downloading...' : 'Download Labels'}
+            </Button>
             
-            <p className="text-sm text-gray-500 mt-4">
-              Bulk download options will package all labels together
-            </p>
-          </TabsContent>
-        </Tabs>
-        
-        <div className="flex justify-end mt-4">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
+            <Button 
+              variant="outline" 
+              onClick={onEmailLabels}
+              className="w-full"
+              disabled={isSubmitting}
+            >
+              <MailIcon className="mr-2 h-4 w-4" />
+              Email Labels
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

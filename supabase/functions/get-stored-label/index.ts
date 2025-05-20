@@ -41,11 +41,14 @@ serve(async (req) => {
       );
     }
 
+    console.log(`Fetching label for shipment ${shipment_id}, format: ${label_format}, type: ${file_type}`);
+
     // First, try to find the record in our database
     const { data: records, error: dbError } = await supabase
       .from('shipment_records')
       .select('*')
       .eq('shipment_id', shipment_id)
+      .eq('file_type', file_type)  // Match the requested file type
       .order('created_at', { ascending: false })
       .limit(1);
     
@@ -63,7 +66,8 @@ serve(async (req) => {
           labelUrl: records[0].label_url,
           trackingCode: records[0].tracking_code,
           shipmentId: records[0].shipment_id,
-          source: 'database'
+          source: 'database',
+          file_type: file_type
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -89,7 +93,7 @@ serve(async (req) => {
     });
     
     if (!shipmentResponse.ok) {
-      console.error('Error fetching shipment from EasyPost');
+      console.error('Error fetching shipment from EasyPost:', await shipmentResponse.text());
       return new Response(
         JSON.stringify({ error: 'Error fetching shipment from EasyPost' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
@@ -110,6 +114,9 @@ serve(async (req) => {
     const labelURL = shipmentData.postage_label.label_url;
     const trackingCode = shipmentData.tracking_code || 'unknown';
     
+    console.log(`Retrieved label URL from EasyPost: ${labelURL}`);
+    console.log(`Converting/downloading as ${file_type}`);
+    
     // Download the label from EasyPost
     const labelResponse = await fetch(labelURL);
     
@@ -128,6 +135,20 @@ serve(async (req) => {
     
     // Generate a unique filename for the label
     const fileName = `label_${shipment_id}_${file_type}_${Date.now()}.${file_type}`;
+    
+    // Ensure the bucket exists
+    try {
+      const { data: buckets } = await supabase.storage.listBuckets();
+      if (!buckets?.some(b => b.name === 'shipping-labels')) {
+        await supabase.storage.createBucket('shipping-labels', {
+          public: true
+        });
+        console.log('Created shipping-labels bucket');
+      }
+    } catch (error) {
+      console.error('Error checking/creating bucket:', error);
+      // Continue anyway as bucket might already exist
+    }
     
     // Upload to Supabase storage
     const { data: uploadData, error: uploadError } = await supabase
@@ -151,7 +172,8 @@ serve(async (req) => {
           labelUrl: labelURL,
           trackingCode,
           shipmentId: shipment_id,
-          source: 'easypost'
+          source: 'easypost',
+          file_type: file_type
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -172,7 +194,8 @@ serve(async (req) => {
           labelUrl: labelURL,
           trackingCode,
           shipmentId: shipment_id,
-          source: 'easypost'
+          source: 'easypost',
+          file_type: file_type
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -200,7 +223,8 @@ serve(async (req) => {
         labelUrl: urlData.signedUrl,
         trackingCode,
         shipmentId: shipment_id,
-        source: 'regenerated'
+        source: 'regenerated',
+        file_type: file_type
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

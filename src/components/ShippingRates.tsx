@@ -37,7 +37,8 @@ const ShippingRates: React.FC = () => {
     handleProceedToPayment,
     handleFilterByCarrier,
     setLabelFormat,
-    setFileType
+    setFileType,
+    getLabelArchive
   } = useShippingRates();
   
   const { aiRecommendation, isAiLoading, selectRateAndProceed, updateLabelFormat } = useRateCalculator();
@@ -108,6 +109,41 @@ const ShippingRates: React.FC = () => {
         toast.error("Failed to update label format");
         throw error;
       }
+    }
+  };
+  
+  // Function to download ZIP archive
+  const handleDownloadZip = async () => {
+    if (!shipmentId) {
+      toast.error("No active shipment available");
+      return;
+    }
+    
+    try {
+      toast.loading('Generating ZIP archive of all label formats...');
+      const archiveUrl = await getLabelArchive();
+      
+      if (!archiveUrl) {
+        throw new Error("Failed to generate ZIP archive");
+      }
+      
+      // Download the archive
+      const link = document.createElement('a');
+      link.href = archiveUrl;
+      link.download = `shipping_labels_${trackingCode || shipmentId}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+        toast.dismiss();
+        toast.success(`ZIP archive downloaded successfully`);
+      }, 100);
+    } catch (error) {
+      console.error("Error downloading ZIP archive:", error);
+      toast.dismiss();
+      toast.error("Failed to download ZIP archive");
     }
   };
 
@@ -335,7 +371,16 @@ const ShippingRates: React.FC = () => {
                 shipmentId={shipmentId}
                 onFormatChange={handleLabelFormatChange}
               />
-              <div className="mt-4 flex justify-end">
+              
+              <div className="mt-4 flex justify-between">
+                <Button
+                  variant="outline"
+                  onClick={handleDownloadZip}
+                  className="border-amber-200 hover:bg-amber-50 text-amber-800"
+                >
+                  Download All Formats (ZIP)
+                </Button>
+                
                 <Button
                   variant="outline"
                   onClick={() => document.dispatchEvent(new Event('shipping-form-completed'))}
