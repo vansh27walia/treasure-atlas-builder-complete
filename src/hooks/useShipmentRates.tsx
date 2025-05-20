@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { BulkUploadResult, ShippingRate } from '@/types/shipping';
 
@@ -39,10 +38,11 @@ export const useShipmentRates = (
             }
 
             const rates = await response.json();
-            // Ensure each rate has a string rate value
+            // Ensure each rate has a string rate value and a default currency
             const normalizedRates = rates.map(rate => ({
               ...rate,
-              rate: typeof rate.rate === 'number' ? String(rate.rate) : rate.rate
+              rate: typeof rate.rate === 'number' ? String(rate.rate) : rate.rate,
+              currency: rate.currency || 'USD' // Add default currency if missing
             }));
             
             return {
@@ -144,10 +144,11 @@ export const useShipmentRates = (
       }
 
       const rates = await response.json();
-      // Ensure each rate has a string rate value
+      // Ensure each rate has a string rate value and a default currency
       const normalizedRates = rates.map(rate => ({
         ...rate,
-        rate: typeof rate.rate === 'number' ? String(rate.rate) : rate.rate
+        rate: typeof rate.rate === 'number' ? String(rate.rate) : rate.rate,
+        currency: rate.currency || 'USD' // Add default currency if missing
       }));
       
       const updatedShipments = results.processedShipments.map(shipment => {

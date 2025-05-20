@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -73,6 +72,7 @@ export const useShippingRates = () => {
         const normalizedRates = event.detail.rates.map(rate => ({
           ...rate,
           rate: typeof rate.rate === 'number' ? String(rate.rate) : rate.rate,
+          currency: rate.currency || 'USD', // Add default currency if missing
           shipment_id: event.detail.shipmentId
         }));
         

@@ -4,7 +4,7 @@ export interface ShippingRate {
   carrier: string;
   service: string;
   rate: string;
-  currency?: string;
+  currency: string; // Changed from optional to required
   delivery_days?: number;
   delivery_date?: string;
   list_rate?: string;

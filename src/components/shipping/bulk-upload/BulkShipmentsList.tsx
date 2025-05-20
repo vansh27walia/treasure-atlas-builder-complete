@@ -86,11 +86,14 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     (() => {
                       const selectedRate = shipment.availableRates.find((rate) => rate.id === shipment.selectedRateId);
                       if (selectedRate) {
-                        const formattedRate = typeof selectedRate.rate === 'number'
-                          ? selectedRate.rate.toFixed(2)
-                          : typeof selectedRate.rate === 'string'
-                            ? parseFloat(selectedRate.rate).toFixed(2)
-                            : '0.00';
+                        // Fix the toFixed issue by ensuring we have a number before calling toFixed
+                        let formattedRate = '0.00';
+                        
+                        if (typeof selectedRate.rate === 'string') {
+                          formattedRate = parseFloat(selectedRate.rate).toFixed(2);
+                        } else if (typeof selectedRate.rate === 'number') {
+                          formattedRate = selectedRate.rate.toFixed(2);
+                        }
 
                         return `$${formattedRate}`;
                       }
