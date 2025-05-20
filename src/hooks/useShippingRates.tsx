@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -18,6 +17,13 @@ interface ShippingRate {
   shipment_id?: string; 
   original_rate?: string;
   isPremium?: boolean;
+  // Add the parcel property to fix the TypeScript error
+  parcel?: {
+    weight: number;
+    length: number;
+    width: number;
+    height: number;
+  };
 }
 
 interface LabelOptions {

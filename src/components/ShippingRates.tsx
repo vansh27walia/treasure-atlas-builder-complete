@@ -59,13 +59,13 @@ const ShippingRates: React.FC = () => {
     if (selectedRateId && rates.length > 0) {
       const selectedRate = rates.find(rate => rate.id === selectedRateId);
       if (selectedRate) {
-        // Construct basic shipment details
+        // Construct basic shipment details with proper null/undefined checking
         setShipmentDetails({
           fromAddress: "Your shipping address",
           toAddress: "Recipient address",
           weight: `${selectedRate.parcel?.weight || 'Unknown'} oz`,
-          dimensions: selectedRate.parcel?.length ? 
-            `${selectedRate.parcel.length}" x ${selectedRate.parcel.width}" x ${selectedRate.parcel.height}"` : 
+          dimensions: selectedRate.parcel ? 
+            `${selectedRate.parcel.length || 0}" x ${selectedRate.parcel.width || 0}" x ${selectedRate.parcel.height || 0}"` : 
             undefined,
           service: selectedRate.service,
           carrier: selectedRate.carrier.toUpperCase(),
