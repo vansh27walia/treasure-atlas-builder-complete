@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { BulkUploadResult, ShippingRate } from '@/types/shipping';
 
@@ -31,7 +32,7 @@ export const useShipmentRates = (
               console.error('Failed to fetch rates:', errorData);
               return {
                 ...shipment,
-                status: 'failed',
+                status: 'failed' as const,
                 error: errorData.error || 'Failed to fetch rates',
                 availableRates: []
               };
@@ -41,13 +42,13 @@ export const useShipmentRates = (
             return {
               ...shipment,
               availableRates: rates.sort((a, b) => Number(a.rate) - Number(b.rate)),
-              status: 'pending'
+              status: 'pending' as const
             };
           } catch (error) {
             console.error('Error fetching rates:', error);
             return {
               ...shipment,
-              status: 'error',
+              status: 'error' as const,
               error: error instanceof Error ? error.message : 'Unknown error',
               availableRates: []
             };
