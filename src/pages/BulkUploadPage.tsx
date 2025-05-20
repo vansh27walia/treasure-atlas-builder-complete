@@ -2,12 +2,14 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Upload, CheckCircle } from 'lucide-react';
+import { FileText, Upload, CheckCircle, Settings as SettingsIcon } from 'lucide-react';
 import BulkUpload from '@/components/shipping/BulkUpload';
 import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
+  const navigate = useNavigate();
 
   const handleDownloadTemplate = () => {
     const csvContent = 'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight\nJohn Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16';
@@ -24,7 +26,13 @@ const BulkUploadPage = () => {
   
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Bulk Shipping</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Bulk Shipping</h1>
+        <Button variant="outline" onClick={() => navigate('/settings')}>
+          <SettingsIcon className="h-4 w-4 mr-2" />
+          Manage Pickup Addresses
+        </Button>
+      </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-6">
