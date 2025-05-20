@@ -57,8 +57,8 @@ export const useShipmentFiltering = (
         }
         
         // Sort by rate
-        const rateA = a.availableRates?.find(rate => rate.id === a.selectedRateId)?.rate || 0;
-        const rateB = b.availableRates?.find(rate => rate.id === b.selectedRateId)?.rate || 0;
+        const rateA = typeof a.rate === 'number' ? a.rate : 0;
+        const rateB = typeof b.rate === 'number' ? b.rate : 0;
         
         return sortDirection === 'asc' ? rateA - rateB : rateB - rateA;
       });

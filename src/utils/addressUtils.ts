@@ -1,5 +1,6 @@
-import { CARRIER_OPTIONS } from '@/types/shipping';
-import { GoogleApiKeyResponse } from '@/types/shipping';
+
+import { CARRIER_OPTIONS, GoogleApiKeyResponse, SavedAddress } from '@/types/shipping';
+import { supabase } from '@/integrations/supabase/client';
 
 // Helper function to create address selection handlers
 export const createAddressSelectHandler = (setAddressState: React.Dispatch<React.SetStateAction<SavedAddress | null>>) => {

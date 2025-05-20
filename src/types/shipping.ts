@@ -190,3 +190,18 @@ export interface GoogleApiKeyResponse {
   apiKey?: string;
   error?: string;
 }
+
+// Interface for saved address type
+export interface SavedAddress {
+  id: number;
+  name: string;
+  company?: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone?: string;
+  isDefault?: boolean;
+}

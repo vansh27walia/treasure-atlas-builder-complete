@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { BulkShipment } from '@/types/shipping';
 import { Button } from '@/components/ui/button';
@@ -124,7 +123,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   <TableCell>
                     {(shipment.status === 'completed' || shipment.status === 'success') && shipment.selectedRateId ? (
                       <div className="font-semibold">
-                        ${parseFloat(shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate || '0').toFixed(2)}
+                        {typeof shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate === 'number' ? shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate.toFixed(2) : '0.00'}
                       </div>
                     ) : shipment.status === 'processing' ? (
                       <Skeleton className="h-6 w-16" />
