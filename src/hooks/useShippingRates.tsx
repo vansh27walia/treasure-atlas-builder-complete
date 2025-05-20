@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -68,11 +69,15 @@ export const useShippingRates = () => {
         console.log("Rates received:", event.detail.rates);
         console.log("Shipment ID received:", event.detail.shipmentId);
         
-        // Add shipmentId to each rate object and process rates
-        const processedRates = processRates(event.detail.rates).map(rate => ({
+        // Ensure all rates are strings and add shipmentId to each rate
+        const normalizedRates = event.detail.rates.map(rate => ({
           ...rate,
+          rate: typeof rate.rate === 'number' ? String(rate.rate) : rate.rate,
           shipment_id: event.detail.shipmentId
         }));
+        
+        // Add shipmentId to each rate object and process rates
+        const processedRates = processRates(normalizedRates);
         
         setRates(processedRates);
         setFilteredRates(processedRates);

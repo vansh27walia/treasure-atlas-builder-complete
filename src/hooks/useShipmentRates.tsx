@@ -39,9 +39,15 @@ export const useShipmentRates = (
             }
 
             const rates = await response.json();
+            // Ensure each rate has a string rate value
+            const normalizedRates = rates.map(rate => ({
+              ...rate,
+              rate: typeof rate.rate === 'number' ? String(rate.rate) : rate.rate
+            }));
+            
             return {
               ...shipment,
-              availableRates: rates.sort((a, b) => Number(a.rate) - Number(b.rate)),
+              availableRates: normalizedRates.sort((a, b) => Number(a.rate) - Number(b.rate)),
               status: 'pending' as const
             };
           } catch (error) {
@@ -84,7 +90,7 @@ export const useShipmentRates = (
     if (!results) return;
     
     // Convert rate to number if it's a string
-    const rateValue = typeof rate.rate === 'string' ? parseFloat(rate.rate) : rate.rate;
+    const rateValue = parseFloat(rate.rate);
     
     // Update shipments with the selected rate
     const updatedShipments = results.processedShipments.map(shipment => {
@@ -138,11 +144,17 @@ export const useShipmentRates = (
       }
 
       const rates = await response.json();
+      // Ensure each rate has a string rate value
+      const normalizedRates = rates.map(rate => ({
+        ...rate,
+        rate: typeof rate.rate === 'number' ? String(rate.rate) : rate.rate
+      }));
+      
       const updatedShipments = results.processedShipments.map(shipment => {
         if (shipment.id === shipmentId) {
           return {
             ...shipment,
-            availableRates: rates.sort((a, b) => Number(a.rate) - Number(b.rate)),
+            availableRates: normalizedRates.sort((a, b) => Number(a.rate) - Number(b.rate)),
             status: 'pending' as const
           };
         }
@@ -174,8 +186,7 @@ export const useShipmentRates = (
       
       if (matchingRate) {
         // Convert rate to number if it's a string
-        const rateValue = typeof matchingRate.rate === 'string' ? 
-          parseFloat(matchingRate.rate) : matchingRate.rate;
+        const rateValue = parseFloat(matchingRate.rate);
         
         return {
           ...shipment,

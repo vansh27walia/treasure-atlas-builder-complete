@@ -3,7 +3,7 @@ export interface ShippingRate {
   id: string;
   carrier: string;
   service: string;
-  rate: string | number;
+  rate: string;
   currency?: string;
   delivery_days?: number;
   delivery_date?: string;
@@ -11,7 +11,7 @@ export interface ShippingRate {
   retail_rate?: string;
   est_delivery_days?: number;
   shipment_id?: string;
-  original_rate?: string | number;
+  original_rate?: string;
   isPremium?: boolean;
   parcel: {
     length: number;
