@@ -32,6 +32,11 @@ interface AIRecommendation {
   analysisText: string;
 }
 
+interface LabelFormatOptions {
+  label_format?: string;
+  label_size?: string;
+}
+
 const useRateCalculator = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -42,6 +47,9 @@ const useRateCalculator = () => {
     from: any;
     to: any;
   } | null>(null);
+  const [labelUrl, setLabelUrl] = useState<string | null>(null);
+  const [trackingCode, setTrackingCode] = useState<string | null>(null);
+  const [activeShipmentId, setActiveShipmentId] = useState<string | null>(null);
 
   // Function to fetch shipping rates
   const fetchRates = async (requestData: RateRequestData) => {
@@ -107,6 +115,7 @@ const useRateCalculator = () => {
       
       // Get rates and shipment ID
       const { rates, shipmentId } = data;
+      setActiveShipmentId(shipmentId);
       
       // Dispatch a custom event to notify the ShippingRates component
       const ratesEvent = new CustomEvent('easypost-rates-received', {
@@ -169,13 +178,20 @@ const useRateCalculator = () => {
   };
 
   // Function to create a shipping label
-  const createShippingLabel = async (rateId: string, shipmentId: string) => {
+  const createShippingLabel = async (rateId: string, shipmentId: string, options: LabelFormatOptions = {}) => {
     try {
       setIsLoading(true);
       
       // Call the Edge Function to create a label
       const { data, error } = await supabase.functions.invoke('create-label', {
-        body: { rateId, shipmentId }
+        body: { 
+          rateId, 
+          shipmentId,
+          options: {
+            label_format: options.label_format || "PDF",
+            label_size: options.label_size || "4x6"
+          }
+        }
       });
       
       if (error) {
@@ -185,6 +201,10 @@ const useRateCalculator = () => {
       if (!data?.labelUrl) {
         throw new Error("No label URL received");
       }
+      
+      // Store the label information in state
+      setLabelUrl(data.labelUrl);
+      setTrackingCode(data.trackingCode || 'N/A');
       
       // Return label data
       return {
@@ -223,6 +243,35 @@ const useRateCalculator = () => {
     }, 300);
   };
 
+  // Function to update label format
+  const updateLabelFormat = async (format: string): Promise<void> => {
+    if (!activeShipmentId || !rates || rates.length === 0) {
+      toast.error("No active shipment available");
+      return Promise.reject("No active shipment");
+    }
+    
+    // Find the selected rate ID
+    const selectedRateId = document.querySelector('[data-selected="true"]')?.getAttribute('data-rate-id');
+    
+    if (!selectedRateId) {
+      toast.error("Please select a shipping rate first");
+      return Promise.reject("No rate selected");
+    }
+    
+    try {
+      // Generate a new label with the updated format
+      const result = await createShippingLabel(selectedRateId, activeShipmentId, {
+        label_format: "PDF",
+        label_size: format
+      });
+      
+      return Promise.resolve();
+    } catch (error) {
+      console.error("Error updating label format:", error);
+      return Promise.reject(error);
+    }
+  };
+
   return {
     fetchRates,
     aiRecommendation,
@@ -230,7 +279,11 @@ const useRateCalculator = () => {
     isAiLoading,
     selectRateAndProceed,
     createShippingLabel,
-    completedAddresses
+    completedAddresses,
+    labelUrl,
+    trackingCode,
+    shipmentId: activeShipmentId,
+    updateLabelFormat
   };
 };
 

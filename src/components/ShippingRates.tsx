@@ -34,7 +34,7 @@ const ShippingRates: React.FC = () => {
     handleFilterByCarrier
   } = useShippingRates();
   
-  const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
+  const { aiRecommendation, isAiLoading, selectRateAndProceed, updateLabelFormat } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
   const [shipmentDetails, setShipmentDetails] = useState<{ 
@@ -63,7 +63,10 @@ const ShippingRates: React.FC = () => {
         setShipmentDetails({
           fromAddress: "Your shipping address",
           toAddress: "Recipient address",
-          weight: "Package weight",
+          weight: `${selectedRate.parcel?.weight || 'Unknown'} oz`,
+          dimensions: selectedRate.parcel?.length ? 
+            `${selectedRate.parcel.length}" x ${selectedRate.parcel.width}" x ${selectedRate.parcel.height}"` : 
+            undefined,
           service: selectedRate.service,
           carrier: selectedRate.carrier.toUpperCase(),
         });
@@ -75,9 +78,18 @@ const ShippingRates: React.FC = () => {
   const handleLabelFormatChange = async (format: string): Promise<void> => {
     setSelectedLabelFormat(format);
     
-    if (selectedRateId && shipmentId && labelUrl) {
+    if (updateLabelFormat) {
       try {
         console.log("Regenerating label with new format:", format);
+        await updateLabelFormat(format);
+      } catch (error) {
+        console.error("Error updating label format:", error);
+        toast.error("Failed to update label format");
+        throw error;
+      }
+    } else if (selectedRateId && shipmentId && labelUrl) {
+      try {
+        console.log("Using fallback method to regenerate label with format:", format);
         await handleCreateLabel(selectedRateId, shipmentId, {
           label_format: "PDF",
           label_size: format
@@ -89,7 +101,7 @@ const ShippingRates: React.FC = () => {
       }
     }
   };
-  
+
   // Show empty state if no rates available
   if (rates.length === 0) {
     return (
@@ -218,6 +230,7 @@ const ShippingRates: React.FC = () => {
                       showDiscount={true}
                       originalRate={rate.original_rate}
                       isPremium={false}
+                      data-rate-id={rate.id}
                     />
                   ))}
                 </div>
@@ -257,7 +270,7 @@ const ShippingRates: React.FC = () => {
                     };
                     
                     // Call handleCreateLabel with the selected format
-                    handleCreateLabel(undefined, undefined, labelOptions);
+                    handleCreateLabel(selectedRateId, shipmentId, labelOptions);
                   }}
                   disabled={!selectedRateId || isLoading}
                   className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-6 py-2 h-12 text-base"
@@ -296,14 +309,22 @@ const ShippingRates: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="mt-4 flex justify-end">
-              <Button
-                variant="outline"
-                onClick={() => document.dispatchEvent(new Event('shipping-form-completed'))}
-                className="border-blue-200 hover:bg-blue-50"
-              >
-                Ship Another Package
-              </Button>
+            <div className="mt-4">
+              <ShippingLabel 
+                labelUrl={labelUrl} 
+                trackingCode={trackingCode} 
+                shipmentId={shipmentId}
+                onFormatChange={handleLabelFormatChange}
+              />
+              <div className="mt-4 flex justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => document.dispatchEvent(new Event('shipping-form-completed'))}
+                  className="border-blue-200 hover:bg-blue-50"
+                >
+                  Ship Another Package
+                </Button>
+              </div>
             </div>
           )}
           
