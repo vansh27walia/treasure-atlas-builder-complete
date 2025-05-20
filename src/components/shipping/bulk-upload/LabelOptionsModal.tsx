@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { InfoIcon, Download, MailIcon, Archive, FilePdf, FileImage } from 'lucide-react';
+import { InfoIcon, Download, MailIcon, Archive, FileText, FileImage } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface LabelOptionsModalProps {
@@ -106,7 +106,7 @@ const LabelOptionsModal: React.FC<LabelOptionsModalProps> = ({
                   className={`border rounded-md p-4 text-center cursor-pointer transition-colors ${selectedFileType === 'pdf' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
                   onClick={() => setSelectedFileType('pdf')}
                 >
-                  <FilePdf className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                  <FileText className="h-8 w-8 mx-auto mb-2 text-blue-600" />
                   <p className="font-medium">PDF</p>
                   <p className="text-xs text-gray-500">Best for printing</p>
                 </div>
