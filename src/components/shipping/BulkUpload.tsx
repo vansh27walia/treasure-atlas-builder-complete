@@ -12,7 +12,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { FileText, UploadCloud, ChevronRight, AlertCircle } from 'lucide-react';
-import { CARRIER_OPTIONS } from '@/types/shipping';
+import { CARRIER_OPTIONS } from '@/types/shipping/carriers';
 
 const BulkUpload: React.FC = () => {
   const {

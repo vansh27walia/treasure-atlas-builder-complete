@@ -14,7 +14,7 @@ interface LabelOptionsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onFormatSelect: (format: string) => void;
-  onEmailLabels: (email: string) => void; // Updated to clearly specify email parameter
+  onEmailLabels: (email: string) => void;
   shipmentCount: number;
 }
 
