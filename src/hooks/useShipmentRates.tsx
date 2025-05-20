@@ -1,144 +1,99 @@
-import { useState } from 'react';
-import { toast } from 'sonner';
-import { BulkShipment, BulkUploadResult, ShippingRate, CARRIER_OPTIONS, CarrierOption } from '@/types/shipping';
+import { useState, useCallback } from 'react';
+import { BulkUploadResult, ShippingRate } from '@/types/shipping';
+
+interface UseShipmentRatesProps {
+  results: BulkUploadResult | null;
+  updateResults: (newResults: BulkUploadResult) => void;
+}
 
 export const useShipmentRates = (
-  initialResults: BulkUploadResult | null,
-  updateResults: (results: BulkUploadResult) => void
+  results: BulkUploadResult | null,
+  updateResults: (newResults: BulkUploadResult) => void
 ) => {
   const [isFetchingRates, setIsFetchingRates] = useState(false);
-  
-  const fetchAllShipmentRates = async (shipments: BulkShipment[]) => {
+
+  const fetchAllShipmentRates = useCallback(async (shipments) => {
     setIsFetchingRates(true);
-    
     try {
-      const updatedShipments: BulkShipment[] = [...shipments];
-      let successCount = 0;
-      
-      for (let i = 0; i < updatedShipments.length; i++) {
-        const shipment = updatedShipments[i];
-        
-        try {
-          // Update status to show we're processing this shipment
-          updatedShipments[i] = { ...shipment, status: 'processing' as const };
-          updateResults({
-            ...initialResults!,
-            processedShipments: updatedShipments
-          });
-          
-          // Fetch rates for this shipment
-          const rates = await fetchShipmentRates(shipment);
-          
-          // Update shipment with rates
-          updatedShipments[i] = { 
-            ...shipment, 
-            availableRates: rates,
-            status: 'completed' as const,
-            // Set default selected rate to the cheapest option
-            selectedRateId: rates.length > 0 ? rates.sort((a, b) => a.rate - b.rate)[0].id : null
-          };
-          
-          successCount++;
-        } catch (error) {
-          console.error(`Error fetching rates for shipment ${shipment.id}:`, error);
-          updatedShipments[i] = { 
-            ...shipment, 
-            status: 'failed' as const, // Using 'failed' instead of 'error'
-            error: 'Failed to fetch shipping rates' 
-          };
-        }
-        
-        // Update UI with progress
-        updateResults({
-          ...initialResults!,
-          processedShipments: updatedShipments
-        });
-      }
-      
-      toast.success(`Successfully fetched rates for ${successCount} out of ${shipments.length} shipments`);
-      return updatedShipments;
-    } catch (error) {
-      console.error('Error fetching shipment rates:', error);
-      toast.error('Failed to fetch rates for some shipments');
-      return shipments;
+      const updatedShipments = await Promise.all(
+        shipments.map(async (shipment) => {
+          try {
+            const response = await fetch('/api/shipping/rates', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(shipment),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              console.error('Failed to fetch rates:', errorData);
+              return {
+                ...shipment,
+                status: 'failed',
+                error: errorData.error || 'Failed to fetch rates',
+                availableRates: []
+              };
+            }
+
+            const rates = await response.json();
+            return {
+              ...shipment,
+              availableRates: rates.sort((a, b) => Number(a.rate) - Number(b.rate)),
+              status: 'pending'
+            };
+          } catch (error) {
+            console.error('Error fetching rates:', error);
+            return {
+              ...shipment,
+              status: 'error',
+              error: error instanceof Error ? error.message : 'Unknown error',
+              availableRates: []
+            };
+          }
+        })
+      );
+
+      // Update the results with the new shipments and reset upload status
+      const successfulShipments = updatedShipments.filter(shipment => shipment.status === 'pending');
+      const failedShipments = updatedShipments.filter(shipment => shipment.status === 'failed' || shipment.status === 'error');
+
+      const totalCost = successfulShipments.reduce((sum, shipment) => {
+        return sum + (shipment.rate || 0);
+      }, 0);
+
+      const updatedResults: BulkUploadResult = {
+        uploadStatus: 'editing',
+        successful: successfulShipments.length,
+        failed: failedShipments.length,
+        total: updatedShipments.length,
+        processedShipments: updatedShipments,
+        failedShipments: failedShipments,
+        totalCost: totalCost,
+      };
+
+      updateResults(updatedResults);
     } finally {
       setIsFetchingRates(false);
     }
-  };
-  
-  const fetchShipmentRates = async (shipment: BulkShipment): Promise<ShippingRate[]> => {
-    try {
-      // Mock function - in a real app, you would call your API to get actual rates
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
-      
-      // Generate mock rates for each carrier
-      const mockRates: ShippingRate[] = CARRIER_OPTIONS
-        .filter(carrier => carrier.value !== 'all')
-        .flatMap(carrier => {
-          return carrier.services.map(service => {
-            // Base rate between $5-25 with some carrier-specific modifiers
-            const baseRate = 5 + Math.random() * 20;
-            
-            // Add carrier-specific pricing
-            let rate = baseRate;
-            if (carrier.value === 'fedex') rate *= 1.2; // FedEx is 20% more
-            if (carrier.value === 'ups') rate *= 1.1; // UPS is 10% more
-            if (carrier.value === 'dhl') rate *= 1.3; // DHL is 30% more
-            
-            // Service-specific adjustments
-            if (service.name.includes('Express') || service.name.includes('Overnight')) {
-              rate *= 1.5; // Express services cost 50% more
-            }
-            
-            // Weight and dimensions based adjustments
-            const weight = shipment.details.parcel_weight || 5;
-            rate += weight * 0.5; // Add $0.50 per pound
-            
-            return {
-              id: `${carrier.value}_${service.id}_${shipment.id}`,
-              carrier: carrier.name,
-              service: service.name,
-              rate: parseFloat(rate.toFixed(2)),
-              currency: 'USD',
-              delivery_days: service.name.includes('Next Day') || service.name.includes('Overnight') 
-                ? 1 
-                : service.name.includes('2Day') || service.name.includes('2nd Day') 
-                  ? 2 
-                  : service.name.includes('3-Day') 
-                    ? 3 
-                    : Math.floor(3 + Math.random() * 5), // 3-7 days for standard services
-              parcel: {
-                length: shipment.parcel.length,
-                width: shipment.parcel.width,
-                height: shipment.parcel.height,
-                weight: shipment.parcel.weight
-              }
-            };
-          });
-      });
-      
-      return mockRates;
-    } catch (error) {
-      console.error('Error fetching shipment rates:', error);
-      throw new Error('Failed to fetch shipping rates');
-    }
-  };
-  
-  const handleSelectRate = (shipmentId: string, rateId: string) => {
-    if (!initialResults) return;
+  }, [updateResults]);
+
+  const handleSelectRate = useCallback((shipmentId: string, rate: ShippingRate) => {
+    if (!results) return;
     
-    const updatedShipments = initialResults.processedShipments.map(shipment => {
+    // Convert rate to number if it's a string
+    const rateValue = typeof rate.rate === 'string' ? parseFloat(rate.rate) : rate.rate;
+    
+    // Update shipments with the selected rate
+    const updatedShipments = results.processedShipments.map(shipment => {
       if (shipment.id === shipmentId) {
-        // Find the selected rate
-        const selectedRate = shipment.availableRates?.find(rate => rate.id === rateId);
-        
-        return { 
-          ...shipment, 
-          selectedRateId: rateId,
-          carrier: selectedRate?.carrier || shipment.carrier,
-          service: selectedRate?.service,
-          rate: selectedRate?.rate
+        return {
+          ...shipment,
+          selectedRateId: rate.id,
+          carrier: rate.carrier,
+          service: rate.service,
+          rate: rateValue, // Use the converted numeric rate
         };
       }
       return shipment;
@@ -146,111 +101,106 @@ export const useShipmentRates = (
     
     // Calculate new total cost
     const totalCost = updatedShipments.reduce((sum, shipment) => {
-      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate?.rate || 0);
+      return sum + (shipment.rate || 0);
     }, 0);
     
-    updateResults({
-      ...initialResults,
+    // Update the results state
+    const updatedResults: BulkUploadResult = {
+      ...results,
       processedShipments: updatedShipments,
-      totalCost
-    });
-  };
-  
-  const handleRefreshRates = async (shipmentId: string) => {
-    if (!initialResults) return;
+      totalCost,
+    };
     
-    // Find the shipment
-    const shipment = initialResults.processedShipments.find(s => s.id === shipmentId);
-    if (!shipment) return;
-    
-    // Update shipment status to processing
-    const updatedShipments = initialResults.processedShipments.map(s => 
-      s.id === shipmentId ? { ...s, status: 'processing' as const } : s
-    );
-    
-    updateResults({
-      ...initialResults,
-      processedShipments: updatedShipments
-    });
-    
+    updateResults(updatedResults);
+  }, [results, updateResults]);
+
+  const handleRefreshRates = useCallback(async (shipmentId: string) => {
+    if (!results) return;
+
+    const shipmentToRefresh = results.processedShipments.find(shipment => shipment.id === shipmentId);
+    if (!shipmentToRefresh) return;
+
+    setIsFetchingRates(true);
     try {
-      // Fetch new rates
-      const rates = await fetchShipmentRates(shipment);
-      
-      // Update shipment with new rates
-      const finalShipments = updatedShipments.map(s => 
-        s.id === shipmentId ? { 
-          ...s, 
-          availableRates: rates,
-          status: 'completed' as const,
-          selectedRateId: rates.length > 0 ? rates[0].id : s.selectedRateId
-        } : s
-      );
-      
-      updateResults({
-        ...initialResults,
-        processedShipments: finalShipments
+      const response = await fetch('/api/shipping/rates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(shipmentToRefresh),
       });
-      
-      toast.success('Rates updated successfully');
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Failed to fetch rates:', errorData);
+        return;
+      }
+
+      const rates = await response.json();
+      const updatedShipments = results.processedShipments.map(shipment => {
+        if (shipment.id === shipmentId) {
+          return {
+            ...shipment,
+            availableRates: rates.sort((a, b) => Number(a.rate) - Number(b.rate)),
+            status: 'pending'
+          };
+        }
+        return shipment;
+      });
+
+      const updatedResults: BulkUploadResult = {
+        ...results,
+        processedShipments: updatedShipments,
+      };
+
+      updateResults(updatedResults);
     } catch (error) {
-      // Update shipment with error
-      const errorShipments = updatedShipments.map(s => 
-        s.id === shipmentId ? { 
-          ...s, 
-          status: 'failed' as const,
-          error: 'Failed to refresh rates'
-        } : s
-      );
-      
-      updateResults({
-        ...initialResults,
-        processedShipments: errorShipments
-      });
-      
-      toast.error('Failed to update rates');
+      console.error('Error fetching rates:', error);
+    } finally {
+      setIsFetchingRates(false);
     }
-  };
-  
-  const handleBulkApplyCarrier = (carrierId: string, serviceId: string) => {
-    if (!initialResults) return;
+  }, [results, updateResults]);
+
+  // Update the apply carrier function to ensure numeric rate values
+  const handleBulkApplyCarrier = useCallback((carrier: string, service: string) => {
+    if (!results) return;
     
-    const updatedShipments = initialResults.processedShipments.map(shipment => {
-      // Find a rate that matches the selected carrier and service
-      const matchingRate = shipment.availableRates?.find(
-        rate => rate.carrier.toLowerCase() === carrierId.toLowerCase() && 
-               rate.service.toLowerCase().includes(serviceId.toLowerCase())
+    const updatedShipments = results.processedShipments.map(shipment => {
+      // Find a rate that matches the carrier and service
+      const matchingRate = shipment.availableRates.find(r => 
+        r.carrier === carrier && r.service === service
       );
       
       if (matchingRate) {
-        return { 
-          ...shipment, 
+        // Convert rate to number if it's a string
+        const rateValue = typeof matchingRate.rate === 'string' ? 
+          parseFloat(matchingRate.rate) : matchingRate.rate;
+        
+        return {
+          ...shipment,
           selectedRateId: matchingRate.id,
           carrier: matchingRate.carrier,
           service: matchingRate.service,
-          rate: matchingRate.rate
+          rate: rateValue, // Use the converted numeric rate
         };
       }
-      
-      // If no matching rate, keep the current selection
       return shipment;
     });
     
     // Calculate new total cost
     const totalCost = updatedShipments.reduce((sum, shipment) => {
-      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate?.rate || 0);
+      return sum + (shipment.rate || 0);
     }, 0);
     
-    updateResults({
-      ...initialResults,
+    // Update the results state
+    const updatedResults: BulkUploadResult = {
+      ...results,
       processedShipments: updatedShipments,
-      totalCost
-    });
+      totalCost,
+    };
     
-    toast.success(`Applied ${carrierId} ${serviceId} to all eligible shipments`);
-  };
+    updateResults(updatedResults);
+  }, [results, updateResults]);
 
   return {
     isFetchingRates,

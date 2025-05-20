@@ -1,4 +1,3 @@
-
 export interface BulkShipment {
   id: string;
   row?: number;
@@ -88,7 +87,7 @@ export interface ShippingRate {
   shipment_id?: string;
   original_rate?: string | number;
   isPremium?: boolean;
-  parcel?: {
+  parcel: {
     length: number;
     width: number;
     height: number;
