@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -10,27 +9,15 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { FormEvent } from 'react';
-import { pickupAddressService } from '@/services/PickupAddressService';
+import { pickupAddressService, PickupAddress } from '@/services/PickupAddressService';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { Home, Plus, Trash2, Edit, CheckCircle, MapPin } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-// Define the PickupAddress type
-interface PickupAddress {
-  id?: number;
-  name: string;
-  company: string;
-  street1: string;
-  street2: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  phone: string;
-  is_default_from: boolean;
-}
+// We'll use the PickupAddress type directly from the service
+// so we don't need to redefine it here
 
 const AddressCard: React.FC<{
   address: PickupAddress;
@@ -136,7 +123,7 @@ const AddressSettingsPage = () => {
   // Fetch addresses
   const { data: addresses, isLoading } = useQuery({
     queryKey: ['pickup-addresses'],
-    queryFn: () => pickupAddressService.getAddresses(),
+    queryFn: () => pickupAddressService.getSavedAddresses(),
   });
 
   // Add address mutation
