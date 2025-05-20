@@ -44,30 +44,52 @@ serve(async (req) => {
     console.log(`Fetching label for shipment ${shipment_id}, format: ${label_format}, type: ${file_type}`);
 
     // First, try to find the record in our database
-    const { data: records, error: dbError } = await supabase
+    const { data: shipmentRecords, error: dbError } = await supabase
       .from('shipment_records')
       .select('*')
       .eq('shipment_id', shipment_id)
-      .eq('file_type', file_type)  // Match the requested file type
-      .order('created_at', { ascending: false })
-      .limit(1);
+      .order('created_at', { ascending: false });
     
     if (dbError) {
       console.error('Error fetching from database:', dbError);
       // Continue to EasyPost
     }
     
-    // If we found a record with a valid label URL and matching format, return it
-    if (records && records.length > 0 && records[0].label_url && 
-        records[0].label_size === label_format && 
-        records[0].file_type === file_type) {
+    // Try to find a record with the specific file_type first
+    let matchingRecord = null;
+    
+    if (shipmentRecords && shipmentRecords.length > 0) {
+      // First try to find exact match with file_type and label_size
+      matchingRecord = shipmentRecords.find(r => 
+        r.file_type === file_type && 
+        r.label_size === label_format && 
+        r.label_url
+      );
+      
+      // If no match with both criteria, try just matching the file_type
+      if (!matchingRecord) {
+        matchingRecord = shipmentRecords.find(r => 
+          r.file_type === file_type && 
+          r.label_url
+        );
+      }
+      
+      // If still no match, use any available record
+      if (!matchingRecord && shipmentRecords[0].label_url) {
+        matchingRecord = shipmentRecords[0];
+      }
+    }
+    
+    // If we found a usable record, return it
+    if (matchingRecord && matchingRecord.label_url) {
       return new Response(
         JSON.stringify({
-          labelUrl: records[0].label_url,
-          trackingCode: records[0].tracking_code,
-          shipmentId: records[0].shipment_id,
+          labelUrl: matchingRecord.label_url,
+          trackingCode: matchingRecord.tracking_code,
+          shipmentId: matchingRecord.shipment_id,
           source: 'database',
-          file_type: file_type
+          file_type: matchingRecord.file_type || file_type,
+          label_format: matchingRecord.label_size || label_format
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

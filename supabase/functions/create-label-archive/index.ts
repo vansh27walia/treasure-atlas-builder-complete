@@ -1,7 +1,8 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { JSZip } from "https://deno.land/x/jszip@0.11.0/mod.ts";
+import { encode } from "https://deno.land/std@0.177.0/encoding/base64.ts";
+import { JSZip } from "https://esm.sh/jszip@3.10.1";
 
 // Set up CORS headers
 const corsHeaders = {
@@ -16,13 +17,12 @@ serve(async (req) => {
   }
 
   try {
-    // Get the EasyPost API key from Supabase secrets
-    const apiKey = Deno.env.get('EASYPOST_API_KEY');
-    if (!apiKey) {
-      console.error('API key not configured');
+    const { shipmentId, formats = ['pdf', 'png', 'zpl'] } = await req.json();
+    
+    if (!shipmentId) {
       return new Response(
-        JSON.stringify({ error: 'API key not configured' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        JSON.stringify({ error: 'Missing shipment ID' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
@@ -31,151 +31,112 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Supabase configuration not found');
       return new Response(
-        JSON.stringify({ error: 'Supabase configuration not found' }),
+        JSON.stringify({ error: 'Missing Supabase configuration' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Get shipment details for the file name
+    const { data: shipment, error: shipmentError } = await supabase
+      .from('shipment_records')
+      .select('tracking_code')
+      .eq('shipment_id', shipmentId)
+      .limit(1)
+      .single();
+      
+    if (shipmentError && shipmentError.code !== 'PGRST116') {
+      console.error('Error fetching shipment:', shipmentError);
+    }
 
-    // Parse the request body
-    const requestData = await req.json();
-    const { shipmentId, formats = ['pdf', 'png', 'zpl'] } = requestData;
+    const trackingCode = shipment?.tracking_code || shipmentId;
     
-    if (!shipmentId) {
-      console.error('Missing required parameter: shipmentId');
-      return new Response(
-        JSON.stringify({ error: 'Missing required parameter: shipmentId' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
-    
-    // Get the shipment from EasyPost to ensure we have tracking info
-    const shipmentResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      }
-    });
-    
-    if (!shipmentResponse.ok) {
-      console.error('Error fetching shipment from EasyPost');
-      return new Response(
-        JSON.stringify({ error: 'Error fetching shipment from EasyPost' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
-    
-    const shipmentData = await shipmentResponse.json();
-    const trackingCode = shipmentData.tracking_code || 'unknown';
-    const labelURL = shipmentData.postage_label?.label_url;
-    
-    if (!labelURL) {
-      console.error('No label URL in shipment data');
-      return new Response(
-        JSON.stringify({ error: 'No label URL in shipment data' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
-      );
-    }
-    
-    // Create a zip file
+    // Create a new JSZip instance
     const zip = new JSZip();
-    
-    // Add each requested format
+    const labelPromises = [];
+
+    // Get labels in all requested formats
     for (const format of formats) {
-      // Get the appropriate label for each format type
-      try {
-        // The original label is always a PDF, but we need to get it in other formats if requested
-        const response = await fetch(labelURL);
+      const promise = fetchLabelInFormat(shipmentId, format, supabase)
+        .then(fileData => {
+          if (fileData) {
+            // Add the file to the zip archive
+            zip.file(`shipping_label_${trackingCode}_${format}.${format}`, fileData, { binary: true });
+            return true;
+          }
+          return false;
+        })
+        .catch(err => {
+          console.error(`Error fetching ${format} label:`, err);
+          return false;
+        });
         
-        if (!response.ok) {
-          console.error(`Error fetching label in ${format} format`);
-          continue;
-        }
-        
-        const fileBuffer = new Uint8Array(await response.arrayBuffer());
-        zip.addFile(`shipping_label_${trackingCode}.${format}`, fileBuffer);
-        
-      } catch (error) {
-        console.error(`Error processing ${format} format:`, error);
-        // Continue to the next format
-      }
+      labelPromises.push(promise);
     }
     
-    // Include a receipt file
-    const receiptContent = `
-    Shipping Label Receipt
-    -----------------------------------
-    Date: ${new Date().toISOString()}
-    Tracking Number: ${trackingCode}
-    Carrier: ${shipmentData.selected_rate?.carrier || 'Unknown'}
-    Service: ${shipmentData.selected_rate?.service || 'Unknown'}
-    Cost: ${shipmentData.selected_rate?.rate || 'Unknown'}
-    Estimated Delivery: ${shipmentData.selected_rate?.delivery_date || 'Unknown'}
-    `;
+    await Promise.all(labelPromises);
     
-    zip.addFile(`receipt_${trackingCode}.txt`, new TextEncoder().encode(receiptContent));
+    // Generate the zip file
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    const zipBuffer = await zipBlob.arrayBuffer();
     
-    // Generate the ZIP file
-    const zipBlob = await zip.generateAsync({ type: "uint8array" });
+    // Upload the zip file to Supabase Storage
+    const zipFileName = `label_archive_${shipmentId}_${Date.now()}.zip`;
     
-    // Upload to Supabase storage
-    const bucketName = 'shipping-labels';
-    const filename = `label_archive_${shipmentId}_${Date.now()}.zip`;
-    
-    // Ensure bucket exists
+    // Ensure the bucket exists
     try {
       const { data: buckets } = await supabase.storage.listBuckets();
-      if (!buckets?.some(b => b.name === bucketName)) {
-        await supabase.storage.createBucket(bucketName, {
+      if (!buckets?.some(b => b.name === 'shipping-labels')) {
+        await supabase.storage.createBucket('shipping-labels', {
           public: true
         });
+        console.log('Created shipping-labels bucket');
       }
     } catch (error) {
-      console.error('Error ensuring bucket exists:', error);
-      // Continue anyway as the bucket might already exist
+      console.error('Error checking/creating bucket:', error);
+      // Continue anyway as bucket might already exist
     }
     
-    // Upload the ZIP file
-    const { error: uploadError } = await supabase
+    // Upload to Supabase storage
+    const { data: uploadData, error: uploadError } = await supabase
       .storage
-      .from(bucketName)
-      .upload(filename, zipBlob, {
+      .from('shipping-labels')
+      .upload(zipFileName, zipBuffer, {
         contentType: 'application/zip',
-        cacheControl: '3600'
+        cacheControl: '3600',
+        upsert: false
       });
-    
+      
     if (uploadError) {
-      console.error('Error uploading ZIP file:', uploadError);
+      console.error('Error uploading zip to storage:', uploadError);
       return new Response(
-        JSON.stringify({ error: 'Error uploading ZIP file' }),
+        JSON.stringify({ error: 'Failed to create archive' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
     
-    // Create a signed URL for the ZIP file
+    // Create a signed URL for the zip
     const { data: urlData, error: urlError } = await supabase
       .storage
-      .from(bucketName)
-      .createSignedUrl(filename, 60 * 60); // 1 hour expiration
-    
+      .from('shipping-labels')
+      .createSignedUrl(zipFileName, 60 * 60); // 1 hour expiry
+      
     if (urlError) {
       console.error('Error creating signed URL:', urlError);
       return new Response(
-        JSON.stringify({ error: 'Error creating signed URL' }),
+        JSON.stringify({ error: 'Failed to create download link' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
     
     return new Response(
       JSON.stringify({
+        success: true,
         archiveUrl: urlData.signedUrl,
-        trackingCode,
-        shipmentId,
-        formats
+        formats: formats,
+        fileName: `shipping_labels_${trackingCode}.zip`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -183,8 +144,56 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in create-label-archive function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });
+
+// Helper function to fetch a label in a specific format
+async function fetchLabelInFormat(shipmentId, format, supabase) {
+  try {
+    // First try to get the label from our database
+    const { data: labelRecord, error: dbError } = await supabase
+      .from('shipment_records')
+      .select('label_url')
+      .eq('shipment_id', shipmentId)
+      .eq('file_type', format)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+      
+    if (!dbError && labelRecord?.label_url) {
+      // Fetch the label content from the URL
+      const response = await fetch(labelRecord.label_url);
+      if (response.ok) {
+        return new Uint8Array(await response.arrayBuffer());
+      }
+    }
+    
+    // If not found in database, generate a new one via the get-stored-label function
+    const { data, error } = await supabase.functions.invoke('get-stored-label', {
+      body: { 
+        shipment_id: shipmentId,
+        file_type: format
+      }
+    });
+    
+    if (error || !data?.labelUrl) {
+      console.error(`Error getting ${format} label:`, error || 'No label URL returned');
+      return null;
+    }
+    
+    // Fetch the label content from the URL
+    const response = await fetch(data.labelUrl);
+    if (!response.ok) {
+      console.error(`Error downloading ${format} label: ${response.status}`);
+      return null;
+    }
+    
+    return new Uint8Array(await response.arrayBuffer());
+  } catch (error) {
+    console.error(`Error fetching ${format} label:`, error);
+    return null;
+  }
+}
