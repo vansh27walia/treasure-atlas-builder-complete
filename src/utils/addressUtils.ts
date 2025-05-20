@@ -1,6 +1,5 @@
-import { supabase } from '@/integrations/supabase/client';
+import { CARRIER_OPTIONS } from '@/types/shipping';
 import { GoogleApiKeyResponse } from '@/types/shipping';
-import { SavedAddress } from '@/services/AddressService';
 
 // Helper function to create address selection handlers
 export const createAddressSelectHandler = (setAddressState: React.Dispatch<React.SetStateAction<SavedAddress | null>>) => {
@@ -182,29 +181,32 @@ export const initDomesticAddressAutocomplete = (
 };
 
 // Get carrier logo URL based on carrier name
-export const getCarrierLogoUrl = (carrier: string): string => {
-  const normalizedCarrier = carrier.toLowerCase();
+export const getCarrierLogoUrl = (carrierId: string): string | null => {
+  const carrierId_lower = carrierId.toLowerCase();
   
-  // Map of carrier names to their logo URLs
-  const carrierLogos: Record<string, string> = {
-    'usps': 'https://upload.wikimedia.org/wikipedia/commons/1/1b/USPS_eagle_logo.svg',
-    'ups': 'https://upload.wikimedia.org/wikipedia/commons/6/6b/United_Parcel_Service_logo_2014.svg',
-    'fedex': 'https://upload.wikimedia.org/wikipedia/commons/b/b7/FedEx_Ground_logo.svg',
-    'dhl': 'https://upload.wikimedia.org/wikipedia/commons/5/5d/DHL_Logo.svg',
-    'ontrac': 'https://www.ontrac.com/images/ontrac-logo.png',
-    'lasership': 'https://www.lasership.com/wp-content/uploads/2022/05/LS_horizontal-blue-yellow.svg',
-    'amazon': 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg',
-  };
+  if (carrierId_lower.includes('usps')) {
+    return '/carrier_logos/usps.png';
+  } else if (carrierId_lower.includes('ups')) {
+    return '/carrier_logos/ups.png';
+  } else if (carrierId_lower.includes('fedex')) {
+    return '/carrier_logos/fedex.png';
+  } else if (carrierId_lower.includes('dhl')) {
+    return '/carrier_logos/dhl.png';
+  }
   
-  // Check if the carrier is in our map, accounting for partial matches
-  let logoUrl = '';
+  return null;
+};
+
+// Format address string
+export const formatAddress = (address: any): string => {
+  if (!address) return '';
   
-  Object.keys(carrierLogos).forEach(key => {
-    if (normalizedCarrier.includes(key)) {
-      logoUrl = carrierLogos[key];
-    }
-  });
+  const parts = [
+    address.street1,
+    address.street2,
+    `${address.city}, ${address.state} ${address.zip}`,
+    address.country
+  ].filter(Boolean);
   
-  // Return logo URL or empty string if not found
-  return logoUrl;
+  return parts.join(', ');
 };

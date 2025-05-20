@@ -1,533 +1,454 @@
+
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { toast } from '@/components/ui/sonner';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { cn } from '@/lib/utils';
-import { useSearchParams } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
-import { Settings as SettingsIcon } from 'lucide-react';
-import { pickupAddressService, PickupAddress } from '@/services/PickupAddressService';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ReloadIcon } from '@radix-ui/react-icons';
-import { Edit, Trash2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { FormEvent } from 'react';
+import { pickupAddressService } from '@/services/PickupAddressService';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Switch } from '@/components/ui/switch';
+import { Home, Plus, Trash2, Edit, CheckCircle, MapPin } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-const formSchema = z.object({
-  name: z.string().min(2, {
-    message: "Name must be at least 2 characters.",
-  }),
-  company: z.string().optional(),
-  street1: z.string().min(2, {
-    message: "Street address must be at least 2 characters.",
-  }),
-  street2: z.string().optional(),
-  city: z.string().min(2, {
-    message: "City must be at least 2 characters.",
-  }),
-  state: z.string().min(2, {
-    message: "State must be at least 2 characters.",
-  }),
-  zip: z.string().min(5, {
-    message: "Zip code must be at least 5 characters.",
-  }),
-  country: z.string().min(2, {
-    message: "Country must be at least 2 characters.",
-  }),
-  phone: z.string().optional(),
-  is_default_from: z.boolean().default(false),
-})
+// Define the PickupAddress type
+interface PickupAddress {
+  id?: number;
+  name: string;
+  company: string;
+  street1: string;
+  street2: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone: string;
+  is_default_from: boolean;
+}
 
-type AddressFormData = z.infer<typeof formSchema>
+const AddressCard: React.FC<{
+  address: PickupAddress;
+  onEdit: (address: PickupAddress) => void;
+  onDelete: (id: number) => void;
+  onSetDefault: (id: number) => void;
+  isDeleteLoading: boolean;
+  isDefaultLoading: boolean;
+}> = ({ address, onEdit, onDelete, onSetDefault, isDeleteLoading, isDefaultLoading }) => {
+  return (
+    <Card className="mb-4">
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle className="text-lg">{address.name}</CardTitle>
+            {address.company && <CardDescription>{address.company}</CardDescription>}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="icon" onClick={() => onEdit(address)}>
+              <Edit className="h-4 w-4" />
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="icon" className="text-red-500">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete address</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this address? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => address.id && onDelete(address.id)}
+                    disabled={isDeleteLoading}
+                    className="bg-red-500 hover:bg-red-600"
+                  >
+                    {isDeleteLoading ? 'Deleting...' : 'Delete'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+
+        {address.is_default_from && (
+          <div className="flex items-center gap-1 text-sm text-green-600 font-medium">
+            <CheckCircle className="h-3.5 w-3.5" />
+            <span>Default pickup address</span>
+          </div>
+        )}
+      </CardHeader>
+
+      <CardContent className="text-sm space-y-1.5 pt-0">
+        <p>{address.street1}</p>
+        {address.street2 && <p>{address.street2}</p>}
+        <p>
+          {address.city}, {address.state} {address.zip}
+        </p>
+        <p>{address.country}</p>
+        {address.phone && <p>{address.phone}</p>}
+      </CardContent>
+
+      {!address.is_default_from && (
+        <CardFooter className="pt-0">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => address.id && onSetDefault(address.id)}
+            disabled={isDefaultLoading}
+            className="text-sm text-blue-600"
+          >
+            Set as default
+          </Button>
+        </CardFooter>
+      )}
+    </Card>
+  );
+};
 
 const AddressSettingsPage = () => {
-  const [showAddressModal, setShowAddressModal] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [editingAddress, setEditingAddress] = useState<PickupAddress | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  
-  const { 
-    data: addresses, 
-    isLoading, 
-    isError, 
-    refetch 
-  } = useQuery({
-    queryKey: ['addresses'],
-    queryFn: () => pickupAddressService.getSavedAddresses(),
+  const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<PickupAddress | null>(null);
+  const [formAddress, setFormAddress] = useState<PickupAddress>({
+    name: '',
+    company: '',
+    street1: '',
+    street2: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'US',
+    phone: '',
+    is_default_from: false
   });
-  
-  const form = useForm<AddressFormData>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: "",
-      company: "",
-      street1: "",
-      street2: "",
-      city: "",
-      state: "",
-      zip: "",
-      country: "US",
-      phone: "",
-      is_default_from: false,
+
+  // Fetch addresses
+  const { data: addresses, isLoading } = useQuery({
+    queryKey: ['pickup-addresses'],
+    queryFn: () => pickupAddressService.getAddresses(),
+  });
+
+  // Add address mutation
+  const createAddressMutation = useMutation({
+    mutationFn: (newAddress: PickupAddress) => pickupAddressService.createAddress(newAddress),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pickup-addresses'] });
+      toast.success('Address added successfully');
+      setIsAddressDialogOpen(false);
+      resetForm();
     },
-  })
-  
-  const { mutate: createAddressMutation } = useMutation(
-    (newAddress: PickupAddress) => pickupAddressService.createAddress(newAddress),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['addresses'] });
-        toast.success('Address created successfully');
-        setShowAddressModal(false);
-        resetForm();
-      },
-      onError: (error: any) => {
-        toast.error('Failed to create address: ' + (error?.message || 'Unknown error'));
-      },
-      onSettled: () => {
-        setIsCreating(false);
-      },
+    onError: (error) => {
+      toast.error(`Failed to add address: ${error.message}`);
     }
-  );
-  
-  const { mutate: updateAddressMutation } = useMutation(
-    ({ id, updatedAddress }: { id: number, updatedAddress: PickupAddress }) => pickupAddressService.updateAddress(id, updatedAddress),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['addresses'] });
-        toast.success('Address updated successfully');
-        setShowAddressModal(false);
-        resetForm();
-      },
-      onError: (error: any) => {
-        toast.error('Failed to update address: ' + (error?.message || 'Unknown error'));
-      },
-      onSettled: () => {
-        setIsUpdating(false);
-      },
-    }
-  );
-  
-  const { mutate: deleteAddressMutation } = useMutation(
-    (id: number) => pickupAddressService.deleteAddress(id),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['addresses'] });
-        toast.success('Address deleted successfully');
-      },
-      onError: (error: any) => {
-        toast.error('Failed to delete address: ' + (error?.message || 'Unknown error'));
-      },
-    }
-  );
-  
-  const { mutate: setDefaultAddressMutation } = useMutation(
-    (id: number) => pickupAddressService.setDefaultAddress(id),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['addresses'] });
-        toast.success('Default address updated successfully');
-      },
-      onError: (error: any) => {
-        toast.error('Failed to set default address: ' + (error?.message || 'Unknown error'));
-      },
-    }
-  );
+  });
 
-  const handleCreateAddress = async (formData: AddressFormData) => {
-    setIsCreating(true);
-    try {
-      // Make sure all required properties are present
-      const newAddress: PickupAddress = {
-        name: formData.name || '', // Ensure name is provided as it's required
-        company: formData.company,
-        street1: formData.street1 || '', // Ensure street1 is provided as it's required
-        street2: formData.street2,
-        city: formData.city || '', // Ensure city is provided as it's required
-        state: formData.state || '', // Ensure state is provided as it's required
-        zip: formData.zip || '', // Ensure zip is provided as it's required
-        country: formData.country || 'US', // Default to US if not provided
-        phone: formData.phone,
-        is_default_from: formData.is_default_from || false
-      };
-      
-      createAddressMutation(newAddress);
-    } catch (error) {
-      console.error('Error creating address:', error);
-      toast.error('Failed to create address: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    } finally {
-      setIsCreating(false);
+  // Update address mutation
+  const updateAddressMutation = useMutation({
+    mutationFn: ({ id, updatedAddress }: { id: number; updatedAddress: PickupAddress }) => 
+      pickupAddressService.updateAddress(id, updatedAddress),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pickup-addresses'] });
+      toast.success('Address updated successfully');
+      setIsAddressDialogOpen(false);
+      resetForm();
+    },
+    onError: (error) => {
+      toast.error(`Failed to update address: ${error.message}`);
     }
-  };
+  });
 
-  const handleUpdateAddress = async (formData: AddressFormData) => {
-    if (!editingAddress?.id) return;
-    
-    setIsUpdating(true);
-    try {
-      // Make sure all required properties are present
-      const updatedAddress: PickupAddress = {
-        name: formData.name || '', // Ensure name is provided as it's required
-        company: formData.company,
-        street1: formData.street1 || '', // Ensure street1 is provided as it's required
-        street2: formData.street2,
-        city: formData.city || '', // Ensure city is provided as it's required
-        state: formData.state || '', // Ensure state is provided as it's required
-        zip: formData.zip || '', // Ensure zip is provided as it's required
-        country: formData.country || 'US', // Default to US if not provided
-        phone: formData.phone,
-        is_default_from: formData.is_default_from || false
-      };
-      
-      updateAddressMutation({ id: editingAddress.id, updatedAddress });
-    } catch (error) {
-      console.error('Error updating address:', error);
-      toast.error('Failed to update address: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    } finally {
-      setIsUpdating(false);
+  // Delete address mutation
+  const deleteAddressMutation = useMutation({
+    mutationFn: (id: number) => pickupAddressService.deleteAddress(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pickup-addresses'] });
+      toast.success('Address deleted successfully');
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete address: ${error.message}`);
     }
-  };
-  
-  const handleDeleteAddress = (id: number) => {
-    deleteAddressMutation(id);
-  };
-  
-  const handleSetDefaultAddress = (id: number) => {
-    setDefaultAddressMutation(id);
-  };
+  });
 
-  const onSubmit = (data: AddressFormData) => {
-    if (editingAddress) {
-      handleUpdateAddress(data);
-    } else {
-      handleCreateAddress(data);
+  // Set default address mutation
+  const setDefaultAddressMutation = useMutation({
+    mutationFn: (id: number) => pickupAddressService.setDefaultAddress(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pickup-addresses'] });
+      toast.success('Default address updated');
+    },
+    onError: (error) => {
+      toast.error(`Failed to set default address: ${error.message}`);
     }
-  }
-  
+  });
+
   const resetForm = () => {
-    form.reset({
-      name: "",
-      company: "",
-      street1: "",
-      street2: "",
-      city: "",
-      state: "",
-      zip: "",
-      country: "US",
-      phone: "",
-      is_default_from: false,
+    setFormAddress({
+      name: '',
+      company: '',
+      street1: '',
+      street2: '',
+      city: '',
+      state: '',
+      zip: '',
+      country: 'US',
+      phone: '',
+      is_default_from: false
     });
     setEditingAddress(null);
   };
-  
+
+  const handleOpenAddDialog = () => {
+    resetForm();
+    setIsAddressDialogOpen(true);
+  };
+
   const handleEditAddress = (address: PickupAddress) => {
     setEditingAddress(address);
-    form.setValue("name", address.name);
-    form.setValue("company", address.company || "");
-    form.setValue("street1", address.street1);
-    form.setValue("street2", address.street2 || "");
-    form.setValue("city", address.city);
-    form.setValue("state", address.state);
-    form.setValue("zip", address.zip);
-    form.setValue("country", address.country);
-    form.setValue("phone", address.phone || "");
-    form.setValue("is_default_from", address.is_default_from);
-    setShowAddressModal(true);
+    setFormAddress({
+      ...address,
+      street2: address.street2 || '',
+    });
+    setIsAddressDialogOpen(true);
+  };
+
+  const handleDeleteAddress = (id: number) => {
+    deleteAddressMutation.mutate(id);
+  };
+
+  const handleSetDefaultAddress = (id: number) => {
+    setDefaultAddressMutation.mutate(id);
+  };
+
+  const handleAddressSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    
+    // Validate required fields
+    if (!formAddress.name || !formAddress.street1 || !formAddress.city || 
+        !formAddress.state || !formAddress.zip || !formAddress.country) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (editingAddress?.id) {
+      updateAddressMutation.mutate({ 
+        id: editingAddress.id, 
+        updatedAddress: formAddress 
+      });
+    } else {
+      createAddressMutation.mutate(formAddress);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setFormAddress(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Pickup Addresses</h1>
-        <Button variant="outline" onClick={() => navigate('/settings')}>
-          <SettingsIcon className="h-4 w-4 mr-2" />
-          Back to Settings
-        </Button>
-      </div>
-      
-      <Card className="border-2 border-gray-200 shadow-sm">
-        <CardHeader>
-          <CardTitle>Manage Pickup Addresses</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4">
-            <Dialog open={showAddressModal} onOpenChange={setShowAddressModal}>
-              <DialogTrigger asChild>
-                <Button variant="outline">Add Address</Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>{editingAddress ? 'Edit Address' : 'Create Address'}</DialogTitle>
-                  <DialogDescription>
-                    {editingAddress ? 'Update your address details.' : 'Add a new address to your account.'}
-                  </DialogDescription>
-                </DialogHeader>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="John Doe" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="company"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Company (Optional)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="ACME Corp" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="street1"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Street Address 1</FormLabel>
-                          <FormControl>
-                            <Input placeholder="123 Main St" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="street2"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Street Address 2 (Optional)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Apt 4B" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="city"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>City</FormLabel>
-                          <FormControl>
-                            <Input placeholder="New York" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="state"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>State</FormLabel>
-                          <FormControl>
-                            <Input placeholder="NY" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="zip"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Zip Code</FormLabel>
-                          <FormControl>
-                            <Input placeholder="10001" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="country"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Country</FormLabel>
-                          <FormControl>
-                            <Input placeholder="US" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone (Optional)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="555-123-4567" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="is_default_from"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-sm">Set as Default From Address</FormLabel>
-                            <FormDescription>
-                              This address will be used as the default pickup address.
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    <Button type="submit" disabled={isCreating || isUpdating}>
-                      {isCreating ? "Creating..." : (isUpdating ? "Updating..." : "Submit")}
-                    </Button>
-                  </form>
-                </Form>
-              </DialogContent>
-            </Dialog>
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold">Address Settings</h1>
+        <p className="text-gray-500 mt-1">Manage your pickup addresses and default settings</p>
+      </header>
+
+      <Tabs defaultValue="pickup" className="mb-8">
+        <TabsList>
+          <TabsTrigger value="pickup" className="flex items-center gap-1.5">
+            <Home className="h-4 w-4" />
+            Pickup Addresses
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pickup" className="mt-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold">Your Pickup Addresses</h2>
+            <Button onClick={handleOpenAddDialog} className="flex items-center gap-1.5">
+              <Plus className="h-4 w-4" />
+              Add New Address
+            </Button>
           </div>
-          
+
           {isLoading ? (
-            <div className="flex items-center justify-center">
-              <ReloadIcon className="mr-2 h-4 w-4 animate-spin" />
-              Loading addresses...
+            <div className="py-8 text-center text-gray-500">Loading addresses...</div>
+          ) : addresses && addresses.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {addresses.map((address) => (
+                <AddressCard
+                  key={address.id}
+                  address={address}
+                  onEdit={handleEditAddress}
+                  onDelete={handleDeleteAddress}
+                  onSetDefault={handleSetDefaultAddress}
+                  isDeleteLoading={deleteAddressMutation.isPending}
+                  isDefaultLoading={setDefaultAddressMutation.isPending}
+                />
+              ))}
             </div>
-          ) : isError ? (
-            <div className="text-red-500">Error loading addresses. Please try again.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead>Street 1</TableHead>
-                    <TableHead>City</TableHead>
-                    <TableHead>State</TableHead>
-                    <TableHead>Zip</TableHead>
-                    <TableHead>Country</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead className="text-center">Default</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {addresses?.map((address) => (
-                    <TableRow key={address.id}>
-                      <TableCell>{address.name}</TableCell>
-                      <TableCell>{address.company}</TableCell>
-                      <TableCell>{address.street1}</TableCell>
-                      <TableCell>{address.city}</TableCell>
-                      <TableCell>{address.state}</TableCell>
-                      <TableCell>{address.zip}</TableCell>
-                      <TableCell>{address.country}</TableCell>
-                      <TableCell>{address.phone}</TableCell>
-                      <TableCell className="text-center">
-                        <Switch
-                          checked={address.is_default_from}
-                          onCheckedChange={() => handleSetDefaultAddress(address.id as number)}
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="outline" 
-                            size="icon" 
-                            onClick={() => handleEditAddress(address)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="icon"
-                            onClick={() => handleDeleteAddress(address.id as number)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="py-8 text-center border rounded-lg bg-gray-50">
+              <MapPin className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+              <h3 className="text-lg font-medium mb-1">No addresses yet</h3>
+              <p className="text-gray-500 mb-4">Add a pickup address to get started with shipping</p>
+              <Button onClick={handleOpenAddDialog}>Add Address</Button>
             </div>
           )}
-        </CardContent>
-      </Card>
+          
+          <Dialog open={isAddressDialogOpen} onOpenChange={setIsAddressDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingAddress ? 'Edit Address' : 'Add New Address'}</DialogTitle>
+                <DialogDescription>
+                  {editingAddress
+                    ? 'Update your pickup address details below'
+                    : 'Fill in the details for your new pickup address'}
+                </DialogDescription>
+              </DialogHeader>
+
+              <form onSubmit={handleAddressSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name *</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      value={formAddress.name}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="company">Company</Label>
+                    <Input
+                      id="company"
+                      name="company"
+                      value={formAddress.company}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="street1">Street Address *</Label>
+                  <Input
+                    id="street1"
+                    name="street1"
+                    value={formAddress.street1}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="street2">Apartment, Suite, etc.</Label>
+                  <Input
+                    id="street2"
+                    name="street2"
+                    value={formAddress.street2}
+                    onChange={handleInputChange}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City *</Label>
+                    <Input
+                      id="city"
+                      name="city"
+                      value={formAddress.city}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State/Province *</Label>
+                    <Input
+                      id="state"
+                      name="state"
+                      value={formAddress.state}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zip">ZIP/Postal Code *</Label>
+                    <Input
+                      id="zip"
+                      name="zip"
+                      value={formAddress.zip}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="country">Country *</Label>
+                    <Input
+                      id="country"
+                      name="country"
+                      value={formAddress.country}
+                      onChange={handleInputChange}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      value={formAddress.phone}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="is_default_from"
+                    name="is_default_from"
+                    checked={formAddress.is_default_from}
+                    onCheckedChange={(checked) =>
+                      setFormAddress((prev) => ({ ...prev, is_default_from: checked }))
+                    }
+                  />
+                  <Label htmlFor="is_default_from">Set as default pickup address</Label>
+                </div>
+
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsAddressDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit"
+                    disabled={createAddressMutation.isPending || updateAddressMutation.isPending}
+                  >
+                    {createAddressMutation.isPending || updateAddressMutation.isPending
+                      ? 'Saving...'
+                      : editingAddress ? 'Update Address' : 'Add Address'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
-
-interface FormDescriptionProps {
-  children?: React.ReactNode;
-}
-
-function FormDescription({ children, ...props }: FormDescriptionProps) {
-  return (
-    <p
-      className={cn(
-        "text-sm text-muted-foreground",
-        props.className
-      )}
-      {...props}
-    >
-      {children}
-    </p>
-  )
-}
 
 export default AddressSettingsPage;

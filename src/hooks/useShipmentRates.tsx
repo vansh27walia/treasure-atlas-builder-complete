@@ -1,8 +1,6 @@
-
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
-import { CARRIER_OPTIONS } from '@/types/shipping';
+import { BulkShipment, BulkUploadResult, ShippingRate, CARRIER_OPTIONS, CarrierOption } from '@/types/shipping';
 
 export const useShipmentRates = (
   initialResults: BulkUploadResult | null,
@@ -37,7 +35,7 @@ export const useShipmentRates = (
             availableRates: rates,
             status: 'completed' as const,
             // Set default selected rate to the cheapest option
-            selectedRateId: rates.length > 0 ? rates.sort((a, b) => a.rate - b.rate)[0].id : undefined
+            selectedRateId: rates.length > 0 ? rates.sort((a, b) => a.rate - b.rate)[0].id : null
           };
           
           successCount++;
@@ -45,7 +43,7 @@ export const useShipmentRates = (
           console.error(`Error fetching rates for shipment ${shipment.id}:`, error);
           updatedShipments[i] = { 
             ...shipment, 
-            status: 'error' as const,
+            status: 'failed' as const, // Using 'failed' instead of 'error'
             error: 'Failed to fetch shipping rates' 
           };
         }
@@ -68,48 +66,56 @@ export const useShipmentRates = (
     }
   };
   
-  const fetchShipmentRates = async (shipment: BulkShipment): Promise<ShippingOption[]> => {
+  const fetchShipmentRates = async (shipment: BulkShipment): Promise<ShippingRate[]> => {
     try {
       // Mock function - in a real app, you would call your API to get actual rates
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
       
       // Generate mock rates for each carrier
-      const mockRates: ShippingOption[] = CARRIER_OPTIONS.flatMap(carrier => {
-        return carrier.services.map(service => {
-          // Base rate between $5-25 with some carrier-specific modifiers
-          const baseRate = 5 + Math.random() * 20;
-          
-          // Add carrier-specific pricing
-          let rate = baseRate;
-          if (carrier.id === 'fedex') rate *= 1.2; // FedEx is 20% more
-          if (carrier.id === 'ups') rate *= 1.1; // UPS is 10% more
-          if (carrier.id === 'dhl') rate *= 1.3; // DHL is 30% more
-          
-          // Service-specific adjustments
-          if (service.name.includes('Express') || service.name.includes('Overnight')) {
-            rate *= 1.5; // Express services cost 50% more
-          }
-          
-          // Weight and dimensions based adjustments
-          const weight = shipment.details.parcel_weight || 5;
-          rate += weight * 0.5; // Add $0.50 per pound
-          
-          return {
-            id: `${carrier.id}_${service.id}_${shipment.id}`,
-            carrier: carrier.name,
-            service: service.name,
-            rate: parseFloat(rate.toFixed(2)),
-            currency: 'USD', // Add the required currency property
-            delivery_days: service.name.includes('Next Day') || service.name.includes('Overnight') 
-              ? 1 
-              : service.name.includes('2Day') || service.name.includes('2nd Day') 
-                ? 2 
-                : service.name.includes('3-Day') 
-                  ? 3 
-                  : Math.floor(3 + Math.random() * 5) // 3-7 days for standard services
-          };
-        });
+      const mockRates: ShippingRate[] = CARRIER_OPTIONS
+        .filter(carrier => carrier.value !== 'all')
+        .flatMap(carrier => {
+          return carrier.services.map(service => {
+            // Base rate between $5-25 with some carrier-specific modifiers
+            const baseRate = 5 + Math.random() * 20;
+            
+            // Add carrier-specific pricing
+            let rate = baseRate;
+            if (carrier.value === 'fedex') rate *= 1.2; // FedEx is 20% more
+            if (carrier.value === 'ups') rate *= 1.1; // UPS is 10% more
+            if (carrier.value === 'dhl') rate *= 1.3; // DHL is 30% more
+            
+            // Service-specific adjustments
+            if (service.name.includes('Express') || service.name.includes('Overnight')) {
+              rate *= 1.5; // Express services cost 50% more
+            }
+            
+            // Weight and dimensions based adjustments
+            const weight = shipment.details.parcel_weight || 5;
+            rate += weight * 0.5; // Add $0.50 per pound
+            
+            return {
+              id: `${carrier.value}_${service.id}_${shipment.id}`,
+              carrier: carrier.name,
+              service: service.name,
+              rate: parseFloat(rate.toFixed(2)),
+              currency: 'USD',
+              delivery_days: service.name.includes('Next Day') || service.name.includes('Overnight') 
+                ? 1 
+                : service.name.includes('2Day') || service.name.includes('2nd Day') 
+                  ? 2 
+                  : service.name.includes('3-Day') 
+                    ? 3 
+                    : Math.floor(3 + Math.random() * 5), // 3-7 days for standard services
+              parcel: {
+                length: shipment.parcel.length,
+                width: shipment.parcel.width,
+                height: shipment.parcel.height,
+                weight: shipment.parcel.weight
+              }
+            };
+          });
       });
       
       return mockRates;
@@ -131,8 +137,8 @@ export const useShipmentRates = (
           ...shipment, 
           selectedRateId: rateId,
           carrier: selectedRate?.carrier || shipment.carrier,
-          service: selectedRate?.service || shipment.service,
-          rate: selectedRate?.rate || shipment.rate
+          service: selectedRate?.service,
+          rate: selectedRate?.rate
         };
       }
       return shipment;
@@ -193,7 +199,7 @@ export const useShipmentRates = (
       const errorShipments = updatedShipments.map(s => 
         s.id === shipmentId ? { 
           ...s, 
-          status: 'error' as const,
+          status: 'failed' as const,
           error: 'Failed to refresh rates'
         } : s
       );
@@ -213,7 +219,8 @@ export const useShipmentRates = (
     const updatedShipments = initialResults.processedShipments.map(shipment => {
       // Find a rate that matches the selected carrier and service
       const matchingRate = shipment.availableRates?.find(
-        rate => rate.carrier === carrierId && rate.service === serviceId
+        rate => rate.carrier.toLowerCase() === carrierId.toLowerCase() && 
+               rate.service.toLowerCase().includes(serviceId.toLowerCase())
       );
       
       if (matchingRate) {

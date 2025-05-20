@@ -18,15 +18,15 @@ export const useShipmentFiltering = (
       .filter(shipment => {
         // Filter by search term
         const searchFields = [
-          shipment.recipient,
+          shipment.recipient || '',
           shipment.details.name,
           shipment.details.company || '',
           shipment.details.street1,
           shipment.details.city,
           shipment.details.state,
           shipment.details.zip,
-          shipment.carrier,
-          shipment.service
+          shipment.carrier || '',
+          shipment.service || ''
         ].join(' ').toLowerCase();
         
         const matchesSearch = !searchTerm || searchFields.includes(searchTerm.toLowerCase());
@@ -41,15 +41,19 @@ export const useShipmentFiltering = (
       })
       .sort((a, b) => {
         if (sortField === 'recipient') {
+          const recipientA = a.recipient || a.details.name || '';
+          const recipientB = b.recipient || b.details.name || '';
           return sortDirection === 'asc' 
-            ? a.recipient.localeCompare(b.recipient)
-            : b.recipient.localeCompare(a.recipient);
+            ? recipientA.localeCompare(recipientB)
+            : recipientB.localeCompare(recipientA);
         }
         
         if (sortField === 'carrier') {
+          const carrierA = a.carrier || '';
+          const carrierB = b.carrier || '';
           return sortDirection === 'asc' 
-            ? a.carrier.localeCompare(b.carrier)
-            : b.carrier.localeCompare(a.carrier);
+            ? carrierA.localeCompare(carrierB)
+            : carrierB.localeCompare(carrierA);
         }
         
         // Sort by rate

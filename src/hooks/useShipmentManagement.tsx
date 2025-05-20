@@ -275,7 +275,7 @@ export const useShipmentManagement = (
   };
   
   // This function is needed for the updated component but doesn't exist in the original hook
-  const setUploadStatus = (status: 'idle' | 'success' | 'error' | 'editing') => {
+  const setUploadStatus = (status: 'editing' | 'success' | 'error' | 'uploading') => {
     // This should be passed from the parent hook
     if (initialResults) {
       updateResults({

@@ -33,6 +33,23 @@ export const useShipmentUpload = () => {
 
               return {
                 id: `shipment-${index}`,
+                row: index + 1,
+                recipient: row.name,
+                details: {
+                  name: row.name,
+                  company: row.company || '',
+                  street1: row.street1,
+                  street2: row.street2 || '',
+                  city: row.city,
+                  state: row.state,
+                  zip: row.zip,
+                  country: row.country,
+                  phone: row.phone || '',
+                  parcel_length: parseFloat(row.parcel_length) || undefined,
+                  parcel_width: parseFloat(row.parcel_width) || undefined,
+                  parcel_height: parseFloat(row.parcel_height) || undefined,
+                  parcel_weight: parseFloat(row.parcel_weight) || undefined,
+                },
                 toAddress: {
                   name: row.name,
                   company: row.company || '',
@@ -52,7 +69,7 @@ export const useShipmentUpload = () => {
                 },
                 availableRates: [],
                 selectedRateId: null,
-                status: 'pending',
+                status: 'pending'
               };
             });
 

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -110,15 +109,22 @@ const BulkUpload: React.FC = () => {
           <BulkShipmentFilters
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
-            sortField={sortField}
+            sortField={sortField as string}
             sortDirection={sortDirection}
             onSortChange={(field, direction) => {
-              setSortField(field);
+              setSortField(field as any);
               setSortDirection(direction);
             }}
-            selectedCarrier={selectedCarrierFilter}
+            selectedCarrier={selectedCarrierFilter || 'all'}
             onCarrierFilterChange={setSelectedCarrierFilter}
-            onApplyCarrierToAll={handleBulkApplyCarrier}
+            onApplyCarrierToAll={(carrier) => {
+              // We need to call handleBulkApplyCarrier with both carrier and service
+              // For the "Apply to All" button, we'll use the default service
+              const defaultService = carrier !== 'all' ? 
+                CARRIER_OPTIONS.find(c => c.value === carrier)?.services[0]?.id || 'default' : 
+                'default';
+              handleBulkApplyCarrier(carrier, defaultService);
+            }}
           />
           
           <BulkShipmentsList

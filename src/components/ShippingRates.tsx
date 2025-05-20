@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -64,7 +65,7 @@ const ShippingRates: React.FC = () => {
           toAddress: "Recipient address",
           weight: selectedRate.parcel ? `${selectedRate.parcel.weight || 'Unknown'} oz` : 'Unknown',
           dimensions: selectedRate.parcel ? 
-            `${selectedRate.parcel.length}" x ${selectedRate.parcel.width}" x ${selectedRate.parcel.height}"` : 
+            `${selectedRate.parcel.length || 0}" x ${selectedRate.parcel.width || 0}" x ${selectedRate.parcel.height || 0}"` : 
             undefined,
           service: selectedRate.service,
           carrier: selectedRate.carrier.toUpperCase(),

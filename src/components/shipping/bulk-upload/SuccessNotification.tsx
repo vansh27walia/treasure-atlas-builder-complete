@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Check } from 'lucide-react';
 import OrderSummary from './OrderSummary';
@@ -69,7 +68,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       />
       
       <FailedShipmentsTable 
-        shipments={results.failedShipments as unknown as FailedShipment[]} 
+        shipments={results.failedShipments} 
       />
     </div>
   );
