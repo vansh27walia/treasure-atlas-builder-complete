@@ -35,7 +35,6 @@ interface AIRecommendation {
 interface LabelFormatOptions {
   label_format?: string;
   label_size?: string;
-  file_type?: string;
 }
 
 const useRateCalculator = () => {
@@ -51,8 +50,6 @@ const useRateCalculator = () => {
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [activeShipmentId, setActiveShipmentId] = useState<string | null>(null);
-  const [selectedLabelFormat, setSelectedLabelFormat] = useState<string>('4x6');
-  const [selectedFileType, setSelectedFileType] = useState<string>('pdf');
 
   // Function to fetch shipping rates
   const fetchRates = async (requestData: RateRequestData) => {
@@ -185,28 +182,15 @@ const useRateCalculator = () => {
     try {
       setIsLoading(true);
       
-      const labelOptions = {
-        label_format: options.label_format || "PDF",
-        label_size: options.label_size || selectedLabelFormat || "4x6",
-        file_type: options.file_type || selectedFileType || "pdf"
-      };
-      
-      console.log("Creating label with options:", labelOptions);
-
-      // Determine if it's international based on the first available rate
-      const isInternational = rates?.some(rate => 
-        rate.service?.toLowerCase().includes('international')
-      );
-      
-      // Choose the appropriate endpoint
-      const endpoint = isInternational ? 'create-international-label' : 'create-label';
-      
       // Call the Edge Function to create a label
-      const { data, error } = await supabase.functions.invoke(endpoint, {
+      const { data, error } = await supabase.functions.invoke('create-label', {
         body: { 
           rateId, 
           shipmentId,
-          options: labelOptions
+          options: {
+            label_format: options.label_format || "PDF",
+            label_size: options.label_size || "4x6"
+          }
         }
       });
       
@@ -225,9 +209,7 @@ const useRateCalculator = () => {
       // Return label data
       return {
         labelUrl: data.labelUrl,
-        trackingCode: data.trackingCode || 'N/A',
-        shipmentId: data.shipmentId || shipmentId,
-        file_type: data.file_type || labelOptions.file_type
+        trackingCode: data.trackingCode || 'N/A'
       };
       
     } catch (error) {
@@ -237,7 +219,7 @@ const useRateCalculator = () => {
       setIsLoading(false);
     }
   };
-  
+
   // Enhanced function to navigate to shipping tab with selected rate
   const selectRateAndProceed = (rateId: string) => {
     const rate = rates.find(r => r.id === rateId);
@@ -262,102 +244,31 @@ const useRateCalculator = () => {
   };
 
   // Function to update label format
-  const updateLabelFormat = async (format: string, fileType?: string): Promise<void> => {
-    if (!activeShipmentId) {
+  const updateLabelFormat = async (format: string): Promise<void> => {
+    if (!activeShipmentId || !rates || rates.length === 0) {
       toast.error("No active shipment available");
       return Promise.reject("No active shipment");
     }
     
-    // Store the selected format and file type
-    setSelectedLabelFormat(format);
-    if (fileType) {
-      setSelectedFileType(fileType);
+    // Find the selected rate ID
+    const selectedRateId = document.querySelector('[data-selected="true"]')?.getAttribute('data-rate-id');
+    
+    if (!selectedRateId) {
+      toast.error("Please select a shipping rate first");
+      return Promise.reject("No rate selected");
     }
     
-    // Use the get-stored-label function to retrieve the label in the proper format
     try {
-      console.log("Fetching stored label with new format:", format, "file type:", fileType || selectedFileType);
-      
-      const { data, error } = await supabase.functions.invoke('get-stored-label', {
-        body: { 
-          shipment_id: activeShipmentId,
-          label_format: format,
-          file_type: fileType || selectedFileType
-        }
+      // Generate a new label with the updated format
+      const result = await createShippingLabel(selectedRateId, activeShipmentId, {
+        label_format: "PDF",
+        label_size: format
       });
-      
-      if (error) {
-        console.error("Error fetching stored label:", error);
-        throw new Error(`Failed to fetch stored label: ${error.message}`);
-      }
-      
-      if (!data?.labelUrl) {
-        throw new Error("No label URL received from stored label function");
-      }
-      
-      // Update the label URL in state
-      setLabelUrl(data.labelUrl);
       
       return Promise.resolve();
     } catch (error) {
       console.error("Error updating label format:", error);
-      
-      // Try fallback - if we can't use stored label, try regenerating
-      if (!rates?.length) {
-        return Promise.reject("No rates available to regenerate label");
-      }
-      
-      // Find the selected rate ID
-      const selectedRateId = rates.find(rate => rate.shipment_id === activeShipmentId)?.id;
-      
-      if (!selectedRateId) {
-        return Promise.reject("No matching rate found for this shipment");
-      }
-      
-      try {
-        // Generate a new label with the updated format
-        const result = await createShippingLabel(selectedRateId, activeShipmentId, {
-          label_format: "PDF",
-          label_size: format,
-          file_type: fileType || selectedFileType
-        });
-        
-        return Promise.resolve();
-      } catch (regenerateError) {
-        console.error("Error regenerating label:", regenerateError);
-        return Promise.reject(regenerateError);
-      }
-    }
-  };
-
-  // Function to get a label archive (zip file with all formats)
-  const getLabelArchive = async (): Promise<string | null> => {
-    if (!activeShipmentId) {
-      toast.error("No active shipment available");
-      return null;
-    }
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('create-label-archive', {
-        body: { 
-          shipmentId: activeShipmentId,
-          formats: ['pdf', 'png', 'zpl'],
-        }
-      });
-      
-      if (error) {
-        throw new Error(`Error creating label archive: ${error.message}`);
-      }
-      
-      if (!data?.archiveUrl) {
-        throw new Error("No archive URL received");
-      }
-      
-      return data.archiveUrl;
-    } catch (error) {
-      console.error("Error creating label archive:", error);
-      toast.error("Failed to create label archive");
-      return null;
+      return Promise.reject(error);
     }
   };
 
@@ -372,10 +283,7 @@ const useRateCalculator = () => {
     labelUrl,
     trackingCode,
     shipmentId: activeShipmentId,
-    updateLabelFormat,
-    getLabelArchive,
-    selectedLabelFormat,
-    selectedFileType
+    updateLabelFormat
   };
 };
 

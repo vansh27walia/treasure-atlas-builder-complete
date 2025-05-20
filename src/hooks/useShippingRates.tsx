@@ -18,19 +18,11 @@ interface ShippingRate {
   shipment_id?: string; 
   original_rate?: string;
   isPremium?: boolean;
-  // Include parcel data in shipping rates
-  parcel?: {
-    weight: number;
-    length: number;
-    width: number;
-    height: number;
-  };
 }
 
 interface LabelOptions {
   label_format?: string;
   label_size?: string;
-  file_type?: string; // Added for PNG and PDF options
   [key: string]: any;
 }
 
@@ -52,9 +44,6 @@ export const useShippingRates = () => {
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [activeCarrierFilter, setActiveCarrierFilter] = useState<string | 'all'>('all');
-  const [labelError, setLabelError] = useState<string | null>(null);
-  const [selectedLabelFormat, setSelectedLabelFormat] = useState<string>('4x6');
-  const [selectedFileType, setSelectedFileType] = useState<'pdf' | 'png'>('pdf');
   
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
@@ -107,7 +96,6 @@ export const useShippingRates = () => {
         setSelectedRateId(null);
         setLabelUrl(null);
         setTrackingCode(null);
-        setLabelError(null);
         
         // Extract unique carriers for filtering
         const carriers = [...new Set(processedRates.map(rate => 
@@ -175,9 +163,6 @@ export const useShippingRates = () => {
   const handleSelectRate = (rateId: string) => {
     setSelectedRateId(rateId);
     
-    // Clear any previous label error
-    setLabelError(null);
-    
     // Find the rate with this ID
     const selectedRate = rates.find(rate => rate.id === rateId);
     console.log("Selected rate:", selectedRate);
@@ -209,14 +194,11 @@ export const useShippingRates = () => {
     const effectiveShipmentId = shipmentIdParam || shipmentId;
     
     if (!effectiveRateId || !effectiveShipmentId) {
-      const errorMessage = "Please select a shipping rate first";
-      toast.error(errorMessage);
-      setLabelError(errorMessage);
-      return Promise.reject(new Error(errorMessage));
+      toast.error("Please select a shipping rate first");
+      return;
     }
     
     setIsLoading(true);
-    setLabelError(null);
     
     try {
       console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
@@ -234,8 +216,7 @@ export const useShippingRates = () => {
       // Add default label format and size if not provided
       const options = {
         label_format: "PDF",
-        label_size: selectedLabelFormat || "4x6",
-        file_type: selectedFileType || "pdf",
+        label_size: "4x6",
         ...labelOptions
       };
       
@@ -249,22 +230,17 @@ export const useShippingRates = () => {
 
       if (error) {
         console.error(`Error from ${endpoint} function:`, error);
-        const errorMsg = `Error creating label: ${error.message}`;
-        setLabelError(errorMsg);
-        throw new Error(errorMsg);
+        throw new Error(`Error creating label: ${error.message}`);
       }
 
       if (!data || !data.labelUrl) {
-        const errorMsg = "No label data returned from server";
         console.error(`No data returned from ${endpoint} function`);
-        setLabelError(errorMsg);
-        throw new Error(errorMsg);
+        throw new Error("No label data returned from server");
       }
 
       console.log("Label created successfully:", data);
       setLabelUrl(data.labelUrl);
       setTrackingCode(data.trackingCode);
-      setLabelError(null);
       
       // Force step update to label step
       document.dispatchEvent(new CustomEvent('shipping-step-change', { 
@@ -277,9 +253,7 @@ export const useShippingRates = () => {
       
     } catch (error) {
       console.error('Error creating label:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Unknown error creating shipping label';
       toast.error("Failed to generate shipping label. Please try again.");
-      setLabelError(errorMsg);
       throw error;
     } finally {
       setIsLoading(false);
@@ -346,47 +320,6 @@ export const useShippingRates = () => {
     
     return sortedRates[0]?.id;
   };
-  
-  // Function to update label format settings
-  const setLabelFormat = (format: string) => {
-    setSelectedLabelFormat(format);
-  };
-  
-  // Function to update file type (pdf, png)
-  const setFileType = (type: 'pdf' | 'png') => {
-    setSelectedFileType(type);
-  };
-
-  // Function to get a label archive (zip file with all formats)
-  const getLabelArchive = async (): Promise<string | null> => {
-    if (!shipmentId) {
-      toast.error("No active shipment available");
-      return null;
-    }
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('create-label-archive', {
-        body: { 
-          shipmentId,
-          formats: ['pdf', 'png', 'zpl'],
-        }
-      });
-      
-      if (error) {
-        throw new Error(`Error creating label archive: ${error.message}`);
-      }
-      
-      if (!data?.archiveUrl) {
-        throw new Error("No archive URL received");
-      }
-      
-      return data.archiveUrl;
-    } catch (error) {
-      console.error("Error creating label archive:", error);
-      toast.error("Failed to create label archive");
-      return null;
-    }
-  };
 
   const bestValueRateId = getBestValueRate();
   const fastestRateId = getFastestRate();
@@ -404,15 +337,9 @@ export const useShippingRates = () => {
     fastestRateId,
     uniqueCarriers,
     activeCarrierFilter,
-    labelError,
-    selectedLabelFormat,
-    selectedFileType,
     handleSelectRate,
     handleCreateLabel,
     handleProceedToPayment,
-    handleFilterByCarrier,
-    setLabelFormat,
-    setFileType,
-    getLabelArchive
+    handleFilterByCarrier
   };
 };

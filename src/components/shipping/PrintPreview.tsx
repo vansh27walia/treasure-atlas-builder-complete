@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Printer, Download, X, Mail, Save, FileText, Image, FileCode, Archive } from 'lucide-react';
+import { Printer, Download, X, Mail, Save } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
@@ -27,7 +27,7 @@ interface PrintPreviewProps {
     service: string;
     carrier: string;
   };
-  onFormatChange?: (format: string, fileType?: string) => Promise<void>;
+  onFormatChange?: (format: string) => Promise<void>;
   shipmentId?: string;
 }
 
@@ -40,25 +40,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState('4x6');
-  const [selectedFileType, setSelectedFileType] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   const contentRef = useRef<HTMLDivElement>(null);
   const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
   const [currentLabelUrl, setCurrentLabelUrl] = useState(labelUrl);
   const [isEmailSending, setIsEmailSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [activeDownloadTab, setActiveDownloadTab] = useState('pdf');
-  const [isGeneratingZip, setIsGeneratingZip] = useState(false);
   
   // Update currentLabelUrl when labelUrl prop changes
   useEffect(() => {
     setCurrentLabelUrl(labelUrl);
-    
-    // When we get a new label URL, try to determine the file type
-    const fileType = labelUrl?.toLowerCase().includes('.png') ? 'png' : 
-                    labelUrl?.toLowerCase().includes('.zpl') ? 'zpl' : 'pdf';
-    setSelectedFileType(fileType as 'pdf' | 'png' | 'zpl');
-    
   }, [labelUrl]);
   
   // Effect to fetch and cache the label as a blob when URL changes
@@ -106,18 +97,15 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     content: () => contentRef.current,
   });
 
-  const handleFormatChange = async (format: string, fileType?: string) => {
+  const handleFormatChange = async (format: string) => {
     setSelectedFormat(format);
-    if (fileType) {
-      setSelectedFileType(fileType as 'pdf' | 'png' | 'zpl');
-    }
     
     if (onFormatChange) {
       try {
         setIsRegeneratingLabel(true);
         // Call the provided function to update the label format
-        await onFormatChange(format, fileType || selectedFileType);
-        toast.success(`Label format changed to ${format} (${fileType || selectedFileType})`);
+        await onFormatChange(format);
+        toast.success(`Label format changed to ${format}`);
       } catch (error) {
         console.error("Error changing label format:", error);
         toast.error("Failed to change label format");
@@ -127,135 +115,29 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const handleDirectDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    if (!shipmentId) {
-      // Try direct download from blob URL if no shipmentId
-      if (blobUrl) {
-        downloadFromBlob(format);
-        return;
-      }
-      
-      tryFallbackDownload();
-      return;
-    }
-    
-    try {
-      setIsRegeneratingLabel(true);
-      toast.loading(`Preparing ${format.toUpperCase()} download...`);
-      
-      // If we have a shipmentId, use get-stored-label to get the label in the proper format
-      const { data, error } = await supabase.functions.invoke('get-stored-label', {
-        body: { 
-          shipment_id: shipmentId,
-          label_format: selectedFormat,
-          file_type: format
-        }
-      });
-      
-      if (error) {
-        throw new Error(`Error getting label: ${error.message}`);
-      }
-      
-      if (!data?.labelUrl) {
-        throw new Error("No label URL received");
-      }
-      
-      // Download the label
-      const downloadLink = document.createElement('a');
-      downloadLink.href = data.labelUrl;
-      downloadLink.download = `shipping_label_${trackingCode || 'download'}.${format}`;
-      document.body.appendChild(downloadLink);
-      downloadLink.click();
-      document.body.removeChild(downloadLink);
-      
-      toast.dismiss();
-      toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
-      
-    } catch (error) {
-      console.error(`Error downloading ${format} label:`, error);
-      toast.dismiss();
-      toast.error(`Failed to download ${format.toUpperCase()} label`);
-      
-      // Try direct download as fallback
-      if (blobUrl) {
-        downloadFromBlob(format);
-      } else {
+  const handleDirectDownload = () => {
+    if (blobUrl) {
+      try {
+        console.log(`Starting direct download with blob URL:`, blobUrl);
+        
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `shipping_label_${trackingCode || 'download'}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(link);
+          toast.success(`Your label has been downloaded`);
+        }, 100);
+      } catch (error) {
+        console.error('Direct download error:', error);
+        toast.error('Failed to download directly');
         tryFallbackDownload();
       }
-    } finally {
-      setIsRegeneratingLabel(false);
-    }
-  };
-  
-  const downloadFromBlob = (format: string) => {
-    try {
-      console.log(`Starting direct download with blob URL:`, blobUrl);
-      
-      const link = document.createElement('a');
-      link.href = blobUrl!;
-      link.download = `shipping_label_${trackingCode || 'download'}.${format}`;
-      document.body.appendChild(link);
-      link.click();
-      
-      // Clean up
-      setTimeout(() => {
-        document.body.removeChild(link);
-        toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
-      }, 100);
-    } catch (error) {
-      console.error('Direct download error:', error);
-      toast.error('Failed to download directly');
+    } else {
       tryFallbackDownload();
-    }
-  };
-  
-  const handleDownloadZip = async () => {
-    if (!shipmentId || !trackingCode) {
-      toast.error('Missing shipment information for ZIP package');
-      return;
-    }
-    
-    setIsGeneratingZip(true);
-    
-    try {
-      toast.loading('Generating ZIP archive of all label formats...');
-      
-      // Call edge function to create ZIP archive
-      const { data, error } = await supabase.functions.invoke('create-label-archive', {
-        body: { 
-          shipmentId,
-          formats: ['pdf', 'png', 'zpl'],
-        }
-      });
-      
-      if (error) {
-        throw new Error(`Error creating label archive: ${error.message}`);
-      }
-      
-      if (!data?.archiveUrl) {
-        throw new Error("No archive URL received");
-      }
-      
-      // Download the archive
-      const link = document.createElement('a');
-      link.href = data.archiveUrl;
-      link.download = `shipping_labels_${trackingCode}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      
-      // Clean up
-      setTimeout(() => {
-        document.body.removeChild(link);
-        toast.dismiss();
-        toast.success(`ZIP archive downloaded successfully`);
-      }, 100);
-      
-    } catch (error) {
-      console.error('Error downloading ZIP archive:', error);
-      toast.dismiss();
-      toast.error('Failed to generate ZIP archive');
-    } finally {
-      setIsGeneratingZip(false);
     }
   };
   
@@ -328,9 +210,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           label_url: url,
           shipment_id: shipmentId || '',
           status: 'completed',
-          label_format: selectedFormat,
-          label_size: selectedFormat,
-          file_type: selectedFileType
+          label_format: selectedFormat
         });
       
       if (error) {
@@ -351,7 +231,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="flex items-center gap-2 bg-white border-purple-200 hover:bg-purple-50">
-          <Printer className="h-4 w-4" /> View & Print Label
+          <Printer className="h-4 w-4" /> Print Label
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-4xl bg-white">
@@ -361,7 +241,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             <div className="flex gap-2">
               <Select
                 value={selectedFormat}
-                onValueChange={(value) => handleFormatChange(value)}
+                onValueChange={handleFormatChange}
                 disabled={isRegeneratingLabel}
               >
                 <SelectTrigger className="w-[200px]">
@@ -446,70 +326,22 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             </TabsContent>
             
             <TabsContent value="download">
-              <Tabs value={activeDownloadTab} onValueChange={setActiveDownloadTab}>
-                <TabsList className="mb-4 grid grid-cols-3">
-                  <TabsTrigger value="pdf">PDF Format</TabsTrigger>
-                  <TabsTrigger value="png">PNG Format</TabsTrigger>
-                  <TabsTrigger value="zip">ZIP Package</TabsTrigger>
-                </TabsList>
+              <div className="space-y-6">
+                <div className="p-5 border-2 rounded-md text-center cursor-pointer transition-colors border-blue-500 bg-blue-50">
+                  <Download className="h-12 w-12 mx-auto mb-2 text-blue-600" />
+                  <h4 className="font-medium">PDF Format</h4>
+                  <p className="text-xs text-gray-500">Best for printing</p>
+                </div>
                 
-                <TabsContent value="pdf">
-                  <div className="space-y-6">
-                    <div className="p-5 border-2 rounded-md text-center cursor-pointer transition-colors border-blue-500 bg-blue-50">
-                      <FileText className="h-12 w-12 mx-auto mb-2 text-blue-600" />
-                      <h4 className="font-medium">PDF Format</h4>
-                      <p className="text-xs text-gray-500">Best for printing</p>
-                    </div>
-                    
-                    <Button 
-                      onClick={() => handleDirectDownload('pdf')} 
-                      className="w-full h-12 bg-blue-600 hover:bg-blue-700"
-                      disabled={isRegeneratingLabel}
-                    >
-                      <Download className="mr-2 h-5 w-5" />
-                      Download PDF File
-                    </Button>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="png">
-                  <div className="space-y-6">
-                    <div className="p-5 border-2 rounded-md text-center cursor-pointer transition-colors border-green-500 bg-green-50">
-                      <Image className="h-12 w-12 mx-auto mb-2 text-green-600" />
-                      <h4 className="font-medium">PNG Format</h4>
-                      <p className="text-xs text-gray-500">Best for digital use</p>
-                    </div>
-                    
-                    <Button 
-                      onClick={() => handleDirectDownload('png')}
-                      className="w-full h-12 bg-green-600 hover:bg-green-700"
-                      disabled={isRegeneratingLabel}
-                    >
-                      <Download className="mr-2 h-5 w-5" />
-                      Download PNG Image
-                    </Button>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="zip">
-                  <div className="space-y-6">
-                    <div className="p-5 border-2 rounded-md text-center cursor-pointer transition-colors border-amber-500 bg-amber-50">
-                      <Archive className="h-12 w-12 mx-auto mb-2 text-amber-600" />
-                      <h4 className="font-medium">ZIP Package</h4>
-                      <p className="text-xs text-gray-500">All formats in one archive</p>
-                    </div>
-                    
-                    <Button 
-                      onClick={handleDownloadZip}
-                      className="w-full h-12 bg-amber-600 hover:bg-amber-700"
-                      disabled={isGeneratingZip || !shipmentId}
-                    >
-                      <Archive className="mr-2 h-5 w-5" />
-                      {isGeneratingZip ? 'Creating ZIP...' : 'Download All Formats (ZIP)'}
-                    </Button>
-                  </div>
-                </TabsContent>
-              </Tabs>
+                <Button 
+                  onClick={handleDirectDownload} 
+                  className="w-full h-12 bg-blue-600 hover:bg-blue-700"
+                  disabled={isRegeneratingLabel}
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  Download PDF File
+                </Button>
+              </div>
             </TabsContent>
             
             <TabsContent value="share">
@@ -555,43 +387,40 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="font-medium">From:</p>
-                  <p>{shipmentDetails.fromAddress}</p>
+                  <p className="whitespace-pre-line">{shipmentDetails.fromAddress}</p>
                 </div>
                 
                 <div>
                   <p className="font-medium">To:</p>
-                  <p>{shipmentDetails.toAddress}</p>
+                  <p className="whitespace-pre-line">{shipmentDetails.toAddress}</p>
+                </div>
+              </div>
+              
+              <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="font-medium">Service:</p>
+                  <p>{shipmentDetails.carrier} - {shipmentDetails.service}</p>
                 </div>
                 
                 <div>
                   <p className="font-medium">Weight:</p>
                   <p>{shipmentDetails.weight}</p>
                 </div>
-                
-                {shipmentDetails.dimensions && (
-                  <div>
-                    <p className="font-medium">Dimensions:</p>
-                    <p>{shipmentDetails.dimensions}</p>
-                  </div>
-                )}
-                
-                <div>
-                  <p className="font-medium">Service:</p>
-                  <p>{shipmentDetails.service}</p>
-                </div>
-                
-                <div>
-                  <p className="font-medium">Carrier:</p>
-                  <p>{shipmentDetails.carrier}</p>
-                </div>
-                
-                {trackingCode && (
-                  <div className="col-span-2">
-                    <p className="font-medium">Tracking Number:</p>
-                    <p className="font-mono">{trackingCode}</p>
-                  </div>
-                )}
               </div>
+              
+              {shipmentDetails.dimensions && (
+                <div className="mt-2 text-sm">
+                  <p className="font-medium">Dimensions:</p>
+                  <p>{shipmentDetails.dimensions}</p>
+                </div>
+              )}
+              
+              {trackingCode && (
+                <div className="mt-4 text-sm">
+                  <p className="font-medium">Tracking Number:</p>
+                  <p className="font-mono">{trackingCode}</p>
+                </div>
+              )}
             </div>
           )}
         </div>

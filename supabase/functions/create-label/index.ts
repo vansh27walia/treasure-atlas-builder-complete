@@ -95,10 +95,6 @@ serve(async (req) => {
       buyOptions.label_size = options.label_size;
     }
     
-    // Handle file type if specified - EasyPost API doesn't directly handle file_type
-    // but we'll store it for later processing
-    const fileType = options.file_type || 'pdf';
-    
     console.log("Buy options:", buyOptions);
 
     // Buy the label with EasyPost API
@@ -153,17 +149,14 @@ serve(async (req) => {
             const labelBuffer = new Uint8Array(labelArrayBuffer);
             
             // Generate a unique filename for the label
-            const fileName = `label_${shipmentId}_${fileType}_${Date.now()}.${fileType}`;
+            const fileName = `label_${shipmentId}_${Date.now()}.pdf`;
             
             // Upload the label to Supabase Storage
             const { data: uploadData, error: uploadError } = await supabase
               .storage
               .from('shipping-labels')
               .upload(fileName, labelBuffer, {
-                contentType: fileType === 'pdf' ? 'application/pdf' : 
-                            fileType === 'png' ? 'image/png' : 
-                            fileType === 'zpl' ? 'application/octet-stream' : 
-                            'application/pdf',
+                contentType: 'application/pdf',
                 cacheControl: '3600',
                 upsert: false
               });
@@ -192,8 +185,7 @@ serve(async (req) => {
                 labelUrl: signedURLData?.signedUrl || labelURL,
                 trackingCode: shipmentData.tracking_code,
                 shipmentId: shipmentId,
-                message: 'Retrieved existing label',
-                file_type: fileType
+                message: 'Retrieved existing label'
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
@@ -205,8 +197,7 @@ serve(async (req) => {
                 labelUrl: labelURL,
                 trackingCode: shipmentData.tracking_code,
                 shipmentId: shipmentId,
-                message: 'Using original EasyPost URL due to download error',
-                file_type: fileType
+                message: 'Using original EasyPost URL due to download error'
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
@@ -226,9 +217,7 @@ serve(async (req) => {
     
     const labelResponse = await fetch(labelURL, {
       headers: {
-        'Accept': fileType === 'pdf' ? 'application/pdf' : 
-                fileType === 'png' ? 'image/png' : 
-                'application/octet-stream'
+        'Accept': 'application/pdf'
       }
     });
     
@@ -243,17 +232,14 @@ serve(async (req) => {
     const labelBuffer = new Uint8Array(labelArrayBuffer);
     
     // Generate a unique filename for the label
-    const fileName = `label_${shipmentId}_${fileType}_${Date.now()}.${fileType}`;
+    const fileName = `label_${shipmentId}_${Date.now()}.pdf`;
     
     // Upload the label to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase
       .storage
       .from('shipping-labels')
       .upload(fileName, labelBuffer, {
-        contentType: fileType === 'pdf' ? 'application/pdf' : 
-                     fileType === 'png' ? 'image/png' : 
-                     fileType === 'zpl' ? 'application/octet-stream' : 
-                     'application/pdf',
+        contentType: 'application/pdf',
         cacheControl: '3600',
         upsert: false
       });
@@ -267,8 +253,7 @@ serve(async (req) => {
           labelUrl: labelURL,
           trackingCode: data.tracking_code,
           shipmentId: data.id,
-          message: 'Using original EasyPost URL due to storage error',
-          file_type: fileType
+          message: 'Using original EasyPost URL due to storage error'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -297,8 +282,7 @@ serve(async (req) => {
             labelUrl: publicURLData.publicUrl,
             trackingCode: data.tracking_code,
             shipmentId: data.id,
-            message: 'Using public URL',
-            file_type: fileType
+            message: 'Using public URL'
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -310,8 +294,7 @@ serve(async (req) => {
           labelUrl: labelURL,
           trackingCode: data.tracking_code,
           shipmentId: data.id,
-          message: 'Using original EasyPost URL due to signed URL error',
-          file_type: fileType
+          message: 'Using original EasyPost URL due to signed URL error'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -334,8 +317,7 @@ serve(async (req) => {
           easypost_rate: data.selected_rate?.rate || null,
           currency: data.selected_rate?.currency || 'USD',
           label_format: options.label_format || "PDF",
-          label_size: options.label_size || "4x6",
-          file_type: fileType || "pdf"
+          label_size: options.label_size || "4x6"
         });
         
       if (dbError) {
@@ -354,8 +336,7 @@ serve(async (req) => {
         trackingCode: data.tracking_code,
         shipmentId: data.id,
         label_format: options.label_format || "PDF",
-        label_size: options.label_size || "4x6",
-        file_type: fileType || "pdf"
+        label_size: options.label_size || "4x6"
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
