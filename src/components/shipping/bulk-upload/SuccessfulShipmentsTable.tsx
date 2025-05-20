@@ -34,10 +34,10 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
           <TableBody>
             {shipments.map((shipment) => (
               <TableRow key={shipment.id}>
-                <TableCell>{shipment.row}</TableCell>
-                <TableCell>{shipment.recipient}</TableCell>
-                <TableCell>{shipment.carrier}</TableCell>
-                <TableCell>{shipment.tracking_code || shipment.trackingCode}</TableCell>
+                <TableCell>{shipment.row || '-'}</TableCell>
+                <TableCell>{shipment.recipient || shipment.details?.name || shipment.toAddress.name}</TableCell>
+                <TableCell>{shipment.carrier || '-'}</TableCell>
+                <TableCell>{shipment.tracking_code || shipment.trackingCode || '-'}</TableCell>
                 <TableCell>
                   <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
                     Label Generated
@@ -48,6 +48,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                     size="sm" 
                     variant="ghost"
                     onClick={() => onDownloadSingleLabel(shipment.label_url || '')}
+                    disabled={!shipment.label_url}
                   >
                     <Download className="h-4 w-4" />
                   </Button>

@@ -70,25 +70,25 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
             <TableBody>
               {shipments.map((shipment) => (
                 <TableRow key={shipment.id}>
-                  <TableCell>{shipment.row}</TableCell>
+                  <TableCell>{shipment.row || '-'}</TableCell>
                   <TableCell>
-                    <div className="font-medium">{shipment.details.name}</div>
-                    {shipment.details.company && (
-                      <div className="text-xs text-gray-500">{shipment.details.company}</div>
+                    <div className="font-medium">{shipment.details?.name || shipment.toAddress.name}</div>
+                    {(shipment.details?.company || shipment.toAddress.company) && (
+                      <div className="text-xs text-gray-500">{shipment.details?.company || shipment.toAddress.company}</div>
                     )}
                   </TableCell>
                   <TableCell>
-                    <div>{shipment.details.street1}</div>
+                    <div>{shipment.details?.street1 || shipment.toAddress.street1}</div>
                     <div>
-                      {shipment.details.city}, {shipment.details.state} {shipment.details.zip}
+                      {shipment.details?.city || shipment.toAddress.city}, {shipment.details?.state || shipment.toAddress.state} {shipment.details?.zip || shipment.toAddress.zip}
                     </div>
-                    <div className="text-xs">{shipment.details.country}</div>
+                    <div className="text-xs">{shipment.details?.country || shipment.toAddress.country}</div>
                   </TableCell>
                   <TableCell>
-                    {shipment.status === 'completed' ? (
+                    {shipment.status === 'completed' || shipment.status === 'success' ? (
                       <div>
                         <Select 
-                          value={shipment.selectedRateId}
+                          value={shipment.selectedRateId || undefined}
                           onValueChange={(value) => onSelectRate(shipment.id, value)}
                         >
                           <SelectTrigger className="min-w-[180px]">
@@ -122,9 +122,9 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     )}
                   </TableCell>
                   <TableCell>
-                    {shipment.status === 'completed' && shipment.selectedRateId ? (
+                    {(shipment.status === 'completed' || shipment.status === 'success') && shipment.selectedRateId ? (
                       <div className="font-semibold">
-                        ${(shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate || 0).toFixed(2)}
+                        ${parseFloat(shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate || '0').toFixed(2)}
                       </div>
                     ) : shipment.status === 'processing' ? (
                       <Skeleton className="h-6 w-16" />
@@ -133,7 +133,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     )}
                   </TableCell>
                   <TableCell>
-                    {shipment.status === 'completed' ? (
+                    {shipment.status === 'completed' || shipment.status === 'success' ? (
                       <Badge className="bg-green-100 text-green-700 border-green-200">
                         <PackageCheck className="mr-1 h-3 w-3" />
                         Ready
@@ -218,21 +218,23 @@ interface ShipmentEditFormProps {
 }
 
 const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit, onCancel }) => {
+  const details = shipment.details || shipment.toAddress;
+  
   const form = useForm({
     defaultValues: {
-      name: shipment.details.name,
-      company: shipment.details.company || '',
-      street1: shipment.details.street1,
-      street2: shipment.details.street2 || '',
-      city: shipment.details.city,
-      state: shipment.details.state,
-      zip: shipment.details.zip,
-      country: shipment.details.country,
-      phone: shipment.details.phone || '',
-      parcel_length: shipment.details.parcel_length || 12,
-      parcel_width: shipment.details.parcel_width || 8,
-      parcel_height: shipment.details.parcel_height || 2,
-      parcel_weight: shipment.details.parcel_weight || 16
+      name: details.name,
+      company: details.company || '',
+      street1: details.street1,
+      street2: details.street2 || '',
+      city: details.city,
+      state: details.state,
+      zip: details.zip,
+      country: details.country,
+      phone: details.phone || '',
+      parcel_length: shipment.details?.parcel_length || shipment.parcel?.length || 12,
+      parcel_width: shipment.details?.parcel_width || shipment.parcel?.width || 8,
+      parcel_height: shipment.details?.parcel_height || shipment.parcel?.height || 2,
+      parcel_weight: shipment.details?.parcel_weight || shipment.parcel?.weight || 16
     }
   });
 

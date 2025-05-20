@@ -62,7 +62,7 @@ const ShippingRates: React.FC = () => {
         setShipmentDetails({
           fromAddress: "Your shipping address",
           toAddress: "Recipient address",
-          weight: `${selectedRate.parcel?.weight || 'Unknown'} oz`,
+          weight: selectedRate.parcel ? `${selectedRate.parcel.weight || 'Unknown'} oz` : 'Unknown',
           dimensions: selectedRate.parcel ? 
             `${selectedRate.parcel.length}" x ${selectedRate.parcel.width}" x ${selectedRate.parcel.height}"` : 
             undefined,
