@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, RefreshCw, ExternalLink, Mail, Save, File, FileArchive, X } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
