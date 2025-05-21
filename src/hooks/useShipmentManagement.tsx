@@ -12,7 +12,7 @@ export const useShipmentManagement = (
   const navigate = useNavigate();
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
-  const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
+  const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zip'>('pdf');
 
   const handleRemoveShipment = (shipmentId: string) => {
     if (!initialResults) return;
@@ -174,11 +174,9 @@ export const useShipmentManagement = (
           processedShipments: updatedShipments,
           totalCost: initialResults.totalCost,
           successful: successCount,
-          failed: initialResults.processedShipments.length - successCount
+          failed: initialResults.processedShipments.length - successCount,
+          uploadStatus: 'success'
         });
-        
-        // Update upload status in parent component
-        setUploadStatus('success');
       } else {
         toast("Label generation failed", {
           description: "No labels were generated, please try again"
@@ -235,7 +233,7 @@ export const useShipmentManagement = (
     }
     
     // Set format for future downloads
-    setDownloadFormat(format as 'pdf' | 'png' | 'zpl');
+    setDownloadFormat(format as 'pdf' | 'png' | 'zip');
     
     // For individual formats, open each label in new tab
     const labelsWithUrls = initialResults.processedShipments.filter(s => s.label_url);
@@ -264,25 +262,27 @@ export const useShipmentManagement = (
     }
   };
 
-  const handleDownloadSingleLabel = (labelUrl: string) => {
+  const handleDownloadSingleLabel = (labelUrl: string, format: 'pdf' | 'png' | 'zip' = 'pdf') => {
+    if (!labelUrl) {
+      toast("Error", { 
+        description: "No label URL available" 
+      });
+      return;
+    }
+    
+    // For now, we'll just open the URL in a new tab
+    // In a production app, this would be replaced with proper format handling
     window.open(labelUrl, '_blank');
+    
+    toast("Downloading label", {
+      description: `Downloading label in ${format.toUpperCase()} format`
+    });
   };
   
   const handleEmailLabels = () => {
     toast("Email feature", {
       description: "Email labels feature will be implemented soon"
     });
-  };
-  
-  // This function is needed for the updated component but doesn't exist in the original hook
-  const setUploadStatus = (status: 'idle' | 'success' | 'error' | 'editing') => {
-    // This should be passed from the parent hook
-    if (initialResults) {
-      updateResults({
-        ...initialResults,
-        uploadStatus: status
-      });
-    }
   };
 
   return {

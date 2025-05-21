@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Printer, Download, File, FileArchive, X } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -39,7 +39,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState('4x6');
-  const [selectedFileFormat, setSelectedFileFormat] = useState<'pdf' | 'png'>('pdf');
+  const [selectedFileFormat, setSelectedFileFormat] = useState<'pdf' | 'png' | 'zip'>('pdf');
   const contentRef = useRef<HTMLDivElement>(null);
   const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
   const [currentLabelUrl, setCurrentLabelUrl] = useState(labelUrl);
@@ -73,7 +73,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const handleDownload = (format: 'pdf' | 'png' = 'pdf') => {
+  const handleDownload = (format: 'pdf' | 'png' | 'zip' = 'pdf') => {
     try {
       window.open(currentLabelUrl, '_blank');
       toast.success(`Downloading ${format.toUpperCase()} label`);
@@ -248,8 +248,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 
                 <div 
                   className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
-                    ${false ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300'}
+                    ${selectedFileFormat === 'zip' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300'}
                   `}
+                  onClick={() => setSelectedFileFormat('zip')}
                 >
                   <FileArchive className="h-12 w-12 mx-auto mb-2 text-purple-600" />
                   <h4 className="font-medium">ZPL Format</h4>
@@ -260,7 +261,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               <Button 
                 onClick={() => handleDownload(selectedFileFormat)} 
                 className={`w-full h-12 ${
-                  selectedFileFormat === 'pdf' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'
+                  selectedFileFormat === 'pdf' ? 'bg-blue-600 hover:bg-blue-700' : 
+                  selectedFileFormat === 'png' ? 'bg-green-600 hover:bg-green-700' : 
+                  'bg-purple-600 hover:bg-purple-700'
                 }`}
                 disabled={isRegeneratingLabel}
               >
