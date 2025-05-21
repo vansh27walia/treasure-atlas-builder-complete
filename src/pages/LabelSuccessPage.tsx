@@ -1,9 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CheckCircle, Download, Home, Truck, Printer, File, FileArchive } from 'lucide-react';
+import { CheckCircle, Download, Home, Truck, Printer, File, FileArchive, FileText } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import ShippingLabel from '@/components/shipping/ShippingLabel';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
