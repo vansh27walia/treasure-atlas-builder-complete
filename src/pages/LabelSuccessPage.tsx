@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CheckCircle, Download, Home, Truck, Printer, FileText, FilePng, FileZip } from 'lucide-react';
+import { CheckCircle, Download, Home, Truck, Printer, File, FileArchive } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import ShippingLabel from '@/components/shipping/ShippingLabel';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
@@ -223,7 +223,7 @@ const LabelSuccessPage: React.FC = () => {
                     `}
                     onClick={() => setSelectedFormat('pdf')}
                   >
-                    <FileText className="h-12 w-12 mx-auto mb-2 text-blue-600" />
+                    <File className="h-12 w-12 mx-auto mb-2 text-blue-600" />
                     <h4 className="font-medium">PDF Format</h4>
                     <p className="text-xs text-gray-500">Best for printing</p>
                   </div>
@@ -234,7 +234,7 @@ const LabelSuccessPage: React.FC = () => {
                     `}
                     onClick={() => setSelectedFormat('png')}
                   >
-                    <FilePng className="h-12 w-12 mx-auto mb-2 text-green-600" />
+                    <File className="h-12 w-12 mx-auto mb-2 text-green-600" />
                     <h4 className="font-medium">PNG Format</h4>
                     <p className="text-xs text-gray-500">Image format</p>
                   </div>
@@ -245,7 +245,7 @@ const LabelSuccessPage: React.FC = () => {
                     `}
                     onClick={() => setSelectedFormat('zpl')}
                   >
-                    <FileZip className="h-12 w-12 mx-auto mb-2 text-purple-600" />
+                    <FileArchive className="h-12 w-12 mx-auto mb-2 text-purple-600" />
                     <h4 className="font-medium">ZPL Format</h4>
                     <p className="text-xs text-gray-500">For thermal printers</p>
                   </div>

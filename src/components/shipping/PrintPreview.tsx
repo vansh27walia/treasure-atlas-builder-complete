@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Printer, Download, FilePdf, FilePng, X } from 'lucide-react';
+import { Printer, Download, File, FileArchive, X } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
@@ -230,7 +229,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   `}
                   onClick={() => setSelectedFileFormat('pdf')}
                 >
-                  <FilePdf className="h-12 w-12 mx-auto mb-2 text-blue-600" />
+                  <File className="h-12 w-12 mx-auto mb-2 text-blue-600" />
                   <h4 className="font-medium">PDF Format</h4>
                   <p className="text-xs text-gray-500">Best for printing</p>
                 </div>
@@ -241,7 +240,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   `}
                   onClick={() => setSelectedFileFormat('png')}
                 >
-                  <FilePng className="h-12 w-12 mx-auto mb-2 text-green-600" />
+                  <File className="h-12 w-12 mx-auto mb-2 text-green-600" />
                   <h4 className="font-medium">PNG Format</h4>
                   <p className="text-xs text-gray-500">Image format</p>
                 </div>

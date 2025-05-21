@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FilePdf, FilePng, FileZip, ChevronDown } from 'lucide-react';
+import { Download, File, FileArchive, ChevronDown } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import { 
   DropdownMenu, 
@@ -62,13 +62,13 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => handleBulkDownload('pdf')} className="flex items-center gap-2">
-              <FilePdf className="h-4 w-4 text-blue-600" /> PDF Format
+              <File className="h-4 w-4 text-blue-600" /> PDF Format
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleBulkDownload('png')} className="flex items-center gap-2">
-              <FilePng className="h-4 w-4 text-green-600" /> PNG Format
+              <File className="h-4 w-4 text-green-600" /> PNG Format
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleBulkDownload('zip')} className="flex items-center gap-2">
-              <FileZip className="h-4 w-4 text-amber-600" /> ZIP Archive
+              <FileArchive className="h-4 w-4 text-amber-600" /> ZIP Archive
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -110,10 +110,10 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'pdf')}>
-                        <FilePdf className="h-4 w-4 text-blue-600 mr-2" /> Download PDF
+                        <File className="h-4 w-4 text-blue-600 mr-2" /> Download PDF
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'png')}>
-                        <FilePng className="h-4 w-4 text-green-600 mr-2" /> Download PNG
+                        <File className="h-4 w-4 text-green-600 mr-2" /> Download PNG
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, RefreshCw, ExternalLink, Mail, Save, FileText, FilePng, FileZip, X } from 'lucide-react';
+import { Download, RefreshCw, ExternalLink, Mail, Save, File, FileArchive, X } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -421,7 +420,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
               <TabsTrigger value="share">Share</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="preview" className="min-h-[400px] flex items-center justify-center border rounded-md">
+            <TabsContent value="preview">
               <div className="w-full flex flex-col items-center">
                 <div className="mb-4 flex justify-center">
                   <Select
@@ -458,7 +457,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full w-full">
-                    <FileText className="h-16 w-16 text-gray-300 mb-4" />
+                    <File className="h-16 w-16 text-gray-300 mb-4" />
                     <p className="text-gray-500">Loading preview...</p>
                   </div>
                 )}
@@ -474,7 +473,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
                     `}
                     onClick={() => setSelectedFileFormat('pdf')}
                   >
-                    <FileText className="h-12 w-12 mx-auto mb-2 text-blue-600" />
+                    <File className="h-12 w-12 mx-auto mb-2 text-blue-600" />
                     <h4 className="font-medium">PDF Format</h4>
                     <p className="text-xs text-gray-500">Best for printing</p>
                   </div>
@@ -485,7 +484,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
                     `}
                     onClick={() => setSelectedFileFormat('png')}
                   >
-                    <FilePng className="h-12 w-12 mx-auto mb-2 text-green-600" />
+                    <File className="h-12 w-12 mx-auto mb-2 text-green-600" />
                     <h4 className="font-medium">PNG Format</h4>
                     <p className="text-xs text-gray-500">Image format</p>
                   </div>
@@ -496,7 +495,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
                     `}
                     onClick={() => setSelectedFileFormat('zpl')}
                   >
-                    <FilePng className="h-12 w-12 mx-auto mb-2 text-purple-600" />
+                    <FileArchive className="h-12 w-12 mx-auto mb-2 text-purple-600" />
                     <h4 className="font-medium">ZPL Format</h4>
                     <p className="text-xs text-gray-500">For thermal printers</p>
                   </div>
