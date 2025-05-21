@@ -1,24 +1,79 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download } from 'lucide-react';
+import { Download, FilePdf, FilePng, FileZip, ChevronDown } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { toast } from '@/components/ui/sonner';
 
 interface SuccessfulShipmentsTableProps {
   shipments: BulkShipment[];
-  onDownloadSingleLabel: (labelUrl: string) => void;
+  onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
+  onDownloadAllLabels?: () => void;
 }
 
 const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   shipments,
-  onDownloadSingleLabel
+  onDownloadSingleLabel,
+  onDownloadAllLabels
 }) => {
+  const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zip'>('pdf');
+  
   if (shipments.length === 0) return null;
+  
+  const handleDownload = (labelUrl: string, format: string = 'pdf') => {
+    onDownloadSingleLabel(labelUrl, format);
+    toast.success(`Downloading ${format.toUpperCase()} label`);
+  };
+  
+  const handleBulkDownload = (format: 'pdf' | 'png' | 'zip' = 'pdf') => {
+    setSelectedFormat(format);
+    if (onDownloadAllLabels) {
+      onDownloadAllLabels();
+      toast.success(`Preparing ${format.toUpperCase()} labels for download`);
+    } else {
+      // Fallback: Download each label individually
+      shipments.forEach(shipment => {
+        if (shipment.label_url) {
+          setTimeout(() => handleDownload(shipment.label_url || '', format), 300);
+        }
+      });
+    }
+  };
   
   return (
     <div className="p-4">
-      <h5 className="font-medium text-green-800 mb-3">Successfully Processed Shipments</h5>
+      <div className="flex justify-between items-center mb-3">
+        <h5 className="font-medium text-green-800">Successfully Processed Shipments</h5>
+        
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="flex items-center gap-2 border-green-200 hover:bg-green-50">
+              <Download className="h-4 w-4" /> 
+              Download All Labels
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleBulkDownload('pdf')} className="flex items-center gap-2">
+              <FilePdf className="h-4 w-4 text-blue-600" /> PDF Format
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleBulkDownload('png')} className="flex items-center gap-2">
+              <FilePng className="h-4 w-4 text-green-600" /> PNG Format
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleBulkDownload('zip')} className="flex items-center gap-2">
+              <FileZip className="h-4 w-4 text-amber-600" /> ZIP Archive
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -44,13 +99,24 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                   </span>
                 </TableCell>
                 <TableCell>
-                  <Button 
-                    size="sm" 
-                    variant="ghost"
-                    onClick={() => onDownloadSingleLabel(shipment.label_url || '')}
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'pdf')}>
+                        <FilePdf className="h-4 w-4 text-blue-600 mr-2" /> Download PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'png')}>
+                        <FilePng className="h-4 w-4 text-green-600 mr-2" /> Download PNG
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}

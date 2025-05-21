@@ -30,88 +30,98 @@ serve(async (req) => {
 
     // Parse the request body
     const requestData = await req.json();
-    const shipmentId = requestData.shipment_id;
+    const { shipment_id, label_format, file_format } = requestData;
     
-    if (!shipmentId) {
+    console.log('Get stored label request:', requestData);
+    
+    if (!shipment_id) {
       return new Response(
-        JSON.stringify({ error: 'Missing shipment_id parameter' }),
+        JSON.stringify({ error: 'Missing shipment ID' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
-    console.log(`Retrieving label for shipment ID: ${shipmentId}`);
-
-    // Get the label URL from the database
-    const { data, error } = await supabase
+    // Try to retrieve the shipment record
+    const { data: shipmentRecord, error: recordError } = await supabase
       .from('shipment_records')
-      .select('label_url, tracking_code')
-      .eq('shipment_id', shipmentId)
+      .select('*')
+      .eq('shipment_id', shipment_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
     
-    if (error || !data) {
-      console.error('Error retrieving label from database:', error);
-      
-      // If not found in database, try to get it from EasyPost API
-      console.log('Label not found in database, trying EasyPost API...');
-      
-      // Get EasyPost API key
-      const apiKey = Deno.env.get('EASYPOST_API_KEY');
-      if (!apiKey) {
-        return new Response(
-          JSON.stringify({ error: 'EasyPost API key not configured' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-        );
-      }
-      
-      // Try to retrieve the shipment from EasyPost
-      try {
-        const easypostResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!easypostResponse.ok) {
-          return new Response(
-            JSON.stringify({ error: 'Failed to retrieve shipment from EasyPost', status: easypostResponse.status }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: easypostResponse.status }
-          );
-        }
-        
-        const shipmentData = await easypostResponse.json();
-        
-        if (shipmentData.postage_label?.label_url) {
-          return new Response(
-            JSON.stringify({
-              labelUrl: shipmentData.postage_label.label_url,
-              trackingCode: shipmentData.tracking_code,
-              source: 'easypost_api'
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        } else {
-          return new Response(
-            JSON.stringify({ error: 'No label URL found in EasyPost response' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
-          );
-        }
-      } catch (easypostError) {
-        console.error('Error retrieving shipment from EasyPost:', easypostError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to retrieve shipment', details: easypostError.message }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-        );
-      }
+    if (recordError || !shipmentRecord) {
+      console.error('Error retrieving shipment record:', recordError);
+      return new Response(
+        JSON.stringify({ error: 'Shipment record not found', details: recordError }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+      );
     }
+    
+    console.log('Found shipment record:', shipmentRecord);
 
-    // Return the label URL and tracking code
+    // Check if the requested format matches the stored one, if not we need to regenerate
+    const storedFormat = shipmentRecord.label_format || 'PDF';
+    const storedSize = shipmentRecord.label_size || '4x6';
+    const storedFileFormat = shipmentRecord.file_format || 'pdf';
+    
+    const requestedFormat = label_format || storedFormat;
+    const requestedFileFormat = file_format || storedFileFormat;
+    
+    if (requestedFormat === storedFormat && requestedFileFormat === storedFileFormat && shipmentRecord.label_url) {
+      // The formats match, return the stored URL
+      return new Response(
+        JSON.stringify({
+          labelUrl: shipmentRecord.label_url,
+          trackingCode: shipmentRecord.tracking_code,
+          shipmentId: shipment_id,
+          fileFormat: storedFileFormat
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // The formats don't match, we need to regenerate the label
+    console.log('Regenerating label with new format', {
+      requested: { format: requestedFormat, fileFormat: requestedFileFormat },
+      stored: { format: storedFormat, fileFormat: storedFileFormat }
+    });
+    
+    // Call the create-label function with the new format
+    const createLabelResponse = await fetch(new URL('/functions/v1/create-label', supabaseUrl).toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseServiceKey}`
+      },
+      body: JSON.stringify({
+        shipmentId: shipment_id,
+        rateId: shipmentRecord.rate_id,
+        options: {
+          label_format: requestedFormat,
+          label_size: requestedFormat, // Size is the same as format in our case
+          file_format: requestedFileFormat
+        }
+      })
+    });
+    
+    if (!createLabelResponse.ok) {
+      const errorData = await createLabelResponse.json();
+      console.error('Error regenerating label:', errorData);
+      return new Response(
+        JSON.stringify({ error: 'Failed to regenerate label', details: errorData }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: createLabelResponse.status }
+      );
+    }
+    
+    const regeneratedLabel = await createLabelResponse.json();
+    
     return new Response(
       JSON.stringify({
-        labelUrl: data.label_url,
-        trackingCode: data.tracking_code,
-        source: 'database'
+        labelUrl: regeneratedLabel.labelUrl,
+        trackingCode: regeneratedLabel.trackingCode || shipmentRecord.tracking_code,
+        shipmentId: shipment_id,
+        fileFormat: requestedFileFormat
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

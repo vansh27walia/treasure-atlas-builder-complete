@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Download, RefreshCw, ExternalLink, Mail, Save, FileText, X } from 'lucide-react';
+import { Download, RefreshCw, ExternalLink, Mail, Save, FileText, FilePng, FileZip, X } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<string>('4x6');
+  const [selectedFileFormat, setSelectedFileFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   const downloadLinkRef = useRef<HTMLAnchorElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
@@ -128,7 +129,8 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
       const { data, error } = await supabase.functions.invoke('get-stored-label', {
         body: { 
           shipment_id: shipmentId,
-          label_format: selectedFormat 
+          label_format: selectedFormat,
+          file_format: selectedFileFormat
         }
       });
       
@@ -154,6 +156,11 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
   };
 
   const handleDirectDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+    // If format has changed, update selectedFileFormat
+    if (format !== selectedFileFormat) {
+      setSelectedFileFormat(format);
+    }
+
     if (blobUrl) {
       try {
         console.log(`Starting direct download with blob URL (${format}):`, blobUrl);
@@ -275,7 +282,8 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
           label_url: url,
           shipment_id: shipmentId || '',
           status: 'completed',
-          label_format: selectedFormat
+          label_format: selectedFormat,
+          file_format: selectedFileFormat
         });
       
       if (error) {
@@ -462,22 +470,49 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div 
                     className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
-                      border-blue-500 bg-blue-50
+                      ${selectedFileFormat === 'pdf' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
                     `}
+                    onClick={() => setSelectedFileFormat('pdf')}
                   >
                     <FileText className="h-12 w-12 mx-auto mb-2 text-blue-600" />
                     <h4 className="font-medium">PDF Format</h4>
                     <p className="text-xs text-gray-500">Best for printing</p>
                   </div>
+                  
+                  <div 
+                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
+                      ${selectedFileFormat === 'png' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}
+                    `}
+                    onClick={() => setSelectedFileFormat('png')}
+                  >
+                    <FilePng className="h-12 w-12 mx-auto mb-2 text-green-600" />
+                    <h4 className="font-medium">PNG Format</h4>
+                    <p className="text-xs text-gray-500">Image format</p>
+                  </div>
+                  
+                  <div 
+                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
+                      ${selectedFileFormat === 'zpl' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300'}
+                    `}
+                    onClick={() => setSelectedFileFormat('zpl')}
+                  >
+                    <FilePng className="h-12 w-12 mx-auto mb-2 text-purple-600" />
+                    <h4 className="font-medium">ZPL Format</h4>
+                    <p className="text-xs text-gray-500">For thermal printers</p>
+                  </div>
                 </div>
                 
                 <Button 
-                  onClick={() => handleDirectDownload('pdf')} 
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700"
+                  onClick={() => handleDirectDownload(selectedFileFormat)} 
+                  className={`w-full h-12 ${
+                    selectedFileFormat === 'pdf' ? 'bg-blue-600 hover:bg-blue-700' : 
+                    selectedFileFormat === 'png' ? 'bg-green-600 hover:bg-green-700' : 
+                    'bg-purple-600 hover:bg-purple-700'
+                  }`}
                   disabled={isRefreshing || !blobUrl}
                 >
                   <Download className="mr-2 h-5 w-5" />
-                  Download PDF File
+                  Download {selectedFileFormat.toUpperCase()} File
                 </Button>
               </div>
             </TabsContent>

@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertCircle } from 'lucide-react';
 
 interface FailedShipment {
   row: number;
@@ -19,7 +20,11 @@ const FailedShipmentsTable: React.FC<FailedShipmentsTableProps> = ({
   
   return (
     <div className="p-4 border-t border-green-100">
-      <h5 className="font-medium text-red-800 mb-3">Failed Shipments</h5>
+      <div className="flex items-center mb-3">
+        <AlertCircle className="h-4 w-4 text-red-600 mr-2" />
+        <h5 className="font-medium text-red-800">Failed Shipments</h5>
+      </div>
+      
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
