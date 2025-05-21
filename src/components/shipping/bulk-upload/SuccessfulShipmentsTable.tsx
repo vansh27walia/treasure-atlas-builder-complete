@@ -115,6 +115,9 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                       <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'png')}>
                         <File className="h-4 w-4 text-green-600 mr-2" /> Download PNG
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'zip')}>
+                        <FileArchive className="h-4 w-4 text-amber-600 mr-2" /> Download ZIP
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

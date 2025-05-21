@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -222,7 +223,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
           <TabsContent value="download">
             <div className="space-y-6 p-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div 
                   className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
                     ${selectedFileFormat === 'pdf' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
@@ -243,6 +244,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   <File className="h-12 w-12 mx-auto mb-2 text-green-600" />
                   <h4 className="font-medium">PNG Format</h4>
                   <p className="text-xs text-gray-500">Image format</p>
+                </div>
+                
+                <div 
+                  className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
+                    ${false ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300'}
+                  `}
+                >
+                  <FileArchive className="h-12 w-12 mx-auto mb-2 text-purple-600" />
+                  <h4 className="font-medium">ZPL Format</h4>
+                  <p className="text-xs text-gray-500">For thermal printers</p>
                 </div>
               </div>
               
