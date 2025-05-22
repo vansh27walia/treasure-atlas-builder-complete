@@ -1,6 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { toast } from '@/components/ui/sonner';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 import type { SavedAddress } from '@/utils/addressUtils';
 
 interface AddressSelectionProps {
@@ -19,6 +23,23 @@ export const AddressSelector: React.FC<AddressSelectionProps> = ({
   selectedAddressId,
   useGoogleAutocomplete = false // Default to false
 }) => {
+  // State for manual form inputs
+  const [addressData, setAddressData] = useState({
+    street1: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'US'
+  });
+
+  // Handle address input change
+  const handleInputChange = (field: string, value: string) => {
+    setAddressData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
   // Handle manual address input
   const handleAddressInput = (addressData: Partial<SavedAddress>) => {
     try {
@@ -46,8 +67,72 @@ export const AddressSelector: React.FC<AddressSelectionProps> = ({
     }
   };
 
-  // Rest of component implementation
-  return <div>Address selector component {type ? `(${type})` : ''}</div>;
+  // Submit the entered address
+  const submitAddress = () => {
+    handleAddressInput(addressData);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="text-sm text-gray-500">
+        {type === 'from' ? 'Enter pickup address details:' : 'Enter destination address details:'}
+      </div>
+      
+      <div className="space-y-3">
+        <div>
+          <Label htmlFor={`${type}-street1`}>Address Line 1</Label>
+          <Input
+            id={`${type}-street1`}
+            value={addressData.street1}
+            onChange={(e) => handleInputChange('street1', e.target.value)}
+            placeholder="Street address"
+          />
+        </div>
+        
+        <div className="grid grid-cols-3 gap-2">
+          <div className="col-span-1">
+            <Label htmlFor={`${type}-city`}>City</Label>
+            <Input
+              id={`${type}-city`}
+              value={addressData.city}
+              onChange={(e) => handleInputChange('city', e.target.value)}
+              placeholder="City"
+            />
+          </div>
+          
+          <div className="col-span-1">
+            <Label htmlFor={`${type}-state`}>State</Label>
+            <Input
+              id={`${type}-state`}
+              value={addressData.state}
+              onChange={(e) => handleInputChange('state', e.target.value)}
+              placeholder="State"
+            />
+          </div>
+          
+          <div className="col-span-1">
+            <Label htmlFor={`${type}-zip`}>ZIP</Label>
+            <Input
+              id={`${type}-zip`}
+              value={addressData.zip}
+              onChange={(e) => handleInputChange('zip', e.target.value)}
+              placeholder="ZIP Code"
+            />
+          </div>
+        </div>
+        
+        <div className="flex justify-end">
+          <Button 
+            type="button" 
+            size="sm" 
+            onClick={submitAddress}
+          >
+            Use This Address
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // Also export as default for backward compatibility
