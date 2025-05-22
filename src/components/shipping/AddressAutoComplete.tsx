@@ -44,6 +44,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         const googleMapsLoaded = await loadGoogleMapsAPI();
         
         if (googleMapsLoaded && inputRef.current) {
+          console.log("Google Maps API loaded successfully");
           setIsLoaded(true);
           
           // Initialize autocomplete on the input element with a slight delay
@@ -57,6 +58,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
               };
               
               if (window.google && window.google.maps && window.google.maps.places) {
+                console.log("Initializing Google Maps Autocomplete");
                 autocompleteRef.current = new window.google.maps.places.Autocomplete(
                   inputRef.current,
                   options
@@ -70,12 +72,17 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
                   console.log("Google Maps place selected:", place);
                   
                   if (place && place.formatted_address) {
+                    console.log("Setting formatted address:", place.formatted_address);
                     setValue(place.formatted_address);
                     if (onChange) onChange(place.formatted_address);
                   }
                   
                   if (place && place.address_components) {
+                    // Pass the complete place object to the parent component
+                    console.log("Calling onAddressSelected with place:", place);
                     onAddressSelected(place);
+                  } else {
+                    console.warn("Missing address_components in selected place");
                   }
                 });
                 
@@ -85,9 +92,13 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
                     e.preventDefault();
                   }
                 });
+              } else {
+                console.error("Google Maps Places API not available");
               }
             }
           }, 100);
+        } else {
+          console.warn("Google Maps API failed to load");
         }
       } catch (error) {
         console.error("Error initializing Google Maps autocomplete:", error);

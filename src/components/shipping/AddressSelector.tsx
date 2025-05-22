@@ -124,18 +124,37 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   }, [watchRequired, form, onAddressSelect]);
   
   const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
+    console.log("Google place selected in AddressSelector:", place);
+    
     if (place && place.address_components) {
       const addressComponents = extractAddressComponents(place);
+      console.log("Extracted address components:", addressComponents);
       
       // Update form values with extracted address components
-      if (addressComponents.street1) form.setValue('street1', addressComponents.street1, { shouldValidate: true });
-      if (addressComponents.city) form.setValue('city', addressComponents.city, { shouldValidate: true });
-      if (addressComponents.state) form.setValue('state', addressComponents.state, { shouldValidate: true });
-      if (addressComponents.zip) form.setValue('zip', addressComponents.zip, { shouldValidate: true });
-      if (addressComponents.country) form.setValue('country', addressComponents.country, { shouldValidate: true });
+      if (addressComponents.street1) {
+        form.setValue('street1', addressComponents.street1, { shouldValidate: true });
+      }
+      if (addressComponents.city) {
+        form.setValue('city', addressComponents.city, { shouldValidate: true });
+      }
+      if (addressComponents.state) {
+        form.setValue('state', addressComponents.state, { shouldValidate: true });
+      }
+      if (addressComponents.zip) {
+        form.setValue('zip', addressComponents.zip, { shouldValidate: true });
+      }
+      if (addressComponents.country) {
+        form.setValue('country', addressComponents.country, { shouldValidate: true });
+      }
       
       // Trigger form validation
       form.trigger(['street1', 'city', 'state', 'zip', 'country']);
+      
+      // Submit the form with the selected address
+      const values = form.getValues();
+      if (onAddressSelect) {
+        onAddressSelect(values);
+      }
       
       toast.success('Address found and auto-filled');
     }
@@ -148,6 +167,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
 
   // Handle selecting a saved address
   const handleSavedAddressSelected = (address: SavedAddress | null) => {
+    console.log("Saved address selected:", address);
     setSelectedSavedAddress(address);
     setShowAddressForm(!address); // Hide form if an address is selected
   };
