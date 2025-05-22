@@ -12,10 +12,7 @@ import { toast } from '@/components/ui/sonner';
 import { AddressData, PickupRequestData, carrierService } from '@/services/CarrierService';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-
-// Remove imports for Google Maps functions since we're not using them anymore
-// import { initAddressAutocomplete, extractAddressComponents, loadGoogleMapsAPI } from '@/utils/addressUtils';
-import { AddressSelector } from '@/components/shipping/AddressSelector';
+import { initAddressAutocomplete, extractAddressComponents, loadGoogleMapsAPI } from '@/utils/addressUtils';
 
 interface FormValues {
   name: string;
@@ -59,9 +56,7 @@ const PickupPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [pickupConfirmation, setPickupConfirmation] = useState<any>(null);
   const streetInputRef = useRef<HTMLInputElement>(null);
-  
-  // Remove Google Places initialization flag since we're not using Google Maps anymore
-  // const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(false);
+  const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(false);
   
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([
     { id: '1', name: 'Home Office', street: '123 Main St', city: 'Boston', state: 'MA', zip: '02101', country: 'US', company: 'My Company', phone: '555-1234' },
@@ -81,8 +76,7 @@ const PickupPage: React.FC = () => {
   
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   
-  // Remove the Google Places initialization effect since we're not using it anymore
-  /* 
+  // Initialize Google Places API
   useEffect(() => {
     const initGooglePlaces = async () => {
       try {
@@ -113,7 +107,6 @@ const PickupPage: React.FC = () => {
     
     initGooglePlaces();
   }, [form]);
-  */
   
   const handleSelectAddress = (addressId: string) => {
     const address = savedAddresses.find(addr => addr.id === addressId);
@@ -127,20 +120,6 @@ const PickupPage: React.FC = () => {
       form.setValue('country', address.country || 'US');
       form.setValue('phone', address.phone || '');
       setSelectedAddress(addressId);
-    }
-  };
-
-  // Handle address selection from AddressSelector component
-  const handleAddressSelect = (address: any) => {
-    if (address) {
-      if (address.street1) form.setValue('street1', address.street1);
-      if (address.city) form.setValue('city', address.city);
-      if (address.state) form.setValue('state', address.state);
-      if (address.zip) form.setValue('zip', address.zip);
-      if (address.country) form.setValue('country', address.country || 'US');
-      if (address.name) form.setValue('name', address.name);
-      if (address.company) form.setValue('company', address.company);
-      if (address.phone) form.setValue('phone', address.phone);
     }
   };
   
@@ -273,14 +252,6 @@ const PickupPage: React.FC = () => {
                       </Select>
                     </div>
                     
-                    <div className="mb-4">
-                      <AddressSelector 
-                        form={form}
-                        onAddressSelect={handleAddressSelect}
-                        type="from"
-                      />
-                    </div>
-                    
                     <div className="space-y-4">
                       <div>
                         <Label htmlFor="name">Name</Label>
@@ -305,6 +276,7 @@ const PickupPage: React.FC = () => {
                           placeholder="Street address" 
                           required 
                           ref={streetInputRef}
+                          className={googlePlacesEnabled ? "border-blue-300" : ""}
                         />
                       </div>
                       

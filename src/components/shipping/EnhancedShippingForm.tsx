@@ -247,8 +247,9 @@ const EnhancedShippingForm: React.FC = () => {
                   <div className="bg-blue-50 p-3 rounded-lg w-full">
                     <h3 className="text-base font-medium text-blue-700 mb-2">Origin</h3>
                     <AddressSelector 
-                      onAddressSelect={handleFromAddressSelect}
                       type="from"
+                      onAddressSelect={handleFromAddressSelect}
+                      useGoogleAutocomplete={true}
                     />
                   </div>
                 </div>
@@ -258,8 +259,9 @@ const EnhancedShippingForm: React.FC = () => {
                   <div className="bg-blue-50 p-3 rounded-lg w-full">
                     <h3 className="text-base font-medium text-blue-700 mb-2">Destination</h3>
                     <AddressSelector 
-                      onAddressSelect={handleToAddressSelect}
                       type="to"
+                      onAddressSelect={handleToAddressSelect}
+                      useGoogleAutocomplete={true}
                     />
                   </div>
                 </div>
