@@ -41,7 +41,7 @@ export const usePickupAddresses = () => {
   }, []);
 
   // Create new address
-  const createAddress = async (addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">, useEncryption: boolean = true) => {
+  const createAddress = async (addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">) => {
     setIsUpdating(true);
     try {
       console.log("Creating address with data:", addressData);
@@ -52,7 +52,14 @@ export const usePickupAddresses = () => {
       if (!addressData.state) throw new Error('State is required');
       if (!addressData.zip) throw new Error('ZIP code is required');
       
-      const newAddress = await addressService.createAddress(addressData, useEncryption);
+      // Try first without encryption
+      let newAddress = await addressService.createAddress(addressData, false);
+      
+      // If that fails, try with encryption as a fallback
+      if (!newAddress) {
+        console.log("Regular address creation failed, trying with encryption");
+        newAddress = await addressService.createAddress(addressData, true);
+      }
       
       if (!newAddress) {
         throw new Error('Failed to create address');
@@ -85,7 +92,7 @@ export const usePickupAddresses = () => {
   };
 
   // Update existing address
-  const updateAddress = async (addressId: number, addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">, useEncryption: boolean = true) => {
+  const updateAddress = async (addressId: number, addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">) => {
     setIsUpdating(true);
     try {
       console.log("Updating address with ID:", addressId, "and data:", addressData);
@@ -96,7 +103,14 @@ export const usePickupAddresses = () => {
       if (!addressData.state) throw new Error('State is required');
       if (!addressData.zip) throw new Error('ZIP code is required');
       
-      const updatedAddress = await addressService.updateAddress(addressId, addressData, useEncryption);
+      // Try first without encryption
+      let updatedAddress = await addressService.updateAddress(addressId, addressData, false);
+      
+      // If that fails, try with encryption as a fallback
+      if (!updatedAddress) {
+        console.log("Regular address update failed, trying with encryption");
+        updatedAddress = await addressService.updateAddress(addressId, addressData, true);
+      }
       
       if (!updatedAddress) {
         throw new Error('Failed to update address');

@@ -82,14 +82,14 @@ const PickupAddressSettings: React.FC = () => {
     try {
       if (editingAddress) {
         // Update existing address
-        const success = await updateAddress(editingAddress.id, addressData, true);
+        const success = await updateAddress(editingAddress.id, addressData);
         if (success) {
           toast.success("Address updated successfully");
           setShowAddressModal(false);
         }
       } else {
         // Create new address
-        const success = await createAddress(addressData, true);
+        const success = await createAddress(addressData);
         if (success) {
           toast.success("New address saved successfully");
           setShowAddressModal(false);

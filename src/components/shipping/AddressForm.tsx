@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -83,29 +84,35 @@ const AddressForm: React.FC<AddressFormProps> = ({
 
   const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
     try {
+      console.log("Google Place selected in AddressForm:", place);
+      
       const { street1, city, state, zip, country } = extractAddressComponents(place);
       
-      console.log("Google Place selected:", place);
       console.log("Extracted components:", { street1, city, state, zip, country });
       
       // Only set values that are not empty
       if (street1) {
         form.setValue('street1', street1, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+        console.log("Set street1:", street1);
       }
       if (city) {
         form.setValue('city', city, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+        console.log("Set city:", city);
       }
       if (state) {
         form.setValue('state', state, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+        console.log("Set state:", state);
       }
       if (zip) {
         form.setValue('zip', zip, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+        console.log("Set zip:", zip);
       }
       if (country) {
         form.setValue('country', country, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+        console.log("Set country:", country);
       }
       
-      // Trigger validation
+      // Manually trigger validation to show updated status
       form.trigger(['street1', 'city', 'state', 'zip', 'country']);
       
       toast.success('Address details populated from Google Maps');
@@ -122,11 +129,14 @@ const AddressForm: React.FC<AddressFormProps> = ({
 
   // Custom form submit handler that validates before calling the provided onSubmit
   const handleFormSubmit = (values: AddressFormValues) => {
+    console.log("Form submitted with values:", values);
+    
     // Additional validation check
     if (!values.street1 || !values.city || !values.state || !values.zip) {
       toast.error('Please fill in all required address fields');
       return;
     }
+    
     onSubmit(values);
   };
 

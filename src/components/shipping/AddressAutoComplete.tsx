@@ -86,12 +86,20 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
                   }
                 });
                 
-                // Prevent form submission when selecting an address
+                // Prevent form submission when selecting an address with Enter key
                 inputRef.current.addEventListener('keydown', (e) => {
                   if (e.key === 'Enter' && document.activeElement === inputRef.current) {
                     e.preventDefault();
                   }
                 });
+                
+                // Fix z-index of Google autocomplete dropdown (ensure it's above other elements)
+                setTimeout(() => {
+                  const pacContainer = document.querySelector('.pac-container');
+                  if (pacContainer) {
+                    (pacContainer as HTMLElement).style.zIndex = '9999';
+                  }
+                }, 300);
               } else {
                 console.error("Google Maps Places API not available");
               }
@@ -136,6 +144,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         className={`${className} ${isLoaded ? 'border-blue-300 focus:border-blue-500' : ''}`}
         disabled={disabled}
         autoComplete="off" // Disable browser's native autocomplete
+        style={{ zIndex: 10 }} // Ensure input is above other elements
       />
       {isLoaded && (
         <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-blue-500">
