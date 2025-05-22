@@ -19,13 +19,21 @@ export interface SavedAddress {
 
 export class AddressService {
   /**
+   * Get the current user session
+   */
+  public async getSession() {
+    return await supabase.auth.getSession();
+  }
+  
+  /**
    * Get all saved addresses for the current user
    */
   public async getSavedAddresses(): Promise<SavedAddress[]> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
-        throw new Error('User is not authenticated');
+        console.warn('User is not authenticated when getting addresses');
+        return [];
       }
       
       const { data, error } = await supabase
@@ -36,6 +44,7 @@ export class AddressService {
         .order('created_at', { ascending: false });
       
       if (error) {
+        console.error('Supabase error fetching addresses:', error);
         throw error;
       }
       
@@ -53,8 +62,12 @@ export class AddressService {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
+        console.error('User is not authenticated when creating address');
         throw new Error('User is not authenticated');
       }
+      
+      console.log('Creating address with user ID:', session.session.user.id);
+      console.log('Address data:', address);
       
       if (useEncryption) {
         // Use edge function to create encrypted address
@@ -66,7 +79,13 @@ export class AddressService {
         });
         
         if (error) {
+          console.error('Supabase functions error:', error);
           throw error;
+        }
+        
+        if (!data?.data) {
+          console.error('No data returned from edge function');
+          throw new Error('No data returned from function');
         }
         
         return data.data as SavedAddress;
@@ -82,6 +101,7 @@ export class AddressService {
           .single();
         
         if (error) {
+          console.error('Supabase error creating address:', error);
           throw error;
         }
         
@@ -89,7 +109,7 @@ export class AddressService {
       }
     } catch (error) {
       console.error('Error creating saved address:', error);
-      return null;
+      throw error; // Re-throw to handle in the UI layer
     }
   }
   

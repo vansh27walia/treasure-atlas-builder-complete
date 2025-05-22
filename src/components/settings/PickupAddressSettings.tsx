@@ -22,6 +22,7 @@ import AddressForm from '@/components/shipping/AddressForm';
 import { AddressFormValues } from '@/components/shipping/AddressForm';
 import { formatAddressForDisplay } from '@/utils/addressUtils';
 import { toast } from '@/components/ui/sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const PickupAddressSettings: React.FC = () => {
   const {
@@ -40,13 +41,30 @@ const PickupAddressSettings: React.FC = () => {
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState<SavedAddress | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  // Check authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      console.log("Auth session:", data);
+      setIsAuthenticated(!!data.session);
+    };
+    
+    checkAuth();
+  }, []);
+  
   // Refresh addresses on component mount
   useEffect(() => {
     loadAddresses();
   }, []);
 
   const handleAddNewClick = () => {
+    if (!isAuthenticated) {
+      toast.error("You need to be logged in to save addresses");
+      return;
+    }
+    
     setEditingAddress(null);
     setShowAddressModal(true);
   };
@@ -63,6 +81,11 @@ const PickupAddressSettings: React.FC = () => {
 
   const handleFormSubmit = async (values: AddressFormValues) => {
     console.log("Form submission values:", values);
+    
+    if (!isAuthenticated) {
+      toast.error("You need to be logged in to save addresses");
+      return;
+    }
     
     // Ensure all required fields are set
     const addressData: Omit<SavedAddress, "id" | "user_id" | "created_at"> = {
@@ -89,15 +112,18 @@ const PickupAddressSettings: React.FC = () => {
         }
       } else {
         // Create new address
+        console.log("Creating new address with data:", addressData);
         const success = await createAddress(addressData);
         if (success) {
           toast.success("New address saved successfully");
           setShowAddressModal(false);
+        } else {
+          toast.error("Failed to save address");
         }
       }
     } catch (error) {
       console.error("Error saving address:", error);
-      toast.error("Failed to save address. Please try again.");
+      toast.error(error instanceof Error ? error.message : "Failed to save address. Please try again.");
     }
   };
 
@@ -121,17 +147,31 @@ const PickupAddressSettings: React.FC = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Pickup Addresses</h2>
-        <Button onClick={handleAddNewClick} className="flex items-center gap-2">
+        <Button 
+          onClick={handleAddNewClick} 
+          className="flex items-center gap-2"
+          disabled={!isAuthenticated}
+        >
           <Plus className="h-4 w-4" />
           Add Address
         </Button>
       </div>
+      
+      {!isAuthenticated && (
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="p-4">
+            <p className="text-yellow-800">
+              Please log in to manage your addresses.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
-      {isLoading ? (
+      {isAuthenticated && isLoading ? (
         <div className="py-12 flex justify-center">
           <p className="text-gray-500">Loading addresses...</p>
         </div>
-      ) : addresses.length === 0 ? (
+      ) : isAuthenticated && addresses.length === 0 ? (
         <Card>
           <CardContent className="p-8 flex flex-col items-center justify-center">
             <MapPin className="h-12 w-12 text-gray-400 mb-4" />
@@ -145,7 +185,7 @@ const PickupAddressSettings: React.FC = () => {
             </Button>
           </CardContent>
         </Card>
-      ) : (
+      ) : isAuthenticated && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {addresses.map((address) => (
             <Card key={address.id} className={`overflow-hidden ${address.is_default_from ? 'border-2 border-green-500' : ''}`}>

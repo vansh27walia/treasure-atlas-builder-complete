@@ -1,7 +1,8 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { loadGoogleMapsAPI, extractAddressComponents } from '@/utils/addressUtils';
+import { loadGoogleMapsAPI } from '@/utils/addressUtils';
+import { toast } from '@/components/ui/sonner';
 
 interface AddressAutoCompleteProps {
   onAddressSelected: (place: GoogleMapsPlace) => void;
@@ -41,6 +42,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
       if (!inputRef.current) return;
       
       try {
+        console.log("Initializing Google Maps Autocomplete...");
         const googleMapsLoaded = await loadGoogleMapsAPI();
         
         if (googleMapsLoaded && inputRef.current) {
@@ -58,7 +60,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
               };
               
               if (window.google && window.google.maps && window.google.maps.places) {
-                console.log("Initializing Google Maps Autocomplete");
+                console.log("Creating Google Maps Autocomplete instance");
                 autocompleteRef.current = new window.google.maps.places.Autocomplete(
                   inputRef.current,
                   options
@@ -77,12 +79,13 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
                     if (onChange) onChange(place.formatted_address);
                   }
                   
-                  if (place && place.address_components) {
+                  if (place) {
                     // Pass the complete place object to the parent component
-                    console.log("Calling onAddressSelected with place:", place);
+                    console.log("Calling onAddressSelected with place");
                     onAddressSelected(place);
                   } else {
-                    console.warn("Missing address_components in selected place");
+                    console.warn("Missing place data in selection");
+                    toast.warning("Could not get complete address details");
                   }
                 });
                 
@@ -94,22 +97,20 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
                 });
                 
                 // Fix z-index of Google autocomplete dropdown (ensure it's above other elements)
-                setTimeout(() => {
-                  const pacContainer = document.querySelector('.pac-container');
-                  if (pacContainer) {
-                    (pacContainer as HTMLElement).style.zIndex = '9999';
-                  }
-                }, 300);
+                fixAutocompleteStyles();
               } else {
                 console.error("Google Maps Places API not available");
+                toast.error("Google Maps address search is not available");
               }
             }
           }, 100);
         } else {
           console.warn("Google Maps API failed to load");
+          toast.error("Failed to load address search. Please enter address manually.");
         }
       } catch (error) {
         console.error("Error initializing Google Maps autocomplete:", error);
+        toast.error("Error setting up address search");
       }
     };
     
@@ -123,6 +124,42 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
       }
     };
   }, [onAddressSelected, onChange]);
+
+  // Function to fix z-index and style issues with Google's autocomplete dropdown
+  const fixAutocompleteStyles = () => {
+    // Fix z-index of Google autocomplete dropdown
+    const fixStyles = () => {
+      const containers = document.querySelectorAll('.pac-container');
+      containers.forEach((container) => {
+        const element = container as HTMLElement;
+        element.style.zIndex = '9999';
+        element.style.position = 'absolute';
+        element.style.width = inputRef.current?.offsetWidth + 'px';
+        element.style.marginTop = '2px';
+        element.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
+        element.style.backgroundColor = 'white';
+        element.style.border = '1px solid rgba(209, 213, 219, 1)';
+        element.style.borderRadius = '0.375rem';
+      });
+    };
+    
+    // Call immediately and set up an observer
+    setTimeout(fixStyles, 300);
+    
+    // Also set up a mutation observer to catch dynamic additions
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.addedNodes.length) {
+          setTimeout(fixStyles, 10);
+        }
+      });
+    });
+    
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    // Return cleanup function
+    return () => observer.disconnect();
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;

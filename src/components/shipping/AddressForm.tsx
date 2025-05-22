@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -76,7 +75,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
     if (Object.keys(defaultValues).length > 0) {
       Object.entries(defaultValues).forEach(([key, value]) => {
         if (value !== undefined) {
-          form.setValue(key as any, value);
+          form.setValue(key as keyof AddressFormValues, value as any);
         }
       });
     }
@@ -85,6 +84,11 @@ const AddressForm: React.FC<AddressFormProps> = ({
   const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
     try {
       console.log("Google Place selected in AddressForm:", place);
+      
+      if (!place) {
+        console.warn("No place data received");
+        return;
+      }
       
       const { street1, city, state, zip, country } = extractAddressComponents(place);
       
@@ -118,7 +122,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
       toast.success('Address details populated from Google Maps');
     } catch (error) {
       console.error("Error processing Google place selection:", error);
-      toast.error('Failed to process selected address');
+      toast.error('Failed to process selected address. Please fill in the fields manually.');
     }
   };
 
@@ -137,6 +141,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
       return;
     }
     
+    // Call the parent onSubmit handler
     onSubmit(values);
   };
 
@@ -339,7 +344,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
           </div>
         )}
         
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading} className="w-full">
           {isLoading ? 'Saving...' : buttonText}
         </Button>
       </form>

@@ -120,6 +120,7 @@ export function getCarrierLogoUrl(carrier: string): string | null {
 // Load Google Maps API
 export async function loadGoogleMapsAPI(): Promise<boolean> {
   return new Promise((resolve) => {
+    // Check if already loaded
     if (window.google && window.google.maps && window.google.maps.places) {
       console.log('Google Maps API already loaded');
       resolve(true);
@@ -144,10 +145,16 @@ export async function loadGoogleMapsAPI(): Promise<boolean> {
       }
       
       // Get the API key from local storage or environment variable
-      const apiKey = localStorage.getItem('googleMapsApiKey') || import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      let apiKey = localStorage.getItem('googleMapsApiKey');
+      
+      if (!apiKey && import.meta.env.VITE_GOOGLE_MAPS_API_KEY) {
+        apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+        console.log('Using API key from environment');
+      }
       
       if (!apiKey) {
-        console.warn('No Google Maps API key found');
+        console.warn('No Google Maps API key found. Please add a Google Maps API key in settings.');
+        toast.warning('Google Maps address search requires an API key. Please add one in settings.');
         resolve(false);
         return;
       }
@@ -162,11 +169,13 @@ export async function loadGoogleMapsAPI(): Promise<boolean> {
       // Set up callbacks
       script.onload = () => {
         console.log('Google Maps API loaded successfully');
+        toast.success('Google Maps address search is ready');
         resolve(true);
       };
       
       script.onerror = () => {
         console.error('Failed to load Google Maps API');
+        toast.error('Failed to load Google Maps. Please check your API key.');
         resolve(false);
       };
       
