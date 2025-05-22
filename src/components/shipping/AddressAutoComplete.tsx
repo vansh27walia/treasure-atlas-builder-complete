@@ -80,11 +80,13 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
                 });
                 
                 // Prevent form submission when selecting an address
-                inputRef.current.addEventListener('keydown', (e) => {
-                  if (e.key === 'Enter' && document.activeElement === inputRef.current) {
-                    e.preventDefault();
-                  }
-                });
+                if (inputRef.current) {
+                  inputRef.current.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && document.activeElement === inputRef.current) {
+                      e.preventDefault();
+                    }
+                  });
+                }
               }
             }
           }, 100);
@@ -98,9 +100,13 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
     
     // Clean up function
     return () => {
-      // Remove Google Maps autocomplete event listeners
+      // Clean up event listeners
       if (autocompleteRef.current && window.google && window.google.maps) {
-        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+        // We don't use window.google.maps.event (which doesn't exist in our type definition)
+        // Instead, use the addListener method of autocomplete instance directly
+        if (inputRef.current) {
+          inputRef.current.removeEventListener('keydown', () => {});
+        }
       }
     };
   }, [onAddressSelected, onChange]);

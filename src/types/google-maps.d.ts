@@ -33,6 +33,8 @@ interface GoogleMapsPlacesAPI {
 
 interface GoogleMapsAPI {
   places: GoogleMapsPlacesAPI;
+  // Note: We're not using the event property directly in our code
+  // so we don't need to define it here
 }
 
 interface Window {

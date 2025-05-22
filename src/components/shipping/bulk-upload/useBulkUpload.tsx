@@ -109,6 +109,7 @@ export const useBulkUpload = () => {
     if (!pickupAddress) {
       throw new Error('Pickup address is required');
     }
+    // Fix: Pass pickupAddress as the second parameter to handleUpload
     return handleUpload(file, pickupAddress);
   };
 
