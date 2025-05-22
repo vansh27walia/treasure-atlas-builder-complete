@@ -3,12 +3,16 @@
 export interface SavedAddress {
   id: string;
   name?: string;
+  company?: string;
   street1: string;
   street2?: string;
   city: string;
   state: string;
   zip: string;
   country?: string;
+  phone?: string;
+  is_default_from?: boolean;
+  is_default_to?: boolean;
 }
 
 // Function to get carrier logo URL
@@ -66,4 +70,20 @@ export const createAddressSelectHandler = (form: any, onAddressSelect?: (address
       onAddressSelect(address);
     }
   };
+};
+
+// Add empty placeholder functions for the missing exports that were used before
+export const initAddressAutocomplete = () => {
+  console.warn('Google Maps autocomplete has been removed from the application');
+  return null;
+};
+
+export const extractAddressComponents = () => {
+  console.warn('Google Maps address extraction has been removed from the application');
+  return {};
+};
+
+export const loadGoogleMapsAPI = () => {
+  console.warn('Google Maps API loading has been removed from the application');
+  return Promise.resolve(false);
 };

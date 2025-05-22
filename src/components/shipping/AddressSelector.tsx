@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { toast } from '@/components/ui/sonner';
 import type { SavedAddress } from '@/utils/addressUtils';
@@ -5,12 +6,18 @@ import type { SavedAddress } from '@/utils/addressUtils';
 interface AddressSelectionProps {
   form?: any; // The form instance from useForm
   onAddressSelect?: (address: any) => void;
+  type?: string; // Added type prop for "from" or "to" address
+  selectedAddressId?: string | number; // Added for selected address tracking
+  useGoogleAutocomplete?: boolean; // Flag to indicate if Google autocomplete should be used
 }
 
 // Exporting named component instead of default
 export const AddressSelector: React.FC<AddressSelectionProps> = ({
   form,
-  onAddressSelect
+  onAddressSelect,
+  type, // New type prop
+  selectedAddressId,
+  useGoogleAutocomplete = false // Default to false
 }) => {
   // Handle manual address input
   const handleAddressInput = (addressData: Partial<SavedAddress>) => {
@@ -40,7 +47,7 @@ export const AddressSelector: React.FC<AddressSelectionProps> = ({
   };
 
   // Rest of component implementation
-  return <div>Address selector component</div>;
+  return <div>Address selector component {type ? `(${type})` : ''}</div>;
 };
 
 // Also export as default for backward compatibility
