@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,12 +10,13 @@ import SelectAddressDropdown from '../SelectAddressDropdown';
 import AddressForm from '../AddressForm';
 import { addressService, SavedAddress } from '@/services/AddressService';
 
-interface BulkUploadFormProps {
+export interface BulkUploadFormProps {
   onUploadSuccess: (results: BulkUploadResult) => void;
   onUploadFail: (error: string) => void;
   onPickupAddressSelect: (address: SavedAddress | null) => void;
   isUploading?: boolean;
   progress?: number;
+  handleUpload?: (file: File) => Promise<any>; // Updated prop name from onUpload to handleUpload
 }
 
 const BulkUploadForm: React.FC<BulkUploadFormProps> = ({ 
@@ -24,7 +24,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   onUploadFail,
   onPickupAddressSelect,
   isUploading = false,
-  progress = 0
+  progress = 0,
+  handleUpload
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [localIsUploading, setLocalIsUploading] = useState(false);
@@ -118,51 +119,64 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     
     setLocalIsUploading(true);
     
-    // Convert file to base64 to send to edge function
-    const reader = new FileReader();
-    reader.readAsDataURL(selectedFile);
-    reader.onload = async () => {
-      try {
-        const base64Data = reader.result?.toString().split(',')[1];
-        
-        if (!base64Data) {
-          throw new Error('Failed to convert file to base64');
-        }
-        
-        const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
-          body: { 
-            fileName: selectedFile.name,
-            fileContent: base64Data,
-            pickupAddress: pickupAddress // Include the pickup address for all shipments
+    try {
+      if (handleUpload) {
+        // Use the provided handleUpload function if it exists
+        await handleUpload(selectedFile);
+      } else {
+        // Convert file to base64 to send to edge function
+        const reader = new FileReader();
+        reader.readAsDataURL(selectedFile);
+        reader.onload = async () => {
+          try {
+            const base64Data = reader.result?.toString().split(',')[1];
+            
+            if (!base64Data) {
+              throw new Error('Failed to convert file to base64');
+            }
+            
+            const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
+              body: { 
+                fileName: selectedFile.name,
+                fileContent: base64Data,
+                pickupAddress: pickupAddress // Include the pickup address for all shipments
+              }
+            });
+            
+            if (error) {
+              throw new Error(error.message);
+            }
+            
+            if (data.error) {
+              throw new Error(data.error);
+            }
+            
+            // Handle success
+            toast.success('File uploaded and processed successfully');
+            onUploadSuccess(data as BulkUploadResult);
+          } catch (error) {
+            console.error('Upload error:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Failed to process file';
+            toast.error(errorMessage);
+            onUploadFail(errorMessage);
+          } finally {
+            setLocalIsUploading(false);
           }
-        });
+        };
         
-        if (error) {
-          throw new Error(error.message);
-        }
-        
-        if (data.error) {
-          throw new Error(data.error);
-        }
-        
-        // Handle success
-        toast.success('File uploaded and processed successfully');
-        onUploadSuccess(data as BulkUploadResult);
-      } catch (error) {
-        console.error('Upload error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to process file';
-        toast.error(errorMessage);
-        onUploadFail(errorMessage);
-      } finally {
-        setLocalIsUploading(false);
+        reader.onerror = () => {
+          toast.error('Failed to read file');
+          setLocalIsUploading(false);
+          onUploadFail('Failed to read file');
+        };
       }
-    };
-    
-    reader.onerror = () => {
-      toast.error('Failed to read file');
+    } catch (error) {
+      console.error('Upload error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to process file';
+      toast.error(errorMessage);
+      onUploadFail(errorMessage);
       setLocalIsUploading(false);
-      onUploadFail('Failed to read file');
-    };
+    }
   };
 
   const handleAddressSubmit = async (values: any) => {

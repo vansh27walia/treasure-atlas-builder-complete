@@ -5,8 +5,11 @@ import { useShipmentUpload } from '@/hooks/useShipmentUpload';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
 import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
+import { SavedAddress } from '@/services/AddressService';
 
 export const useBulkUpload = () => {
+  const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
+  
   const {
     file,
     isUploading,
@@ -83,6 +86,14 @@ export const useBulkUpload = () => {
     }
   }, [uploadStatus, results?.processedShipments]);
 
+  // Modified handleUpload to include pickup address
+  const handleFileUpload = async (file: File) => {
+    if (!pickupAddress) {
+      throw new Error('Pickup address is required');
+    }
+    return handleUpload(file);
+  };
+
   return {
     // File upload states and handlers
     file,
@@ -106,10 +117,14 @@ export const useBulkUpload = () => {
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
+
+    // Pickup address
+    pickupAddress,
+    setPickupAddress,
     
     // Handlers from all hooks
     handleFileChange,
-    handleUpload,
+    handleUpload: handleFileUpload,
     handleSelectRate,
     handleRemoveShipment,
     handleEditShipment,

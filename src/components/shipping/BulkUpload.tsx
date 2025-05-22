@@ -77,7 +77,7 @@ const BulkUpload: React.FC = () => {
           onPickupAddressSelect={handlePickupAddressSelect}
           isUploading={isUploading}
           progress={progress}
-          onUpload={handleUpload}
+          handleUpload={handleUpload}
         />
       )}
       

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -66,14 +65,14 @@ const PickupAddressSettings: React.FC = () => {
     // Ensure all required fields are set
     const addressData: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'> = {
       name: values.name || '',
-      company: values.company,
+      company: values.company || '',
       street1: values.street1,
-      street2: values.street2,
+      street2: values.street2 || '',
       city: values.city,
       state: values.state,
       zip: values.zip,
       country: values.country || 'US',
-      phone: values.phone,
+      phone: values.phone || '',
       is_default_from: values.is_default_from || false,
       is_default_to: values.is_default_to || false
     };
