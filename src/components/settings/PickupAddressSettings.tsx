@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -49,6 +50,13 @@ const PickupAddressSettings: React.FC = () => {
       const { data } = await supabase.auth.getSession();
       console.log("Auth session:", data);
       setIsAuthenticated(!!data.session);
+      
+      if (!data.session) {
+        toast.warning("Sign in to save addresses", {
+          description: "You need to be logged in to save addresses",
+          duration: 5000,
+        });
+      }
     };
     
     checkAuth();
@@ -56,8 +64,14 @@ const PickupAddressSettings: React.FC = () => {
   
   // Refresh addresses on component mount
   useEffect(() => {
-    loadAddresses();
-  }, []);
+    const loadAllAddresses = async () => {
+      await loadAddresses();
+    };
+    
+    if (isAuthenticated) {
+      loadAllAddresses();
+    }
+  }, [isAuthenticated]);
 
   const handleAddNewClick = () => {
     if (!isAuthenticated) {
@@ -87,36 +101,43 @@ const PickupAddressSettings: React.FC = () => {
       return;
     }
     
-    // Ensure all required fields are set
-    const addressData: Omit<SavedAddress, "id" | "user_id" | "created_at"> = {
-      name: values.name || '',
-      company: values.company || '',
-      street1: values.street1,
-      street2: values.street2 || '',
-      city: values.city,
-      state: values.state,
-      zip: values.zip,
-      country: values.country || 'US',
-      phone: values.phone || '',
-      is_default_from: values.is_default_from || false,
-      is_default_to: values.is_default_to || false
-    };
-    
     try {
+      // Ensure all required fields are set
+      const addressData: Omit<SavedAddress, "id" | "user_id" | "created_at"> = {
+        name: values.name || '',
+        company: values.company || '',
+        street1: values.street1,
+        street2: values.street2 || '',
+        city: values.city,
+        state: values.state,
+        zip: values.zip,
+        country: values.country || 'US',
+        phone: values.phone || '',
+        is_default_from: values.is_default_from || false,
+        is_default_to: values.is_default_to || false
+      };
+      
+      let success;
       if (editingAddress) {
         // Update existing address
-        const success = await updateAddress(editingAddress.id, addressData);
+        success = await updateAddress(editingAddress.id, addressData);
         if (success) {
           toast.success("Address updated successfully");
           setShowAddressModal(false);
+          // Reload addresses to ensure we have the latest data
+          loadAddresses();
+        } else {
+          toast.error("Failed to update address");
         }
       } else {
         // Create new address
         console.log("Creating new address with data:", addressData);
-        const success = await createAddress(addressData);
+        success = await createAddress(addressData);
         if (success) {
           toast.success("New address saved successfully");
           setShowAddressModal(false);
+          // Reload addresses to ensure we have the latest data
+          loadAddresses();
         } else {
           toast.error("Failed to save address");
         }

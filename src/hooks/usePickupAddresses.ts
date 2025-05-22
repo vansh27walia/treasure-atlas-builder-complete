@@ -58,20 +58,26 @@ export const usePickupAddresses = () => {
         throw new Error('You need to be logged in to save addresses');
       }
       
-      // Try first without encryption
-      let newAddress = await addressService.createAddress(addressData, false);
-      
-      // If that fails, try with encryption as a fallback
-      if (!newAddress) {
-        console.log("Regular address creation failed, trying with encryption");
-        newAddress = await addressService.createAddress(addressData, true);
+      // Try standard address creation first
+      let newAddress;
+      try {
+        newAddress = await addressService.createAddress(addressData, false);
+        console.log("Created address with standard method:", newAddress);
+      } catch (standardError) {
+        console.warn("Standard address creation failed, trying with encryption", standardError);
+        // If standard creation fails, try with encryption as fallback
+        try {
+          newAddress = await addressService.createAddress(addressData, true);
+          console.log("Created address with encryption method:", newAddress);
+        } catch (encryptionError) {
+          console.error("Both address creation methods failed", encryptionError);
+          throw new Error('Failed to create address using both methods');
+        }
       }
       
       if (!newAddress) {
-        throw new Error('Failed to create address');
+        throw new Error('Failed to create address - no result returned');
       }
-      
-      console.log("Address created successfully:", newAddress);
       
       // If address should be default from, update it
       if (addressData.is_default_from) {
@@ -79,12 +85,7 @@ export const usePickupAddresses = () => {
       }
       
       // Update local state
-      setAddresses(prev => [newAddress, ...prev]);
-      
-      // Auto-select if it's a default or if it's the first address
-      if (addressData.is_default_from || addresses.length === 0) {
-        setSelectedAddress(newAddress);
-      }
+      await loadAddresses(true); // Reload addresses to ensure we have the latest data
       
       toast.success('Address saved successfully');
       return newAddress;

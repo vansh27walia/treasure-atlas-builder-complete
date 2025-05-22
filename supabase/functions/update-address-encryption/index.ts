@@ -33,8 +33,9 @@ serve(async (req) => {
     } = await supabaseClient.auth.getUser();
     
     if (userError || !user) {
+      console.error('Authentication error:', userError);
       return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
+        JSON.stringify({ error: 'Unauthorized', details: userError?.message }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       );
     }
@@ -43,6 +44,7 @@ serve(async (req) => {
     const requestData = await req.json();
     
     const { action, addressId, addressData } = requestData;
+    console.log('Request data:', { action, addressId, addressData: { ...addressData, user_id: user.id } });
 
     // Validate input
     if (!action) {
@@ -63,20 +65,25 @@ serve(async (req) => {
         );
       }
       
+      // Ensure user_id is included in the data
+      const finalData = {
+        ...addressData,
+        user_id: user.id
+      };
+      
       // Create encrypted storage in the database
       const { data, error } = await supabaseClient
         .from('addresses')
-        .insert({
-          ...addressData,
-          user_id: user.id
-        })
+        .insert(finalData)
         .select()
         .single();
       
       if (error) {
+        console.error('Database error during insert:', error);
         throw error;
       }
       
+      console.log('Address created:', data);
       response = { success: true, data };
     } 
     else if (action === 'update') {
@@ -101,9 +108,11 @@ serve(async (req) => {
         .single();
       
       if (error) {
+        console.error('Database error during update:', error);
         throw error;
       }
       
+      console.log('Address updated:', data);
       response = { success: true, data };
     }
     else if (action === 'decrypt') {
@@ -124,6 +133,7 @@ serve(async (req) => {
         .single();
       
       if (error) {
+        console.error('Database error during select:', error);
         throw error;
       }
       
@@ -143,7 +153,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in update-address-encryption function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
+      JSON.stringify({ error: 'Internal Server Error', message: error.message, stack: error.stack }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
@@ -48,6 +49,7 @@ export class AddressService {
         throw error;
       }
       
+      console.log('Fetched addresses:', data);
       return data as unknown as SavedAddress[] || [];
     } catch (error) {
       console.error('Error fetching saved addresses:', error);
@@ -74,7 +76,10 @@ export class AddressService {
         const { data, error } = await supabase.functions.invoke('update-address-encryption', {
           body: {
             action: 'encrypt',
-            addressData: address
+            addressData: {
+              ...address,
+              user_id: session.session.user.id
+            }
           }
         });
         
@@ -88,6 +93,7 @@ export class AddressService {
           throw new Error('No data returned from function');
         }
         
+        console.log('Address created via edge function:', data.data);
         return data.data as SavedAddress;
       } else {
         // Standard address creation
@@ -105,6 +111,7 @@ export class AddressService {
           throw error;
         }
         
+        console.log('Address created via direct insertion:', data);
         return data as unknown as SavedAddress;
       }
     } catch (error) {

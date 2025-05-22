@@ -47,7 +47,17 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     const loadAddresses = async () => {
       setIsLoading(true);
       try {
+        console.log('Loading addresses for dropdown...');
+        const { data } = await addressService.getSession();
+        if (!data?.session?.user) {
+          console.log('User not authenticated, skipping address loading');
+          setAddresses([]);
+          setIsLoading(false);
+          return;
+        }
+        
         const savedAddresses = await addressService.getSavedAddresses();
+        console.log('Loaded addresses for dropdown:', savedAddresses);
         setAddresses(savedAddresses);
 
         // If no address is selected but there's a default, select it
@@ -57,6 +67,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
             : savedAddresses.find(addr => addr.is_default_to);
           
           if (defaultAddr) {
+            console.log('Auto-selecting default address:', defaultAddr);
             setSelectedAddress(defaultAddr);
             onAddressSelected(defaultAddr);
           }
@@ -70,16 +81,18 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     };
 
     loadAddresses();
-  }, [isPickupAddress]);
+  }, [isPickupAddress, onAddressSelected]);
 
   useEffect(() => {
     // When defaultAddress changes from outside, update selection
     if (defaultAddress && (!selectedAddress || defaultAddress.id !== selectedAddress.id)) {
+      console.log('Setting selected address from default prop:', defaultAddress);
       setSelectedAddress(defaultAddress);
     }
-  }, [defaultAddress]);
+  }, [defaultAddress, selectedAddress]);
 
   const handleSelectAddress = (address: SavedAddress) => {
+    console.log('Address selected from dropdown:', address);
     setSelectedAddress(address);
     onAddressSelected(address);
     setOpen(false);
