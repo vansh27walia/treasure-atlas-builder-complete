@@ -1,4 +1,6 @@
 
+import { SavedAddress } from '@/services/AddressService';
+
 // Extract address components from Google Maps place result
 export function extractAddressComponents(place: GoogleMapsPlace): {
   street1: string;
@@ -157,4 +159,45 @@ export function createAddressSelectHandler(setter: (address: SavedAddress | null
       console.log("Address selected:", address);
     }
   };
+}
+
+// Initialize Google Maps Autocomplete on an input element
+export function initAddressAutocomplete(
+  inputElement: HTMLInputElement, 
+  onPlaceSelected: (place: GoogleMapsPlace) => void
+): void {
+  if (!window.google || !window.google.maps || !window.google.maps.places) {
+    console.error("Google Maps API not loaded. Can't initialize autocomplete.");
+    return;
+  }
+
+  try {
+    const autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
+      fields: ['address_components', 'formatted_address', 'geometry', 'name'],
+      types: ['address'],
+    });
+
+    // Add listener for place selection
+    autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+      
+      if (place && place.address_components) {
+        console.log("Google place selected:", place);
+        onPlaceSelected(place);
+      } else {
+        console.warn("Selected place has no address components");
+      }
+    });
+
+    // Prevent form submission when selecting from dropdown
+    inputElement.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && document.activeElement === inputElement) {
+        e.preventDefault();
+      }
+    });
+
+    console.log("Google Maps autocomplete initialized successfully");
+  } catch (error) {
+    console.error("Error initializing Google Maps autocomplete:", error);
+  }
 }
