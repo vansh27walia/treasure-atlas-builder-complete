@@ -1,8 +1,8 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
+import { SavedAddress } from '@/services/AddressService';
 
 // Helper function to validate and normalize status values
 const normalizeStatus = (status: string): 'pending' | 'processing' | 'error' | 'completed' => {
@@ -41,7 +41,8 @@ export const useShipmentUpload = () => {
     }
   };
 
-  const handleUpload = async (file: File): Promise<void> => {
+  // Update the handleUpload function to accept a pickup address parameter
+  const handleUpload = async (file: File, pickupAddress?: SavedAddress): Promise<any> => {
     if (!file) {
       toast.error('Please select a file to upload');
       return;
@@ -77,7 +78,8 @@ export const useShipmentUpload = () => {
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
         body: { 
           csvContent: text,
-          origin: {
+          // Use the provided pickup address if available, otherwise use default
+          origin: pickupAddress || {
             name: "Shipping Company",
             street1: "123 Main St",
             city: "San Francisco",
@@ -114,11 +116,13 @@ export const useShipmentUpload = () => {
       setProgress(100);
       
       toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments. Ready for carrier selection.`);
+      return resultData;
     } catch (error) {
       console.error('Bulk upload error:', error);
       setUploadStatus('error');
       setProgress(0);
       toast.error(`Failed to process the uploaded file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
     } finally {
       setIsUploading(false);
     }
