@@ -74,8 +74,11 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
                     if (onChange) onChange(place.formatted_address);
                   }
                   
+                  // Important: Ensure we check if place exists and has address_components
                   if (place && place.address_components) {
                     onAddressSelected(place);
+                  } else {
+                    console.error("Place selection has no address components");
                   }
                 });
                 
@@ -100,10 +103,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
     
     // Clean up function
     return () => {
-      // Clean up event listeners
       if (autocompleteRef.current && window.google && window.google.maps) {
-        // We don't use window.google.maps.event (which doesn't exist in our type definition)
-        // Instead, use the addListener method of autocomplete instance directly
         if (inputRef.current) {
           inputRef.current.removeEventListener('keydown', () => {});
         }

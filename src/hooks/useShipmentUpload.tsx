@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
@@ -41,7 +42,7 @@ export const useShipmentUpload = () => {
     }
   };
 
-  // Update the handleUpload function to accept a pickup address parameter
+  // Updated to handle pickup address
   const handleUpload = async (file: File, pickupAddress?: SavedAddress): Promise<any> => {
     if (!file) {
       toast.error('Please select a file to upload');
@@ -74,20 +75,38 @@ export const useShipmentUpload = () => {
       
       setProgress(30); // File validated
 
+      console.log("Using pickup address for bulk upload:", pickupAddress);
+      
+      // Build origin object from the pickup address or use default
+      let origin;
+      if (pickupAddress) {
+        origin = {
+          name: pickupAddress.name || "Shipping Company",
+          street1: pickupAddress.street1,
+          street2: pickupAddress.street2 || "",
+          city: pickupAddress.city,
+          state: pickupAddress.state,
+          zip: pickupAddress.zip, 
+          country: pickupAddress.country || "US",
+          phone: pickupAddress.phone || ""
+        };
+      } else {
+        origin = {
+          name: "Shipping Company",
+          street1: "123 Main St",
+          city: "San Francisco",
+          state: "CA",
+          zip: "94111",
+          country: "US",
+          phone: "555-555-5555"
+        };
+      }
+
       // Process file and generate labels via the API
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
         body: { 
           csvContent: text,
-          // Use the provided pickup address if available, otherwise use default
-          origin: pickupAddress || {
-            name: "Shipping Company",
-            street1: "123 Main St",
-            city: "San Francisco",
-            state: "CA",
-            zip: "94111",
-            country: "US",
-            phone: "555-555-5555"
-          }
+          origin
         }
       });
 

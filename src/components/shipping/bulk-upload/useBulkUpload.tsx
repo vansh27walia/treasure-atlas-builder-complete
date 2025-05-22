@@ -7,6 +7,7 @@ import { useShipmentManagement } from '@/hooks/useShipmentManagement';
 import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
 import { SavedAddress } from '@/services/AddressService';
 import { addressService } from '@/services/AddressService';
+import { toast } from '@/components/ui/sonner';
 
 export const useBulkUpload = () => {
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
@@ -107,22 +108,18 @@ export const useBulkUpload = () => {
   // Modified handleUpload to include pickup address
   const handleFileUpload = async (file: File) => {
     if (!pickupAddress) {
+      toast.error('Pickup address is required. Please select or create a pickup address first.');
       throw new Error('Pickup address is required');
     }
     
-    // We need to modify our approach here since there's a type mismatch
-    // Let's check the signature of handleUpload in useShipmentUpload
     try {
-      // First upload the file normally
-      const uploadResult = await handleUpload(file);
+      console.log("Uploading file with pickup address:", pickupAddress);
       
-      // Then associate the pickup address with the result if needed
-      // This is a workaround since we can't modify useShipmentUpload directly
-      if (uploadResult && typeof uploadResult === 'object') {
-        console.log("Upload completed with pickup address:", pickupAddress);
-        // Any additional processing with pickup address can be done here
-      }
+      // Call the handleUpload function with the file and pass the pickup address
+      const uploadResult = await handleUpload(file, pickupAddress);
       
+      // Process the result
+      console.log("Upload completed successfully with result:", uploadResult);
       return uploadResult;
     } catch (error) {
       console.error("Error in file upload:", error);
