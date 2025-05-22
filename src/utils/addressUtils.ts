@@ -82,3 +82,20 @@ export function extractAddressComponents(place: GoogleMapsPlace): {
     };
   }
 }
+
+// Add the missing getCarrierLogoUrl function
+export function getCarrierLogoUrl(carrier: string): string | null {
+  const carrierLower = carrier.toLowerCase();
+  
+  if (carrierLower.includes('usps')) {
+    return "https://www.usps.com/assets/images/home/logo-sb.svg";
+  } else if (carrierLower.includes('ups')) {
+    return "https://www.ups.com/assets/resources/images/UPS_logo.svg";
+  } else if (carrierLower.includes('fedex')) {
+    return "https://www.fedex.com/content/dam/fedex-com/logos/logo.png";
+  } else if (carrierLower.includes('dhl')) {
+    return "https://www.dhl.com/img/meta/dhl-logo.png";
+  }
+  
+  return null;
+}
