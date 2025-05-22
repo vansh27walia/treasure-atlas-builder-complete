@@ -110,7 +110,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
     // Clean up function
     return () => {
       // Remove Google Maps autocomplete event listeners
-      if (autocompleteRef.current && window.google && window.google.maps) {
+      if (autocompleteRef.current && window.google && window.google.maps && window.google.maps.event) {
         window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
       }
     };

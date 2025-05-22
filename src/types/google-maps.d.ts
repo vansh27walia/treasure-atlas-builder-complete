@@ -31,8 +31,13 @@ interface GoogleMapsPlacesAPI {
   ) => GoogleMapsAutocomplete;
 }
 
+interface GoogleMapsEventAPI {
+  clearInstanceListeners: (instance: any) => void;
+}
+
 interface GoogleMapsAPI {
   places: GoogleMapsPlacesAPI;
+  event: GoogleMapsEventAPI;
 }
 
 interface Window {
