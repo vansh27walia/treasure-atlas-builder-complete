@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
-import { extractAddressComponents } from '@/utils/addressUtils';
 
 export const usePickupAddresses = () => {
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
@@ -191,20 +190,6 @@ export const usePickupAddresses = () => {
     }
   };
 
-  // Process Google Maps place selection
-  const processGooglePlaceSelection = (place: GoogleMapsPlace): Partial<SavedAddress> => {
-    const addressComponents = extractAddressComponents(place);
-    console.log("Processing Google Place selection:", addressComponents);
-    
-    return {
-      street1: addressComponents.street1,
-      city: addressComponents.city,
-      state: addressComponents.state,
-      zip: addressComponents.zip,
-      country: addressComponents.country
-    };
-  };
-
   return {
     addresses,
     selectedAddress,
@@ -215,7 +200,6 @@ export const usePickupAddresses = () => {
     updateAddress,
     deleteAddress,
     setAsDefaultFrom,
-    setSelectedAddress,
-    processGooglePlaceSelection
+    setSelectedAddress
   };
 };

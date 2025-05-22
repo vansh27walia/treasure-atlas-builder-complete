@@ -1,8 +1,9 @@
+
 import React, { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { SavedAddress } from '@/services/AddressService';
+import { SavedAddress } from '@/utils/addressUtils';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -15,8 +16,6 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import AddressAutoComplete from './AddressAutoComplete';
-import { extractAddressComponents } from '@/utils/addressUtils';
 import { toast } from '@/components/ui/sonner';
 
 const addressSchema = z.object({
@@ -81,44 +80,6 @@ const AddressForm: React.FC<AddressFormProps> = ({
     }
   }, [defaultValues, form]);
 
-  const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
-    try {
-      const { street1, city, state, zip, country } = extractAddressComponents(place);
-      
-      console.log("Google Place selected:", place);
-      console.log("Extracted components:", { street1, city, state, zip, country });
-      
-      // Only set values that are not empty
-      if (street1) {
-        form.setValue('street1', street1, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-      }
-      if (city) {
-        form.setValue('city', city, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-      }
-      if (state) {
-        form.setValue('state', state, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-      }
-      if (zip) {
-        form.setValue('zip', zip, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-      }
-      if (country) {
-        form.setValue('country', country, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-      }
-      
-      // Trigger validation
-      form.trigger(['street1', 'city', 'state', 'zip', 'country']);
-      toast.success('Address found and populated successfully');
-    } catch (error) {
-      console.error('Error processing Google place selection:', error);
-      toast.error('Failed to process address. Please try entering it manually.');
-    }
-  };
-
-  // Handle address line changes directly from the input
-  const handleAddressLineChange = (value: string) => {
-    form.setValue('street1', value, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-  };
-
   // Prepare form submission with validation
   const handleFormSubmit = (values: AddressFormValues) => {
     try {
@@ -173,12 +134,9 @@ const AddressForm: React.FC<AddressFormProps> = ({
             <FormItem>
               <FormLabel>Address</FormLabel>
               <FormControl>
-                <AddressAutoComplete 
+                <Input 
                   placeholder="Enter your address"
-                  defaultValue={field.value}
-                  onAddressSelected={handleGooglePlaceSelected}
-                  onChange={handleAddressLineChange}
-                  id="address-autocomplete"
+                  {...field}
                   required
                 />
               </FormControl>
