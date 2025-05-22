@@ -1,0 +1,185 @@
+
+import React, { useEffect, useState } from 'react';
+import { Check, ChevronsUpDown, MapPin } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandSeparator,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { addressService, SavedAddress } from '@/services/AddressService';
+import { toast } from '@/components/ui/sonner';
+
+interface SelectAddressDropdownProps {
+  onAddressSelected: (address: SavedAddress | null) => void;
+  onAddNew: () => void;
+  defaultAddress?: SavedAddress | null;
+  placeholder?: string;
+  isPickupAddress?: boolean;
+}
+
+const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
+  onAddressSelected,
+  onAddNew,
+  defaultAddress = null,
+  placeholder = 'Select an address',
+  isPickupAddress = true,
+}) => {
+  const [open, setOpen] = useState(false);
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(defaultAddress);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const loadAddresses = async () => {
+      setIsLoading(true);
+      try {
+        const savedAddresses = await addressService.getSavedAddresses();
+        setAddresses(savedAddresses);
+
+        // If no address is selected but there's a default, select it
+        if (!selectedAddress) {
+          const defaultAddr = isPickupAddress 
+            ? savedAddresses.find(addr => addr.is_default_from)
+            : savedAddresses.find(addr => addr.is_default_to);
+          
+          if (defaultAddr) {
+            setSelectedAddress(defaultAddr);
+            onAddressSelected(defaultAddr);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading addresses:', error);
+        toast.error('Failed to load saved addresses');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadAddresses();
+  }, [isPickupAddress]);
+
+  useEffect(() => {
+    // When defaultAddress changes from outside, update selection
+    if (defaultAddress && (!selectedAddress || defaultAddress.id !== selectedAddress.id)) {
+      setSelectedAddress(defaultAddress);
+    }
+  }, [defaultAddress]);
+
+  const handleSelectAddress = (address: SavedAddress) => {
+    setSelectedAddress(address);
+    onAddressSelected(address);
+    setOpen(false);
+  };
+
+  const formatAddress = (address: SavedAddress) => {
+    const parts = [
+      address.street1,
+      address.street2,
+      `${address.city}, ${address.state} ${address.zip}`,
+      address.country
+    ].filter(Boolean);
+    
+    return parts.join(', ');
+  };
+
+  const getAddressLabel = () => {
+    if (!selectedAddress) return placeholder;
+    return selectedAddress.name || formatAddress(selectedAddress).split(',')[0];
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={isLoading}
+          className="w-full justify-between"
+        >
+          {isLoading ? (
+            <span className="text-muted-foreground">Loading addresses...</span>
+          ) : (
+            <>
+              <MapPin className="mr-2 h-4 w-4 shrink-0" />
+              <span className="truncate">{getAddressLabel()}</span>
+            </>
+          )}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[400px] p-0">
+        <Command>
+          <CommandInput placeholder="Search address..." />
+          <CommandList>
+            <CommandEmpty>No addresses found.</CommandEmpty>
+            <CommandGroup heading={isPickupAddress ? "Pickup Addresses" : "Recipient Addresses"}>
+              {addresses.map((address) => (
+                <CommandItem
+                  key={address.id}
+                  value={`${address.id}-${address.name || address.street1}`}
+                  onSelect={() => handleSelectAddress(address)}
+                  className="cursor-pointer"
+                >
+                  <div className="flex items-start mr-2">
+                    <Check
+                      className={cn(
+                        "h-4 w-4 mt-0.5",
+                        selectedAddress?.id === address.id 
+                          ? "opacity-100" 
+                          : "opacity-0"
+                      )}
+                    />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {address.name || 'Unnamed Address'}
+                      {isPickupAddress && address.is_default_from && (
+                        <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
+                          Default
+                        </span>
+                      )}
+                      {!isPickupAddress && address.is_default_to && (
+                        <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
+                          Default
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {formatAddress(address)}
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandSeparator />
+            <CommandGroup>
+              <CommandItem 
+                onSelect={() => {
+                  onAddNew();
+                  setOpen(false);
+                }}
+                className="cursor-pointer"
+              >
+                <span className="font-medium text-blue-600">+ Add new address</span>
+              </CommandItem>
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+export default SelectAddressDropdown;

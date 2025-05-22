@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
+import { addressService, SavedAddress } from '@/services/AddressService';
 
 export const useShipmentManagement = (
   initialResults: BulkUploadResult | null,
@@ -13,6 +14,23 @@ export const useShipmentManagement = (
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
+  const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
+
+  const loadDefaultPickupAddress = async () => {
+    try {
+      const address = await addressService.getDefaultFromAddress();
+      if (address) {
+        setPickupAddress(address);
+      }
+    } catch (error) {
+      console.error('Error loading default pickup address:', error);
+    }
+  };
+
+  // Load default pickup address on initialization
+  useState(() => {
+    loadDefaultPickupAddress();
+  });
 
   const handleRemoveShipment = (shipmentId: string) => {
     if (!initialResults) return;
@@ -86,7 +104,8 @@ export const useShipmentManagement = (
           quantity: initialResults.successful,
           description: `Bulk Shipping - ${initialResults.successful} labels`,
           metadata: {
-            shipment_ids: initialResults.processedShipments.map(s => s.id).join(',')
+            shipment_ids: initialResults.processedShipments.map(s => s.id).join(','),
+            pickup_address_id: pickupAddress?.id
           }
         }
       });
@@ -132,6 +151,7 @@ export const useShipmentManagement = (
             body: { 
               shipmentId: shipment.id, 
               rateId: shipment.selectedRateId,
+              pickupAddressId: pickupAddress?.id,
               options: {
                 label_format: downloadFormat.toUpperCase(),
                 label_size: "4x6"
@@ -273,6 +293,14 @@ export const useShipmentManagement = (
       description: "Email labels feature will be implemented soon"
     });
   };
+
+  const handlePickupAddressSelect = (address: SavedAddress | null) => {
+    setPickupAddress(address);
+    
+    if (address) {
+      toast.success(`Using ${address.name || 'selected'} address for pickup`);
+    }
+  };
   
   // This function is needed for the updated component but doesn't exist in the original hook
   const setUploadStatus = (status: 'idle' | 'success' | 'error' | 'editing') => {
@@ -290,6 +318,7 @@ export const useShipmentManagement = (
     isCreatingLabels,
     showLabelOptions,
     downloadFormat,
+    pickupAddress,
     handleRemoveShipment,
     handleEditShipment,
     handleProceedToPayment,
@@ -298,6 +327,7 @@ export const useShipmentManagement = (
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
     handleEmailLabels,
+    handlePickupAddressSelect,
     setShowLabelOptions,
     setDownloadFormat
   };

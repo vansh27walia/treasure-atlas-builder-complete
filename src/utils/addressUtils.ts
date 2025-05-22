@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { GoogleApiKeyResponse } from '@/types/shipping';
 import { SavedAddress } from '@/services/AddressService';
@@ -207,4 +208,24 @@ export const getCarrierLogoUrl = (carrier: string): string => {
   
   // Return logo URL or empty string if not found
   return logoUrl;
+};
+
+// Function to populate shipping forms with saved address data
+export const populateShippingFormWithAddress = (
+  formSetValues: (values: Record<string, any>) => void,
+  address: SavedAddress
+) => {
+  if (!address) return;
+  
+  formSetValues({
+    name: address.name || '',
+    company: address.company || '',
+    street1: address.street1,
+    street2: address.street2 || '',
+    city: address.city,
+    state: address.state,
+    zip: address.zip,
+    country: address.country || 'US',
+    phone: address.phone || '',
+  });
 };

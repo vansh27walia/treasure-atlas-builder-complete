@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
@@ -47,29 +48,46 @@ export class AddressService {
   }
   
   /**
-   * Create a new saved address
+   * Create a new saved address with optional encryption
    */
-  public async createAddress(address: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'>): Promise<SavedAddress | null> {
+  public async createAddress(address: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'>, useEncryption: boolean = false): Promise<SavedAddress | null> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
         throw new Error('User is not authenticated');
       }
       
-      const { data, error } = await supabase
-        .from('addresses')
-        .insert({
-          ...address,
-          user_id: session.session.user.id
-        })
-        .select()
-        .single();
-      
-      if (error) {
-        throw error;
+      if (useEncryption) {
+        // Use edge function to create encrypted address
+        const { data, error } = await supabase.functions.invoke('update-address-encryption', {
+          body: {
+            action: 'encrypt',
+            addressData: address
+          }
+        });
+        
+        if (error) {
+          throw error;
+        }
+        
+        return data.data as SavedAddress;
+      } else {
+        // Standard address creation
+        const { data, error } = await supabase
+          .from('addresses')
+          .insert({
+            ...address,
+            user_id: session.session.user.id
+          })
+          .select()
+          .single();
+        
+        if (error) {
+          throw error;
+        }
+        
+        return data as unknown as SavedAddress;
       }
-      
-      return data as unknown as SavedAddress;
     } catch (error) {
       console.error('Error creating saved address:', error);
       return null;
@@ -79,7 +97,7 @@ export class AddressService {
   /**
    * Update an existing address
    */
-  public async updateAddress(addressId: number, address: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'>): Promise<SavedAddress | null> {
+  public async updateAddress(addressId: number, address: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'>, useEncryption: boolean = false): Promise<SavedAddress | null> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
