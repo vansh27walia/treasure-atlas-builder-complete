@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -18,6 +17,7 @@ import { toast } from '@/components/ui/sonner';
 
 const BulkUpload: React.FC = () => {
   const {
+    file,
     isUploading,
     isPaying,
     isCreatingLabels,
@@ -77,6 +77,7 @@ const BulkUpload: React.FC = () => {
           onPickupAddressSelect={handlePickupAddressSelect}
           isUploading={isUploading}
           progress={progress}
+          onUpload={handleUpload}
         />
       )}
       

@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { GoogleApiKeyResponse } from '@/types/shipping';
 import { SavedAddress } from '@/services/AddressService';
@@ -70,7 +69,7 @@ export const loadGoogleMapsAPI = async (): Promise<boolean> => {
 // Function to initialize Google Places Autocomplete on an input field
 export const initAddressAutocomplete = (
   inputElement: HTMLInputElement, 
-  onPlaceSelected: (place: GoogleMapsPlace) => void,
+  callback: (place: GoogleMapsPlace) => void,
   options: {
     types?: string[];
     componentRestrictions?: { country: string | string[] };
@@ -101,7 +100,7 @@ export const initAddressAutocomplete = (
     autocomplete.addListener('place_changed', () => {
       const place = autocomplete.getPlace();
       if (place) {
-        onPlaceSelected(place);
+        callback(place);
       }
     });
     
@@ -113,13 +112,13 @@ export const initAddressAutocomplete = (
 };
 
 // Extract address components from Google Place result
-export const extractAddressComponents = (place: GoogleMapsPlace): {
+export function extractAddressComponents(place: GoogleMapsPlace): {
   street1: string;
   city: string;
   state: string;
   zip: string;
   country: string;
-} => {
+} {
   let street_number = '';
   let route = '';
   let city = '';
@@ -158,7 +157,7 @@ export const extractAddressComponents = (place: GoogleMapsPlace): {
     zip,
     country
   };
-};
+}
 
 // Initialize Google Places Autocomplete for international addresses
 export const initInternationalAddressAutocomplete = (
@@ -203,7 +202,7 @@ export const populateShippingFormWithAddress = (
 };
 
 // Function to create a consistent address display string
-export const formatAddressForDisplay = (address: SavedAddress): string => {
+export function formatAddressForDisplay(address: any): string {
   if (!address) return '';
   
   const parts = [
@@ -214,7 +213,7 @@ export const formatAddressForDisplay = (address: SavedAddress): string => {
   ].filter(Boolean);
   
   return parts.join(', ');
-};
+}
 
 // Function to load pickup addresses for a specific user and auto-select the default
 export const loadAndSelectDefaultPickupAddress = async (
@@ -240,3 +239,15 @@ export const loadAndSelectDefaultPickupAddress = async (
     return [];
   }
 };
+
+// Add the getCarrierLogoUrl utility function to the addressUtils file
+export function getCarrierLogoUrl(carrier: string): string {
+  const carrierLogos: Record<string, string> = {
+    'USPS': 'https://www.usps.com/assets/images/home/usps-logo-2023.svg',
+    'UPS': 'https://www.ups.com/assets/resources/images/UPS_logo.svg',
+    'FedEx': 'https://www.fedex.com/content/dam/fedex-com/logos/logo.png',
+    'DHL': 'https://www.dhl.com/content/dam/dhl/global/core/images/logos/dhl-logo.svg'
+  };
+  
+  return carrierLogos[carrier] || '';
+}
