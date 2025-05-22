@@ -15,6 +15,7 @@ export const usePickupAddresses = () => {
     setIsLoading(true);
     try {
       const savedAddresses = await addressService.getSavedAddresses();
+      console.log("Loaded addresses:", savedAddresses);
       setAddresses(savedAddresses || []);
       
       // Select default from address if requested
@@ -40,14 +41,24 @@ export const usePickupAddresses = () => {
   }, []);
 
   // Create new address
-  const createAddress = async (addressData: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'>, useEncryption: boolean = true) => {
+  const createAddress = async (addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">, useEncryption: boolean = true) => {
     setIsUpdating(true);
     try {
+      console.log("Creating address with data:", addressData);
+      
+      // Validate required fields to ensure they're not empty
+      if (!addressData.street1) throw new Error('Address line 1 is required');
+      if (!addressData.city) throw new Error('City is required');
+      if (!addressData.state) throw new Error('State is required');
+      if (!addressData.zip) throw new Error('ZIP code is required');
+      
       const newAddress = await addressService.createAddress(addressData, useEncryption);
       
       if (!newAddress) {
         throw new Error('Failed to create address');
       }
+      
+      console.log("Address created successfully:", newAddress);
       
       // If address should be default from, update it
       if (addressData.is_default_from) {
@@ -66,7 +77,7 @@ export const usePickupAddresses = () => {
       return newAddress;
     } catch (error) {
       console.error('Error creating address:', error);
-      toast.error('Failed to save address');
+      toast.error(error instanceof Error ? error.message : 'Failed to save address');
       return null;
     } finally {
       setIsUpdating(false);
@@ -74,14 +85,24 @@ export const usePickupAddresses = () => {
   };
 
   // Update existing address
-  const updateAddress = async (addressId: number, addressData: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'>, useEncryption: boolean = true) => {
+  const updateAddress = async (addressId: number, addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">, useEncryption: boolean = true) => {
     setIsUpdating(true);
     try {
+      console.log("Updating address with ID:", addressId, "and data:", addressData);
+      
+      // Validate required fields
+      if (!addressData.street1) throw new Error('Address line 1 is required');
+      if (!addressData.city) throw new Error('City is required');
+      if (!addressData.state) throw new Error('State is required');
+      if (!addressData.zip) throw new Error('ZIP code is required');
+      
       const updatedAddress = await addressService.updateAddress(addressId, addressData, useEncryption);
       
       if (!updatedAddress) {
         throw new Error('Failed to update address');
       }
+      
+      console.log("Address updated successfully:", updatedAddress);
       
       // If address should be default from, update it
       if (addressData.is_default_from) {
@@ -102,7 +123,7 @@ export const usePickupAddresses = () => {
       return updatedAddress;
     } catch (error) {
       console.error('Error updating address:', error);
-      toast.error('Failed to update address');
+      toast.error(error instanceof Error ? error.message : 'Failed to update address');
       return null;
     } finally {
       setIsUpdating(false);
@@ -173,6 +194,7 @@ export const usePickupAddresses = () => {
   // Process Google Maps place selection
   const processGooglePlaceSelection = (place: GoogleMapsPlace): Partial<SavedAddress> => {
     const addressComponents = extractAddressComponents(place);
+    console.log("Processing Google Place selection:", addressComponents);
     
     return {
       street1: addressComponents.street1,

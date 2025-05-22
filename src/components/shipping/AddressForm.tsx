@@ -68,6 +68,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
       is_default_to: false,
       ...defaultValues,
     },
+    mode: 'onChange', // Validates on change, not just on submit
   });
 
   // When defaultValues change, update form values
@@ -83,6 +84,9 @@ const AddressForm: React.FC<AddressFormProps> = ({
 
   const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
     const { street1, city, state, zip, country } = extractAddressComponents(place);
+    
+    console.log("Google Place selected:", place);
+    console.log("Extracted components:", { street1, city, state, zip, country });
     
     // Only set values that are not empty
     if (street1) {
@@ -144,13 +148,13 @@ const AddressForm: React.FC<AddressFormProps> = ({
         <FormField
           control={form.control}
           name="street1"
-          render={({ field }) => (
+          render={({ field: { onChange, onBlur, value, ...field } }) => (
             <FormItem>
               <FormLabel>Address</FormLabel>
               <FormControl>
                 <AddressAutoComplete 
                   placeholder="Enter your address"
-                  defaultValue={field.value}
+                  defaultValue={value}
                   onAddressSelected={handleGooglePlaceSelected}
                   id="address-autocomplete"
                   required

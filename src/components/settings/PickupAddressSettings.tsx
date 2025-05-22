@@ -62,8 +62,10 @@ const PickupAddressSettings: React.FC = () => {
   };
 
   const handleFormSubmit = async (values: AddressFormValues) => {
+    console.log("Form submission values:", values);
+    
     // Ensure all required fields are set
-    const addressData: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'> = {
+    const addressData: Omit<SavedAddress, "id" | "user_id" | "created_at"> = {
       name: values.name || '',
       company: values.company || '',
       street1: values.street1,
@@ -77,18 +79,25 @@ const PickupAddressSettings: React.FC = () => {
       is_default_to: values.is_default_to || false
     };
     
-    if (editingAddress) {
-      // Update existing address
-      const success = await updateAddress(editingAddress.id, addressData, true);
-      if (success) {
-        setShowAddressModal(false);
+    try {
+      if (editingAddress) {
+        // Update existing address
+        const success = await updateAddress(editingAddress.id, addressData, true);
+        if (success) {
+          toast.success("Address updated successfully");
+          setShowAddressModal(false);
+        }
+      } else {
+        // Create new address
+        const success = await createAddress(addressData, true);
+        if (success) {
+          toast.success("New address saved successfully");
+          setShowAddressModal(false);
+        }
       }
-    } else {
-      // Create new address
-      const success = await createAddress(addressData, true);
-      if (success) {
-        setShowAddressModal(false);
-      }
+    } catch (error) {
+      console.error("Error saving address:", error);
+      toast.error("Failed to save address. Please try again.");
     }
   };
 
@@ -209,7 +218,11 @@ const PickupAddressSettings: React.FC = () => {
       )}
 
       {/* Add/Edit Address Modal */}
-      <Dialog open={showAddressModal} onOpenChange={setShowAddressModal}>
+      <Dialog open={showAddressModal} onOpenChange={(open) => {
+        if (!open && !isUpdating) {
+          setShowAddressModal(false);
+        }
+      }}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingAddress ? 'Edit Pickup Address' : 'Add New Pickup Address'}</DialogTitle>

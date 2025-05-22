@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { GoogleApiKeyResponse } from '@/types/shipping';
 import { SavedAddress } from '@/services/AddressService';
@@ -83,7 +84,7 @@ export const initAddressAutocomplete = (
     
     // Default options for autocomplete
     const defaultOptions = {
-      fields: ['address_components', 'formatted_address', 'geometry'],
+      fields: ['address_components', 'formatted_address', 'geometry', 'name'],
       types: ['address'],
     };
     
@@ -99,7 +100,8 @@ export const initAddressAutocomplete = (
     // Add listener for place selection
     autocomplete.addListener('place_changed', () => {
       const place = autocomplete.getPlace();
-      if (place) {
+      console.log('Place selected:', place);
+      if (place && place.address_components) {
         callback(place);
       }
     });
@@ -125,6 +127,8 @@ export function extractAddressComponents(place: GoogleMapsPlace): {
   let state = '';
   let zip = '';
   let country = 'US';
+  
+  console.log('Extracting components from place:', place);
   
   // Extract each component
   if (place.address_components) {

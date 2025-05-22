@@ -26,7 +26,13 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [value, setValue] = useState(defaultValue);
   
+  // Update internal state when defaultValue changes
+  useEffect(() => {
+    setValue(defaultValue);
+  }, [defaultValue]);
+
   useEffect(() => {
     let autocomplete: GoogleMapsAutocomplete | null = null;
     
@@ -46,6 +52,8 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
               autocomplete = initAddressAutocomplete(
                 inputRef.current, 
                 (place: GoogleMapsPlace) => {
+                  console.log("Google Maps place selected:", place);
+                  setValue(place.formatted_address || '');
                   onAddressSelected(place);
                 }
               );
@@ -73,7 +81,8 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         id={id}
         name={name}
         placeholder={isLoaded ? `${placeholder} (start typing for suggestions)` : placeholder}
-        defaultValue={defaultValue}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
         required={required}
         className={`${className} ${isLoaded ? 'border-blue-300 focus:border-blue-500' : ''}`}
         disabled={disabled}
