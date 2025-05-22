@@ -1,5 +1,5 @@
 
-// Just updating the extractAddressComponents function to be more robust
+// Extract address components from Google Maps place result
 export function extractAddressComponents(place: GoogleMapsPlace): {
   street1: string;
   city: string;
@@ -83,7 +83,7 @@ export function extractAddressComponents(place: GoogleMapsPlace): {
   }
 }
 
-// Add the missing getCarrierLogoUrl function
+// Get carrier logo URL based on carrier name
 export function getCarrierLogoUrl(carrier: string): string | null {
   const carrierLower = carrier.toLowerCase();
   
@@ -98,4 +98,63 @@ export function getCarrierLogoUrl(carrier: string): string | null {
   }
   
   return null;
+}
+
+// Format address for display
+export function formatAddressForDisplay(address: SavedAddress | null): string {
+  if (!address) return 'No address selected';
+  
+  const parts = [
+    address.street1,
+    address.street2,
+    `${address.city}, ${address.state} ${address.zip}`,
+    address.country !== 'US' ? address.country : ''
+  ].filter(Boolean);
+  
+  return parts.join(', ');
+}
+
+// Load Google Maps API
+export function loadGoogleMapsAPI(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.google && window.google.maps) {
+      resolve(true);
+      return;
+    }
+
+    // Check if the API key is available
+    if (!process.env.GOOGLE_MAPS_API_KEY) {
+      console.error("Google Maps API key not found");
+      resolve(false);
+      return;
+    }
+
+    const script = document.createElement('script');
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      console.log("Google Maps API loaded successfully");
+      resolve(true);
+    };
+
+    script.onerror = () => {
+      console.error("Failed to load Google Maps API");
+      resolve(false);
+    };
+
+    document.head.appendChild(script);
+  });
+}
+
+// Create a handler for address selection
+export function createAddressSelectHandler(setter: (address: SavedAddress | null) => void) {
+  return (address: SavedAddress | null) => {
+    setter(address);
+    if (address) {
+      console.log("Address selected:", address);
+    }
+  };
 }
