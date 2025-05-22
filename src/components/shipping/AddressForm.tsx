@@ -68,7 +68,6 @@ const AddressForm: React.FC<AddressFormProps> = ({
       is_default_to: false,
       ...defaultValues,
     },
-    mode: 'onChange', // Validates on change, not just on submit
   });
 
   // When defaultValues change, update form values
@@ -106,7 +105,12 @@ const AddressForm: React.FC<AddressFormProps> = ({
     }
     
     // Trigger validation
-    form.trigger();
+    form.trigger(['street1', 'city', 'state', 'zip', 'country']);
+  };
+
+  // Handle addressline changes directly from the input
+  const handleAddressLineChange = (value: string) => {
+    form.setValue('street1', value, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
   };
 
   return (
@@ -148,14 +152,15 @@ const AddressForm: React.FC<AddressFormProps> = ({
         <FormField
           control={form.control}
           name="street1"
-          render={({ field: { onChange, onBlur, value, ...field } }) => (
+          render={({ field }) => (
             <FormItem>
               <FormLabel>Address</FormLabel>
               <FormControl>
                 <AddressAutoComplete 
                   placeholder="Enter your address"
-                  defaultValue={value}
+                  defaultValue={field.value}
                   onAddressSelected={handleGooglePlaceSelected}
+                  onChange={handleAddressLineChange}
                   id="address-autocomplete"
                   required
                 />

@@ -76,6 +76,7 @@ export const useBulkUpload = () => {
     const loadDefaultPickupAddress = async () => {
       try {
         const defaultAddress = await addressService.getDefaultFromAddress();
+        console.log("Loaded default pickup address:", defaultAddress);
         if (defaultAddress) {
           setPickupAddress(defaultAddress);
         }
@@ -108,7 +109,7 @@ export const useBulkUpload = () => {
     if (!pickupAddress) {
       throw new Error('Pickup address is required');
     }
-    return handleUpload(file);
+    return handleUpload(file, pickupAddress);
   };
 
   return {

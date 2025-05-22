@@ -14,7 +14,7 @@ export const createAddressSelectHandler = (setAddressState: React.Dispatch<React
 export const loadGoogleMapsAPI = async (): Promise<boolean> => {
   try {
     // First, check if the API is already loaded
-    if (window.google && window.google.maps) {
+    if (window.google && window.google.maps && window.google.maps.places) {
       console.log('Google Maps API already loaded');
       return true;
     }
@@ -40,6 +40,13 @@ export const loadGoogleMapsAPI = async (): Promise<boolean> => {
     
     // Load the Google Maps API
     return new Promise((resolve) => {
+      // Check if there's already a script with this callback
+      if (window.initGoogleMapsCallback) {
+        console.log('Google Maps callback already exists');
+        resolve(false);
+        return;
+      }
+      
       const script = document.createElement('script');
       script.type = 'text/javascript';
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMapsCallback`;
@@ -56,6 +63,7 @@ export const loadGoogleMapsAPI = async (): Promise<boolean> => {
       // Handle loading errors
       script.onerror = () => {
         console.error('Error loading Google Maps API');
+        delete window.initGoogleMapsCallback;
         resolve(false);
       };
       
@@ -103,6 +111,13 @@ export const initAddressAutocomplete = (
       console.log('Place selected:', place);
       if (place && place.address_components) {
         callback(place);
+      }
+    });
+    
+    // Prevent form submission when selecting an address with Enter key
+    inputElement.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && document.activeElement === inputElement) {
+        e.preventDefault();
       }
     });
     

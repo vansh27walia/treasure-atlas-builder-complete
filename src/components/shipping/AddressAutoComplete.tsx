@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
-import { loadGoogleMapsAPI, initAddressAutocomplete } from '@/utils/addressUtils';
+import { loadGoogleMapsAPI, extractAddressComponents } from '@/utils/addressUtils';
 
 interface AddressAutoCompleteProps {
   onAddressSelected: (place: GoogleMapsPlace) => void;
@@ -12,6 +12,7 @@ interface AddressAutoCompleteProps {
   required?: boolean;
   className?: string;
   disabled?: boolean;
+  onChange?: (value: string) => void;
 }
 
 const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
@@ -22,9 +23,11 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
   name,
   required = false,
   className = '',
-  disabled = false
+  disabled = false,
+  onChange
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<GoogleMapsAutocomplete | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [value, setValue] = useState(defaultValue);
   
@@ -34,8 +37,6 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
   }, [defaultValue]);
 
   useEffect(() => {
-    let autocomplete: GoogleMapsAutocomplete | null = null;
-    
     const initAutocomplete = async () => {
       if (!inputRef.current) return;
       
@@ -49,14 +50,42 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
           // to ensure the DOM is fully rendered
           setTimeout(() => {
             if (inputRef.current) {
-              autocomplete = initAddressAutocomplete(
-                inputRef.current, 
-                (place: GoogleMapsPlace) => {
+              // Create the autocomplete instance
+              const options = {
+                fields: ['address_components', 'formatted_address', 'geometry', 'name'],
+                types: ['address'],
+              };
+              
+              if (window.google && window.google.maps && window.google.maps.places) {
+                autocompleteRef.current = new window.google.maps.places.Autocomplete(
+                  inputRef.current,
+                  options
+                );
+                
+                // Add listener for place selection
+                autocompleteRef.current.addListener('place_changed', () => {
+                  if (!autocompleteRef.current) return;
+                  
+                  const place = autocompleteRef.current.getPlace();
                   console.log("Google Maps place selected:", place);
-                  setValue(place.formatted_address || '');
-                  onAddressSelected(place);
-                }
-              );
+                  
+                  if (place && place.formatted_address) {
+                    setValue(place.formatted_address);
+                    if (onChange) onChange(place.formatted_address);
+                  }
+                  
+                  if (place && place.address_components) {
+                    onAddressSelected(place);
+                  }
+                });
+                
+                // Prevent form submission when selecting an address
+                inputRef.current.addEventListener('keydown', (e) => {
+                  if (e.key === 'Enter' && document.activeElement === inputRef.current) {
+                    e.preventDefault();
+                  }
+                });
+              }
             }
           }, 100);
         }
@@ -69,9 +98,18 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
     
     // Clean up function
     return () => {
-      // Google Maps autocomplete doesn't need explicit cleanup
+      // Remove Google Maps autocomplete event listeners
+      if (autocompleteRef.current && window.google && window.google.maps) {
+        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
+      }
     };
-  }, [onAddressSelected]);
+  }, [onAddressSelected, onChange]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setValue(newValue);
+    if (onChange) onChange(newValue);
+  };
 
   return (
     <div className="relative">
@@ -82,7 +120,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         name={name}
         placeholder={isLoaded ? `${placeholder} (start typing for suggestions)` : placeholder}
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={handleInputChange}
         required={required}
         className={`${className} ${isLoaded ? 'border-blue-300 focus:border-blue-500' : ''}`}
         disabled={disabled}
