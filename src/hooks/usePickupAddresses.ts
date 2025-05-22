@@ -53,8 +53,8 @@ export const usePickupAddresses = () => {
       if (!addressData.zip) throw new Error('ZIP code is required');
       
       // Check for authenticated user before proceeding
-      const { data: session } = await addressService.getSession();
-      if (!session?.user) {
+      const { data } = await addressService.getSession();
+      if (!data?.session?.user) {
         throw new Error('You need to be logged in to save addresses');
       }
       

@@ -1,5 +1,7 @@
 
 // Extract address components from Google Place result
+import { toast } from "@/components/ui/sonner";
+
 export function extractAddressComponents(place: GoogleMapsPlace): {
   street1: string;
   city: string;
