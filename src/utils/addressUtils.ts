@@ -240,7 +240,7 @@ export const loadAndSelectDefaultPickupAddress = async (
   }
 };
 
-// Add the getCarrierLogoUrl utility function to the addressUtils file
+// Add the getCarrierLogoUrl utility function
 export function getCarrierLogoUrl(carrier: string): string {
   const carrierLogos: Record<string, string> = {
     'USPS': 'https://www.usps.com/assets/images/home/usps-logo-2023.svg',

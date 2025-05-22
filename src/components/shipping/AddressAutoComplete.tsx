@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { loadGoogleMapsAPI, initAddressAutocomplete } from '@/utils/addressUtils';
 
@@ -25,6 +25,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
   disabled = false
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
   
   useEffect(() => {
     let autocomplete: GoogleMapsAutocomplete | null = null;
@@ -36,13 +37,20 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         const googleMapsLoaded = await loadGoogleMapsAPI();
         
         if (googleMapsLoaded && inputRef.current) {
-          // Initialize autocomplete on the input element
-          autocomplete = initAddressAutocomplete(
-            inputRef.current, 
-            (place: GoogleMapsPlace) => {
-              onAddressSelected(place);
+          setIsLoaded(true);
+          
+          // Initialize autocomplete on the input element with a slight delay
+          // to ensure the DOM is fully rendered
+          setTimeout(() => {
+            if (inputRef.current) {
+              autocomplete = initAddressAutocomplete(
+                inputRef.current, 
+                (place: GoogleMapsPlace) => {
+                  onAddressSelected(place);
+                }
+              );
             }
-          );
+          }, 100);
         }
       } catch (error) {
         console.error("Error initializing Google Maps autocomplete:", error);
@@ -51,23 +59,32 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
     
     initAutocomplete();
     
+    // Clean up function
     return () => {
-      // No cleanup needed for Google Maps autocomplete
+      // Google Maps autocomplete doesn't need explicit cleanup
     };
   }, [onAddressSelected]);
 
   return (
-    <Input
-      ref={inputRef}
-      type="text"
-      id={id}
-      name={name}
-      placeholder={placeholder}
-      defaultValue={defaultValue}
-      required={required}
-      className={className}
-      disabled={disabled}
-    />
+    <div className="relative">
+      <Input
+        ref={inputRef}
+        type="text"
+        id={id}
+        name={name}
+        placeholder={isLoaded ? `${placeholder} (start typing for suggestions)` : placeholder}
+        defaultValue={defaultValue}
+        required={required}
+        className={`${className} ${isLoaded ? 'border-blue-300 focus:border-blue-500' : ''}`}
+        disabled={disabled}
+        autoComplete="off" // Disable browser's native autocomplete
+      />
+      {isLoaded && (
+        <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-blue-500">
+          Maps
+        </div>
+      )}
+    </div>
   );
 };
 

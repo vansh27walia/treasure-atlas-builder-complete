@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { CloudUpload, FileUp, Loader2, Plus } from 'lucide-react';
+import { CloudUpload, FileUp, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { BulkUploadResult } from '@/types/shipping';
@@ -16,7 +17,7 @@ export interface BulkUploadFormProps {
   onPickupAddressSelect: (address: SavedAddress | null) => void;
   isUploading?: boolean;
   progress?: number;
-  handleUpload?: (file: File) => Promise<any>; // Updated prop name from onUpload to handleUpload
+  handleUpload?: (file: File) => Promise<any>; 
 }
 
 const BulkUploadForm: React.FC<BulkUploadFormProps> = ({ 
@@ -182,7 +183,19 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const handleAddressSubmit = async (values: any) => {
     try {
       // Use encrypted storage for address
-      const newAddress = await addressService.createAddress(values, true);
+      const newAddress = await addressService.createAddress({
+        name: values.name || '',
+        company: values.company || '',
+        street1: values.street1,
+        street2: values.street2 || '',
+        city: values.city,
+        state: values.state,
+        zip: values.zip,
+        country: values.country || 'US',
+        phone: values.phone || '',
+        is_default_from: values.is_default_from || false,
+        is_default_to: values.is_default_to || false
+      }, true);
       
       if (newAddress) {
         toast.success('Address saved successfully');

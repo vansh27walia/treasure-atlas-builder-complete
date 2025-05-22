@@ -54,8 +54,10 @@ const BulkUpload: React.FC = () => {
   } = useBulkUpload();
 
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
-    setPickupAddress(address);
-    console.log("Selected pickup address:", address);
+    if (address) {
+      setPickupAddress(address);
+      console.log("Selected pickup address:", address);
+    }
   };
 
   const handleUploadSuccess = (uploadResults: any) => {

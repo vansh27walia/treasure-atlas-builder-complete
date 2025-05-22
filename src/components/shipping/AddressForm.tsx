@@ -74,7 +74,9 @@ const AddressForm: React.FC<AddressFormProps> = ({
   useEffect(() => {
     if (Object.keys(defaultValues).length > 0) {
       Object.entries(defaultValues).forEach(([key, value]) => {
-        form.setValue(key as any, value);
+        if (value !== undefined) {
+          form.setValue(key as any, value);
+        }
       });
     }
   }, [defaultValues, form]);
@@ -82,11 +84,25 @@ const AddressForm: React.FC<AddressFormProps> = ({
   const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
     const { street1, city, state, zip, country } = extractAddressComponents(place);
     
-    form.setValue('street1', street1, { shouldValidate: true });
-    form.setValue('city', city, { shouldValidate: true });
-    form.setValue('state', state, { shouldValidate: true });
-    form.setValue('zip', zip, { shouldValidate: true });
-    form.setValue('country', country, { shouldValidate: true });
+    // Only set values that are not empty
+    if (street1) {
+      form.setValue('street1', street1, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+    }
+    if (city) {
+      form.setValue('city', city, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+    }
+    if (state) {
+      form.setValue('state', state, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+    }
+    if (zip) {
+      form.setValue('zip', zip, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+    }
+    if (country) {
+      form.setValue('country', country, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+    }
+    
+    // Trigger validation
+    form.trigger();
   };
 
   return (

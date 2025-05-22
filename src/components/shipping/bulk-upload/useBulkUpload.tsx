@@ -6,6 +6,7 @@ import { useShipmentRates } from '@/hooks/useShipmentRates';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
 import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
 import { SavedAddress } from '@/services/AddressService';
+import { addressService } from '@/services/AddressService';
 
 export const useBulkUpload = () => {
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
@@ -69,6 +70,22 @@ export const useBulkUpload = () => {
     setSortDirection,
     setSelectedCarrierFilter
   } = useShipmentFiltering(results);
+
+  // Load the default pickup address when the component initializes
+  useEffect(() => {
+    const loadDefaultPickupAddress = async () => {
+      try {
+        const defaultAddress = await addressService.getDefaultFromAddress();
+        if (defaultAddress) {
+          setPickupAddress(defaultAddress);
+        }
+      } catch (error) {
+        console.error('Error loading default pickup address:', error);
+      }
+    };
+    
+    loadDefaultPickupAddress();
+  }, []);
 
   // Fetch rates when shipments are processed
   useEffect(() => {
