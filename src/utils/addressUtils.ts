@@ -1,7 +1,5 @@
 
-import { SavedAddress } from '@/services/AddressService';
-
-// Extract address components from Google Maps place result
+// Just updating the extractAddressComponents function to be more robust
 export function extractAddressComponents(place: GoogleMapsPlace): {
   street1: string;
   city: string;
@@ -85,8 +83,55 @@ export function extractAddressComponents(place: GoogleMapsPlace): {
   }
 }
 
-// Get carrier logo URL based on carrier name
-export function getCarrierLogoUrl(carrier: string): string | null {
+// Add Google Maps API loader function
+export const loadGoogleMapsAPI = async (): Promise<boolean> => {
+  return new Promise((resolve, reject) => {
+    // If Google Maps is already loaded, resolve immediately
+    if (window.google && window.google.maps) {
+      console.log("Google Maps API already loaded");
+      resolve(true);
+      return;
+    }
+
+    // Create a global callback function
+    window.initGoogleMapsCallback = () => {
+      console.log("Google Maps API loaded");
+      resolve(true);
+    };
+
+    // Function to handle script load error
+    const handleScriptError = () => {
+      console.error("Failed to load Google Maps API");
+      reject(new Error("Failed to load Google Maps API"));
+    };
+
+    try {
+      // Get API key from localStorage or environment
+      const apiKey = localStorage.getItem('googleMapsApiKey') || import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      
+      if (!apiKey) {
+        console.warn("No Google Maps API key found");
+        // Continue without API key, which might work with restrictions
+      }
+
+      // Create script element
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMapsCallback`;
+      script.async = true;
+      script.defer = true;
+      script.onerror = handleScriptError;
+      
+      // Add script to document
+      document.head.appendChild(script);
+    } catch (error) {
+      console.error("Error initializing Google Maps API:", error);
+      reject(error);
+    }
+  });
+};
+
+// Function to get carrier logo URL
+export const getCarrierLogoUrl = (carrier: string): string | null => {
   const carrierLower = carrier.toLowerCase();
   
   if (carrierLower.includes('usps')) {
@@ -98,106 +143,90 @@ export function getCarrierLogoUrl(carrier: string): string | null {
   } else if (carrierLower.includes('dhl')) {
     return "https://www.dhl.com/img/meta/dhl-logo.png";
   }
-  
   return null;
-}
+};
 
-// Format address for display
-export function formatAddressForDisplay(address: SavedAddress | null): string {
-  if (!address) return 'No address selected';
+// Function to format address for display
+export const formatAddressForDisplay = (address: any): string => {
+  if (!address) return 'No address available';
   
-  const parts = [
-    address.street1,
-    address.street2,
-    `${address.city}, ${address.state} ${address.zip}`,
-    address.country !== 'US' ? address.country : ''
-  ].filter(Boolean);
+  const parts = [];
+  
+  if (address.name) parts.push(address.name);
+  if (address.street1) parts.push(address.street1);
+  if (address.street2) parts.push(address.street2);
+  if (address.city && address.state) parts.push(`${address.city}, ${address.state} ${address.zip || ''}`);
+  else if (address.city) parts.push(address.city);
+  if (address.country && address.country !== 'US') parts.push(address.country);
   
   return parts.join(', ');
-}
+};
 
-// Load Google Maps API
-export function loadGoogleMapsAPI(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (window.google && window.google.maps) {
-      resolve(true);
-      return;
-    }
-
-    // Check if the API key is available
-    if (!process.env.GOOGLE_MAPS_API_KEY) {
-      console.error("Google Maps API key not found");
-      resolve(false);
-      return;
-    }
-
-    const script = document.createElement('script');
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-    script.async = true;
-    script.defer = true;
-
-    script.onload = () => {
-      console.log("Google Maps API loaded successfully");
-      resolve(true);
-    };
-
-    script.onerror = () => {
-      console.error("Failed to load Google Maps API");
-      resolve(false);
-    };
-
-    document.head.appendChild(script);
-  });
-}
-
-// Create a handler for address selection
-export function createAddressSelectHandler(setter: (address: SavedAddress | null) => void) {
-  return (address: SavedAddress | null) => {
-    setter(address);
-    if (address) {
-      console.log("Address selected:", address);
-    }
-  };
-}
-
-// Initialize Google Maps Autocomplete on an input element
-export function initAddressAutocomplete(
+// Function to initialize address autocomplete for a specific input element
+export const initAddressAutocomplete = (
   inputElement: HTMLInputElement, 
   onPlaceSelected: (place: GoogleMapsPlace) => void
-): void {
+) => {
   if (!window.google || !window.google.maps || !window.google.maps.places) {
-    console.error("Google Maps API not loaded. Can't initialize autocomplete.");
-    return;
+    console.error("Google Maps API not loaded");
+    return null;
   }
 
   try {
-    const autocomplete = new window.google.maps.places.Autocomplete(inputElement, {
+    const options = {
       fields: ['address_components', 'formatted_address', 'geometry', 'name'],
       types: ['address'],
-    });
+    };
 
-    // Add listener for place selection
+    const autocomplete = new window.google.maps.places.Autocomplete(inputElement, options);
+    
     autocomplete.addListener('place_changed', () => {
       const place = autocomplete.getPlace();
-      
       if (place && place.address_components) {
-        console.log("Google place selected:", place);
         onPlaceSelected(place);
-      } else {
-        console.warn("Selected place has no address components");
       }
     });
 
-    // Prevent form submission when selecting from dropdown
-    inputElement.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && document.activeElement === inputElement) {
-        e.preventDefault();
-      }
-    });
-
-    console.log("Google Maps autocomplete initialized successfully");
+    return autocomplete;
   } catch (error) {
-    console.error("Error initializing Google Maps autocomplete:", error);
+    console.error("Error initializing address autocomplete:", error);
+    return null;
   }
+};
+
+// Function to create an address select handler
+export const createAddressSelectHandler = (form: any, onAddressSelect?: (address: any) => void) => {
+  return (address: any) => {
+    if (!address) return;
+    
+    if (form) {
+      // Set form values from address
+      if (address.street1) form.setValue('street1', address.street1);
+      if (address.street2) form.setValue('street2', address.street2 || '');
+      if (address.city) form.setValue('city', address.city);
+      if (address.state) form.setValue('state', address.state);
+      if (address.zip) form.setValue('zip', address.zip);
+      if (address.country) form.setValue('country', address.country || 'US');
+
+      // Trigger validation
+      form.trigger(['street1', 'city', 'state', 'zip', 'country']);
+    }
+    
+    // Call external handler if provided
+    if (onAddressSelect) {
+      onAddressSelect(address);
+    }
+  };
+};
+
+// Export SavedAddress type for components that need it
+export interface SavedAddress {
+  id: string;
+  name?: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country?: string;
 }

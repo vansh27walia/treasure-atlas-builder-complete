@@ -1,18 +1,18 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { toast } from '@/components/ui/sonner';
-import { SavedAddress } from '@/services/AddressService';
+import type { SavedAddress } from '@/utils/addressUtils';
 
 interface BulkUploadProps {
-  // Add props as needed
+  setPickupAddress?: (address: SavedAddress | null) => void;
 }
 
-const BulkUpload: React.FC<BulkUploadProps> = () => {
-  const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
-
+// Export named component
+export const BulkUpload: React.FC<BulkUploadProps> = ({ setPickupAddress }) => {
+  // Just updating the handlePickupAddressSelect function to be more robust
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
     if (address) {
-      setPickupAddress(address);
+      if (setPickupAddress) setPickupAddress(address);
       console.log("Selected pickup address for bulk upload:", address);
       toast.success(`Using "${address.name || 'Unnamed address'}" as pickup location`);
     } else {
@@ -20,11 +20,9 @@ const BulkUpload: React.FC<BulkUploadProps> = () => {
     }
   };
 
-  return (
-    <div>
-      {/* Bulk upload implementation will go here */}
-    </div>
-  );
+  // Rest of component implementation
+  return <div>Bulk upload component</div>;
 };
 
+// Also export as default for backward compatibility
 export default BulkUpload;
