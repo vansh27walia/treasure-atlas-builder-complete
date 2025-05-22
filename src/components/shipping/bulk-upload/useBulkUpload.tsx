@@ -7,7 +7,6 @@ import { useShipmentManagement } from '@/hooks/useShipmentManagement';
 import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
 import { SavedAddress } from '@/services/AddressService';
 import { addressService } from '@/services/AddressService';
-import { toast } from '@/components/ui/sonner';
 
 export const useBulkUpload = () => {
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
@@ -108,23 +107,9 @@ export const useBulkUpload = () => {
   // Modified handleUpload to include pickup address
   const handleFileUpload = async (file: File) => {
     if (!pickupAddress) {
-      toast.error('Pickup address is required. Please select or create a pickup address first.');
       throw new Error('Pickup address is required');
     }
-    
-    try {
-      console.log("Uploading file with pickup address:", pickupAddress);
-      
-      // Call the handleUpload function with the file and pass the pickup address
-      const uploadResult = await handleUpload(file, pickupAddress);
-      
-      // Process the result
-      console.log("Upload completed successfully with result:", uploadResult);
-      return uploadResult;
-    } catch (error) {
-      console.error("Error in file upload:", error);
-      throw error;
-    }
+    return handleUpload(file, pickupAddress);
   };
 
   return {

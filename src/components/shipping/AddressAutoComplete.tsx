@@ -74,22 +74,17 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
                     if (onChange) onChange(place.formatted_address);
                   }
                   
-                  // Important: Ensure we check if place exists and has address_components
                   if (place && place.address_components) {
                     onAddressSelected(place);
-                  } else {
-                    console.error("Place selection has no address components");
                   }
                 });
                 
                 // Prevent form submission when selecting an address
-                if (inputRef.current) {
-                  inputRef.current.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' && document.activeElement === inputRef.current) {
-                      e.preventDefault();
-                    }
-                  });
-                }
+                inputRef.current.addEventListener('keydown', (e) => {
+                  if (e.key === 'Enter' && document.activeElement === inputRef.current) {
+                    e.preventDefault();
+                  }
+                });
               }
             }
           }, 100);
@@ -103,10 +98,9 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
     
     // Clean up function
     return () => {
+      // Remove Google Maps autocomplete event listeners
       if (autocompleteRef.current && window.google && window.google.maps) {
-        if (inputRef.current) {
-          inputRef.current.removeEventListener('keydown', () => {});
-        }
+        window.google.maps.event.clearInstanceListeners(autocompleteRef.current);
       }
     };
   }, [onAddressSelected, onChange]);

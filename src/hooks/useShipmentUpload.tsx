@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
-import { SavedAddress } from '@/services/AddressService';
 
 // Helper function to validate and normalize status values
 const normalizeStatus = (status: string): 'pending' | 'processing' | 'error' | 'completed' => {
@@ -42,8 +41,7 @@ export const useShipmentUpload = () => {
     }
   };
 
-  // Updated to handle pickup address
-  const handleUpload = async (file: File, pickupAddress?: SavedAddress): Promise<any> => {
+  const handleUpload = async (file: File): Promise<void> => {
     if (!file) {
       toast.error('Please select a file to upload');
       return;
@@ -75,38 +73,19 @@ export const useShipmentUpload = () => {
       
       setProgress(30); // File validated
 
-      console.log("Using pickup address for bulk upload:", pickupAddress);
-      
-      // Build origin object from the pickup address or use default
-      let origin;
-      if (pickupAddress) {
-        origin = {
-          name: pickupAddress.name || "Shipping Company",
-          street1: pickupAddress.street1,
-          street2: pickupAddress.street2 || "",
-          city: pickupAddress.city,
-          state: pickupAddress.state,
-          zip: pickupAddress.zip, 
-          country: pickupAddress.country || "US",
-          phone: pickupAddress.phone || ""
-        };
-      } else {
-        origin = {
-          name: "Shipping Company",
-          street1: "123 Main St",
-          city: "San Francisco",
-          state: "CA",
-          zip: "94111",
-          country: "US",
-          phone: "555-555-5555"
-        };
-      }
-
       // Process file and generate labels via the API
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
         body: { 
           csvContent: text,
-          origin
+          origin: {
+            name: "Shipping Company",
+            street1: "123 Main St",
+            city: "San Francisco",
+            state: "CA",
+            zip: "94111",
+            country: "US",
+            phone: "555-555-5555"
+          }
         }
       });
 
@@ -135,13 +114,11 @@ export const useShipmentUpload = () => {
       setProgress(100);
       
       toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments. Ready for carrier selection.`);
-      return resultData;
     } catch (error) {
       console.error('Bulk upload error:', error);
       setUploadStatus('error');
       setProgress(0);
       toast.error(`Failed to process the uploaded file: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      throw error;
     } finally {
       setIsUploading(false);
     }

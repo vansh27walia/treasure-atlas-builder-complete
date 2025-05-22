@@ -1,56 +1,367 @@
 
-import React from 'react';
-import { toast } from '@/components/ui/sonner';
-import { extractAddressComponents } from '@/utils/addressUtils';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Card,
+  CardContent,
+} from '@/components/ui/card';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useForm } from 'react-hook-form';
-import type { SavedAddress } from '@/utils/addressUtils';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { COUNTRIES_LIST } from '@/lib/countries';
+import { Phone, MapPin } from 'lucide-react';
+import { extractAddressComponents } from '@/utils/addressUtils';
+import { toast } from '@/components/ui/sonner';
+import { SavedAddress } from '@/services/AddressService'; 
+import AddressAutoComplete from './AddressAutoComplete';
+import SelectAddressDropdown from './SelectAddressDropdown';
 
-interface AddressSelectionProps {
-  form?: any; // The form instance from useForm
-  onAddressSelect?: (address: any) => void;
+// Create a simplified address type that matches the form inputs
+export interface SimpleAddress {
+  name?: string;
+  company?: string;
+  street1?: string; 
+  street2?: string;
+  city?: string; 
+  state?: string; 
+  zip?: string; 
+  country?: string; 
+  phone?: string;
 }
 
-// Exporting named component instead of default
-export const AddressSelector: React.FC<AddressSelectionProps> = ({
-  form,
-  onAddressSelect
+const addressSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  company: z.string().optional(),
+  street1: z.string().min(1, "Street address is required"),
+  street2: z.string().optional(),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  zip: z.string().min(1, "ZIP/Postal code is required"),
+  country: z.string().min(1, "Country is required"),
+  phone: z.string().optional(),
+});
+
+type AddressFormValues = z.infer<typeof addressSchema>;
+
+interface AddressSelectorProps {
+  type: 'from' | 'to';
+  onAddressSelect?: (address: SimpleAddress) => void;
+  selectedAddressId?: number;
+  inputRef?: React.RefObject<HTMLInputElement>;
+  useGoogleAutocomplete?: boolean;
+  defaultAddress?: SavedAddress | null;
+}
+
+const AddressSelector: React.FC<AddressSelectorProps> = ({ 
+  type,
+  onAddressSelect,
+  selectedAddressId,
+  inputRef,
+  useGoogleAutocomplete = true, // Enable by default
+  defaultAddress
 }) => {
-  // Just updating the handleGooglePlaceSelected function to be more robust
+  const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(false);
+  const streetInputRef = useRef<HTMLInputElement>(null);
+  const combinedRef = inputRef || streetInputRef;
+  const [selectedSavedAddress, setSelectedSavedAddress] = useState<SavedAddress | null>(defaultAddress || null);
+  const [showAddressForm, setShowAddressForm] = useState(!defaultAddress);
+  
+  const form = useForm<AddressFormValues>({
+    resolver: zodResolver(addressSchema),
+    defaultValues: {
+      name: '',
+      company: '',
+      street1: '',
+      street2: '',
+      city: '',
+      state: '',
+      zip: '',
+      country: 'US',
+      phone: '',
+    }
+  });
+  
+  // Update form values when a saved address is selected
+  useEffect(() => {
+    if (selectedSavedAddress) {
+      form.setValue('name', selectedSavedAddress.name || '', { shouldValidate: true });
+      form.setValue('company', selectedSavedAddress.company || '', { shouldValidate: true });
+      form.setValue('street1', selectedSavedAddress.street1, { shouldValidate: true });
+      form.setValue('street2', selectedSavedAddress.street2 || '', { shouldValidate: true });
+      form.setValue('city', selectedSavedAddress.city, { shouldValidate: true });
+      form.setValue('state', selectedSavedAddress.state, { shouldValidate: true });
+      form.setValue('zip', selectedSavedAddress.zip, { shouldValidate: true });
+      form.setValue('country', selectedSavedAddress.country, { shouldValidate: true });
+      form.setValue('phone', selectedSavedAddress.phone || '', { shouldValidate: true });
+      
+      // Submit form values
+      if (onAddressSelect) {
+        onAddressSelect(selectedSavedAddress);
+      }
+    }
+  }, [selectedSavedAddress, form, onAddressSelect]);
+  
+  // Auto-submit form when all required fields are filled
+  const watchRequired = form.watch(['name', 'street1', 'city', 'state', 'zip']);
+  
+  useEffect(() => {
+    const allFilled = watchRequired.every(field => field && field.trim() !== '');
+    if (allFilled) {
+      const values = form.getValues();
+      if (onAddressSelect) {
+        onAddressSelect(values);
+      }
+    }
+  }, [watchRequired, form, onAddressSelect]);
+  
   const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
     if (place && place.address_components) {
-      try {
-        const addressComponents = extractAddressComponents(place);
-        
-        // Update form values with extracted address components
-        if (addressComponents.street1 && form) form.setValue('street1', addressComponents.street1, { shouldValidate: true });
-        if (addressComponents.city && form) form.setValue('city', addressComponents.city, { shouldValidate: true });
-        if (addressComponents.state && form) form.setValue('state', addressComponents.state, { shouldValidate: true });
-        if (addressComponents.zip && form) form.setValue('zip', addressComponents.zip, { shouldValidate: true });
-        if (addressComponents.country && form) form.setValue('country', addressComponents.country, { shouldValidate: true });
-        
-        // Trigger form validation
-        if (form) form.trigger(['street1', 'city', 'state', 'zip', 'country']);
-        
-        toast.success('Address found and auto-filled');
-        
-        // Submit form values if all required fields are populated
-        if (addressComponents.street1 && addressComponents.city && 
-            addressComponents.state && addressComponents.zip) {
-          if (onAddressSelect) {
-            const values = form ? form.getValues() : addressComponents;
-            onAddressSelect(values);
-          }
-        }
-      } catch (error) {
-        console.error('Error processing Google place selection:', error);
-        toast.error('Failed to process selected address. Please try entering it manually.');
-      }
+      const addressComponents = extractAddressComponents(place);
+      
+      // Update form values with extracted address components
+      if (addressComponents.street1) form.setValue('street1', addressComponents.street1, { shouldValidate: true });
+      if (addressComponents.city) form.setValue('city', addressComponents.city, { shouldValidate: true });
+      if (addressComponents.state) form.setValue('state', addressComponents.state, { shouldValidate: true });
+      if (addressComponents.zip) form.setValue('zip', addressComponents.zip, { shouldValidate: true });
+      if (addressComponents.country) form.setValue('country', addressComponents.country, { shouldValidate: true });
+      
+      // Trigger form validation
+      form.trigger(['street1', 'city', 'state', 'zip', 'country']);
+      
+      toast.success('Address found and auto-filled');
     }
   };
 
-  // Rest of component implementation
-  return <div>Address selector component</div>;
+  // Handle direct address line changes
+  const handleAddressLineChange = (value: string) => {
+    form.setValue('street1', value, { shouldValidate: true });
+  };
+
+  // Handle selecting a saved address
+  const handleSavedAddressSelected = (address: SavedAddress | null) => {
+    setSelectedSavedAddress(address);
+    setShowAddressForm(!address); // Hide form if an address is selected
+  };
+
+  // Handle adding a new address
+  const handleAddNewAddress = () => {
+    setSelectedSavedAddress(null);
+    setShowAddressForm(true);
+    form.reset(); // Clear the form
+  };
+  
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-blue-600">
+          <MapPin className="h-4 w-4" />
+          <span className="text-sm font-medium">
+            {type === 'from' ? 'Pickup Location' : 'Delivery Location'}
+          </span>
+        </div>
+        
+        {/* Address selector dropdown */}
+        <SelectAddressDropdown
+          onAddressSelected={handleSavedAddressSelected}
+          onAddNew={handleAddNewAddress}
+          defaultAddress={defaultAddress}
+          placeholder={type === 'from' ? 'Select pickup address' : 'Select delivery address'}
+          isPickupAddress={type === 'from'}
+        />
+      </div>
+      
+      {showAddressForm && (
+        <Card className="border border-gray-100 shadow-sm">
+          <CardContent className="pt-3">
+            <Form {...form}>
+              <form className="space-y-3">
+                <FormField
+                  control={form.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm">Contact Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Full name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="company"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm">Company (optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Company name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="street1"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm">Street Address</FormLabel>
+                      <FormControl>
+                        <AddressAutoComplete 
+                          placeholder="Start typing your address..." 
+                          defaultValue={field.value}
+                          onAddressSelected={handleGooglePlaceSelected}
+                          onChange={handleAddressLineChange}
+                          id="address-line-1"
+                          required
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="street2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm">Apartment, Suite, etc. (optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Apt, Suite, Unit, etc." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="state"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">State/Province</FormLabel>
+                        <FormControl>
+                          <Input placeholder="State/Province" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="zip"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">ZIP/Postal Code</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ZIP/Postal Code" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="country"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">Country</FormLabel>
+                        <Select 
+                          value={field.value} 
+                          onValueChange={field.onChange}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select country" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[200px]">
+                            {COUNTRIES_LIST.map((country) => (
+                              <SelectItem key={country.code} value={country.code}>
+                                {country.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm">Phone</FormLabel>
+                      <div className="flex items-center">
+                        <div className="bg-gray-100 p-2 border border-gray-300 rounded-l-md">
+                          <Phone className="h-4 w-4 text-gray-500" />
+                        </div>
+                        <FormControl>
+                          <Input 
+                            placeholder="Contact phone number" 
+                            className="rounded-l-none" 
+                            {...field} 
+                          />
+                        </FormControl>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      )}
+      
+      {!showAddressForm && selectedSavedAddress && (
+        <Card className="border border-gray-100 shadow-sm p-4">
+          <div className="grid grid-cols-1 gap-1 text-sm">
+            <p className="font-medium">{selectedSavedAddress.name || 'Unnamed Address'}</p>
+            {selectedSavedAddress.company && <p>{selectedSavedAddress.company}</p>}
+            <p>{selectedSavedAddress.street1}</p>
+            {selectedSavedAddress.street2 && <p>{selectedSavedAddress.street2}</p>}
+            <p>{selectedSavedAddress.city}, {selectedSavedAddress.state} {selectedSavedAddress.zip}</p>
+            <p>{selectedSavedAddress.country}</p>
+            {selectedSavedAddress.phone && <p>Phone: {selectedSavedAddress.phone}</p>}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
 };
 
-// Also export as default for backward compatibility
 export default AddressSelector;
