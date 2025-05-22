@@ -13,6 +13,8 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { FileText, UploadCloud, ChevronRight, AlertCircle } from 'lucide-react';
+import { SavedAddress } from '@/services/AddressService';
+import { toast } from '@/components/ui/sonner';
 
 const BulkUpload: React.FC = () => {
   const {
@@ -49,13 +51,30 @@ const BulkUpload: React.FC = () => {
     setSelectedCarrierFilter
   } = useBulkUpload();
 
+  const handlePickupAddressSelect = (address: SavedAddress | null) => {
+    // Handle the selected pickup address
+    console.log("Selected pickup address:", address);
+    // You might want to store this in your state or context
+  };
+
+  const handleUploadSuccess = (uploadResults: any) => {
+    // Handle success, we'll pass this to our form
+    // The useBulkUpload hook will handle most of the state management
+  };
+
+  const handleUploadFail = (error: string) => {
+    toast.error(`Upload failed: ${error}`);
+  };
+
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
       <BulkUploadHeader onDownloadTemplate={handleDownloadTemplate} />
       
       {uploadStatus === 'idle' && (
         <BulkUploadForm 
-          onUpload={handleUpload}
+          onUploadSuccess={handleUploadSuccess}
+          onUploadFail={handleUploadFail}
+          onPickupAddressSelect={handlePickupAddressSelect}
           isUploading={isUploading}
           progress={progress}
         />

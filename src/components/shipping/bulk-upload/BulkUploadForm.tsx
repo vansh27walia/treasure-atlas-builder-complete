@@ -15,16 +15,19 @@ interface BulkUploadFormProps {
   onUploadSuccess: (results: BulkUploadResult) => void;
   onUploadFail: (error: string) => void;
   onPickupAddressSelect: (address: SavedAddress | null) => void;
+  isUploading?: boolean;
+  progress?: number;
 }
 
 const BulkUploadForm: React.FC<BulkUploadFormProps> = ({ 
   onUploadSuccess, 
   onUploadFail,
-  onPickupAddressSelect
+  onPickupAddressSelect,
+  isUploading = false,
+  progress = 0
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [showAddNewAddress, setShowAddNewAddress] = useState(false);
+  const [localIsUploading, setLocalIsUploading] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -84,7 +87,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       return;
     }
     
-    setIsUploading(true);
+    setLocalIsUploading(true);
     
     // Convert file to base64 to send to edge function
     const reader = new FileReader();
@@ -121,13 +124,13 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         toast.error(errorMessage);
         onUploadFail(errorMessage);
       } finally {
-        setIsUploading(false);
+        setLocalIsUploading(false);
       }
     };
     
     reader.onerror = () => {
       toast.error('Failed to read file');
-      setIsUploading(false);
+      setLocalIsUploading(false);
       onUploadFail('Failed to read file');
     };
   };
@@ -151,6 +154,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       toast.error('Failed to save address');
     }
   };
+
+  const [showAddNewAddress, setShowAddNewAddress] = useState(false);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -222,15 +227,15 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       <div className="flex justify-end">
         <Button 
           type="submit" 
-          disabled={!selectedFile || isUploading}
+          disabled={!selectedFile || isUploading || localIsUploading}
           className="flex items-center gap-2"
         >
-          {isUploading ? (
+          {isUploading || localIsUploading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <FileUp className="h-4 w-4" />
           )}
-          {isUploading ? 'Uploading...' : 'Upload and Process'}
+          {isUploading || localIsUploading ? 'Uploading...' : 'Upload and Process'}
         </Button>
       </div>
     </form>
