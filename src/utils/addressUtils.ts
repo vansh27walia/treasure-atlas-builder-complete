@@ -182,34 +182,6 @@ export const initDomesticAddressAutocomplete = (
   });
 };
 
-// Get carrier logo URL based on carrier name
-export const getCarrierLogoUrl = (carrier: string): string => {
-  const normalizedCarrier = carrier.toLowerCase();
-  
-  // Map of carrier names to their logo URLs
-  const carrierLogos: Record<string, string> = {
-    'usps': 'https://upload.wikimedia.org/wikipedia/commons/1/1b/USPS_eagle_logo.svg',
-    'ups': 'https://upload.wikimedia.org/wikipedia/commons/6/6b/United_Parcel_Service_logo_2014.svg',
-    'fedex': 'https://upload.wikimedia.org/wikipedia/commons/b/b7/FedEx_Ground_logo.svg',
-    'dhl': 'https://upload.wikimedia.org/wikipedia/commons/5/5d/DHL_Logo.svg',
-    'ontrac': 'https://www.ontrac.com/images/ontrac-logo.png',
-    'lasership': 'https://www.lasership.com/wp-content/uploads/2022/05/LS_horizontal-blue-yellow.svg',
-    'amazon': 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg',
-  };
-  
-  // Check if the carrier is in our map, accounting for partial matches
-  let logoUrl = '';
-  
-  Object.keys(carrierLogos).forEach(key => {
-    if (normalizedCarrier.includes(key)) {
-      logoUrl = carrierLogos[key];
-    }
-  });
-  
-  // Return logo URL or empty string if not found
-  return logoUrl;
-};
-
 // Function to populate shipping forms with saved address data
 export const populateShippingFormWithAddress = (
   formSetValues: (values: Record<string, any>) => void,
@@ -228,4 +200,43 @@ export const populateShippingFormWithAddress = (
     country: address.country || 'US',
     phone: address.phone || '',
   });
+};
+
+// Function to create a consistent address display string
+export const formatAddressForDisplay = (address: SavedAddress): string => {
+  if (!address) return '';
+  
+  const parts = [
+    address.street1,
+    address.street2,
+    `${address.city}, ${address.state} ${address.zip}`,
+    address.country !== 'US' ? address.country : null
+  ].filter(Boolean);
+  
+  return parts.join(', ');
+};
+
+// Function to load pickup addresses for a specific user and auto-select the default
+export const loadAndSelectDefaultPickupAddress = async (
+  onAddressSelected: (address: SavedAddress | null) => void
+): Promise<SavedAddress[]> => {
+  try {
+    const addressService = new (require('@/services/AddressService').AddressService)();
+    const addresses = await addressService.getSavedAddresses();
+    
+    if (addresses && addresses.length > 0) {
+      const defaultAddress = addresses.find(addr => addr.is_default_from);
+      
+      if (defaultAddress) {
+        onAddressSelected(defaultAddress);
+      }
+      
+      return addresses;
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error loading pickup addresses:', error);
+    return [];
+  }
 };

@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Check, ChevronsUpDown, MapPin } from 'lucide-react';
+import { Check, ChevronsUpDown, MapPin, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Command,
@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
+import { formatAddressForDisplay } from '@/utils/addressUtils';
 
 interface SelectAddressDropdownProps {
   onAddressSelected: (address: SavedAddress | null) => void;
@@ -26,6 +27,7 @@ interface SelectAddressDropdownProps {
   defaultAddress?: SavedAddress | null;
   placeholder?: string;
   isPickupAddress?: boolean;
+  className?: string;
 }
 
 const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
@@ -34,6 +36,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
   defaultAddress = null,
   placeholder = 'Select an address',
   isPickupAddress = true,
+  className = '',
 }) => {
   const [open, setOpen] = useState(false);
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
@@ -82,20 +85,9 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     setOpen(false);
   };
 
-  const formatAddress = (address: SavedAddress) => {
-    const parts = [
-      address.street1,
-      address.street2,
-      `${address.city}, ${address.state} ${address.zip}`,
-      address.country
-    ].filter(Boolean);
-    
-    return parts.join(', ');
-  };
-
   const getAddressLabel = () => {
     if (!selectedAddress) return placeholder;
-    return selectedAddress.name || formatAddress(selectedAddress).split(',')[0];
+    return selectedAddress.name || formatAddressForDisplay(selectedAddress).split(',')[0];
   };
 
   return (
@@ -106,7 +98,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
           role="combobox"
           aria-expanded={open}
           disabled={isLoading}
-          className="w-full justify-between"
+          className={`w-full justify-between ${className}`}
         >
           {isLoading ? (
             <span className="text-muted-foreground">Loading addresses...</span>
@@ -123,7 +115,22 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
         <Command>
           <CommandInput placeholder="Search address..." />
           <CommandList>
-            <CommandEmpty>No addresses found.</CommandEmpty>
+            <CommandEmpty>
+              <div className="flex flex-col items-center justify-center py-6">
+                <p className="text-sm text-muted-foreground mb-2">No addresses found</p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    onAddNew();
+                    setOpen(false);
+                  }}
+                  className="flex items-center"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add new address
+                </Button>
+              </div>
+            </CommandEmpty>
             <CommandGroup heading={isPickupAddress ? "Pickup Addresses" : "Recipient Addresses"}>
               {addresses.map((address) => (
                 <CommandItem
@@ -157,7 +164,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                       )}
                     </span>
                     <span className="text-sm text-muted-foreground">
-                      {formatAddress(address)}
+                      {formatAddressForDisplay(address)}
                     </span>
                   </div>
                 </CommandItem>
@@ -172,7 +179,10 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                 }}
                 className="cursor-pointer"
               >
-                <span className="font-medium text-blue-600">+ Add new address</span>
+                <span className="font-medium text-blue-600 flex items-center">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add new address
+                </span>
               </CommandItem>
             </CommandGroup>
           </CommandList>

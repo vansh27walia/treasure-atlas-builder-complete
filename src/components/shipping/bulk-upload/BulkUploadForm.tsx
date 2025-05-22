@@ -1,9 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { CloudUpload, FileUp, Loader2 } from 'lucide-react';
+import { CloudUpload, FileUp, Loader2, Plus } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { BulkUploadResult } from '@/types/shipping';
@@ -28,6 +28,30 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [localIsUploading, setLocalIsUploading] = useState(false);
+  const [showAddNewAddress, setShowAddNewAddress] = useState(false);
+  const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+
+  // Load saved addresses when component mounts
+  useEffect(() => {
+    const loadAddresses = async () => {
+      try {
+        const savedAddresses = await addressService.getSavedAddresses();
+        setAddresses(savedAddresses);
+        
+        // If there's a default from address, select it
+        const defaultFromAddress = savedAddresses.find(addr => addr.is_default_from);
+        if (defaultFromAddress) {
+          setPickupAddress(defaultFromAddress);
+          onPickupAddressSelect(defaultFromAddress);
+        }
+      } catch (error) {
+        console.error('Error loading addresses:', error);
+      }
+    };
+    
+    loadAddresses();
+  }, [onPickupAddressSelect]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -87,6 +111,11 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       return;
     }
     
+    if (!pickupAddress) {
+      toast.error('Please select a pickup address');
+      return;
+    }
+    
     setLocalIsUploading(true);
     
     // Convert file to base64 to send to edge function
@@ -103,7 +132,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
           body: { 
             fileName: selectedFile.name,
-            fileContent: base64Data
+            fileContent: base64Data,
+            pickupAddress: pickupAddress // Include the pickup address for all shipments
           }
         });
         
@@ -137,7 +167,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   const handleAddressSubmit = async (values: any) => {
     try {
-      const newAddress = await addressService.createAddress(values);
+      // Use encrypted storage for address
+      const newAddress = await addressService.createAddress(values, true);
       
       if (newAddress) {
         toast.success('Address saved successfully');
@@ -146,6 +177,11 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
           await addressService.setDefaultFromAddress(newAddress.id);
         }
         
+        // Update the local addresses list
+        setAddresses(prev => [newAddress, ...prev]);
+        
+        // Select the newly created address
+        setPickupAddress(newAddress);
         onPickupAddressSelect(newAddress);
         setShowAddNewAddress(false);
       }
@@ -155,7 +191,10 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     }
   };
 
-  const [showAddNewAddress, setShowAddNewAddress] = useState(false);
+  const handlePickupAddressChange = (address: SavedAddress | null) => {
+    setPickupAddress(address);
+    onPickupAddressSelect(address);
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -179,16 +218,27 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                 onSubmit={handleAddressSubmit} 
                 buttonText="Save Address" 
                 isPickupAddress={true}
+                showDefaultOptions={true}
               />
             </CardContent>
           </Card>
         ) : (
-          <SelectAddressDropdown
-            onAddressSelected={onPickupAddressSelect}
-            onAddNew={() => setShowAddNewAddress(true)}
-            placeholder="Select a pickup address"
-            isPickupAddress={true}
-          />
+          <div className="space-y-2">
+            <SelectAddressDropdown
+              onAddressSelected={handlePickupAddressChange}
+              onAddNew={() => setShowAddNewAddress(true)}
+              placeholder="Select a pickup address"
+              isPickupAddress={true}
+              defaultAddress={pickupAddress}
+            />
+            {!pickupAddress && addresses.length === 0 && (
+              <div className="p-4 bg-blue-50 rounded-md">
+                <p className="text-sm text-blue-800">
+                  You don't have any saved pickup addresses. Click "Add new address" to create one.
+                </p>
+              </div>
+            )}
+          </div>
         )}
       </div>
       
@@ -227,7 +277,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       <div className="flex justify-end">
         <Button 
           type="submit" 
-          disabled={!selectedFile || isUploading || localIsUploading}
+          disabled={!selectedFile || !pickupAddress || isUploading || localIsUploading}
           className="flex items-center gap-2"
         >
           {isUploading || localIsUploading ? (

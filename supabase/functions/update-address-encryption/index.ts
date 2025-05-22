@@ -79,6 +79,33 @@ serve(async (req) => {
       
       response = { success: true, data };
     } 
+    else if (action === 'update') {
+      // Handle update with encryption
+      if (!addressId || !addressData) {
+        return new Response(
+          JSON.stringify({ error: 'Address ID and data are required for updates' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+      
+      // Update the address in the database
+      const { data, error } = await supabaseClient
+        .from('addresses')
+        .update({
+          ...addressData,
+          user_id: user.id // Ensure user_id is preserved
+        })
+        .eq('id', addressId)
+        .eq('user_id', user.id) // Ensure user can only update their own addresses
+        .select()
+        .single();
+      
+      if (error) {
+        throw error;
+      }
+      
+      response = { success: true, data };
+    }
     else if (action === 'decrypt') {
       // Handle decryption
       if (!addressId) {

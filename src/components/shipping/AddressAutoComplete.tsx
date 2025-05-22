@@ -32,16 +32,20 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
     const initAutocomplete = async () => {
       if (!inputRef.current) return;
       
-      const googleMapsLoaded = await loadGoogleMapsAPI();
-      
-      if (googleMapsLoaded && inputRef.current) {
-        // Initialize autocomplete on the input element
-        autocomplete = initAddressAutocomplete(
-          inputRef.current, 
-          (place: GoogleMapsPlace) => {
-            onAddressSelected(place);
-          }
-        );
+      try {
+        const googleMapsLoaded = await loadGoogleMapsAPI();
+        
+        if (googleMapsLoaded && inputRef.current) {
+          // Initialize autocomplete on the input element
+          autocomplete = initAddressAutocomplete(
+            inputRef.current, 
+            (place: GoogleMapsPlace) => {
+              onAddressSelected(place);
+            }
+          );
+        }
+      } catch (error) {
+        console.error("Error initializing Google Maps autocomplete:", error);
       }
     };
     

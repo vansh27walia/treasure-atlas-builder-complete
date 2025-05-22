@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
@@ -116,22 +115,40 @@ export class AddressService {
         throw new Error('Address not found or you do not have permission to update it');
       }
       
-      const { data, error } = await supabase
-        .from('addresses')
-        .update({
-          ...address,
-          // Ensure user_id remains unchanged
-          user_id: session.session.user.id
-        })
-        .eq('id', addressId)
-        .select()
-        .single();
-      
-      if (error) {
-        throw error;
+      if (useEncryption) {
+        // Use edge function to update with encryption
+        const { data, error } = await supabase.functions.invoke('update-address-encryption', {
+          body: {
+            action: 'update',
+            addressId,
+            addressData: address
+          }
+        });
+        
+        if (error) {
+          throw error;
+        }
+        
+        return data.data as SavedAddress;
+      } else {
+        // Standard address update
+        const { data, error } = await supabase
+          .from('addresses')
+          .update({
+            ...address,
+            // Ensure user_id remains unchanged
+            user_id: session.session.user.id
+          })
+          .eq('id', addressId)
+          .select()
+          .single();
+        
+        if (error) {
+          throw error;
+        }
+        
+        return data as unknown as SavedAddress;
       }
-      
-      return data as unknown as SavedAddress;
     } catch (error) {
       console.error('Error updating saved address:', error);
       return null;

@@ -31,6 +31,8 @@ const BulkUpload: React.FC = () => {
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
+    pickupAddress,
+    setPickupAddress,
     handleUpload,
     handleProceedToPayment,
     handleCreateLabels,
@@ -52,14 +54,12 @@ const BulkUpload: React.FC = () => {
   } = useBulkUpload();
 
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
-    // Handle the selected pickup address
+    setPickupAddress(address);
     console.log("Selected pickup address:", address);
-    // You might want to store this in your state or context
   };
 
   const handleUploadSuccess = (uploadResults: any) => {
-    // Handle success, we'll pass this to our form
-    // The useBulkUpload hook will handle most of the state management
+    // This will be handled by the useBulkUpload hook
   };
 
   const handleUploadFail = (error: string) => {
@@ -111,7 +111,7 @@ const BulkUpload: React.FC = () => {
                 Template
               </Button>
               
-              <Button onClick={() => handleUpload} className="text-sm">
+              <Button onClick={() => window.location.reload()} className="text-sm">
                 <UploadCloud className="mr-1 h-4 w-4" />
                 Upload Another File
               </Button>
@@ -132,8 +132,8 @@ const BulkUpload: React.FC = () => {
             sortField={sortField}
             sortDirection={sortDirection}
             onSortChange={(field, direction) => {
-              setSortField(field);
-              setSortDirection(direction);
+              setSortField(field as any);
+              setSortDirection(direction as any);
             }}
             selectedCarrier={selectedCarrierFilter}
             onCarrierFilterChange={setSelectedCarrierFilter}

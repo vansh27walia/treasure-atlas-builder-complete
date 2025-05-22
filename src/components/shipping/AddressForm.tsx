@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -70,14 +70,23 @@ const AddressForm: React.FC<AddressFormProps> = ({
     },
   });
 
+  // When defaultValues change, update form values
+  useEffect(() => {
+    if (Object.keys(defaultValues).length > 0) {
+      Object.entries(defaultValues).forEach(([key, value]) => {
+        form.setValue(key as any, value);
+      });
+    }
+  }, [defaultValues, form]);
+
   const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
     const { street1, city, state, zip, country } = extractAddressComponents(place);
     
-    form.setValue('street1', street1);
-    form.setValue('city', city);
-    form.setValue('state', state);
-    form.setValue('zip', zip);
-    form.setValue('country', country);
+    form.setValue('street1', street1, { shouldValidate: true });
+    form.setValue('city', city, { shouldValidate: true });
+    form.setValue('state', state, { shouldValidate: true });
+    form.setValue('zip', zip, { shouldValidate: true });
+    form.setValue('country', country, { shouldValidate: true });
   };
 
   return (
@@ -91,7 +100,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
               <FormItem>
                 <FormLabel>Location Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="Home, Office, etc." {...field} />
+                  <Input placeholder="Home, Office, etc." {...field} value={field.value || ''} />
                 </FormControl>
                 <FormDescription>
                   A name to help you identify this location
@@ -108,7 +117,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
               <FormItem>
                 <FormLabel>Company (Optional)</FormLabel>
                 <FormControl>
-                  <Input placeholder="Company name" {...field} />
+                  <Input placeholder="Company name" {...field} value={field.value || ''} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -127,6 +136,8 @@ const AddressForm: React.FC<AddressFormProps> = ({
                   placeholder="Enter your address"
                   defaultValue={field.value}
                   onAddressSelected={handleGooglePlaceSelected}
+                  id="address-autocomplete"
+                  required
                 />
               </FormControl>
               <FormMessage />
@@ -141,7 +152,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
             <FormItem>
               <FormLabel>Address Line 2 (Optional)</FormLabel>
               <FormControl>
-                <Input placeholder="Apartment, suite, unit, building, floor, etc." {...field} />
+                <Input placeholder="Apartment, suite, unit, building, floor, etc." {...field} value={field.value || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -156,7 +167,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
               <FormItem>
                 <FormLabel>City</FormLabel>
                 <FormControl>
-                  <Input placeholder="City" required {...field} />
+                  <Input placeholder="City" required {...field} value={field.value || ''} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -170,7 +181,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
               <FormItem>
                 <FormLabel>State</FormLabel>
                 <FormControl>
-                  <Input placeholder="State" required {...field} />
+                  <Input placeholder="State" required {...field} value={field.value || ''} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -186,7 +197,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
               <FormItem>
                 <FormLabel>ZIP Code</FormLabel>
                 <FormControl>
-                  <Input placeholder="ZIP code" required {...field} />
+                  <Input placeholder="ZIP code" required {...field} value={field.value || ''} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -200,7 +211,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
               <FormItem>
                 <FormLabel>Country</FormLabel>
                 <FormControl>
-                  <Input placeholder="Country" required {...field} />
+                  <Input placeholder="Country" required {...field} value={field.value || ''} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -215,7 +226,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
             <FormItem>
               <FormLabel>Phone (Optional)</FormLabel>
               <FormControl>
-                <Input placeholder="Phone number" {...field} />
+                <Input placeholder="Phone number" {...field} value={field.value || ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
