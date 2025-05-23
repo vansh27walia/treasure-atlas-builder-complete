@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
@@ -69,18 +68,21 @@ export const usePickupAddresses = () => {
       
       // Try standard address creation first
       let newAddress: SavedAddress | null = null;
+      
       try {
+        // First try without encryption
         newAddress = await addressService.createAddress(addressData, false);
         console.log("Created address with standard method:", newAddress);
       } catch (standardError) {
         console.warn("Standard address creation failed, trying with encryption", standardError);
-        // If standard creation fails, try with encryption as fallback
+        
         try {
+          // If standard creation fails, try with encryption as fallback
           newAddress = await addressService.createAddress(addressData, true);
           console.log("Created address with encryption method:", newAddress);
         } catch (encryptionError) {
           console.error("Both address creation methods failed", encryptionError);
-          throw new Error('Failed to create address using both methods');
+          throw new Error('Failed to create address: ' + (encryptionError instanceof Error ? encryptionError.message : 'Unknown error'));
         }
       }
       
@@ -94,7 +96,9 @@ export const usePickupAddresses = () => {
       }
       
       // Update local state
-      await loadAddresses(true); // Reload addresses to ensure we have the latest data
+      const updatedAddresses = await addressService.getSavedAddresses();
+      setAddresses(updatedAddresses);
+      setAddressCount(updatedAddresses.length);
       
       toast.success('Address saved successfully');
       return newAddress;

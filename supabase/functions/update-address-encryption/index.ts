@@ -71,22 +71,29 @@ serve(async (req) => {
         user_id: user.id
       };
       
-      // First, check if user exists in auth.users
-      const { data: userData, error: userLookupError } = await supabaseClient
+      // CRITICAL FIX: First, make sure the user exists in the users table
+      const { data: userData, error: userCheckError } = await supabaseClient
         .from('users')
         .select('id')
         .eq('id', user.id)
         .maybeSingle();
       
-      // If user doesn't exist, create an entry
-      if (!userData && !userLookupError) {
-        // Insert user into the users table
-        await supabaseClient
+      if (!userData) {
+        // User doesn't exist in the users table, create them
+        const { error: userInsertError } = await supabaseClient
           .from('users')
           .insert({
             id: user.id,
             email: user.email
           });
+          
+        if (userInsertError) {
+          console.error('Error creating user record:', userInsertError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to create user record', details: userInsertError.message }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          );
+        }
       }
       
       // Now create the address record
