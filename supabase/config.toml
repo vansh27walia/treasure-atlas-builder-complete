@@ -76,7 +76,7 @@ url = ""
 # Port to use for Functions.
 port = 9999
 
-# Configure Edge Functions
+# Configure an Edge Function
 [functions.update-address-encryption]
 verify_jwt = true
 

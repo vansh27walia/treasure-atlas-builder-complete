@@ -49,7 +49,6 @@ const PickupAddressSettings: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState<SavedAddress | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Check if user is authenticated
   const isAuthenticated = !!user;
@@ -97,12 +96,8 @@ const PickupAddressSettings: React.FC = () => {
       return;
     }
     
-    if (isSubmitting) {
-      return; // Prevent multiple submissions
-    }
-    
     try {
-      setIsSubmitting(true); // Set local saving state
+      setIsSaving(true); // Set local saving state
       
       // Ensure all required fields are set
       const addressData: Omit<SavedAddress, "id" | "user_id" | "created_at"> = {
@@ -114,13 +109,12 @@ const PickupAddressSettings: React.FC = () => {
         state: values.state,
         zip: values.zip,
         country: values.country || 'US',
-        phone: values.phone || '', // Ensure phone is never undefined
+        phone: values.phone || '',
         is_default_from: values.is_default_from || false,
         is_default_to: values.is_default_to || false
       };
       
       let success;
-      
       if (editingAddress) {
         // Update existing address
         success = await updateAddress(editingAddress.id, addressData);
@@ -145,7 +139,7 @@ const PickupAddressSettings: React.FC = () => {
       console.error("Error saving address:", error);
       toast.error(error instanceof Error ? error.message : "Failed to save address. Please try again.");
     } finally {
-      setIsSubmitting(false); // Reset saving state regardless of outcome
+      setIsSaving(false); // Reset saving state regardless of outcome
     }
   };
 
@@ -320,7 +314,7 @@ const PickupAddressSettings: React.FC = () => {
 
       {/* Add/Edit Address Modal */}
       <Dialog open={showAddressModal} onOpenChange={(open) => {
-        if (!open && !isUpdating && !isSaving && !isSubmitting) {
+        if (!open && !isUpdating && !isSaving) {
           setShowAddressModal(false);
         }
       }}>
@@ -331,7 +325,7 @@ const PickupAddressSettings: React.FC = () => {
           <AddressForm
             defaultValues={editingAddress || { is_default_from: addresses.length === 0 }}
             onSubmit={handleFormSubmit}
-            isLoading={isUpdating || isSaving || isSubmitting}
+            isLoading={isUpdating || isSaving}
             buttonText={editingAddress ? 'Update Address' : 'Save Address'}
             isPickupAddress={true}
             showDefaultOptions={true}
