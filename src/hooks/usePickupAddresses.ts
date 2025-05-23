@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
@@ -8,6 +9,8 @@ export const usePickupAddresses = () => {
   const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [addressCount, setAddressCount] = useState(0);
+  const ADDRESS_LIMIT = 50; // Maximum number of addresses per user
 
   // Load all addresses
   const loadAddresses = async (autoSelectDefault: boolean = true) => {
@@ -16,6 +19,7 @@ export const usePickupAddresses = () => {
       const savedAddresses = await addressService.getSavedAddresses();
       console.log("Loaded addresses:", savedAddresses);
       setAddresses(savedAddresses || []);
+      setAddressCount(savedAddresses.length);
       
       // Select default from address if requested
       if (autoSelectDefault && savedAddresses.length > 0) {
@@ -45,6 +49,12 @@ export const usePickupAddresses = () => {
     try {
       console.log("Creating address with data:", addressData);
       
+      // Check address limit
+      if (addressCount >= ADDRESS_LIMIT) {
+        toast.error(`You can only save up to ${ADDRESS_LIMIT} addresses`);
+        return null;
+      }
+      
       // Validate required fields to ensure they're not empty
       if (!addressData.street1) throw new Error('Address line 1 is required');
       if (!addressData.city) throw new Error('City is required');
@@ -58,7 +68,7 @@ export const usePickupAddresses = () => {
       }
       
       // Try standard address creation first
-      let newAddress;
+      let newAddress: SavedAddress | null = null;
       try {
         newAddress = await addressService.createAddress(addressData, false);
         console.log("Created address with standard method:", newAddress);
@@ -110,11 +120,12 @@ export const usePickupAddresses = () => {
       if (!addressData.zip) throw new Error('ZIP code is required');
       
       // Try first without encryption
-      let updatedAddress = await addressService.updateAddress(addressId, addressData, false);
-      
-      // If that fails, try with encryption as a fallback
-      if (!updatedAddress) {
-        console.log("Regular address update failed, trying with encryption");
+      let updatedAddress: SavedAddress | null = null;
+      try {
+        updatedAddress = await addressService.updateAddress(addressId, addressData, false);
+      } catch (standardError) {
+        console.log("Regular address update failed, trying with encryption", standardError);
+        // If that fails, try with encryption as a fallback
         updatedAddress = await addressService.updateAddress(addressId, addressData, true);
       }
       
@@ -162,6 +173,7 @@ export const usePickupAddresses = () => {
       
       // Update local state
       setAddresses(prev => prev.filter(addr => addr.id !== addressId));
+      setAddressCount(prev => prev - 1);
       
       // If selected address was deleted, clear selection
       if (selectedAddress?.id === addressId) {
@@ -246,6 +258,8 @@ export const usePickupAddresses = () => {
     selectedAddress,
     isLoading,
     isUpdating,
+    addressCount,
+    ADDRESS_LIMIT,
     loadAddresses,
     createAddress,
     updateAddress,

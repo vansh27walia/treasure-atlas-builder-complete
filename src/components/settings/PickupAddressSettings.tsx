@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,7 +16,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { MapPin, Plus, Pencil, Trash2, Star, Check } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { MapPin, Plus, Pencil, Trash2, Star, Check, AlertCircle } from 'lucide-react';
 import { usePickupAddresses } from '@/hooks/usePickupAddresses';
 import { SavedAddress } from '@/services/AddressService';
 import AddressForm from '@/components/shipping/AddressForm';
@@ -23,6 +25,7 @@ import { AddressFormValues } from '@/components/shipping/AddressForm';
 import { formatAddressForDisplay } from '@/utils/addressUtils';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const PickupAddressSettings: React.FC = () => {
   const {
@@ -30,6 +33,8 @@ const PickupAddressSettings: React.FC = () => {
     selectedAddress,
     isLoading,
     isUpdating,
+    addressCount,
+    ADDRESS_LIMIT,
     loadAddresses,
     createAddress,
     updateAddress,
@@ -86,6 +91,14 @@ const PickupAddressSettings: React.FC = () => {
       return;
     }
     
+    // Check if user has reached the address limit
+    if (addressCount >= ADDRESS_LIMIT) {
+      toast.error(`You've reached the limit of ${ADDRESS_LIMIT} addresses`, {
+        description: "Please delete some addresses before adding new ones"
+      });
+      return;
+    }
+    
     setEditingAddress(null);
     setShowAddressModal(true);
   };
@@ -133,8 +146,6 @@ const PickupAddressSettings: React.FC = () => {
           setShowAddressModal(false);
           // Reload addresses to ensure we have the latest data
           await loadAddresses();
-        } else {
-          toast.error("Failed to update address");
         }
       } else {
         // Create new address
@@ -145,8 +156,6 @@ const PickupAddressSettings: React.FC = () => {
           setShowAddressModal(false);
           // Reload addresses to ensure we have the latest data
           await loadAddresses();
-        } else {
-          toast.error("Failed to save address");
         }
       }
     } catch (error) {
@@ -167,12 +176,21 @@ const PickupAddressSettings: React.FC = () => {
   const handleDeleteConfirm = async () => {
     if (!addressToDelete) return;
     
-    const success = await deleteAddress(addressToDelete.id);
-    if (success) {
-      setShowDeleteConfirm(false);
-      setAddressToDelete(null);
+    try {
+      const success = await deleteAddress(addressToDelete.id);
+      if (success) {
+        setShowDeleteConfirm(false);
+        setAddressToDelete(null);
+        await loadAddresses(); // Reload to ensure we have the most up-to-date list
+      }
+    } catch (error) {
+      console.error("Error deleting address:", error);
+      toast.error("Failed to delete address. Please try again.");
     }
   };
+  
+  // Calculate address limit usage
+  const addressLimitUsage = Math.min(100, Math.round((addressCount / ADDRESS_LIMIT) * 100));
 
   return (
     <div className="space-y-6">
@@ -181,7 +199,7 @@ const PickupAddressSettings: React.FC = () => {
         <Button 
           onClick={handleAddNewClick} 
           className="flex items-center gap-2"
-          disabled={!isAuthenticated}
+          disabled={!isAuthenticated || addressCount >= ADDRESS_LIMIT || isUpdating}
         >
           <Plus className="h-4 w-4" />
           Add Address
@@ -196,6 +214,27 @@ const PickupAddressSettings: React.FC = () => {
             </p>
           </CardContent>
         </Card>
+      )}
+      
+      {isAuthenticated && (
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+          <div className="flex flex-col flex-grow mr-4">
+            <div className="flex justify-between mb-1">
+              <span className="text-sm font-medium">Address storage</span>
+              <span className="text-sm text-gray-500">{addressCount} / {ADDRESS_LIMIT}</span>
+            </div>
+            <Progress value={addressLimitUsage} className="h-2" />
+          </div>
+        </div>
+      )}
+      
+      {addressCount >= ADDRESS_LIMIT && (
+        <Alert variant="warning">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You've reached the limit of {ADDRESS_LIMIT} addresses. Delete some addresses before adding new ones.
+          </AlertDescription>
+        </Alert>
       )}
 
       {isAuthenticated && isLoading ? (
@@ -325,13 +364,13 @@ const PickupAddressSettings: React.FC = () => {
                 <p className="text-sm text-gray-600">{formatAddressForDisplay(addressToDelete)}</p>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isUpdating}>Cancel</Button>
                 <Button 
                   variant="destructive" 
                   onClick={handleDeleteConfirm}
                   disabled={isUpdating}
                 >
-                  Delete Address
+                  {isUpdating ? 'Deleting...' : 'Delete Address'}
                 </Button>
               </DialogFooter>
             </>

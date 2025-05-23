@@ -7,6 +7,7 @@ import { useShipmentManagement } from '@/hooks/useShipmentManagement';
 import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
 import { SavedAddress } from '@/services/AddressService';
 import { addressService } from '@/services/AddressService';
+import { toast } from '@/components/ui/sonner';
 
 export const useBulkUpload = () => {
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
@@ -107,6 +108,13 @@ export const useBulkUpload = () => {
   // Modified handleUpload to include pickup address
   const handleFileUpload = async (file: File) => {
     if (!pickupAddress) {
+      toast.error('Pickup address is required', {
+        description: 'Please select a pickup address in the settings page first.',
+        action: {
+          label: 'Go to Settings',
+          onClick: () => window.location.href = '/settings'
+        }
+      });
       throw new Error('Pickup address is required');
     }
     return handleUpload(file);

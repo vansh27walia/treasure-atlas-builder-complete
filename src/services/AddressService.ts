@@ -49,7 +49,7 @@ export class AddressService {
       }
       
       console.log('Fetched addresses:', data);
-      return data as unknown as SavedAddress[] || [];
+      return data as SavedAddress[] || [];
     } catch (error) {
       console.error('Error fetching saved addresses:', error);
       return [];
@@ -110,7 +110,7 @@ export class AddressService {
         }
         
         console.log('Address created via direct insertion:', data);
-        return data[0] as unknown as SavedAddress;
+        return data[0] as SavedAddress;
       }
     } catch (error) {
       console.error('Error creating saved address:', error);
@@ -171,11 +171,11 @@ export class AddressService {
           throw error;
         }
         
-        return data[0] as unknown as SavedAddress;
+        return data[0] as SavedAddress;
       }
     } catch (error) {
       console.error('Error updating saved address:', error);
-      return null;
+      throw error;
     }
   }
   
@@ -184,10 +184,17 @@ export class AddressService {
    */
   public async deleteAddress(addressId: number): Promise<boolean> {
     try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.user) {
+        throw new Error('User is not authenticated');
+      }
+      
+      // Delete the address
       const { error } = await supabase
         .from('addresses')
         .delete()
-        .eq('id', addressId);
+        .eq('id', addressId)
+        .eq('user_id', session.session.user.id);
       
       if (error) {
         throw error;
@@ -211,17 +218,22 @@ export class AddressService {
       }
       
       // First, unset any existing default
-      await supabase
+      const { error: updateError } = await supabase
         .from('addresses')
         .update({ is_default_from: false })
         .eq('user_id', session.session.user.id)
         .eq('is_default_from', true);
       
+      if (updateError) {
+        throw updateError;
+      }
+      
       // Then set the new default
       const { error } = await supabase
         .from('addresses')
         .update({ is_default_from: true })
-        .eq('id', addressId);
+        .eq('id', addressId)
+        .eq('user_id', session.session.user.id);
       
       if (error) {
         throw error;
@@ -255,7 +267,8 @@ export class AddressService {
       const { error } = await supabase
         .from('addresses')
         .update({ is_default_to: true })
-        .eq('id', addressId);
+        .eq('id', addressId)
+        .eq('user_id', session.session.user.id);
       
       if (error) {
         throw error;
@@ -289,7 +302,7 @@ export class AddressService {
         throw error;
       }
       
-      return data as unknown as SavedAddress | null;
+      return data as SavedAddress | null;
     } catch (error) {
       console.error('Error fetching default from address:', error);
       return null;
@@ -317,10 +330,36 @@ export class AddressService {
         throw error;
       }
       
-      return data as unknown as SavedAddress | null;
+      return data as SavedAddress | null;
     } catch (error) {
       console.error('Error fetching default to address:', error);
       return null;
+    }
+  }
+  
+  /**
+   * Count user's saved addresses
+   */
+  public async countUserAddresses(): Promise<number> {
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.user) {
+        return 0;
+      }
+      
+      const { count, error } = await supabase
+        .from('addresses')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', session.session.user.id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      return count || 0;
+    } catch (error) {
+      console.error('Error counting user addresses:', error);
+      return 0;
     }
   }
 }
