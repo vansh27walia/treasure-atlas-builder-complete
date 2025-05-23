@@ -56,6 +56,31 @@ serve(async (req) => {
 
     let response;
 
+    // CRITICAL FIX: Always ensure user exists in users table first
+    // Check if user exists in the users table
+    const { data: existingUser, error: checkUserError } = await supabaseClient
+      .from('users')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+      
+    // If user doesn't exist in users table, create them
+    if (!existingUser && !checkUserError) {
+      console.log('User does not exist in users table. Creating user entry.');
+      const { error: createUserError } = await supabaseClient
+        .from('users')
+        .insert({
+          id: user.id,
+          email: user.email
+        });
+        
+      if (createUserError) {
+        console.error('Failed to create user record:', createUserError);
+        throw createUserError;
+      }
+      console.log('User record created successfully');
+    }
+
     if (action === 'encrypt') {
       // Handle encryption
       if (!addressData) {
@@ -71,25 +96,7 @@ serve(async (req) => {
         user_id: user.id
       };
       
-      // First, check if user exists in auth.users
-      const { data: userData, error: userLookupError } = await supabaseClient
-        .from('users')
-        .select('id')
-        .eq('id', user.id)
-        .maybeSingle();
-      
-      // If user doesn't exist, create an entry
-      if (!userData && !userLookupError) {
-        // Insert user into the users table
-        await supabaseClient
-          .from('users')
-          .insert({
-            id: user.id,
-            email: user.email
-          });
-      }
-      
-      // Now create the address record
+      // Create the address record
       const { data, error } = await supabaseClient
         .from('addresses')
         .insert(finalData)

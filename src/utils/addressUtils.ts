@@ -155,8 +155,8 @@ export async function loadGoogleMapsAPI(): Promise<boolean> {
       }
       
       if (!apiKey) {
-        console.warn('No Google Maps API key found. Please add a Google Maps API key in settings.');
-        toast.warning('Google Maps address search requires an API key. Please add one in settings.');
+        console.warn('No Google Maps API key found. Silently failing.');
+        // Don't show warning toast to users - internal feature now
         resolve(false);
         return;
       }
@@ -171,13 +171,13 @@ export async function loadGoogleMapsAPI(): Promise<boolean> {
       // Set up callbacks
       script.onload = () => {
         console.log('Google Maps API loaded successfully');
-        toast.success('Google Maps address search is ready');
+        // Don't show toast to avoid confusing users - internal feature now
         resolve(true);
       };
       
       script.onerror = () => {
         console.error('Failed to load Google Maps API');
-        toast.error('Failed to load Google Maps. Please check your API key.');
+        // Don't show error to users - internal feature now
         resolve(false);
       };
       

@@ -13,7 +13,7 @@ const GoogleApiKeyForm = () => {
       <CardContent>
         <div className="space-y-4">
           <p className="text-sm text-gray-600 mb-4">
-            Google Places API key is securely stored in Supabase. This key is used for address autocomplete functionality.
+            Google Places API key is securely stored and managed internally. This key is used for address autocomplete functionality.
           </p>
           
           <div className="flex items-center">
@@ -24,7 +24,7 @@ const GoogleApiKeyForm = () => {
           </div>
           
           <p className="text-xs text-gray-500 mt-4">
-            The API key is securely stored in Supabase and automatically used for address verification.
+            The API key is pre-configured and automatically used for address verification.
           </p>
         </div>
       </CardContent>
