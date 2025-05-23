@@ -54,11 +54,21 @@ const PickupAddressSettings: React.FC = () => {
   // Check if user is authenticated
   const isAuthenticated = !!user;
 
-  // Refresh addresses on component mount or when auth state changes
+  // Optimize addresses loading with delayed state update
   useEffect(() => {
-    if (isAuthenticated) {
-      loadAddresses();
-    }
+    let isMounted = true;
+    
+    const loadUserAddresses = async () => {
+      if (isAuthenticated && isMounted) {
+        await loadAddresses();
+      }
+    };
+    
+    loadUserAddresses();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [isAuthenticated]);
 
   const handleAddNewClick = () => {
@@ -129,6 +139,8 @@ const PickupAddressSettings: React.FC = () => {
           setShowAddressModal(false);
           // Reload addresses to ensure we have the latest data
           await loadAddresses();
+        } else {
+          throw new Error("Failed to update address");
         }
       } else {
         // Create new address
@@ -139,6 +151,8 @@ const PickupAddressSettings: React.FC = () => {
           setShowAddressModal(false);
           // Reload addresses to ensure we have the latest data
           await loadAddresses();
+        } else {
+          throw new Error("Failed to create address");
         }
       }
     } catch (error) {
@@ -151,9 +165,14 @@ const PickupAddressSettings: React.FC = () => {
 
   const handleSetDefault = async (address: SavedAddress) => {
     if (!address.is_default_from) {
-      const success = await setAsDefaultFrom(address.id);
-      if (success) {
-        await loadAddresses();
+      setIsSaving(true);
+      try {
+        const success = await setAsDefaultFrom(address.id);
+        if (success) {
+          await loadAddresses();
+        }
+      } finally {
+        setIsSaving(false);
       }
     }
   };
@@ -190,7 +209,7 @@ const PickupAddressSettings: React.FC = () => {
         <Button 
           onClick={handleAddNewClick} 
           className="flex items-center gap-2"
-          disabled={!isAuthenticated || addressCount >= ADDRESS_LIMIT || isUpdating || isSaving}
+          disabled={!isAuthenticated || addressCount >= ADDRESS_LIMIT || isUpdating || isSaving || isSubmitting}
         >
           <Plus className="h-4 w-4" />
           Add Address
@@ -230,7 +249,10 @@ const PickupAddressSettings: React.FC = () => {
 
       {isAuthenticated && showLoading ? (
         <div className="py-12 flex justify-center">
-          <p className="text-gray-500">Loading addresses...</p>
+          <div className="flex flex-col items-center">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-500 mb-2" />
+            <p className="text-gray-500">Loading addresses...</p>
+          </div>
         </div>
       ) : isAuthenticated && addresses.length === 0 ? (
         <Card>
@@ -284,7 +306,7 @@ const PickupAddressSettings: React.FC = () => {
                       variant="outline" 
                       size="sm" 
                       onClick={() => handleSetDefault(address)}
-                      disabled={isUpdating || isSaving}
+                      disabled={isUpdating || isSaving || isSubmitting}
                     >
                       <Star className="h-3.5 w-3.5 mr-1" />
                       Set Default
@@ -296,7 +318,7 @@ const PickupAddressSettings: React.FC = () => {
                     variant="outline" 
                     size="sm" 
                     onClick={() => handleEditClick(address)}
-                    disabled={isUpdating || isSaving}
+                    disabled={isUpdating || isSaving || isSubmitting}
                   >
                     <Pencil className="h-3.5 w-3.5 mr-1" />
                     Edit
@@ -306,7 +328,7 @@ const PickupAddressSettings: React.FC = () => {
                     size="sm" 
                     className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
                     onClick={() => handleDeleteClick(address)}
-                    disabled={isUpdating || isSaving}
+                    disabled={isUpdating || isSaving || isSubmitting}
                   >
                     <Trash2 className="h-3.5 w-3.5 mr-1" />
                     Delete
@@ -341,7 +363,7 @@ const PickupAddressSettings: React.FC = () => {
 
       {/* Delete Confirmation Modal */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[500px] bg-white">
           <DialogHeader>
             <DialogTitle>Delete Pickup Address?</DialogTitle>
           </DialogHeader>

@@ -59,6 +59,14 @@ serve(async (req) => {
 
     let response;
 
+    // Create a helper function to ensure phone field is never null or undefined
+    const ensurePhoneField = (data) => {
+      return { 
+        ...data,
+        phone: data.phone !== undefined && data.phone !== null ? data.phone : ''
+      };
+    };
+
     if (action === 'encrypt') {
       // Handle encryption
       if (!addressData) {
@@ -68,89 +76,37 @@ serve(async (req) => {
         );
       }
       
-      // Ensure user_id is included in the data
-      const finalData = {
+      // Ensure user_id and phone are properly set in the data
+      const finalData = ensurePhoneField({
         ...addressData,
         user_id: user.id
-      };
+      });
       
-      // First, check if user exists in users table
-      const { data: userData, error: userQueryError } = await supabaseClient
-        .from('users')
-        .select('id')
-        .eq('id', user.id)
-        .maybeSingle();
+      // Check if user exists in users table and create if needed - do this in a single operation
+      const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey);
       
-      if (userQueryError) {
-        console.error('Error checking if user exists:', userQueryError);
-        return new Response(
-          JSON.stringify({ error: 'Database error', details: userQueryError.message }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-        );
-      }
-      
-      // If user doesn't exist, create an entry using service role to bypass RLS
-      if (!userData) {
-        console.log(`User ${user.id} doesn't exist in users table, creating entry...`);
-        
-        try {
-          // Insert user into the users table with service role client
-          const { error: insertUserError } = await supabaseClient
-            .from('users')
-            .insert({
-              id: user.id,
-              email: user.email
-            });
-          
-          if (insertUserError) {
-            // If there's an RLS error, try with a direct RPC call (custom function) instead
-            if (insertUserError.message.includes('row-level security')) {
-              console.log('Trying alternative method to create user due to RLS...');
-              
-              // Create users record directly through service role client
-              // We're explicitly bypassing RLS here with the service role
-              const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey);
-              
-              const { error: adminInsertError } = await adminClient
-                .from('users')
-                .insert({
-                  id: user.id,
-                  email: user.email
-                });
-              
-              if (adminInsertError) {
-                console.error('Failed to create user with admin client:', adminInsertError);
-                return new Response(
-                  JSON.stringify({ error: 'Could not create user record', details: adminInsertError.message }),
-                  { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-                );
-              }
-            } else {
-              console.error('Failed to create user record:', insertUserError);
-              return new Response(
-                JSON.stringify({ error: 'Could not create user record', details: insertUserError.message }),
-                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-              );
-            }
-          }
-          
-          console.log('Created user record successfully');
-        } catch (userInsertError) {
-          console.error('Exception creating user record:', userInsertError);
-          return new Response(
-            JSON.stringify({ error: 'Exception creating user record', details: userInsertError.message }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-          );
-        }
-      }
-      
-      // Now create the address record
       try {
-        // First check if the phone field is empty and set it to an empty string if so
-        if (finalData.phone === undefined || finalData.phone === null) {
-          finalData.phone = '';
-        }
+        // This upsert will create the user if it doesn't exist, or do nothing if it does
+        const { error: userUpsertError } = await adminClient
+          .from('users')
+          .upsert({
+            id: user.id,
+            email: user.email
+          }, { onConflict: 'id' });
         
+        if (userUpsertError) {
+          console.error('Error ensuring user exists:', userUpsertError);
+          // Continue anyway, as the user might already exist
+        } else {
+          console.log('User record created or verified successfully');
+        }
+      } catch (userError) {
+        console.error('Exception handling user record:', userError);
+        // Continue anyway, we'll try to create the address
+      }
+      
+      // Create the address record
+      try {
         const { data, error } = await supabaseClient
           .from('addresses')
           .insert(finalData)
@@ -183,19 +139,17 @@ serve(async (req) => {
         );
       }
       
+      // Ensure phone field is never null or undefined
+      const finalData = ensurePhoneField({
+        ...addressData,
+        user_id: user.id // Ensure user_id is preserved
+      });
+      
       // Update the address in the database
       try {
-        // First check if the phone field is empty and set it to an empty string if so
-        if (addressData.phone === undefined || addressData.phone === null) {
-          addressData.phone = '';
-        }
-        
         const { data, error } = await supabaseClient
           .from('addresses')
-          .update({
-            ...addressData,
-            user_id: user.id // Ensure user_id is preserved
-          })
+          .update(finalData)
           .eq('id', addressId)
           .eq('user_id', user.id) // Ensure user can only update their own addresses
           .select();
@@ -267,7 +221,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in update-address-encryption function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error.message, stack: error.stack }),
+      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

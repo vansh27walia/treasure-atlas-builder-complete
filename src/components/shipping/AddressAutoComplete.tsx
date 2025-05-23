@@ -33,6 +33,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
   const [value, setValue] = useState(defaultValue);
   const [apiError, setApiError] = useState(false);
   const [isLoadingKey, setIsLoadingKey] = useState(false);
+  const [apiKeyFetched, setApiKeyFetched] = useState(false);
   
   // Update internal state when defaultValue changes
   useEffect(() => {
@@ -41,11 +42,18 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
     }
   }, [defaultValue]);
 
+  // Optimize API key fetching to prevent multiple calls
   useEffect(() => {
     let isMounted = true;
+    const cachedApiKey = localStorage.getItem('googleMapsApiKey');
     
     const fetchApiKey = async () => {
       try {
+        // If we already have a cached API key, use that first
+        if (cachedApiKey) {
+          return cachedApiKey;
+        }
+        
         setIsLoadingKey(true);
         // First try to get the API key from the Supabase edge function
         const { data, error } = await supabase.functions.invoke('get-google-api-key');
@@ -60,7 +68,6 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
           console.log("Retrieved Google Maps API key from edge function");
           // Store it for future use
           localStorage.setItem('googleMapsApiKey', data.apiKey);
-          setIsLoadingKey(false);
           return data.apiKey;
         }
       } catch (error) {
@@ -73,13 +80,14 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
     };
     
     const initAutocomplete = async () => {
-      if (!inputRef.current) return;
+      if (!inputRef.current || apiKeyFetched) return;
       
       try {
         console.log("Initializing Google Maps Autocomplete...");
         
         // Try to get API key from Supabase function first, then fallback to localStorage
         const apiKey = await fetchApiKey();
+        setApiKeyFetched(true);
         
         if (apiKey) {
           console.log("Found Google Maps API key, initializing...");
@@ -90,6 +98,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
           if (googleMapsLoaded && inputRef.current && isMounted) {
             console.log("Google Maps API loaded successfully");
             setIsLoaded(true);
+            setIsLoadingKey(false);
             
             // Initialize autocomplete on the input element
             initAddressAutocomplete(inputRef.current, (place) => {
@@ -114,12 +123,14 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
             console.warn("Google Maps API failed to load");
             if (isMounted) {
               setApiError(true);
+              setIsLoadingKey(false);
             }
           }
         } else {
           console.warn("No Google Maps API key found");
           if (isMounted) {
             setApiError(true);
+            setIsLoadingKey(false);
             toast.error("Google Maps API key not found. Please add one in settings.");
           }
         }
@@ -127,6 +138,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         console.error("Error initializing Google Maps autocomplete:", error);
         if (isMounted) {
           setApiError(true);
+          setIsLoadingKey(false);
         }
       }
     };

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { extractAddressComponents } from '@/utils/addressUtils';
@@ -12,21 +12,25 @@ export const usePickupAddresses = () => {
   const [addressCount, setAddressCount] = useState(0);
   const ADDRESS_LIMIT = 50; // Maximum number of addresses per user
 
-  // Load all addresses
-  const loadAddresses = async (autoSelectDefault: boolean = true) => {
+  // Load all addresses - optimized with useCallback
+  const loadAddresses = useCallback(async (autoSelectDefault: boolean = true) => {
     setIsLoading(true);
     try {
       const savedAddresses = await addressService.getSavedAddresses();
       console.log("Loaded addresses:", savedAddresses);
-      setAddresses(savedAddresses || []);
-      setAddressCount(savedAddresses.length);
       
-      // Select default from address if requested
-      if (autoSelectDefault && savedAddresses.length > 0) {
-        const defaultAddress = savedAddresses.find(addr => addr.is_default_from);
-        if (defaultAddress) {
-          setSelectedAddress(defaultAddress);
-          return defaultAddress;
+      if (savedAddresses) {
+        setAddresses(savedAddresses);
+        setAddressCount(savedAddresses.length);
+        
+        // Select default from address if requested
+        if (autoSelectDefault && savedAddresses.length > 0) {
+          const defaultAddress = savedAddresses.find(addr => addr.is_default_from);
+          if (defaultAddress) {
+            setSelectedAddress(defaultAddress);
+            console.log("Selected pickup address:", defaultAddress);
+            return defaultAddress;
+          }
         }
       }
     } catch (error) {
@@ -36,14 +40,14 @@ export const usePickupAddresses = () => {
       setIsLoading(false);
     }
     return null;
-  };
+  }, []);
 
   // Load addresses on hook initialization
   useEffect(() => {
     loadAddresses();
-  }, []);
+  }, [loadAddresses]);
 
-  // Create new address
+  // Create new address with retry mechanism
   const createAddress = async (addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">) => {
     setIsUpdating(true);
     try {
@@ -67,15 +71,21 @@ export const usePickupAddresses = () => {
         throw new Error('You need to be logged in to save addresses');
       }
       
+      // Ensure phone field is never undefined
+      const finalAddressData = {
+        ...addressData,
+        phone: addressData.phone || ''
+      };
+      
       // Try the encryption method first (uses edge function that handles user creation)
       try {
         console.log("Trying to create address with encryption method first");
-        const newAddress = await addressService.createAddress(addressData, true);
+        const newAddress = await addressService.createAddress(finalAddressData, true);
         console.log("Created address with encryption method:", newAddress);
         
         if (newAddress) {
           // If address should be default from, update it
-          if (addressData.is_default_from) {
+          if (finalAddressData.is_default_from) {
             await addressService.setDefaultFromAddress(newAddress.id);
           }
           
@@ -90,12 +100,12 @@ export const usePickupAddresses = () => {
         
         // If encryption fails, try standard creation
         try {
-          const newAddress = await addressService.createAddress(addressData, false);
+          const newAddress = await addressService.createAddress(finalAddressData, false);
           console.log("Created address with standard method:", newAddress);
           
           if (newAddress) {
             // If address should be default from, update it
-            if (addressData.is_default_from) {
+            if (finalAddressData.is_default_from) {
               await addressService.setDefaultFromAddress(newAddress.id);
             }
             
@@ -107,7 +117,7 @@ export const usePickupAddresses = () => {
           }
         } catch (standardError) {
           console.error("Both address creation methods failed", standardError);
-          throw new Error('Failed to create address using both methods');
+          throw new Error('Failed to create address. Please try again.');
         }
       }
       
@@ -121,7 +131,7 @@ export const usePickupAddresses = () => {
     }
   };
 
-  // Update existing address
+  // Update existing address with improved error handling
   const updateAddress = async (addressId: number, addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">) => {
     setIsUpdating(true);
     try {
@@ -133,15 +143,21 @@ export const usePickupAddresses = () => {
       if (!addressData.state) throw new Error('State is required');
       if (!addressData.zip) throw new Error('ZIP code is required');
       
+      // Ensure phone field is never undefined
+      const finalAddressData = {
+        ...addressData,
+        phone: addressData.phone || ''
+      };
+      
       // Try first with encryption
       try {
         console.log("Trying to update with encryption method first");
-        const updatedAddress = await addressService.updateAddress(addressId, addressData, true);
+        const updatedAddress = await addressService.updateAddress(addressId, finalAddressData, true);
         console.log("Address updated with encryption method:", updatedAddress);
         
         if (updatedAddress) {
           // If address should be default from, update it
-          if (addressData.is_default_from) {
+          if (finalAddressData.is_default_from) {
             await addressService.setDefaultFromAddress(updatedAddress.id);
           }
           
@@ -163,12 +179,12 @@ export const usePickupAddresses = () => {
         
         // If that fails, try without encryption
         try {
-          const updatedAddress = await addressService.updateAddress(addressId, addressData, false);
+          const updatedAddress = await addressService.updateAddress(addressId, finalAddressData, false);
           console.log("Address updated with standard method:", updatedAddress);
           
           if (updatedAddress) {
             // If address should be default from, update it
-            if (addressData.is_default_from) {
+            if (finalAddressData.is_default_from) {
               await addressService.setDefaultFromAddress(updatedAddress.id);
             }
             
@@ -187,7 +203,7 @@ export const usePickupAddresses = () => {
           }
         } catch (standardError) {
           console.error("Both address update methods failed", standardError);
-          throw new Error('Failed to update address using both methods');
+          throw new Error('Failed to update address. Please try again.');
         }
       }
       
@@ -201,7 +217,7 @@ export const usePickupAddresses = () => {
     }
   };
   
-  // Delete address
+  // Delete address with improved error handling
   const deleteAddress = async (addressId: number) => {
     setIsUpdating(true);
     try {
