@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -229,7 +228,7 @@ const PickupAddressSettings: React.FC = () => {
       )}
       
       {addressCount >= ADDRESS_LIMIT && (
-        <Alert variant="warning">
+        <Alert variant="destructive" className="bg-yellow-50 border-yellow-300 text-yellow-800">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             You've reached the limit of {ADDRESS_LIMIT} addresses. Delete some addresses before adding new ones.
