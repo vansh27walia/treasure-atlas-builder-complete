@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { CloudUpload, FileUp, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
@@ -10,6 +9,7 @@ import { BulkUploadResult } from '@/types/shipping';
 import SelectAddressDropdown from '../SelectAddressDropdown';
 import AddressForm from '../AddressForm';
 import { addressService, SavedAddress } from '@/services/AddressService';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface BulkUploadFormProps {
   onUploadSuccess: (results: BulkUploadResult) => void;
@@ -28,6 +28,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   progress = 0,
   handleUpload
 }) => {
+  const { user } = useAuth();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [localIsUploading, setLocalIsUploading] = useState(false);
   const [showAddNewAddress, setShowAddNewAddress] = useState(false);
@@ -37,6 +38,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   // Load saved addresses when component mounts
   useEffect(() => {
     const loadAddresses = async () => {
+      if (!user) return;
+      
       try {
         const savedAddresses = await addressService.getSavedAddresses();
         setAddresses(savedAddresses);
@@ -53,7 +56,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     };
     
     loadAddresses();
-  }, [onPickupAddressSelect]);
+  }, [user, onPickupAddressSelect]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -107,6 +110,11 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!user) {
+      toast.error('Please log in to upload files');
+      return;
+    }
     
     if (!selectedFile) {
       toast.error('Please select a file to upload');
@@ -181,6 +189,11 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   };
 
   const handleAddressSubmit = async (values: any) => {
+    if (!user) {
+      toast.error('Please log in to save addresses');
+      return;
+    }
+    
     try {
       // Use encrypted storage for address
       const newAddress = await addressService.createAddress({
@@ -304,7 +317,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       <div className="flex justify-end">
         <Button 
           type="submit" 
-          disabled={!selectedFile || !pickupAddress || isUploading || localIsUploading}
+          disabled={!user || !selectedFile || !pickupAddress || isUploading || localIsUploading}
           className="flex items-center gap-2"
         >
           {isUploading || localIsUploading ? (

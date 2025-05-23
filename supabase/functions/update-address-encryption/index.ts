@@ -1,12 +1,30 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Follow Deno/Oak conventions for edge functions
+import { serve } from "https://deno.land/std@0.131.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.0.0";
 
-// Set up CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 };
+
+interface AddressData {
+  // Define the address data structure
+  name?: string;
+  company?: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone?: string;
+  is_default_from?: boolean;
+  is_default_to?: boolean;
+  user_id?: string;
+  id?: number;
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -15,129 +33,92 @@ serve(async (req) => {
   }
 
   try {
-    // Create a Supabase client with the auth context of the logged in user
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    );
-    
-    // Get the authenticated user
-    const {
-      data: { user },
-      error: userError,
-    } = await supabaseClient.auth.getUser();
-    
-    if (userError || !user) {
-      console.error('Authentication error:', userError);
+    // Initialize Supabase client with credentials from environment
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { action, addressId, addressData } = await req.json();
+
+    // Get user ID from the request authorization header
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
       return new Response(
-        JSON.stringify({ error: 'Unauthorized', details: userError?.message }),
+        JSON.stringify({ error: 'No authorization header provided' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       );
     }
 
-    // Get request body
-    const requestData = await req.json();
+    // Extract just the token part (remove 'Bearer ')
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     
-    const { action, addressId, addressData } = requestData;
-    console.log('Request data:', { action, addressId, addressData: { ...addressData, user_id: user.id } });
-
-    // Validate input
-    if (!action) {
+    if (userError || !user) {
+      console.error('Error retrieving user:', userError);
       return new Response(
-        JSON.stringify({ error: 'Action is required' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        JSON.stringify({ error: 'Unauthorized' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
       );
     }
 
-    let response;
+    // Ensure the user_id is set correctly
+    const userId = user.id;
 
+    let result;
+    
     if (action === 'encrypt') {
-      // Handle encryption
-      if (!addressData) {
-        return new Response(
-          JSON.stringify({ error: 'Address data is required for encryption' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-        );
-      }
-      
-      // Ensure user_id is included in the data
-      const finalData = {
+      // Create new address
+      const data: AddressData = {
         ...addressData,
-        user_id: user.id
+        user_id: userId,
       };
-      
-      // Create encrypted storage in the database
-      const { data, error } = await supabaseClient
+
+      const { data: insertedData, error } = await supabase
         .from('addresses')
-        .insert(finalData)
+        .insert(data)
         .select();
-      
+
       if (error) {
-        console.error('Database error during insert:', error);
         throw error;
       }
+
+      result = insertedData?.[0];
       
-      console.log('Address created:', data);
-      response = { success: true, data: data[0] };
-    } 
-    else if (action === 'update') {
-      // Handle update with encryption
-      if (!addressId || !addressData) {
+      console.log("Created encrypted address:", result);
+    } else if (action === 'update') {
+      // First verify that the address belongs to the user
+      const { data: existingAddress, error: fetchError } = await supabase
+        .from('addresses')
+        .select('id, user_id')
+        .eq('id', addressId)
+        .eq('user_id', userId)
+        .single();
+        
+      if (fetchError || !existingAddress) {
         return new Response(
-          JSON.stringify({ error: 'Address ID and data are required for updates' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+          JSON.stringify({ error: 'Address not found or you do not have permission to update it' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
         );
       }
-      
-      // Update the address in the database
-      const { data, error } = await supabaseClient
+
+      // Update the address
+      const { data: updatedData, error } = await supabase
         .from('addresses')
         .update({
           ...addressData,
-          user_id: user.id // Ensure user_id is preserved
+          user_id: userId // Ensure user_id remains unchanged
         })
         .eq('id', addressId)
-        .eq('user_id', user.id) // Ensure user can only update their own addresses
         .select();
-      
+
       if (error) {
-        console.error('Database error during update:', error);
         throw error;
       }
+
+      result = updatedData?.[0];
       
-      console.log('Address updated:', data);
-      response = { success: true, data: data[0] };
-    }
-    else if (action === 'decrypt') {
-      // Handle decryption
-      if (!addressId) {
-        return new Response(
-          JSON.stringify({ error: 'Address ID is required for decryption' }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-        );
-      }
-      
-      // Get the address from the database
-      const { data, error } = await supabaseClient
-        .from('addresses')
-        .select('*')
-        .eq('id', addressId)
-        .eq('user_id', user.id)
-        .single();
-      
-      if (error) {
-        console.error('Database error during select:', error);
-        throw error;
-      }
-      
-      response = { success: true, data };
-    }
-    else {
+      console.log("Updated encrypted address:", result);
+    } else {
       return new Response(
         JSON.stringify({ error: 'Invalid action' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
@@ -145,13 +126,13 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify(response),
+      JSON.stringify({ data: result }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error in update-address-encryption function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error.message, stack: error.stack }),
+      JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
