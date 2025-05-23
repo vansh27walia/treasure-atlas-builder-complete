@@ -71,7 +71,25 @@ serve(async (req) => {
         user_id: user.id
       };
       
-      // Create encrypted storage in the database
+      // First, check if user exists in auth.users
+      const { data: userData, error: userLookupError } = await supabaseClient
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      // If user doesn't exist, create an entry
+      if (!userData && !userLookupError) {
+        // Insert user into the users table
+        await supabaseClient
+          .from('users')
+          .insert({
+            id: user.id,
+            email: user.email
+          });
+      }
+      
+      // Now create the address record
       const { data, error } = await supabaseClient
         .from('addresses')
         .insert(finalData)

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,10 +24,12 @@ import AddressForm from '@/components/shipping/AddressForm';
 import { AddressFormValues } from '@/components/shipping/AddressForm';
 import { formatAddressForDisplay } from '@/utils/addressUtils';
 import { toast } from '@/components/ui/sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const PickupAddressSettings: React.FC = () => {
+  const { user, isLoading: isAuthLoading } = useAuth();
+  
   const {
     addresses,
     selectedAddress,
@@ -45,39 +48,11 @@ const PickupAddressSettings: React.FC = () => {
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState<SavedAddress | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  // Check authentication status
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      console.log("Auth session:", data);
-      setIsAuthenticated(!!data.session);
-      
-      if (!data.session) {
-        toast.warning("Sign in to save addresses", {
-          description: "You need to be logged in to save addresses",
-          duration: 5000,
-        });
-      }
-    };
-    
-    checkAuth();
-    
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-      if (session) {
-        loadAddresses();
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
   
-  // Refresh addresses on component mount
+  // Check if user is authenticated
+  const isAuthenticated = !!user;
+
+  // Refresh addresses on component mount or when auth state changes
   useEffect(() => {
     if (isAuthenticated) {
       loadAddresses();
@@ -190,6 +165,9 @@ const PickupAddressSettings: React.FC = () => {
   
   // Calculate address limit usage
   const addressLimitUsage = Math.min(100, Math.round((addressCount / ADDRESS_LIMIT) * 100));
+  
+  // Combined loading state
+  const showLoading = isAuthLoading || isLoading;
 
   return (
     <div className="space-y-6">
@@ -236,7 +214,7 @@ const PickupAddressSettings: React.FC = () => {
         </Alert>
       )}
 
-      {isAuthenticated && isLoading ? (
+      {isAuthenticated && showLoading ? (
         <div className="py-12 flex justify-center">
           <p className="text-gray-500">Loading addresses...</p>
         </div>

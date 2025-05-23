@@ -3,6 +3,7 @@ import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PickupAddressSettings from '@/components/settings/PickupAddressSettings';
 import { Card } from '@/components/ui/card';
+import GoogleApiKeyInput from '@/components/settings/GoogleApiKeyInput';
 
 const SettingsPage: React.FC = () => {
   return (
@@ -13,6 +14,7 @@ const SettingsPage: React.FC = () => {
         <TabsList className="mb-4">
           <TabsTrigger value="pickup-addresses">Pickup Addresses</TabsTrigger>
           <TabsTrigger value="shipping">Shipping Options</TabsTrigger>
+          <TabsTrigger value="api-keys">API Settings</TabsTrigger>
         </TabsList>
         
         <TabsContent value="pickup-addresses">
@@ -38,6 +40,10 @@ const SettingsPage: React.FC = () => {
               </div>
             </div>
           </Card>
+        </TabsContent>
+        
+        <TabsContent value="api-keys">
+          <GoogleApiKeyInput />
         </TabsContent>
       </Tabs>
     </div>
