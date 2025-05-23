@@ -70,30 +70,32 @@ export class AddressService {
       console.log('Creating address with user ID:', session.session.user.id);
       console.log('Address data:', address);
       
-      // Make sure the user exists in the users table first
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', session.session.user.id)
-        .maybeSingle();
+      if (useEncryption) {
+        // Use edge function to create encrypted address
+        const { data, error } = await supabase.functions.invoke('update-address-encryption', {
+          body: {
+            action: 'encrypt',
+            addressData: {
+              ...address,
+              user_id: session.session.user.id
+            }
+          }
+        });
         
-      if (!existingUser) {
-        // Insert the user first
-        const { error: userInsertError } = await supabase
-          .from('users')
-          .insert({
-            id: session.session.user.id,
-            email: session.session.user.email
-          });
-          
-        if (userInsertError) {
-          console.error('Error inserting user record:', userInsertError);
-          throw new Error(`Failed to create user record: ${userInsertError.message}`);
+        if (error) {
+          console.error('Supabase functions error:', error);
+          throw error;
         }
-      }
-      
-      // Now try the standard address creation method
-      try {
+        
+        if (!data?.data) {
+          console.error('No data returned from edge function');
+          throw new Error('No data returned from function');
+        }
+        
+        console.log('Address created via edge function:', data.data);
+        return data.data as SavedAddress;
+      } else {
+        // Standard address creation
         const { data, error } = await supabase
           .from('addresses')
           .insert({
@@ -103,41 +105,12 @@ export class AddressService {
           .select();
         
         if (error) {
-          console.error('Standard address creation failed:', error);
+          console.error('Supabase error creating address:', error);
           throw error;
         }
         
         console.log('Address created via direct insertion:', data);
         return data[0] as SavedAddress;
-      } catch (standardError) {
-        // If standard creation fails, try with encryption as fallback
-        if (useEncryption) {
-          console.log('Falling back to encryption method');
-          const { data, error } = await supabase.functions.invoke('update-address-encryption', {
-            body: {
-              action: 'encrypt',
-              addressData: {
-                ...address,
-                user_id: session.session.user.id
-              }
-            }
-          });
-          
-          if (error) {
-            console.error('Supabase functions error:', error);
-            throw error;
-          }
-          
-          if (!data?.data) {
-            console.error('No data returned from edge function');
-            throw new Error('No data returned from function');
-          }
-          
-          console.log('Address created via edge function:', data.data);
-          return data.data as SavedAddress;
-        } else {
-          throw standardError;
-        }
       }
     } catch (error) {
       console.error('Error creating saved address:', error);
