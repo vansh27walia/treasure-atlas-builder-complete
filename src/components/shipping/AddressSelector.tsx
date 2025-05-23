@@ -1,3 +1,4 @@
+
 // If this file exists and uses usePickupAddresses, update the import path
 // For demonstration purposes - you would need to update this in any file that imports usePickupAddresses
 
@@ -18,7 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/sonner"
-import { Address } from '@/services/AddressService';
+import { SavedAddress } from '@/services/AddressService';
 import {
   Select,
   SelectContent,
@@ -67,7 +68,7 @@ const addressFormSchema = z.object({
   country: z.string().min(2, {
     message: "Country must be at least 2 characters.",
   }),
-  is_default: z.boolean().default(false),
+  is_default_from: z.boolean().default(false),
 });
 
 type AddressFormValues = z.infer<typeof addressFormSchema>
@@ -122,7 +123,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       state: "",
       zip: "",
       country: "US",
-      is_default: false,
+      is_default_from: false,
     },
   });
 
@@ -147,7 +148,6 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
 
   // Handle address creation
   const handleAddressCreate = async (values: AddressFormValues) => {
-    setIsCreatingOrUpdating(true);
     try {
       await createAddress(values);
       toast.success('Address created successfully!');
@@ -156,8 +156,6 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     } catch (error) {
       console.error("Error creating address:", error);
       toast.error('Failed to create address.');
-    } finally {
-      setIsCreatingOrUpdating(false);
     }
   };
 
@@ -167,9 +165,9 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       toast.error('No address selected for update.');
       return;
     }
-    setIsCreatingOrUpdating(true);
+    
     try {
-      await updateAddress({ ...addressToEdit, ...values });
+      await updateAddress(addressToEdit.id, values);
       toast.success('Address updated successfully!');
       setIsEditing(false);
       setAddressToEdit(null);
@@ -177,8 +175,6 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     } catch (error) {
       console.error("Error updating address:", error);
       toast.error('Failed to update address.');
-    } finally {
-      setIsCreatingOrUpdating(false);
     }
   };
 
@@ -237,7 +233,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     form.setValue('state', address.state);
     form.setValue('zip', address.zip);
     form.setValue('country', address.country || 'US');
-    form.setValue('is_default', address.is_default || false);
+    form.setValue('is_default_from', address.is_default_from || false);
     setIsEditing(true);
   };
 
@@ -500,5 +496,4 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   );
 };
 
-// Add a default export at the end of the file
 export default AddressSelector;
