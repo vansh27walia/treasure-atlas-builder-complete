@@ -206,6 +206,7 @@ export function initAddressAutocomplete(
     const options = {
       fields: ['address_components', 'formatted_address', 'geometry', 'name'],
       types: ['address'],
+      componentRestrictions: { country: 'us' }
     };
     
     const autocomplete = new window.google.maps.places.Autocomplete(inputElement, options);

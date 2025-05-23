@@ -71,22 +71,28 @@ serve(async (req) => {
         user_id: user.id
       };
       
-      // First, check if user exists in users table
-      const { data: userData } = await supabaseClient
+      // First, ensure user exists in users table
+      const { data: existingUser } = await supabaseClient
         .from('users')
         .select('id')
         .eq('id', user.id)
         .maybeSingle();
       
       // If user doesn't exist, create an entry using service role to bypass RLS
-      if (!userData) {
-        // Insert user into the users table with service role client
-        await supabaseClient
+      if (!existingUser) {
+        console.log(`User ${user.id} doesn't exist in users table, creating entry...`);
+        const { error: userInsertError } = await supabaseClient
           .from('users')
-          .upsert({
+          .insert({
             id: user.id,
             email: user.email
           });
+          
+        if (userInsertError) {
+          console.error('Failed to create user record:', userInsertError);
+          throw userInsertError;
+        }
+        console.log(`User ${user.id} created successfully`);
       }
       
       // Now create the address record

@@ -17,7 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { MapPin, Plus, Pencil, Trash2, Star, Check, AlertCircle } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Star, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { usePickupAddresses } from '@/hooks/usePickupAddresses';
 import { SavedAddress } from '@/services/AddressService';
 import AddressForm from '@/components/shipping/AddressForm';
@@ -48,6 +48,7 @@ const PickupAddressSettings: React.FC = () => {
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState<SavedAddress | null>(null);
+  const [formSubmitting, setFormSubmitting] = useState(false);
   
   // Check if user is authenticated
   const isAuthenticated = !!user;
@@ -96,6 +97,8 @@ const PickupAddressSettings: React.FC = () => {
     }
     
     try {
+      setFormSubmitting(true);
+      
       // Ensure all required fields are set
       const addressData: Omit<SavedAddress, "id" | "user_id" | "created_at"> = {
         name: values.name || '',
@@ -135,6 +138,8 @@ const PickupAddressSettings: React.FC = () => {
     } catch (error) {
       console.error("Error saving address:", error);
       toast.error(error instanceof Error ? error.message : "Failed to save address. Please try again.");
+    } finally {
+      setFormSubmitting(false);
     }
   };
 
@@ -306,7 +311,7 @@ const PickupAddressSettings: React.FC = () => {
 
       {/* Add/Edit Address Modal */}
       <Dialog open={showAddressModal} onOpenChange={(open) => {
-        if (!open && !isUpdating) {
+        if (!open && !isUpdating && !formSubmitting) {
           setShowAddressModal(false);
         }
       }}>
@@ -317,7 +322,7 @@ const PickupAddressSettings: React.FC = () => {
           <AddressForm
             defaultValues={editingAddress || { is_default_from: addresses.length === 0 }}
             onSubmit={handleFormSubmit}
-            isLoading={isUpdating}
+            isLoading={isUpdating || formSubmitting}
             buttonText={editingAddress ? 'Update Address' : 'Save Address'}
             isPickupAddress={true}
             showDefaultOptions={true}
@@ -347,7 +352,12 @@ const PickupAddressSettings: React.FC = () => {
                   onClick={handleDeleteConfirm}
                   disabled={isUpdating}
                 >
-                  {isUpdating ? 'Deleting...' : 'Delete Address'}
+                  {isUpdating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : 'Delete Address'}
                 </Button>
               </DialogFooter>
             </>

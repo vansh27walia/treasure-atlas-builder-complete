@@ -60,6 +60,11 @@ export const usePickupAddresses = () => {
       if (!addressData.city) throw new Error('City is required');
       if (!addressData.state) throw new Error('State is required');
       if (!addressData.zip) throw new Error('ZIP code is required');
+      // Ensure name is set if not provided
+      const finalAddressData = {
+        ...addressData,
+        name: addressData.name || `Address ${new Date().toISOString().slice(0, 10)}`
+      };
       
       // Check for authenticated user before proceeding
       const { data } = await addressService.getSession();
@@ -67,19 +72,19 @@ export const usePickupAddresses = () => {
         throw new Error('You need to be logged in to save addresses');
       }
       
-      // Try standard address creation first
+      // Try with encryption first
       let newAddress: SavedAddress | null = null;
       try {
-        newAddress = await addressService.createAddress(addressData, false);
-        console.log("Created address with standard method:", newAddress);
-      } catch (standardError) {
-        console.warn("Standard address creation failed, trying with encryption", standardError);
-        // If standard creation fails, try with encryption as fallback
+        newAddress = await addressService.createAddress(finalAddressData, true);
+        console.log("Created address with encryption method:", newAddress);
+      } catch (encryptionError) {
+        console.warn("Encryption address creation failed, trying standard method", encryptionError);
+        // If encryption fails, try standard method as fallback
         try {
-          newAddress = await addressService.createAddress(addressData, true);
-          console.log("Created address with encryption method:", newAddress);
-        } catch (encryptionError) {
-          console.error("Both address creation methods failed", encryptionError);
+          newAddress = await addressService.createAddress(finalAddressData, false);
+          console.log("Created address with standard method:", newAddress);
+        } catch (standardError) {
+          console.error("Both address creation methods failed", standardError);
           throw new Error('Failed to create address using both methods');
         }
       }
@@ -89,7 +94,7 @@ export const usePickupAddresses = () => {
       }
       
       // If address should be default from, update it
-      if (addressData.is_default_from) {
+      if (finalAddressData.is_default_from) {
         await addressService.setDefaultFromAddress(newAddress.id);
       }
       
@@ -119,14 +124,20 @@ export const usePickupAddresses = () => {
       if (!addressData.state) throw new Error('State is required');
       if (!addressData.zip) throw new Error('ZIP code is required');
       
-      // Try first without encryption
+      // Ensure name is set if not provided
+      const finalAddressData = {
+        ...addressData,
+        name: addressData.name || `Address ${new Date().toISOString().slice(0, 10)}`
+      };
+      
+      // Try first with encryption
       let updatedAddress: SavedAddress | null = null;
       try {
-        updatedAddress = await addressService.updateAddress(addressId, addressData, false);
-      } catch (standardError) {
-        console.log("Regular address update failed, trying with encryption", standardError);
-        // If that fails, try with encryption as a fallback
-        updatedAddress = await addressService.updateAddress(addressId, addressData, true);
+        updatedAddress = await addressService.updateAddress(addressId, finalAddressData, true);
+      } catch (encryptionError) {
+        console.log("Encrypted address update failed, trying standard method", encryptionError);
+        // If that fails, try without encryption as a fallback
+        updatedAddress = await addressService.updateAddress(addressId, finalAddressData, false);
       }
       
       if (!updatedAddress) {
@@ -136,7 +147,7 @@ export const usePickupAddresses = () => {
       console.log("Address updated successfully:", updatedAddress);
       
       // If address should be default from, update it
-      if (addressData.is_default_from) {
+      if (finalAddressData.is_default_from) {
         await addressService.setDefaultFromAddress(updatedAddress.id);
       }
       
