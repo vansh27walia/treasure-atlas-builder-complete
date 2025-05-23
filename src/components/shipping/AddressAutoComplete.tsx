@@ -72,15 +72,18 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
               toast.warning("Could not get complete address details");
             }
           });
-        } else if (!googleMapsLoaded && isMounted) {
+        } else {
           console.warn("Google Maps API failed to load");
-          setApiError(true);
-          // Don't show toast here as it would appear every time the component renders
+          if (isMounted) {
+            setApiError(true);
+            // Don't show toast here as it would appear every time the component renders
+          }
         }
       } catch (error) {
         console.error("Error initializing Google Maps autocomplete:", error);
         if (isMounted) {
           setApiError(true);
+          // Don't show toast here as it would appear every time the component renders
         }
       }
     };
@@ -113,6 +116,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         className={`${className} ${isLoaded ? 'border-blue-300 focus:border-blue-500' : ''}`}
         disabled={disabled}
         autoComplete="off" // Disable browser's native autocomplete
+        style={{ zIndex: 10 }} // Ensure input is above other elements
       />
       {isLoaded && (
         <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-blue-500">
