@@ -16,9 +16,12 @@ serve(async (req) => {
 
   try {
     // Create a Supabase client with the auth context of the logged in user
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', // Use service role key to bypass RLS
+      supabaseUrl,
+      supabaseServiceRoleKey, // Use service role key to bypass RLS
       {
         global: {
           headers: { Authorization: req.headers.get('Authorization')! },
@@ -100,11 +103,35 @@ serve(async (req) => {
             });
           
           if (insertUserError) {
-            console.error('Failed to create user record:', insertUserError);
-            return new Response(
-              JSON.stringify({ error: 'Could not create user record', details: insertUserError.message }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-            );
+            // If there's an RLS error, try with a direct RPC call (custom function) instead
+            if (insertUserError.message.includes('row-level security')) {
+              console.log('Trying alternative method to create user due to RLS...');
+              
+              // Create users record directly through service role client
+              // We're explicitly bypassing RLS here with the service role
+              const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+              
+              const { error: adminInsertError } = await adminClient
+                .from('users')
+                .insert({
+                  id: user.id,
+                  email: user.email
+                });
+              
+              if (adminInsertError) {
+                console.error('Failed to create user with admin client:', adminInsertError);
+                return new Response(
+                  JSON.stringify({ error: 'Could not create user record', details: adminInsertError.message }),
+                  { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+                );
+              }
+            } else {
+              console.error('Failed to create user record:', insertUserError);
+              return new Response(
+                JSON.stringify({ error: 'Could not create user record', details: insertUserError.message }),
+                { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+              );
+            }
           }
           
           console.log('Created user record successfully');
@@ -119,6 +146,11 @@ serve(async (req) => {
       
       // Now create the address record
       try {
+        // First check if the phone field is empty and set it to an empty string if so
+        if (finalData.phone === undefined || finalData.phone === null) {
+          finalData.phone = '';
+        }
+        
         const { data, error } = await supabaseClient
           .from('addresses')
           .insert(finalData)
@@ -153,6 +185,11 @@ serve(async (req) => {
       
       // Update the address in the database
       try {
+        // First check if the phone field is empty and set it to an empty string if so
+        if (addressData.phone === undefined || addressData.phone === null) {
+          addressData.phone = '';
+        }
+        
         const { data, error } = await supabaseClient
           .from('addresses')
           .update({

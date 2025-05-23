@@ -32,6 +32,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
   const [isLoaded, setIsLoaded] = useState(false);
   const [value, setValue] = useState(defaultValue);
   const [apiError, setApiError] = useState(false);
+  const [isLoadingKey, setIsLoadingKey] = useState(false);
   
   // Update internal state when defaultValue changes
   useEffect(() => {
@@ -45,22 +46,28 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
     
     const fetchApiKey = async () => {
       try {
+        setIsLoadingKey(true);
         // First try to get the API key from the Supabase edge function
         const { data, error } = await supabase.functions.invoke('get-google-api-key');
         
         if (error) {
           console.error("Error fetching API key from edge function:", error);
-          return null;
+          setIsLoadingKey(false);
+          return localStorage.getItem('googleMapsApiKey');
         }
         
         if (data && data.apiKey) {
           console.log("Retrieved Google Maps API key from edge function");
+          // Store it for future use
+          localStorage.setItem('googleMapsApiKey', data.apiKey);
+          setIsLoadingKey(false);
           return data.apiKey;
         }
       } catch (error) {
         console.error("Failed to fetch API key from edge function:", error);
       }
       
+      setIsLoadingKey(false);
       // Fallback to localStorage if edge function fails
       return localStorage.getItem('googleMapsApiKey');
     };
@@ -76,8 +83,6 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         
         if (apiKey) {
           console.log("Found Google Maps API key, initializing...");
-          // Set the API key in localStorage for future use
-          localStorage.setItem('googleMapsApiKey', apiKey);
           
           // This will use the API key we just stored
           const googleMapsLoaded = await loadGoogleMapsAPI();
@@ -152,13 +157,18 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         onChange={handleInputChange}
         required={required}
         className={`${className} ${isLoaded ? 'border-blue-300 focus:border-blue-500' : ''}`}
-        disabled={disabled}
+        disabled={disabled || isLoadingKey}
         autoComplete="off" // Disable browser's native autocomplete
         style={{ zIndex: 10 }} // Ensure input is above other elements
       />
       {isLoaded && (
         <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-blue-500">
           Maps
+        </div>
+      )}
+      {isLoadingKey && (
+        <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
+          Loading...
         </div>
       )}
       {apiError && (

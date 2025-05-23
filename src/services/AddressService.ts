@@ -48,20 +48,28 @@ export class AddressService {
       if (!existingUser) {
         console.log('Creating user record in users table');
         
-        // Try direct insertion first
-        const { error: insertError } = await supabase
-          .from('users')
-          .insert({
-            id: user.id,
-            email: user.email
-          });
-        
-        if (insertError) {
-          console.warn('Failed to create user record directly:', insertError);
-          // If direct insertion fails, try using the edge function
+        try {
+          // Try to create user through the edge function to bypass RLS
           await this.createUserViaEdgeFunction(user.id, user.email!);
+          return true;
+        } catch (edgeFunctionError) {
+          console.error('Error creating user via edge function:', edgeFunctionError);
+          
+          // Try direct insertion as fallback
+          const { error: insertError } = await supabase
+            .from('users')
+            .insert({
+              id: user.id,
+              email: user.email
+            });
+          
+          if (insertError) {
+            console.warn('Failed to create user record directly:', insertError);
+            throw insertError;
+          }
         }
       }
+      return true;
     } catch (error) {
       console.error('Error ensuring user exists:', error);
       throw error;
@@ -73,6 +81,8 @@ export class AddressService {
    */
   private async createUserViaEdgeFunction(userId: string, email: string) {
     try {
+      // Create a temporary address that will be used just to ensure user creation
+      // We'll delete this later
       const { data, error } = await supabase.functions.invoke('update-address-encryption', {
         body: {
           action: 'encrypt',
@@ -152,8 +162,18 @@ export class AddressService {
       console.log('Creating address with user ID:', userId);
       console.log('Address data:', address);
       
+      // Ensure phone is never undefined
+      const addressData = {
+        ...address,
+        phone: address.phone || ''
+      };
+      
       // Before proceeding, try to ensure the user exists in the users table
-      await this.ensureUserExists();
+      try {
+        await this.ensureUserExists();
+      } catch (userError) {
+        console.warn('Could not ensure user exists, but will try to create address anyway:', userError);
+      }
       
       if (useEncryption) {
         // Use edge function for encryption
@@ -162,7 +182,7 @@ export class AddressService {
           body: {
             action: 'encrypt',
             addressData: {
-              ...address,
+              ...addressData,
               user_id: userId
             }
           }
@@ -187,7 +207,7 @@ export class AddressService {
         const { data, error } = await supabase
           .from('addresses')
           .insert({
-            ...address,
+            ...addressData,
             user_id: userId
           })
           .select();
@@ -216,6 +236,12 @@ export class AddressService {
         throw new Error('User is not authenticated');
       }
       
+      // Ensure phone is never undefined
+      const addressData = {
+        ...address,
+        phone: address.phone || ''
+      };
+      
       // First verify that the address belongs to the user
       const { data: existingAddress, error: fetchError } = await supabase
         .from('addresses')
@@ -234,7 +260,7 @@ export class AddressService {
           body: {
             action: 'update',
             addressId,
-            addressData: address
+            addressData: addressData
           }
         });
         
@@ -248,7 +274,7 @@ export class AddressService {
         const { data, error } = await supabase
           .from('addresses')
           .update({
-            ...address,
+            ...addressData,
             // Ensure user_id remains unchanged
             user_id: session.session.user.id
           })
