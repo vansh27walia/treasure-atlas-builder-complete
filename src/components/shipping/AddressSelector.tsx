@@ -38,13 +38,12 @@ import {
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Cross2Icon } from '@radix-ui/react-icons';
+import { X } from 'lucide-react';
 import { Circle } from 'lucide-react';
 import { useAddressList } from '@/hooks/addresses/useAddressList';
 import { useAddressOperations } from '@/hooks/addresses/useAddressOperations';
 import { useDefaultAddress } from '@/hooks/addresses/useDefaultAddress';
 import { processGooglePlaceSelection } from '@/utils/addressProcessingUtils';
-import { SavedAddress } from '@/services/AddressService';
 import { cn } from '@/lib/utils';
 
 const addressFormSchema = z.object({
@@ -69,6 +68,7 @@ const addressFormSchema = z.object({
     message: "Country must be at least 2 characters.",
   }),
   is_default_from: z.boolean().default(false),
+  is_default_to: z.boolean().default(false),
 });
 
 type AddressFormValues = z.infer<typeof addressFormSchema>
@@ -124,6 +124,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       zip: "",
       country: "US",
       is_default_from: false,
+      is_default_to: false,
     },
   });
 
@@ -149,7 +150,10 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   // Handle address creation
   const handleAddressCreate = async (values: AddressFormValues) => {
     try {
-      await createAddress(values);
+      await createAddress({
+        ...values,
+        is_default_to: false, // Ensure this property exists
+      });
       toast.success('Address created successfully!');
       setIsAdding(false);
       form.reset();
@@ -167,7 +171,10 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     }
     
     try {
-      await updateAddress(addressToEdit.id, values);
+      await updateAddress(addressToEdit.id, {
+        ...values,
+        is_default_to: addressToEdit.is_default_to || false, // Ensure this property exists
+      });
       toast.success('Address updated successfully!');
       setIsEditing(false);
       setAddressToEdit(null);
@@ -310,7 +317,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                             size="icon"
                             onClick={() => handleAddressDelete(address.id)}
                           >
-                            <Cross2Icon className="h-4 w-4" />
+                            <X className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>
