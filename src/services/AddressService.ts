@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
@@ -24,6 +23,86 @@ export class AddressService {
    */
   public async getSession() {
     return await supabase.auth.getSession();
+  }
+  
+  /**
+   * Ensure user exists in the users table
+   */
+  private async ensureUserExists() {
+    try {
+      const { data: session } = await this.getSession();
+      if (!session?.session?.user) {
+        throw new Error('User is not authenticated');
+      }
+      
+      const user = session.session.user;
+      
+      // Check if user exists in users table
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      // If user doesn't exist, create them
+      if (!existingUser) {
+        console.log('Creating user record in users table');
+        
+        // Try direct insertion first
+        const { error: insertError } = await supabase
+          .from('users')
+          .insert({
+            id: user.id,
+            email: user.email
+          });
+        
+        if (insertError) {
+          console.warn('Failed to create user record directly:', insertError);
+          // If direct insertion fails, try using the edge function
+          await this.createUserViaEdgeFunction(user.id, user.email!);
+        }
+      }
+    } catch (error) {
+      console.error('Error ensuring user exists:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Create user via edge function
+   */
+  private async createUserViaEdgeFunction(userId: string, email: string) {
+    try {
+      const { data, error } = await supabase.functions.invoke('update-address-encryption', {
+        body: {
+          action: 'encrypt',
+          addressData: {
+            user_id: userId,
+            name: 'Temporary Address',
+            street1: 'To Be Updated',
+            city: 'To Be Updated',
+            state: 'NA',
+            zip: '00000',
+            country: 'US',
+            is_default_from: false,
+            is_default_to: false
+          }
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      // If we got here, the user was created successfully via the edge function
+      // Now we can delete the temporary address
+      if (data && data.data && data.data.id) {
+        await this.deleteAddress(data.data.id);
+      }
+    } catch (error) {
+      console.error('Error creating user via edge function:', error);
+      throw error;
+    }
   }
   
   /**
@@ -68,17 +147,23 @@ export class AddressService {
         throw new Error('User is not authenticated');
       }
       
-      console.log('Creating address with user ID:', session.session.user.id);
+      const userId = session.session.user.id;
+      
+      console.log('Creating address with user ID:', userId);
       console.log('Address data:', address);
       
-      // Always try edge function first as it can handle user creation if needed
-      try {
+      // Before proceeding, try to ensure the user exists in the users table
+      await this.ensureUserExists();
+      
+      if (useEncryption) {
+        // Use edge function for encryption
+        console.log('Creating address using edge function with encryption');
         const { data, error } = await supabase.functions.invoke('update-address-encryption', {
           body: {
             action: 'encrypt',
             addressData: {
               ...address,
-              user_id: session.session.user.id
+              user_id: userId
             }
           }
         });
@@ -95,41 +180,25 @@ export class AddressService {
         
         console.log('Address created via edge function:', data.data);
         return data.data as SavedAddress;
-      } catch (encryptionError) {
-        console.error('Edge function address creation failed:', encryptionError);
+      } else {
+        // Use standard approach without encryption
+        console.log('Creating address using standard approach');
         
-        // If the edge function fails and we're not specifically requested to use encryption,
-        // try standard insertion
-        if (!useEncryption) {
-          console.log('Attempting standard address insertion as fallback');
-          
-          // Try to ensure user exists in users table
-          await supabase
-            .from('users')
-            .upsert({
-              id: session.session.user.id,
-              email: session.session.user.email
-            });
-          
-          const { data, error } = await supabase
-            .from('addresses')
-            .insert({
-              ...address,
-              user_id: session.session.user.id
-            })
-            .select();
-          
-          if (error) {
-            console.error('Supabase error creating address:', error);
-            throw error;
-          }
-          
-          console.log('Address created via direct insertion:', data);
-          return data[0] as SavedAddress;
+        const { data, error } = await supabase
+          .from('addresses')
+          .insert({
+            ...address,
+            user_id: userId
+          })
+          .select();
+        
+        if (error) {
+          console.error('Supabase error creating address:', error);
+          throw error;
         }
         
-        // If we specifically requested encryption but it failed, rethrow
-        throw encryptionError;
+        console.log('Address created via direct insertion:', data);
+        return data[0] as SavedAddress;
       }
     } catch (error) {
       console.error('Error creating saved address:', error);

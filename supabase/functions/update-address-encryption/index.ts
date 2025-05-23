@@ -72,36 +72,75 @@ serve(async (req) => {
       };
       
       // First, check if user exists in users table
-      const { data: userData } = await supabaseClient
+      const { data: userData, error: userQueryError } = await supabaseClient
         .from('users')
         .select('id')
         .eq('id', user.id)
         .maybeSingle();
       
+      if (userQueryError) {
+        console.error('Error checking if user exists:', userQueryError);
+        return new Response(
+          JSON.stringify({ error: 'Database error', details: userQueryError.message }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+      
       // If user doesn't exist, create an entry using service role to bypass RLS
       if (!userData) {
-        // Insert user into the users table with service role client
-        await supabaseClient
-          .from('users')
-          .upsert({
-            id: user.id,
-            email: user.email
-          });
+        console.log(`User ${user.id} doesn't exist in users table, creating entry...`);
+        
+        try {
+          // Insert user into the users table with service role client
+          const { error: insertUserError } = await supabaseClient
+            .from('users')
+            .insert({
+              id: user.id,
+              email: user.email
+            });
+          
+          if (insertUserError) {
+            console.error('Failed to create user record:', insertUserError);
+            return new Response(
+              JSON.stringify({ error: 'Could not create user record', details: insertUserError.message }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+            );
+          }
+          
+          console.log('Created user record successfully');
+        } catch (userInsertError) {
+          console.error('Exception creating user record:', userInsertError);
+          return new Response(
+            JSON.stringify({ error: 'Exception creating user record', details: userInsertError.message }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          );
+        }
       }
       
       // Now create the address record
-      const { data, error } = await supabaseClient
-        .from('addresses')
-        .insert(finalData)
-        .select();
-      
-      if (error) {
-        console.error('Database error during insert:', error);
-        throw error;
+      try {
+        const { data, error } = await supabaseClient
+          .from('addresses')
+          .insert(finalData)
+          .select();
+        
+        if (error) {
+          console.error('Database error during insert:', error);
+          return new Response(
+            JSON.stringify({ error: 'Could not save address', details: error.message }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          );
+        }
+        
+        console.log('Address created:', data);
+        response = { success: true, data: data[0] };
+      } catch (insertError) {
+        console.error('Exception during address insert:', insertError);
+        return new Response(
+          JSON.stringify({ error: 'Exception creating address', details: insertError.message }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
       }
-      
-      console.log('Address created:', data);
-      response = { success: true, data: data[0] };
     } 
     else if (action === 'update') {
       // Handle update with encryption
@@ -113,23 +152,34 @@ serve(async (req) => {
       }
       
       // Update the address in the database
-      const { data, error } = await supabaseClient
-        .from('addresses')
-        .update({
-          ...addressData,
-          user_id: user.id // Ensure user_id is preserved
-        })
-        .eq('id', addressId)
-        .eq('user_id', user.id) // Ensure user can only update their own addresses
-        .select();
-      
-      if (error) {
-        console.error('Database error during update:', error);
-        throw error;
+      try {
+        const { data, error } = await supabaseClient
+          .from('addresses')
+          .update({
+            ...addressData,
+            user_id: user.id // Ensure user_id is preserved
+          })
+          .eq('id', addressId)
+          .eq('user_id', user.id) // Ensure user can only update their own addresses
+          .select();
+        
+        if (error) {
+          console.error('Database error during update:', error);
+          return new Response(
+            JSON.stringify({ error: 'Could not update address', details: error.message }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          );
+        }
+        
+        console.log('Address updated:', data);
+        response = { success: true, data: data[0] };
+      } catch (updateError) {
+        console.error('Exception during address update:', updateError);
+        return new Response(
+          JSON.stringify({ error: 'Exception updating address', details: updateError.message }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
       }
-      
-      console.log('Address updated:', data);
-      response = { success: true, data: data[0] };
     }
     else if (action === 'decrypt') {
       // Handle decryption
@@ -141,19 +191,30 @@ serve(async (req) => {
       }
       
       // Get the address from the database
-      const { data, error } = await supabaseClient
-        .from('addresses')
-        .select('*')
-        .eq('id', addressId)
-        .eq('user_id', user.id)
-        .single();
-      
-      if (error) {
-        console.error('Database error during select:', error);
-        throw error;
+      try {
+        const { data, error } = await supabaseClient
+          .from('addresses')
+          .select('*')
+          .eq('id', addressId)
+          .eq('user_id', user.id)
+          .single();
+        
+        if (error) {
+          console.error('Database error during select:', error);
+          return new Response(
+            JSON.stringify({ error: 'Could not retrieve address', details: error.message }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          );
+        }
+        
+        response = { success: true, data };
+      } catch (selectError) {
+        console.error('Exception during address retrieval:', selectError);
+        return new Response(
+          JSON.stringify({ error: 'Exception retrieving address', details: selectError.message }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
       }
-      
-      response = { success: true, data };
     }
     else {
       return new Response(

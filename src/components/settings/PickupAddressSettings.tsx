@@ -17,7 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { MapPin, Plus, Pencil, Trash2, Star, Check, AlertCircle } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Star, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { usePickupAddresses } from '@/hooks/usePickupAddresses';
 import { SavedAddress } from '@/services/AddressService';
 import AddressForm from '@/components/shipping/AddressForm';
@@ -48,6 +48,7 @@ const PickupAddressSettings: React.FC = () => {
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState<SavedAddress | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Check if user is authenticated
   const isAuthenticated = !!user;
@@ -96,6 +97,8 @@ const PickupAddressSettings: React.FC = () => {
     }
     
     try {
+      setIsSaving(true); // Set local saving state
+      
       // Ensure all required fields are set
       const addressData: Omit<SavedAddress, "id" | "user_id" | "created_at"> = {
         name: values.name || '',
@@ -135,6 +138,8 @@ const PickupAddressSettings: React.FC = () => {
     } catch (error) {
       console.error("Error saving address:", error);
       toast.error(error instanceof Error ? error.message : "Failed to save address. Please try again.");
+    } finally {
+      setIsSaving(false); // Reset saving state regardless of outcome
     }
   };
 
@@ -151,6 +156,7 @@ const PickupAddressSettings: React.FC = () => {
     if (!addressToDelete) return;
     
     try {
+      setIsSaving(true); // Use same state for deletion indicator
       const success = await deleteAddress(addressToDelete.id);
       if (success) {
         setShowDeleteConfirm(false);
@@ -160,6 +166,8 @@ const PickupAddressSettings: React.FC = () => {
     } catch (error) {
       console.error("Error deleting address:", error);
       toast.error("Failed to delete address. Please try again.");
+    } finally {
+      setIsSaving(false);
     }
   };
   
@@ -176,7 +184,7 @@ const PickupAddressSettings: React.FC = () => {
         <Button 
           onClick={handleAddNewClick} 
           className="flex items-center gap-2"
-          disabled={!isAuthenticated || addressCount >= ADDRESS_LIMIT || isUpdating}
+          disabled={!isAuthenticated || addressCount >= ADDRESS_LIMIT || isUpdating || isSaving}
         >
           <Plus className="h-4 w-4" />
           Add Address
@@ -270,7 +278,7 @@ const PickupAddressSettings: React.FC = () => {
                       variant="outline" 
                       size="sm" 
                       onClick={() => handleSetDefault(address)}
-                      disabled={isUpdating}
+                      disabled={isUpdating || isSaving}
                     >
                       <Star className="h-3.5 w-3.5 mr-1" />
                       Set Default
@@ -282,7 +290,7 @@ const PickupAddressSettings: React.FC = () => {
                     variant="outline" 
                     size="sm" 
                     onClick={() => handleEditClick(address)}
-                    disabled={isUpdating}
+                    disabled={isUpdating || isSaving}
                   >
                     <Pencil className="h-3.5 w-3.5 mr-1" />
                     Edit
@@ -292,7 +300,7 @@ const PickupAddressSettings: React.FC = () => {
                     size="sm" 
                     className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
                     onClick={() => handleDeleteClick(address)}
-                    disabled={isUpdating}
+                    disabled={isUpdating || isSaving}
                   >
                     <Trash2 className="h-3.5 w-3.5 mr-1" />
                     Delete
@@ -306,7 +314,7 @@ const PickupAddressSettings: React.FC = () => {
 
       {/* Add/Edit Address Modal */}
       <Dialog open={showAddressModal} onOpenChange={(open) => {
-        if (!open && !isUpdating) {
+        if (!open && !isUpdating && !isSaving) {
           setShowAddressModal(false);
         }
       }}>
@@ -317,7 +325,7 @@ const PickupAddressSettings: React.FC = () => {
           <AddressForm
             defaultValues={editingAddress || { is_default_from: addresses.length === 0 }}
             onSubmit={handleFormSubmit}
-            isLoading={isUpdating}
+            isLoading={isUpdating || isSaving}
             buttonText={editingAddress ? 'Update Address' : 'Save Address'}
             isPickupAddress={true}
             showDefaultOptions={true}
@@ -341,13 +349,18 @@ const PickupAddressSettings: React.FC = () => {
                 <p className="text-sm text-gray-600">{formatAddressForDisplay(addressToDelete)}</p>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isUpdating}>Cancel</Button>
+                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isUpdating || isSaving}>Cancel</Button>
                 <Button 
                   variant="destructive" 
                   onClick={handleDeleteConfirm}
-                  disabled={isUpdating}
+                  disabled={isUpdating || isSaving}
                 >
-                  {isUpdating ? 'Deleting...' : 'Delete Address'}
+                  {isUpdating || isSaving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : 'Delete Address'}
                 </Button>
               </DialogFooter>
             </>

@@ -67,37 +67,51 @@ export const usePickupAddresses = () => {
         throw new Error('You need to be logged in to save addresses');
       }
       
-      // Try standard address creation first
-      let newAddress: SavedAddress | null = null;
+      // Try the encryption method first (uses edge function that handles user creation)
       try {
-        newAddress = await addressService.createAddress(addressData, false);
-        console.log("Created address with standard method:", newAddress);
-      } catch (standardError) {
-        console.warn("Standard address creation failed, trying with encryption", standardError);
-        // If standard creation fails, try with encryption as fallback
+        console.log("Trying to create address with encryption method first");
+        const newAddress = await addressService.createAddress(addressData, true);
+        console.log("Created address with encryption method:", newAddress);
+        
+        if (newAddress) {
+          // If address should be default from, update it
+          if (addressData.is_default_from) {
+            await addressService.setDefaultFromAddress(newAddress.id);
+          }
+          
+          // Update local state
+          await loadAddresses(true); // Reload addresses to ensure we have the latest data
+          
+          toast.success('Address saved successfully');
+          return newAddress;
+        }
+      } catch (encryptionError) {
+        console.error("Encryption method failed, trying standard method", encryptionError);
+        
+        // If encryption fails, try standard creation
         try {
-          newAddress = await addressService.createAddress(addressData, true);
-          console.log("Created address with encryption method:", newAddress);
-        } catch (encryptionError) {
-          console.error("Both address creation methods failed", encryptionError);
+          const newAddress = await addressService.createAddress(addressData, false);
+          console.log("Created address with standard method:", newAddress);
+          
+          if (newAddress) {
+            // If address should be default from, update it
+            if (addressData.is_default_from) {
+              await addressService.setDefaultFromAddress(newAddress.id);
+            }
+            
+            // Update local state
+            await loadAddresses(true); // Reload addresses to ensure we have the latest data
+            
+            toast.success('Address saved successfully');
+            return newAddress;
+          }
+        } catch (standardError) {
+          console.error("Both address creation methods failed", standardError);
           throw new Error('Failed to create address using both methods');
         }
       }
       
-      if (!newAddress) {
-        throw new Error('Failed to create address - no result returned');
-      }
-      
-      // If address should be default from, update it
-      if (addressData.is_default_from) {
-        await addressService.setDefaultFromAddress(newAddress.id);
-      }
-      
-      // Update local state
-      await loadAddresses(true); // Reload addresses to ensure we have the latest data
-      
-      toast.success('Address saved successfully');
-      return newAddress;
+      throw new Error('Failed to create address - no result returned');
     } catch (error) {
       console.error('Error creating address:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to save address');
@@ -119,39 +133,65 @@ export const usePickupAddresses = () => {
       if (!addressData.state) throw new Error('State is required');
       if (!addressData.zip) throw new Error('ZIP code is required');
       
-      // Try first without encryption
-      let updatedAddress: SavedAddress | null = null;
+      // Try first with encryption
       try {
-        updatedAddress = await addressService.updateAddress(addressId, addressData, false);
-      } catch (standardError) {
-        console.log("Regular address update failed, trying with encryption", standardError);
-        // If that fails, try with encryption as a fallback
-        updatedAddress = await addressService.updateAddress(addressId, addressData, true);
+        console.log("Trying to update with encryption method first");
+        const updatedAddress = await addressService.updateAddress(addressId, addressData, true);
+        console.log("Address updated with encryption method:", updatedAddress);
+        
+        if (updatedAddress) {
+          // If address should be default from, update it
+          if (addressData.is_default_from) {
+            await addressService.setDefaultFromAddress(updatedAddress.id);
+          }
+          
+          // Update local state
+          setAddresses(prev => prev.map(addr => 
+            addr.id === addressId ? updatedAddress! : addr
+          ));
+          
+          // Update selected address if needed
+          if (selectedAddress?.id === addressId) {
+            setSelectedAddress(updatedAddress);
+          }
+          
+          toast.success('Address updated successfully');
+          return updatedAddress;
+        }
+      } catch (encryptionError) {
+        console.log("Encryption update failed, trying standard method", encryptionError);
+        
+        // If that fails, try without encryption
+        try {
+          const updatedAddress = await addressService.updateAddress(addressId, addressData, false);
+          console.log("Address updated with standard method:", updatedAddress);
+          
+          if (updatedAddress) {
+            // If address should be default from, update it
+            if (addressData.is_default_from) {
+              await addressService.setDefaultFromAddress(updatedAddress.id);
+            }
+            
+            // Update local state
+            setAddresses(prev => prev.map(addr => 
+              addr.id === addressId ? updatedAddress! : addr
+            ));
+            
+            // Update selected address if needed
+            if (selectedAddress?.id === addressId) {
+              setSelectedAddress(updatedAddress);
+            }
+            
+            toast.success('Address updated successfully');
+            return updatedAddress;
+          }
+        } catch (standardError) {
+          console.error("Both address update methods failed", standardError);
+          throw new Error('Failed to update address using both methods');
+        }
       }
       
-      if (!updatedAddress) {
-        throw new Error('Failed to update address');
-      }
-      
-      console.log("Address updated successfully:", updatedAddress);
-      
-      // If address should be default from, update it
-      if (addressData.is_default_from) {
-        await addressService.setDefaultFromAddress(updatedAddress.id);
-      }
-      
-      // Update local state
-      setAddresses(prev => prev.map(addr => 
-        addr.id === addressId ? updatedAddress! : addr
-      ));
-      
-      // Update selected address if needed
-      if (selectedAddress?.id === addressId) {
-        setSelectedAddress(updatedAddress);
-      }
-      
-      toast.success('Address updated successfully');
-      return updatedAddress;
+      throw new Error('Failed to update address');
     } catch (error) {
       console.error('Error updating address:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update address');

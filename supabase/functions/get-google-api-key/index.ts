@@ -14,8 +14,6 @@ serve(async (req) => {
   }
 
   try {
-    // This function does not require authentication to be accessible
-    
     // Get the API key from environment variables
     const apiKey = Deno.env.get('GOOGLE_PLACES_API_KEY');
     

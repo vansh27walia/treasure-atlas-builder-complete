@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { loadGoogleMapsAPI, initAddressAutocomplete } from '@/utils/addressUtils';
 import { toast } from '@/components/ui/sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AddressAutoCompleteProps {
   onAddressSelected: (place: GoogleMapsPlace) => void;
@@ -42,48 +43,85 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
   useEffect(() => {
     let isMounted = true;
     
+    const fetchApiKey = async () => {
+      try {
+        // First try to get the API key from the Supabase edge function
+        const { data, error } = await supabase.functions.invoke('get-google-api-key');
+        
+        if (error) {
+          console.error("Error fetching API key from edge function:", error);
+          return null;
+        }
+        
+        if (data && data.apiKey) {
+          console.log("Retrieved Google Maps API key from edge function");
+          return data.apiKey;
+        }
+      } catch (error) {
+        console.error("Failed to fetch API key from edge function:", error);
+      }
+      
+      // Fallback to localStorage if edge function fails
+      return localStorage.getItem('googleMapsApiKey');
+    };
+    
     const initAutocomplete = async () => {
       if (!inputRef.current) return;
       
       try {
         console.log("Initializing Google Maps Autocomplete...");
-        const googleMapsLoaded = await loadGoogleMapsAPI();
         
-        if (googleMapsLoaded && inputRef.current && isMounted) {
-          console.log("Google Maps API loaded successfully");
-          setIsLoaded(true);
+        // Try to get API key from Supabase function first, then fallback to localStorage
+        const apiKey = await fetchApiKey();
+        
+        if (apiKey) {
+          console.log("Found Google Maps API key, initializing...");
+          // Set the API key in localStorage for future use
+          localStorage.setItem('googleMapsApiKey', apiKey);
           
-          // Initialize autocomplete on the input element
-          initAddressAutocomplete(inputRef.current, (place) => {
-            console.log("Google Maps place selected:", place);
+          // This will use the API key we just stored
+          const googleMapsLoaded = await loadGoogleMapsAPI();
+          
+          if (googleMapsLoaded && inputRef.current && isMounted) {
+            console.log("Google Maps API loaded successfully");
+            setIsLoaded(true);
             
-            if (place && place.formatted_address) {
-              console.log("Setting formatted address:", place.formatted_address);
-              setValue(place.formatted_address);
-              if (onChange) onChange(place.formatted_address);
+            // Initialize autocomplete on the input element
+            initAddressAutocomplete(inputRef.current, (place) => {
+              console.log("Google Maps place selected:", place);
+              
+              if (place && place.formatted_address) {
+                console.log("Setting formatted address:", place.formatted_address);
+                setValue(place.formatted_address);
+                if (onChange) onChange(place.formatted_address);
+              }
+              
+              if (place) {
+                // Pass the complete place object to the parent component
+                console.log("Calling onAddressSelected with place");
+                onAddressSelected(place);
+              } else {
+                console.warn("Missing place data in selection");
+                toast.warning("Could not get complete address details");
+              }
+            });
+          } else {
+            console.warn("Google Maps API failed to load");
+            if (isMounted) {
+              setApiError(true);
             }
-            
-            if (place) {
-              // Pass the complete place object to the parent component
-              console.log("Calling onAddressSelected with place");
-              onAddressSelected(place);
-            } else {
-              console.warn("Missing place data in selection");
-              toast.warning("Could not get complete address details");
-            }
-          });
+          }
         } else {
-          console.warn("Google Maps API failed to load");
+          console.warn("No Google Maps API key found");
           if (isMounted) {
             setApiError(true);
-            // Don't show toast here as it would appear every time the component renders
+            toast.error("Google Maps API key not found. Please add one in settings.");
           }
         }
       } catch (error) {
         console.error("Error initializing Google Maps autocomplete:", error);
         if (isMounted) {
           setApiError(true);
-          // Don't show toast here as it would appear every time the component renders
         }
       }
     };
