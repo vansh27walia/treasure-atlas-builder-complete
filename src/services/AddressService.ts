@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
@@ -70,8 +71,8 @@ export class AddressService {
       console.log('Creating address with user ID:', session.session.user.id);
       console.log('Address data:', address);
       
-      if (useEncryption) {
-        // Use edge function to create encrypted address
+      // Always try edge function first as it can handle user creation if needed
+      try {
         const { data, error } = await supabase.functions.invoke('update-address-encryption', {
           body: {
             action: 'encrypt',
@@ -94,23 +95,41 @@ export class AddressService {
         
         console.log('Address created via edge function:', data.data);
         return data.data as SavedAddress;
-      } else {
-        // Standard address creation
-        const { data, error } = await supabase
-          .from('addresses')
-          .insert({
-            ...address,
-            user_id: session.session.user.id
-          })
-          .select();
+      } catch (encryptionError) {
+        console.error('Edge function address creation failed:', encryptionError);
         
-        if (error) {
-          console.error('Supabase error creating address:', error);
-          throw error;
+        // If the edge function fails and we're not specifically requested to use encryption,
+        // try standard insertion
+        if (!useEncryption) {
+          console.log('Attempting standard address insertion as fallback');
+          
+          // Try to ensure user exists in users table
+          await supabase
+            .from('users')
+            .upsert({
+              id: session.session.user.id,
+              email: session.session.user.email
+            });
+          
+          const { data, error } = await supabase
+            .from('addresses')
+            .insert({
+              ...address,
+              user_id: session.session.user.id
+            })
+            .select();
+          
+          if (error) {
+            console.error('Supabase error creating address:', error);
+            throw error;
+          }
+          
+          console.log('Address created via direct insertion:', data);
+          return data[0] as SavedAddress;
         }
         
-        console.log('Address created via direct insertion:', data);
-        return data[0] as SavedAddress;
+        // If we specifically requested encryption but it failed, rethrow
+        throw encryptionError;
       }
     } catch (error) {
       console.error('Error creating saved address:', error);

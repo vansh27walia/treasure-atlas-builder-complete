@@ -18,7 +18,7 @@ serve(async (req) => {
     // Create a Supabase client with the auth context of the logged in user
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '', // Use service role key to bypass RLS
       {
         global: {
           headers: { Authorization: req.headers.get('Authorization')! },
@@ -71,19 +71,19 @@ serve(async (req) => {
         user_id: user.id
       };
       
-      // First, check if user exists in auth.users
-      const { data: userData, error: userLookupError } = await supabaseClient
+      // First, check if user exists in users table
+      const { data: userData } = await supabaseClient
         .from('users')
         .select('id')
         .eq('id', user.id)
         .maybeSingle();
       
-      // If user doesn't exist, create an entry
-      if (!userData && !userLookupError) {
-        // Insert user into the users table
+      // If user doesn't exist, create an entry using service role to bypass RLS
+      if (!userData) {
+        // Insert user into the users table with service role client
         await supabaseClient
           .from('users')
-          .insert({
+          .upsert({
             id: user.id,
             email: user.email
           });

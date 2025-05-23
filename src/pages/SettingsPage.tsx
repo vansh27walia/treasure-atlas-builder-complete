@@ -1,16 +1,99 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PickupAddressSettings from '@/components/settings/PickupAddressSettings';
 import { Card } from '@/components/ui/card';
 import GoogleApiKeyInput from '@/components/settings/GoogleApiKeyInput';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
+import { addressService } from '@/services/AddressService';
+import { toast } from '@/components/ui/sonner';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Loader2 } from 'lucide-react';
+
+interface SimpleAddressFormValues {
+  name: string;
+  street1: string;
+  city: string;
+  state: string;
+  zip: string;
+  isDefault: boolean;
+}
 
 const SettingsPage: React.FC = () => {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<string>('pickup-addresses');
+  const [useAlternativeForm, setUseAlternativeForm] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const form = useForm<SimpleAddressFormValues>({
+    defaultValues: {
+      name: '',
+      street1: '',
+      city: '',
+      state: '',
+      zip: '',
+      isDefault: true,
+    }
+  });
+
+  const onSubmit = async (values: SimpleAddressFormValues) => {
+    if (!user) {
+      toast.error('You need to be logged in to save addresses');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const addressData = {
+        name: values.name,
+        street1: values.street1,
+        street2: '',
+        city: values.city,
+        state: values.state,
+        zip: values.zip,
+        country: 'US',
+        company: '',
+        phone: '',
+        is_default_from: values.isDefault,
+        is_default_to: false,
+      };
+
+      // Try both standard and encryption methods
+      let savedAddress = null;
+      
+      try {
+        // Try standard method first
+        savedAddress = await addressService.createAddress(addressData, false);
+      } catch (standardError) {
+        console.log('Standard create failed, trying with encryption', standardError);
+        // If standard fails, try with encryption
+        savedAddress = await addressService.createAddress(addressData, true);
+      }
+
+      if (savedAddress) {
+        toast.success('Address saved successfully!');
+        form.reset();
+      } else {
+        throw new Error('Failed to save address');
+      }
+    } catch (error) {
+      console.error('Error saving address:', error);
+      toast.error('Failed to save address. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Settings</h1>
       
-      <Tabs defaultValue="pickup-addresses" className="w-full">
+      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="pickup-addresses">Pickup Addresses</TabsTrigger>
           <TabsTrigger value="shipping">Shipping Options</TabsTrigger>
@@ -18,7 +101,125 @@ const SettingsPage: React.FC = () => {
         </TabsList>
         
         <TabsContent value="pickup-addresses">
-          <PickupAddressSettings />
+          <div className="space-y-6">
+            <div className="flex justify-end mb-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setUseAlternativeForm(!useAlternativeForm)}
+              >
+                {useAlternativeForm ? "Use Standard Form" : "Use Simple Form"}
+              </Button>
+            </div>
+            
+            {useAlternativeForm ? (
+              <Card className="p-6">
+                <h2 className="text-2xl font-bold mb-4">Simple Address Form</h2>
+                <p className="text-gray-500 mb-4">Use this simplified form to add a pickup address</p>
+                
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Address Name</FormLabel>
+                          <FormControl>
+                            <Input required placeholder="Home, Office, etc." {...field} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="street1"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Street Address</FormLabel>
+                          <FormControl>
+                            <Input required placeholder="123 Main St" {...field} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="city"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City</FormLabel>
+                            <FormControl>
+                              <Input required placeholder="City" {...field} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="state"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State</FormLabel>
+                            <FormControl>
+                              <Input required placeholder="State" {...field} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="zip"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>ZIP Code</FormLabel>
+                            <FormControl>
+                              <Input required placeholder="ZIP Code" {...field} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <FormField
+                      control={form.control}
+                      name="isDefault"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>
+                              Set as default pickup address
+                            </FormLabel>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <Button type="submit" disabled={isSubmitting} className="w-full">
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : 'Save Address'}
+                    </Button>
+                  </form>
+                </Form>
+              </Card>
+            ) : (
+              <PickupAddressSettings />
+            )}
+          </div>
         </TabsContent>
         
         <TabsContent value="shipping">
