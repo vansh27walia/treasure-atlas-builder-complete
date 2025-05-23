@@ -17,7 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { MapPin, Plus, Pencil, Trash2, Star, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { MapPin, Plus, Pencil, Trash2, Star, Check, AlertCircle } from 'lucide-react';
 import { usePickupAddresses } from '@/hooks/usePickupAddresses';
 import { SavedAddress } from '@/services/AddressService';
 import AddressForm from '@/components/shipping/AddressForm';
@@ -48,7 +48,6 @@ const PickupAddressSettings: React.FC = () => {
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState<SavedAddress | null>(null);
-  const [formSubmitting, setFormSubmitting] = useState(false);
   
   // Check if user is authenticated
   const isAuthenticated = !!user;
@@ -97,8 +96,6 @@ const PickupAddressSettings: React.FC = () => {
     }
     
     try {
-      setFormSubmitting(true);
-      
       // Ensure all required fields are set
       const addressData: Omit<SavedAddress, "id" | "user_id" | "created_at"> = {
         name: values.name || '',
@@ -138,8 +135,6 @@ const PickupAddressSettings: React.FC = () => {
     } catch (error) {
       console.error("Error saving address:", error);
       toast.error(error instanceof Error ? error.message : "Failed to save address. Please try again.");
-    } finally {
-      setFormSubmitting(false);
     }
   };
 
@@ -189,12 +184,13 @@ const PickupAddressSettings: React.FC = () => {
       </div>
       
       {!isAuthenticated && (
-        <Alert className="bg-yellow-50 border-yellow-200">
-          <AlertCircle className="h-4 w-4 text-yellow-800" />
-          <AlertDescription className="text-yellow-800">
-            Please log in to manage your addresses.
-          </AlertDescription>
-        </Alert>
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="p-4">
+            <p className="text-yellow-800">
+              Please log in to manage your addresses.
+            </p>
+          </CardContent>
+        </Card>
       )}
       
       {isAuthenticated && (
@@ -210,9 +206,9 @@ const PickupAddressSettings: React.FC = () => {
       )}
       
       {addressCount >= ADDRESS_LIMIT && (
-        <Alert variant="destructive" className="bg-amber-50 border-amber-300">
-          <AlertCircle className="h-4 w-4 text-amber-800" />
-          <AlertDescription className="text-amber-800">
+        <Alert variant="destructive" className="bg-yellow-50 border-yellow-300 text-yellow-800">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
             You've reached the limit of {ADDRESS_LIMIT} addresses. Delete some addresses before adding new ones.
           </AlertDescription>
         </Alert>
@@ -220,10 +216,7 @@ const PickupAddressSettings: React.FC = () => {
 
       {isAuthenticated && showLoading ? (
         <div className="py-12 flex justify-center">
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-8 w-8 text-gray-500 animate-spin" />
-            <p className="text-gray-500">Loading addresses...</p>
-          </div>
+          <p className="text-gray-500">Loading addresses...</p>
         </div>
       ) : isAuthenticated && addresses.length === 0 ? (
         <Card>
@@ -313,7 +306,7 @@ const PickupAddressSettings: React.FC = () => {
 
       {/* Add/Edit Address Modal */}
       <Dialog open={showAddressModal} onOpenChange={(open) => {
-        if (!open && !isUpdating && !formSubmitting) {
+        if (!open && !isUpdating) {
           setShowAddressModal(false);
         }
       }}>
@@ -324,8 +317,8 @@ const PickupAddressSettings: React.FC = () => {
           <AddressForm
             defaultValues={editingAddress || { is_default_from: addresses.length === 0 }}
             onSubmit={handleFormSubmit}
-            isLoading={isUpdating || formSubmitting}
-            buttonText={formSubmitting ? 'Saving...' : (editingAddress ? 'Update Address' : 'Save Address')}
+            isLoading={isUpdating}
+            buttonText={editingAddress ? 'Update Address' : 'Save Address'}
             isPickupAddress={true}
             showDefaultOptions={true}
           />

@@ -69,18 +69,21 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
               onAddressSelected(place);
             } else {
               console.warn("Missing place data in selection");
+              toast.warning("Could not get complete address details");
             }
           });
-        } else if (!googleMapsLoaded && isMounted) {
+        } else {
           console.warn("Google Maps API failed to load");
-          // Silent fail - just don't show the indicator
-          setApiError(false); // We don't want to show the error since we're making it internal
+          if (isMounted) {
+            setApiError(true);
+            // Don't show toast here as it would appear every time the component renders
+          }
         }
       } catch (error) {
         console.error("Error initializing Google Maps autocomplete:", error);
         if (isMounted) {
-          // Silent fail - don't make this an error
-          setApiError(false);
+          setApiError(true);
+          // Don't show toast here as it would appear every time the component renders
         }
       }
     };
@@ -118,6 +121,11 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
       {isLoaded && (
         <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-blue-500">
           Maps
+        </div>
+      )}
+      {apiError && (
+        <div className="text-xs text-amber-600 mt-1">
+          Address autocomplete is unavailable - manual entry works fine
         </div>
       )}
     </div>

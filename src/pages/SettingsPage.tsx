@@ -3,7 +3,7 @@ import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PickupAddressSettings from '@/components/settings/PickupAddressSettings';
 import { Card } from '@/components/ui/card';
-import GoogleApiKeyForm from '@/components/settings/GoogleApiKeyForm';
+import GoogleApiKeyInput from '@/components/settings/GoogleApiKeyInput';
 
 const SettingsPage: React.FC = () => {
   return (
@@ -43,7 +43,7 @@ const SettingsPage: React.FC = () => {
         </TabsContent>
         
         <TabsContent value="api-keys">
-          <GoogleApiKeyForm />
+          <GoogleApiKeyInput />
         </TabsContent>
       </Tabs>
     </div>
