@@ -34,6 +34,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
   const [apiError, setApiError] = useState(false);
   const [isLoadingKey, setIsLoadingKey] = useState(false);
   const [apiKeyFetched, setApiKeyFetched] = useState(false);
+  const autocompleteInitialized = useRef(false);
   
   // Update internal state when defaultValue changes
   useEffect(() => {
@@ -45,12 +46,14 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
   // Optimize API key fetching to prevent multiple calls
   useEffect(() => {
     let isMounted = true;
-    const cachedApiKey = localStorage.getItem('googleMapsApiKey');
     
     const fetchApiKey = async () => {
       try {
-        // If we already have a cached API key, use that first
+        // Check for cached key first
+        const cachedApiKey = localStorage.getItem('googleMapsApiKey');
+        
         if (cachedApiKey) {
+          console.log("Using cached Google Maps API key");
           return cachedApiKey;
         }
         
@@ -61,7 +64,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         if (error) {
           console.error("Error fetching API key from edge function:", error);
           setIsLoadingKey(false);
-          return localStorage.getItem('googleMapsApiKey');
+          return null;
         }
         
         if (data && data.apiKey) {
@@ -75,17 +78,17 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
       }
       
       setIsLoadingKey(false);
-      // Fallback to localStorage if edge function fails
-      return localStorage.getItem('googleMapsApiKey');
+      return null;
     };
     
     const initAutocomplete = async () => {
-      if (!inputRef.current || apiKeyFetched) return;
+      if (!inputRef.current || autocompleteInitialized.current) return;
       
       try {
         console.log("Initializing Google Maps Autocomplete...");
+        setIsLoadingKey(true);
         
-        // Try to get API key from Supabase function first, then fallback to localStorage
+        // Try to get API key
         const apiKey = await fetchApiKey();
         setApiKeyFetched(true);
         
@@ -99,6 +102,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
             console.log("Google Maps API loaded successfully");
             setIsLoaded(true);
             setIsLoadingKey(false);
+            autocompleteInitialized.current = true;
             
             // Initialize autocomplete on the input element
             initAddressAutocomplete(inputRef.current, (place) => {

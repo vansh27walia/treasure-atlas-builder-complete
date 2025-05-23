@@ -58,7 +58,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
         
         const savedAddresses = await addressService.getSavedAddresses();
         console.log('Loaded addresses for dropdown:', savedAddresses);
-        setAddresses(savedAddresses);
+        setAddresses(savedAddresses || []);
 
         // If no address is selected but there's a default, select it
         if (!selectedAddress) {
@@ -81,7 +81,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     };
 
     loadAddresses();
-  }, [isPickupAddress, onAddressSelected]);
+  }, [isPickupAddress, onAddressSelected, selectedAddress]);
 
   useEffect(() => {
     // When defaultAddress changes from outside, update selection
@@ -124,7 +124,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0">
+      <PopoverContent className="w-[400px] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search address..." />
           <CommandList>

@@ -24,38 +24,47 @@ export function extractAddressComponents(place: GoogleMapsPlace): {
     
     // Try to parse from formatted_address as a fallback
     if (place.formatted_address) {
-      const parts = place.formatted_address.split(',');
-      if (parts.length >= 3) {
-        // Typical format: "123 Main St, City, State ZIP"
-        street_number = parts[0].trim();
-        city = parts[1].trim();
-        // Last part typically contains state and zip
-        const stateZip = parts[2].trim().split(' ');
-        if (stateZip.length >= 2) {
-          state = stateZip[0].trim();
-          zip = stateZip[stateZip.length - 1].trim();
+      try {
+        const parts = place.formatted_address.split(',');
+        if (parts.length >= 3) {
+          // Typical format: "123 Main St, City, State ZIP"
+          street_number = parts[0].trim();
+          city = parts[1].trim();
+          // Last part typically contains state and zip
+          const stateZip = parts[2].trim().split(' ');
+          if (stateZip.length >= 2) {
+            state = stateZip[0].trim();
+            zip = stateZip[stateZip.length - 1].trim();
+          }
         }
+      } catch (error) {
+        console.error('Error parsing formatted address:', error);
+        toast.error('Could not parse address components');
       }
     }
   } else {
-    // Extract each component
-    place.address_components.forEach((component) => {
-      const types = component.types;
-      
-      if (types.includes('street_number')) {
-        street_number = component.long_name;
-      } else if (types.includes('route')) {
-        route = component.long_name;
-      } else if (types.includes('locality') || types.includes('sublocality')) {
-        city = component.long_name;
-      } else if (types.includes('administrative_area_level_1')) {
-        state = component.short_name;
-      } else if (types.includes('postal_code')) {
-        zip = component.long_name;
-      } else if (types.includes('country')) {
-        country = component.short_name;
-      }
-    });
+    try {
+      // Extract each component
+      place.address_components.forEach((component) => {
+        const types = component.types;
+        
+        if (types.includes('street_number')) {
+          street_number = component.long_name;
+        } else if (types.includes('route')) {
+          route = component.long_name;
+        } else if (types.includes('locality') || types.includes('sublocality')) {
+          city = component.long_name;
+        } else if (types.includes('administrative_area_level_1')) {
+          state = component.short_name;
+        } else if (types.includes('postal_code')) {
+          zip = component.long_name;
+        } else if (types.includes('country')) {
+          country = component.short_name;
+        }
+      });
+    } catch (error) {
+      console.error('Error extracting address components:', error);
+    }
   }
   
   // Combine street number and route for street address
@@ -68,9 +77,13 @@ export function extractAddressComponents(place: GoogleMapsPlace): {
     street1 = street_number;
   } else if (place.formatted_address) {
     // If we couldn't extract street components but have a formatted address, use the first part
-    const parts = place.formatted_address.split(',');
-    if (parts.length > 0) {
-      street1 = parts[0].trim();
+    try {
+      const parts = place.formatted_address.split(',');
+      if (parts.length > 0) {
+        street1 = parts[0].trim();
+      }
+    } catch (error) {
+      console.error('Error parsing street from formatted address:', error);
     }
   }
   
@@ -206,6 +219,7 @@ export function initAddressAutocomplete(
     const options = {
       fields: ['address_components', 'formatted_address', 'geometry', 'name'],
       types: ['address'],
+      componentRestrictions: { country: ['us'] } // Restrict to US addresses for better results
     };
     
     const autocomplete = new window.google.maps.places.Autocomplete(inputElement, options);
@@ -229,12 +243,12 @@ export function initAddressAutocomplete(
       }
     });
     
-    // Fix z-index of autocomplete dropdown
+    // Fix z-index of autocomplete dropdown - increase to ensure it's on top
     setTimeout(() => {
-      const pacContainer = document.querySelector('.pac-container');
-      if (pacContainer) {
-        (pacContainer as HTMLElement).style.zIndex = '9999';
-      }
+      const pacContainers = document.querySelectorAll('.pac-container');
+      pacContainers.forEach((container) => {
+        (container as HTMLElement).style.zIndex = '9999';
+      });
     }, 300);
     
     console.log('Address autocomplete initialized successfully');

@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
 import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
@@ -53,18 +54,26 @@ const BulkUpload: React.FC = () => {
     setSelectedCarrierFilter
   } = useBulkUpload();
 
+  // Log pickup address on mount and when it changes
+  useEffect(() => {
+    console.log("Current pickup address in BulkUpload:", pickupAddress);
+  }, [pickupAddress]);
+
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
     if (address) {
+      console.log("Selected pickup address in BulkUpload:", address);
       setPickupAddress(address);
-      console.log("Selected pickup address:", address);
+      toast.success(`Selected pickup address: ${address.name || address.street1}`);
     }
   };
 
   const handleUploadSuccess = (uploadResults: any) => {
     // This will be handled by the useBulkUpload hook
+    console.log("Upload success in BulkUpload component:", uploadResults);
   };
 
   const handleUploadFail = (error: string) => {
+    console.error("Upload failed in BulkUpload component:", error);
     toast.error(`Upload failed: ${error}`);
   };
 
@@ -160,6 +169,11 @@ const BulkUpload: React.FC = () => {
                   <p className="text-gray-600">
                     {results.processedShipments.length} shipments selected with a total cost of ${results.totalCost.toFixed(2)}
                   </p>
+                  {pickupAddress && (
+                    <p className="text-sm text-blue-600 mt-1">
+                      <span className="font-medium">From:</span> {pickupAddress.name || pickupAddress.street1}
+                    </p>
+                  )}
                 </div>
                 
                 <div className="flex gap-3 mt-4 lg:mt-0">
@@ -174,7 +188,7 @@ const BulkUpload: React.FC = () => {
                   
                   <Button
                     onClick={handleProceedToPayment}
-                    disabled={isPaying || results.processedShipments.length === 0}
+                    disabled={isPaying || results.processedShipments.length === 0 || !pickupAddress}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
                     {isPaying ? 'Processing...' : 'Process Payment'} 

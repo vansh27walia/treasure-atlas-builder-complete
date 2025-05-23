@@ -66,7 +66,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   onAddressSelect,
   selectedAddressId,
   inputRef,
-  useGoogleAutocomplete = true, // Enable by default
+  useGoogleAutocomplete = true,
   defaultAddress
 }) => {
   const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(false);
@@ -93,6 +93,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   // Update form values when a saved address is selected
   useEffect(() => {
     if (selectedSavedAddress) {
+      console.log("Setting form values from saved address:", selectedSavedAddress);
       form.setValue('name', selectedSavedAddress.name || '', { shouldValidate: true });
       form.setValue('company', selectedSavedAddress.company || '', { shouldValidate: true });
       form.setValue('street1', selectedSavedAddress.street1, { shouldValidate: true });
@@ -126,7 +127,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
     console.log("Google place selected in AddressSelector:", place);
     
-    if (place && place.address_components) {
+    if (place) {
       const addressComponents = extractAddressComponents(place);
       console.log("Extracted address components:", addressComponents);
       
@@ -322,7 +323,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                           value={field.value} 
                           onValueChange={field.onChange}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="h-10">
                             <SelectValue placeholder="Select country" />
                           </SelectTrigger>
                           <SelectContent className="max-h-[200px]">
