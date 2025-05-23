@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
 import { MapPin, Plus, Pencil, Trash2, Star, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { usePickupAddresses } from '@/hooks/addresses/usePickupAddresses';
+import { usePickupAddresses } from '@/hooks/usePickupAddresses';
 import { SavedAddress } from '@/services/AddressService';
 import AddressForm from '@/components/shipping/AddressForm';
 import { AddressFormValues } from '@/components/shipping/AddressForm';

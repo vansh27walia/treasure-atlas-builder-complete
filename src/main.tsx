@@ -1,5 +1,4 @@
 
-import React from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
@@ -11,8 +10,4 @@ rootElement.style.height = '100%';
 rootElement.style.margin = '0';
 rootElement.style.padding = '0';
 
-createRoot(rootElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+createRoot(rootElement).render(<App />);
