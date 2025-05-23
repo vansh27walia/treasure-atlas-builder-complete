@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
@@ -132,7 +131,7 @@ export const usePickupAddresses = () => {
       
       // Update local state
       setAddresses(prev => prev.map(addr => 
-        addr.id === addressId ? updatedAddress : addr
+        addr.id === addressId ? updatedAddress! : addr
       ));
       
       // Update selected address if needed

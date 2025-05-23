@@ -1,8 +1,7 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
-  id: number; // Changed from string to number to match Supabase table structure
+  id: number;
   user_id: string;
   name: string;
   company?: string;
@@ -32,7 +31,7 @@ export class AddressService {
   public async getSavedAddresses(): Promise<SavedAddress[]> {
     try {
       const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.user) {
+      if (!session?.session?.user) {
         console.warn('User is not authenticated when getting addresses');
         return [];
       }
@@ -63,7 +62,7 @@ export class AddressService {
   public async createAddress(address: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'>, useEncryption: boolean = false): Promise<SavedAddress | null> {
     try {
       const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.user) {
+      if (!session?.session?.user) {
         console.error('User is not authenticated when creating address');
         throw new Error('User is not authenticated');
       }
@@ -103,8 +102,7 @@ export class AddressService {
             ...address,
             user_id: session.session.user.id
           })
-          .select()
-          .single();
+          .select();
         
         if (error) {
           console.error('Supabase error creating address:', error);
@@ -112,7 +110,7 @@ export class AddressService {
         }
         
         console.log('Address created via direct insertion:', data);
-        return data as unknown as SavedAddress;
+        return data[0] as unknown as SavedAddress;
       }
     } catch (error) {
       console.error('Error creating saved address:', error);
@@ -126,7 +124,7 @@ export class AddressService {
   public async updateAddress(addressId: number, address: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'>, useEncryption: boolean = false): Promise<SavedAddress | null> {
     try {
       const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.user) {
+      if (!session?.session?.user) {
         throw new Error('User is not authenticated');
       }
       
@@ -167,14 +165,13 @@ export class AddressService {
             user_id: session.session.user.id
           })
           .eq('id', addressId)
-          .select()
-          .single();
+          .select();
         
         if (error) {
           throw error;
         }
         
-        return data as unknown as SavedAddress;
+        return data[0] as unknown as SavedAddress;
       }
     } catch (error) {
       console.error('Error updating saved address:', error);

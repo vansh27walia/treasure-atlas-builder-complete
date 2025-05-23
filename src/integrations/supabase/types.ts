@@ -27,11 +27,14 @@ export type Database = {
       addresses: {
         Row: {
           city: string
+          company: string | null
           country: string
+          created_at: string | null
           id: number
           is_default_from: boolean | null
           is_default_to: boolean | null
           name: string | null
+          phone: string | null
           state: string
           street1: string
           street2: string | null
@@ -40,11 +43,14 @@ export type Database = {
         }
         Insert: {
           city: string
+          company?: string | null
           country: string
+          created_at?: string | null
           id?: number
           is_default_from?: boolean | null
           is_default_to?: boolean | null
           name?: string | null
+          phone?: string | null
           state: string
           street1: string
           street2?: string | null
@@ -53,11 +59,14 @@ export type Database = {
         }
         Update: {
           city?: string
+          company?: string | null
           country?: string
+          created_at?: string | null
           id?: number
           is_default_from?: boolean | null
           is_default_to?: boolean | null
           name?: string | null
+          phone?: string | null
           state?: string
           street1?: string
           street2?: string | null

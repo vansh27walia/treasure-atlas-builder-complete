@@ -75,8 +75,7 @@ serve(async (req) => {
       const { data, error } = await supabaseClient
         .from('addresses')
         .insert(finalData)
-        .select()
-        .single();
+        .select();
       
       if (error) {
         console.error('Database error during insert:', error);
@@ -84,7 +83,7 @@ serve(async (req) => {
       }
       
       console.log('Address created:', data);
-      response = { success: true, data };
+      response = { success: true, data: data[0] };
     } 
     else if (action === 'update') {
       // Handle update with encryption
@@ -104,8 +103,7 @@ serve(async (req) => {
         })
         .eq('id', addressId)
         .eq('user_id', user.id) // Ensure user can only update their own addresses
-        .select()
-        .single();
+        .select();
       
       if (error) {
         console.error('Database error during update:', error);
@@ -113,7 +111,7 @@ serve(async (req) => {
       }
       
       console.log('Address updated:', data);
-      response = { success: true, data };
+      response = { success: true, data: data[0] };
     }
     else if (action === 'decrypt') {
       // Handle decryption

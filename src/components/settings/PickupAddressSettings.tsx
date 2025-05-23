@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -60,16 +59,24 @@ const PickupAddressSettings: React.FC = () => {
     };
     
     checkAuth();
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+      if (session) {
+        loadAddresses();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
   
   // Refresh addresses on component mount
   useEffect(() => {
-    const loadAllAddresses = async () => {
-      await loadAddresses();
-    };
-    
     if (isAuthenticated) {
-      loadAllAddresses();
+      loadAddresses();
     }
   }, [isAuthenticated]);
 
@@ -125,7 +132,7 @@ const PickupAddressSettings: React.FC = () => {
           toast.success("Address updated successfully");
           setShowAddressModal(false);
           // Reload addresses to ensure we have the latest data
-          loadAddresses();
+          await loadAddresses();
         } else {
           toast.error("Failed to update address");
         }
@@ -137,7 +144,7 @@ const PickupAddressSettings: React.FC = () => {
           toast.success("New address saved successfully");
           setShowAddressModal(false);
           // Reload addresses to ensure we have the latest data
-          loadAddresses();
+          await loadAddresses();
         } else {
           toast.error("Failed to save address");
         }
@@ -150,7 +157,10 @@ const PickupAddressSettings: React.FC = () => {
 
   const handleSetDefault = async (address: SavedAddress) => {
     if (!address.is_default_from) {
-      await setAsDefaultFrom(address.id);
+      const success = await setAsDefaultFrom(address.id);
+      if (success) {
+        await loadAddresses();
+      }
     }
   };
 

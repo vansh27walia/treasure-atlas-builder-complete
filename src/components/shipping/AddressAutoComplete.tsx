@@ -33,7 +33,9 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
   
   // Update internal state when defaultValue changes
   useEffect(() => {
-    setValue(defaultValue);
+    if (defaultValue !== value) {
+      setValue(defaultValue);
+    }
   }, [defaultValue]);
 
   useEffect(() => {
@@ -72,7 +74,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         } else {
           console.warn("Google Maps API failed to load");
           if (isMounted) {
-            toast.error("Failed to load address search. Please enter address manually.");
+            toast.warning("Address autocomplete may not work - manual entry is still available");
           }
         }
       } catch (error) {
