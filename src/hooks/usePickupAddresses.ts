@@ -3,10 +3,8 @@ import { useState, useEffect } from 'react';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { extractAddressComponents } from '@/utils/addressUtils';
-import { useAuth } from '@/contexts/AuthContext';
 
 export const usePickupAddresses = () => {
-  const { user } = useAuth();
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -16,11 +14,6 @@ export const usePickupAddresses = () => {
 
   // Load all addresses
   const loadAddresses = async (autoSelectDefault: boolean = true) => {
-    if (!user) {
-      console.log("User not authenticated, skipping address loading");
-      return null;
-    }
-    
     setIsLoading(true);
     try {
       const savedAddresses = await addressService.getSavedAddresses();
@@ -45,13 +38,13 @@ export const usePickupAddresses = () => {
     return null;
   };
 
+  // Load addresses on hook initialization
+  useEffect(() => {
+    loadAddresses();
+  }, []);
+
   // Create new address
   const createAddress = async (addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">) => {
-    if (!user) {
-      toast.error('You need to be logged in to save addresses');
-      return null;
-    }
-    
     setIsUpdating(true);
     try {
       console.log("Creating address with data:", addressData);
@@ -67,6 +60,12 @@ export const usePickupAddresses = () => {
       if (!addressData.city) throw new Error('City is required');
       if (!addressData.state) throw new Error('State is required');
       if (!addressData.zip) throw new Error('ZIP code is required');
+      
+      // Check for authenticated user before proceeding
+      const { data } = await addressService.getSession();
+      if (!data?.session?.user) {
+        throw new Error('You need to be logged in to save addresses');
+      }
       
       // Try standard address creation first
       let newAddress: SavedAddress | null = null;
@@ -110,11 +109,6 @@ export const usePickupAddresses = () => {
 
   // Update existing address
   const updateAddress = async (addressId: number, addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">) => {
-    if (!user) {
-      toast.error('You need to be logged in to update addresses');
-      return null;
-    }
-    
     setIsUpdating(true);
     try {
       console.log("Updating address with ID:", addressId, "and data:", addressData);
@@ -147,7 +141,14 @@ export const usePickupAddresses = () => {
       }
       
       // Update local state
-      await loadAddresses(); // Reload to get fresh data
+      setAddresses(prev => prev.map(addr => 
+        addr.id === addressId ? updatedAddress! : addr
+      ));
+      
+      // Update selected address if needed
+      if (selectedAddress?.id === addressId) {
+        setSelectedAddress(updatedAddress);
+      }
       
       toast.success('Address updated successfully');
       return updatedAddress;
@@ -162,11 +163,6 @@ export const usePickupAddresses = () => {
   
   // Delete address
   const deleteAddress = async (addressId: number) => {
-    if (!user) {
-      toast.error('You need to be logged in to delete addresses');
-      return false;
-    }
-    
     setIsUpdating(true);
     try {
       const success = await addressService.deleteAddress(addressId);
@@ -197,11 +193,6 @@ export const usePickupAddresses = () => {
   
   // Set address as default from
   const setAsDefaultFrom = async (addressId: number) => {
-    if (!user) {
-      toast.error('You need to be logged in to set default addresses');
-      return false;
-    }
-    
     setIsUpdating(true);
     try {
       const success = await addressService.setDefaultFromAddress(addressId);

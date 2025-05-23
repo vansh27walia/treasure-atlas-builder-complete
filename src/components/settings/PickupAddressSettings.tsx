@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,10 +25,8 @@ import { formatAddressForDisplay } from '@/utils/addressUtils';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useAuth } from '@/contexts/AuthContext';
 
 const PickupAddressSettings: React.FC = () => {
-  const { session, user } = useAuth();
   const {
     addresses,
     selectedAddress,
@@ -48,17 +45,47 @@ const PickupAddressSettings: React.FC = () => {
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [addressToDelete, setAddressToDelete] = useState<SavedAddress | null>(null);
-  
-  // Check authentication status and load addresses when component mounts
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Check authentication status
   useEffect(() => {
-    if (user) {
-      console.log("User authenticated, loading addresses");
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getSession();
+      console.log("Auth session:", data);
+      setIsAuthenticated(!!data.session);
+      
+      if (!data.session) {
+        toast.warning("Sign in to save addresses", {
+          description: "You need to be logged in to save addresses",
+          duration: 5000,
+        });
+      }
+    };
+    
+    checkAuth();
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+      if (session) {
+        loadAddresses();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+  
+  // Refresh addresses on component mount
+  useEffect(() => {
+    if (isAuthenticated) {
       loadAddresses();
     }
-  }, [user]);
+  }, [isAuthenticated]);
 
   const handleAddNewClick = () => {
-    if (!user) {
+    if (!isAuthenticated) {
       toast.error("You need to be logged in to save addresses");
       return;
     }
@@ -88,7 +115,7 @@ const PickupAddressSettings: React.FC = () => {
   const handleFormSubmit = async (values: AddressFormValues) => {
     console.log("Form submission values:", values);
     
-    if (!user) {
+    if (!isAuthenticated) {
       toast.error("You need to be logged in to save addresses");
       return;
     }
@@ -116,6 +143,8 @@ const PickupAddressSettings: React.FC = () => {
         if (success) {
           toast.success("Address updated successfully");
           setShowAddressModal(false);
+          // Reload addresses to ensure we have the latest data
+          await loadAddresses();
         }
       } else {
         // Create new address
@@ -124,6 +153,8 @@ const PickupAddressSettings: React.FC = () => {
         if (success) {
           toast.success("New address saved successfully");
           setShowAddressModal(false);
+          // Reload addresses to ensure we have the latest data
+          await loadAddresses();
         }
       }
     } catch (error) {
@@ -167,14 +198,14 @@ const PickupAddressSettings: React.FC = () => {
         <Button 
           onClick={handleAddNewClick} 
           className="flex items-center gap-2"
-          disabled={!user || addressCount >= ADDRESS_LIMIT || isUpdating}
+          disabled={!isAuthenticated || addressCount >= ADDRESS_LIMIT || isUpdating}
         >
           <Plus className="h-4 w-4" />
           Add Address
         </Button>
       </div>
       
-      {!user && (
+      {!isAuthenticated && (
         <Card className="bg-yellow-50 border-yellow-200">
           <CardContent className="p-4">
             <p className="text-yellow-800">
@@ -184,7 +215,7 @@ const PickupAddressSettings: React.FC = () => {
         </Card>
       )}
       
-      {user && (
+      {isAuthenticated && (
         <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
           <div className="flex flex-col flex-grow mr-4">
             <div className="flex justify-between mb-1">
@@ -205,11 +236,11 @@ const PickupAddressSettings: React.FC = () => {
         </Alert>
       )}
 
-      {user && isLoading ? (
+      {isAuthenticated && isLoading ? (
         <div className="py-12 flex justify-center">
           <p className="text-gray-500">Loading addresses...</p>
         </div>
-      ) : user && addresses.length === 0 ? (
+      ) : isAuthenticated && addresses.length === 0 ? (
         <Card>
           <CardContent className="p-8 flex flex-col items-center justify-center">
             <MapPin className="h-12 w-12 text-gray-400 mb-4" />
@@ -223,7 +254,7 @@ const PickupAddressSettings: React.FC = () => {
             </Button>
           </CardContent>
         </Card>
-      ) : user && (
+      ) : isAuthenticated && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {addresses.map((address) => (
             <Card key={address.id} className={`overflow-hidden ${address.is_default_from ? 'border-2 border-green-500' : ''}`}>

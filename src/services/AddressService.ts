@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
@@ -110,10 +109,6 @@ export class AddressService {
           throw error;
         }
         
-        if (!data || data.length === 0) {
-          throw new Error('No data returned when creating address');
-        }
-        
         console.log('Address created via direct insertion:', data);
         return data[0] as SavedAddress;
       }
@@ -170,15 +165,10 @@ export class AddressService {
             user_id: session.session.user.id
           })
           .eq('id', addressId)
-          .eq('user_id', session.session.user.id)
           .select();
         
         if (error) {
           throw error;
-        }
-        
-        if (!data || data.length === 0) {
-          throw new Error('No data returned when updating address');
         }
         
         return data[0] as SavedAddress;
