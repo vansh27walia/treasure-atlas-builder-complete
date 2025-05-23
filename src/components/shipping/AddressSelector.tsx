@@ -1,4 +1,3 @@
-
 // If this file exists and uses usePickupAddresses, update the import path
 // For demonstration purposes - you would need to update this in any file that imports usePickupAddresses
 
@@ -150,9 +149,18 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   // Handle address creation
   const handleAddressCreate = async (values: AddressFormValues) => {
     try {
+      // Make sure all required fields are present, especially name which is required
       await createAddress({
-        ...values,
-        is_default_to: false, // Ensure this property exists
+        name: values.name,
+        company: values.company,
+        street1: values.street1,
+        street2: values.street2,
+        city: values.city,
+        state: values.state,
+        zip: values.zip,
+        country: values.country,
+        is_default_from: values.is_default_from,
+        is_default_to: false // Provide default value
       });
       toast.success('Address created successfully!');
       setIsAdding(false);
@@ -172,8 +180,16 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     
     try {
       await updateAddress(addressToEdit.id, {
-        ...values,
-        is_default_to: addressToEdit.is_default_to || false, // Ensure this property exists
+        name: values.name,
+        company: values.company,
+        street1: values.street1,
+        street2: values.street2,
+        city: values.city,
+        state: values.state,
+        zip: values.zip,
+        country: values.country,
+        is_default_from: values.is_default_from,
+        is_default_to: addressToEdit.is_default_to || false // Preserve existing value
       });
       toast.success('Address updated successfully!');
       setIsEditing(false);
