@@ -219,6 +219,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   };
 
   const handlePickupAddressChange = (address: SavedAddress | null) => {
+    console.log('Pickup address changed:', address);
     setPickupAddress(address);
     onPickupAddressSelect(address);
   };
@@ -257,6 +258,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
               placeholder="Select a pickup address"
               isPickupAddress={true}
               defaultAddress={pickupAddress}
+              className="w-full"
             />
             {!pickupAddress && addresses.length === 0 && (
               <div className="p-4 bg-blue-50 rounded-md">

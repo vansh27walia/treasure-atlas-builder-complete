@@ -1,5 +1,5 @@
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { loadGoogleMapsAPI, initAddressAutocomplete } from '@/utils/addressUtils';
 import { toast } from '@/components/ui/sonner';
@@ -33,7 +33,6 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
   const [value, setValue] = useState(defaultValue);
   const [apiError, setApiError] = useState(false);
   const [isLoadingKey, setIsLoadingKey] = useState(false);
-  const [apiKeyFetched, setApiKeyFetched] = useState(false);
   const autocompleteInitialized = useRef(false);
   
   // Update internal state when defaultValue changes
@@ -42,6 +41,25 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
       setValue(defaultValue);
     }
   }, [defaultValue]);
+
+  // Memoize the address selection handler to prevent recreation
+  const handleAddressSelection = useCallback((place: GoogleMapsPlace) => {
+    console.log("Google Maps place selected:", place);
+    
+    if (place && place.formatted_address) {
+      console.log("Setting formatted address:", place.formatted_address);
+      setValue(place.formatted_address);
+      if (onChange) onChange(place.formatted_address);
+    }
+    
+    if (place) {
+      console.log("Calling onAddressSelected with place");
+      onAddressSelected(place);
+    } else {
+      console.warn("Missing place data in selection");
+      toast.warning("Could not get complete address details");
+    }
+  }, [onAddressSelected, onChange]);
 
   // Optimize API key fetching to prevent multiple calls
   useEffect(() => {
@@ -90,7 +108,6 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         
         // Try to get API key
         const apiKey = await fetchApiKey();
-        setApiKeyFetched(true);
         
         if (apiKey) {
           console.log("Found Google Maps API key, initializing...");
@@ -104,25 +121,10 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
             setIsLoadingKey(false);
             autocompleteInitialized.current = true;
             
-            // Initialize autocomplete on the input element
-            initAddressAutocomplete(inputRef.current, (place) => {
-              console.log("Google Maps place selected:", place);
-              
-              if (place && place.formatted_address) {
-                console.log("Setting formatted address:", place.formatted_address);
-                setValue(place.formatted_address);
-                if (onChange) onChange(place.formatted_address);
-              }
-              
-              if (place) {
-                // Pass the complete place object to the parent component
-                console.log("Calling onAddressSelected with place");
-                onAddressSelected(place);
-              } else {
-                console.warn("Missing place data in selection");
-                toast.warning("Could not get complete address details");
-              }
-            });
+            // Initialize autocomplete on the input element with proper callback
+            initAddressAutocomplete(inputRef.current, handleAddressSelection);
+            
+            toast.success("Google Maps address search is ready");
           } else {
             console.warn("Google Maps API failed to load");
             if (isMounted) {
@@ -147,13 +149,16 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
       }
     };
     
-    initAutocomplete();
+    // Only initialize if not already done
+    if (!autocompleteInitialized.current) {
+      initAutocomplete();
+    }
     
     // Clean up function
     return () => {
       isMounted = false;
     };
-  }, [onAddressSelected, onChange]);
+  }, []); // Empty dependency array to run only once
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;

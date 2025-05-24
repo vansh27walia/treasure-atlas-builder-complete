@@ -184,7 +184,6 @@ export async function loadGoogleMapsAPI(): Promise<boolean> {
       // Set up callbacks
       script.onload = () => {
         console.log('Google Maps API loaded successfully');
-        toast.success('Google Maps address search is ready');
         resolve(true);
       };
       
@@ -227,12 +226,14 @@ export function initAddressAutocomplete(
     // Add listener for place selection
     autocomplete.addListener('place_changed', () => {
       const place = autocomplete.getPlace();
-      console.log('Google place selected:', place);
+      console.log('Google place selected in autocomplete:', place);
       
       if (place && (place.address_components || place.formatted_address)) {
+        console.log('Valid place selected, calling onPlaceSelected');
         onPlaceSelected(place);
       } else {
         console.warn('Invalid place selected:', place);
+        toast.warning('Please select a valid address from the dropdown');
       }
     });
     
@@ -248,6 +249,7 @@ export function initAddressAutocomplete(
       const pacContainers = document.querySelectorAll('.pac-container');
       pacContainers.forEach((container) => {
         (container as HTMLElement).style.zIndex = '9999';
+        (container as HTMLElement).style.backgroundColor = 'white';
       });
     }, 300);
     

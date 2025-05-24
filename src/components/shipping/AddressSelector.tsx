@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -14,11 +14,12 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { COUNTRIES_LIST } from '@/lib/countries';
-import { Phone, MapPin } from 'lucide-react';
+import { Phone, MapPin, Edit2 } from 'lucide-react';
 import { extractAddressComponents } from '@/utils/addressUtils';
 import { toast } from '@/components/ui/sonner';
 import { SavedAddress } from '@/services/AddressService'; 
@@ -69,7 +70,6 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   useGoogleAutocomplete = true,
   defaultAddress
 }) => {
-  const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(false);
   const streetInputRef = useRef<HTMLInputElement>(null);
   const combinedRef = inputRef || streetInputRef;
   const [selectedSavedAddress, setSelectedSavedAddress] = useState<SavedAddress | null>(defaultAddress || null);
@@ -124,7 +124,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
     }
   }, [watchRequired, form, onAddressSelect]);
   
-  const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
+  const handleGooglePlaceSelected = useCallback((place: GoogleMapsPlace) => {
     console.log("Google place selected in AddressSelector:", place);
     
     if (place) {
@@ -151,34 +151,33 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       // Trigger form validation
       form.trigger(['street1', 'city', 'state', 'zip', 'country']);
       
-      // Submit the form with the selected address
-      const values = form.getValues();
-      if (onAddressSelect) {
-        onAddressSelect(values);
-      }
-      
       toast.success('Address found and auto-filled');
     }
-  };
+  }, [form]);
 
   // Handle direct address line changes
-  const handleAddressLineChange = (value: string) => {
+  const handleAddressLineChange = useCallback((value: string) => {
     form.setValue('street1', value, { shouldValidate: true });
-  };
+  }, [form]);
 
   // Handle selecting a saved address
-  const handleSavedAddressSelected = (address: SavedAddress | null) => {
+  const handleSavedAddressSelected = useCallback((address: SavedAddress | null) => {
     console.log("Saved address selected:", address);
     setSelectedSavedAddress(address);
-    setShowAddressForm(!address); // Hide form if an address is selected
-  };
+    setShowAddressForm(!address); // Show form if no address is selected
+  }, []);
 
   // Handle adding a new address
-  const handleAddNewAddress = () => {
+  const handleAddNewAddress = useCallback(() => {
     setSelectedSavedAddress(null);
     setShowAddressForm(true);
     form.reset(); // Clear the form
-  };
+  }, [form]);
+
+  // Handle editing existing address
+  const handleEditAddress = useCallback(() => {
+    setShowAddressForm(true);
+  }, []);
   
   return (
     <div className="space-y-4">
@@ -326,7 +325,7 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
                           <SelectTrigger className="h-10">
                             <SelectValue placeholder="Select country" />
                           </SelectTrigger>
-                          <SelectContent className="max-h-[200px]">
+                          <SelectContent className="max-h-[200px] bg-white z-50">
                             {COUNTRIES_LIST.map((country) => (
                               <SelectItem key={country.code} value={country.code}>
                                 {country.name}
@@ -370,14 +369,24 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
       
       {!showAddressForm && selectedSavedAddress && (
         <Card className="border border-gray-100 shadow-sm p-4">
-          <div className="grid grid-cols-1 gap-1 text-sm">
-            <p className="font-medium">{selectedSavedAddress.name || 'Unnamed Address'}</p>
-            {selectedSavedAddress.company && <p>{selectedSavedAddress.company}</p>}
-            <p>{selectedSavedAddress.street1}</p>
-            {selectedSavedAddress.street2 && <p>{selectedSavedAddress.street2}</p>}
-            <p>{selectedSavedAddress.city}, {selectedSavedAddress.state} {selectedSavedAddress.zip}</p>
-            <p>{selectedSavedAddress.country}</p>
-            {selectedSavedAddress.phone && <p>Phone: {selectedSavedAddress.phone}</p>}
+          <div className="flex justify-between items-start">
+            <div className="grid grid-cols-1 gap-1 text-sm flex-1">
+              <p className="font-medium">{selectedSavedAddress.name || 'Unnamed Address'}</p>
+              {selectedSavedAddress.company && <p>{selectedSavedAddress.company}</p>}
+              <p>{selectedSavedAddress.street1}</p>
+              {selectedSavedAddress.street2 && <p>{selectedSavedAddress.street2}</p>}
+              <p>{selectedSavedAddress.city}, {selectedSavedAddress.state} {selectedSavedAddress.zip}</p>
+              <p>{selectedSavedAddress.country}</p>
+              {selectedSavedAddress.phone && <p>Phone: {selectedSavedAddress.phone}</p>}
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleEditAddress}
+              className="ml-2"
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
           </div>
         </Card>
       )}
