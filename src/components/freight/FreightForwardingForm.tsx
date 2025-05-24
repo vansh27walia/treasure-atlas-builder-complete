@@ -3,12 +3,13 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { ArrowRight, Package, Calculator, Settings } from 'lucide-react';
+import { ArrowRight, Package, Calculator } from 'lucide-react';
 import OriginDestinationForm from './OriginDestinationForm';
 import LoadDetailsForm from './LoadDetailsForm';
 import FreightRatesDisplay from './FreightRatesDisplay';
-import FreightosCredentials from './FreightosCredentials';
 import { FreightFormData, FreightRate } from '@/types/freight';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const FreightForwardingForm: React.FC = () => {
   const [formData, setFormData] = useState<FreightFormData>({
@@ -31,7 +32,6 @@ const FreightForwardingForm: React.FC = () => {
   const [rates, setRates] = useState<FreightRate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showLoadDetails, setShowLoadDetails] = useState(false);
-  const [showCredentials, setShowCredentials] = useState(true);
 
   const updateFormData = (section: keyof FreightFormData, data: any) => {
     setFormData(prev => ({
@@ -56,63 +56,44 @@ const FreightForwardingForm: React.FC = () => {
   };
 
   const handleGetQuotes = async () => {
-    if (!isFormComplete()) return;
+    if (!isFormComplete()) {
+      toast.error('Please complete all required fields');
+      return;
+    }
 
     setIsLoading(true);
     try {
-      // Call backend API for freight rates
-      const response = await fetch('/api/freight-forwarding/rates', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
+      console.log('Requesting freight rates with data:', formData);
+      
+      const { data, error } = await supabase.functions.invoke('freight-forwarding-rates', {
+        body: formData
       });
 
-      if (response.ok) {
-        const ratesData = await response.json();
-        setRates(ratesData.rates || []);
+      if (error) {
+        console.error('Error getting freight rates:', error);
+        toast.error('Failed to get freight rates. Please try again.');
+        return;
+      }
+
+      console.log('Received freight rates:', data);
+      
+      if (data?.rates && data.rates.length > 0) {
+        setRates(data.rates);
+        toast.success(`Found ${data.rates.length} freight quotes!`);
       } else {
-        console.error('Failed to fetch freight rates');
+        toast.warning('No freight rates found for this route. Please try different parameters.');
+        setRates([]);
       }
     } catch (error) {
       console.error('Error fetching freight rates:', error);
+      toast.error('Failed to get freight rates. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleCredentialsUpdate = () => {
-    setShowCredentials(false);
-  };
-
   return (
     <div className="space-y-8">
-      {/* API Configuration Section */}
-      {showCredentials && (
-        <>
-          <div className="text-center mb-6">
-            <div className="flex items-center justify-center mb-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                <Settings className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Setup Required</h2>
-            <p className="text-gray-600">Configure your Freightos API credentials to get live freight rates</p>
-          </div>
-          
-          <FreightosCredentials onCredentialsUpdate={handleCredentialsUpdate} />
-          
-          <div className="flex items-center justify-center">
-            <div className="border-t border-gray-200 flex-1"></div>
-            <div className="mx-6 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-              Complete setup to continue
-            </div>
-            <div className="border-t border-gray-200 flex-1"></div>
-          </div>
-        </>
-      )}
-
       {/* Progress Steps */}
       <div className="flex items-center justify-center space-x-4 mb-8">
         <div className="flex items-center">
