@@ -23,8 +23,9 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({
         {countries.map((country) => (
           <SelectItem key={country.code} value={country.code} className="py-3">
             <div className="flex items-center space-x-3">
-              <span className="text-lg">{country.flag}</span>
+              <span className="text-lg min-w-[24px]">{country.flag}</span>
               <span className="font-medium">{country.name}</span>
+              <span className="text-xs text-gray-500 ml-auto">{country.code}</span>
             </div>
           </SelectItem>
         ))}

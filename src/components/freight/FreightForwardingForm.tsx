@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { ArrowRight, Package, Calculator } from 'lucide-react';
+import { ArrowRight, Package, Calculator, Settings } from 'lucide-react';
 import OriginDestinationForm from './OriginDestinationForm';
 import LoadDetailsForm from './LoadDetailsForm';
 import FreightRatesDisplay from './FreightRatesDisplay';
+import FreightosCredentials from './FreightosCredentials';
 import { FreightFormData, FreightRate } from '@/types/freight';
 
 const FreightForwardingForm: React.FC = () => {
@@ -30,6 +31,7 @@ const FreightForwardingForm: React.FC = () => {
   const [rates, setRates] = useState<FreightRate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showLoadDetails, setShowLoadDetails] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(true);
 
   const updateFormData = (section: keyof FreightFormData, data: any) => {
     setFormData(prev => ({
@@ -80,8 +82,37 @@ const FreightForwardingForm: React.FC = () => {
     }
   };
 
+  const handleCredentialsUpdate = () => {
+    setShowCredentials(false);
+  };
+
   return (
     <div className="space-y-8">
+      {/* API Configuration Section */}
+      {showCredentials && (
+        <>
+          <div className="text-center mb-6">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <Settings className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Setup Required</h2>
+            <p className="text-gray-600">Configure your Freightos API credentials to get live freight rates</p>
+          </div>
+          
+          <FreightosCredentials onCredentialsUpdate={handleCredentialsUpdate} />
+          
+          <div className="flex items-center justify-center">
+            <div className="border-t border-gray-200 flex-1"></div>
+            <div className="mx-6 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+              Complete setup to continue
+            </div>
+            <div className="border-t border-gray-200 flex-1"></div>
+          </div>
+        </>
+      )}
+
       {/* Progress Steps */}
       <div className="flex items-center justify-center space-x-4 mb-8">
         <div className="flex items-center">
