@@ -41,7 +41,7 @@ const FreightForwardingForm: React.FC = () => {
       const updatedData = { ...formData, [section]: data };
       const originComplete = updatedData.origin.locationType && updatedData.origin.country && updatedData.origin.address;
       const destinationComplete = updatedData.destination.locationType && updatedData.destination.country && updatedData.destination.address;
-      setShowLoadDetails(originComplete && destinationComplete);
+      setShowLoadDetails(Boolean(originComplete && destinationComplete));
     }
   };
 

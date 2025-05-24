@@ -248,3 +248,18 @@ export const COUNTRIES_LIST = [
   { name: "Zambia", code: "ZM" },
   { name: "Zimbabwe", code: "ZW" }
 ];
+
+// Simplified list with flag emojis for the freight forwarding component
+const getCountryFlag = (code: string): string => {
+  const flagEmojis: { [key: string]: string } = {
+    'US': '🇺🇸', 'CA': '🇨🇦', 'GB': '🇬🇧', 'DE': '🇩🇪', 'FR': '🇫🇷', 'CN': '🇨🇳', 'JP': '🇯🇵',
+    'IN': '🇮🇳', 'BR': '🇧🇷', 'AU': '🇦🇺', 'IT': '🇮🇹', 'ES': '🇪🇸', 'NL': '🇳🇱', 'MX': '🇲🇽',
+    'KR': '🇰🇷', 'SG': '🇸🇬', 'RU': '🇷🇺', 'TR': '🇹🇷', 'TH': '🇹🇭', 'AE': '🇦🇪'
+  };
+  return flagEmojis[code] || '🏳️';
+};
+
+export const countries = COUNTRIES_LIST.map(country => ({
+  ...country,
+  flag: getCountryFlag(country.code)
+}));
