@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { COUNTRIES_LIST } from '@/lib/countries';
+import { countries } from '@/lib/countries';
 
 interface CountrySelectorProps {
   value: string;
@@ -16,14 +16,15 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({
 }) => {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger>
+      <SelectTrigger className="h-12">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent className="max-h-60">
-        {COUNTRIES_LIST.map((country) => (
-          <SelectItem key={country.code} value={country.code}>
-            <div className="flex items-center">
-              <span>{country.name}</span>
+        {countries.map((country) => (
+          <SelectItem key={country.code} value={country.code} className="py-3">
+            <div className="flex items-center space-x-3">
+              <span className="text-lg">{country.flag}</span>
+              <span className="font-medium">{country.name}</span>
             </div>
           </SelectItem>
         ))}
