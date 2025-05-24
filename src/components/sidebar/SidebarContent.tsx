@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   Home, Package, CreditCard, Settings, ShoppingBag, Truck, MapPin, 
-  BarChart3, Globe, HelpCircle, Tag, Upload, Calculator, Clock, Search
+  BarChart3, Globe, HelpCircle, Tag, Upload, Calculator, Clock, Search, Ship
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import SidebarNavSection from './SidebarNavSection';
@@ -31,8 +31,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
           />
           <SidebarNavItem
             icon={<Package size={18} />}
-            title="Create Label"
+            title="Standard Shipping"
             to="/create-label"
+            collapsed={collapsed}
+          />
+          <SidebarNavItem
+            icon={<Ship size={18} />}
+            title="Freight Forwarding"
+            to="/freight-forwarding"
             collapsed={collapsed}
           />
           <SidebarNavItem

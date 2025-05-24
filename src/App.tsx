@@ -23,6 +23,7 @@ import PickupPage from './pages/PickupPage';
 import BulkUploadPage from './pages/BulkUploadPage';
 import TrackingPage from './pages/TrackingPage';
 import ShipToPage from './pages/ShipToPage';
+import FreightForwardingPage from './pages/FreightForwardingPage';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<AuthPage />} />
                   <Route path="/create-label" element={<CreateLabelPage />} />
+                  <Route path="/freight-forwarding" element={<FreightForwardingPage />} />
                   <Route path="/ltl-shipping" element={<LtlShippingPage />} />
                   <Route path="/ftl-shipping" element={<FtlShippingPage />} />
                   <Route path="/instant-delivery" element={<InstantDeliveryPage />} />
