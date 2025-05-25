@@ -228,8 +228,6 @@ export type Database = {
           onboarding_completed: boolean | null
           payment_info: Json | null
           updated_at: string | null
-          uship_api_key: string | null
-          uship_test_mode: boolean | null
         }
         Insert: {
           created_at?: string | null
@@ -239,8 +237,6 @@ export type Database = {
           onboarding_completed?: boolean | null
           payment_info?: Json | null
           updated_at?: string | null
-          uship_api_key?: string | null
-          uship_test_mode?: boolean | null
         }
         Update: {
           created_at?: string | null
@@ -250,8 +246,6 @@ export type Database = {
           onboarding_completed?: boolean | null
           payment_info?: Json | null
           updated_at?: string | null
-          uship_api_key?: string | null
-          uship_test_mode?: boolean | null
         }
         Relationships: []
       }

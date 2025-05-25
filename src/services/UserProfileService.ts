@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 
@@ -312,78 +313,6 @@ export class UserProfileService {
     } catch (error) {
       console.error('Error updating payment info:', error);
       return false;
-    }
-  }
-
-  /**
-   * Update the uShip API credentials
-   */
-  public async updateUShipCredentials(apiKey: string, testMode: boolean): Promise<boolean> {
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.user) {
-        throw new Error('User is not authenticated');
-      }
-      
-      const userId = session.session.user.id;
-      
-      // Create the profile if it doesn't exist
-      const profile = await this.getUserProfile();
-      if (!profile) {
-        await this.createUserProfile();
-      }
-      
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({
-          uship_api_key: apiKey,
-          uship_test_mode: testMode,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', userId);
-      
-      if (error) {
-        console.error('Error updating uShip credentials:', error);
-        return false;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error updating uShip credentials:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Get the uShip API credentials
-   */
-  public async getUShipCredentials(): Promise<{ apiKey: string | null; testMode: boolean } | null> {
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.user) {
-        return null;
-      }
-      
-      const userId = session.session.user.id;
-      
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('uship_api_key, uship_test_mode')
-        .eq('id', userId)
-        .maybeSingle();
-      
-      if (error) {
-        console.error('Error getting uShip credentials:', error);
-        return null;
-      }
-      
-      return {
-        apiKey: data?.uship_api_key || null,
-        testMode: data?.uship_test_mode ?? true
-      };
-    } catch (error) {
-      console.error('Error getting uShip credentials:', error);
-      return null;
     }
   }
 }
