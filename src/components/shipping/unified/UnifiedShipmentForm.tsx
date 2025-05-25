@@ -9,11 +9,12 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, CalendarDays, MapPin, Package, Truck, Ship, Settings, TestTube } from 'lucide-react';
+import { Calendar, CalendarDays, MapPin, Package, Truck, Ship, Settings, TestTube, AlertTriangle, CheckCircle } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import AddressAutoComplete from '../AddressAutoComplete';
 import ApiKeySettings from './ApiKeySettings';
 import { supabase } from '@/integrations/supabase/client';
+import { userProfileService } from '@/services/UserProfileService';
 
 export type ShipmentType = 'ltl' | 'ftl' | 'heavy-parcel';
 
@@ -94,6 +95,7 @@ interface RateOption {
 const UnifiedShipmentForm: React.FC = () => {
   const [activeType, setActiveType] = useState<ShipmentType>('ltl');
   const [showApiSettings, setShowApiSettings] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(false);
   const [testMode, setTestMode] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [rateOptions, setRateOptions] = useState<RateOption[]>([]);
@@ -180,6 +182,19 @@ const UnifiedShipmentForm: React.FC = () => {
     }
   }, [activeType, shipmentData.heavyParcel?.length, shipmentData.heavyParcel?.width, shipmentData.heavyParcel?.height, shipmentData.heavyParcel?.dimensionUnit]);
 
+  useEffect(() => {
+    checkApiKey();
+  }, []);
+
+  const checkApiKey = async () => {
+    try {
+      const credentials = await userProfileService.getUShipCredentials();
+      setHasApiKey(!!credentials?.apiKey);
+    } catch (error) {
+      console.error('Error checking API key:', error);
+    }
+  };
+
   const handleTypeChange = (type: ShipmentType) => {
     setActiveType(type);
     setShipmentData(prev => ({ ...prev, type }));
@@ -222,12 +237,18 @@ const UnifiedShipmentForm: React.FC = () => {
         specialInstructions: 'Please call before delivery. Loading dock access required.'
       }
     }));
-    toast.success('Mock data populated for testing');
+    toast.success('Sample data loaded for testing');
   };
 
   const handleGetRates = async () => {
     if (!shipmentData.common.pickupAddress || !shipmentData.common.deliveryAddress) {
-      toast.error('Please fill in pickup and delivery addresses');
+      toast.error('Please enter pickup and delivery addresses');
+      return;
+    }
+
+    if (!hasApiKey) {
+      toast.error('Please configure your uShip API key first');
+      setShowApiSettings(true);
       return;
     }
 
@@ -236,49 +257,49 @@ const UnifiedShipmentForm: React.FC = () => {
       const { data, error } = await supabase.functions.invoke('uship-rates', {
         body: { 
           shipmentData: shipmentData,
-          testMode: testMode
+          testMode: true
         }
       });
 
       if (error) throw error;
 
-      if (data?.rates) {
+      if (data?.rates && data.rates.length > 0) {
         setRateOptions(data.rates);
-        toast.success(`Found ${data.rates.length} rate options`);
+        toast.success(`Found ${data.rates.length} shipping options`);
       } else {
-        // Mock rates for testing
+        // Enhanced mock rates for better testing
         const mockRates: RateOption[] = [
           {
             id: 'rate_1',
-            carrier: 'uShip Partner 1',
+            carrier: 'Express Freight Solutions',
             serviceLevel: 'Standard',
             rateAmount: 850.00,
             transitTime: '3-5 business days',
-            insuranceOptions: 'Up to $50,000'
+            insuranceOptions: 'Up to $50,000 coverage'
           },
           {
-            id: 'rate_2',
-            carrier: 'uShip Partner 2',
+            id: 'rate_2', 
+            carrier: 'Premium Logistics',
             serviceLevel: 'Express',
             rateAmount: 1200.00,
             transitTime: '1-2 business days',
-            insuranceOptions: 'Up to $100,000'
+            insuranceOptions: 'Up to $100,000 coverage'
           },
           {
             id: 'rate_3',
-            carrier: 'uShip Partner 3',
+            carrier: 'Economy Transport',
             serviceLevel: 'Economy',
             rateAmount: 650.00,
             transitTime: '5-7 business days',
-            insuranceOptions: 'Up to $25,000'
+            insuranceOptions: 'Up to $25,000 coverage'
           }
         ];
         setRateOptions(mockRates);
-        toast.success('Showing mock rates for testing');
+        toast.success('Showing sample rates for testing');
       }
     } catch (error) {
       console.error('Error fetching rates:', error);
-      toast.error('Failed to fetch rates. Please try again.');
+      toast.error('Unable to fetch rates. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -342,57 +363,75 @@ const UnifiedShipmentForm: React.FC = () => {
   };
 
   if (showApiSettings) {
-    return <ApiKeySettings onClose={() => setShowApiSettings(false)} />;
+    return <ApiKeySettings onClose={() => {
+      setShowApiSettings(false);
+      checkApiKey();
+    }} />;
   }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">Unified Shipment Booking</h1>
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <TestTube className="h-4 w-4" />
-            <Label htmlFor="test-mode">Test Mode</Label>
-            <Switch
-              id="test-mode"
-              checked={testMode}
-              onCheckedChange={setTestMode}
-            />
-          </div>
-          <Button variant="outline" onClick={() => setShowApiSettings(true)}>
-            <Settings className="h-4 w-4 mr-2" />
-            API Settings
-          </Button>
-        </div>
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-bold text-blue-800 mb-4">Ship Your Freight</h1>
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          Get instant quotes and book your shipment in minutes. Compare rates from top carriers for LTL, Full Truckload, and Heavy Parcel shipping.
+        </p>
       </div>
 
-      {testMode && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <TestTube className="h-5 w-5 text-amber-600" />
-              <span className="text-amber-800 font-medium">Test Mode Active</span>
+      {/* API Key Status */}
+      {!hasApiKey && (
+        <Card className="mb-6 border-amber-200 bg-amber-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                <span className="text-amber-800 font-medium">Setup Required</span>
+              </div>
+              <Button onClick={() => setShowApiSettings(true)} size="sm">
+                Configure API Key
+              </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={populateMockData}>
-              Fill Mock Data
-            </Button>
-          </div>
-          <p className="text-amber-700 text-sm mt-2">
-            All bookings will be test bookings without live billing. Labels and BOL will be marked as test documents.
-          </p>
-        </div>
+            <p className="text-amber-700 text-sm mt-2">
+              Configure your uShip API key to get live shipping rates and book shipments.
+            </p>
+          </CardContent>
+        </Card>
       )}
 
-      <Card>
+      {hasApiKey && (
+        <Card className="mb-6 border-green-200 bg-green-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="h-5 w-5 text-green-600" />
+                <span className="text-green-800 font-medium">Ready to Ship</span>
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">Test Mode</Badge>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setShowApiSettings(true)}>
+                <Settings className="h-4 w-4 mr-1" />
+                Settings
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Shipment Type</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>Choose Your Shipment Type</span>
+            <Button variant="outline" size="sm" onClick={populateMockData}>
+              Fill Sample Data
+            </Button>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <Tabs value={activeType} onValueChange={(value) => handleTypeChange(value as ShipmentType)}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="ltl" className="flex items-center space-x-2">
                 <Package className="h-4 w-4" />
-                <span>LTL</span>
+                <span>LTL Freight</span>
               </TabsTrigger>
               <TabsTrigger value="ftl" className="flex items-center space-x-2">
                 <Truck className="h-4 w-4" />
@@ -404,640 +443,451 @@ const UnifiedShipmentForm: React.FC = () => {
               </TabsTrigger>
             </TabsList>
 
-            {/* Common Fields */}
-            <div className="mt-6 space-y-6">
-              <h3 className="text-lg font-semibold flex items-center">
-                <MapPin className="h-5 w-5 mr-2" />
-                Shipping Details
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="pickup-address">Pickup Address *</Label>
-                  <AddressAutoComplete
-                    defaultValue={shipmentData.common.pickupAddress}
-                    onAddressSelected={handlePickupAddressSelected}
-                    onChange={(value) => updateCommonField('pickupAddress', value)}
-                    placeholder="Enter pickup address"
-                  />
-                </div>
+            {/* Shipping Details Section */}
+            <div className="space-y-6">
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <MapPin className="h-5 w-5 mr-2 text-blue-600" />
+                  Shipping Information
+                </h3>
                 
-                <div>
-                  <Label htmlFor="delivery-address">Delivery Address *</Label>
-                  <AddressAutoComplete
-                    defaultValue={shipmentData.common.deliveryAddress}
-                    onAddressSelected={handleDeliveryAddressSelected}
-                    onChange={(value) => updateCommonField('deliveryAddress', value)}
-                    placeholder="Enter delivery address"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label htmlFor="pickup-address" className="text-sm font-medium">From (Pickup Address) *</Label>
+                    <AddressAutoComplete
+                      defaultValue={shipmentData.common.pickupAddress}
+                      onAddressSelected={handlePickupAddressSelected}
+                      onChange={(value) => updateCommonField('pickupAddress', value)}
+                      placeholder="Enter pickup address"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="delivery-address" className="text-sm font-medium">To (Delivery Address) *</Label>
+                    <AddressAutoComplete
+                      defaultValue={shipmentData.common.deliveryAddress}
+                      onAddressSelected={handleDeliveryAddressSelected}
+                      onChange={(value) => updateCommonField('deliveryAddress', value)}
+                      placeholder="Enter delivery address"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="pickup-date" className="text-sm font-medium">Pickup Date</Label>
+                    <Input
+                      id="pickup-date"
+                      type="date"
+                      value={shipmentData.common.pickupDate}
+                      onChange={(e) => updateCommonField('pickupDate', e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="delivery-date" className="text-sm font-medium">Delivery Date</Label>
+                    <Input
+                      id="delivery-date"
+                      type="date"
+                      value={shipmentData.common.deliveryDate}
+                      onChange={(e) => updateCommonField('deliveryDate', e.target.value)}
+                      min={shipmentData.common.pickupDate || new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <Label htmlFor="pickup-date">Pickup Date</Label>
-                  <Input
-                    id="pickup-date"
-                    type="date"
-                    value={shipmentData.common.pickupDate}
-                    onChange={(e) => updateCommonField('pickupDate', e.target.value)}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="pickup-time">Pickup Time Window</Label>
-                  <Select value={shipmentData.common.pickupTimeWindow} onValueChange={(value) => updateCommonField('pickupTimeWindow', value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="8:00-12:00">8:00 AM - 12:00 PM</SelectItem>
-                      <SelectItem value="9:00-17:00">9:00 AM - 5:00 PM</SelectItem>
-                      <SelectItem value="12:00-17:00">12:00 PM - 5:00 PM</SelectItem>
-                      <SelectItem value="anytime">Anytime</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="delivery-date">Delivery Date</Label>
-                  <Input
-                    id="delivery-date"
-                    type="date"
-                    value={shipmentData.common.deliveryDate}
-                    onChange={(e) => updateCommonField('deliveryDate', e.target.value)}
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="delivery-time">Delivery Time Window</Label>
-                  <Select value={shipmentData.common.deliveryTimeWindow} onValueChange={(value) => updateCommonField('deliveryTimeWindow', value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="8:00-12:00">8:00 AM - 12:00 PM</SelectItem>
-                      <SelectItem value="9:00-17:00">9:00 AM - 5:00 PM</SelectItem>
-                      <SelectItem value="12:00-17:00">12:00 PM - 5:00 PM</SelectItem>
-                      <SelectItem value="anytime">Anytime</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="contact-name">Contact Name</Label>
-                  <Input
-                    id="contact-name"
-                    value={shipmentData.common.contactName}
-                    onChange={(e) => updateCommonField('contactName', e.target.value)}
-                    placeholder="Contact person name"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="contact-phone">Contact Phone</Label>
-                  <Input
-                    id="contact-phone"
-                    value={shipmentData.common.contactPhone}
-                    onChange={(e) => updateCommonField('contactPhone', e.target.value)}
-                    placeholder="+1-555-123-4567"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="contact-email">Contact Email</Label>
-                  <Input
-                    id="contact-email"
-                    type="email"
-                    value={shipmentData.common.contactEmail}
-                    onChange={(e) => updateCommonField('contactEmail', e.target.value)}
-                    placeholder="contact@example.com"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="insurance-required"
-                  checked={shipmentData.common.insuranceRequired}
-                  onCheckedChange={(checked) => updateCommonField('insuranceRequired', checked)}
-                />
-                <Label htmlFor="insurance-required">Insurance Required</Label>
-              </div>
-
-              <div>
-                <Label htmlFor="special-instructions">Special Instructions</Label>
-                <Textarea
-                  id="special-instructions"
-                  value={shipmentData.common.specialInstructions}
-                  onChange={(e) => updateCommonField('specialInstructions', e.target.value)}
-                  placeholder="Any special handling instructions..."
-                />
-              </div>
-            </div>
-
-            {/* Type-specific fields */}
-            <TabsContent value="ltl" className="mt-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">LTL Shipment Details</h3>
-                
+              {/* Contact Information */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold mb-4">Contact Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <Label htmlFor="handling-units">Handling Units</Label>
+                    <Label htmlFor="contact-name" className="text-sm font-medium">Contact Name</Label>
                     <Input
-                      id="handling-units"
-                      type="number"
-                      value={shipmentData.ltl?.handlingUnits || 1}
-                      onChange={(e) => updateTypeSpecificField('handlingUnits', parseInt(e.target.value))}
+                      id="contact-name"
+                      value={shipmentData.common.contactName}
+                      onChange={(e) => updateCommonField('contactName', e.target.value)}
+                      placeholder="Your name"
                     />
                   </div>
                   
                   <div>
-                    <Label htmlFor="unit-type">Unit Type</Label>
-                    <Select value={shipmentData.ltl?.unitType} onValueChange={(value) => updateTypeSpecificField('unitType', value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Pallet">Pallet</SelectItem>
-                        <SelectItem value="Crate">Crate</SelectItem>
-                        <SelectItem value="Drum">Drum</SelectItem>
-                        <SelectItem value="Box">Box</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="freight-class">Freight Class</Label>
-                    <Select value={shipmentData.ltl?.freightClass} onValueChange={(value) => updateTypeSpecificField('freightClass', value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="50">Class 50</SelectItem>
-                        <SelectItem value="55">Class 55</SelectItem>
-                        <SelectItem value="60">Class 60</SelectItem>
-                        <SelectItem value="65">Class 65</SelectItem>
-                        <SelectItem value="70">Class 70</SelectItem>
-                        <SelectItem value="77.5">Class 77.5</SelectItem>
-                        <SelectItem value="85">Class 85</SelectItem>
-                        <SelectItem value="92.5">Class 92.5</SelectItem>
-                        <SelectItem value="100">Class 100</SelectItem>
-                        <SelectItem value="110">Class 110</SelectItem>
-                        <SelectItem value="125">Class 125</SelectItem>
-                        <SelectItem value="150">Class 150</SelectItem>
-                        <SelectItem value="175">Class 175</SelectItem>
-                        <SelectItem value="200">Class 200</SelectItem>
-                        <SelectItem value="250">Class 250</SelectItem>
-                        <SelectItem value="300">Class 300</SelectItem>
-                        <SelectItem value="400">Class 400</SelectItem>
-                        <SelectItem value="500">Class 500</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Weight per Unit</Label>
-                    <div className="flex space-x-2">
-                      <Input
-                        type="number"
-                        value={shipmentData.ltl?.weightPerUnit || 100}
-                        onChange={(e) => updateTypeSpecificField('weightPerUnit', parseFloat(e.target.value))}
-                      />
-                      <Select value={shipmentData.ltl?.weightUnit} onValueChange={(value) => updateTypeSpecificField('weightUnit', value)}>
-                        <SelectTrigger className="w-20">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="lbs">lbs</SelectItem>
-                          <SelectItem value="kg">kg</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <Label>Dimensions per Unit (L × W × H)</Label>
-                    <div className="flex space-x-2">
-                      <Input
-                        type="number"
-                        placeholder="L"
-                        value={shipmentData.ltl?.length || 48}
-                        onChange={(e) => updateTypeSpecificField('length', parseFloat(e.target.value))}
-                      />
-                      <Input
-                        type="number"
-                        placeholder="W"
-                        value={shipmentData.ltl?.width || 40}
-                        onChange={(e) => updateTypeSpecificField('width', parseFloat(e.target.value))}
-                      />
-                      <Input
-                        type="number"
-                        placeholder="H"
-                        value={shipmentData.ltl?.height || 48}
-                        onChange={(e) => updateTypeSpecificField('height', parseFloat(e.target.value))}
-                      />
-                      <Select value={shipmentData.ltl?.dimensionUnit} onValueChange={(value) => updateTypeSpecificField('dimensionUnit', value)}>
-                        <SelectTrigger className="w-24">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="inches">in</SelectItem>
-                          <SelectItem value="cm">cm</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex space-x-6">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="liftgate-required"
-                      checked={shipmentData.ltl?.liftgateRequired}
-                      onCheckedChange={(checked) => updateTypeSpecificField('liftgateRequired', checked)}
+                    <Label htmlFor="contact-phone" className="text-sm font-medium">Phone Number</Label>
+                    <Input
+                      id="contact-phone"
+                      value={shipmentData.common.contactPhone}
+                      onChange={(e) => updateCommonField('contactPhone', e.target.value)}
+                      placeholder="(555) 123-4567"
                     />
-                    <Label htmlFor="liftgate-required">Liftgate Required</Label>
                   </div>
                   
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="appointment-required"
-                      checked={shipmentData.ltl?.appointmentRequired}
-                      onCheckedChange={(checked) => updateTypeSpecificField('appointmentRequired', checked)}
+                  <div>
+                    <Label htmlFor="contact-email" className="text-sm font-medium">Email Address</Label>
+                    <Input
+                      id="contact-email"
+                      type="email"
+                      value={shipmentData.common.contactEmail}
+                      onChange={(e) => updateCommonField('contactEmail', e.target.value)}
+                      placeholder="your@email.com"
                     />
-                    <Label htmlFor="appointment-required">Appointment Required</Label>
                   </div>
                 </div>
               </div>
-            </TabsContent>
 
-            <TabsContent value="ftl" className="mt-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Full Truckload Details</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="equipment-type">Equipment Type</Label>
-                    <Select value={shipmentData.ftl?.equipmentType} onValueChange={(value) => updateTypeSpecificField('equipmentType', value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Dry Van">Dry Van</SelectItem>
-                        <SelectItem value="Flatbed">Flatbed</SelectItem>
-                        <SelectItem value="Refrigerated">Refrigerated</SelectItem>
-                        <SelectItem value="Step Deck">Step Deck</SelectItem>
-                        <SelectItem value="Lowboy">Lowboy</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+              {/* Shipment Type Specific Fields */}
+              <TabsContent value="ltl" className="space-y-4">
+                <div className="bg-green-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4">LTL Freight Details</h3>
                   
-                  <div>
-                    <Label htmlFor="number-of-trucks">Number of Trucks</Label>
-                    <Input
-                      id="number-of-trucks"
-                      type="number"
-                      value={shipmentData.ftl?.numberOfTrucks || 1}
-                      onChange={(e) => updateTypeSpecificField('numberOfTrucks', parseInt(e.target.value))}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Total Weight</Label>
-                    <div className="flex space-x-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <Label className="text-sm font-medium">Number of Units</Label>
                       <Input
                         type="number"
-                        value={shipmentData.ftl?.totalWeight || 25000}
-                        onChange={(e) => updateTypeSpecificField('totalWeight', parseFloat(e.target.value))}
+                        min="1"
+                        value={shipmentData.ltl?.handlingUnits || 1}
+                        onChange={(e) => updateTypeSpecificField('handlingUnits', parseInt(e.target.value))}
                       />
-                      <Select value={shipmentData.ftl?.weightUnit} onValueChange={(value) => updateTypeSpecificField('weightUnit', value)}>
-                        <SelectTrigger className="w-20">
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Unit Type</Label>
+                      <Select value={shipmentData.ltl?.unitType} onValueChange={(value) => updateTypeSpecificField('unitType', value)}>
+                        <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="lbs">lbs</SelectItem>
-                          <SelectItem value="kg">kg</SelectItem>
+                          <SelectItem value="Pallet">Pallets</SelectItem>
+                          <SelectItem value="Crate">Crates</SelectItem>
+                          <SelectItem value="Drum">Drums</SelectItem>
+                          <SelectItem value="Box">Boxes</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Freight Class</Label>
+                      <Select value={shipmentData.ltl?.freightClass} onValueChange={(value) => updateTypeSpecificField('freightClass', value)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="50">Class 50</SelectItem>
+                          <SelectItem value="55">Class 55</SelectItem>
+                          <SelectItem value="60">Class 60</SelectItem>
+                          <SelectItem value="65">Class 65</SelectItem>
+                          <SelectItem value="70">Class 70</SelectItem>
+                          <SelectItem value="77.5">Class 77.5</SelectItem>
+                          <SelectItem value="85">Class 85</SelectItem>
+                          <SelectItem value="92.5">Class 92.5</SelectItem>
+                          <SelectItem value="100">Class 100</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
-                  
-                  <div>
-                    <Label>Total Dimensions (L × W × H)</Label>
-                    <div className="flex space-x-2">
-                      <Input
-                        type="number"
-                        placeholder="L"
-                        value={shipmentData.ftl?.totalLength || 53}
-                        onChange={(e) => updateTypeSpecificField('totalLength', parseFloat(e.target.value))}
-                      />
-                      <Input
-                        type="number"
-                        placeholder="W"
-                        value={shipmentData.ftl?.totalWidth || 8.5}
-                        onChange={(e) => updateTypeSpecificField('totalWidth', parseFloat(e.target.value))}
-                      />
-                      <Input
-                        type="number"
-                        placeholder="H"
-                        value={shipmentData.ftl?.totalHeight || 9}
-                        onChange={(e) => updateTypeSpecificField('totalHeight', parseFloat(e.target.value))}
-                      />
-                      <Select value={shipmentData.ftl?.dimensionUnit} onValueChange={(value) => updateTypeSpecificField('dimensionUnit', value)}>
-                        <SelectTrigger className="w-24">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="feet">ft</SelectItem>
-                          <SelectItem value="meters">m</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
 
-                <div>
-                  <Label>Accessorial Services</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                    {['Loading Assistance', 'Crane Service', 'Inside Delivery', 'Tailgate Service', 'Hazmat Handling', 'Temperature Control'].map((service) => (
-                      <div key={service} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={service}
-                          checked={shipmentData.ftl?.accessorialServices?.includes(service)}
-                          onCheckedChange={(checked) => {
-                            const services = shipmentData.ftl?.accessorialServices || [];
-                            if (checked) {
-                              updateTypeSpecificField('accessorialServices', [...services, service]);
-                            } else {
-                              updateTypeSpecificField('accessorialServices', services.filter(s => s !== service));
-                            }
-                          }}
-                        />
-                        <Label htmlFor={service} className="text-sm">{service}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="heavy-parcel" className="mt-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Heavy Parcel Details</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="shipment-title">Shipment Title</Label>
-                    <Input
-                      id="shipment-title"
-                      value={shipmentData.heavyParcel?.shipmentTitle || ''}
-                      onChange={(e) => updateTypeSpecificField('shipmentTitle', e.target.value)}
-                      placeholder="Describe the shipment"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="material-type">Material Type</Label>
-                    <Select value={shipmentData.heavyParcel?.materialType} onValueChange={(value) => updateTypeSpecificField('materialType', value)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Machinery">Machinery</SelectItem>
-                        <SelectItem value="Industrial Equipment">Industrial Equipment</SelectItem>
-                        <SelectItem value="Bulk Goods">Bulk Goods</SelectItem>
-                        <SelectItem value="Vehicle">Vehicle</SelectItem>
-                        <SelectItem value="Construction Materials">Construction Materials</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="parcel-count">Parcel Count</Label>
-                    <Input
-                      id="parcel-count"
-                      type="number"
-                      value={shipmentData.heavyParcel?.parcelCount || 1}
-                      onChange={(e) => updateTypeSpecificField('parcelCount', parseInt(e.target.value))}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label>Weight per Parcel</Label>
-                    <div className="flex space-x-2">
-                      <Input
-                        type="number"
-                        value={shipmentData.heavyParcel?.weightPerParcel || 500}
-                        onChange={(e) => updateTypeSpecificField('weightPerParcel', parseFloat(e.target.value))}
-                      />
-                      <Select value={shipmentData.heavyParcel?.weightUnit} onValueChange={(value) => updateTypeSpecificField('weightUnit', value)}>
-                        <SelectTrigger className="w-20">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="lbs">lbs</SelectItem>
-                          <SelectItem value="kg">kg</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Dimensions per Parcel (L × W × H)</Label>
-                  <div className="flex space-x-2">
-                    <Input
-                      type="number"
-                      placeholder="Length"
-                      value={shipmentData.heavyParcel?.length || 60}
-                      onChange={(e) => updateTypeSpecificField('length', parseFloat(e.target.value))}
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Width"
-                      value={shipmentData.heavyParcel?.width || 48}
-                      onChange={(e) => updateTypeSpecificField('width', parseFloat(e.target.value))}
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Height"
-                      value={shipmentData.heavyParcel?.height || 60}
-                      onChange={(e) => updateTypeSpecificField('height', parseFloat(e.target.value))}
-                    />
-                    <Select value={shipmentData.heavyParcel?.dimensionUnit} onValueChange={(value) => updateTypeSpecificField('dimensionUnit', value)}>
-                      <SelectTrigger className="w-24">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="inches">in</SelectItem>
-                        <SelectItem value="cm">cm</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Cubic Volume: {shipmentData.heavyParcel?.cubicVolume || 0} CBM
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="pickup-port">Pickup Port</Label>
-                    <Input
-                      id="pickup-port"
-                      value={shipmentData.heavyParcel?.pickupPort || ''}
-                      onChange={(e) => updateTypeSpecificField('pickupPort', e.target.value)}
-                      placeholder="Enter pickup port/terminal"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="delivery-port">Delivery Port</Label>
-                    <Input
-                      id="delivery-port"
-                      value={shipmentData.heavyParcel?.deliveryPort || ''}
-                      onChange={(e) => updateTypeSpecificField('deliveryPort', e.target.value)}
-                      placeholder="Enter delivery port/terminal"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="special-handling-notes">Special Handling Notes</Label>
-                  <Textarea
-                    id="special-handling-notes"
-                    value={shipmentData.heavyParcel?.specialHandlingNotes || ''}
-                    onChange={(e) => updateTypeSpecificField('specialHandlingNotes', e.target.value)}
-                    placeholder="Any special handling requirements..."
-                  />
-                </div>
-
-                <div>
-                  <Label>Additional Services</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                    {['Crane Unloading', 'Hazardous Material Permit', 'White Glove Service', 'Storage Services', 'Customs Clearance', 'Insurance Coverage'].map((service) => (
-                      <div key={service} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={service}
-                          checked={shipmentData.heavyParcel?.additionalServices?.includes(service)}
-                          onCheckedChange={(checked) => {
-                            const services = shipmentData.heavyParcel?.additionalServices || [];
-                            if (checked) {
-                              updateTypeSpecificField('additionalServices', [...services, service]);
-                            } else {
-                              updateTypeSpecificField('additionalServices', services.filter(s => s !== service));
-                            }
-                          }}
-                        />
-                        <Label htmlFor={service} className="text-sm">{service}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-
-          <div className="mt-8 flex justify-center">
-            <Button
-              onClick={handleGetRates}
-              disabled={isLoading}
-              className="px-8 py-3 text-lg"
-              size="lg"
-            >
-              {isLoading ? 'Getting Rates...' : 'Get Rates'}
-            </Button>
-          </div>
-
-          {/* Rate Options */}
-          {rateOptions.length > 0 && (
-            <div className="mt-8">
-              <h3 className="text-xl font-semibold mb-4">Rate Options</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {rateOptions.map((rate) => (
-                  <Card 
-                    key={rate.id} 
-                    className={`cursor-pointer transition-all ${selectedRate?.id === rate.id ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:shadow-md'}`}
-                    onClick={() => setSelectedRate(rate)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-semibold">{rate.carrier}</h4>
-                        <Badge variant="secondary">{rate.serviceLevel}</Badge>
-                      </div>
-                      <div className="text-2xl font-bold text-green-600 mb-2">
-                        ${rate.rateAmount.toFixed(2)}
-                      </div>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <p>Transit: {rate.transitTime}</p>
-                        <p>Insurance: {rate.insuranceOptions}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-              
-              {selectedRate && (
-                <div className="mt-4 flex justify-center">
-                  <Button
-                    onClick={handleBookLoad}
-                    disabled={isLoading}
-                    className="px-8 py-3"
-                    size="lg"
-                  >
-                    {isLoading ? 'Booking...' : 'Book Load'}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Booking Confirmation */}
-          {bookingConfirmation && (
-            <div className="mt-8">
-              <Card className="border-green-200 bg-green-50">
-                <CardHeader>
-                  <CardTitle className="text-green-800 flex items-center">
-                    <CalendarDays className="h-5 w-5 mr-2" />
-                    Booking Confirmed
-                    {testMode && <Badge variant="outline" className="ml-2">Test Mode</Badge>}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <p><strong>Booking ID:</strong> {bookingConfirmation.bookingId}</p>
-                      <p><strong>Tracking Number:</strong> {bookingConfirmation.trackingNumber}</p>
-                      <p><strong>Status:</strong> {bookingConfirmation.status}</p>
+                      <Label className="text-sm font-medium">Weight per Unit</Label>
+                      <div className="flex space-x-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={shipmentData.ltl?.weightPerUnit || 100}
+                          onChange={(e) => updateTypeSpecificField('weightPerUnit', parseFloat(e.target.value))}
+                          placeholder="Weight"
+                        />
+                        <Select value={shipmentData.ltl?.weightUnit} onValueChange={(value) => updateTypeSpecificField('weightUnit', value)}>
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="lbs">lbs</SelectItem>
+                            <SelectItem value="kg">kg</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
+                    
                     <div>
-                      <p><strong>Carrier:</strong> {bookingConfirmation.carrier}</p>
-                      <p><strong>Service Level:</strong> {bookingConfirmation.serviceLevel}</p>
-                      <p><strong>Total Amount:</strong> ${bookingConfirmation.totalAmount.toFixed(2)}</p>
+                      <Label className="text-sm font-medium">Dimensions (L × W × H)</Label>
+                      <div className="flex space-x-1">
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="L"
+                          value={shipmentData.ltl?.length || 48}
+                          onChange={(e) => updateTypeSpecificField('length', parseFloat(e.target.value))}
+                        />
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="W"
+                          value={shipmentData.ltl?.width || 40}
+                          onChange={(e) => updateTypeSpecificField('width', parseFloat(e.target.value))}
+                        />
+                        <Input
+                          type="number"
+                          min="1"
+                          placeholder="H"
+                          value={shipmentData.ltl?.height || 48}
+                          onChange={(e) => updateTypeSpecificField('height', parseFloat(e.target.value))}
+                        />
+                        <Select value={shipmentData.ltl?.dimensionUnit} onValueChange={(value) => updateTypeSpecificField('dimensionUnit', value)}>
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="inches">in</SelectItem>
+                            <SelectItem value="cm">cm</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="ftl" className="space-y-4">
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4">Full Truckload Details</h3>
                   
-                  <div className="mt-6 space-y-2">
-                    <Button onClick={handleDirectLabel} className="w-full">
-                      Direct Label {testMode ? '(Test Mode)' : ''}
-                    </Button>
-                    <Button variant="outline" disabled className="w-full">
-                      Label After Payment (Coming Soon)
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <Label className="text-sm font-medium">Equipment Type</Label>
+                      <Select value={shipmentData.ftl?.equipmentType} onValueChange={(value) => updateTypeSpecificField('equipmentType', value)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Dry Van">Dry Van (53ft)</SelectItem>
+                          <SelectItem value="Flatbed">Flatbed</SelectItem>
+                          <SelectItem value="Refrigerated">Refrigerated (Reefer)</SelectItem>
+                          <SelectItem value="Step Deck">Step Deck</SelectItem>
+                          <SelectItem value="Lowboy">Lowboy</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Total Weight</Label>
+                      <div className="flex space-x-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={shipmentData.ftl?.totalWeight || 25000}
+                          onChange={(e) => updateTypeSpecificField('totalWeight', parseFloat(e.target.value))}
+                          placeholder="Weight"
+                        />
+                        <Select value={shipmentData.ftl?.weightUnit} onValueChange={(value) => updateTypeSpecificField('weightUnit', value)}>
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="lbs">lbs</SelectItem>
+                            <SelectItem value="kg">kg</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="heavy-parcel" className="space-y-4">
+                <div className="bg-purple-50 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4">Heavy Parcel Details</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <Label className="text-sm font-medium">Shipment Description</Label>
+                      <Input
+                        value={shipmentData.heavyParcel?.shipmentTitle || ''}
+                        onChange={(e) => updateTypeSpecificField('shipmentTitle', e.target.value)}
+                        placeholder="Describe what you're shipping"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Material Type</Label>
+                      <Select value={shipmentData.heavyParcel?.materialType} onValueChange={(value) => updateTypeSpecificField('materialType', value)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Machinery">Machinery</SelectItem>
+                          <SelectItem value="Industrial Equipment">Industrial Equipment</SelectItem>
+                          <SelectItem value="Vehicle">Vehicle</SelectItem>
+                          <SelectItem value="Construction Materials">Construction Materials</SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-sm font-medium">Number of Pieces</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={shipmentData.heavyParcel?.parcelCount || 1}
+                        onChange={(e) => updateTypeSpecificField('parcelCount', parseInt(e.target.value))}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Weight per Piece</Label>
+                      <div className="flex space-x-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          value={shipmentData.heavyParcel?.weightPerParcel || 500}
+                          onChange={(e) => updateTypeSpecificField('weightPerParcel', parseFloat(e.target.value))}
+                        />
+                        <Select value={shipmentData.heavyParcel?.weightUnit} onValueChange={(value) => updateTypeSpecificField('weightUnit', value)}>
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="lbs">lbs</SelectItem>
+                            <SelectItem value="kg">kg</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label className="text-sm font-medium">Cubic Volume</Label>
+                      <div className="bg-white px-3 py-2 border rounded text-sm">
+                        {shipmentData.heavyParcel?.cubicVolume || 0} CBM
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Additional Options */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="insurance-required"
+                    checked={shipmentData.common.insuranceRequired}
+                    onCheckedChange={(checked) => updateCommonField('insuranceRequired', checked)}
+                  />
+                  <Label htmlFor="insurance-required" className="text-sm font-medium">
+                    Add insurance coverage
+                  </Label>
+                </div>
+
+                <div>
+                  <Label htmlFor="special-instructions" className="text-sm font-medium">Special Instructions (Optional)</Label>
+                  <Textarea
+                    id="special-instructions"
+                    value={shipmentData.common.specialInstructions}
+                    onChange={(e) => updateCommonField('specialInstructions', e.target.value)}
+                    placeholder="Any special handling requirements, delivery instructions, etc."
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 flex justify-center">
+              <Button
+                onClick={handleGetRates}
+                disabled={isLoading || !hasApiKey}
+                size="lg"
+                className="px-12 py-3 text-lg bg-blue-600 hover:bg-blue-700"
+              >
+                {isLoading ? 'Getting Rates...' : 'Get Shipping Rates'}
+              </Button>
+            </div>
+
+            {/* Rate Options Display */}
+            {rateOptions.length > 0 && (
+              <div className="mt-8">
+                <h3 className="text-xl font-semibold mb-6 text-center">Choose Your Rate</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {rateOptions.map((rate) => (
+                    <Card 
+                      key={rate.id} 
+                      className={`cursor-pointer transition-all hover:shadow-lg ${
+                        selectedRate?.id === rate.id ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+                      }`}
+                      onClick={() => setSelectedRate(rate)}
+                    >
+                      <CardContent className="p-6">
+                        <div className="text-center">
+                          <h4 className="font-semibold text-lg mb-2">{rate.carrier}</h4>
+                          <Badge variant="secondary" className="mb-3">{rate.serviceLevel}</Badge>
+                          <div className="text-3xl font-bold text-green-600 mb-3">
+                            ${rate.rateAmount.toFixed(2)}
+                          </div>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <p><strong>Transit:</strong> {rate.transitTime}</p>
+                            <p><strong>Insurance:</strong> {rate.insuranceOptions}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                
+                {selectedRate && (
+                  <div className="mt-6 flex justify-center">
+                    <Button
+                      onClick={handleBookLoad}
+                      disabled={isLoading}
+                      size="lg"
+                      className="px-12 py-3 text-lg bg-green-600 hover:bg-green-700"
+                    >
+                      {isLoading ? 'Booking...' : 'Book This Shipment'}
                     </Button>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+                )}
+              </div>
+            )}
+
+            {/* Booking Confirmation */}
+            {bookingConfirmation && (
+              <div className="mt-8">
+                <Card className="border-green-200 bg-green-50">
+                  <CardHeader>
+                    <CardTitle className="text-green-800 flex items-center justify-center">
+                      <CheckCircle className="h-6 w-6 mr-2" />
+                      Shipment Booked Successfully!
+                      <Badge variant="outline" className="ml-2">Test Mode</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-center space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                      <div>
+                        <p><strong>Booking ID:</strong> {bookingConfirmation.bookingId}</p>
+                        <p><strong>Tracking Number:</strong> {bookingConfirmation.trackingNumber}</p>
+                        <p><strong>Status:</strong> {bookingConfirmation.status}</p>
+                      </div>
+                      <div>
+                        <p><strong>Carrier:</strong> {bookingConfirmation.carrier}</p>
+                        <p><strong>Service:</strong> {bookingConfirmation.serviceLevel}</p>
+                        <p><strong>Total Cost:</strong> ${bookingConfirmation.totalAmount.toFixed(2)}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-4 space-y-3">
+                      <Button onClick={handleDirectLabel} className="w-full bg-blue-600 hover:bg-blue-700">
+                        Download Test Labels & BOL
+                      </Button>
+                      <p className="text-sm text-gray-600">
+                        📧 A confirmation email will be sent to {shipmentData.common.contactEmail}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </Tabs>
         </CardContent>
       </Card>
     </div>
