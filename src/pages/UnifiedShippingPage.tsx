@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,7 @@ import AddressAutoComplete from '@/components/shipping/AddressAutoComplete';
 import ApiKeyModal from '@/components/shipping/unified/ApiKeyModal';
 import { userProfileService } from '@/services/UserProfileService';
 import { supabase } from '@/integrations/supabase/client';
+import { ShipmentType, ShippingFormData, ShippingRate } from '@/types/unified-shipping';
 
 export type ShipmentType = 'LTL' | 'FTL' | 'HEAVY_PARCEL';
 

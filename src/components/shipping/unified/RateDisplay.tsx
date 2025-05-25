@@ -1,10 +1,9 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Truck, Clock, Shield, Star, Loader2 } from 'lucide-react';
-import { ShipmentType, ShippingRate } from '@/pages/UnifiedShippingPage';
+import { ShipmentType, ShippingRate } from '@/types/unified-shipping';
 
 interface RateDisplayProps {
   rates: ShippingRate[];
