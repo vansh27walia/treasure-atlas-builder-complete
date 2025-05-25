@@ -9,10 +9,10 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Truck, Ship, Key, TestTube, Play, MapPin, CheckCircle, Save } from 'lucide-react';
+import { Package, Truck, Ship, Key, TestTube, Play, MapPin, CheckCircle, Save, Shield } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import AddressAutoComplete from '@/components/shipping/AddressAutoComplete';
-import ApiKeyModal from '@/components/shipping/unified/ApiKeyModal';
+import ApiKeyManagement from '@/components/shipping/unified/ApiKeyManagement';
 import { userProfileService } from '@/services/UserProfileService';
 import { supabase } from '@/integrations/supabase/client';
 import { ShipmentType, ShippingFormData, ShippingRate } from '@/types/unified-shipping';
@@ -51,6 +51,12 @@ const UnifiedShippingPage: React.FC = () => {
     } catch (error) {
       console.error('Error checking API key:', error);
     }
+  };
+
+  const handleApiKeySaved = () => {
+    checkApiKey();
+    setShowApiModal(false);
+    toast.success('🔐 API key configured! You can now get shipping rates.');
   };
 
   const handleShipmentTypeChange = (type: ShipmentType) => {
@@ -194,13 +200,10 @@ const UnifiedShippingPage: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <ApiKeyModal 
+      <ApiKeyManagement 
         isOpen={showApiModal} 
         onClose={() => setShowApiModal(false)}
-        onSaved={() => {
-          checkApiKey();
-          toast.success('API key saved! You can now get shipping rates.');
-        }}
+        onApiKeySaved={handleApiKeySaved}
       />
 
       {/* Header */}
@@ -226,10 +229,10 @@ const UnifiedShippingPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={() => setShowApiModal(true)}
-              className="flex items-center space-x-1"
+              className="flex items-center space-x-1 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 hover:from-blue-100 hover:to-indigo-100"
             >
-              <Key className="h-4 w-4" />
-              <span>API Key</span>
+              <Shield className="h-4 w-4 text-blue-600" />
+              <span className="text-blue-700">Secure API</span>
             </Button>
           </div>
         </div>
@@ -253,21 +256,21 @@ const UnifiedShippingPage: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="bg-amber-100 p-2 rounded-full">
-                  <Key className="h-6 w-6 text-amber-600" />
+                  <Shield className="h-6 w-6 text-amber-600" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-amber-800">Setup Required</h3>
+                  <h3 className="text-lg font-semibold text-amber-800">Secure Setup Required</h3>
                   <p className="text-amber-700 text-sm">
-                    Configure your uShip API key to get live shipping rates and book shipments
+                    Configure your uShip API key securely to get live shipping rates and book shipments
                   </p>
                 </div>
               </div>
               <Button 
                 onClick={() => setShowApiModal(true)} 
-                className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2"
+                className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white px-6 py-2 shadow-lg"
               >
-                <Key className="h-4 w-4 mr-2" />
-                Add API Key
+                <Shield className="h-4 w-4 mr-2" />
+                Secure Setup
               </Button>
             </div>
           </CardContent>
