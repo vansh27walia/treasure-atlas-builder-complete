@@ -155,7 +155,7 @@ const UnifiedShippingPage: React.FC = () => {
           rate: 850.00,
           transitTime: '3-5 business days',
           currency: 'USD',
-          insuranceOptions: ['Up to $50,000 coverage']
+          insuranceOptions: 'Up to $50,000 coverage'
         },
         {
           id: '2',
@@ -164,7 +164,7 @@ const UnifiedShippingPage: React.FC = () => {
           rate: 1200.00,
           transitTime: '1-2 business days',
           currency: 'USD',
-          insuranceOptions: ['Up to $100,000 coverage']
+          insuranceOptions: 'Up to $100,000 coverage'
         },
         {
           id: '3',
@@ -173,7 +173,7 @@ const UnifiedShippingPage: React.FC = () => {
           rate: 650.00,
           transitTime: '5-7 business days',
           currency: 'USD',
-          insuranceOptions: ['Up to $25,000 coverage']
+          insuranceOptions: 'Up to $25,000 coverage'
         }
       ];
 
@@ -726,7 +726,7 @@ const UnifiedShippingPage: React.FC = () => {
                     </div>
                     <div className="text-sm text-gray-600 space-y-2">
                       <p><strong>Transit:</strong> {rate.transitTime}</p>
-                      <p><strong>Insurance:</strong> {rate.insuranceOptions?.[0]}</p>
+                      <p><strong>Insurance:</strong> {rate.insuranceOptions}</p>
                     </div>
                     {selectedRate?.id === rate.id && (
                       <div className="mt-4">
