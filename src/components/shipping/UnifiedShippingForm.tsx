@@ -84,8 +84,20 @@ const UnifiedShippingForm: React.FC<UnifiedShippingFormProps> = ({ onRatesReceiv
     resolver: zodResolver(shipmentType === 'LTL' ? ltlSchema : ftlSchema),
     defaultValues: {
       shipment_type: 'LTL',
-      origin: { country: 'US' },
-      destination: { country: 'US' },
+      origin: { 
+        street: '',
+        city: '',
+        state: '',
+        zip: '',
+        country: 'US' 
+      },
+      destination: { 
+        street: '',
+        city: '',
+        state: '',
+        zip: '',
+        country: 'US' 
+      },
       pickup_date: new Date().toISOString().split('T')[0],
       packages: [{ 
         length: 48, 
@@ -109,11 +121,45 @@ const UnifiedShippingForm: React.FC<UnifiedShippingFormProps> = ({ onRatesReceiv
   const onSubmit = async (data: UnifiedFormData) => {
     setIsLoading(true);
     try {
-      console.log('Submitting form data:', data);
+      console.log('Form submission data:', JSON.stringify(data, null, 2));
+
+      // Validate that required fields are filled
+      if (!data.origin.street || !data.origin.city || !data.origin.state || !data.origin.zip) {
+        toast.error('Please fill in all origin address fields');
+        return;
+      }
+
+      if (!data.destination.street || !data.destination.city || !data.destination.state || !data.destination.zip) {
+        toast.error('Please fill in all destination address fields');
+        return;
+      }
+
+      // Clean and validate the data before sending
+      const cleanedData = {
+        ...data,
+        origin: {
+          street: data.origin.street.trim(),
+          city: data.origin.city.trim(),
+          state: data.origin.state.trim(),
+          zip: data.origin.zip.trim(),
+          country: data.origin.country || 'US'
+        },
+        destination: {
+          street: data.destination.street.trim(),
+          city: data.destination.city.trim(),
+          state: data.destination.state.trim(),
+          zip: data.destination.zip.trim(),
+          country: data.destination.country || 'US'
+        }
+      };
+
+      console.log('Cleaned data being sent to API:', JSON.stringify(cleanedData, null, 2));
 
       const { data: result, error } = await supabase.functions.invoke('get-uship-rates', {
-        body: { shipmentData: data }
+        body: { shipmentData: cleanedData }
       });
+
+      console.log('Supabase function response:', JSON.stringify(result, null, 2));
 
       if (error) {
         console.error('Supabase function error:', error);
@@ -131,14 +177,18 @@ const UnifiedShippingForm: React.FC<UnifiedShippingFormProps> = ({ onRatesReceiv
       
       if (result.rates && result.rates.length > 0) {
         onRatesReceived(result.rates, data.shipment_type);
-        toast.success(`Found ${result.rates.length} shipping rates`);
+        if (result.mock_data) {
+          toast.success(`Found ${result.rates.length} demo shipping rates (API in development)`);
+        } else {
+          toast.success(`Found ${result.rates.length} shipping rates`);
+        }
       } else {
         toast.info('No rates available for this shipment');
       }
 
     } catch (error) {
       console.error('Error fetching rates:', error);
-      toast.error('An unexpected error occurred');
+      toast.error('An unexpected error occurred while fetching rates');
     } finally {
       setIsLoading(false);
     }
