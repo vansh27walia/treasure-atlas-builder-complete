@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, CalendarDays, MapPin, Package, Truck, Ship, Settings, TestTube, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Calendar, CalendarDays, MapPin, Package, Truck, Ship, Settings, TestTube, AlertTriangle, CheckCircle, Key, Save, Play } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import AddressAutoComplete from '../AddressAutoComplete';
 import ApiKeySettings from './ApiKeySettings';
@@ -257,7 +258,7 @@ const UnifiedShipmentForm: React.FC = () => {
       const { data, error } = await supabase.functions.invoke('uship-rates', {
         body: { 
           shipmentData: shipmentData,
-          testMode: true
+          testMode: testMode
         }
       });
 
@@ -350,13 +351,13 @@ const UnifiedShipmentForm: React.FC = () => {
     window.open(mockDocuments.bolUrl, '_blank');
   };
 
-  const handlePickupAddressSelected = (place: GoogleMapsPlace) => {
+  const handlePickupAddressSelected = (place: any) => {
     if (place && place.formatted_address) {
       updateCommonField('pickupAddress', place.formatted_address);
     }
   };
 
-  const handleDeliveryAddressSelected = (place: GoogleMapsPlace) => {
+  const handleDeliveryAddressSelected = (place: any) => {
     if (place && place.formatted_address) {
       updateCommonField('deliveryAddress', place.formatted_address);
     }
@@ -371,89 +372,152 @@ const UnifiedShipmentForm: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* Header */}
+      {/* Header with Test Mode Toggle */}
       <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-blue-800 mb-4">Ship Your Freight</h1>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+        <div className="flex items-center justify-center mb-6">
+          <h1 className="text-4xl font-bold text-blue-800 mr-6">Ship Your Freight</h1>
+          
+          {/* Test Mode Toggle */}
+          <div className="flex items-center space-x-4 bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
+            <TestTube className="h-5 w-5 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">Test Mode</span>
+            <Switch 
+              checked={testMode} 
+              onCheckedChange={setTestMode}
+              className="data-[state=checked]:bg-green-600"
+            />
+            <Play className="h-5 w-5 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">Live Mode</span>
+          </div>
+        </div>
+        
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-4">
           Get instant quotes and book your shipment in minutes. Compare rates from top carriers for LTL, Full Truckload, and Heavy Parcel shipping.
         </p>
+        
+        {testMode && (
+          <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-300">
+            TEST MODE - No billing will occur
+          </Badge>
+        )}
       </div>
 
-      {/* API Key Status */}
+      {/* API Key Status - Enhanced UI */}
       {!hasApiKey && (
-        <Card className="mb-6 border-amber-200 bg-amber-50">
-          <CardContent className="p-4">
+        <Card className="mb-6 border-2 border-amber-300 bg-gradient-to-r from-amber-50 to-orange-50">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="h-5 w-5 text-amber-600" />
-                <span className="text-amber-800 font-medium">Setup Required</span>
+              <div className="flex items-center space-x-3">
+                <div className="bg-amber-100 p-2 rounded-full">
+                  <Key className="h-6 w-6 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-amber-800">Setup Required</h3>
+                  <p className="text-amber-700 text-sm">
+                    Configure your uShip API key to get live shipping rates and book shipments
+                  </p>
+                </div>
               </div>
-              <Button onClick={() => setShowApiSettings(true)} size="sm">
-                Configure API Key
+              <Button 
+                onClick={() => setShowApiSettings(true)} 
+                className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2"
+              >
+                <Key className="h-4 w-4 mr-2" />
+                Add API Key
               </Button>
             </div>
-            <p className="text-amber-700 text-sm mt-2">
-              Configure your uShip API key to get live shipping rates and book shipments.
-            </p>
           </CardContent>
         </Card>
       )}
 
       {hasApiKey && (
-        <Card className="mb-6 border-green-200 bg-green-50">
-          <CardContent className="p-4">
+        <Card className="mb-6 border-2 border-green-300 bg-gradient-to-r from-green-50 to-emerald-50">
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="h-5 w-5 text-green-600" />
-                <span className="text-green-800 font-medium">Ready to Ship</span>
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">Test Mode</Badge>
+              <div className="flex items-center space-x-3">
+                <div className="bg-green-100 p-2 rounded-full">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-green-800">Ready to Ship</h3>
+                  <p className="text-green-700 text-sm">
+                    Your uShip API is configured and ready for {testMode ? 'test' : 'live'} shipping
+                  </p>
+                </div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setShowApiSettings(true)}>
-                <Settings className="h-4 w-4 mr-1" />
-                Settings
-              </Button>
+              <div className="flex items-center space-x-3">
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  {testMode ? 'Test Mode' : 'Live Mode'}
+                </Badge>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowApiSettings(true)}
+                  className="border-green-300 text-green-700 hover:bg-green-50"
+                >
+                  <Settings className="h-4 w-4 mr-1" />
+                  Settings
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      <Card className="mb-6">
-        <CardHeader>
+      <Card className="mb-6 shadow-lg border-2 border-blue-200">
+        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
           <CardTitle className="flex items-center justify-between">
-            <span>Choose Your Shipment Type</span>
-            <Button variant="outline" size="sm" onClick={populateMockData}>
+            <span className="text-xl text-blue-800">Choose Your Shipment Type</span>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={populateMockData}
+              className="bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+            >
+              <Package className="h-4 w-4 mr-2" />
               Fill Sample Data
             </Button>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6">
           <Tabs value={activeType} onValueChange={(value) => handleTypeChange(value as ShipmentType)}>
-            <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="ltl" className="flex items-center space-x-2">
-                <Package className="h-4 w-4" />
-                <span>LTL Freight</span>
+            <TabsList className="grid w-full grid-cols-3 mb-6 h-16">
+              <TabsTrigger 
+                value="ltl" 
+                className="flex flex-col items-center space-y-1 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800"
+              >
+                <Package className="h-5 w-5" />
+                <span className="text-sm font-medium">LTL Freight</span>
               </TabsTrigger>
-              <TabsTrigger value="ftl" className="flex items-center space-x-2">
-                <Truck className="h-4 w-4" />
-                <span>Full Truckload</span>
+              <TabsTrigger 
+                value="ftl" 
+                className="flex flex-col items-center space-y-1 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800"
+              >
+                <Truck className="h-5 w-5" />
+                <span className="text-sm font-medium">Full Truckload</span>
               </TabsTrigger>
-              <TabsTrigger value="heavy-parcel" className="flex items-center space-x-2">
-                <Ship className="h-4 w-4" />
-                <span>Heavy Parcel</span>
+              <TabsTrigger 
+                value="heavy-parcel" 
+                className="flex flex-col items-center space-y-1 data-[state=active]:bg-blue-100 data-[state=active]:text-blue-800"
+              >
+                <Ship className="h-5 w-5" />
+                <span className="text-sm font-medium">Heavy Parcel</span>
               </TabsTrigger>
             </TabsList>
 
             {/* Shipping Details Section */}
             <div className="space-y-6">
-              <div className="bg-blue-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold mb-4 flex items-center">
-                  <MapPin className="h-5 w-5 mr-2 text-blue-600" />
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
+                <h3 className="text-xl font-semibold mb-6 flex items-center text-blue-800">
+                  <MapPin className="h-6 w-6 mr-3 text-blue-600" />
                   Shipping Information
                 </h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                   <div>
-                    <Label htmlFor="pickup-address" className="text-sm font-medium">From (Pickup Address) *</Label>
+                    <Label htmlFor="pickup-address" className="text-sm font-semibold text-gray-700 mb-2 block">
+                      From (Pickup Address) *
+                    </Label>
                     <AddressAutoComplete
                       defaultValue={shipmentData.common.pickupAddress}
                       onAddressSelected={handlePickupAddressSelected}
@@ -463,7 +527,9 @@ const UnifiedShipmentForm: React.FC = () => {
                   </div>
                   
                   <div>
-                    <Label htmlFor="delivery-address" className="text-sm font-medium">To (Delivery Address) *</Label>
+                    <Label htmlFor="delivery-address" className="text-sm font-semibold text-gray-700 mb-2 block">
+                      To (Delivery Address) *
+                    </Label>
                     <AddressAutoComplete
                       defaultValue={shipmentData.common.deliveryAddress}
                       onAddressSelected={handleDeliveryAddressSelected}
@@ -473,63 +539,78 @@ const UnifiedShipmentForm: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <Label htmlFor="pickup-date" className="text-sm font-medium">Pickup Date</Label>
+                    <Label htmlFor="pickup-date" className="text-sm font-semibold text-gray-700 mb-2 block">
+                      Pickup Date
+                    </Label>
                     <Input
                       id="pickup-date"
                       type="date"
                       value={shipmentData.common.pickupDate}
                       onChange={(e) => updateCommonField('pickupDate', e.target.value)}
                       min={new Date().toISOString().split('T')[0]}
+                      className="border-2 border-gray-300 focus:border-blue-500"
                     />
                   </div>
                   
                   <div>
-                    <Label htmlFor="delivery-date" className="text-sm font-medium">Delivery Date</Label>
+                    <Label htmlFor="delivery-date" className="text-sm font-semibold text-gray-700 mb-2 block">
+                      Delivery Date
+                    </Label>
                     <Input
                       id="delivery-date"
                       type="date"
                       value={shipmentData.common.deliveryDate}
                       onChange={(e) => updateCommonField('deliveryDate', e.target.value)}
                       min={shipmentData.common.pickupDate || new Date().toISOString().split('T')[0]}
+                      className="border-2 border-gray-300 focus:border-blue-500"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Contact Information */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold mb-4">Contact Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg p-6 border border-gray-200">
+                <h3 className="text-xl font-semibold mb-6 text-gray-800">Contact Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
-                    <Label htmlFor="contact-name" className="text-sm font-medium">Contact Name</Label>
+                    <Label htmlFor="contact-name" className="text-sm font-semibold text-gray-700 mb-2 block">
+                      Contact Name
+                    </Label>
                     <Input
                       id="contact-name"
                       value={shipmentData.common.contactName}
                       onChange={(e) => updateCommonField('contactName', e.target.value)}
                       placeholder="Your name"
+                      className="border-2 border-gray-300 focus:border-blue-500"
                     />
                   </div>
                   
                   <div>
-                    <Label htmlFor="contact-phone" className="text-sm font-medium">Phone Number</Label>
+                    <Label htmlFor="contact-phone" className="text-sm font-semibold text-gray-700 mb-2 block">
+                      Phone Number
+                    </Label>
                     <Input
                       id="contact-phone"
                       value={shipmentData.common.contactPhone}
                       onChange={(e) => updateCommonField('contactPhone', e.target.value)}
                       placeholder="(555) 123-4567"
+                      className="border-2 border-gray-300 focus:border-blue-500"
                     />
                   </div>
                   
                   <div>
-                    <Label htmlFor="contact-email" className="text-sm font-medium">Email Address</Label>
+                    <Label htmlFor="contact-email" className="text-sm font-semibold text-gray-700 mb-2 block">
+                      Email Address
+                    </Label>
                     <Input
                       id="contact-email"
                       type="email"
                       value={shipmentData.common.contactEmail}
                       onChange={(e) => updateCommonField('contactEmail', e.target.value)}
                       placeholder="your@email.com"
+                      className="border-2 border-gray-300 focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -537,24 +618,25 @@ const UnifiedShipmentForm: React.FC = () => {
 
               {/* Shipment Type Specific Fields */}
               <TabsContent value="ltl" className="space-y-4">
-                <div className="bg-green-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold mb-4">LTL Freight Details</h3>
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6 border border-green-200">
+                  <h3 className="text-xl font-semibold mb-6 text-green-800">LTL Freight Details</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                     <div>
-                      <Label className="text-sm font-medium">Number of Units</Label>
+                      <Label className="text-sm font-semibold text-gray-700 mb-2 block">Number of Units</Label>
                       <Input
                         type="number"
                         min="1"
                         value={shipmentData.ltl?.handlingUnits || 1}
                         onChange={(e) => updateTypeSpecificField('handlingUnits', parseInt(e.target.value))}
+                        className="border-2 border-gray-300 focus:border-green-500"
                       />
                     </div>
                     
                     <div>
-                      <Label className="text-sm font-medium">Unit Type</Label>
+                      <Label className="text-sm font-semibold text-gray-700 mb-2 block">Unit Type</Label>
                       <Select value={shipmentData.ltl?.unitType} onValueChange={(value) => updateTypeSpecificField('unitType', value)}>
-                        <SelectTrigger>
+                        <SelectTrigger className="border-2 border-gray-300 focus:border-green-500">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -567,9 +649,9 @@ const UnifiedShipmentForm: React.FC = () => {
                     </div>
                     
                     <div>
-                      <Label className="text-sm font-medium">Freight Class</Label>
+                      <Label className="text-sm font-semibold text-gray-700 mb-2 block">Freight Class</Label>
                       <Select value={shipmentData.ltl?.freightClass} onValueChange={(value) => updateTypeSpecificField('freightClass', value)}>
-                        <SelectTrigger>
+                        <SelectTrigger className="border-2 border-gray-300 focus:border-green-500">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -587,9 +669,9 @@ const UnifiedShipmentForm: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <Label className="text-sm font-medium">Weight per Unit</Label>
+                      <Label className="text-sm font-semibold text-gray-700 mb-2 block">Weight per Unit</Label>
                       <div className="flex space-x-2">
                         <Input
                           type="number"
@@ -597,9 +679,10 @@ const UnifiedShipmentForm: React.FC = () => {
                           value={shipmentData.ltl?.weightPerUnit || 100}
                           onChange={(e) => updateTypeSpecificField('weightPerUnit', parseFloat(e.target.value))}
                           placeholder="Weight"
+                          className="border-2 border-gray-300 focus:border-green-500"
                         />
                         <Select value={shipmentData.ltl?.weightUnit} onValueChange={(value) => updateTypeSpecificField('weightUnit', value)}>
-                          <SelectTrigger className="w-20">
+                          <SelectTrigger className="w-20 border-2 border-gray-300 focus:border-green-500">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -611,7 +694,7 @@ const UnifiedShipmentForm: React.FC = () => {
                     </div>
                     
                     <div>
-                      <Label className="text-sm font-medium">Dimensions (L × W × H)</Label>
+                      <Label className="text-sm font-semibold text-gray-700 mb-2 block">Dimensions (L × W × H)</Label>
                       <div className="flex space-x-1">
                         <Input
                           type="number"
@@ -619,6 +702,7 @@ const UnifiedShipmentForm: React.FC = () => {
                           placeholder="L"
                           value={shipmentData.ltl?.length || 48}
                           onChange={(e) => updateTypeSpecificField('length', parseFloat(e.target.value))}
+                          className="border-2 border-gray-300 focus:border-green-500"
                         />
                         <Input
                           type="number"
@@ -626,6 +710,7 @@ const UnifiedShipmentForm: React.FC = () => {
                           placeholder="W"
                           value={shipmentData.ltl?.width || 40}
                           onChange={(e) => updateTypeSpecificField('width', parseFloat(e.target.value))}
+                          className="border-2 border-gray-300 focus:border-green-500"
                         />
                         <Input
                           type="number"
@@ -633,9 +718,10 @@ const UnifiedShipmentForm: React.FC = () => {
                           placeholder="H"
                           value={shipmentData.ltl?.height || 48}
                           onChange={(e) => updateTypeSpecificField('height', parseFloat(e.target.value))}
+                          className="border-2 border-gray-300 focus:border-green-500"
                         />
                         <Select value={shipmentData.ltl?.dimensionUnit} onValueChange={(value) => updateTypeSpecificField('dimensionUnit', value)}>
-                          <SelectTrigger className="w-20">
+                          <SelectTrigger className="w-20 border-2 border-gray-300 focus:border-green-500">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -650,14 +736,14 @@ const UnifiedShipmentForm: React.FC = () => {
               </TabsContent>
 
               <TabsContent value="ftl" className="space-y-4">
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold mb-4">Full Truckload Details</h3>
+                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-6 border border-blue-200">
+                  <h3 className="text-xl font-semibold mb-6 text-blue-800">Full Truckload Details</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
-                      <Label className="text-sm font-medium">Equipment Type</Label>
+                      <Label className="text-sm font-semibold text-gray-700 mb-2 block">Equipment Type</Label>
                       <Select value={shipmentData.ftl?.equipmentType} onValueChange={(value) => updateTypeSpecificField('equipmentType', value)}>
-                        <SelectTrigger>
+                        <SelectTrigger className="border-2 border-gray-300 focus:border-blue-500">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -671,7 +757,7 @@ const UnifiedShipmentForm: React.FC = () => {
                     </div>
                     
                     <div>
-                      <Label className="text-sm font-medium">Total Weight</Label>
+                      <Label className="text-sm font-semibold text-gray-700 mb-2 block">Total Weight</Label>
                       <div className="flex space-x-2">
                         <Input
                           type="number"
@@ -679,9 +765,10 @@ const UnifiedShipmentForm: React.FC = () => {
                           value={shipmentData.ftl?.totalWeight || 25000}
                           onChange={(e) => updateTypeSpecificField('totalWeight', parseFloat(e.target.value))}
                           placeholder="Weight"
+                          className="border-2 border-gray-300 focus:border-blue-500"
                         />
                         <Select value={shipmentData.ftl?.weightUnit} onValueChange={(value) => updateTypeSpecificField('weightUnit', value)}>
-                          <SelectTrigger className="w-20">
+                          <SelectTrigger className="w-20 border-2 border-gray-300 focus:border-blue-500">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -696,23 +783,24 @@ const UnifiedShipmentForm: React.FC = () => {
               </TabsContent>
 
               <TabsContent value="heavy-parcel" className="space-y-4">
-                <div className="bg-purple-50 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold mb-4">Heavy Parcel Details</h3>
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-6 border border-purple-200">
+                  <h3 className="text-xl font-semibold mb-6 text-purple-800">Heavy Parcel Details</h3>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                     <div>
-                      <Label className="text-sm font-medium">Shipment Description</Label>
+                      <Label className="text-sm font-semibold text-gray-700 mb-2 block">Shipment Description</Label>
                       <Input
                         value={shipmentData.heavyParcel?.shipmentTitle || ''}
                         onChange={(e) => updateTypeSpecificField('shipmentTitle', e.target.value)}
                         placeholder="Describe what you're shipping"
+                        className="border-2 border-gray-300 focus:border-purple-500"
                       />
                     </div>
                     
                     <div>
-                      <Label className="text-sm font-medium">Material Type</Label>
+                      <Label className="text-sm font-semibold text-gray-700 mb-2 block">Material Type</Label>
                       <Select value={shipmentData.heavyParcel?.materialType} onValueChange={(value) => updateTypeSpecificField('materialType', value)}>
-                        <SelectTrigger>
+                        <SelectTrigger className="border-2 border-gray-300 focus:border-purple-500">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -726,28 +814,30 @@ const UnifiedShipmentForm: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                      <Label className="text-sm font-medium">Number of Pieces</Label>
+                      <Label className="text-sm font-semibold text-gray-700 mb-2 block">Number of Pieces</Label>
                       <Input
                         type="number"
                         min="1"
                         value={shipmentData.heavyParcel?.parcelCount || 1}
                         onChange={(e) => updateTypeSpecificField('parcelCount', parseInt(e.target.value))}
+                        className="border-2 border-gray-300 focus:border-purple-500"
                       />
                     </div>
                     
                     <div>
-                      <Label className="text-sm font-medium">Weight per Piece</Label>
+                      <Label className="text-sm font-semibold text-gray-700 mb-2 block">Weight per Piece</Label>
                       <div className="flex space-x-2">
                         <Input
                           type="number"
                           min="1"
                           value={shipmentData.heavyParcel?.weightPerParcel || 500}
                           onChange={(e) => updateTypeSpecificField('weightPerParcel', parseFloat(e.target.value))}
+                          className="border-2 border-gray-300 focus:border-purple-500"
                         />
                         <Select value={shipmentData.heavyParcel?.weightUnit} onValueChange={(value) => updateTypeSpecificField('weightUnit', value)}>
-                          <SelectTrigger className="w-20">
+                          <SelectTrigger className="w-20 border-2 border-gray-300 focus:border-purple-500">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -759,8 +849,8 @@ const UnifiedShipmentForm: React.FC = () => {
                     </div>
                     
                     <div>
-                      <Label className="text-sm font-medium">Cubic Volume</Label>
-                      <div className="bg-white px-3 py-2 border rounded text-sm">
+                      <Label className="text-sm font-semibold text-gray-700 mb-2 block">Cubic Volume</Label>
+                      <div className="bg-white px-3 py-2 border-2 border-gray-300 rounded text-sm font-medium">
                         {shipmentData.heavyParcel?.cubicVolume || 0} CBM
                       </div>
                     </div>
@@ -769,26 +859,30 @@ const UnifiedShipmentForm: React.FC = () => {
               </TabsContent>
 
               {/* Additional Options */}
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2">
+              <div className="space-y-4 bg-gray-50 rounded-lg p-6 border border-gray-200">
+                <div className="flex items-center space-x-3">
                   <Checkbox
                     id="insurance-required"
                     checked={shipmentData.common.insuranceRequired}
                     onCheckedChange={(checked) => updateCommonField('insuranceRequired', checked)}
+                    className="border-2 border-gray-400"
                   />
-                  <Label htmlFor="insurance-required" className="text-sm font-medium">
+                  <Label htmlFor="insurance-required" className="text-sm font-semibold text-gray-700">
                     Add insurance coverage
                   </Label>
                 </div>
 
                 <div>
-                  <Label htmlFor="special-instructions" className="text-sm font-medium">Special Instructions (Optional)</Label>
+                  <Label htmlFor="special-instructions" className="text-sm font-semibold text-gray-700 mb-2 block">
+                    Special Instructions (Optional)
+                  </Label>
                   <Textarea
                     id="special-instructions"
                     value={shipmentData.common.specialInstructions}
                     onChange={(e) => updateCommonField('specialInstructions', e.target.value)}
                     placeholder="Any special handling requirements, delivery instructions, etc."
                     rows={3}
+                    className="border-2 border-gray-300 focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -799,36 +893,64 @@ const UnifiedShipmentForm: React.FC = () => {
                 onClick={handleGetRates}
                 disabled={isLoading || !hasApiKey}
                 size="lg"
-                className="px-12 py-3 text-lg bg-blue-600 hover:bg-blue-700"
+                className="px-12 py-4 text-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg border-0"
               >
-                {isLoading ? 'Getting Rates...' : 'Get Shipping Rates'}
+                {isLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
+                    Getting Rates...
+                  </>
+                ) : (
+                  <>
+                    <Truck className="h-5 w-5 mr-3" />
+                    Get Shipping Rates
+                  </>
+                )}
               </Button>
             </div>
 
-            {/* Rate Options Display */}
+            {/* Rate Options Display - Enhanced */}
             {rateOptions.length > 0 && (
               <div className="mt-8">
-                <h3 className="text-xl font-semibold mb-6 text-center">Choose Your Rate</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <h3 className="text-2xl font-bold mb-6 text-center text-gray-800">Choose Your Rate</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {rateOptions.map((rate) => (
                     <Card 
                       key={rate.id} 
-                      className={`cursor-pointer transition-all hover:shadow-lg ${
-                        selectedRate?.id === rate.id ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+                      className={`cursor-pointer transition-all duration-300 hover:shadow-xl border-2 ${
+                        selectedRate?.id === rate.id 
+                          ? 'ring-4 ring-blue-300 bg-blue-50 border-blue-400 shadow-xl' 
+                          : 'border-gray-200 hover:border-blue-300'
                       }`}
                       onClick={() => setSelectedRate(rate)}
                     >
                       <CardContent className="p-6">
                         <div className="text-center">
-                          <h4 className="font-semibold text-lg mb-2">{rate.carrier}</h4>
-                          <Badge variant="secondary" className="mb-3">{rate.serviceLevel}</Badge>
-                          <div className="text-3xl font-bold text-green-600 mb-3">
+                          <h4 className="font-bold text-lg mb-2 text-gray-800">{rate.carrier}</h4>
+                          <Badge 
+                            variant="secondary" 
+                            className={`mb-4 ${
+                              selectedRate?.id === rate.id 
+                                ? 'bg-blue-200 text-blue-800' 
+                                : 'bg-gray-200 text-gray-700'
+                            }`}
+                          >
+                            {rate.serviceLevel}
+                          </Badge>
+                          <div className="text-4xl font-bold text-green-600 mb-4">
                             ${rate.rateAmount.toFixed(2)}
                           </div>
-                          <div className="text-sm text-gray-600 space-y-1">
+                          <div className="text-sm text-gray-600 space-y-2">
                             <p><strong>Transit:</strong> {rate.transitTime}</p>
                             <p><strong>Insurance:</strong> {rate.insuranceOptions}</p>
                           </div>
+                          {selectedRate?.id === rate.id && (
+                            <div className="mt-4">
+                              <Badge variant="default" className="bg-blue-600 text-white">
+                                ✓ Selected
+                              </Badge>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -836,51 +958,75 @@ const UnifiedShipmentForm: React.FC = () => {
                 </div>
                 
                 {selectedRate && (
-                  <div className="mt-6 flex justify-center">
+                  <div className="mt-8 flex justify-center">
                     <Button
                       onClick={handleBookLoad}
                       disabled={isLoading}
                       size="lg"
-                      className="px-12 py-3 text-lg bg-green-600 hover:bg-green-700"
+                      className="px-12 py-4 text-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg border-0"
                     >
-                      {isLoading ? 'Booking...' : 'Book This Shipment'}
+                      {isLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
+                          Booking...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-5 w-5 mr-3" />
+                          Book This Shipment
+                        </>
+                      )}
                     </Button>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Booking Confirmation */}
+            {/* Booking Confirmation - Enhanced */}
             {bookingConfirmation && (
               <div className="mt-8">
-                <Card className="border-green-200 bg-green-50">
+                <Card className="border-4 border-green-300 bg-gradient-to-r from-green-50 to-emerald-50 shadow-2xl">
                   <CardHeader>
-                    <CardTitle className="text-green-800 flex items-center justify-center">
-                      <CheckCircle className="h-6 w-6 mr-2" />
+                    <CardTitle className="text-green-800 flex items-center justify-center text-2xl">
+                      <CheckCircle className="h-8 w-8 mr-3" />
                       Shipment Booked Successfully!
-                      <Badge variant="outline" className="ml-2">Test Mode</Badge>
+                      <Badge variant="outline" className="ml-3 text-lg px-3 py-1">
+                        {testMode ? 'Test Mode' : 'Live Mode'}
+                      </Badge>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="text-center space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-                      <div>
-                        <p><strong>Booking ID:</strong> {bookingConfirmation.bookingId}</p>
-                        <p><strong>Tracking Number:</strong> {bookingConfirmation.trackingNumber}</p>
-                        <p><strong>Status:</strong> {bookingConfirmation.status}</p>
+                  <CardContent className="text-center space-y-6 p-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left bg-white rounded-lg p-6 border border-green-200">
+                      <div className="space-y-3">
+                        <p className="text-lg"><strong>Booking ID:</strong> {bookingConfirmation.bookingId}</p>
+                        <p className="text-lg"><strong>Tracking Number:</strong> {bookingConfirmation.trackingNumber}</p>
+                        <p className="text-lg"><strong>Status:</strong> 
+                          <Badge className="ml-2 bg-green-600 text-white">
+                            {bookingConfirmation.status}
+                          </Badge>
+                        </p>
                       </div>
-                      <div>
-                        <p><strong>Carrier:</strong> {bookingConfirmation.carrier}</p>
-                        <p><strong>Service:</strong> {bookingConfirmation.serviceLevel}</p>
-                        <p><strong>Total Cost:</strong> ${bookingConfirmation.totalAmount.toFixed(2)}</p>
+                      <div className="space-y-3">
+                        <p className="text-lg"><strong>Carrier:</strong> {bookingConfirmation.carrier}</p>
+                        <p className="text-lg"><strong>Service:</strong> {bookingConfirmation.serviceLevel}</p>
+                        <p className="text-lg"><strong>Total Cost:</strong> 
+                          <span className="text-green-600 font-bold text-xl ml-2">
+                            ${bookingConfirmation.totalAmount.toFixed(2)}
+                          </span>
+                        </p>
                       </div>
                     </div>
                     
-                    <div className="pt-4 space-y-3">
-                      <Button onClick={handleDirectLabel} className="w-full bg-blue-600 hover:bg-blue-700">
-                        Download Test Labels & BOL
+                    <div className="pt-6 space-y-4">
+                      <Button 
+                        onClick={handleDirectLabel} 
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-4 text-lg shadow-lg"
+                      >
+                        <Save className="h-5 w-5 mr-3" />
+                        Download {testMode ? 'Test ' : ''}Labels & BOL
                       </Button>
-                      <p className="text-sm text-gray-600">
-                        📧 A confirmation email will be sent to {shipmentData.common.contactEmail}
+                      <p className="text-sm text-gray-600 bg-white rounded-lg p-3 border border-gray-200">
+                        📧 A confirmation email will be sent to <strong>{shipmentData.common.contactEmail}</strong>
                       </p>
                     </div>
                   </CardContent>
