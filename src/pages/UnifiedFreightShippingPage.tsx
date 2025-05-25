@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,7 +16,7 @@ import { SavedAddress } from '@/services/AddressService';
 import { Checkbox } from '@/components/ui/checkbox';
 import { createAddressSelectHandler } from '@/utils/addressUtils';
 import { supabase } from '@/integrations/supabase/client';
-import { FreightosCredentials } from '@/components/freight/FreightosCredentials';
+import FreightosCredentials from '@/components/freight/FreightosCredentials';
 
 const unifiedFreightFormSchema = z.object({
   // Shipment type
