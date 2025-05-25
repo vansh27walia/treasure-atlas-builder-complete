@@ -1,9 +1,9 @@
 
 import React from 'react';
-import UnifiedFreightShippingPage from './UnifiedFreightShippingPage';
+import UnifiedShippingPage from './UnifiedShippingPage';
 
 const UnifiedFreightPage: React.FC = () => {
-  return <UnifiedFreightShippingPage />;
+  return <UnifiedShippingPage />;
 };
 
 export default UnifiedFreightPage;
