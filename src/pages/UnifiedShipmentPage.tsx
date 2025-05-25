@@ -2,8 +2,8 @@
 import React from 'react';
 import UnifiedShipmentForm from '@/components/shipping/unified/UnifiedShipmentForm';
 
-const UnifiedFreightPage: React.FC = () => {
+const UnifiedShipmentPage: React.FC = () => {
   return <UnifiedShipmentForm />;
 };
 
-export default UnifiedFreightPage;
+export default UnifiedShipmentPage;

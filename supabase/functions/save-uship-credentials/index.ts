@@ -39,20 +39,20 @@ serve(async (req) => {
       )
     }
 
-    // Store the encrypted API key in user_profiles or a dedicated table
+    // Store the API key in user_profiles (should be encrypted in production)
     const { error: upsertError } = await supabase
       .from('user_profiles')
       .upsert({
         id: user.id,
-        uship_api_key: apiKey, // This should be encrypted in production
-        uship_test_mode: testMode,
+        uship_api_key: apiKey,
+        uship_test_mode: testMode ?? true,
         updated_at: new Date().toISOString()
       }, {
         onConflict: 'id'
       })
 
     if (upsertError) {
-      console.error('Error saving credentials:', upsertError)
+      console.error('Error saving uShip credentials:', upsertError)
       return new Response(
         JSON.stringify({ error: 'Failed to save credentials' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
