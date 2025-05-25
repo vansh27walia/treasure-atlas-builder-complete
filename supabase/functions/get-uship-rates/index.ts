@@ -58,41 +58,6 @@ interface UShipFTLPayload {
   special_requirements?: string;
 }
 
-// Mock rate generator for testing since uShip API might not be available
-const generateMockRates = (shipmentType: string, origin: any, destination: any) => {
-  const baseRates = shipmentType === 'LTL' ? [
-    { carrier: 'FedEx Freight', service: 'LTL Standard', baseRate: 350, transitDays: 3 },
-    { carrier: 'UPS Freight', service: 'LTL Express', baseRate: 425, transitDays: 2 },
-    { carrier: 'Old Dominion', service: 'LTL Economy', baseRate: 295, transitDays: 5 },
-    { carrier: 'XPO Logistics', service: 'LTL Priority', baseRate: 380, transitDays: 3 },
-    { carrier: 'YRC Freight', service: 'LTL Standard', baseRate: 320, transitDays: 4 }
-  ] : [
-    { carrier: 'Schneider', service: 'Dry Van', baseRate: 1850, transitDays: 2 },
-    { carrier: 'J.B. Hunt', service: 'Flatbed', baseRate: 2100, transitDays: 3 },
-    { carrier: 'Swift Transportation', service: 'Dry Van', baseRate: 1750, transitDays: 2 },
-    { carrier: 'Werner Enterprises', service: 'Reefer', baseRate: 2350, transitDays: 3 },
-    { carrier: 'Knight-Swift', service: 'Dry Van', baseRate: 1900, transitDays: 2 }
-  ];
-
-  return baseRates.map((rate, index) => {
-    const variation = (Math.random() - 0.5) * 0.3; // ±15% variation
-    const finalRate = Math.round(rate.baseRate * (1 + variation));
-    const deliveryDate = new Date();
-    deliveryDate.setDate(deliveryDate.getDate() + rate.transitDays);
-    
-    return {
-      id: `rate_${Date.now()}_${index}`,
-      carrier: rate.carrier,
-      service: rate.service,
-      rate: finalRate,
-      currency: 'USD',
-      delivery_days: rate.transitDays,
-      delivery_date: deliveryDate.toISOString().split('T')[0],
-      rate_id: `uship_${Math.random().toString(36).substr(2, 9)}`
-    };
-  });
-};
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -105,7 +70,21 @@ serve(async (req) => {
 
     // Get uShip API key from environment
     const ushipApiKey = Deno.env.get('USHIP_API_KEY');
-    console.log('uShip API key available:', !!ushipApiKey);
+    
+    if (!ushipApiKey) {
+      console.error('USHIP_API_KEY not found in environment variables');
+      return new Response(
+        JSON.stringify({ 
+          error: 'uShip API key not configured. Please contact administrator.' 
+        }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
+    console.log('uShip API key found, length:', ushipApiKey.length);
 
     // Validate required fields
     if (!shipmentData.shipment_type || !shipmentData.origin || !shipmentData.destination) {
@@ -178,66 +157,75 @@ serve(async (req) => {
     }
 
     console.log('Constructed payload:', JSON.stringify(ushipPayload, null, 2));
+    console.log('Making request to uShip API...');
+    
+    // Make request to uShip API - using the correct endpoint
+    const ushipResponse = await fetch('https://api.uship.com/v2/quotes', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${ushipApiKey}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'Lovable-Shipping-App/1.0'
+      },
+      body: JSON.stringify(ushipPayload)
+    });
 
-    let transformedRates = [];
+    console.log('uShip API response status:', ushipResponse.status);
+    console.log('uShip API response headers:', Object.fromEntries(ushipResponse.headers.entries()));
 
-    // Try uShip API first, fallback to mock data if it fails
-    if (ushipApiKey) {
-      try {
-        console.log('Attempting to call uShip API...');
-        
-        // Make request to uShip API
-        const ushipResponse = await fetch('https://api.uship.com/v2/shipments/quotes', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${ushipApiKey}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': 'Lovable-Shipping-App/1.0'
-          },
-          body: JSON.stringify(ushipPayload)
-        });
-
-        console.log('uShip API response status:', ushipResponse.status);
-        
-        if (ushipResponse.ok) {
-          const ushipData = await ushipResponse.json();
-          console.log('uShip API response:', JSON.stringify(ushipData, null, 2));
-
-          // Transform uShip response to our format
-          transformedRates = ushipData.quotes?.map((quote: any, index: number) => ({
-            id: quote.id || `uship_${index}`,
-            carrier: quote.carrier?.name || 'uShip Carrier',
-            service: quote.service_level || quote.equipment_type || 'Standard',
-            rate: parseFloat(quote.total_cost || quote.price || '0'),
-            currency: quote.currency || 'USD',
-            delivery_days: quote.transit_time || quote.delivery_days || 'N/A',
-            delivery_date: quote.estimated_delivery_date,
-            rate_id: quote.quote_id || quote.id
-          })) || [];
-        } else {
-          const errorText = await ushipResponse.text();
-          console.error('uShip API error:', ushipResponse.status, errorText);
-          throw new Error(`uShip API error: ${ushipResponse.status}`);
-        }
-      } catch (error) {
-        console.error('Error calling uShip API:', error);
-        console.log('Falling back to mock data...');
-        transformedRates = generateMockRates(shipmentData.shipment_type, shipmentData.origin, shipmentData.destination);
+    if (!ushipResponse.ok) {
+      const errorText = await ushipResponse.text();
+      console.error('uShip API error response:', errorText);
+      
+      // Return specific error messages based on status codes
+      let errorMessage = 'Failed to fetch rates from uShip API';
+      if (ushipResponse.status === 401) {
+        errorMessage = 'Invalid API key. Please check your uShip API credentials.';
+      } else if (ushipResponse.status === 403) {
+        errorMessage = 'Access denied. Please verify your uShip API permissions.';
+      } else if (ushipResponse.status === 404) {
+        errorMessage = 'uShip API endpoint not found. Please contact support.';
+      } else if (ushipResponse.status >= 500) {
+        errorMessage = 'uShip service is temporarily unavailable. Please try again later.';
       }
-    } else {
-      console.log('No uShip API key found, using mock data...');
-      transformedRates = generateMockRates(shipmentData.shipment_type, shipmentData.origin, shipmentData.destination);
+      
+      return new Response(
+        JSON.stringify({ 
+          error: errorMessage,
+          details: `Status: ${ushipResponse.status}`,
+          api_response: errorText
+        }),
+        { 
+          status: ushipResponse.status, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
-    console.log('Final transformed rates:', JSON.stringify(transformedRates, null, 2));
+    const ushipData = await ushipResponse.json();
+    console.log('uShip API success response:', JSON.stringify(ushipData, null, 2));
+
+    // Transform uShip response to our format
+    const transformedRates = ushipData.quotes?.map((quote: any, index: number) => ({
+      id: quote.id || `uship_${index}`,
+      carrier: quote.carrier?.name || 'uShip Carrier',
+      service: quote.service_level || quote.equipment_type || 'Standard',
+      rate: parseFloat(quote.total_cost || quote.price || '0'),
+      currency: quote.currency || 'USD',
+      delivery_days: quote.transit_time || quote.delivery_days || 'Contact carrier',
+      delivery_date: quote.estimated_delivery_date,
+      rate_id: quote.quote_id || quote.id
+    })) || [];
+
+    console.log('Transformed rates:', JSON.stringify(transformedRates, null, 2));
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         rates: transformedRates,
         shipment_type: shipmentData.shipment_type,
-        mock_data: !ushipApiKey || transformedRates.length === 0
+        mock_data: false
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
