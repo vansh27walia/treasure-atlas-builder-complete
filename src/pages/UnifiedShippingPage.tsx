@@ -17,47 +17,6 @@ import { userProfileService } from '@/services/UserProfileService';
 import { supabase } from '@/integrations/supabase/client';
 import { ShipmentType, ShippingFormData, ShippingRate } from '@/types/unified-shipping';
 
-export type ShipmentType = 'LTL' | 'FTL' | 'HEAVY_PARCEL';
-
-interface ShippingFormData {
-  // Common fields
-  pickupAddress: string;
-  deliveryAddress: string;
-  pickupDate: string;
-  deliveryDate: string;
-  contactName: string;
-  contactPhone: string;
-  contactEmail: string;
-  insuranceRequired: boolean;
-  specialInstructions: string;
-
-  // LTL specific
-  handlingUnits?: number;
-  unitType?: string;
-  weightPerUnit?: number;
-  freightClass?: string;
-  liftgateRequired?: boolean;
-
-  // FTL specific
-  equipmentType?: string;
-  totalWeight?: number;
-
-  // Heavy Parcel specific
-  shipmentTitle?: string;
-  materialType?: string;
-  parcelCount?: number;
-  weightPerParcel?: number;
-}
-
-interface ShippingRate {
-  id: string;
-  carrier: string;
-  service: string;
-  rate: number;
-  transitTime: string;
-  insuranceOptions?: string;
-}
-
 const UnifiedShippingPage: React.FC = () => {
   const [shipmentType, setShipmentType] = useState<ShipmentType>('LTL');
   const [testMode, setTestMode] = useState(true);
@@ -146,7 +105,6 @@ const UnifiedShippingPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Mock rates for demonstration
       const mockRates: ShippingRate[] = [
         {
           id: '1',

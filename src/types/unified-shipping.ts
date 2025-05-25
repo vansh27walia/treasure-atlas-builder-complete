@@ -38,5 +38,5 @@ export interface ShippingRate {
   rate: number;
   transitTime: string;
   currency: string;
-  insuranceOptions?: string[];
+  insuranceOptions?: string;
 }
