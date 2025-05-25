@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -330,6 +329,18 @@ const UnifiedShipmentForm: React.FC = () => {
     window.open(mockDocuments.bolUrl, '_blank');
   };
 
+  const handlePickupAddressSelected = (place: GoogleMapsPlace) => {
+    if (place && place.formatted_address) {
+      updateCommonField('pickupAddress', place.formatted_address);
+    }
+  };
+
+  const handleDeliveryAddressSelected = (place: GoogleMapsPlace) => {
+    if (place && place.formatted_address) {
+      updateCommonField('deliveryAddress', place.formatted_address);
+    }
+  };
+
   if (showApiSettings) {
     return <ApiKeySettings onClose={() => setShowApiSettings(false)} />;
   }
@@ -404,7 +415,8 @@ const UnifiedShipmentForm: React.FC = () => {
                 <div>
                   <Label htmlFor="pickup-address">Pickup Address *</Label>
                   <AddressAutoComplete
-                    value={shipmentData.common.pickupAddress}
+                    defaultValue={shipmentData.common.pickupAddress}
+                    onAddressSelected={handlePickupAddressSelected}
                     onChange={(value) => updateCommonField('pickupAddress', value)}
                     placeholder="Enter pickup address"
                   />
@@ -413,7 +425,8 @@ const UnifiedShipmentForm: React.FC = () => {
                 <div>
                   <Label htmlFor="delivery-address">Delivery Address *</Label>
                   <AddressAutoComplete
-                    value={shipmentData.common.deliveryAddress}
+                    defaultValue={shipmentData.common.deliveryAddress}
+                    onAddressSelected={handleDeliveryAddressSelected}
                     onChange={(value) => updateCommonField('deliveryAddress', value)}
                     placeholder="Enter delivery address"
                   />
