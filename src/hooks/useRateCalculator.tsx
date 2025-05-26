@@ -64,6 +64,18 @@ const useRateCalculator = () => {
       // Get rates and shipment ID
       const { rates, shipmentId } = data;
       
+      // Store the calculator data for automatic transfer
+      const calculatorData = {
+        fromAddress: requestData.fromAddress,
+        toAddress: requestData.toAddress,
+        parcel: requestData.parcel,
+        rates,
+        shipmentId
+      };
+      
+      // Store in sessionStorage for transfer to domestic shipping
+      sessionStorage.setItem('calculatorData', JSON.stringify(calculatorData));
+      
       // Dispatch a custom event to notify the ShippingRates component
       const ratesEvent = new CustomEvent('easypost-rates-received', {
         detail: { rates, shipmentId }
@@ -118,7 +130,7 @@ const useRateCalculator = () => {
     }
   };
 
-  // Function to navigate to shipping tab with selected rate
+  // Function to navigate to shipping tab with selected rate and auto-fill data
   const selectRateAndProceed = (rateId: string) => {
     const rate = rates.find(r => r.id === rateId);
     if (!rate) {
@@ -126,16 +138,33 @@ const useRateCalculator = () => {
       return;
     }
     
-    // Navigate to domestic shipping tab and select the rate
+    // Get calculator data from sessionStorage
+    const calculatorDataStr = sessionStorage.getItem('calculatorData');
+    if (calculatorDataStr) {
+      const calculatorData = JSON.parse(calculatorDataStr);
+      
+      // Store selected rate and all data for auto-fill
+      const transferData = {
+        ...calculatorData,
+        selectedRateId: rateId,
+        selectedRate: rate
+      };
+      
+      sessionStorage.setItem('transferToShipping', JSON.stringify(transferData));
+    }
+    
+    // Navigate to domestic shipping tab
     navigate('/create-label?tab=domestic');
     
-    // Wait for component to mount before selecting the rate
+    // Dispatch event to auto-fill the shipping form
     setTimeout(() => {
-      const customEvent = new CustomEvent('select-shipping-rate', {
-        detail: { rateId }
+      const transferEvent = new CustomEvent('auto-fill-shipping-form', {
+        detail: { rateId, fromCalculator: true }
       });
-      document.dispatchEvent(customEvent);
-    }, 300);
+      document.dispatchEvent(transferEvent);
+    }, 500);
+    
+    toast.success("Proceeding to label creation with selected rate");
   };
 
   return {

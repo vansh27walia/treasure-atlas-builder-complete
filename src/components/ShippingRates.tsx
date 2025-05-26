@@ -34,7 +34,7 @@ const ShippingRates: React.FC = () => {
     handleFilterByCarrier
   } = useShippingRates();
   
-  const { aiRecommendation, isAiLoading } = useRateCalculator();
+  const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
   const [shipmentDetails, setShipmentDetails] = useState<{ 
@@ -51,7 +51,6 @@ const ShippingRates: React.FC = () => {
     if (selectedRateId && rates.length > 0) {
       const selectedRate = rates.find(rate => rate.id === selectedRateId);
       if (selectedRate) {
-        // Construct basic shipment details
         setShipmentDetails({
           fromAddress: "Your shipping address",
           toAddress: "Recipient address",
@@ -79,6 +78,27 @@ const ShippingRates: React.FC = () => {
         toast.error("Failed to update label format");
         throw error;
       }
+    }
+  };
+
+  // Handle rate selection with automatic proceed option for calculator users
+  const handleRateSelection = (rateId: string) => {
+    handleSelectRate(rateId);
+    
+    // Check if this came from the rate calculator
+    const calculatorData = sessionStorage.getItem('calculatorData');
+    if (calculatorData) {
+      // Show option to proceed to shipping form
+      toast.success("Rate selected! Click 'Proceed Forward' to continue with label creation.", {
+        duration: 5000,
+      });
+    }
+  };
+
+  // Handle proceed forward action
+  const handleProceedForward = () => {
+    if (selectedRateId) {
+      selectRateAndProceed(selectedRateId);
     }
   };
   
@@ -112,31 +132,35 @@ const ShippingRates: React.FC = () => {
     }
   });
 
+  // Check if user came from calculator
+  const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
+
   return (
     <div className="mt-8 w-full px-4" id="shipping-rates-section">
-      <Card className="border border-gray-200 shadow-md rounded-xl overflow-hidden w-full">
-        <div className="p-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-            <h2 className="text-2xl font-semibold text-blue-800 flex items-center mb-3 md:mb-0">
-              <Truck className="mr-2 h-6 w-6 text-blue-600" />
+      <Card className="border-2 border-blue-200 shadow-2xl rounded-2xl overflow-hidden w-full bg-white">
+        <div className="p-8">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8">
+            <h2 className="text-3xl font-bold text-blue-800 flex items-center mb-4 lg:mb-0">
+              <Truck className="mr-3 h-8 w-8 text-blue-600" />
               Available Shipping Rates
             </h2>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-3">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
-                    <Filter className="h-4 w-4" />
+                  <Button variant="outline" className="flex items-center gap-2 border-2 border-blue-200 hover:bg-blue-50 h-12 px-6">
+                    <Filter className="h-5 w-5" />
                     {activeCarrierFilter === 'all' ? 'All Carriers' : activeCarrierFilter.toUpperCase()}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white">
-                  <DropdownMenuItem onClick={() => handleFilterByCarrier('all')}>
+                <DropdownMenuContent align="end" className="bg-white border-2 border-blue-200 shadow-xl z-50">
+                  <DropdownMenuItem onClick={() => handleFilterByCarrier('all')} className="py-3">
                     All Carriers
                   </DropdownMenuItem>
                   {uniqueCarriers.map((carrier) => (
                     <DropdownMenuItem 
                       key={carrier} 
                       onClick={() => handleFilterByCarrier(carrier)}
+                      className="py-3"
                     >
                       {carrier.toUpperCase()}
                     </DropdownMenuItem>
@@ -146,7 +170,7 @@ const ShippingRates: React.FC = () => {
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 border-blue-200 hover:bg-blue-50">
+                  <Button variant="outline" className="flex items-center gap-2 border-2 border-blue-200 hover:bg-blue-50 h-12 px-6">
                     Sort by: {
                       sortOrder === 'price' ? 'Price' : 
                       sortOrder === 'speed' ? 'Speed' : 
@@ -154,14 +178,14 @@ const ShippingRates: React.FC = () => {
                     }
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white">
-                  <DropdownMenuItem onClick={() => setSortOrder('speed')}>
+                <DropdownMenuContent align="end" className="bg-white border-2 border-blue-200 shadow-xl z-50">
+                  <DropdownMenuItem onClick={() => setSortOrder('speed')} className="py-3">
                     Speed (Fastest First)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('price')}>
+                  <DropdownMenuItem onClick={() => setSortOrder('price')} className="py-3">
                     Price (Lowest First)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('carrier')}>
+                  <DropdownMenuItem onClick={() => setSortOrder('carrier')} className="py-3">
                     Carrier (A-Z)
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -170,7 +194,7 @@ const ShippingRates: React.FC = () => {
           </div>
           
           {labelUrl && trackingCode && (
-            <div className="mb-6">
+            <div className="mb-8">
               <PrintPreview 
                 labelUrl={labelUrl} 
                 trackingCode={trackingCode} 
@@ -188,19 +212,19 @@ const ShippingRates: React.FC = () => {
                 <ShippingAIRecommendation 
                   aiRecommendation={aiRecommendation}
                   isLoading={isAiLoading}
-                  onSelectRecommendation={handleSelectRate}
+                  onSelectRecommendation={handleRateSelection}
                 />
               )}
               
-              <div className="space-y-4 mt-6">
-                <h3 className="text-lg font-semibold text-gray-700 mb-4">All Available Options</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-6 mt-8">
+                <h3 className="text-2xl font-semibold text-gray-800 mb-6">Available Shipping Options</h3>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                   {sortedRates.map((rate) => (
                     <ShippingRateCard
                       key={rate.id}
                       rate={rate}
                       isSelected={selectedRateId === rate.id}
-                      onSelect={handleSelectRate}
+                      onSelect={handleRateSelection}
                       isBestValue={rate.id === bestValueRateId}
                       isFastest={rate.id === fastestRateId}
                       aiRecommendation={aiRecommendation && {
@@ -215,12 +239,12 @@ const ShippingRates: React.FC = () => {
                 </div>
 
                 {sortedRates.length === 0 && (
-                  <div className="p-8 text-center">
-                    <p className="text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
+                  <div className="p-12 text-center bg-gray-50 rounded-xl">
+                    <p className="text-xl text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
                     <Button 
                       variant="outline" 
                       onClick={() => handleFilterByCarrier('all')} 
-                      className="mt-4"
+                      className="mt-6 h-12 px-8 text-lg"
                     >
                       Clear Filters
                     </Button>
@@ -228,29 +252,36 @@ const ShippingRates: React.FC = () => {
                 )}
               </div>
               
-              <div className="mt-8 flex flex-wrap justify-end gap-4">
+              <div className="mt-12 flex flex-wrap justify-end gap-4">
+                {fromCalculator && selectedRateId && (
+                  <Button 
+                    onClick={handleProceedForward}
+                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white flex items-center gap-3 px-8 py-4 h-14 text-lg font-semibold rounded-xl shadow-lg"
+                  >
+                    <Download className="h-6 w-6" />
+                    Proceed Forward
+                  </Button>
+                )}
+                
                 <Button 
                   onClick={() => {
-                    // Set up label options based on selected format
                     const labelOptions = {
                       label_format: "PDF",
                       label_size: selectedLabelFormat
                     };
-                    
-                    // Call handleCreateLabel with the selected format
                     handleCreateLabel(undefined, undefined, labelOptions);
                   }}
                   disabled={!selectedRateId || isLoading}
-                  className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 px-6 py-2 h-12 text-base"
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white flex items-center gap-3 px-8 py-4 h-14 text-lg font-semibold rounded-xl shadow-lg"
                 >
                   {isLoading ? (
                     <>
-                      <Loader className="h-5 w-5 animate-spin" />
+                      <Loader className="h-6 w-6 animate-spin" />
                       Creating Label...
                     </>
                   ) : (
                     <>
-                      <Download className="h-5 w-5" />
+                      <Download className="h-6 w-6" />
                       Buy & Print Label
                     </>
                   )}
@@ -260,16 +291,16 @@ const ShippingRates: React.FC = () => {
                   onClick={handleProceedToPayment}
                   disabled={!selectedRateId || isProcessingPayment}
                   variant="outline"
-                  className="border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-6 py-2 h-12 text-base"
+                  className="border-2 border-gray-300 hover:bg-gray-50 flex items-center gap-3 px-8 py-4 h-14 text-lg font-semibold rounded-xl"
                 >
                   {isProcessingPayment ? (
                     <>
-                      <Loader className="h-5 w-5 animate-spin" />
+                      <Loader className="h-6 w-6 animate-spin" />
                       Processing...
                     </>
                   ) : (
                     <>
-                      <CreditCard className="h-5 w-5" />
+                      <CreditCard className="h-6 w-6" />
                       Proceed to Payment
                     </>
                   )}
@@ -277,18 +308,22 @@ const ShippingRates: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="mt-4 flex justify-end">
+            <div className="mt-8 flex justify-end">
               <Button
                 variant="outline"
-                onClick={() => document.dispatchEvent(new Event('shipping-form-completed'))}
-                className="border-blue-200 hover:bg-blue-50"
+                onClick={() => {
+                  sessionStorage.removeItem('calculatorData');
+                  sessionStorage.removeItem('transferToShipping');
+                  document.dispatchEvent(new Event('shipping-form-completed'));
+                }}
+                className="border-2 border-blue-200 hover:bg-blue-50 h-12 px-8 text-lg"
               >
                 Ship Another Package
               </Button>
             </div>
           )}
           
-          <div className="mt-6 text-center text-sm text-gray-500">
+          <div className="mt-8 text-center text-base text-gray-500">
             <p>* All rates include handling fees and applicable taxes</p>
           </div>
         </div>
