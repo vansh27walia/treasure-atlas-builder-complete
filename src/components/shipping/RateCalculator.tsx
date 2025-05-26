@@ -133,39 +133,35 @@ const RateCalculator: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4">
-      <Card className="border-0 shadow-2xl bg-gradient-to-br from-blue-50 via-white to-indigo-50 overflow-hidden">
-        <CardHeader className="text-center pb-8 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-          <CardTitle className="text-4xl font-bold mb-3">
-            Global Shipping Rate Calculator
+    <div className="w-full max-w-5xl mx-auto">
+      <Card className="border-2 border-blue-100 shadow-xl bg-white">
+        <CardHeader className="text-center bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+          <CardTitle className="text-3xl font-bold mb-2">
+            Shipping Rate Calculator
           </CardTitle>
-          <p className="text-blue-100 text-lg font-medium">
+          <p className="text-blue-100 text-lg">
             Compare rates from major carriers worldwide
           </p>
         </CardHeader>
         
-        <CardContent className="p-8">
+        <CardContent className="p-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               
-              {/* Carrier Selection - Moved to top */}
-              <div className="bg-white rounded-xl p-6 shadow-lg border border-blue-100">
-                <div className="flex items-center gap-2 mb-6">
-                  <Package className="h-6 w-6 text-blue-600" />
-                  <h3 className="text-2xl font-semibold text-blue-800">Carrier Selection</h3>
-                </div>
-                
+              {/* Carrier Selection */}
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <FormField
                   control={form.control}
                   name="carrierFilter"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-lg font-medium text-gray-700">
+                      <FormLabel className="text-lg font-medium text-gray-700 flex items-center gap-2">
+                        <Package className="h-5 w-5 text-blue-600" />
                         Choose Shipping Carriers
                       </FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <SelectTrigger className="h-14 text-lg border-2 border-blue-200 hover:border-blue-300 focus:border-blue-500">
+                          <SelectTrigger className="h-12 text-lg border-2 border-blue-200 hover:border-blue-300 focus:border-blue-500 bg-white">
                             <SelectValue placeholder="Select carriers to compare" />
                           </SelectTrigger>
                         </FormControl>
@@ -188,127 +184,120 @@ const RateCalculator: React.FC = () => {
               </div>
 
               {/* Origin and Destination Section */}
-              <div className="bg-white rounded-xl p-6 shadow-lg border border-blue-100">
-                <div className="flex items-center gap-2 mb-6">
-                  <MapPin className="h-6 w-6 text-blue-600" />
-                  <h3 className="text-2xl font-semibold text-blue-800">Shipping Locations</h3>
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Origin */}
-                  <div className="space-y-6">
-                    <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                        <span className="text-green-600 font-bold text-lg">FROM</span>
-                      </div>
-                      <h4 className="text-xl font-semibold text-gray-800">Origin</h4>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Origin */}
+                <div className="space-y-4 bg-green-50 rounded-lg p-4 border border-green-200">
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-3">
+                      <span className="text-green-600 font-bold">FROM</span>
                     </div>
-                    
-                    <FormField
-                      control={form.control}
-                      name="fromCountry"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-lg font-medium flex items-center gap-2">
-                            <Globe className="h-5 w-5 text-blue-600" />
-                            Origin Country
-                          </FormLabel>
-                          <FormControl>
-                            <CountrySelector
-                              value={field.value}
-                              onChange={field.onChange}
-                              placeholder="Select origin country"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="fromZip"
-                      render={({ field }) => (
-                        <ZipCodeInput
-                          label="Origin ZIP/Postal Code"
-                          placeholder="Enter ZIP or postal code"
-                          value={field.value}
-                          onChange={field.onChange}
-                          error={form.formState.errors.fromZip?.message}
-                        />
-                      )}
-                    />
+                    <h3 className="text-xl font-semibold text-gray-800">Origin</h3>
                   </div>
                   
-                  {/* Destination */}
-                  <div className="space-y-6">
-                    <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                        <span className="text-blue-600 font-bold text-lg">TO</span>
-                      </div>
-                      <h4 className="text-xl font-semibold text-gray-800">Destination</h4>
+                  <FormField
+                    control={form.control}
+                    name="fromCountry"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-base font-medium flex items-center gap-2">
+                          <Globe className="h-4 w-4 text-blue-600" />
+                          Country
+                        </FormLabel>
+                        <FormControl>
+                          <CountrySelector
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select origin country"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="fromZip"
+                    render={({ field }) => (
+                      <ZipCodeInput
+                        label="ZIP/Postal Code"
+                        placeholder="Enter ZIP or postal code"
+                        value={field.value}
+                        onChange={field.onChange}
+                        error={form.formState.errors.fromZip?.message}
+                      />
+                    )}
+                  />
+                </div>
+                
+                {/* Destination */}
+                <div className="space-y-4 bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <div className="text-center">
+                    <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-3">
+                      <span className="text-blue-600 font-bold">TO</span>
                     </div>
-                    
-                    <FormField
-                      control={form.control}
-                      name="toCountry"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-lg font-medium flex items-center gap-2">
-                            <Globe className="h-5 w-5 text-blue-600" />
-                            Destination Country
-                          </FormLabel>
-                          <FormControl>
-                            <CountrySelector
-                              value={field.value}
-                              onChange={field.onChange}
-                              placeholder="Select destination country"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="toZip"
-                      render={({ field }) => (
-                        <ZipCodeInput
-                          label="Destination ZIP/Postal Code"
-                          placeholder="Enter ZIP or postal code"
-                          value={field.value}
-                          onChange={field.onChange}
-                          error={form.formState.errors.toZip?.message}
-                        />
-                      )}
-                    />
+                    <h3 className="text-xl font-semibold text-gray-800">Destination</h3>
                   </div>
+                  
+                  <FormField
+                    control={form.control}
+                    name="toCountry"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-base font-medium flex items-center gap-2">
+                          <Globe className="h-4 w-4 text-blue-600" />
+                          Country
+                        </FormLabel>
+                        <FormControl>
+                          <CountrySelector
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Select destination country"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="toZip"
+                    render={({ field }) => (
+                      <ZipCodeInput
+                        label="ZIP/Postal Code"
+                        placeholder="Enter ZIP or postal code"
+                        value={field.value}
+                        onChange={field.onChange}
+                        error={form.formState.errors.toZip?.message}
+                      />
+                    )}
+                  />
                 </div>
               </div>
               
               {/* Package Details Section */}
-              <div className="bg-white rounded-xl p-6 shadow-lg border border-blue-100">
-                <div className="flex items-center gap-2 mb-6">
-                  <Package className="h-6 w-6 text-blue-600" />
-                  <h3 className="text-2xl font-semibold text-blue-800">Package Information</h3>
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                <div className="flex items-center gap-2 mb-4">
+                  <Package className="h-5 w-5 text-amber-600" />
+                  <h3 className="text-xl font-semibold text-gray-800">Package Information</h3>
                 </div>
                 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
                     <div className="flex items-end gap-4">
                       <FormField
                         control={form.control}
                         name="weight"
                         render={({ field }) => (
                           <FormItem className="flex-1">
-                            <FormLabel className="text-lg font-medium">Package Weight</FormLabel>
+                            <FormLabel className="text-base font-medium">Weight</FormLabel>
                             <FormControl>
                               <Input 
                                 type="number" 
                                 step="0.1" 
                                 min="0.1" 
-                                className="h-12 text-lg border-2 border-blue-200 focus:border-blue-500" 
+                                className="h-10 text-base border-2 border-amber-200 focus:border-amber-500" 
                                 {...field} 
                               />
                             </FormControl>
@@ -321,16 +310,16 @@ const RateCalculator: React.FC = () => {
                         control={form.control}
                         name="weightUnit"
                         render={({ field }) => (
-                          <FormItem className="w-28">
+                          <FormItem className="w-24">
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
-                                <SelectTrigger className="h-12 text-lg border-2 border-blue-200 focus:border-blue-500">
+                                <SelectTrigger className="h-10 text-base border-2 border-amber-200 focus:border-amber-500">
                                   <SelectValue />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent className="bg-white border-2 border-blue-200 shadow-xl z-50">
-                                <SelectItem value="lb" className="text-lg">lb</SelectItem>
-                                <SelectItem value="kg" className="text-lg">kg</SelectItem>
+                              <SelectContent className="bg-white border-2 border-amber-200 shadow-xl z-50">
+                                <SelectItem value="lb" className="text-base">lb</SelectItem>
+                                <SelectItem value="kg" className="text-base">kg</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -340,22 +329,22 @@ const RateCalculator: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     <FormField
                       control={form.control}
                       name="dimensionUnit"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-lg font-medium">Dimension Unit</FormLabel>
+                          <FormLabel className="text-base font-medium">Dimension Unit</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger className="h-12 text-lg border-2 border-blue-200 focus:border-blue-500">
+                              <SelectTrigger className="h-10 text-base border-2 border-amber-200 focus:border-amber-500">
                                 <SelectValue />
                               </SelectTrigger>
                             </FormControl>
-                            <SelectContent className="bg-white border-2 border-blue-200 shadow-xl z-50">
-                              <SelectItem value="in" className="text-lg">inches</SelectItem>
-                              <SelectItem value="cm" className="text-lg">centimeters</SelectItem>
+                            <SelectContent className="bg-white border-2 border-amber-200 shadow-xl z-50">
+                              <SelectItem value="in" className="text-base">inches</SelectItem>
+                              <SelectItem value="cm" className="text-base">centimeters</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -363,19 +352,19 @@ const RateCalculator: React.FC = () => {
                       )}
                     />
                     
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-3">
                       <FormField
                         control={form.control}
                         name="length"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-lg font-medium">Length</FormLabel>
+                            <FormLabel className="text-base font-medium">Length</FormLabel>
                             <FormControl>
                               <Input 
                                 type="number" 
                                 step="0.1" 
                                 min="0.1" 
-                                className="h-12 text-lg border-2 border-blue-200 focus:border-blue-500" 
+                                className="h-10 text-base border-2 border-amber-200 focus:border-amber-500" 
                                 {...field} 
                               />
                             </FormControl>
@@ -389,13 +378,13 @@ const RateCalculator: React.FC = () => {
                         name="width"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-lg font-medium">Width</FormLabel>
+                            <FormLabel className="text-base font-medium">Width</FormLabel>
                             <FormControl>
                               <Input 
                                 type="number" 
                                 step="0.1" 
                                 min="0.1" 
-                                className="h-12 text-lg border-2 border-blue-200 focus:border-blue-500" 
+                                className="h-10 text-base border-2 border-amber-200 focus:border-amber-500" 
                                 {...field} 
                               />
                             </FormControl>
@@ -409,13 +398,13 @@ const RateCalculator: React.FC = () => {
                         name="height"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-lg font-medium">Height</FormLabel>
+                            <FormLabel className="text-base font-medium">Height</FormLabel>
                             <FormControl>
                               <Input 
                                 type="number" 
                                 step="0.1" 
                                 min="0.1" 
-                                className="h-12 text-lg border-2 border-blue-200 focus:border-blue-500" 
+                                className="h-10 text-base border-2 border-amber-200 focus:border-amber-500" 
                                 {...field} 
                               />
                             </FormControl>
@@ -429,27 +418,27 @@ const RateCalculator: React.FC = () => {
               </div>
               
               {/* Submit Button */}
-              <div className="flex justify-center pt-6">
+              <div className="flex justify-center pt-4">
                 <Button 
                   type="submit" 
                   disabled={isLoading || isGeneratingAddress}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-16 py-6 text-xl font-semibold rounded-2xl shadow-2xl hover:shadow-3xl transform hover:scale-105 transition-all duration-300"
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-12 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                 >
                   {isGeneratingAddress ? (
                     <>
-                      <Loader className="mr-4 h-6 w-6 animate-spin" />
+                      <Loader className="mr-3 h-5 w-5 animate-spin" />
                       Generating Addresses...
                     </>
                   ) : isLoading ? (
                     <>
-                      <Loader className="mr-4 h-6 w-6 animate-spin" />
+                      <Loader className="mr-3 h-5 w-5 animate-spin" />
                       Finding Best Rates...
                     </>
                   ) : (
                     <>
-                      <Search className="mr-4 h-6 w-6" />
+                      <Search className="mr-3 h-5 w-5" />
                       Get Shipping Quotes
-                      <ArrowRight className="ml-4 h-6 w-6" />
+                      <ArrowRight className="ml-3 h-5 w-5" />
                     </>
                   )}
                 </Button>
