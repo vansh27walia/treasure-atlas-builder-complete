@@ -26,16 +26,29 @@ const rateFormSchema = z.object({
   height: z.coerce.number().min(0.1, { message: 'Height must be greater than 0' }),
   weightUnit: z.enum(['lb', 'kg']),
   dimensionUnit: z.enum(['in', 'cm']),
-  usps: z.boolean().default(true),
-  ups: z.boolean().default(true),
-  fedex: z.boolean().default(true),
-  dhl: z.boolean().default(true),
+  carrierFilter: z.string(),
 });
 
 type RateFormValues = z.infer<typeof rateFormSchema>;
 
 // Sort countries alphabetically
 const sortedCountries = [...COUNTRIES_LIST].sort((a, b) => a.name.localeCompare(b.name));
+
+// Carrier options
+const CARRIER_OPTIONS = [
+  { value: 'all', label: 'All Carriers' },
+  { value: 'usps', label: 'USPS' },
+  { value: 'ups', label: 'UPS' },
+  { value: 'fedex', label: 'FedEx' },
+  { value: 'dhl', label: 'DHL' },
+  { value: 'canadapost', label: 'Canada Post' },
+  { value: 'royalmail', label: 'Royal Mail (UK)' },
+  { value: 'dpd', label: 'DPD' },
+  { value: 'gls', label: 'GLS' },
+  { value: 'hermes', label: 'Hermes' },
+  { value: 'ontrac', label: 'OnTrac' },
+  { value: 'lasership', label: 'LaserShip' },
+];
 
 const RateCalculator: React.FC = () => {
   const navigate = useNavigate();
@@ -55,10 +68,7 @@ const RateCalculator: React.FC = () => {
       height: 2,
       weightUnit: 'lb',
       dimensionUnit: 'in',
-      usps: true,
-      ups: true,
-      fedex: true,
-      dhl: true,
+      carrierFilter: 'all',
     },
   });
 
@@ -80,12 +90,14 @@ const RateCalculator: React.FC = () => {
       // Convert dimensions to inches if in cm
       const conversionFactor = data.dimensionUnit === 'cm' ? 0.393701 : 1;
       
-      // Get selected carriers
-      const selectedCarriers: string[] = [];
-      if (data.usps) selectedCarriers.push('usps');
-      if (data.ups) selectedCarriers.push('ups');
-      if (data.fedex) selectedCarriers.push('fedex');
-      if (data.dhl) selectedCarriers.push('dhl');
+      // Get selected carriers based on filter
+      let selectedCarriers: string[] = [];
+      
+      if (data.carrierFilter === 'all') {
+        selectedCarriers = ['usps', 'ups', 'fedex', 'dhl', 'canadapost', 'royalmail', 'dpd', 'gls', 'hermes', 'ontrac', 'lasership'];
+      } else {
+        selectedCarriers = [data.carrierFilter];
+      }
       
       // Prepare the request data for the API
       const requestData = {
@@ -103,10 +115,11 @@ const RateCalculator: React.FC = () => {
           width: data.width * conversionFactor,
           height: data.height * conversionFactor,
         },
-        carriers: selectedCarriers.length > 0 ? selectedCarriers : ['usps', 'ups', 'fedex', 'dhl']
+        carriers: selectedCarriers
       };
       
       console.log("Sending rate request with data:", requestData);
+      console.log("Selected carriers:", selectedCarriers);
 
       // Fetch rates from the API
       await fetchRates(requestData);
@@ -296,6 +309,36 @@ const RateCalculator: React.FC = () => {
                     )}
                   />
                 </div>
+
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="carrierFilter"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Carrier Selection</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select carriers" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {CARRIER_OPTIONS.map((carrier) => (
+                              <SelectItem key={carrier.value} value={carrier.value}>
+                                {carrier.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
               
               <div className="grid grid-cols-3 gap-4 mt-4">
@@ -340,75 +383,6 @@ const RateCalculator: React.FC = () => {
                     </FormItem>
                   )}
                 />
-              </div>
-              
-              <div className="mt-6">
-                <h4 className="text-base font-medium mb-2">Carriers</h4>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="usps"
-                    render={({ field }) => (
-                      <FormItem className="flex space-x-2 space-y-0 items-center">
-                        <FormControl>
-                          <Checkbox 
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <FormLabel className="font-normal cursor-pointer">USPS</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="ups"
-                    render={({ field }) => (
-                      <FormItem className="flex space-x-2 space-y-0 items-center">
-                        <FormControl>
-                          <Checkbox 
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <FormLabel className="font-normal cursor-pointer">UPS</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="fedex"
-                    render={({ field }) => (
-                      <FormItem className="flex space-x-2 space-y-0 items-center">
-                        <FormControl>
-                          <Checkbox 
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <FormLabel className="font-normal cursor-pointer">FedEx</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="dhl"
-                    render={({ field }) => (
-                      <FormItem className="flex space-x-2 space-y-0 items-center">
-                        <FormControl>
-                          <Checkbox 
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                        <FormLabel className="font-normal cursor-pointer">DHL</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                </div>
               </div>
             </div>
             
