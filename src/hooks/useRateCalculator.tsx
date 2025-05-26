@@ -4,11 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { useNavigate } from 'react-router-dom';
-
-interface AddressData {
-  zip: string;
-  country: string;
-}
+import { GeneratedAddress } from '@/services/GeocodingService';
 
 interface ParcelData {
   weight: number;
@@ -18,10 +14,10 @@ interface ParcelData {
 }
 
 interface RateRequestData {
-  fromAddress: AddressData;
-  toAddress: AddressData;
+  fromAddress: GeneratedAddress;
+  toAddress: GeneratedAddress;
   parcel: ParcelData;
-  carriers?: string[]; // Add carriers option
+  carriers?: string[];
 }
 
 interface AIRecommendation {
@@ -39,43 +35,17 @@ const useRateCalculator = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const { rates } = useShippingRates();
 
-  // Function to fetch shipping rates
+  // Function to fetch shipping rates with generated addresses
   const fetchRates = async (requestData: RateRequestData) => {
     setIsLoading(true);
     setAiRecommendation(null);
     
     try {
-      // Construct a more complete address data structure required by EasyPost
-      const enhancedRequestData = {
-        fromAddress: {
-          ...requestData.fromAddress,
-          name: "Rate Calculator Origin",
-          street1: "Main Street", // EasyPost requires a street address even for rate calculations
-          city: "City", // Generic placeholders that won't affect the rate calculation
-          state: "State",
-          phone: "555-555-5555"
-        },
-        toAddress: {
-          ...requestData.toAddress,
-          name: "Rate Calculator Destination",
-          street1: "Destination Street", 
-          city: "City",
-          state: "State",
-          phone: "555-555-5555"
-        },
-        parcel: requestData.parcel,
-        // Ensure all carriers are requested by default
-        carriers: requestData.carriers || ['usps', 'ups', 'fedex', 'dhl']
-      };
-
-      // Check if international to use the right endpoint
-      const isInternational = requestData.fromAddress.country !== requestData.toAddress.country;
-      
-      console.log('Fetching rates with data:', enhancedRequestData);
+      console.log('Fetching rates with generated addresses:', requestData);
       
       // Call the Edge Function to get shipping rates
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: enhancedRequestData
+        body: requestData
       });
 
       if (error) {
@@ -107,12 +77,6 @@ const useRateCalculator = () => {
       }
       
       toast.success(`Found ${rates.length} shipping options!`);
-      
-      // Switch to the rates view after successful rate calculation
-      const ratesSection = document.getElementById('shipping-rates-section');
-      if (ratesSection) {
-        ratesSection.scrollIntoView({ behavior: 'smooth' });
-      }
       
     } catch (error) {
       console.error('Error in rate calculation:', error);

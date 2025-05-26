@@ -1,25 +1,22 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { Loader, Search, Truck, Box, ArrowRight } from 'lucide-react';
+import { Loader, Search, Package, MapPin, ArrowRight } from 'lucide-react';
 import useRateCalculator from '@/hooks/useRateCalculator';
-import { useNavigate } from 'react-router-dom';
-import { Checkbox } from "@/components/ui/checkbox";
-import { COUNTRIES_LIST } from '@/lib/countries';
-import { ScrollArea } from "@/components/ui/scroll-area";
+import ZipCodeInput from './ZipCodeInput';
+import { Input } from '@/components/ui/input';
+import { GeocodingService } from '@/services/GeocodingService';
+import { toast } from '@/components/ui/sonner';
 
 const rateFormSchema = z.object({
-  fromZip: z.string().min(3, { message: 'ZIP/Postal code is required' }),
-  toZip: z.string().min(3, { message: 'ZIP/Postal code is required' }),
-  fromCountry: z.string().min(2, { message: 'Country is required' }),
-  toCountry: z.string().min(2, { message: 'Country is required' }),
+  fromZip: z.string().min(5, { message: 'ZIP code must be at least 5 digits' }),
+  toZip: z.string().min(5, { message: 'ZIP code must be at least 5 digits' }),
   weight: z.coerce.number().min(0.1, { message: 'Weight must be greater than 0' }),
   length: z.coerce.number().min(0.1, { message: 'Length must be greater than 0' }),
   width: z.coerce.number().min(0.1, { message: 'Width must be greater than 0' }),
@@ -31,10 +28,6 @@ const rateFormSchema = z.object({
 
 type RateFormValues = z.infer<typeof rateFormSchema>;
 
-// Sort countries alphabetically
-const sortedCountries = [...COUNTRIES_LIST].sort((a, b) => a.name.localeCompare(b.name));
-
-// Carrier options
 const CARRIER_OPTIONS = [
   { value: 'all', label: 'All Carriers' },
   { value: 'usps', label: 'USPS' },
@@ -43,16 +36,10 @@ const CARRIER_OPTIONS = [
   { value: 'dhl', label: 'DHL' },
   { value: 'canadapost', label: 'Canada Post' },
   { value: 'royalmail', label: 'Royal Mail (UK)' },
-  { value: 'dpd', label: 'DPD' },
-  { value: 'gls', label: 'GLS' },
-  { value: 'hermes', label: 'Hermes' },
-  { value: 'ontrac', label: 'OnTrac' },
-  { value: 'lasership', label: 'LaserShip' },
 ];
 
 const RateCalculator: React.FC = () => {
-  const navigate = useNavigate();
-  const [isInternational, setIsInternational] = useState(false);
+  const [isGeneratingAddress, setIsGeneratingAddress] = useState(false);
   const { fetchRates, isLoading } = useRateCalculator();
   
   const form = useForm<RateFormValues>({
@@ -60,8 +47,6 @@ const RateCalculator: React.FC = () => {
     defaultValues: {
       fromZip: '',
       toZip: '',
-      fromCountry: 'US',
-      toCountry: 'US',
       weight: 1,
       length: 8,
       width: 8,
@@ -72,43 +57,38 @@ const RateCalculator: React.FC = () => {
     },
   });
 
-  const handleCountryChange = (value: string, fieldName: 'fromCountry' | 'toCountry') => {
-    form.setValue(fieldName, value);
-    
-    // Check if either origin or destination is not US
-    const otherCountry = fieldName === 'fromCountry' ? form.getValues('toCountry') : form.getValues('fromCountry');
-    setIsInternational(value !== 'US' || otherCountry !== 'US');
-  };
-
   const onSubmit = async (data: RateFormValues) => {
     try {
-      // Calculate weight in ounces or grams based on selected unit
+      setIsGeneratingAddress(true);
+      
+      // Generate addresses from ZIP codes using Google Maps API
+      const [fromAddress, toAddress] = await Promise.all([
+        GeocodingService.generateAddressFromZip(data.fromZip),
+        GeocodingService.generateAddressFromZip(data.toZip)
+      ]);
+      
+      console.log('Generated addresses:', { fromAddress, toAddress });
+      
+      // Calculate weight in ounces based on selected unit
       const weightInOz = data.weightUnit === 'lb' 
-        ? data.weight * 16  // Convert pounds to ounces
-        : data.weight * 35.274;  // Convert kg to ounces
+        ? data.weight * 16
+        : data.weight * 35.274;
       
       // Convert dimensions to inches if in cm
       const conversionFactor = data.dimensionUnit === 'cm' ? 0.393701 : 1;
       
-      // Get selected carriers based on filter
+      // Get selected carriers
       let selectedCarriers: string[] = [];
-      
       if (data.carrierFilter === 'all') {
-        selectedCarriers = ['usps', 'ups', 'fedex', 'dhl', 'canadapost', 'royalmail', 'dpd', 'gls', 'hermes', 'ontrac', 'lasership'];
+        selectedCarriers = ['usps', 'ups', 'fedex', 'dhl', 'canadapost', 'royalmail'];
       } else {
         selectedCarriers = [data.carrierFilter];
       }
       
       // Prepare the request data for the API
       const requestData = {
-        fromAddress: {
-          zip: data.fromZip,
-          country: data.fromCountry,
-        },
-        toAddress: {
-          zip: data.toZip,
-          country: data.toCountry,
-        },
+        fromAddress,
+        toAddress,
         parcel: {
           weight: weightInOz,
           length: data.length * conversionFactor,
@@ -118,8 +98,7 @@ const RateCalculator: React.FC = () => {
         carriers: selectedCarriers
       };
       
-      console.log("Sending rate request with data:", requestData);
-      console.log("Selected carriers:", selectedCarriers);
+      console.log("Sending rate request with generated addresses:", requestData);
 
       // Fetch rates from the API
       await fetchRates(requestData);
@@ -130,152 +109,144 @@ const RateCalculator: React.FC = () => {
         ratesSection.scrollIntoView({ behavior: 'smooth' });
       }
     } catch (error) {
-      console.error('Error fetching rates:', error);
+      console.error('Error in rate calculation:', error);
+      toast.error(error.message || 'Failed to calculate shipping rates');
+    } finally {
+      setIsGeneratingAddress(false);
     }
   };
 
   return (
-    <Card className="border-2 border-gray-200 shadow-lg rounded-xl overflow-hidden mb-8">
-      <CardContent className="p-6">
-        <h2 className="text-2xl font-bold text-blue-800 mb-4">Shipping Rate Calculator</h2>
+    <div className="max-w-4xl mx-auto">
+      <Card className="border-0 shadow-xl bg-gradient-to-br from-blue-50 to-white">
+        <CardHeader className="text-center pb-6">
+          <CardTitle className="text-3xl font-bold text-blue-800 mb-2">
+            Instant Shipping Quotes
+          </CardTitle>
+          <p className="text-blue-600 text-lg">
+            Enter ZIP codes to get rates from major carriers
+          </p>
+        </CardHeader>
         
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-blue-700">Origin</h3>
+        <CardContent className="p-8">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              {/* ZIP Code Section */}
+              <div className="bg-white rounded-lg p-6 shadow-sm border border-blue-100">
+                <div className="flex items-center gap-2 mb-6">
+                  <MapPin className="h-5 w-5 text-blue-600" />
+                  <h3 className="text-xl font-semibold text-blue-800">Shipping Locations</h3>
+                </div>
                 
-                <FormField
-                  control={form.control}
-                  name="fromCountry"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Country</FormLabel>
-                      <Select
-                        onValueChange={(value) => handleCountryChange(value, 'fromCountry')}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select country" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <ScrollArea className="h-72">
-                            {sortedCountries.map((country) => (
-                              <SelectItem key={country.code} value={country.code}>
-                                {country.name}
-                              </SelectItem>
-                            ))}
-                          </ScrollArea>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="fromZip"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ZIP/Postal Code</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter ZIP/Postal code" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-blue-700">Destination</h3>
-                
-                <FormField
-                  control={form.control}
-                  name="toCountry"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Country</FormLabel>
-                      <Select
-                        onValueChange={(value) => handleCountryChange(value, 'toCountry')}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select country" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <ScrollArea className="h-72">
-                            {sortedCountries.map((country) => (
-                              <SelectItem key={country.code} value={country.code}>
-                                {country.name}
-                              </SelectItem>
-                            ))}
-                          </ScrollArea>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="toZip"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ZIP/Postal Code</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Enter ZIP/Postal code" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-            
-            <div className="border-t border-gray-200 pt-6">
-              <h3 className="text-lg font-semibold text-blue-700 mb-4">Package Details</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-end gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-3">
+                        <span className="text-blue-600 font-bold">FROM</span>
+                      </div>
+                    </div>
                     <FormField
                       control={form.control}
-                      name="weight"
+                      name="fromZip"
                       render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormLabel>Weight</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.1" min="0.1" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                        <ZipCodeInput
+                          label="Origin ZIP Code"
+                          placeholder="Enter ZIP code (e.g., 10001)"
+                          value={field.value}
+                          onChange={field.onChange}
+                          error={form.formState.errors.fromZip?.message}
+                        />
                       )}
                     />
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-3">
+                        <span className="text-green-600 font-bold">TO</span>
+                      </div>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="toZip"
+                      render={({ field }) => (
+                        <ZipCodeInput
+                          label="Destination ZIP Code"
+                          placeholder="Enter ZIP code (e.g., 90210)"
+                          value={field.value}
+                          onChange={field.onChange}
+                          error={form.formState.errors.toZip?.message}
+                        />
+                      )}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Package Details Section */}
+              <div className="bg-white rounded-lg p-6 shadow-sm border border-blue-100">
+                <div className="flex items-center gap-2 mb-6">
+                  <Package className="h-5 w-5 text-blue-600" />
+                  <h3 className="text-xl font-semibold text-blue-800">Package Details</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="flex items-end gap-4">
+                      <FormField
+                        control={form.control}
+                        name="weight"
+                        render={({ field }) => (
+                          <FormItem className="flex-1">
+                            <FormLabel>Weight</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.1" min="0.1" className="text-lg" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="weightUnit"
+                        render={({ field }) => (
+                          <FormItem className="w-24">
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="text-lg">
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="lb">lb</SelectItem>
+                                <SelectItem value="kg">kg</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                     
                     <FormField
                       control={form.control}
-                      name="weightUnit"
+                      name="carrierFilter"
                       render={({ field }) => (
-                        <FormItem className="w-24">
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
+                        <FormItem>
+                          <FormLabel>Carrier Selection</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
+                              <SelectTrigger className="text-lg">
+                                <SelectValue placeholder="Select carriers" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="lb">lb</SelectItem>
-                              <SelectItem value="kg">kg</SelectItem>
+                              {CARRIER_OPTIONS.map((carrier) => (
+                                <SelectItem key={carrier.value} value={carrier.value}>
+                                  {carrier.label}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -283,132 +254,108 @@ const RateCalculator: React.FC = () => {
                       )}
                     />
                   </div>
-                  
-                  <FormField
-                    control={form.control}
-                    name="dimensionUnit"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Dimension Unit</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="in">in</SelectItem>
-                            <SelectItem value="cm">cm</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
 
-                <div className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="carrierFilter"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Carrier Selection</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select carriers" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {CARRIER_OPTIONS.map((carrier) => (
-                              <SelectItem key={carrier.value} value={carrier.value}>
-                                {carrier.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="dimensionUnit"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Dimension Unit</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="text-lg">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="in">inches</SelectItem>
+                              <SelectItem value="cm">centimeters</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="grid grid-cols-3 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="length"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Length</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.1" min="0.1" className="text-lg" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="width"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Width</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.1" min="0.1" className="text-lg" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="height"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Height</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.1" min="0.1" className="text-lg" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
               
-              <div className="grid grid-cols-3 gap-4 mt-4">
-                <FormField
-                  control={form.control}
-                  name="length"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Length</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.1" min="0.1" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+              {/* Submit Button */}
+              <div className="flex justify-center pt-4">
+                <Button 
+                  type="submit" 
+                  disabled={isLoading || isGeneratingAddress}
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-12 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                >
+                  {isGeneratingAddress ? (
+                    <>
+                      <Loader className="mr-3 h-5 w-5 animate-spin" />
+                      Generating Addresses...
+                    </>
+                  ) : isLoading ? (
+                    <>
+                      <Loader className="mr-3 h-5 w-5 animate-spin" />
+                      Finding Best Rates...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="mr-3 h-5 w-5" />
+                      Get Shipping Quotes
+                      <ArrowRight className="ml-3 h-5 w-5" />
+                    </>
                   )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="width"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Width</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.1" min="0.1" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="height"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Height</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.1" min="0.1" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                </Button>
               </div>
-            </div>
-            
-            <div className="flex justify-end">
-              <Button 
-                type="submit" 
-                disabled={isLoading}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    Calculating Rates...
-                  </>
-                ) : (
-                  <>
-                    <Search className="mr-2 h-4 w-4" />
-                    Calculate Rates
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
