@@ -110,7 +110,7 @@ export const useShipmentUpload = () => {
 
       setProgress(40); // Ready to process
 
-      // Process file via the API - Fixed the function invocation
+      // Process file via the API
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
         body: { 
           fileName: file.name,
