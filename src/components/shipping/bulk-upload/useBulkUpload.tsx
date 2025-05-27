@@ -28,7 +28,14 @@ export const useBulkUpload = () => {
   // Update results wrapper function
   const updateResults = (newResults: BulkUploadResult) => {
     console.log('Updating results:', newResults);
-    setResults(newResults);
+    
+    // Add pickup address to results if not present
+    const resultsWithPickup = {
+      ...newResults,
+      pickupAddress: newResults.pickupAddress || pickupAddress
+    };
+    
+    setResults(resultsWithPickup);
     
     // If a new upload status is provided, update it
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
@@ -100,22 +107,8 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // Fetch rates when shipments are processed
-  useEffect(() => {
-    const fetchRates = async () => {
-      if (results?.processedShipments && 
-          results.processedShipments.length > 0 && 
-          (!results.processedShipments[0].availableRates || 
-           results.processedShipments[0].availableRates.length === 0)) {
-        console.log('Fetching additional rates for shipments...');
-        await fetchAllShipmentRates(results.processedShipments);
-      }
-    };
-
-    if (uploadStatus === 'editing') {
-      fetchRates();
-    }
-  }, [uploadStatus, results?.processedShipments]);
+  // No need to fetch rates separately since they come with the upload now
+  // Remove the automatic rate fetching effect since rates are fetched during upload
 
   // Modified handleUpload to include pickup address
   const handleFileUpload = async (file: File) => {
