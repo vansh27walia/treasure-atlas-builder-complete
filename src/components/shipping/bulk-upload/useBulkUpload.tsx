@@ -23,7 +23,7 @@ export const useBulkUpload = () => {
     handleFileChange,
     handleUpload,
     handleDownloadTemplate
-  } = useShipmentUpload();
+  } = useShipmentUpload(pickupAddress);
 
   // Update results wrapper function
   const updateResults = (newResults: BulkUploadResult) => {
@@ -96,6 +96,7 @@ export const useBulkUpload = () => {
           results.processedShipments.length > 0 && 
           (!results.processedShipments[0].availableRates || 
            results.processedShipments[0].availableRates.length === 0)) {
+        console.log('Fetching rates for shipments with pickup address:', pickupAddress);
         await fetchAllShipmentRates(results.processedShipments);
       }
     };
@@ -103,7 +104,7 @@ export const useBulkUpload = () => {
     if (uploadStatus === 'editing') {
       fetchRates();
     }
-  }, [uploadStatus, results?.processedShipments]);
+  }, [uploadStatus, results?.processedShipments, pickupAddress]);
 
   // Modified handleUpload to include pickup address
   const handleFileUpload = async (file: File) => {
@@ -117,7 +118,9 @@ export const useBulkUpload = () => {
       });
       throw new Error('Pickup address is required');
     }
-    return handleUpload(file);
+    
+    console.log('Uploading file with pickup address:', pickupAddress);
+    return handleUpload(file, pickupAddress);
   };
 
   return {

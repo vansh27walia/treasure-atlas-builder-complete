@@ -40,7 +40,7 @@ const downloadTemplate = () => {
   toast.success('Template downloaded successfully');
 };
 
-export const useShipmentUpload = () => {
+export const useShipmentUpload = (pickupAddress?: any) => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'editing'>('idle');
@@ -64,11 +64,21 @@ export const useShipmentUpload = () => {
     }
   };
 
-  const handleUpload = async (file: File): Promise<void> => {
+  const handleUpload = async (file: File, currentPickupAddress?: any): Promise<void> => {
     if (!file) {
       toast.error('Please select a file to upload');
       return;
     }
+
+    // Use the provided pickup address or the hook's pickup address
+    const addressToUse = currentPickupAddress || pickupAddress;
+    
+    if (!addressToUse) {
+      toast.error('Pickup address is required for bulk upload');
+      return;
+    }
+
+    console.log('Using pickup address for upload:', addressToUse);
 
     setIsUploading(true);
     setUploadStatus('idle');
@@ -96,26 +106,15 @@ export const useShipmentUpload = () => {
       
       const base64Data = await fileReadPromise;
       setProgress(30); // File read complete
-      
-      // Get current pickup address (this should be passed from parent component)
-      const pickupAddress = {
-        name: "Default Pickup",
-        street1: "123 Main St",
-        city: "San Francisco", 
-        state: "CA",
-        zip: "94111",
-        country: "US",
-        phone: "555-555-5555"
-      };
 
       setProgress(40); // Ready to process
 
-      // Process file via the API - Fixed the function invocation
+      // Process file via the API with proper pickup address
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
         body: { 
           fileName: file.name,
           fileContent: base64Data,
-          pickupAddress: pickupAddress
+          pickupAddress: addressToUse
         }
       });
 
@@ -142,7 +141,8 @@ export const useShipmentUpload = () => {
         failed: data.failed,
         totalCost: data.totalCost,
         processedShipments,
-        failedShipments: data.failedShipments || []
+        failedShipments: data.failedShipments || [],
+        pickupAddress: addressToUse
       };
       
       setResults(resultData);

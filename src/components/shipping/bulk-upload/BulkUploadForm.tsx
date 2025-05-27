@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { CloudUpload, FileUp, Loader2 } from 'lucide-react';
+import { CloudUpload, FileUp, Loader2, Download } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { BulkUploadResult } from '@/types/shipping';
@@ -33,6 +33,29 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const [showAddNewAddress, setShowAddNewAddress] = useState(false);
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+
+  // Download template function
+  const downloadTemplate = () => {
+    const csvContent = [
+      'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight',
+      'John Doe,ACME Inc,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16',
+      'Jane Smith,Tech Corp,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,5559876543,10,6,4,8',
+      'Bob Johnson,Global LLC,789 Pine St,,New York,NY,10001,US,5555551234,15,10,6,25'
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', 'bulk_shipping_template.csv');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    toast.success('Template downloaded successfully');
+  };
 
   // Load saved addresses when component mounts
   useEffect(() => {
@@ -272,7 +295,18 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       </div>
       
       <div className="space-y-4">
-        <h3 className="text-lg font-medium">Upload File</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium">Upload File</h3>
+          <Button 
+            type="button" 
+            onClick={downloadTemplate}
+            variant="outline"
+            className="flex items-center gap-2 border-green-300 text-green-700 hover:bg-green-50"
+          >
+            <Download className="h-4 w-4" />
+            Download Template
+          </Button>
+        </div>
         <div
           className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 transition-colors"
           onDrop={handleDrop}
@@ -301,6 +335,19 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
             </p>
           </div>
         </div>
+        
+        {!selectedFile && (
+          <div className="text-center">
+            <Button 
+              type="button" 
+              onClick={downloadTemplate}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download Template to Get Started
+            </Button>
+          </div>
+        )}
       </div>
       
       <div className="flex justify-end">

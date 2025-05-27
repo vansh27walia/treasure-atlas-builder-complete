@@ -94,34 +94,59 @@ const parseCSV = (csvContent: string): string[][] => {
   });
 };
 
-// Generate mock rates as fallback
-const generateMockRates = (): ShippingRate[] => {
+// Generate comprehensive mock rates with multiple carriers
+const generateMockRates = (weight?: number, dimensions?: any): ShippingRate[] => {
+  const baseWeight = weight || 16;
   const carriers = [
-    { name: 'USPS', services: ['Priority', 'Ground', 'Express'] },
-    { name: 'UPS', services: ['Ground', '2nd Day Air', 'Next Day Air'] },
-    { name: 'FedEx', services: ['Ground', 'Express', 'Overnight'] },
+    { 
+      name: 'USPS', 
+      services: [
+        { service: 'Priority Mail', baseRate: 8.50, days: 2 },
+        { service: 'Ground Advantage', baseRate: 6.25, days: 4 },
+        { service: 'Priority Express', baseRate: 28.95, days: 1 }
+      ]
+    },
+    { 
+      name: 'UPS', 
+      services: [
+        { service: 'Ground', baseRate: 12.85, days: 3 },
+        { service: '2nd Day Air', baseRate: 22.50, days: 2 },
+        { service: 'Next Day Air', baseRate: 45.75, days: 1 }
+      ]
+    },
+    { 
+      name: 'FedEx', 
+      services: [
+        { service: 'Ground', baseRate: 11.95, days: 3 },
+        { service: 'Express Saver', baseRate: 24.80, days: 3 },
+        { service: 'Standard Overnight', baseRate: 48.20, days: 1 }
+      ]
+    },
   ];
 
   const rates: ShippingRate[] = [];
   
   carriers.forEach(carrier => {
-    carrier.services.forEach((service, index) => {
-      const baseRate = 8 + Math.random() * 15;
-      const markup = baseRate * 0.15;
+    carrier.services.forEach((serviceInfo, index) => {
+      // Calculate rate based on weight
+      const weightMultiplier = Math.max(1, baseWeight / 16);
+      const calculatedRate = serviceInfo.baseRate * weightMultiplier;
+      const finalRate = calculatedRate + (Math.random() * 2 - 1); // Add small variation
       
       rates.push({
-        id: `rate_${carrier.name.toLowerCase()}_${service.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}_${index}`,
+        id: `rate_${carrier.name.toLowerCase()}_${serviceInfo.service.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}_${index}`,
         carrier: carrier.name,
-        service: service,
-        rate: (baseRate + markup).toFixed(2),
+        service: serviceInfo.service,
+        rate: Math.max(finalRate, 3.50).toFixed(2), // Minimum rate of $3.50
         currency: 'USD',
-        delivery_days: Math.floor(Math.random() * 5) + 1,
+        delivery_days: serviceInfo.days,
         delivery_date: null,
       });
     });
   });
 
-  return rates;
+  // Sort rates by price (cheapest first)
+  return rates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
 };
 
 serve(async (req) => {
@@ -250,6 +275,11 @@ serve(async (req) => {
           throw new Error(`Row ${i}: Missing required fields: ${missingInRow.join(', ')}`);
         }
 
+        const weight = fieldIndexes.parcel_weight >= 0 ? parseFloat(rowData[fieldIndexes.parcel_weight]) || 16 : 16;
+        const length = fieldIndexes.parcel_length >= 0 ? parseFloat(rowData[fieldIndexes.parcel_length]) || 8 : 8;
+        const width = fieldIndexes.parcel_width >= 0 ? parseFloat(rowData[fieldIndexes.parcel_width]) || 6 : 6;
+        const height = fieldIndexes.parcel_height >= 0 ? parseFloat(rowData[fieldIndexes.parcel_height]) || 4 : 4;
+
         const recipientDetails = {
           name,
           company: fieldIndexes.company >= 0 ? rowData[fieldIndexes.company]?.trim() : undefined,
@@ -260,21 +290,19 @@ serve(async (req) => {
           zip,
           country,
           phone: fieldIndexes.phone >= 0 ? rowData[fieldIndexes.phone]?.trim() : undefined,
-          parcel_length: fieldIndexes.parcel_length >= 0 ? parseFloat(rowData[fieldIndexes.parcel_length]) || 8 : 8,
-          parcel_width: fieldIndexes.parcel_width >= 0 ? parseFloat(rowData[fieldIndexes.parcel_width]) || 6 : 6,
-          parcel_height: fieldIndexes.parcel_height >= 0 ? parseFloat(rowData[fieldIndexes.parcel_height]) || 4 : 4,
-          parcel_weight: fieldIndexes.parcel_weight >= 0 ? parseFloat(rowData[fieldIndexes.parcel_weight]) || 16 : 16,
+          parcel_length: length,
+          parcel_width: width,
+          parcel_height: height,
+          parcel_weight: weight,
           preferred_carrier: fieldIndexes.preferred_carrier >= 0 ? rowData[fieldIndexes.preferred_carrier]?.trim() : undefined,
           preferred_service: fieldIndexes.preferred_service >= 0 ? rowData[fieldIndexes.preferred_service]?.trim() : undefined,
         };
         
-        // Generate rates for this shipment
-        const availableRates = generateMockRates();
+        // Generate rates for this shipment with proper weight calculation
+        const availableRates = generateMockRates(weight, { length, width, height });
         
         // Select best rate based on preferences or default to cheapest
-        let selectedRate = availableRates.reduce((prev, curr) => 
-          parseFloat(prev.rate) < parseFloat(curr.rate) ? prev : curr
-        );
+        let selectedRate = availableRates[0]; // Already sorted by price
         
         if (recipientDetails.preferred_carrier) {
           const preferredRate = availableRates.find(rate => 

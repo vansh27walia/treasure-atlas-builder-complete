@@ -1,34 +1,13 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { FileText, Download } from 'lucide-react';
+import { FileText, Download, Upload } from 'lucide-react';
 
 interface BulkUploadHeaderProps {
   onDownloadTemplate: () => void;
 }
 
 const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({ onDownloadTemplate }) => {
-  // Standardized template with consistent format
-  const handleDownloadStandardTemplate = () => {
-    const csvContent = [
-      'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight',
-      'John Doe,ACME Inc,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16',
-      'Jane Smith,Tech Corp,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,5559876543,10,6,4,8',
-      'Bob Johnson,Global LLC,789 Pine St,,New York,NY,10001,US,5555551234,15,10,6,25'
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.setAttribute('hidden', '');
-    a.setAttribute('href', url);
-    a.setAttribute('download', 'bulk_shipping_template.csv');
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="mb-6">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4">
@@ -39,8 +18,8 @@ const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({ onDownloadTemplate 
         
         <div className="flex gap-2 mt-4 lg:mt-0">
           <Button 
-            onClick={handleDownloadStandardTemplate}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+            onClick={onDownloadTemplate}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
           >
             <Download className="h-4 w-4" />
             Download Template
@@ -49,7 +28,18 @@ const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({ onDownloadTemplate 
       </div>
       
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-3">Template Format Requirements:</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-blue-800">Template Format Requirements:</h3>
+          <Button 
+            onClick={onDownloadTemplate}
+            size="sm"
+            variant="outline"
+            className="flex items-center gap-2 border-blue-300 text-blue-700 hover:bg-blue-100"
+          >
+            <Download className="h-3 w-3" />
+            Get Template
+          </Button>
+        </div>
         <div className="grid md:grid-cols-2 gap-4 text-sm text-blue-700">
           <div>
             <h4 className="font-medium mb-2">Required Fields:</h4>
