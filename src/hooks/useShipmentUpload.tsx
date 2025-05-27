@@ -41,29 +41,40 @@ export const useShipmentUpload = () => {
     }
   };
 
-  const handleUpload = async (file: File): Promise<void> => {
+  const handleUpload = async (file: File, pickupAddress?: any): Promise<void> => {
     if (!file) {
       toast.error('Please select a file to upload');
       return;
     }
 
+    if (!pickupAddress) {
+      toast.error('Pickup address is required. Please set one in your settings.');
+      return;
+    }
+
     setIsUploading(true);
     setUploadStatus('idle');
-    setProgress(10); // Start progress
+    setProgress(10);
 
     try {
-      // Read the file
+      console.log('Starting file upload process');
+      console.log('File details:', { name: file.name, size: file.size, type: file.type });
+      console.log('Pickup address:', pickupAddress);
+
+      // Read the file as text
       const text = await file.text();
-      setProgress(20); // File read
+      console.log('File read successfully, length:', text.length);
+      
+      setProgress(20);
       
       // Validate CSV structure
-      const rows = text.split('\n');
-      if (rows.length < 2) {
+      const lines = text.split('\n').filter(line => line.trim() !== '');
+      if (lines.length < 2) {
         throw new Error('CSV file must have at least a header row and one data row');
       }
       
       // Check CSV headers
-      const headers = rows[0].toLowerCase().split(',');
+      const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
       const requiredFields = ['name', 'street1', 'city', 'state', 'zip', 'country'];
       const missingFields = requiredFields.filter(field => !headers.includes(field));
       
@@ -71,32 +82,34 @@ export const useShipmentUpload = () => {
         throw new Error(`CSV is missing required fields: ${missingFields.join(', ')}`);
       }
       
-      setProgress(30); // File validated
+      setProgress(30);
+      console.log('CSV validation passed');
 
-      // Process file and generate labels via the API
+      // Process file via the API
+      console.log('Sending to process-bulk-upload function');
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
         body: { 
           csvContent: text,
-          origin: {
-            name: "Shipping Company",
-            street1: "123 Main St",
-            city: "San Francisco",
-            state: "CA",
-            zip: "94111",
-            country: "US",
-            phone: "555-555-5555"
-          }
+          pickupAddress: pickupAddress
         }
       });
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error(error.message || 'Failed to process bulk upload');
+      }
 
-      setProgress(90); // Processing complete
+      if (!data) {
+        throw new Error('No data received from processing function');
+      }
+
+      console.log('Processing response:', data);
+      setProgress(90);
       
-      // Initialize the shipments with empty available rates and properly typed status
+      // Initialize the shipments with properly typed status
       const processedShipments: BulkShipment[] = data.processedShipments.map((shipment: any) => ({
         ...shipment,
-        availableRates: [],
+        availableRates: shipment.availableRates || [],
         status: normalizeStatus(shipment.status || 'pending')
       }));
 
@@ -113,19 +126,36 @@ export const useShipmentUpload = () => {
       setUploadStatus('editing');
       setProgress(100);
       
-      toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments. Ready for carrier selection.`);
+      toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments with live rates.`);
+      
+      if (data.failedShipments && data.failedShipments.length > 0) {
+        toast.error(`${data.failedShipments.length} shipments failed to process. Check the error details.`);
+      }
+      
     } catch (error) {
       console.error('Bulk upload error:', error);
       setUploadStatus('error');
       setProgress(0);
-      toast.error(`Failed to process the uploaded file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      let errorMessage = 'Failed to process the uploaded file';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage);
+      throw error;
     } finally {
       setIsUploading(false);
     }
   };
 
   const handleDownloadTemplate = () => {
-    const csvContent = 'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight\nJohn Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16';
+    const csvContent = [
+      'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight',
+      'John Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16',
+      'Jane Smith,Tech Corp,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,5559876543,10,6,4,8'
+    ].join('\n');
+    
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');

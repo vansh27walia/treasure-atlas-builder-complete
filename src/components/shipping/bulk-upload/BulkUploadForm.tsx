@@ -1,18 +1,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { CloudUpload, FileUp, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import { supabase } from '@/integrations/supabase/client';
-import { BulkUploadResult } from '@/types/shipping';
 import SelectAddressDropdown from '../SelectAddressDropdown';
 import AddressForm from '../AddressForm';
 import { addressService, SavedAddress } from '@/services/AddressService';
 
 export interface BulkUploadFormProps {
-  onUploadSuccess: (results: BulkUploadResult) => void;
+  onUploadSuccess: (results: any) => void;
   onUploadFail: (error: string) => void;
   onPickupAddressSelect: (address: SavedAddress | null) => void;
   isUploading?: boolean;
@@ -29,7 +26,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   handleUpload
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [localIsUploading, setLocalIsUploading] = useState(false);
   const [showAddNewAddress, setShowAddNewAddress] = useState(false);
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
@@ -38,17 +34,27 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   useEffect(() => {
     const loadAddresses = async () => {
       try {
+        console.log('Loading addresses in BulkUploadForm...');
         const savedAddresses = await addressService.getSavedAddresses();
+        console.log('Loaded addresses:', savedAddresses);
         setAddresses(savedAddresses);
         
         // If there's a default from address, select it
         const defaultFromAddress = savedAddresses.find(addr => addr.is_default_from);
         if (defaultFromAddress) {
+          console.log('Setting default pickup address:', defaultFromAddress);
           setPickupAddress(defaultFromAddress);
           onPickupAddressSelect(defaultFromAddress);
+        } else if (savedAddresses.length > 0) {
+          // Use first address if no default
+          const firstAddress = savedAddresses[0];
+          console.log('No default found, using first address:', firstAddress);
+          setPickupAddress(firstAddress);
+          onPickupAddressSelect(firstAddress);
         }
       } catch (error) {
         console.error('Error loading addresses:', error);
+        toast.error('Error loading pickup addresses');
       }
     };
     
@@ -59,6 +65,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     const file = e.target.files?.[0];
     
     if (file) {
+      console.log('File selected:', { name: file.name, size: file.size, type: file.type });
+      
       // Check if it's a CSV file
       if (!file.name.toLowerCase().endsWith('.csv')) {
         toast.error('Please upload a CSV file');
@@ -108,81 +116,38 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    console.log('Form submitted with:', { selectedFile: selectedFile?.name, pickupAddress: pickupAddress?.name });
+    
     if (!selectedFile) {
-      toast.error('Please select a file to upload');
+      toast.error('Please select a CSV file to upload');
       return;
     }
     
     if (!pickupAddress) {
-      toast.error('Please select a pickup address');
+      toast.error('Please select a pickup address or add one in Settings');
       return;
     }
     
-    setLocalIsUploading(true);
-    
     try {
       if (handleUpload) {
-        // Use the provided handleUpload function if it exists
+        console.log('Using provided handleUpload function');
         await handleUpload(selectedFile);
+        onUploadSuccess({});
       } else {
-        // Convert file to base64 to send to edge function
-        const reader = new FileReader();
-        reader.readAsDataURL(selectedFile);
-        reader.onload = async () => {
-          try {
-            const base64Data = reader.result?.toString().split(',')[1];
-            
-            if (!base64Data) {
-              throw new Error('Failed to convert file to base64');
-            }
-            
-            const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
-              body: { 
-                fileName: selectedFile.name,
-                fileContent: base64Data,
-                pickupAddress: pickupAddress // Include the pickup address for all shipments
-              }
-            });
-            
-            if (error) {
-              throw new Error(error.message);
-            }
-            
-            if (data.error) {
-              throw new Error(data.error);
-            }
-            
-            // Handle success
-            toast.success('File uploaded and processed successfully');
-            onUploadSuccess(data as BulkUploadResult);
-          } catch (error) {
-            console.error('Upload error:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Failed to process file';
-            toast.error(errorMessage);
-            onUploadFail(errorMessage);
-          } finally {
-            setLocalIsUploading(false);
-          }
-        };
-        
-        reader.onerror = () => {
-          toast.error('Failed to read file');
-          setLocalIsUploading(false);
-          onUploadFail('Failed to read file');
-        };
+        console.log('No handleUpload function provided');
+        onUploadFail('Upload handler not available');
       }
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('Upload error in form:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to process file';
-      toast.error(errorMessage);
       onUploadFail(errorMessage);
-      setLocalIsUploading(false);
     }
   };
 
   const handleAddressSubmit = async (values: any) => {
     try {
-      // Use encrypted storage for address
+      console.log('Creating new address:', values);
+      
       const newAddress = await addressService.createAddress({
         name: values.name || '',
         company: values.company || '',
@@ -219,7 +184,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   };
 
   const handlePickupAddressChange = (address: SavedAddress | null) => {
-    console.log('Pickup address changed:', address);
+    console.log('Pickup address changed in form:', address);
     setPickupAddress(address);
     onPickupAddressSelect(address);
   };
@@ -261,9 +226,10 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
               className="w-full"
             />
             {!pickupAddress && addresses.length === 0 && (
-              <div className="p-4 bg-blue-50 rounded-md">
+              <div className="p-4 bg-blue-50 rounded-md border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  You don't have any saved pickup addresses. Click "Add new address" to create one.
+                  <strong>No pickup addresses found.</strong> You need to add a pickup address before uploading CSV files. 
+                  Click "Add new address" above or go to Settings to add one.
                 </p>
               </div>
             )}
@@ -272,9 +238,9 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       </div>
       
       <div className="space-y-4">
-        <h3 className="text-lg font-medium">Upload File</h3>
+        <h3 className="text-lg font-medium">Upload CSV File</h3>
         <div
-          className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 transition-colors"
+          className="border-2 border-dashed border-gray-300 rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 transition-colors bg-gray-50 hover:bg-blue-50"
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onClick={() => document.getElementById('file-upload')?.click()}
@@ -287,34 +253,48 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
             onChange={handleFileChange}
           />
           
-          <CloudUpload className="h-12 w-12 text-gray-400 mb-4" />
+          <CloudUpload className="h-16 w-16 text-gray-400 mb-4" />
           
           <div className="text-center">
-            <p className="text-sm font-medium mb-1">
+            <p className="text-lg font-medium mb-2">
               {selectedFile 
-                ? selectedFile.name 
+                ? `Selected: ${selectedFile.name}` 
                 : 'Drag & drop your CSV file here or click to browse'
               }
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-sm text-gray-500">
               Supported format: CSV (up to 10MB)
             </p>
+            {selectedFile && (
+              <p className="text-xs text-green-600 mt-2">
+                ✓ File ready for upload
+              </p>
+            )}
           </div>
         </div>
+        
+        {isUploading && progress > 0 && (
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+        )}
       </div>
       
       <div className="flex justify-end">
         <Button 
           type="submit" 
-          disabled={!selectedFile || !pickupAddress || isUploading || localIsUploading}
-          className="flex items-center gap-2"
+          disabled={!selectedFile || !pickupAddress || isUploading}
+          className="flex items-center gap-2 px-8 py-2"
         >
-          {isUploading || localIsUploading ? (
+          {isUploading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <FileUp className="h-4 w-4" />
           )}
-          {isUploading || localIsUploading ? 'Uploading...' : 'Upload and Process'}
+          {isUploading ? `Uploading... (${progress}%)` : 'Upload and Process'}
         </Button>
       </div>
     </form>

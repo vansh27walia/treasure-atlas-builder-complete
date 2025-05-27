@@ -58,9 +58,41 @@ interface ProcessingError {
   details: string;
 }
 
-// Fetch live rates from carriers
+// Parse CSV content properly
+const parseCSV = (csvContent: string): string[][] => {
+  const lines = csvContent.split('\n').filter(line => line.trim() !== '');
+  const result: string[][] = [];
+  
+  for (const line of lines) {
+    const fields: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        fields.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    
+    fields.push(current.trim());
+    result.push(fields);
+  }
+  
+  return result;
+};
+
+// Fetch live rates from EasyPost
 const fetchLiveRates = async (fromAddress: any, toAddress: any, parcel: any): Promise<ShippingRate[]> => {
   try {
+    console.log('Fetching rates for:', { fromAddress, toAddress, parcel });
+    
     // Get EasyPost API key
     const apiKey = Deno.env.get('EASYPOST_API_KEY');
     if (!apiKey) {
@@ -82,7 +114,7 @@ const fetchLiveRates = async (fromAddress: any, toAddress: any, parcel: any): Pr
         phone: toAddress.phone || '',
       },
       from_address: {
-        name: fromAddress.name,
+        name: fromAddress.name || fromAddress.street1,
         company: fromAddress.company || '',
         street1: fromAddress.street1,
         street2: fromAddress.street2 || '',
@@ -100,6 +132,8 @@ const fetchLiveRates = async (fromAddress: any, toAddress: any, parcel: any): Pr
       }
     };
 
+    console.log('Sending to EasyPost:', JSON.stringify(shipmentData));
+
     const response = await fetch('https://api.easypost.com/v2/shipments', {
       method: 'POST',
       headers: {
@@ -110,11 +144,13 @@ const fetchLiveRates = async (fromAddress: any, toAddress: any, parcel: any): Pr
     });
 
     if (!response.ok) {
-      console.log('EasyPost API error, using mock rates');
+      const errorText = await response.text();
+      console.log('EasyPost API error:', response.status, errorText);
       return generateMockRates();
     }
 
     const shipment = await response.json();
+    console.log('EasyPost response rates count:', shipment.rates?.length || 0);
     
     // Convert EasyPost rates to our format
     const rates: ShippingRate[] = shipment.rates?.map((rate: any) => ({
@@ -178,35 +214,50 @@ serve(async (req) => {
   }
 
   try {
-    const { csvContent, pickupAddress } = await req.json();
+    const requestBody = await req.json();
+    console.log('Request body keys:', Object.keys(requestBody));
     
-    if (!csvContent) {
+    const { csvContent, pickupAddress, fileName, fileContent } = requestBody;
+    
+    // Handle both direct CSV content and base64 file content
+    let csvData = csvContent;
+    if (!csvData && fileContent && fileName) {
+      // Decode base64 file content
+      const decodedContent = atob(fileContent);
+      csvData = decodedContent;
+    }
+    
+    if (!csvData) {
       return new Response(
-        JSON.stringify({ error: 'Missing CSV content' }),
+        JSON.stringify({ error: 'Missing CSV content or file data' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
     if (!pickupAddress) {
       return new Response(
-        JSON.stringify({ error: 'Missing pickup address' }),
+        JSON.stringify({ error: 'Missing pickup address. Please set a pickup address in your settings.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
     console.log("Processing bulk upload with pickup address:", JSON.stringify(pickupAddress));
+    console.log("CSV content length:", csvData.length);
 
-    // Process the CSV content
-    const rows = csvContent.split('\n');
-    const headers = rows[0].toLowerCase().split(',');
+    // Parse the CSV content properly
+    const rows = parseCSV(csvData);
     
     if (rows.length < 2) {
       return new Response(
-        JSON.stringify({ error: 'CSV file must have at least one data row' }),
+        JSON.stringify({ error: 'CSV file must have at least one data row after the header' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
+    // Get headers and convert to lowercase for case-insensitive matching
+    const headers = rows[0].map(h => h.toLowerCase().trim());
+    console.log('CSV headers:', headers);
+    
     // Validate required headers
     const requiredFields = ['name', 'street1', 'city', 'state', 'zip', 'country'];
     const missingFields = requiredFields.filter(field => !headers.includes(field));
@@ -219,26 +270,27 @@ serve(async (req) => {
     }
     
     // Get field indexes
+    const getFieldIndex = (fieldName: string) => headers.indexOf(fieldName);
+    
     const fieldIndexes = {
-      name: headers.indexOf('name'),
-      company: headers.indexOf('company'),
-      street1: headers.indexOf('street1'),
-      street2: headers.indexOf('street2'),
-      city: headers.indexOf('city'),
-      state: headers.indexOf('state'),
-      zip: headers.indexOf('zip'),
-      country: headers.indexOf('country'),
-      phone: headers.indexOf('phone'),
-      parcel_length: headers.indexOf('parcel_length'),
-      parcel_width: headers.indexOf('parcel_width'),
-      parcel_height: headers.indexOf('parcel_height'),
-      parcel_weight: headers.indexOf('parcel_weight'),
-      preferred_carrier: headers.indexOf('preferred_carrier'),
-      preferred_service: headers.indexOf('preferred_service'),
-      package_type: headers.indexOf('package_type'),
-      delivery_confirmation: headers.indexOf('delivery_confirmation'),
-      insurance_value: headers.indexOf('insurance_value'),
+      name: getFieldIndex('name'),
+      company: getFieldIndex('company'),
+      street1: getFieldIndex('street1'),
+      street2: getFieldIndex('street2'),
+      city: getFieldIndex('city'),
+      state: getFieldIndex('state'),
+      zip: getFieldIndex('zip'),
+      country: getFieldIndex('country'),
+      phone: getFieldIndex('phone'),
+      parcel_length: getFieldIndex('parcel_length'),
+      parcel_width: getFieldIndex('parcel_width'),
+      parcel_height: getFieldIndex('parcel_height'),
+      parcel_weight: getFieldIndex('parcel_weight'),
+      preferred_carrier: getFieldIndex('preferred_carrier'),
+      preferred_service: getFieldIndex('preferred_service'),
     };
+    
+    console.log('Field indexes:', fieldIndexes);
     
     const total = rows.length - 1;
     const processedShipments: ShipmentResult[] = [];
@@ -246,40 +298,48 @@ serve(async (req) => {
     
     // Process each row (skip header)
     for (let i = 1; i < rows.length; i++) {
-      const rowData = rows[i].split(',');
+      const rowData = rows[i];
       
       // Skip empty rows
-      if (rowData.join('').trim() === '') continue;
+      if (!rowData || rowData.join('').trim() === '') {
+        console.log(`Skipping empty row ${i}`);
+        continue;
+      }
       
       try {
-        // Extract recipient details
+        console.log(`Processing row ${i}:`, rowData);
+        
+        // Extract recipient details safely
+        const getValue = (index: number) => index >= 0 && index < rowData.length ? rowData[index]?.trim() : '';
+        
         const recipientDetails = {
-          name: rowData[fieldIndexes.name],
-          company: fieldIndexes.company >= 0 ? rowData[fieldIndexes.company] : undefined,
-          street1: rowData[fieldIndexes.street1],
-          street2: fieldIndexes.street2 >= 0 ? rowData[fieldIndexes.street2] : undefined,
-          city: rowData[fieldIndexes.city],
-          state: rowData[fieldIndexes.state],
-          zip: rowData[fieldIndexes.zip],
-          country: rowData[fieldIndexes.country],
-          phone: fieldIndexes.phone >= 0 ? rowData[fieldIndexes.phone] : undefined,
-          parcel_length: fieldIndexes.parcel_length >= 0 ? parseFloat(rowData[fieldIndexes.parcel_length]) || 8 : 8,
-          parcel_width: fieldIndexes.parcel_width >= 0 ? parseFloat(rowData[fieldIndexes.parcel_width]) || 6 : 6,
-          parcel_height: fieldIndexes.parcel_height >= 0 ? parseFloat(rowData[fieldIndexes.parcel_height]) || 4 : 4,
-          parcel_weight: fieldIndexes.parcel_weight >= 0 ? parseFloat(rowData[fieldIndexes.parcel_weight]) || 16 : 16,
-          preferred_carrier: fieldIndexes.preferred_carrier >= 0 ? rowData[fieldIndexes.preferred_carrier] : undefined,
-          preferred_service: fieldIndexes.preferred_service >= 0 ? rowData[fieldIndexes.preferred_service] : undefined,
-          package_type: fieldIndexes.package_type >= 0 ? rowData[fieldIndexes.package_type] : undefined,
-          delivery_confirmation: fieldIndexes.delivery_confirmation >= 0 ? rowData[fieldIndexes.delivery_confirmation] : undefined,
-          insurance_value: fieldIndexes.insurance_value >= 0 ? parseFloat(rowData[fieldIndexes.insurance_value]) || 0 : 0,
+          name: getValue(fieldIndexes.name),
+          company: getValue(fieldIndexes.company),
+          street1: getValue(fieldIndexes.street1),
+          street2: getValue(fieldIndexes.street2),
+          city: getValue(fieldIndexes.city),
+          state: getValue(fieldIndexes.state),
+          zip: getValue(fieldIndexes.zip),
+          country: getValue(fieldIndexes.country) || 'US',
+          phone: getValue(fieldIndexes.phone),
+          parcel_length: parseFloat(getValue(fieldIndexes.parcel_length)) || 12,
+          parcel_width: parseFloat(getValue(fieldIndexes.parcel_width)) || 8,
+          parcel_height: parseFloat(getValue(fieldIndexes.parcel_height)) || 4,
+          parcel_weight: parseFloat(getValue(fieldIndexes.parcel_weight)) || 16,
+          preferred_carrier: getValue(fieldIndexes.preferred_carrier),
+          preferred_service: getValue(fieldIndexes.preferred_service),
         };
         
-        // Validate address
-        if (!recipientDetails.street1 || !recipientDetails.city || !recipientDetails.state || !recipientDetails.zip || !recipientDetails.country) {
-          throw new Error('Missing required address fields');
+        console.log(`Row ${i} details:`, recipientDetails);
+        
+        // Validate required address fields
+        if (!recipientDetails.name || !recipientDetails.street1 || !recipientDetails.city || 
+            !recipientDetails.state || !recipientDetails.zip) {
+          throw new Error(`Missing required fields in row ${i}: name, street1, city, state, zip are required`);
         }
         
         // Fetch live rates for this shipment
+        console.log(`Fetching rates for shipment ${i}`);
         const availableRates = await fetchLiveRates(
           pickupAddress,
           recipientDetails,
@@ -291,19 +351,28 @@ serve(async (req) => {
           }
         );
         
+        console.log(`Found ${availableRates.length} rates for shipment ${i}`);
+        
         // Select best rate based on preferences or default to cheapest
         let selectedRate = availableRates[0];
-        if (recipientDetails.preferred_carrier) {
+        if (recipientDetails.preferred_carrier && availableRates.length > 0) {
           const preferredRate = availableRates.find(rate => 
             rate.carrier.toLowerCase() === recipientDetails.preferred_carrier?.toLowerCase()
           );
-          if (preferredRate) selectedRate = preferredRate;
+          if (preferredRate) {
+            selectedRate = preferredRate;
+            console.log(`Using preferred carrier ${recipientDetails.preferred_carrier} for row ${i}`);
+          }
+        }
+        
+        if (!selectedRate) {
+          throw new Error(`No shipping rates available for row ${i}`);
         }
         
         processedShipments.push({
           id: `ship_${crypto.randomUUID().substring(0, 8)}`,
-          tracking_code: '', // Will be generated when label is created
-          label_url: '', // Will be generated when label is created
+          tracking_code: '',
+          label_url: '',
           status: "pending",
           row: i,
           recipient: recipientDetails.name,
@@ -315,10 +384,13 @@ serve(async (req) => {
           details: recipientDetails
         });
         
+        console.log(`Successfully processed row ${i}`);
+        
       } catch (error) {
+        console.error(`Error processing row ${i}:`, error);
         failedShipments.push({
           row: i,
-          error: error instanceof Error ? 'Processing Error' : 'Unknown Error',
+          error: 'Processing Error',
           details: error instanceof Error ? error.message : 'Unknown error occurred'
         });
       }
@@ -327,6 +399,8 @@ serve(async (req) => {
     const successful = processedShipments.length;
     const failed = failedShipments.length;
     const totalCost = processedShipments.reduce((sum, shipment) => sum + shipment.rate, 0);
+    
+    console.log(`Processing complete: ${successful} successful, ${failed} failed, total cost: $${totalCost}`);
     
     return new Response(
       JSON.stringify({ 
@@ -345,7 +419,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in process-bulk-upload function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ 
+        error: 'Internal Server Error', 
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: 'Please check your CSV format and ensure all required fields are present'
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
