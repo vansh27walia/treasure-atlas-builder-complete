@@ -11,11 +11,11 @@ const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({ onDownloadTemplate 
   const handleDownloadBasicTemplate = () => {
     const csvContent = [
       'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight',
-      'John Doe,ACME Inc,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16',
+      'John Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16',
       'Jane Smith,Tech Corp,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,5559876543,10,6,4,8'
     ].join('\n');
     
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.setAttribute('hidden', '');
@@ -24,18 +24,17 @@ const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({ onDownloadTemplate 
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
   };
 
   const handleDownloadEnhancedTemplate = () => {
     const csvContent = [
       'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight,preferred_carrier,preferred_service',
-      'John Doe,ACME Inc,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16,USPS,Priority',
+      'John Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16,USPS,Priority',
       'Jane Smith,Tech Corp,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,5559876543,10,6,4,8,UPS,Ground',
       'Bob Johnson,Global LLC,789 Pine St,,New York,NY,10001,US,5555551234,15,10,6,25,FedEx,Express'
     ].join('\n');
     
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.setAttribute('hidden', '');
@@ -44,7 +43,6 @@ const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({ onDownloadTemplate 
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
   };
 
   return (
@@ -76,33 +74,24 @@ const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({ onDownloadTemplate 
       </div>
       
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-3">Template Format Requirements:</h3>
+        <h3 className="font-semibold text-blue-800 mb-2">Template Information:</h3>
         <div className="grid md:grid-cols-2 gap-4 text-sm text-blue-700">
           <div>
-            <h4 className="font-medium mb-2">Required Fields (Basic):</h4>
+            <h4 className="font-medium mb-1">Basic Template:</h4>
             <ul className="space-y-1">
-              <li>• <strong>name</strong> - Recipient full name</li>
-              <li>• <strong>street1</strong> - Street address</li>
-              <li>• <strong>city</strong> - City name</li>
-              <li>• <strong>state</strong> - State abbreviation (CA, NY, etc.)</li>
-              <li>• <strong>zip</strong> - ZIP code</li>
-              <li>• <strong>country</strong> - Country code (US, CA, etc.)</li>
+              <li>• Required address fields</li>
+              <li>• Package dimensions</li>
+              <li>• Live rate calculation</li>
             </ul>
           </div>
           <div>
-            <h4 className="font-medium mb-2">Optional Fields:</h4>
+            <h4 className="font-medium mb-1">Enhanced Template:</h4>
             <ul className="space-y-1">
-              <li>• <strong>company</strong> - Company name</li>
-              <li>• <strong>street2</strong> - Apartment/Suite</li>
-              <li>• <strong>phone</strong> - Phone number</li>
-              <li>• <strong>parcel_length/width/height</strong> - Inches</li>
-              <li>• <strong>parcel_weight</strong> - Pounds</li>
-              <li>• <strong>preferred_carrier/service</strong> - Enhanced only</li>
+              <li>• Carrier preferences (USPS, UPS, FedEx, DHL)</li>
+              <li>• Service selection (Ground, Express, Priority)</li>
+              <li>• All basic template features</li>
             </ul>
           </div>
-        </div>
-        <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-          <strong>Important:</strong> Save as CSV format, use exact column names as shown in templates, and ensure no empty rows.
         </div>
       </div>
     </div>

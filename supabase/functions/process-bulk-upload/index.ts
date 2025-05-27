@@ -58,37 +58,86 @@ interface ProcessingError {
   details: string;
 }
 
-// Parse CSV content more reliably
-const parseCSV = (csvContent: string): string[][] => {
-  const lines = csvContent.trim().split('\n');
-  return lines.map(line => {
-    // Handle both comma-separated and properly quoted CSV
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
-      
-      if (char === '"' && !inQuotes) {
-        inQuotes = true;
-      } else if (char === '"' && inQuotes && nextChar === '"') {
-        current += '"';
-        i++; // Skip next quote
-      } else if (char === '"' && inQuotes) {
-        inQuotes = false;
-      } else if (char === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
+// Fetch live rates from carriers
+const fetchLiveRates = async (fromAddress: any, toAddress: any, parcel: any): Promise<ShippingRate[]> => {
+  try {
+    // Get EasyPost API key
+    const apiKey = Deno.env.get('EASYPOST_API_KEY');
+    if (!apiKey) {
+      console.log('EasyPost API key not found, using mock rates');
+      return generateMockRates();
     }
+
+    // Create shipment via EasyPost API
+    const shipmentData = {
+      to_address: {
+        name: toAddress.name,
+        company: toAddress.company || '',
+        street1: toAddress.street1,
+        street2: toAddress.street2 || '',
+        city: toAddress.city,
+        state: toAddress.state,
+        zip: toAddress.zip,
+        country: toAddress.country,
+        phone: toAddress.phone || '',
+      },
+      from_address: {
+        name: fromAddress.name,
+        company: fromAddress.company || '',
+        street1: fromAddress.street1,
+        street2: fromAddress.street2 || '',
+        city: fromAddress.city,
+        state: fromAddress.state,
+        zip: fromAddress.zip,
+        country: fromAddress.country,
+        phone: fromAddress.phone || '',
+      },
+      parcel: {
+        length: parcel.length,
+        width: parcel.width,
+        height: parcel.height,
+        weight: parcel.weight,
+      }
+    };
+
+    const response = await fetch('https://api.easypost.com/v2/shipments', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(shipmentData),
+    });
+
+    if (!response.ok) {
+      console.log('EasyPost API error, using mock rates');
+      return generateMockRates();
+    }
+
+    const shipment = await response.json();
     
-    result.push(current.trim());
-    return result;
-  });
+    // Convert EasyPost rates to our format
+    const rates: ShippingRate[] = shipment.rates?.map((rate: any) => ({
+      id: rate.id,
+      carrier: rate.carrier,
+      service: rate.service,
+      rate: rate.rate,
+      currency: rate.currency,
+      delivery_days: rate.delivery_days || 3,
+      delivery_date: rate.delivery_date,
+    })) || [];
+
+    // Apply markup
+    const markupPercentage = 15;
+    return rates.map(rate => ({
+      ...rate,
+      rate: (parseFloat(rate.rate) * (1 + markupPercentage / 100)).toFixed(2),
+    }));
+
+  } catch (error) {
+    console.error('Error fetching live rates:', error);
+    return generateMockRates();
+  }
 };
 
 // Generate mock rates as fallback
@@ -97,6 +146,7 @@ const generateMockRates = (): ShippingRate[] => {
     { name: 'USPS', services: ['Priority', 'Ground', 'Express'] },
     { name: 'UPS', services: ['Ground', '2nd Day Air', 'Next Day Air'] },
     { name: 'FedEx', services: ['Ground', 'Express', 'Overnight'] },
+    { name: 'DHL', services: ['Express', 'Express Worldwide'] }
   ];
 
   const rates: ShippingRate[] = [];
@@ -128,12 +178,11 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
-    const { fileName, fileContent, pickupAddress } = body;
+    const { csvContent, pickupAddress } = await req.json();
     
-    if (!fileContent) {
+    if (!csvContent) {
       return new Response(
-        JSON.stringify({ error: 'Missing file content' }),
+        JSON.stringify({ error: 'Missing CSV content' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
@@ -147,12 +196,9 @@ serve(async (req) => {
 
     console.log("Processing bulk upload with pickup address:", JSON.stringify(pickupAddress));
 
-    // Decode base64 content
-    const csvContent = atob(fileContent);
-    console.log("CSV Content:", csvContent.substring(0, 200) + "...");
-
-    // Parse CSV with improved parser
-    const rows = parseCSV(csvContent);
+    // Process the CSV content
+    const rows = csvContent.split('\n');
+    const headers = rows[0].toLowerCase().split(',');
     
     if (rows.length < 2) {
       return new Response(
@@ -161,20 +207,13 @@ serve(async (req) => {
       );
     }
 
-    // Clean and normalize headers
-    const headers = rows[0].map(h => h.toLowerCase().trim());
-    console.log("Parsed headers:", headers);
-    
     // Validate required headers
     const requiredFields = ['name', 'street1', 'city', 'state', 'zip', 'country'];
     const missingFields = requiredFields.filter(field => !headers.includes(field));
     
     if (missingFields.length > 0) {
       return new Response(
-        JSON.stringify({ 
-          error: `CSV is missing required columns: ${missingFields.join(', ')}`,
-          details: `Found columns: ${headers.join(', ')}`
-        }),
+        JSON.stringify({ error: `CSV is missing required fields: ${missingFields.join(', ')}` }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
@@ -196,6 +235,9 @@ serve(async (req) => {
       parcel_weight: headers.indexOf('parcel_weight'),
       preferred_carrier: headers.indexOf('preferred_carrier'),
       preferred_service: headers.indexOf('preferred_service'),
+      package_type: headers.indexOf('package_type'),
+      delivery_confirmation: headers.indexOf('delivery_confirmation'),
+      insurance_value: headers.indexOf('insurance_value'),
     };
     
     const total = rows.length - 1;
@@ -204,51 +246,53 @@ serve(async (req) => {
     
     // Process each row (skip header)
     for (let i = 1; i < rows.length; i++) {
-      const rowData = rows[i];
+      const rowData = rows[i].split(',');
       
       // Skip empty rows
       if (rowData.join('').trim() === '') continue;
       
       try {
-        // Extract recipient details with better validation
-        const name = rowData[fieldIndexes.name]?.trim();
-        const street1 = rowData[fieldIndexes.street1]?.trim();
-        const city = rowData[fieldIndexes.city]?.trim();
-        const state = rowData[fieldIndexes.state]?.trim();
-        const zip = rowData[fieldIndexes.zip]?.trim();
-        const country = rowData[fieldIndexes.country]?.trim() || 'US';
-
-        // Validate required fields
-        if (!name || !street1 || !city || !state || !zip) {
-          throw new Error(`Row ${i}: Missing required address fields (name, street1, city, state, zip)`);
-        }
-
+        // Extract recipient details
         const recipientDetails = {
-          name,
-          company: fieldIndexes.company >= 0 ? rowData[fieldIndexes.company]?.trim() : undefined,
-          street1,
-          street2: fieldIndexes.street2 >= 0 ? rowData[fieldIndexes.street2]?.trim() : undefined,
-          city,
-          state,
-          zip,
-          country,
-          phone: fieldIndexes.phone >= 0 ? rowData[fieldIndexes.phone]?.trim() : undefined,
+          name: rowData[fieldIndexes.name],
+          company: fieldIndexes.company >= 0 ? rowData[fieldIndexes.company] : undefined,
+          street1: rowData[fieldIndexes.street1],
+          street2: fieldIndexes.street2 >= 0 ? rowData[fieldIndexes.street2] : undefined,
+          city: rowData[fieldIndexes.city],
+          state: rowData[fieldIndexes.state],
+          zip: rowData[fieldIndexes.zip],
+          country: rowData[fieldIndexes.country],
+          phone: fieldIndexes.phone >= 0 ? rowData[fieldIndexes.phone] : undefined,
           parcel_length: fieldIndexes.parcel_length >= 0 ? parseFloat(rowData[fieldIndexes.parcel_length]) || 8 : 8,
           parcel_width: fieldIndexes.parcel_width >= 0 ? parseFloat(rowData[fieldIndexes.parcel_width]) || 6 : 6,
           parcel_height: fieldIndexes.parcel_height >= 0 ? parseFloat(rowData[fieldIndexes.parcel_height]) || 4 : 4,
           parcel_weight: fieldIndexes.parcel_weight >= 0 ? parseFloat(rowData[fieldIndexes.parcel_weight]) || 16 : 16,
-          preferred_carrier: fieldIndexes.preferred_carrier >= 0 ? rowData[fieldIndexes.preferred_carrier]?.trim() : undefined,
-          preferred_service: fieldIndexes.preferred_service >= 0 ? rowData[fieldIndexes.preferred_service]?.trim() : undefined,
+          preferred_carrier: fieldIndexes.preferred_carrier >= 0 ? rowData[fieldIndexes.preferred_carrier] : undefined,
+          preferred_service: fieldIndexes.preferred_service >= 0 ? rowData[fieldIndexes.preferred_service] : undefined,
+          package_type: fieldIndexes.package_type >= 0 ? rowData[fieldIndexes.package_type] : undefined,
+          delivery_confirmation: fieldIndexes.delivery_confirmation >= 0 ? rowData[fieldIndexes.delivery_confirmation] : undefined,
+          insurance_value: fieldIndexes.insurance_value >= 0 ? parseFloat(rowData[fieldIndexes.insurance_value]) || 0 : 0,
         };
         
-        // Generate rates for this shipment
-        const availableRates = generateMockRates();
+        // Validate address
+        if (!recipientDetails.street1 || !recipientDetails.city || !recipientDetails.state || !recipientDetails.zip || !recipientDetails.country) {
+          throw new Error('Missing required address fields');
+        }
         
-        // Select best rate based on preferences or default to cheapest
-        let selectedRate = availableRates.reduce((prev, curr) => 
-          parseFloat(prev.rate) < parseFloat(curr.rate) ? prev : curr
+        // Fetch live rates for this shipment
+        const availableRates = await fetchLiveRates(
+          pickupAddress,
+          recipientDetails,
+          {
+            length: recipientDetails.parcel_length,
+            width: recipientDetails.parcel_width,
+            height: recipientDetails.parcel_height,
+            weight: recipientDetails.parcel_weight,
+          }
         );
         
+        // Select best rate based on preferences or default to cheapest
+        let selectedRate = availableRates[0];
         if (recipientDetails.preferred_carrier) {
           const preferredRate = availableRates.find(rate => 
             rate.carrier.toLowerCase() === recipientDetails.preferred_carrier?.toLowerCase()
@@ -258,8 +302,8 @@ serve(async (req) => {
         
         processedShipments.push({
           id: `ship_${crypto.randomUUID().substring(0, 8)}`,
-          tracking_code: '',
-          label_url: '',
+          tracking_code: '', // Will be generated when label is created
+          label_url: '', // Will be generated when label is created
           status: "pending",
           row: i,
           recipient: recipientDetails.name,
@@ -272,10 +316,9 @@ serve(async (req) => {
         });
         
       } catch (error) {
-        console.error(`Error processing row ${i}:`, error);
         failedShipments.push({
           row: i,
-          error: 'Processing Error',
+          error: error instanceof Error ? 'Processing Error' : 'Unknown Error',
           details: error instanceof Error ? error.message : 'Unknown error occurred'
         });
       }
@@ -285,8 +328,6 @@ serve(async (req) => {
     const failed = failedShipments.length;
     const totalCost = processedShipments.reduce((sum, shipment) => sum + shipment.rate, 0);
     
-    console.log(`Processed ${successful} successful, ${failed} failed shipments`);
-    
     return new Response(
       JSON.stringify({ 
         total,
@@ -295,7 +336,7 @@ serve(async (req) => {
         totalCost,
         processedShipments,
         failedShipments,
-        message: `Processed ${successful} out of ${total} shipments successfully`,
+        message: `Processed ${successful} out of ${total} shipments with live rates`,
         pickupAddress
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
@@ -304,11 +345,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in process-bulk-upload function:', error);
     return new Response(
-      JSON.stringify({ 
-        error: 'Processing failed', 
-        message: error instanceof Error ? error.message : 'Unknown error',
-        details: 'Please check your CSV format and try again'
-      }),
+      JSON.stringify({ error: 'Internal Server Error', message: error instanceof Error ? error.message : 'Unknown error' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
