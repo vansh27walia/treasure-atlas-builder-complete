@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
 import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
@@ -17,6 +17,8 @@ import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 
 const BulkUpload: React.FC = () => {
+  const lastToastRef = useRef<number>(0);
+  
   const {
     file,
     isUploading,
@@ -54,27 +56,31 @@ const BulkUpload: React.FC = () => {
     setSelectedCarrierFilter
   } = useBulkUpload();
 
-  // Log pickup address on mount and when it changes
+  // Log pickup address on mount and when it changes (less frequently)
   useEffect(() => {
     console.log("Current pickup address in BulkUpload:", pickupAddress);
-  }, [pickupAddress]);
+  }, [pickupAddress?.id]); // Only log when ID changes
 
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
-    if (address) {
+    if (address && address.id !== pickupAddress?.id) {
       console.log("Selected pickup address in BulkUpload:", address);
       setPickupAddress(address);
-      toast.success(`Selected pickup address: ${address.name || address.street1}`);
+      
+      // Prevent duplicate toasts
+      const now = Date.now();
+      if (now - lastToastRef.current > 2000) {
+        toast.success(`Selected pickup address: ${address.name || address.street1}`);
+        lastToastRef.current = now;
+      }
     }
   };
 
   const handleUploadSuccess = (uploadResults: any) => {
-    // This will be handled by the useBulkUpload hook
     console.log("Upload success in BulkUpload component:", uploadResults);
   };
 
   const handleUploadFail = (error: string) => {
     console.error("Upload failed in BulkUpload component:", error);
-    toast.error(`Upload failed: ${error}`);
   };
 
   // Wrapper function to match expected signature
@@ -82,6 +88,17 @@ const BulkUpload: React.FC = () => {
     const shipment = results?.processedShipments.find(s => s.id === shipmentId);
     if (shipment) {
       handleEditShipment(shipment);
+    }
+  };
+
+  const resetUpload = () => {
+    window.location.reload();
+  };
+
+  const selectNewFile = () => {
+    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
     }
   };
 
@@ -131,7 +148,7 @@ const BulkUpload: React.FC = () => {
                 Template
               </Button>
               
-              <Button onClick={() => window.location.reload()} className="text-sm">
+              <Button onClick={resetUpload} className="text-sm">
                 <UploadCloud className="mr-1 h-4 w-4" />
                 Upload Another File
               </Button>
@@ -222,10 +239,13 @@ const BulkUpload: React.FC = () => {
       )}
       
       {uploadStatus === 'error' && (
-        <UploadError />
+        <UploadError 
+          onRetry={resetUpload}
+          onSelectNewFile={selectNewFile}
+          errorMessage="Upload failed. Please check your file format and try again."
+        />
       )}
       
-      {/* Label download options modal */}
       <LabelOptionsModal 
         open={showLabelOptions}
         onOpenChange={setShowLabelOptions}
