@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { BulkShipment } from '@/types/shipping';
 import { Button } from '@/components/ui/button';
@@ -45,6 +44,13 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       ...openDialogs,
       [shipmentId]: false
     });
+  };
+
+  // Helper function to safely format rate as number
+  const formatRate = (rate: string | number | undefined): string => {
+    if (!rate) return '0.00';
+    const numRate = typeof rate === 'string' ? parseFloat(rate) : rate;
+    return isNaN(numRate) ? '0.00' : numRate.toFixed(2);
   };
 
   return (
@@ -124,7 +130,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   <TableCell>
                     {shipment.status === 'completed' && shipment.selectedRateId ? (
                       <div className="font-semibold">
-                        ${(shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate || 0).toFixed(2)}
+                        ${formatRate(shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate)}
                       </div>
                     ) : shipment.status === 'processing' ? (
                       <Skeleton className="h-6 w-16" />
