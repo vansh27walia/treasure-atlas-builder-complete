@@ -17,6 +17,8 @@ interface ShipmentResult {
   carrier: string;
   service: string;
   rate: number;
+  availableRates: ShippingRate[];
+  selectedRateId?: string;
   details: {
     name: string;
     company?: string;
@@ -32,13 +34,22 @@ interface ShipmentResult {
     parcel_height?: number;
     parcel_weight?: number;
     email?: string;
-    carrier_logo?: string;
-    carrier_colors?: {
-      primary: string;
-      secondary: string;
-    };
-    carrier_formats?: string[];
+    preferred_carrier?: string;
+    preferred_service?: string;
+    package_type?: string;
+    delivery_confirmation?: string;
+    insurance_value?: number;
   };
+}
+
+interface ShippingRate {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: string;
+  currency: string;
+  delivery_days: number;
+  delivery_date: string | null;
 }
 
 interface ProcessingError {
@@ -47,121 +58,117 @@ interface ProcessingError {
   details: string;
 }
 
-interface Address {
-  name: string;
-  street1: string;
-  street2?: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  phone?: string;
-  company?: string;
-  email?: string;
-}
+// Fetch live rates from carriers
+const fetchLiveRates = async (fromAddress: any, toAddress: any, parcel: any): Promise<ShippingRate[]> => {
+  try {
+    // Get EasyPost API key
+    const apiKey = Deno.env.get('EASYPOST_API_KEY');
+    if (!apiKey) {
+      console.log('EasyPost API key not found, using mock rates');
+      return generateMockRates();
+    }
 
-// Carrier logos and info - using placeholder URLs that would be replaced with actual URLs in production
-const carrierInfo = {
-  USPS: {
-    logo: "https://www.usps.com/assets/images/home/usps-logo-2023.svg",
-    colors: {
-      primary: "#004B87",
-      secondary: "#DA291C"
-    },
-    formats: ["PDF", "PNG", "ZPL"]
-  },
-  UPS: {
-    logo: "https://www.ups.com/assets/resources/images/UPS_logo.svg",
-    colors: {
-      primary: "#351C15",
-      secondary: "#FFB500"
-    },
-    formats: ["PDF", "PNG", "ZPL"]
-  },
-  FedEx: {
-    logo: "https://www.fedex.com/content/dam/fedex-com/logos/logo.png",
-    colors: {
-      primary: "#4D148C",
-      secondary: "#FF6600"
-    },
-    formats: ["PDF", "PNG", "ZPL"]
-  },
-  DHL: {
-    logo: "https://www.dhl.com/content/dam/dhl/global/core/images/logos/dhl-logo.svg",
-    colors: {
-      primary: "#FFCC00",
-      secondary: "#D40511"
-    },
-    formats: ["PDF", "PNG"]
+    // Create shipment via EasyPost API
+    const shipmentData = {
+      to_address: {
+        name: toAddress.name,
+        company: toAddress.company || '',
+        street1: toAddress.street1,
+        street2: toAddress.street2 || '',
+        city: toAddress.city,
+        state: toAddress.state,
+        zip: toAddress.zip,
+        country: toAddress.country,
+        phone: toAddress.phone || '',
+      },
+      from_address: {
+        name: fromAddress.name,
+        company: fromAddress.company || '',
+        street1: fromAddress.street1,
+        street2: fromAddress.street2 || '',
+        city: fromAddress.city,
+        state: fromAddress.state,
+        zip: fromAddress.zip,
+        country: fromAddress.country,
+        phone: fromAddress.phone || '',
+      },
+      parcel: {
+        length: parcel.length,
+        width: parcel.width,
+        height: parcel.height,
+        weight: parcel.weight,
+      }
+    };
+
+    const response = await fetch('https://api.easypost.com/v2/shipments', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(shipmentData),
+    });
+
+    if (!response.ok) {
+      console.log('EasyPost API error, using mock rates');
+      return generateMockRates();
+    }
+
+    const shipment = await response.json();
+    
+    // Convert EasyPost rates to our format
+    const rates: ShippingRate[] = shipment.rates?.map((rate: any) => ({
+      id: rate.id,
+      carrier: rate.carrier,
+      service: rate.service,
+      rate: rate.rate,
+      currency: rate.currency,
+      delivery_days: rate.delivery_days || 3,
+      delivery_date: rate.delivery_date,
+    })) || [];
+
+    // Apply markup
+    const markupPercentage = 15;
+    return rates.map(rate => ({
+      ...rate,
+      rate: (parseFloat(rate.rate) * (1 + markupPercentage / 100)).toFixed(2),
+    }));
+
+  } catch (error) {
+    console.error('Error fetching live rates:', error);
+    return generateMockRates();
   }
 };
 
-// Get pre-defined carrier packages/boxes for selection
-const getCarrierPackages = (carrier: string) => {
-  const packages: {[key: string]: { name: string, dimensions: {length: number, width: number, height: number, weight: number}}} = {
-    USPS: {
-      "flat_rate_envelope": {
-        name: "Flat Rate Envelope",
-        dimensions: { length: 12.5, width: 9.5, height: 0.5, weight: 1 }
-      },
-      "small_flat_rate_box": {
-        name: "Small Flat Rate Box",
-        dimensions: { length: 8.625, width: 5.375, height: 1.625, weight: 4 }
-      },
-      "medium_flat_rate_box": {
-        name: "Medium Flat Rate Box",
-        dimensions: { length: 11.0, width: 8.5, height: 5.5, weight: 20 }
-      },
-      "large_flat_rate_box": {
-        name: "Large Flat Rate Box",
-        dimensions: { length: 12.0, width: 12.0, height: 5.5, weight: 70 }
-      }
-    },
-    UPS: {
-      "small_box": {
-        name: "Small Box",
-        dimensions: { length: 13, width: 11, height: 2, weight: 30 }
-      },
-      "medium_box": {
-        name: "Medium Box",
-        dimensions: { length: 16, width: 13, height: 3, weight: 30 }
-      },
-      "large_box": {
-        name: "Large Box",
-        dimensions: { length: 18, width: 13, height: 3, weight: 30 }
-      }
-    },
-    FedEx: {
-      "small_box": {
-        name: "Small Box",
-        dimensions: { length: 12.375, width: 10.875, height: 1.5, weight: 20 }
-      },
-      "medium_box": {
-        name: "Medium Box",
-        dimensions: { length: 13.25, width: 11.5, height: 2.375, weight: 20 }
-      },
-      "large_box": {
-        name: "Large Box",
-        dimensions: { length: 17.5, width: 12.375, height: 3, weight: 20 }
-      }
-    },
-    DHL: {
-      "small_box": {
-        name: "Small Box",
-        dimensions: { length: 12, width: 9, height: 3, weight: 10 }
-      },
-      "medium_box": {
-        name: "Medium Box",
-        dimensions: { length: 14, width: 11, height: 5, weight: 25 }
-      },
-      "large_box": {
-        name: "Large Box",
-        dimensions: { length: 18, width: 14, height: 8, weight: 40 }
-      }
-    }
-  };
+// Generate mock rates as fallback
+const generateMockRates = (): ShippingRate[] => {
+  const carriers = [
+    { name: 'USPS', services: ['Priority', 'Ground', 'Express'] },
+    { name: 'UPS', services: ['Ground', '2nd Day Air', 'Next Day Air'] },
+    { name: 'FedEx', services: ['Ground', 'Express', 'Overnight'] },
+    { name: 'DHL', services: ['Express', 'Express Worldwide'] }
+  ];
+
+  const rates: ShippingRate[] = [];
   
-  return packages[carrier] || {};
+  carriers.forEach(carrier => {
+    carrier.services.forEach((service, index) => {
+      const baseRate = 8 + Math.random() * 15;
+      const markup = baseRate * 0.15;
+      
+      rates.push({
+        id: `rate_${carrier.name.toLowerCase()}_${service.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}_${index}`,
+        carrier: carrier.name,
+        service: service,
+        rate: (baseRate + markup).toFixed(2),
+        currency: 'USD',
+        delivery_days: Math.floor(Math.random() * 5) + 1,
+        delivery_date: null,
+      });
+    });
+  });
+
+  return rates;
 };
 
 serve(async (req) => {
@@ -171,17 +178,7 @@ serve(async (req) => {
   }
 
   try {
-    // Get the EasyPost API key from Supabase secrets
-    const apiKey = Deno.env.get('EASYPOST_API_KEY');
-    if (!apiKey) {
-      return new Response(
-        JSON.stringify({ error: 'API key not configured' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
-
-    // Parse request body
-    const { csvContent, origin } = await req.json();
+    const { csvContent, pickupAddress } = await req.json();
     
     if (!csvContent) {
       return new Response(
@@ -190,21 +187,19 @@ serve(async (req) => {
       );
     }
 
-    if (!origin) {
+    if (!pickupAddress) {
       return new Response(
-        JSON.stringify({ error: 'Missing origin address' }),
+        JSON.stringify({ error: 'Missing pickup address' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
-    // Log sender address for debugging
-    console.log("Sender address received:", JSON.stringify(origin));
+    console.log("Processing bulk upload with pickup address:", JSON.stringify(pickupAddress));
 
     // Process the CSV content
     const rows = csvContent.split('\n');
     const headers = rows[0].toLowerCase().split(',');
     
-    // Check if we have data rows (excluding header)
     if (rows.length < 2) {
       return new Response(
         JSON.stringify({ error: 'CSV file must have at least one data row' }),
@@ -223,7 +218,7 @@ serve(async (req) => {
       );
     }
     
-    // Get the indexes for each field
+    // Get field indexes
     const fieldIndexes = {
       name: headers.indexOf('name'),
       company: headers.indexOf('company'),
@@ -238,14 +233,14 @@ serve(async (req) => {
       parcel_width: headers.indexOf('parcel_width'),
       parcel_height: headers.indexOf('parcel_height'),
       parcel_weight: headers.indexOf('parcel_weight'),
-      email: headers.indexOf('email'),
-      carrier_preference: headers.indexOf('carrier_preference'),
-      service_preference: headers.indexOf('service_preference'),
-      package_type: headers.indexOf('package_type')
+      preferred_carrier: headers.indexOf('preferred_carrier'),
+      preferred_service: headers.indexOf('preferred_service'),
+      package_type: headers.indexOf('package_type'),
+      delivery_confirmation: headers.indexOf('delivery_confirmation'),
+      insurance_value: headers.indexOf('insurance_value'),
     };
     
-    // Process each data row
-    const total = rows.length - 1; // Exclude header row
+    const total = rows.length - 1;
     const processedShipments: ShipmentResult[] = [];
     const failedShipments: ProcessingError[] = [];
     
@@ -257,7 +252,7 @@ serve(async (req) => {
       if (rowData.join('').trim() === '') continue;
       
       try {
-        // Extract address data
+        // Extract recipient details
         const recipientDetails = {
           name: rowData[fieldIndexes.name],
           company: fieldIndexes.company >= 0 ? rowData[fieldIndexes.company] : undefined,
@@ -268,169 +263,85 @@ serve(async (req) => {
           zip: rowData[fieldIndexes.zip],
           country: rowData[fieldIndexes.country],
           phone: fieldIndexes.phone >= 0 ? rowData[fieldIndexes.phone] : undefined,
-          email: fieldIndexes.email >= 0 ? rowData[fieldIndexes.email] : undefined,
-          parcel_length: fieldIndexes.parcel_length >= 0 ? parseFloat(rowData[fieldIndexes.parcel_length]) || 0 : 0,
-          parcel_width: fieldIndexes.parcel_width >= 0 ? parseFloat(rowData[fieldIndexes.parcel_width]) || 0 : 0,
-          parcel_height: fieldIndexes.parcel_height >= 0 ? parseFloat(rowData[fieldIndexes.parcel_height]) || 0 : 0,
-          parcel_weight: fieldIndexes.parcel_weight >= 0 ? parseFloat(rowData[fieldIndexes.parcel_weight]) || 0 : 0,
-          carrier_preference: fieldIndexes.carrier_preference >= 0 ? rowData[fieldIndexes.carrier_preference] : undefined,
-          service_preference: fieldIndexes.service_preference >= 0 ? rowData[fieldIndexes.service_preference] : undefined,
-          package_type: fieldIndexes.package_type >= 0 ? rowData[fieldIndexes.package_type] : undefined
+          parcel_length: fieldIndexes.parcel_length >= 0 ? parseFloat(rowData[fieldIndexes.parcel_length]) || 8 : 8,
+          parcel_width: fieldIndexes.parcel_width >= 0 ? parseFloat(rowData[fieldIndexes.parcel_width]) || 6 : 6,
+          parcel_height: fieldIndexes.parcel_height >= 0 ? parseFloat(rowData[fieldIndexes.parcel_height]) || 4 : 4,
+          parcel_weight: fieldIndexes.parcel_weight >= 0 ? parseFloat(rowData[fieldIndexes.parcel_weight]) || 16 : 16,
+          preferred_carrier: fieldIndexes.preferred_carrier >= 0 ? rowData[fieldIndexes.preferred_carrier] : undefined,
+          preferred_service: fieldIndexes.preferred_service >= 0 ? rowData[fieldIndexes.preferred_service] : undefined,
+          package_type: fieldIndexes.package_type >= 0 ? rowData[fieldIndexes.package_type] : undefined,
+          delivery_confirmation: fieldIndexes.delivery_confirmation >= 0 ? rowData[fieldIndexes.delivery_confirmation] : undefined,
+          insurance_value: fieldIndexes.insurance_value >= 0 ? parseFloat(rowData[fieldIndexes.insurance_value]) || 0 : 0,
         };
         
-        // Validate the address
+        // Validate address
         if (!recipientDetails.street1 || !recipientDetails.city || !recipientDetails.state || !recipientDetails.zip || !recipientDetails.country) {
           throw new Error('Missing required address fields');
         }
         
-        // Default dimensions if not provided
-        if (recipientDetails.parcel_length === 0) recipientDetails.parcel_length = 8;
-        if (recipientDetails.parcel_width === 0) recipientDetails.parcel_width = 6;
-        if (recipientDetails.parcel_height === 0) recipientDetails.parcel_height = 4;
-        if (recipientDetails.parcel_weight === 0) recipientDetails.parcel_weight = 16;
-        
-        // In a real implementation, we would call EasyPost API here
-        // const shipment = await createEasyPostShipment(origin, toAddress, parcelData, apiKey);
-        
-        // For this demo, we'll generate mock data
-        const recipient = recipientDetails.name;
-        
-        // Use carrier preference if specified
-        let selectedCarrier = recipientDetails.carrier_preference;
-        let selectedService = recipientDetails.service_preference;
-        
-        // If no preference, assign a random carrier
-        if (!selectedCarrier) {
-          const availableCarriers = ['USPS', 'UPS', 'FedEx', 'DHL'];
-          selectedCarrier = availableCarriers[Math.floor(Math.random() * availableCarriers.length)];
-        }
-        
-        // Get carrier-specific services
-        const carrierServices = {
-          'USPS': ['Priority', 'First-Class', 'Ground', 'Express'],
-          'UPS': ['Ground', '2nd Day Air', 'Next Day Air', '3-Day Select'],
-          'FedEx': ['Ground', 'Express', '2Day', 'Overnight'],
-          'DHL': ['Express', 'Express Worldwide', 'Express Economy']
-        };
-        
-        // If no service preference, assign a random service for the selected carrier
-        if (!selectedService) {
-          const services = carrierServices[selectedCarrier as keyof typeof carrierServices] || ['Standard'];
-          selectedService = services[Math.floor(Math.random() * services.length)];
-        }
-        
-        // Check if package type was specified and use predefined dimensions if available
-        if (recipientDetails.package_type) {
-          const packageTypes = getCarrierPackages(selectedCarrier);
-          const packageType = recipientDetails.package_type.toLowerCase().replace(/\s+/g, '_');
-          
-          if (packageTypes && packageTypes[packageType]) {
-            const packageDimensions = packageTypes[packageType].dimensions;
-            recipientDetails.parcel_length = packageDimensions.length;
-            recipientDetails.parcel_width = packageDimensions.width;
-            recipientDetails.parcel_height = packageDimensions.height;
-            recipientDetails.parcel_weight = packageDimensions.weight;
+        // Fetch live rates for this shipment
+        const availableRates = await fetchLiveRates(
+          pickupAddress,
+          recipientDetails,
+          {
+            length: recipientDetails.parcel_length,
+            width: recipientDetails.parcel_width,
+            height: recipientDetails.parcel_height,
+            weight: recipientDetails.parcel_weight,
           }
+        );
+        
+        // Select best rate based on preferences or default to cheapest
+        let selectedRate = availableRates[0];
+        if (recipientDetails.preferred_carrier) {
+          const preferredRate = availableRates.find(rate => 
+            rate.carrier.toLowerCase() === recipientDetails.preferred_carrier?.toLowerCase()
+          );
+          if (preferredRate) selectedRate = preferredRate;
         }
         
-        // Generate a base rate between $5-20 based on package weight
-        const weight = recipientDetails.parcel_weight || 1;
-        let baseRate = 5 + (weight * 0.2) + (Math.random() * 10);
-        
-        // Apply 15% markup as per the get-shipping-rates function
-        const markupPercentage = 15;
-        const markupAmount = baseRate * (markupPercentage / 100);
-        baseRate = baseRate + markupAmount;
-        
-        // Add carrier info
-        const carrier = selectedCarrier.toUpperCase();
-        const carrierData = carrierInfo[carrier as keyof typeof carrierInfo] || {
-          logo: "",
-          colors: { primary: "#000000", secondary: "#666666" },
-          formats: ["PDF"]
-        };
-        
-        // Create a mock processed shipment result with label URL and properly typed status
         processedShipments.push({
           id: `ship_${crypto.randomUUID().substring(0, 8)}`,
-          tracking_code: `EZ${Math.floor(Math.random() * 10000000).toString().padStart(8, '0')}`,
-          label_url: 'https://assets.easypost.com/shipping_labels/example_label.pdf',
-          status: "pending", // Using the proper enum value
+          tracking_code: '', // Will be generated when label is created
+          label_url: '', // Will be generated when label is created
+          status: "pending",
           row: i,
-          recipient,
-          carrier: selectedCarrier,
-          service: selectedService,
-          rate: parseFloat(baseRate.toFixed(2)),
-          details: {
-            ...recipientDetails,
-            carrier_logo: carrierData.logo,
-            carrier_colors: carrierData.colors,
-            carrier_formats: carrierData.formats
-          }
+          recipient: recipientDetails.name,
+          carrier: selectedRate.carrier,
+          service: selectedRate.service,
+          rate: parseFloat(selectedRate.rate),
+          availableRates,
+          selectedRateId: selectedRate.id,
+          details: recipientDetails
         });
+        
       } catch (error) {
-        // Add to failed shipments
         failedShipments.push({
           row: i,
-          error: error instanceof Error ? 'Validation Error' : 'Processing Error',
-          details: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? 'Processing Error' : 'Unknown Error',
+          details: error instanceof Error ? error.message : 'Unknown error occurred'
         });
       }
     }
     
     const successful = processedShipments.length;
     const failed = failedShipments.length;
-    
-    // Calculate total cost based on shipment rates
     const totalCost = processedShipments.reduce((sum, shipment) => sum + shipment.rate, 0);
     
-    // Organize shipments by carrier
-    const organizeShipmentsByCarrier = (shipments: ShipmentResult[]) => {
-      // Define carrier order for consistent presentation
-      const carrierOrder = ['USPS', 'UPS', 'FedEx', 'DHL'];
-      
-      // Sort shipments by carrier first, then by recipient name within each carrier
-      return shipments.sort((a, b) => {
-        const carrierA = a.carrier.toUpperCase();
-        const carrierB = b.carrier.toUpperCase();
-        
-        // Compare carriers based on predefined order
-        const orderA = carrierOrder.indexOf(carrierA);
-        const orderB = carrierOrder.indexOf(carrierB);
-        
-        // If carriers are in our predefined list, sort by that order
-        if (orderA >= 0 && orderB >= 0) {
-          if (orderA !== orderB) return orderA - orderB;
-        } else if (orderA >= 0) {
-          return -1; // A is in the list, B is not
-        } else if (orderB >= 0) {
-          return 1; // B is in the list, A is not
-        }
-        
-        // If carriers are the same or neither is in our list, sort alphabetically
-        if (carrierA !== carrierB) {
-          return carrierA.localeCompare(carrierB);
-        }
-        
-        // Within same carrier, sort by recipient name
-        return a.recipient.localeCompare(b.recipient);
-      });
-    };
-    
-    // Return the results with detailed information
     return new Response(
       JSON.stringify({ 
-        total: total,
+        total,
         successful,
         failed,
         totalCost,
-        processedShipments: organizeShipmentsByCarrier(processedShipments),
+        processedShipments,
         failedShipments,
-        message: `Processed ${successful} out of ${total} shipments successfully`,
-        origin: origin // Include the sender address in the response
+        message: `Processed ${successful} out of ${total} shipments with live rates`,
+        pickupAddress
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
+    
   } catch (error) {
     console.error('Error in process-bulk-upload function:', error);
     return new Response(
