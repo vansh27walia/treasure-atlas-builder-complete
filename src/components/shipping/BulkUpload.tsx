@@ -77,6 +77,14 @@ const BulkUpload: React.FC = () => {
     toast.error(`Upload failed: ${error}`);
   };
 
+  // Wrapper function to match expected signature
+  const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
+    const shipment = results?.processedShipments.find(s => s.id === shipmentId);
+    if (shipment) {
+      handleEditShipment(shipment);
+    }
+  };
+
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
       <BulkUploadHeader onDownloadTemplate={handleDownloadTemplate} />
@@ -157,7 +165,7 @@ const BulkUpload: React.FC = () => {
             isFetchingRates={isFetchingRates}
             onSelectRate={handleSelectRate}
             onRemoveShipment={handleRemoveShipment}
-            onEditShipment={handleEditShipment}
+            onEditShipment={handleEditShipmentWrapper}
             onRefreshRates={handleRefreshRates}
           />
           
@@ -222,7 +230,7 @@ const BulkUpload: React.FC = () => {
         open={showLabelOptions}
         onOpenChange={setShowLabelOptions}
         onFormatSelect={handleDownloadLabelsWithFormat}
-        onEmailLabels={(email: string) => handleEmailLabels(email)}
+        onEmailLabels={() => handleEmailLabels("")}
         shipmentCount={results?.processedShipments.length || 0}
       />
     </Card>
