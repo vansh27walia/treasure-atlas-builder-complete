@@ -8,11 +8,13 @@ interface BulkUploadHeaderProps {
 }
 
 const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({ onDownloadTemplate }) => {
-  const handleDownloadBasicTemplate = () => {
+  // Standardized template with consistent format
+  const handleDownloadStandardTemplate = () => {
     const csvContent = [
       'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight',
       'John Doe,ACME Inc,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16',
-      'Jane Smith,Tech Corp,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,5559876543,10,6,4,8'
+      'Jane Smith,Tech Corp,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,5559876543,10,6,4,8',
+      'Bob Johnson,Global LLC,789 Pine St,,New York,NY,10001,US,5555551234,15,10,6,25'
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
@@ -20,27 +22,7 @@ const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({ onDownloadTemplate 
     const a = document.createElement('a');
     a.setAttribute('hidden', '');
     a.setAttribute('href', url);
-    a.setAttribute('download', 'basic_shipping_template.csv');
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-  };
-
-  const handleDownloadEnhancedTemplate = () => {
-    const csvContent = [
-      'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight,preferred_carrier,preferred_service',
-      'John Doe,ACME Inc,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16,USPS,Priority',
-      'Jane Smith,Tech Corp,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,5559876543,10,6,4,8,UPS,Ground',
-      'Bob Johnson,Global LLC,789 Pine St,,New York,NY,10001,US,5555551234,15,10,6,25,FedEx,Express'
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.setAttribute('hidden', '');
-    a.setAttribute('href', url);
-    a.setAttribute('download', 'enhanced_shipping_template.csv');
+    a.setAttribute('download', 'bulk_shipping_template.csv');
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -57,20 +39,11 @@ const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({ onDownloadTemplate 
         
         <div className="flex gap-2 mt-4 lg:mt-0">
           <Button 
-            variant="outline" 
-            onClick={handleDownloadBasicTemplate}
-            className="flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Basic Template
-          </Button>
-          
-          <Button 
-            onClick={handleDownloadEnhancedTemplate}
+            onClick={handleDownloadStandardTemplate}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
           >
-            <FileText className="h-4 w-4" />
-            Enhanced Template
+            <Download className="h-4 w-4" />
+            Download Template
           </Button>
         </div>
       </div>
@@ -79,7 +52,7 @@ const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({ onDownloadTemplate 
         <h3 className="font-semibold text-blue-800 mb-3">Template Format Requirements:</h3>
         <div className="grid md:grid-cols-2 gap-4 text-sm text-blue-700">
           <div>
-            <h4 className="font-medium mb-2">Required Fields (Basic):</h4>
+            <h4 className="font-medium mb-2">Required Fields:</h4>
             <ul className="space-y-1">
               <li>• <strong>name</strong> - Recipient full name</li>
               <li>• <strong>street1</strong> - Street address</li>
@@ -97,12 +70,11 @@ const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({ onDownloadTemplate 
               <li>• <strong>phone</strong> - Phone number</li>
               <li>• <strong>parcel_length/width/height</strong> - Inches</li>
               <li>• <strong>parcel_weight</strong> - Pounds</li>
-              <li>• <strong>preferred_carrier/service</strong> - Enhanced only</li>
             </ul>
           </div>
         </div>
         <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-          <strong>Important:</strong> Save as CSV format, use exact column names as shown in templates, and ensure no empty rows.
+          <strong>Important:</strong> Save as CSV format, use exact column names as shown in template, and ensure no empty rows.
         </div>
       </div>
     </div>

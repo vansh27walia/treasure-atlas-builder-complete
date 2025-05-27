@@ -243,6 +243,7 @@ const BulkUpload: React.FC = () => {
           onSelectNewFile={selectNewFile}
           onDownloadTemplate={handleDownloadTemplate}
           errorMessage="Upload failed. Please check your file format and try again."
+          detailedErrors={(results as any)?.errorDetails || []}
         />
       )}
       

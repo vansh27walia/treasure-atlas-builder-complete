@@ -60,7 +60,10 @@ interface ProcessingError {
 
 // Parse CSV content more reliably
 const parseCSV = (csvContent: string): string[][] => {
-  const lines = csvContent.trim().split('\n');
+  // Remove BOM if present
+  const cleanContent = csvContent.replace(/^\uFEFF/, '');
+  const lines = cleanContent.trim().split(/\r?\n/);
+  
   return lines.map(line => {
     // Handle both comma-separated and properly quoted CSV
     const result: string[] = [];
@@ -133,14 +136,20 @@ serve(async (req) => {
     
     if (!fileContent) {
       return new Response(
-        JSON.stringify({ error: 'Missing file content' }),
+        JSON.stringify({ 
+          error: 'Missing file content',
+          details: 'No CSV file was provided for processing'
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
     if (!pickupAddress) {
       return new Response(
-        JSON.stringify({ error: 'Missing pickup address' }),
+        JSON.stringify({ 
+          error: 'Missing pickup address',
+          details: 'A pickup address is required for processing shipments'
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
@@ -148,55 +157,66 @@ serve(async (req) => {
     console.log("Processing bulk upload with pickup address:", JSON.stringify(pickupAddress));
 
     // Decode base64 content
-    const csvContent = atob(fileContent);
-    console.log("CSV Content:", csvContent.substring(0, 200) + "...");
+    let csvContent: string;
+    try {
+      csvContent = atob(fileContent);
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid file format',
+          details: 'Could not decode the uploaded file. Please ensure it is a valid CSV file.'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    console.log("CSV Content preview:", csvContent.substring(0, 200) + "...");
 
     // Parse CSV with improved parser
     const rows = parseCSV(csvContent);
     
     if (rows.length < 2) {
       return new Response(
-        JSON.stringify({ error: 'CSV file must have at least one data row' }),
+        JSON.stringify({ 
+          error: 'Invalid CSV structure',
+          details: 'CSV file must have at least a header row and one data row'
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
     // Clean and normalize headers
-    const headers = rows[0].map(h => h.toLowerCase().trim());
+    const headers = rows[0].map(h => h.toLowerCase().trim().replace(/[^\w]/g, '_'));
     console.log("Parsed headers:", headers);
     
-    // Validate required headers
+    // Validate required headers with detailed error messages
     const requiredFields = ['name', 'street1', 'city', 'state', 'zip', 'country'];
     const missingFields = requiredFields.filter(field => !headers.includes(field));
     
     if (missingFields.length > 0) {
       return new Response(
         JSON.stringify({ 
-          error: `CSV is missing required columns: ${missingFields.join(', ')}`,
-          details: `Found columns: ${headers.join(', ')}`
+          error: `Missing required columns: ${missingFields.join(', ')}`,
+          details: `Your CSV has columns: ${headers.join(', ')}. Required columns are: ${requiredFields.join(', ')}`,
+          detailedErrors: [
+            `Missing columns: ${missingFields.join(', ')}`,
+            `Found columns: ${headers.join(', ')}`,
+            'Please download the template and ensure all required columns are present'
+          ]
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
     
     // Get field indexes
-    const fieldIndexes = {
-      name: headers.indexOf('name'),
-      company: headers.indexOf('company'),
-      street1: headers.indexOf('street1'),
-      street2: headers.indexOf('street2'),
-      city: headers.indexOf('city'),
-      state: headers.indexOf('state'),
-      zip: headers.indexOf('zip'),
-      country: headers.indexOf('country'),
-      phone: headers.indexOf('phone'),
-      parcel_length: headers.indexOf('parcel_length'),
-      parcel_width: headers.indexOf('parcel_width'),
-      parcel_height: headers.indexOf('parcel_height'),
-      parcel_weight: headers.indexOf('parcel_weight'),
-      preferred_carrier: headers.indexOf('preferred_carrier'),
-      preferred_service: headers.indexOf('preferred_service'),
-    };
+    const fieldIndexes: Record<string, number> = {};
+    [
+      'name', 'company', 'street1', 'street2', 'city', 'state', 'zip', 'country',
+      'phone', 'parcel_length', 'parcel_width', 'parcel_height', 'parcel_weight',
+      'preferred_carrier', 'preferred_service'
+    ].forEach(field => {
+      fieldIndexes[field] = headers.indexOf(field);
+    });
     
     const total = rows.length - 1;
     const processedShipments: ShipmentResult[] = [];
@@ -220,7 +240,14 @@ serve(async (req) => {
 
         // Validate required fields
         if (!name || !street1 || !city || !state || !zip) {
-          throw new Error(`Row ${i}: Missing required address fields (name, street1, city, state, zip)`);
+          const missingInRow = [];
+          if (!name) missingInRow.push('name');
+          if (!street1) missingInRow.push('street1');
+          if (!city) missingInRow.push('city');
+          if (!state) missingInRow.push('state');
+          if (!zip) missingInRow.push('zip');
+          
+          throw new Error(`Row ${i}: Missing required fields: ${missingInRow.join(', ')}`);
         }
 
         const recipientDetails = {
@@ -287,6 +314,17 @@ serve(async (req) => {
     
     console.log(`Processed ${successful} successful, ${failed} failed shipments`);
     
+    if (successful === 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'No valid shipments found',
+          details: 'All rows in your CSV file had errors. Please check the format and try again.',
+          detailedErrors: failedShipments.map(f => f.details)
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+    
     return new Response(
       JSON.stringify({ 
         total,
@@ -307,7 +345,8 @@ serve(async (req) => {
       JSON.stringify({ 
         error: 'Processing failed', 
         message: error instanceof Error ? error.message : 'Unknown error',
-        details: 'Please check your CSV format and try again'
+        details: 'Please check your CSV format and try again. Download our template to ensure correct formatting.',
+        detailedErrors: ['Server processing error occurred', 'Please try again or contact support']
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
