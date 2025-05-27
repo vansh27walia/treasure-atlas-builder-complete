@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ShippingRates from '@/components/ShippingRates';
@@ -18,7 +19,6 @@ const CreateLabelPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
   const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
 
-  // Update the URL when tab changes
   useEffect(() => {
     if (activeTab) {
       queryParams.set('tab', activeTab);
@@ -26,14 +26,12 @@ const CreateLabelPage: React.FC = () => {
     }
   }, [activeTab, location.pathname, navigate]);
 
-  // Handle tab change from URL
   useEffect(() => {
     if (tabFromQuery && tabFromQuery !== activeTab) {
       setActiveTab(tabFromQuery);
     }
   }, [tabFromQuery]);
   
-  // Listen for custom events to update workflow step
   useEffect(() => {
     const handleStepChange = (event: CustomEvent<{step: 'address' | 'package' | 'rates' | 'label' | 'complete'}>) => {
       if (event.detail && event.detail.step) {
@@ -43,14 +41,12 @@ const CreateLabelPage: React.FC = () => {
     
     document.addEventListener('shipping-step-change', handleStepChange as EventListener);
     
-    // Custom event listener for when shipping form is completed
     const handleFormCompleted = () => {
       setCurrentStep('rates');
     };
     
     document.addEventListener('shipping-form-completed', handleFormCompleted);
     
-    // Custom event listener for when a rate is selected
     const handleRateSelected = () => {
       setCurrentStep('label');
     };
@@ -74,14 +70,13 @@ const CreateLabelPage: React.FC = () => {
           </h1>
         </div>
       
-        {/* Floating workflow steps */}
         <div className="sticky top-0 z-20 bg-white py-3 shadow-sm rounded-lg mb-4">
           <div className="max-w-7xl mx-auto px-4">
             <ShippingWorkflow currentStep={currentStep} />
           </div>
         </div>
         
-        <Card className="border border-gray-200 shadow-lg bg-white">
+        <Card className="border border-gray-200 shadow-lg bg-white mb-6">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4 mb-4 bg-blue-50 p-1">
               <TabsTrigger 
@@ -191,9 +186,7 @@ const CreateLabelPage: React.FC = () => {
         </Card>
 
         {(activeTab === 'domestic' || activeTab === 'calculator') && (
-          <div className="mt-4">
-            <ShippingRates />
-          </div>
+          <ShippingRates />
         )}
       </div>
     </div>

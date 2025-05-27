@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,6 @@ const ShippingRates: React.FC = () => {
     carrier: string; 
   } | undefined>();
   
-  // Update shipment details when a rate is selected
   useEffect(() => {
     if (selectedRateId && rates.length > 0) {
       const selectedRate = rates.find(rate => rate.id === selectedRateId);
@@ -61,7 +61,6 @@ const ShippingRates: React.FC = () => {
     }
   }, [selectedRateId, rates]);
   
-  // Function to handle label format changes
   const handleLabelFormatChange = async (format: string): Promise<void> => {
     setSelectedLabelFormat(format);
     
@@ -80,28 +79,23 @@ const ShippingRates: React.FC = () => {
     }
   };
 
-  // Handle rate selection with automatic proceed option for calculator users
   const handleRateSelection = (rateId: string) => {
     handleSelectRate(rateId);
     
-    // Check if this came from the rate calculator
     const calculatorData = sessionStorage.getItem('calculatorData');
     if (calculatorData) {
-      // Show option to proceed to shipping form
       toast.success("Rate selected! Click 'Proceed Forward' to continue with label creation.", {
         duration: 5000,
       });
     }
   };
 
-  // Handle proceed forward action
   const handleProceedForward = () => {
     if (selectedRateId) {
       selectRateAndProceed(selectedRateId);
     }
   };
   
-  // Show empty state if no rates available
   if (rates.length === 0) {
     return (
       <div className="w-full" id="shipping-rates-section">
@@ -118,7 +112,6 @@ const ShippingRates: React.FC = () => {
     );
   }
 
-  // Sort the rates based on the selected sorting option
   const sortedRates = [...rates].sort((a, b) => {
     if (sortOrder === 'price') {
       return parseFloat(a.rate) - parseFloat(b.rate);
@@ -131,27 +124,26 @@ const ShippingRates: React.FC = () => {
     }
   });
 
-  // Check if user came from calculator
   const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
 
   return (
-    <div className="w-full" id="shipping-rates-section">
-      <Card className="border-2 border-blue-200 shadow-xl bg-white">
+    <div className="w-full pb-6" id="shipping-rates-section">
+      <Card className="border border-gray-200 shadow-lg bg-white">
         <div className="p-6">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6">
-            <h2 className="text-2xl font-bold text-blue-800 flex items-center mb-4 lg:mb-0">
-              <Truck className="mr-3 h-6 w-6 text-blue-600" />
+            <h2 className="text-xl font-bold text-blue-800 flex items-center mb-4 lg:mb-0">
+              <Truck className="mr-2 h-5 w-5 text-blue-600" />
               Available Shipping Rates
             </h2>
             <div className="flex flex-wrap gap-3">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 border-2 border-blue-200 hover:bg-blue-50 h-10 px-4">
+                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
                     <Filter className="h-4 w-4" />
                     {activeCarrierFilter === 'all' ? 'All Carriers' : activeCarrierFilter.toUpperCase()}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white border-2 border-blue-200 shadow-xl z-50">
+                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999] max-h-60 overflow-y-auto">
                   <DropdownMenuItem onClick={() => handleFilterByCarrier('all')} className="py-2">
                     All Carriers
                   </DropdownMenuItem>
@@ -169,7 +161,7 @@ const ShippingRates: React.FC = () => {
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 border-2 border-blue-200 hover:bg-blue-50 h-10 px-4">
+                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
                     Sort by: {
                       sortOrder === 'price' ? 'Price' : 
                       sortOrder === 'speed' ? 'Speed' : 
@@ -177,7 +169,7 @@ const ShippingRates: React.FC = () => {
                     }
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white border-2 border-blue-200 shadow-xl z-50">
+                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999]">
                   <DropdownMenuItem onClick={() => setSortOrder('speed')} className="py-2">
                     Speed (Fastest First)
                   </DropdownMenuItem>
@@ -206,7 +198,6 @@ const ShippingRates: React.FC = () => {
           
           {!labelUrl ? (
             <>
-              {/* AI Recommendations */}
               {(aiRecommendation || isAiLoading) && (
                 <ShippingAIRecommendation 
                   aiRecommendation={aiRecommendation}
@@ -216,7 +207,7 @@ const ShippingRates: React.FC = () => {
               )}
               
               <div className="space-y-4 mt-6">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                   {sortedRates.map((rate) => (
                     <ShippingRateCard
@@ -238,12 +229,12 @@ const ShippingRates: React.FC = () => {
                 </div>
 
                 {sortedRates.length === 0 && (
-                  <div className="p-8 text-center bg-gray-50 rounded-xl">
-                    <p className="text-lg text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
+                  <div className="p-6 text-center bg-gray-50 rounded-lg">
+                    <p className="text-base text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
                     <Button 
                       variant="outline" 
                       onClick={() => handleFilterByCarrier('all')} 
-                      className="mt-4 h-10 px-6 text-base"
+                      className="mt-4 h-9 px-4 text-sm"
                     >
                       Clear Filters
                     </Button>
@@ -251,13 +242,13 @@ const ShippingRates: React.FC = () => {
                 )}
               </div>
               
-              <div className="mt-8 flex flex-wrap justify-end gap-3">
+              <div className="mt-6 flex flex-wrap justify-end gap-3">
                 {fromCalculator && selectedRateId && (
                   <Button 
                     onClick={handleProceedForward}
-                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white flex items-center gap-2 px-6 py-3 h-12 text-base font-semibold rounded-lg shadow-lg"
+                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md shadow-md"
                   >
-                    <Download className="h-5 w-5" />
+                    <Download className="h-4 w-4" />
                     Proceed Forward
                   </Button>
                 )}
@@ -271,16 +262,16 @@ const ShippingRates: React.FC = () => {
                     handleCreateLabel(undefined, undefined, labelOptions);
                   }}
                   disabled={!selectedRateId || isLoading}
-                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white flex items-center gap-2 px-6 py-3 h-12 text-base font-semibold rounded-lg shadow-lg"
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md shadow-md"
                 >
                   {isLoading ? (
                     <>
-                      <Loader className="h-5 w-5 animate-spin" />
-                      Creating Label...
+                      <Loader className="h-4 w-4 animate-spin" />
+                      Creating...
                     </>
                   ) : (
                     <>
-                      <Download className="h-5 w-5" />
+                      <Download className="h-4 w-4" />
                       Buy & Print Label
                     </>
                   )}
@@ -290,16 +281,16 @@ const ShippingRates: React.FC = () => {
                   onClick={handleProceedToPayment}
                   disabled={!selectedRateId || isProcessingPayment}
                   variant="outline"
-                  className="border-2 border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-6 py-3 h-12 text-base font-semibold rounded-lg"
+                  className="border border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md"
                 >
                   {isProcessingPayment ? (
                     <>
-                      <Loader className="h-5 w-5 animate-spin" />
+                      <Loader className="h-4 w-4 animate-spin" />
                       Processing...
                     </>
                   ) : (
                     <>
-                      <CreditCard className="h-5 w-5" />
+                      <CreditCard className="h-4 w-4" />
                       Proceed to Payment
                     </>
                   )}
@@ -315,14 +306,14 @@ const ShippingRates: React.FC = () => {
                   sessionStorage.removeItem('transferToShipping');
                   document.dispatchEvent(new Event('shipping-form-completed'));
                 }}
-                className="border-2 border-blue-200 hover:bg-blue-50 h-10 px-6 text-base"
+                className="border border-blue-200 hover:bg-blue-50 h-9 px-4 text-sm"
               >
                 Ship Another Package
               </Button>
             </div>
           )}
           
-          <div className="mt-6 text-center text-sm text-gray-500">
+          <div className="mt-4 text-center text-xs text-gray-500">
             <p>* All rates include handling fees and applicable taxes</p>
           </div>
         </div>

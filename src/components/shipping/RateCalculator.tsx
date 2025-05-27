@@ -66,27 +66,22 @@ const RateCalculator: React.FC = () => {
     try {
       setIsGeneratingAddress(true);
       
-      // Generate addresses from ZIP codes using Google Maps API
       const [fromAddress, toAddress] = await Promise.all([
         GeocodingService.generateAddressFromZip(data.fromZip),
         GeocodingService.generateAddressFromZip(data.toZip)
       ]);
       
-      // Update addresses with selected countries
       fromAddress.country = data.fromCountry;
       toAddress.country = data.toCountry;
       
       console.log('Generated addresses:', { fromAddress, toAddress });
       
-      // Calculate weight in ounces based on selected unit
       const weightInOz = data.weightUnit === 'lb' 
         ? data.weight * 16
         : data.weight * 35.274;
       
-      // Convert dimensions to inches if in cm
       const conversionFactor = data.dimensionUnit === 'cm' ? 0.393701 : 1;
       
-      // Get selected carriers
       let selectedCarriers: string[] = [];
       if (data.carrierFilter === 'all') {
         selectedCarriers = ['usps', 'ups', 'fedex', 'dhl', 'canadapost', 'royalmail'];
@@ -94,7 +89,6 @@ const RateCalculator: React.FC = () => {
         selectedCarriers = [data.carrierFilter];
       }
       
-      // Prepare the request data for the API
       const requestData = {
         fromAddress,
         toAddress,
@@ -109,10 +103,8 @@ const RateCalculator: React.FC = () => {
       
       console.log("Sending rate request with generated addresses:", requestData);
 
-      // Fetch rates from the API
       await fetchRates(requestData);
       
-      // Smooth scroll to rates section without jumping
       setTimeout(() => {
         const ratesSection = document.getElementById('shipping-rates-section');
         if (ratesSection) {
@@ -133,13 +125,13 @@ const RateCalculator: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto">
-      <Card className="border-2 border-blue-100 shadow-xl bg-white">
-        <CardHeader className="text-center bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-          <CardTitle className="text-3xl font-bold mb-2">
+    <div className="w-full max-w-6xl mx-auto">
+      <Card className="border border-gray-200 shadow-lg bg-white">
+        <CardHeader className="text-center bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg">
+          <CardTitle className="text-2xl font-bold mb-2">
             Shipping Rate Calculator
           </CardTitle>
-          <p className="text-blue-100 text-lg">
+          <p className="text-blue-100">
             Compare rates from major carriers worldwide
           </p>
         </CardHeader>
@@ -148,29 +140,29 @@ const RateCalculator: React.FC = () => {
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               
-              {/* Carrier Selection */}
+              {/* Carrier Selection - Moved to top */}
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <FormField
                   control={form.control}
                   name="carrierFilter"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-lg font-medium text-gray-700 flex items-center gap-2">
-                        <Package className="h-5 w-5 text-blue-600" />
+                      <FormLabel className="text-base font-medium text-gray-700 flex items-center gap-2">
+                        <Package className="h-4 w-4 text-blue-600" />
                         Choose Shipping Carriers
                       </FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <SelectTrigger className="h-12 text-lg border-2 border-blue-200 hover:border-blue-300 focus:border-blue-500 bg-white">
+                          <SelectTrigger className="h-10 text-base border border-blue-300 hover:border-blue-400 focus:border-blue-500 bg-white">
                             <SelectValue placeholder="Select carriers to compare" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent className="bg-white border-2 border-blue-200 shadow-xl z-50">
+                        <SelectContent className="bg-white border border-blue-200 shadow-lg max-h-60 overflow-y-auto z-[9999]">
                           {CARRIER_OPTIONS.map((carrier) => (
                             <SelectItem 
                               key={carrier.value} 
                               value={carrier.value}
-                              className="py-3 px-4 text-lg hover:bg-blue-50 focus:bg-blue-50"
+                              className="py-2 px-3 hover:bg-blue-50 focus:bg-blue-50"
                             >
                               {carrier.label}
                             </SelectItem>
@@ -184,14 +176,14 @@ const RateCalculator: React.FC = () => {
               </div>
 
               {/* Origin and Destination Section */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Origin */}
                 <div className="space-y-4 bg-green-50 rounded-lg p-4 border border-green-200">
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-3">
-                      <span className="text-green-600 font-bold">FROM</span>
+                    <div className="inline-flex items-center justify-center w-10 h-10 bg-green-100 rounded-full mb-2">
+                      <span className="text-green-600 font-bold text-sm">FROM</span>
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-800">Origin</h3>
+                    <h3 className="text-lg font-semibold text-gray-800">Origin</h3>
                   </div>
                   
                   <FormField
@@ -199,7 +191,7 @@ const RateCalculator: React.FC = () => {
                     name="fromCountry"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-base font-medium flex items-center gap-2">
+                        <FormLabel className="text-sm font-medium flex items-center gap-2">
                           <Globe className="h-4 w-4 text-blue-600" />
                           Country
                         </FormLabel>
@@ -233,10 +225,10 @@ const RateCalculator: React.FC = () => {
                 {/* Destination */}
                 <div className="space-y-4 bg-blue-50 rounded-lg p-4 border border-blue-200">
                   <div className="text-center">
-                    <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 rounded-full mb-3">
-                      <span className="text-blue-600 font-bold">TO</span>
+                    <div className="inline-flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full mb-2">
+                      <span className="text-blue-600 font-bold text-sm">TO</span>
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-800">Destination</h3>
+                    <h3 className="text-lg font-semibold text-gray-800">Destination</h3>
                   </div>
                   
                   <FormField
@@ -244,7 +236,7 @@ const RateCalculator: React.FC = () => {
                     name="toCountry"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-base font-medium flex items-center gap-2">
+                        <FormLabel className="text-sm font-medium flex items-center gap-2">
                           <Globe className="h-4 w-4 text-blue-600" />
                           Country
                         </FormLabel>
@@ -279,11 +271,11 @@ const RateCalculator: React.FC = () => {
               {/* Package Details Section */}
               <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
                 <div className="flex items-center gap-2 mb-4">
-                  <Package className="h-5 w-5 text-amber-600" />
-                  <h3 className="text-xl font-semibold text-gray-800">Package Information</h3>
+                  <Package className="h-4 w-4 text-amber-600" />
+                  <h3 className="text-lg font-semibold text-gray-800">Package Information</h3>
                 </div>
                 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
                     <div className="flex items-end gap-4">
                       <FormField
@@ -291,13 +283,13 @@ const RateCalculator: React.FC = () => {
                         name="weight"
                         render={({ field }) => (
                           <FormItem className="flex-1">
-                            <FormLabel className="text-base font-medium">Weight</FormLabel>
+                            <FormLabel className="text-sm font-medium">Weight</FormLabel>
                             <FormControl>
                               <Input 
                                 type="number" 
                                 step="0.1" 
                                 min="0.1" 
-                                className="h-10 text-base border-2 border-amber-200 focus:border-amber-500" 
+                                className="h-9 text-sm border border-amber-300 focus:border-amber-500" 
                                 {...field} 
                               />
                             </FormControl>
@@ -310,16 +302,16 @@ const RateCalculator: React.FC = () => {
                         control={form.control}
                         name="weightUnit"
                         render={({ field }) => (
-                          <FormItem className="w-24">
+                          <FormItem className="w-20">
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
-                                <SelectTrigger className="h-10 text-base border-2 border-amber-200 focus:border-amber-500">
+                                <SelectTrigger className="h-9 text-sm border border-amber-300 focus:border-amber-500">
                                   <SelectValue />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent className="bg-white border-2 border-amber-200 shadow-xl z-50">
-                                <SelectItem value="lb" className="text-base">lb</SelectItem>
-                                <SelectItem value="kg" className="text-base">kg</SelectItem>
+                              <SelectContent className="bg-white border border-amber-200 shadow-lg z-[9999]">
+                                <SelectItem value="lb" className="text-sm">lb</SelectItem>
+                                <SelectItem value="kg" className="text-sm">kg</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -335,16 +327,16 @@ const RateCalculator: React.FC = () => {
                       name="dimensionUnit"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-base font-medium">Dimension Unit</FormLabel>
+                          <FormLabel className="text-sm font-medium">Dimension Unit</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger className="h-10 text-base border-2 border-amber-200 focus:border-amber-500">
+                              <SelectTrigger className="h-9 text-sm border border-amber-300 focus:border-amber-500">
                                 <SelectValue />
                               </SelectTrigger>
                             </FormControl>
-                            <SelectContent className="bg-white border-2 border-amber-200 shadow-xl z-50">
-                              <SelectItem value="in" className="text-base">inches</SelectItem>
-                              <SelectItem value="cm" className="text-base">centimeters</SelectItem>
+                            <SelectContent className="bg-white border border-amber-200 shadow-lg z-[9999]">
+                              <SelectItem value="in" className="text-sm">inches</SelectItem>
+                              <SelectItem value="cm" className="text-sm">centimeters</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -358,13 +350,13 @@ const RateCalculator: React.FC = () => {
                         name="length"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-base font-medium">Length</FormLabel>
+                            <FormLabel className="text-sm font-medium">Length</FormLabel>
                             <FormControl>
                               <Input 
                                 type="number" 
                                 step="0.1" 
                                 min="0.1" 
-                                className="h-10 text-base border-2 border-amber-200 focus:border-amber-500" 
+                                className="h-9 text-sm border border-amber-300 focus:border-amber-500" 
                                 {...field} 
                               />
                             </FormControl>
@@ -378,13 +370,13 @@ const RateCalculator: React.FC = () => {
                         name="width"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-base font-medium">Width</FormLabel>
+                            <FormLabel className="text-sm font-medium">Width</FormLabel>
                             <FormControl>
                               <Input 
                                 type="number" 
                                 step="0.1" 
                                 min="0.1" 
-                                className="h-10 text-base border-2 border-amber-200 focus:border-amber-500" 
+                                className="h-9 text-sm border border-amber-300 focus:border-amber-500" 
                                 {...field} 
                               />
                             </FormControl>
@@ -398,13 +390,13 @@ const RateCalculator: React.FC = () => {
                         name="height"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-base font-medium">Height</FormLabel>
+                            <FormLabel className="text-sm font-medium">Height</FormLabel>
                             <FormControl>
                               <Input 
                                 type="number" 
                                 step="0.1" 
                                 min="0.1" 
-                                className="h-10 text-base border-2 border-amber-200 focus:border-amber-500" 
+                                className="h-9 text-sm border border-amber-300 focus:border-amber-500" 
                                 {...field} 
                               />
                             </FormControl>
@@ -422,23 +414,23 @@ const RateCalculator: React.FC = () => {
                 <Button 
                   type="submit" 
                   disabled={isLoading || isGeneratingAddress}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-12 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3 text-base font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
                 >
                   {isGeneratingAddress ? (
                     <>
-                      <Loader className="mr-3 h-5 w-5 animate-spin" />
+                      <Loader className="mr-2 h-4 w-4 animate-spin" />
                       Generating Addresses...
                     </>
                   ) : isLoading ? (
                     <>
-                      <Loader className="mr-3 h-5 w-5 animate-spin" />
+                      <Loader className="mr-2 h-4 w-4 animate-spin" />
                       Finding Best Rates...
                     </>
                   ) : (
                     <>
-                      <Search className="mr-3 h-5 w-5" />
+                      <Search className="mr-2 h-4 w-4" />
                       Get Shipping Quotes
-                      <ArrowRight className="ml-3 h-5 w-5" />
+                      <ArrowRight className="ml-2 h-4 w-4" />
                     </>
                   )}
                 </Button>
