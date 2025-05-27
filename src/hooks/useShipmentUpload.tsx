@@ -124,7 +124,7 @@ export const useShipmentUpload = () => {
       }
 
       if (data.error) {
-        throw new Error(data.error, { cause: data });
+        throw new Error(data.error);
       }
 
       setProgress(90); // Processing complete
