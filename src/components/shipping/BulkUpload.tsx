@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -241,9 +242,7 @@ const BulkUpload: React.FC = () => {
         <UploadError 
           onRetry={resetUpload}
           onSelectNewFile={selectNewFile}
-          onDownloadTemplate={handleDownloadTemplate}
           errorMessage="Upload failed. Please check your file format and try again."
-          detailedErrors={(results as any)?.errorDetails || []}
         />
       )}
       

@@ -17,29 +17,6 @@ const normalizeStatus = (status: string): 'pending' | 'processing' | 'error' | '
   return 'pending';
 };
 
-// Standardized template download function
-const downloadTemplate = () => {
-  const csvContent = [
-    'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight',
-    'John Doe,ACME Inc,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16',
-    'Jane Smith,Tech Corp,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,5559876543,10,6,4,8',
-    'Bob Johnson,Global LLC,789 Pine St,,New York,NY,10001,US,5555551234,15,10,6,25'
-  ].join('\n');
-  
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.setAttribute('hidden', '');
-  a.setAttribute('href', url);
-  a.setAttribute('download', 'bulk_shipping_template.csv');
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);
-  
-  toast.success('Template downloaded successfully');
-};
-
 export const useShipmentUpload = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -75,64 +52,51 @@ export const useShipmentUpload = () => {
     setProgress(10); // Start progress
 
     try {
-      // Convert file to base64 to send to edge function
-      const reader = new FileReader();
+      // Read the file
+      const text = await file.text();
+      setProgress(20); // File read
       
-      const fileReadPromise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result?.toString();
-          if (result) {
-            const base64Data = result.split(',')[1];
-            resolve(base64Data);
-          } else {
-            reject(new Error('Failed to read file'));
-          }
-        };
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsDataURL(file);
-      });
+      // Validate CSV structure
+      const rows = text.split('\n');
+      if (rows.length < 2) {
+        throw new Error('CSV file must have at least a header row and one data row');
+      }
       
-      setProgress(20); // File reading started
+      // Check CSV headers
+      const headers = rows[0].toLowerCase().split(',');
+      const requiredFields = ['name', 'street1', 'city', 'state', 'zip', 'country'];
+      const missingFields = requiredFields.filter(field => !headers.includes(field));
       
-      const base64Data = await fileReadPromise;
-      setProgress(30); // File read complete
+      if (missingFields.length > 0) {
+        throw new Error(`CSV is missing required fields: ${missingFields.join(', ')}`);
+      }
       
-      // Get current pickup address (this should be passed from parent component)
-      const pickupAddress = {
-        name: "Default Pickup",
-        street1: "123 Main St",
-        city: "San Francisco", 
-        state: "CA",
-        zip: "94111",
-        country: "US",
-        phone: "555-555-5555"
-      };
+      setProgress(30); // File validated
 
-      setProgress(40); // Ready to process
-
-      // Process file via the API - Fixed the function invocation
+      // Process file and generate labels via the API
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
         body: { 
-          fileName: file.name,
-          fileContent: base64Data,
-          pickupAddress: pickupAddress
+          csvContent: text,
+          origin: {
+            name: "Shipping Company",
+            street1: "123 Main St",
+            city: "San Francisco",
+            state: "CA",
+            zip: "94111",
+            country: "US",
+            phone: "555-555-5555"
+          }
         }
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
+      if (error) throw new Error(error.message);
 
       setProgress(90); // Processing complete
       
       // Initialize the shipments with empty available rates and properly typed status
       const processedShipments: BulkShipment[] = data.processedShipments.map((shipment: any) => ({
         ...shipment,
-        availableRates: shipment.availableRates || [],
+        availableRates: [],
         status: normalizeStatus(shipment.status || 'pending')
       }));
 
@@ -150,46 +114,29 @@ export const useShipmentUpload = () => {
       setProgress(100);
       
       toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments. Ready for carrier selection.`);
-      
-    } catch (error: any) {
+    } catch (error) {
       console.error('Bulk upload error:', error);
       setUploadStatus('error');
       setProgress(0);
-      
-      // Show specific error message if available
-      let errorMessage = 'Failed to process the uploaded file';
-      let detailedErrors: string[] = [];
-      
-      if (error.cause?.detailedErrors) {
-        detailedErrors = error.cause.detailedErrors;
-      }
-      
-      if (error.cause?.details) {
-        errorMessage = error.cause.details;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      toast.error(errorMessage);
-      
-      // Store detailed errors for the error component
-      setResults({
-        total: 0,
-        successful: 0,
-        failed: 0,
-        totalCost: 0,
-        processedShipments: [],
-        failedShipments: [],
-        errorDetails: detailedErrors
-      } as any);
-      
+      toast.error(`Failed to process the uploaded file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsUploading(false);
     }
   };
 
   const handleDownloadTemplate = () => {
-    downloadTemplate();
+    const csvContent = 'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight\nJohn Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16';
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', 'shipping_template.csv');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    toast.success('Template downloaded successfully');
   };
 
   return {
