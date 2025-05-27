@@ -118,7 +118,7 @@ export const useShipmentRates = (
             selectedRateId: rateId,
             carrier: selectedRate.carrier,
             service: selectedRate.service,
-            rate: parseFloat(selectedRate.rate),
+            rate: parseFloat(selectedRate.rate.toString()),
           };
         }
       }
@@ -184,7 +184,7 @@ export const useShipmentRates = (
               selectedRateId: data.rates[0]?.id,
               carrier: data.rates[0]?.carrier || s.carrier,
               service: data.rates[0]?.service || s.service,
-              rate: parseFloat(data.rates[0]?.rate) || s.rate,
+              rate: parseFloat(data.rates[0]?.rate.toString()) || s.rate,
             };
           }
           return s;
@@ -225,7 +225,7 @@ export const useShipmentRates = (
           selectedRateId: carrierRate.id,
           carrier: carrierRate.carrier,
           service: carrierRate.service,
-          rate: parseFloat(carrierRate.rate),
+          rate: parseFloat(carrierRate.rate.toString()),
         };
       }
       

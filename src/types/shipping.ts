@@ -114,6 +114,7 @@ export interface BulkUploadResult {
   processedShipments: BulkShipment[];
   failedShipments: BulkShipmentError[];
   uploadStatus?: 'idle' | 'success' | 'error' | 'editing';
+  pickupAddress?: ShippingAddress;
 }
 
 export const CARRIER_OPTIONS = [
