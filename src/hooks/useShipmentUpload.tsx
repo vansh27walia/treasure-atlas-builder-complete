@@ -103,11 +103,16 @@ export const useShipmentUpload = () => {
       console.log('EasyPost processing response:', data);
       setProgress(90);
       
-      // Initialize the shipments with properly typed status
+      // Initialize the shipments with properly typed status and customer details
       const processedShipments: BulkShipment[] = data.processedShipments.map((shipment: any) => ({
         ...shipment,
         availableRates: shipment.availableRates || [],
-        status: normalizeStatus(shipment.status || 'pending')
+        status: normalizeStatus(shipment.status || 'pending'),
+        customer_name: shipment.customer_name || shipment.details?.to_name || shipment.recipient,
+        customer_address: shipment.customer_address || `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
+        customer_phone: shipment.customer_phone || shipment.details?.to_phone,
+        customer_email: shipment.customer_email || shipment.details?.to_email,
+        customer_company: shipment.customer_company || shipment.details?.to_company,
       }));
 
       const resultData = {
@@ -123,7 +128,7 @@ export const useShipmentUpload = () => {
       setUploadStatus('editing');
       setProgress(100);
       
-      toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments using live EasyPost API rates.`);
+      toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments using live EasyPost API with full carrier details.`);
       
       if (data.failedShipments && data.failedShipments.length > 0) {
         toast.error(`${data.failedShipments.length} shipments failed to process. Check the error details.`);
@@ -164,7 +169,7 @@ export const useShipmentUpload = () => {
     a.click();
     document.body.removeChild(a);
     
-    toast.success('EasyPost CSV template downloaded successfully');
+    toast.success('EasyPost CSV template downloaded with all required fields for live carrier rates');
   };
 
   return {
