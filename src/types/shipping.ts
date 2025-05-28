@@ -74,15 +74,34 @@ export interface BulkShipment {
   label_url?: string;
   status: 'pending' | 'processing' | 'error' | 'completed';
   error?: string;
+  easypost_id?: string;
   details: {
-    name: string;
+    // EasyPost CSV format fields (to_address fields)
+    to_name: string;
+    to_company?: string;
+    to_street1: string;
+    to_street2?: string;
+    to_city: string;
+    to_state: string;
+    to_zip: string;
+    to_country: string;
+    to_phone?: string;
+    to_email?: string;
+    // Package dimensions and weight
+    weight: number;
+    length: number;
+    width: number;
+    height: number;
+    reference?: string;
+    // Legacy fields for backward compatibility
+    name?: string;
     company?: string;
-    street1: string;
+    street1?: string;
     street2?: string;
-    city: string;
-    state: string;
-    zip: string;
-    country: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
     phone?: string;
     email?: string;
     parcel_length?: number;
@@ -98,6 +117,12 @@ export interface BulkShipment {
   };
   availableRates?: ShippingOption[];
   selectedRateId?: string;
+  // Customer details for display
+  customer_name?: string;
+  customer_address?: string;
+  customer_phone?: string;
+  customer_email?: string;
+  customer_company?: string;
 }
 
 export interface BulkShipmentError {
