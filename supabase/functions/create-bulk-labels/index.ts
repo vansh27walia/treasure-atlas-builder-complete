@@ -18,7 +18,7 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
   }
 
   try {
-    console.log(`Purchasing label for shipment ${shipmentId} with rate ${rateId}`);
+    console.log(`Purchasing live label for shipment ${shipmentId} with rate ${rateId}`);
     
     // Buy the shipment with selected rate via EasyPost API
     const buyResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
@@ -36,11 +36,12 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
 
     if (!buyResponse.ok) {
       const errorData = await buyResponse.json();
+      console.error(`EasyPost purchase error for ${shipmentId}:`, errorData);
       throw new Error(`EasyPost purchase error: ${errorData.error?.message || 'Unknown error'}`);
     }
 
     const boughtShipment = await buyResponse.json();
-    console.log(`Successfully purchased label for shipment ${shipmentId}`);
+    console.log(`Successfully purchased live label for shipment ${shipmentId}`);
     
     return {
       id: boughtShipment.id,
@@ -49,6 +50,11 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
       carrier: boughtShipment.selected_rate?.carrier,
       service: boughtShipment.selected_rate?.service,
       rate: boughtShipment.selected_rate?.rate,
+      customer_name: boughtShipment.to_address?.name,
+      customer_address: `${boughtShipment.to_address?.street1}, ${boughtShipment.to_address?.city}, ${boughtShipment.to_address?.state} ${boughtShipment.to_address?.zip}`,
+      customer_phone: boughtShipment.to_address?.phone,
+      customer_email: boughtShipment.to_address?.email,
+      customer_company: boughtShipment.to_address?.company,
     };
     
   } catch (error) {
@@ -152,6 +158,11 @@ serve(async (req) => {
                 tracking_code: batchShipment.tracking_code,
                 label_url: batchShipment.postage_label.label_url,
                 status: 'completed' as const,
+                customer_name: batchShipment.to_address?.name,
+                customer_address: `${batchShipment.to_address?.street1}, ${batchShipment.to_address?.city}, ${batchShipment.to_address?.state} ${batchShipment.to_address?.zip}`,
+                customer_phone: batchShipment.to_address?.phone,
+                customer_email: batchShipment.to_address?.email,
+                customer_company: batchShipment.to_address?.company,
               });
             } else {
               throw new Error('Label not generated in batch');
@@ -180,15 +191,7 @@ serve(async (req) => {
             // Purchase real label via EasyPost
             labelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId, labelOptions);
           } else {
-            // Generate mock label data
-            labelData = {
-              id: shipment.easypost_id || shipment.id,
-              tracking_code: `EZ${Math.floor(Math.random() * 10000000).toString().padStart(8, '0')}`,
-              label_url: 'https://assets.easypost.com/shipping_labels/example_label.pdf',
-              carrier: shipment.carrier,
-              service: shipment.service,
-              rate: shipment.rate,
-            };
+            throw new Error('Missing EasyPost shipment ID or rate ID for live label generation');
           }
 
           processedLabels.push({
@@ -198,7 +201,7 @@ serve(async (req) => {
           });
 
         } catch (error) {
-          console.error(`Failed to create label for shipment ${shipment.id}:`, error);
+          console.error(`Failed to create live label for shipment ${shipment.id}:`, error);
           failedLabels.push({
             shipmentId: shipment.id,
             error: error instanceof Error ? error.message : 'Unknown error',
@@ -215,7 +218,7 @@ serve(async (req) => {
         total: shipments.length,
         successful: processedLabels.length,
         failed: failedLabels.length,
-        message: `Processed ${processedLabels.length} labels using EasyPost API`,
+        message: `Processed ${processedLabels.length} live labels using EasyPost API`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );

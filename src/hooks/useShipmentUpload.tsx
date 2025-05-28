@@ -123,7 +123,7 @@ export const useShipmentUpload = () => {
       setUploadStatus('editing');
       setProgress(100);
       
-      toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments using EasyPost API with live rates.`);
+      toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments using live EasyPost API rates.`);
       
       if (data.failedShipments && data.failedShipments.length > 0) {
         toast.error(`${data.failedShipments.length} shipments failed to process. Check the error details.`);
@@ -148,10 +148,10 @@ export const useShipmentUpload = () => {
 
   const handleDownloadTemplate = () => {
     const csvContent = [
-      'to_name,to_street1,to_street2,to_city,to_state,to_zip,to_country,weight,length,width,height,reference',
-      'John Doe,123 Main St,,San Francisco,CA,94105,US,1.5,12,8,4,Order #1234',
-      'Jane Smith,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,2.0,10,6,3,Order #1235',
-      'Bob Johnson,789 Pine St,,New York,NY,10001,US,3.0,15,10,6,Order #1236'
+      'to_name,to_company,to_street1,to_street2,to_city,to_state,to_zip,to_country,to_phone,to_email,weight,length,width,height,reference',
+      'John Doe,JD Inc.,123 Test St,Apt 4,Los Angeles,CA,90001,US,555-555-5555,john@example.com,5.0,10,5,5,Order #1234',
+      'Jane Smith,Acme Co.,456 Demo Rd,,New York,NY,10001,US,555-555-5556,jane@example.com,7.5,12,8,4,Order #1235',
+      'Bob Johnson,Tech Corp,789 Pine St,,Miami,FL,33101,US,555-555-5557,bob@example.com,3.2,8,6,3,Order #1236'
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -164,7 +164,7 @@ export const useShipmentUpload = () => {
     a.click();
     document.body.removeChild(a);
     
-    toast.success('EasyPost template downloaded successfully');
+    toast.success('EasyPost CSV template downloaded successfully');
   };
 
   return {

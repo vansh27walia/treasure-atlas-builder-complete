@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface ShipmentResult {
   id: string;
-  easypost_id?: string;
+  easypost_id: string;
   tracking_code: string;
   label_url: string;
   status: "pending" | "processing" | "error" | "completed";
@@ -18,15 +18,18 @@ interface ShipmentResult {
   service: string;
   rate: number;
   availableRates: ShippingRate[];
-  selectedRateId?: string;
+  selectedRateId: string;
   details: {
     to_name: string;
+    to_company?: string;
     to_street1: string;
     to_street2?: string;
     to_city: string;
     to_state: string;
     to_zip: string;
     to_country: string;
+    to_phone?: string;
+    to_email?: string;
     weight: number;
     length: number;
     width: number;
@@ -82,27 +85,30 @@ const parseCSV = (csvContent: string): string[][] => {
   return result;
 };
 
-// Create EasyPost shipment and fetch rates
+// Create EasyPost shipment and fetch live rates
 const createShipmentAndFetchRates = async (fromAddress: any, toAddress: any, parcel: any, reference?: string): Promise<{ shipment: any, rates: ShippingRate[] }> => {
   try {
-    console.log('Creating EasyPost shipment for rate fetching');
+    console.log('Creating EasyPost shipment for live rate fetching');
     
     const apiKey = Deno.env.get('EASYPOST_API_KEY');
     if (!apiKey) {
       throw new Error('EasyPost API key not configured');
     }
 
-    // Create shipment via EasyPost API following their recommended structure
+    // Create shipment via EasyPost API
     const shipmentData = {
       shipment: {
         to_address: {
           name: toAddress.to_name,
+          company: toAddress.to_company || '',
           street1: toAddress.to_street1,
           street2: toAddress.to_street2 || '',
           city: toAddress.to_city,
           state: toAddress.to_state,
           zip: toAddress.to_zip,
           country: toAddress.to_country,
+          phone: toAddress.to_phone || '',
+          email: toAddress.to_email || '',
         },
         from_address: {
           name: fromAddress.name || fromAddress.street1,
@@ -144,30 +150,29 @@ const createShipmentAndFetchRates = async (fromAddress: any, toAddress: any, par
 
     const shipment = await response.json();
     console.log('EasyPost shipment created with ID:', shipment.id);
-    console.log('Available rates count:', shipment.rates?.length || 0);
+    console.log('Available live rates count:', shipment.rates?.length || 0);
     
     if (!shipment.rates || shipment.rates.length === 0) {
-      throw new Error('No rates returned from EasyPost API');
+      throw new Error('No live rates returned from EasyPost API');
     }
     
-    // Convert EasyPost rates to our format with markup
-    const markupPercentage = 15;
+    // Convert EasyPost rates to our format (no markup for live rates)
     const rates: ShippingRate[] = shipment.rates.map((rate: any) => ({
       id: rate.id,
       carrier: rate.carrier,
       service: rate.service,
-      rate: (parseFloat(rate.rate) * (1 + markupPercentage / 100)).toFixed(2),
+      rate: parseFloat(rate.rate).toFixed(2),
       currency: rate.currency,
       delivery_days: rate.delivery_days || 3,
       delivery_date: rate.delivery_date,
       shipment_id: shipment.id,
     }));
 
-    console.log(`Successfully created shipment and fetched ${rates.length} rates`);
+    console.log(`Successfully created shipment and fetched ${rates.length} live rates`);
     return { shipment, rates };
 
   } catch (error) {
-    console.error('Error creating shipment and fetching rates:', error);
+    console.error('Error creating shipment and fetching live rates:', error);
     throw error;
   }
 };
@@ -237,12 +242,15 @@ serve(async (req) => {
     
     const fieldIndexes = {
       to_name: getFieldIndex('to_name'),
+      to_company: getFieldIndex('to_company'),
       to_street1: getFieldIndex('to_street1'),
       to_street2: getFieldIndex('to_street2'),
       to_city: getFieldIndex('to_city'),
       to_state: getFieldIndex('to_state'),
       to_zip: getFieldIndex('to_zip'),
       to_country: getFieldIndex('to_country'),
+      to_phone: getFieldIndex('to_phone'),
+      to_email: getFieldIndex('to_email'),
       weight: getFieldIndex('weight'),
       length: getFieldIndex('length'),
       width: getFieldIndex('width'),
@@ -274,12 +282,15 @@ serve(async (req) => {
         
         const toAddress = {
           to_name: getValue(fieldIndexes.to_name),
+          to_company: getValue(fieldIndexes.to_company),
           to_street1: getValue(fieldIndexes.to_street1),
           to_street2: getValue(fieldIndexes.to_street2),
           to_city: getValue(fieldIndexes.to_city),
           to_state: getValue(fieldIndexes.to_state),
           to_zip: getValue(fieldIndexes.to_zip),
           to_country: getValue(fieldIndexes.to_country) || 'US',
+          to_phone: getValue(fieldIndexes.to_phone),
+          to_email: getValue(fieldIndexes.to_email),
         };
 
         const parcel = {
@@ -300,7 +311,7 @@ serve(async (req) => {
           throw new Error(`Missing required fields in row ${i}: to_name, to_street1, to_city, to_state, to_zip are required`);
         }
         
-        // Create EasyPost shipment and fetch rates
+        // Create EasyPost shipment and fetch live rates
         console.log(`Creating EasyPost shipment for row ${i}`);
         const { shipment, rates } = await createShipmentAndFetchRates(
           pickupAddress,
@@ -309,7 +320,7 @@ serve(async (req) => {
           reference
         );
         
-        console.log(`Created shipment ${shipment.id} with ${rates.length} rates for row ${i}`);
+        console.log(`Created shipment ${shipment.id} with ${rates.length} live rates for row ${i}`);
         
         // Select cheapest rate by default
         const selectedRate = rates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate))[0];
@@ -332,8 +343,20 @@ serve(async (req) => {
           availableRates: rates,
           selectedRateId: selectedRate.id,
           details: {
-            ...toAddress,
-            ...parcel,
+            to_name: toAddress.to_name,
+            to_company: toAddress.to_company,
+            to_street1: toAddress.to_street1,
+            to_street2: toAddress.to_street2,
+            to_city: toAddress.to_city,
+            to_state: toAddress.to_state,
+            to_zip: toAddress.to_zip,
+            to_country: toAddress.to_country,
+            to_phone: toAddress.to_phone,
+            to_email: toAddress.to_email,
+            weight: parcel.weight,
+            length: parcel.length,
+            width: parcel.width,
+            height: parcel.height,
             reference
           }
         });
@@ -364,7 +387,7 @@ serve(async (req) => {
         totalCost,
         processedShipments,
         failedShipments,
-        message: `Processed ${successful} out of ${total} shipments using EasyPost API`,
+        message: `Processed ${successful} out of ${total} shipments using live EasyPost API`,
         pickupAddress: pickupAddress.name
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
