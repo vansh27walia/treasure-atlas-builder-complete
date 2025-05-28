@@ -10,11 +10,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
 
-  const handleDownloadBasicTemplate = () => {
+  const handleDownloadEasyPostTemplate = () => {
     const csvContent = [
-      'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight',
-      'John Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16',
-      'Jane Smith,Tech Corp,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,5559876543,10,6,4,8'
+      'to_name,to_street1,to_street2,to_city,to_state,to_zip,to_country,weight,length,width,height,reference',
+      'John Doe,123 Main St,,San Francisco,CA,94105,US,1.5,12,8,4,Order #1234',
+      'Jane Smith,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,2.0,10,6,3,Order #1235',
+      'Bob Johnson,789 Pine St,,New York,NY,10001,US,3.0,15,10,6,Order #1236'
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -22,26 +23,7 @@ const BulkUploadPage = () => {
     const a = document.createElement('a');
     a.setAttribute('hidden', '');
     a.setAttribute('href', url);
-    a.setAttribute('download', 'basic_shipping_template.csv');
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-
-  const handleDownloadEnhancedTemplate = () => {
-    const csvContent = [
-      'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight,preferred_carrier,preferred_service',
-      'John Doe,ACME Inc.,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16,USPS,Priority',
-      'Jane Smith,Tech Corp,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,5559876543,10,6,4,8,UPS,Ground',
-      'Bob Johnson,Global LLC,789 Pine St,,New York,NY,10001,US,5555551234,15,10,6,25,FedEx,Express'
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.setAttribute('hidden', '');
-    a.setAttribute('href', url);
-    a.setAttribute('download', 'enhanced_shipping_template.csv');
+    a.setAttribute('download', 'easypost_bulk_shipping_template.csv');
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -49,7 +31,7 @@ const BulkUploadPage = () => {
   
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Bulk Shipping</h1>
+      <h1 className="text-3xl font-bold mb-6">EasyPost Bulk Shipping</h1>
       
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-6">
@@ -59,7 +41,7 @@ const BulkUploadPage = () => {
           </TabsTrigger>
           <TabsTrigger value="template">
             <FileText className="h-4 w-4 mr-2" />
-            Templates & Guide
+            EasyPost Template & Guide
           </TabsTrigger>
         </TabsList>
         
@@ -69,135 +51,105 @@ const BulkUploadPage = () => {
         
         <TabsContent value="template">
           <div className="space-y-8">
-            {/* Blue information box */}
-            <Alert className="border-blue-200 bg-blue-50">
-              <Info className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800">
-                <strong>Important:</strong> Make sure you have a pickup address saved in your settings before uploading. 
-                Download one of our templates below to ensure proper formatting.
+            {/* EasyPost Integration Notice */}
+            <Alert className="border-green-200 bg-green-50">
+              <Info className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                <strong>EasyPost Integration:</strong> This template follows EasyPost's recommended CSV format for bulk shipping. 
+                Pickup addresses are selected from your saved addresses - only recipient details go in the CSV.
               </AlertDescription>
             </Alert>
 
-            {/* Template Downloads */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card className="border-2 hover:border-blue-300 transition-colors">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-lg">
-                    <FileText className="h-5 w-5 mr-2 text-blue-600" />
-                    Basic Template
-                  </CardTitle>
-                  <CardDescription>
-                    Standard template with essential shipping fields
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="font-medium mb-2">Includes:</h4>
-                      <ul className="text-sm space-y-1">
-                        <li>• Recipient name and address</li>
-                        <li>• Package dimensions and weight</li>
-                        <li>• Live carrier rate calculation</li>
-                        <li>• All required shipping fields</li>
-                      </ul>
-                    </div>
-                    <Button onClick={handleDownloadBasicTemplate} className="w-full">
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Basic Template
-                    </Button>
+            {/* EasyPost Template Download */}
+            <Card className="border-2 hover:border-green-300 transition-colors">
+              <CardHeader>
+                <CardTitle className="flex items-center text-lg">
+                  <FileText className="h-5 w-5 mr-2 text-green-600" />
+                  EasyPost CSV Template
+                </CardTitle>
+                <CardDescription>
+                  Official EasyPost format for bulk shipping uploads
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-2">Includes:</h4>
+                    <ul className="text-sm space-y-1">
+                      <li>• Recipient address (to_address) fields</li>
+                      <li>• Package dimensions (length, width, height)</li>
+                      <li>• Weight in pounds</li>
+                      <li>• Reference field for order tracking</li>
+                      <li>• EasyPost API compatibility</li>
+                    </ul>
                   </div>
-                </CardContent>
-              </Card>
+                  <Button onClick={handleDownloadEasyPostTemplate} className="w-full bg-green-600 hover:bg-green-700">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download EasyPost Template
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
-              <Card className="border-2 hover:border-green-300 transition-colors">
-                <CardHeader>
-                  <CardTitle className="flex items-center text-lg">
-                    <FileText className="h-5 w-5 mr-2 text-green-600" />
-                    Enhanced Template
-                  </CardTitle>
-                  <CardDescription>
-                    Advanced template with carrier preferences
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="font-medium mb-2">Includes:</h4>
-                      <ul className="text-sm space-y-1">
-                        <li>• All basic template features</li>
-                        <li>• Preferred carrier selection (USPS, UPS, FedEx, DHL)</li>
-                        <li>• Service level preferences</li>
-                        <li>• Better rate optimization</li>
-                      </ul>
-                    </div>
-                    <Button onClick={handleDownloadEnhancedTemplate} className="w-full bg-green-600 hover:bg-green-700">
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Enhanced Template
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Step by Step Guide */}
+            {/* EasyPost Workflow Guide */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <CheckCircle className="h-5 w-5 mr-2 text-green-600" />
-                  Step-by-Step Guide
+                  EasyPost Bulk Shipping Workflow
                 </CardTitle>
                 <CardDescription>
-                  Follow these steps to successfully process your bulk shipments
+                  Follow EasyPost's recommended API workflow for optimal results
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm">1</div>
+                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">1</div>
                     <div>
-                      <h4 className="font-medium">Set Up Pickup Address</h4>
+                      <h4 className="font-medium">Setup Pickup Address</h4>
                       <p className="text-sm text-gray-600 mt-1">
-                        Go to Settings and add your pickup address. This will be used as the origin for all shipments.
+                        Save your pickup/from address in Settings. This will be used for all shipments in the batch.
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm">2</div>
+                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">2</div>
                     <div>
-                      <h4 className="font-medium">Download Template</h4>
+                      <h4 className="font-medium">Prepare CSV Data</h4>
                       <p className="text-sm text-gray-600 mt-1">
-                        Choose between Basic or Enhanced template based on your needs. Enhanced template allows carrier preferences.
+                        Use our EasyPost template. Include only recipient addresses - pickup address comes from your settings.
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm">3</div>
+                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">3</div>
                     <div>
-                      <h4 className="font-medium">Fill Out Recipient Information</h4>
+                      <h4 className="font-medium">Create Shipments & Fetch Rates</h4>
                       <p className="text-sm text-gray-600 mt-1">
-                        Add recipient details following the template format. Required fields: name, street1, city, state, zip, country.
+                        System creates EasyPost shipments and fetches live rates from multiple carriers (UPS, USPS, FedEx, DHL).
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm">4</div>
+                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">4</div>
                     <div>
-                      <h4 className="font-medium">Add Package Details</h4>
+                      <h4 className="font-medium">Select Carriers & Services</h4>
                       <p className="text-sm text-gray-600 mt-1">
-                        Include package dimensions (length, width, height) in inches and weight in pounds for accurate rates.
+                        Review and select preferred carriers/services for each shipment. Change rates dynamically as needed.
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm">5</div>
+                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">5</div>
                     <div>
-                      <h4 className="font-medium">Upload and Review</h4>
+                      <h4 className="font-medium">Purchase & Generate Labels</h4>
                       <p className="text-sm text-gray-600 mt-1">
-                        Upload your CSV file, review the live rates, select your preferred carriers, and process payment.
+                        Confirm selections and purchase labels via EasyPost. Download labels individually or as a batch.
                       </p>
                     </div>
                   </div>
@@ -205,12 +157,12 @@ const BulkUploadPage = () => {
               </CardContent>
             </Card>
 
-            {/* Field Requirements */}
+            {/* EasyPost CSV Field Requirements */}
             <Card>
               <CardHeader>
-                <CardTitle>Field Requirements</CardTitle>
+                <CardTitle>EasyPost CSV Field Requirements</CardTitle>
                 <CardDescription>
-                  Complete list of all available fields and requirements
+                  Required and optional fields following EasyPost's format
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -219,28 +171,44 @@ const BulkUploadPage = () => {
                     <h4 className="font-semibold text-green-600 mb-3">Required Fields</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">name</span>
+                        <span className="font-medium">to_name</span>
                         <span className="text-gray-600">Recipient name</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">street1</span>
+                        <span className="font-medium">to_street1</span>
                         <span className="text-gray-600">Street address</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">city</span>
+                        <span className="font-medium">to_city</span>
                         <span className="text-gray-600">City name</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">state</span>
+                        <span className="font-medium">to_state</span>
                         <span className="text-gray-600">State/Province</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">zip</span>
+                        <span className="font-medium">to_zip</span>
                         <span className="text-gray-600">ZIP/Postal code</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">country</span>
-                        <span className="text-gray-600">Country code (US)</span>
+                        <span className="font-medium">to_country</span>
+                        <span className="text-gray-600">Country (US)</span>
+                      </div>
+                      <div className="flex justify-between border-b pb-1">
+                        <span className="font-medium">weight</span>
+                        <span className="text-gray-600">Weight (pounds)</span>
+                      </div>
+                      <div className="flex justify-between border-b pb-1">
+                        <span className="font-medium">length</span>
+                        <span className="text-gray-600">Length (inches)</span>
+                      </div>
+                      <div className="flex justify-between border-b pb-1">
+                        <span className="font-medium">width</span>
+                        <span className="text-gray-600">Width (inches)</span>
+                      </div>
+                      <div className="flex justify-between border-b pb-1">
+                        <span className="font-medium">height</span>
+                        <span className="text-gray-600">Height (inches)</span>
                       </div>
                     </div>
                   </div>
@@ -249,41 +217,21 @@ const BulkUploadPage = () => {
                     <h4 className="font-semibold text-blue-600 mb-3">Optional Fields</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">company</span>
-                        <span className="text-gray-600">Company name</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">street2</span>
+                        <span className="font-medium">to_street2</span>
                         <span className="text-gray-600">Apt/Suite number</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">phone</span>
-                        <span className="text-gray-600">Phone number</span>
+                        <span className="font-medium">reference</span>
+                        <span className="text-gray-600">Order/Reference #</span>
                       </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">parcel_length</span>
-                        <span className="text-gray-600">Length (inches)</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">parcel_width</span>
-                        <span className="text-gray-600">Width (inches)</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">parcel_height</span>
-                        <span className="text-gray-600">Height (inches)</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">parcel_weight</span>
-                        <span className="text-gray-600">Weight (pounds)</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">preferred_carrier</span>
-                        <span className="text-gray-600">USPS/UPS/FedEx/DHL</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">preferred_service</span>
-                        <span className="text-gray-600">Ground/Express/Priority</span>
-                      </div>
+                    </div>
+                    
+                    <div className="mt-6 p-3 bg-blue-50 rounded-lg">
+                      <h5 className="font-medium text-blue-800 mb-2">Note:</h5>
+                      <p className="text-sm text-blue-700">
+                        Pickup address (from_address) is selected from your saved addresses in Settings. 
+                        Do not include pickup details in the CSV file.
+                      </p>
                     </div>
                   </div>
                 </div>
