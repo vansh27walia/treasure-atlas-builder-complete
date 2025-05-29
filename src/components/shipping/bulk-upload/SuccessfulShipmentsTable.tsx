@@ -177,7 +177,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                         trackingCode={shipment.tracking_code || shipment.trackingCode}
                         shipmentId={shipment.easypost_id}
                         shipmentDetails={{
-                          fromAddress: 'Your Pickup Address',
+                          fromAddress: `${shipment.details?.from_name || 'Sender'}\n${shipment.details?.from_street1 || ''}\n${shipment.details?.from_city || ''}, ${shipment.details?.from_state || ''} ${shipment.details?.from_zip || ''}`,
                           toAddress: `${shipment.customer_name || shipment.recipient}\n${shipment.customer_address || ''}`,
                           weight: `${shipment.details?.weight || 0} oz`,
                           dimensions: `${shipment.details?.length || 0}" x ${shipment.details?.width || 0}" x ${shipment.details?.height || 0}"`,
