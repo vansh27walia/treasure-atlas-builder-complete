@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useShipmentUpload } from './useShipmentUpload';
 import { useShipmentManagement } from './useShipmentManagement';
@@ -178,7 +179,23 @@ export const useBulkUpload = () => {
   };
 
   const handleProceedToPayment = async () => {
-    await handleCreateLabels();
+    if (!results || !pickupAddress) {
+      toast.error('Missing shipments or pickup address');
+      return;
+    }
+    
+    setIsPaying(true);
+    
+    try {
+      // Create labels first
+      await handleCreateLabels();
+      
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Failed to process payment');
+    } finally {
+      setIsPaying(false);
+    }
   };
 
   const handleCreateLabels = async () => {
