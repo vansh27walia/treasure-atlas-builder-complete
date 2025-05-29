@@ -8,8 +8,8 @@ import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
-  onDownloadAllLabels: () => void;
-  onDownloadSingleLabel: (labelUrl: string) => void;
+  onDownloadAllLabels: (format?: string) => void;
+  onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
   onProceedToPayment: () => void;
   onCreateLabels: () => void;
   isPaying: boolean;
@@ -27,6 +27,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 }) => {
   // Check if any shipment is missing a label
   const missingLabels = results.processedShipments.some(s => !s.label_url);
+  const hasLabels = results.processedShipments.some(s => s.label_url);
 
   return (
     <div className="bg-green-50 border border-green-200 rounded-md mb-6">
@@ -44,7 +45,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         <OrderSummary
           successfulCount={results.successful}
           totalCost={results.totalCost}
-          onDownloadAllLabels={onDownloadAllLabels}
+          onDownloadAllLabels={() => onDownloadAllLabels('pdf')}
           onProceedToPayment={onProceedToPayment}
           isPaying={isPaying}
           isCreatingLabels={isCreatingLabels}
@@ -54,7 +55,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <div className="mt-3">
             <button 
               onClick={onCreateLabels}
-              className="text-blue-600 font-medium hover:text-blue-800 transition-colors"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium transition-colors"
               disabled={isCreatingLabels}
             >
               {isCreatingLabels ? "Generating labels..." : "Generate All Labels"}
@@ -63,10 +64,13 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         )}
       </div>
       
-      <SuccessfulShipmentsTable 
-        shipments={results.processedShipments}
-        onDownloadSingleLabel={onDownloadSingleLabel} 
-      />
+      {hasLabels && (
+        <SuccessfulShipmentsTable 
+          shipments={results.processedShipments.filter(s => s.label_url)}
+          onDownloadSingleLabel={onDownloadSingleLabel}
+          onDownloadAllLabels={onDownloadAllLabels}
+        />
+      )}
       
       <FailedShipmentsTable 
         shipments={results.failedShipments} 
