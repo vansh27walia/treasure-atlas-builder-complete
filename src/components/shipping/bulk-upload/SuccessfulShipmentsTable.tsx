@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, File, FileArchive, ChevronDown, Eye } from 'lucide-react';
+import { Download, File, FileArchive, ChevronDown } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import { 
   DropdownMenu, 
@@ -11,7 +11,6 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { toast } from '@/components/ui/sonner';
-import PrintPreview from '../PrintPreview';
 
 interface SuccessfulShipmentsTableProps {
   shipments: BulkShipment[];
@@ -27,93 +26,24 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zip'>('pdf');
   
   if (shipments.length === 0) return null;
-
-  const handleDownload = async (shipment: BulkShipment, format: string = 'pdf') => {
-    if (!shipment.label_url) {
-      toast.error('No label URL available for this shipment');
-      return;
-    }
-
-    try {
-      console.log(`Downloading ${format.toUpperCase()} label for shipment:`, shipment.id);
-      
-      // Create a download link with proper filename
-      const link = document.createElement('a');
-      link.href = shipment.label_url;
-      link.download = `shipping_label_${shipment.tracking_code || shipment.id}.${format}`;
-      link.target = '_blank';
-      
-      // Add to DOM, click, and remove
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.success(`${format.toUpperCase()} label download started`);
-    } catch (error) {
-      console.error('Download error:', error);
-      toast.error(`Failed to download ${format.toUpperCase()} label`);
-    }
+  
+  const handleDownload = (labelUrl: string, format: string = 'pdf') => {
+    onDownloadSingleLabel(labelUrl, format);
+    toast.success(`Downloading ${format.toUpperCase()} label`);
   };
   
-  const handleBulkDownload = async (format: 'pdf' | 'png' | 'zip' = 'pdf') => {
+  const handleBulkDownload = (format: 'pdf' | 'png' | 'zip' = 'pdf') => {
     setSelectedFormat(format);
-    
-    if (format === 'zip') {
-      // For ZIP download, we'll download all labels and package them
-      toast.loading('Preparing ZIP archive...');
-      
-      try {
-        const validShipments = shipments.filter(s => s.label_url);
-        
-        if (validShipments.length === 0) {
-          toast.error('No valid labels to download');
-          return;
+    if (onDownloadAllLabels) {
+      onDownloadAllLabels();
+      toast.success(`Preparing ${format.toUpperCase()} labels for download`);
+    } else {
+      // Fallback: Download each label individually
+      shipments.forEach(shipment => {
+        if (shipment.label_url) {
+          setTimeout(() => handleDownload(shipment.label_url || '', format), 300);
         }
-
-        // Download each label individually for now
-        // In a real implementation, you'd create a ZIP on the backend
-        for (let i = 0; i < validShipments.length; i++) {
-          const shipment = validShipments[i];
-          setTimeout(() => {
-            handleDownload(shipment, 'pdf');
-          }, i * 500); // Stagger downloads to avoid browser blocking
-        }
-        
-        toast.dismiss();
-        toast.success(`Downloaded ${validShipments.length} labels`);
-        
-      } catch (error) {
-        toast.dismiss();
-        toast.error('Failed to create ZIP archive');
-      }
-      return;
-    }
-    
-    // For PDF/PNG bulk download
-    const validShipments = shipments.filter(s => s.label_url);
-    
-    if (validShipments.length === 0) {
-      toast.error('No valid labels to download');
-      return;
-    }
-
-    toast.loading(`Preparing ${format.toUpperCase()} downloads...`);
-    
-    try {
-      // Download each label with staggered timing
-      for (let i = 0; i < validShipments.length; i++) {
-        const shipment = validShipments[i];
-        setTimeout(() => {
-          handleDownload(shipment, format);
-        }, i * 300);
-      }
-      
-      toast.dismiss();
-      toast.success(`Started ${validShipments.length} ${format.toUpperCase()} downloads`);
-      
-    } catch (error) {
-      toast.dismiss();
-      toast.error(`Failed to download ${format.toUpperCase()} labels`);
+      });
     }
   };
   
@@ -160,7 +90,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
             {shipments.map((shipment) => (
               <TableRow key={shipment.id}>
                 <TableCell>{shipment.row}</TableCell>
-                <TableCell>{shipment.customer_name || shipment.recipient}</TableCell>
+                <TableCell>{shipment.recipient}</TableCell>
                 <TableCell>{shipment.carrier}</TableCell>
                 <TableCell>{shipment.tracking_code || shipment.trackingCode}</TableCell>
                 <TableCell>
@@ -169,44 +99,24 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                   </span>
                 </TableCell>
                 <TableCell>
-                  <div className="flex gap-2">
-                    {/* Print Preview Button */}
-                    {shipment.label_url && (
-                      <PrintPreview
-                        labelUrl={shipment.label_url}
-                        trackingCode={shipment.tracking_code || shipment.trackingCode}
-                        shipmentId={shipment.easypost_id}
-                        shipmentDetails={{
-                          fromAddress: 'Your Pickup Address',
-                          toAddress: `${shipment.customer_name || shipment.recipient}\n${shipment.customer_address || ''}`,
-                          weight: `${shipment.details?.weight || 0} oz`,
-                          dimensions: `${shipment.details?.length || 0}" x ${shipment.details?.width || 0}" x ${shipment.details?.height || 0}"`,
-                          service: shipment.service,
-                          carrier: shipment.carrier
-                        }}
-                      />
-                    )}
-                    
-                    {/* Download Dropdown */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleDownload(shipment, 'pdf')}>
-                          <File className="h-4 w-4 text-blue-600 mr-2" /> Download PDF
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDownload(shipment, 'png')}>
-                          <File className="h-4 w-4 text-green-600 mr-2" /> Download PNG
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'pdf')}>
+                        <File className="h-4 w-4 text-blue-600 mr-2" /> Download PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'png')}>
+                        <File className="h-4 w-4 text-green-600 mr-2" /> Download PNG
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}
