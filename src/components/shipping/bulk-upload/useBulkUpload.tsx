@@ -59,6 +59,7 @@ export const useBulkUpload = () => {
     handleRemoveShipment,
     handleEditShipment,
     handleProceedToPayment,
+    handleCreateLabels,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
@@ -78,64 +79,6 @@ export const useBulkUpload = () => {
     setSortDirection,
     setSelectedCarrierFilter
   } = useShipmentFiltering(results);
-
-  // Custom label creation handler for EasyPost
-  const handleCreateLabels = async () => {
-    if (!results || results.processedShipments.length === 0) {
-      toast.error('No shipments to process');
-      return;
-    }
-    
-    try {
-      console.log('Creating labels via EasyPost for', results.processedShipments.length, 'shipments');
-      
-      const response = await fetch('/functions/v1/create-bulk-labels', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          shipments: results.processedShipments,
-          pickupAddress: pickupAddress,
-          labelOptions: {
-            format: 'pdf',
-            size: '4x6'
-          }
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('Label creation response:', data);
-      
-      if (data.success && data.processedLabels) {
-        // Update results with created labels
-        const updatedResults = {
-          ...results,
-          processedShipments: data.processedLabels,
-        };
-        
-        updateResults(updatedResults);
-        setUploadStatus('success');
-        toast.success(`Successfully created ${data.successful} labels via EasyPost`);
-        
-        if (data.failed > 0) {
-          toast.error(`${data.failed} labels failed to create`);
-        }
-      } else {
-        throw new Error(data.message || 'Failed to create labels');
-      }
-      
-    } catch (error) {
-      console.error('Label creation error:', error);
-      toast.error('Failed to create labels: ' + (error as Error).message);
-    }
-  };
 
   // Load the default pickup address when the component initializes
   useEffect(() => {
@@ -163,6 +106,9 @@ export const useBulkUpload = () => {
     
     loadDefaultPickupAddress();
   }, []);
+
+  // No need to fetch rates separately since they come with the upload now
+  // Remove the automatic rate fetching effect since rates are fetched during upload
 
   // Modified handleUpload to include pickup address
   const handleFileUpload = async (file: File) => {
@@ -220,7 +166,7 @@ export const useBulkUpload = () => {
     handleRefreshRates,
     handleBulkApplyCarrier,
     handleProceedToPayment,
-    handleCreateLabels, // Use our custom EasyPost handler
+    handleCreateLabels,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
