@@ -15,7 +15,7 @@ import { toast } from '@/components/ui/sonner';
 interface SuccessfulShipmentsTableProps {
   shipments: BulkShipment[];
   onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
-  onDownloadAllLabels?: () => void;
+  onDownloadAllLabels?: (format?: string) => void;
 }
 
 const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
@@ -28,29 +28,53 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   if (shipments.length === 0) return null;
   
   const handleDownload = (labelUrl: string, format: string = 'pdf') => {
+    if (!labelUrl) {
+      toast.error('Label not available for download');
+      return;
+    }
+    
+    // Direct download from stored URL
+    const link = document.createElement('a');
+    link.href = labelUrl;
+    link.download = `shipping_label.${format}`;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
     onDownloadSingleLabel(labelUrl, format);
-    toast.success(`Downloading ${format.toUpperCase()} label`);
+    toast.success(`Downloaded ${format.toUpperCase()} label`);
   };
   
   const handleBulkDownload = (format: 'pdf' | 'png' | 'zip' = 'pdf') => {
     setSelectedFormat(format);
-    if (onDownloadAllLabels) {
-      onDownloadAllLabels();
+    
+    if (format === 'zip' && onDownloadAllLabels) {
+      onDownloadAllLabels(format);
       toast.success(`Preparing ${format.toUpperCase()} labels for download`);
     } else {
-      // Fallback: Download each label individually
-      shipments.forEach(shipment => {
-        if (shipment.label_url) {
-          setTimeout(() => handleDownload(shipment.label_url || '', format), 300);
-        }
+      // Download each label individually for PDF/PNG
+      const labelsWithUrls = shipments.filter(shipment => shipment.label_url);
+      
+      if (labelsWithUrls.length === 0) {
+        toast.error('No labels available for download');
+        return;
+      }
+      
+      labelsWithUrls.forEach((shipment, index) => {
+        setTimeout(() => {
+          handleDownload(shipment.label_url || '', format);
+        }, index * 500);
       });
+      
+      toast.success(`Downloading ${labelsWithUrls.length} ${format.toUpperCase()} labels`);
     }
   };
   
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-3">
-        <h5 className="font-medium text-green-800">Successfully Processed Shipments</h5>
+        <h5 className="font-medium text-green-800">Successfully Created Labels ({shipments.length})</h5>
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -94,8 +118,8 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                 <TableCell>{shipment.carrier}</TableCell>
                 <TableCell>{shipment.tracking_code || shipment.trackingCode}</TableCell>
                 <TableCell>
-                  <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                    Label Generated
+                  <span className="text-xs font-medium px-2.5 py-0.5 rounded bg-green-100 text-green-800">
+                    Label Ready
                   </span>
                 </TableCell>
                 <TableCell>
@@ -104,8 +128,10 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                       <Button 
                         size="sm" 
                         variant="ghost"
+                        className="flex items-center gap-1"
                       >
                         <Download className="h-4 w-4" />
+                        Download
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">

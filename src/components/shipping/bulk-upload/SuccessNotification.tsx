@@ -8,8 +8,8 @@ import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
-  onDownloadAllLabels: () => void;
-  onDownloadSingleLabel: (labelUrl: string) => void;
+  onDownloadAllLabels: (format?: string) => void;
+  onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
   onProceedToPayment: () => void;
   onCreateLabels: () => void;
   isPaying: boolean;
@@ -27,6 +27,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 }) => {
   // Check if any shipment is missing a label
   const missingLabels = results.processedShipments.some(s => !s.label_url);
+  const hasLabels = results.processedShipments.some(s => s.label_url);
+  const allShipmentsWithLabels = results.processedShipments.filter(s => s.label_url);
 
   return (
     <div className="bg-green-50 border border-green-200 rounded-md mb-6">
@@ -38,13 +40,13 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         <p className="text-green-700 mb-3">
           Successfully processed {results.successful} out of {results.total} shipments
           {results.failed > 0 && ` (${results.failed} failed)`}
-          {missingLabels ? ". Labels need to be generated." : " and generated labels."}
+          {missingLabels ? ". Click 'Create Labels' to generate shipping labels via EasyPost." : ` and generated ${allShipmentsWithLabels.length} labels.`}
         </p>
       
         <OrderSummary
           successfulCount={results.successful}
           totalCost={results.totalCost}
-          onDownloadAllLabels={onDownloadAllLabels}
+          onDownloadAllLabels={() => onDownloadAllLabels('pdf')}
           onProceedToPayment={onProceedToPayment}
           isPaying={isPaying}
           isCreatingLabels={isCreatingLabels}
@@ -54,19 +56,22 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <div className="mt-3">
             <button 
               onClick={onCreateLabels}
-              className="text-blue-600 font-medium hover:text-blue-800 transition-colors"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium transition-colors"
               disabled={isCreatingLabels}
             >
-              {isCreatingLabels ? "Generating labels..." : "Generate All Labels"}
+              {isCreatingLabels ? "Creating Labels via EasyPost..." : "Create Labels"}
             </button>
           </div>
         )}
       </div>
       
-      <SuccessfulShipmentsTable 
-        shipments={results.processedShipments}
-        onDownloadSingleLabel={onDownloadSingleLabel} 
-      />
+      {hasLabels && (
+        <SuccessfulShipmentsTable 
+          shipments={allShipmentsWithLabels}
+          onDownloadSingleLabel={onDownloadSingleLabel}
+          onDownloadAllLabels={onDownloadAllLabels}
+        />
+      )}
       
       <FailedShipmentsTable 
         shipments={results.failedShipments} 
