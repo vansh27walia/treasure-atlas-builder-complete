@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useShipmentUpload } from './useShipmentUpload';
 import { useShipmentManagement } from './useShipmentManagement';
@@ -27,6 +26,7 @@ export const useBulkUpload = () => {
   const [selectedCarrierFilter, setSelectedCarrierFilter] = useState('');
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
   const [isFetchingRates, setIsFetchingRates] = useState(false);
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
 
@@ -177,7 +177,6 @@ export const useBulkUpload = () => {
     toast.success(`Applied ${carrier} to all applicable shipments`);
   };
 
-  // Direct label creation like international shipping - no payment step
   const handleProceedToPayment = async () => {
     await handleCreateLabels();
   };
@@ -211,7 +210,7 @@ export const useBulkUpload = () => {
       console.log('Label creation response:', data);
 
       if (data.processedLabels && data.processedLabels.length > 0) {
-        // Update results with the new label URLs and set status to success
+        // Update results with the new label URLs
         const updatedShipments = results.processedShipments.map(shipment => {
           const labelData = data.processedLabels.find((label: any) => label.id === shipment.id);
           if (labelData) {
@@ -230,7 +229,6 @@ export const useBulkUpload = () => {
           processedShipments: updatedShipments
         });
 
-        // Move directly to success state like international shipping
         setUploadStatus('success');
         toast.success(`Successfully created ${data.processedLabels.length} shipping labels`);
       } else {
@@ -246,27 +244,13 @@ export const useBulkUpload = () => {
   };
 
   const handleDownloadAllLabels = () => {
-    if (!results) return;
-    
-    const labelsWithUrls = results.processedShipments.filter(s => s.label_url);
-    
-    if (labelsWithUrls.length === 0) {
-      toast.error('No labels available for download');
-      return;
-    }
-
-    // Download each label individually with staggered timing
-    labelsWithUrls.forEach((shipment, index) => {
-      setTimeout(() => {
-        handleDownloadSingleLabel(shipment.label_url!, 'pdf');
-      }, index * 300);
-    });
-    
-    toast.success(`Started download of ${labelsWithUrls.length} labels`);
+    setShowLabelOptions(true);
   };
 
   const handleDownloadLabelsWithFormat = async (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!results) return;
+    
+    setShowLabelOptions(false);
     
     const labelsWithUrls = results.processedShipments.filter(s => s.label_url);
     
@@ -331,6 +315,7 @@ export const useBulkUpload = () => {
     uploadStatus,
     results,
     progress,
+    showLabelOptions,
     
     // Filters and sorting
     searchTerm,
@@ -348,6 +333,7 @@ export const useBulkUpload = () => {
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
+    setShowLabelOptions,
     
     // Handlers
     handleUpload,
