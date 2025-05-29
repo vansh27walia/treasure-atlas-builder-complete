@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,15 +37,11 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
     
     // If shipment already has postage, return existing label info
     if (existingShipment.postage_label && existingShipment.tracking_code) {
-      console.log(`Shipment ${shipmentId} already has postage, downloading and storing label`);
-      
-      // Download and store the existing label
-      const labelUrl = await downloadAndStoreLabel(existingShipment.postage_label.label_url, existingShipment.tracking_code);
-      
+      console.log(`Shipment ${shipmentId} already has postage, returning existing label`);
       return {
         id: existingShipment.id,
         tracking_code: existingShipment.tracking_code,
-        label_url: labelUrl,
+        label_url: existingShipment.postage_label?.label_url,
         carrier: existingShipment.selected_rate?.carrier,
         service: existingShipment.selected_rate?.service,
         rate: existingShipment.selected_rate?.rate,
@@ -80,14 +75,11 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
       
       // If conflict error, try to get the existing shipment data
       if (buyResponse.status === 409 || errorData.error?.code === 'SHIPMENT.POSTAGE.EXISTS') {
-        console.log(`Postage exists for ${shipmentId}, downloading and storing existing label`);
-        
-        const labelUrl = await downloadAndStoreLabel(existingShipment.postage_label?.label_url, existingShipment.tracking_code);
-        
+        console.log(`Postage exists for ${shipmentId}, fetching existing data`);
         return {
           id: existingShipment.id,
           tracking_code: existingShipment.tracking_code || 'TRACKING_PENDING',
-          label_url: labelUrl,
+          label_url: existingShipment.postage_label?.label_url || '',
           carrier: existingShipment.selected_rate?.carrier || 'Unknown',
           service: existingShipment.selected_rate?.service || 'Unknown',
           rate: existingShipment.selected_rate?.rate || '0',
@@ -105,13 +97,10 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
     const boughtShipment = await buyResponse.json();
     console.log(`Successfully purchased new label for shipment ${shipmentId}`);
     
-    // Download and store the label in our system
-    const labelUrl = await downloadAndStoreLabel(boughtShipment.postage_label?.label_url, boughtShipment.tracking_code);
-    
     return {
       id: boughtShipment.id,
       tracking_code: boughtShipment.tracking_code,
-      label_url: labelUrl,
+      label_url: boughtShipment.postage_label?.label_url,
       carrier: boughtShipment.selected_rate?.carrier,
       service: boughtShipment.selected_rate?.service,
       rate: boughtShipment.selected_rate?.rate,
@@ -125,76 +114,6 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
   } catch (error) {
     console.error(`EasyPost label purchase error for shipment ${shipmentId}:`, error);
     throw error;
-  }
-};
-
-const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: string): Promise<string> => {
-  try {
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    console.log(`Downloading label from EasyPost: ${easyPostLabelUrl}`);
-    
-    // Download the label from EasyPost
-    const response = await fetch(easyPostLabelUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to download label: ${response.status}`);
-    }
-    
-    const labelBlob = await response.blob();
-    const labelArrayBuffer = await labelBlob.arrayBuffer();
-    const labelBuffer = new Uint8Array(labelArrayBuffer);
-    
-    // Create filename
-    const fileName = `shipping_label_${trackingCode}_${Date.now()}.pdf`;
-    
-    // Check if bucket exists
-    const { data: buckets } = await supabase.storage.listBuckets();
-    const bucketExists = buckets?.some(bucket => bucket.name === 'shipping-labels');
-    
-    if (!bucketExists) {
-      console.log('Creating shipping-labels bucket');
-      const { error: bucketError } = await supabase.storage.createBucket('shipping-labels', {
-        public: true,
-        fileSizeLimit: 10485760, // 10MB
-      });
-      
-      if (bucketError) {
-        console.error('Error creating bucket:', bucketError);
-        throw new Error('Failed to create storage bucket');
-      }
-    }
-    
-    // Upload the label to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase
-      .storage
-      .from('shipping-labels')
-      .upload(fileName, labelBuffer, {
-        contentType: 'application/pdf',
-        cacheControl: '3600',
-        upsert: false
-      });
-      
-    if (uploadError) {
-      console.error('Error uploading label:', uploadError);
-      throw new Error('Failed to upload label to storage');
-    }
-    
-    // Get public URL
-    const { data: urlData } = await supabase
-      .storage
-      .from('shipping-labels')
-      .getPublicUrl(fileName);
-      
-    console.log(`Label stored successfully: ${urlData.publicUrl}`);
-    return urlData.publicUrl;
-    
-  } catch (error) {
-    console.error('Error downloading and storing label:', error);
-    // Fallback to original EasyPost URL if storage fails
-    return easyPostLabelUrl;
   }
 };
 
@@ -227,7 +146,7 @@ serve(async (req) => {
           throw new Error('Missing EasyPost shipment ID or rate ID for live label generation');
         }
 
-        // Purchase label via EasyPost and store in our system
+        // Purchase label via EasyPost
         const labelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId, labelOptions);
 
         // Ensure we preserve all customer details
@@ -264,16 +183,16 @@ serve(async (req) => {
         total: shipments.length,
         successful: processedLabels.length,
         failed: failedLabels.length,
-        message: `Processed ${processedLabels.length} live labels and stored them in our system`,
+        message: `Processed ${processedLabels.length} live labels using EasyPost API`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 
   } catch (error) {
-    console.error('Error in create-bulk-labels function:', error);
+    console.error('Error in EasyPost create-bulk-labels function:', error);
     return new Response(
       JSON.stringify({ 
-        error: 'Label Creation Error', 
+        error: 'EasyPost Label Creation Error', 
         message: error instanceof Error ? error.message : 'Unknown error' 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
