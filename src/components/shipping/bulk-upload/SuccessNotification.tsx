@@ -25,6 +25,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
+  // Check if we have labels generated
   const hasLabels = results.processedShipments.some(shipment => shipment.label_url);
 
   return (
@@ -105,7 +106,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         )}
       </div>
 
-      {/* Successful Shipments Table - matches international shipping behavior */}
+      {/* Successful Shipments Table */}
       {hasLabels && (
         <SuccessfulShipmentsTable
           shipments={results.processedShipments.filter(s => s.label_url)}
