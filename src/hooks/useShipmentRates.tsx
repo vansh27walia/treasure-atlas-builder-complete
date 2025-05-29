@@ -1,8 +1,7 @@
-
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { BulkShipment, BulkUploadResult, ShippingOption } from '@/types/shipping';
-import { CARRIER_OPTIONS } from '@/types/shipping';
+import { carrierService } from '@/services/CarrierService';
 
 export const useShipmentRates = (
   initialResults: BulkUploadResult | null,
@@ -28,7 +27,7 @@ export const useShipmentRates = (
             processedShipments: updatedShipments
           });
           
-          // Fetch rates for this shipment
+          // Fetch real rates for this shipment using CarrierService
           const rates = await fetchShipmentRates(shipment);
           
           // Update shipment with rates
@@ -37,7 +36,7 @@ export const useShipmentRates = (
             availableRates: rates,
             status: 'completed' as const,
             // Set default selected rate to the cheapest option
-            selectedRateId: rates.length > 0 ? rates.sort((a, b) => a.rate - b.rate)[0].id : undefined
+            selectedRateId: rates.length > 0 ? rates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate))[0].id : undefined
           };
           
           successCount++;
@@ -70,52 +69,56 @@ export const useShipmentRates = (
   
   const fetchShipmentRates = async (shipment: BulkShipment): Promise<ShippingOption[]> => {
     try {
-      // Mock function - in a real app, you would call your API to get actual rates
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
+      console.log('Fetching real rates for shipment:', shipment.id);
       
-      // Generate mock rates for each carrier
-      const mockRates: ShippingOption[] = CARRIER_OPTIONS.flatMap(carrier => {
-        return carrier.services.map(service => {
-          // Base rate between $5-25 with some carrier-specific modifiers
-          const baseRate = 5 + Math.random() * 20;
-          
-          // Add carrier-specific pricing
-          let rate = baseRate;
-          if (carrier.id === 'fedex') rate *= 1.2; // FedEx is 20% more
-          if (carrier.id === 'ups') rate *= 1.1; // UPS is 10% more
-          if (carrier.id === 'dhl') rate *= 1.3; // DHL is 30% more
-          
-          // Service-specific adjustments
-          if (service.name.includes('Express') || service.name.includes('Overnight')) {
-            rate *= 1.5; // Express services cost 50% more
-          }
-          
-          // Weight and dimensions based adjustments
-          const weight = shipment.details.parcel_weight || 5;
-          rate += weight * 0.5; // Add $0.50 per pound
-          
-          return {
-            id: `${carrier.id}_${service.id}_${shipment.id}`,
-            carrier: carrier.name,
-            service: service.name,
-            rate: parseFloat(rate.toFixed(2)),
-            currency: 'USD', // Add the required currency property
-            delivery_days: service.name.includes('Next Day') || service.name.includes('Overnight') 
-              ? 1 
-              : service.name.includes('2Day') || service.name.includes('2nd Day') 
-                ? 2 
-                : service.name.includes('3-Day') 
-                  ? 3 
-                  : Math.floor(3 + Math.random() * 5) // 3-7 days for standard services
-          };
-        });
-      });
+      // Use the actual CarrierService to get real rates
+      const requestData = {
+        fromAddress: {
+          name: initialResults?.pickupAddress?.name || '',
+          company: initialResults?.pickupAddress?.company || '',
+          street1: initialResults?.pickupAddress?.street1 || '',
+          street2: initialResults?.pickupAddress?.street2 || '',
+          city: initialResults?.pickupAddress?.city || '',
+          state: initialResults?.pickupAddress?.state || '',
+          zip: initialResults?.pickupAddress?.zip || '',
+          country: initialResults?.pickupAddress?.country || 'US',
+          phone: initialResults?.pickupAddress?.phone || '',
+        },
+        toAddress: {
+          name: shipment.details.name,
+          company: shipment.details.company || '',
+          street1: shipment.details.street1,
+          street2: shipment.details.street2 || '',
+          city: shipment.details.city,
+          state: shipment.details.state,
+          zip: shipment.details.zip,
+          country: shipment.details.country || 'US',
+          phone: shipment.details.phone || '',
+        },
+        parcel: {
+          length: shipment.details.parcel_length || 12,
+          width: shipment.details.parcel_width || 8,
+          height: shipment.details.parcel_height || 4,
+          weight: shipment.details.parcel_weight || 16,
+        }
+      };
+
+      const rates = await carrierService.getShippingRates(requestData);
       
-      return mockRates;
+      // Convert to our ShippingOption format
+      return rates.map(rate => ({
+        id: rate.id,
+        carrier: rate.carrier,
+        service: rate.service,
+        rate: rate.rate,
+        currency: rate.currency,
+        delivery_days: rate.delivery_days,
+        delivery_date: rate.delivery_date,
+      }));
+      
     } catch (error) {
-      console.error('Error fetching shipment rates:', error);
-      throw new Error('Failed to fetch shipping rates');
+      console.error('Error fetching real shipment rates:', error);
+      throw new Error('Failed to fetch shipping rates from API');
     }
   };
   
@@ -132,7 +135,7 @@ export const useShipmentRates = (
           selectedRateId: rateId,
           carrier: selectedRate?.carrier || shipment.carrier,
           service: selectedRate?.service || shipment.service,
-          rate: selectedRate?.rate || shipment.rate
+          rate: parseFloat(selectedRate?.rate || '0') || shipment.rate
         };
       }
       return shipment;
@@ -141,7 +144,7 @@ export const useShipmentRates = (
     // Calculate new total cost
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate?.rate || 0);
+      return sum + (parseFloat(selectedRate?.rate || '0') || 0);
     }, 0);
     
     updateResults({
@@ -169,7 +172,7 @@ export const useShipmentRates = (
     });
     
     try {
-      // Fetch new rates
+      // Fetch new rates using real API
       const rates = await fetchShipmentRates(shipment);
       
       // Update shipment with new rates
@@ -222,7 +225,7 @@ export const useShipmentRates = (
           selectedRateId: matchingRate.id,
           carrier: matchingRate.carrier,
           service: matchingRate.service,
-          rate: matchingRate.rate
+          rate: parseFloat(matchingRate.rate)
         };
       }
       
@@ -233,7 +236,7 @@ export const useShipmentRates = (
     // Calculate new total cost
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate?.rate || 0);
+      return sum + (parseFloat(selectedRate?.rate || '0') || 0);
     }, 0);
     
     updateResults({

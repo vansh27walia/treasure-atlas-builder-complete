@@ -21,13 +21,21 @@ export const useBulkUpload = () => {
     setResults,
     setUploadStatus,
     handleFileChange,
-    handleUpload,
+    handleUpload: originalHandleUpload,
     handleDownloadTemplate
-  } = useShipmentUpload(pickupAddress);
+  } = useShipmentUpload();
 
   // Update results wrapper function
   const updateResults = (newResults: BulkUploadResult) => {
-    setResults(newResults);
+    console.log('Updating results:', newResults);
+    
+    // Add pickup address to results if not present
+    const resultsWithPickup = {
+      ...newResults,
+      pickupAddress: newResults.pickupAddress || pickupAddress
+    };
+    
+    setResults(resultsWithPickup);
     
     // If a new upload status is provided, update it
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
@@ -76,51 +84,49 @@ export const useBulkUpload = () => {
   useEffect(() => {
     const loadDefaultPickupAddress = async () => {
       try {
+        console.log('Loading default pickup address...');
         const defaultAddress = await addressService.getDefaultFromAddress();
         console.log("Loaded default pickup address:", defaultAddress);
         if (defaultAddress) {
           setPickupAddress(defaultAddress);
+        } else {
+          // If no default, get the first available address
+          const addresses = await addressService.getSavedAddresses();
+          if (addresses.length > 0) {
+            const firstAddress = addresses[0];
+            setPickupAddress(firstAddress);
+            console.log("Using first available address:", firstAddress);
+          }
         }
       } catch (error) {
         console.error('Error loading default pickup address:', error);
+        toast.error('Error loading pickup addresses. Please check your settings.');
       }
     };
     
     loadDefaultPickupAddress();
   }, []);
 
-  // Fetch rates when shipments are processed
-  useEffect(() => {
-    const fetchRates = async () => {
-      if (results?.processedShipments && 
-          results.processedShipments.length > 0 && 
-          (!results.processedShipments[0].availableRates || 
-           results.processedShipments[0].availableRates.length === 0)) {
-        console.log('Fetching rates for shipments with pickup address:', pickupAddress);
-        await fetchAllShipmentRates(results.processedShipments);
-      }
-    };
-
-    if (uploadStatus === 'editing') {
-      fetchRates();
-    }
-  }, [uploadStatus, results?.processedShipments, pickupAddress]);
+  // No need to fetch rates separately since they come with the upload now
+  // Remove the automatic rate fetching effect since rates are fetched during upload
 
   // Modified handleUpload to include pickup address
   const handleFileUpload = async (file: File) => {
+    console.log('handleFileUpload called with:', { file: file.name, pickupAddress });
+    
     if (!pickupAddress) {
-      toast.error('Pickup address is required', {
-        description: 'Please select a pickup address in the settings page first.',
+      const errorMsg = 'Pickup address is required. Please add a pickup address in Settings first.';
+      toast.error(errorMsg, {
+        description: 'Go to Settings > Pickup Address to add your shipping address.',
         action: {
           label: 'Go to Settings',
           onClick: () => window.location.href = '/settings'
         }
       });
-      throw new Error('Pickup address is required');
+      throw new Error(errorMsg);
     }
     
-    console.log('Uploading file with pickup address:', pickupAddress);
-    return handleUpload(file, pickupAddress);
+    return originalHandleUpload(file, pickupAddress);
   };
 
   return {

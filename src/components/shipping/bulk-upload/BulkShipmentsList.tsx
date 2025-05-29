@@ -47,6 +47,13 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     });
   };
 
+  // Helper function to safely format rate as number
+  const formatRate = (rate: string | number | undefined): string => {
+    if (!rate) return '0.00';
+    const numRate = typeof rate === 'string' ? parseFloat(rate) : rate;
+    return isNaN(numRate) ? '0.00' : numRate.toFixed(2);
+  };
+
   return (
     <div className="space-y-4">
       {shipments.length === 0 ? (
@@ -59,8 +66,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-1/12">Row</TableHead>
-                <TableHead className="w-2/12">Recipient</TableHead>
-                <TableHead className="w-2/12">Address</TableHead>
+                <TableHead className="w-2/12">Customer Details</TableHead>
+                <TableHead className="w-2/12">Shipping Address</TableHead>
                 <TableHead className="w-2/12">Carrier & Service</TableHead>
                 <TableHead className="w-1/12">Rate</TableHead>
                 <TableHead className="w-1/12">Status</TableHead>
@@ -72,17 +79,36 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 <TableRow key={shipment.id}>
                   <TableCell>{shipment.row}</TableCell>
                   <TableCell>
-                    <div className="font-medium">{shipment.details.name}</div>
-                    {shipment.details.company && (
-                      <div className="text-xs text-gray-500">{shipment.details.company}</div>
-                    )}
+                    <div className="space-y-1">
+                      <div className="font-medium">{shipment.details.to_name}</div>
+                      {shipment.details.to_company && (
+                        <div className="text-xs text-gray-500">{shipment.details.to_company}</div>
+                      )}
+                      {shipment.details.to_phone && (
+                        <div className="text-xs text-blue-600">{shipment.details.to_phone}</div>
+                      )}
+                      {shipment.details.to_email && (
+                        <div className="text-xs text-green-600">{shipment.details.to_email}</div>
+                      )}
+                      {shipment.details.reference && (
+                        <div className="text-xs text-gray-500">Ref: {shipment.details.reference}</div>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <div>{shipment.details.street1}</div>
-                    <div>
-                      {shipment.details.city}, {shipment.details.state} {shipment.details.zip}
+                    <div className="space-y-1">
+                      <div className="text-sm">{shipment.details.to_street1}</div>
+                      {shipment.details.to_street2 && (
+                        <div className="text-sm text-gray-500">{shipment.details.to_street2}</div>
+                      )}
+                      <div className="text-sm">
+                        {shipment.details.to_city}, {shipment.details.to_state} {shipment.details.to_zip}
+                      </div>
+                      <div className="text-xs text-gray-500">{shipment.details.to_country}</div>
+                      <div className="text-xs text-purple-600">
+                        {shipment.details.weight}oz • {shipment.details.length}"×{shipment.details.width}"×{shipment.details.height}"
+                      </div>
                     </div>
-                    <div className="text-xs">{shipment.details.country}</div>
                   </TableCell>
                   <TableCell>
                     {shipment.status === 'completed' ? (
@@ -102,7 +128,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                   <span>
                                     {rate.carrier} - {rate.service}
                                     <span className="ml-2 text-xs text-gray-500">
-                                      ({rate.delivery_days} days)
+                                      ({rate.delivery_days} days) - ${formatRate(rate.rate)}
                                     </span>
                                   </span>
                                 </span>
@@ -124,7 +150,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   <TableCell>
                     {shipment.status === 'completed' && shipment.selectedRateId ? (
                       <div className="font-semibold">
-                        ${(shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate || 0).toFixed(2)}
+                        ${formatRate(shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate)}
                       </div>
                     ) : shipment.status === 'processing' ? (
                       <Skeleton className="h-6 w-16" />
@@ -167,7 +193,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
-                            <DialogTitle>Edit Shipment Details</DialogTitle>
+                            <DialogTitle>Edit Customer & Shipment Details</DialogTitle>
                           </DialogHeader>
                           <ShipmentEditForm
                             shipment={shipment}
@@ -220,19 +246,21 @@ interface ShipmentEditFormProps {
 const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit, onCancel }) => {
   const form = useForm({
     defaultValues: {
-      name: shipment.details.name,
-      company: shipment.details.company || '',
-      street1: shipment.details.street1,
-      street2: shipment.details.street2 || '',
-      city: shipment.details.city,
-      state: shipment.details.state,
-      zip: shipment.details.zip,
-      country: shipment.details.country,
-      phone: shipment.details.phone || '',
-      parcel_length: shipment.details.parcel_length || 12,
-      parcel_width: shipment.details.parcel_width || 8,
-      parcel_height: shipment.details.parcel_height || 2,
-      parcel_weight: shipment.details.parcel_weight || 16
+      to_name: shipment.details.to_name,
+      to_company: shipment.details.to_company || '',
+      to_street1: shipment.details.to_street1,
+      to_street2: shipment.details.to_street2 || '',
+      to_city: shipment.details.to_city,
+      to_state: shipment.details.to_state,
+      to_zip: shipment.details.to_zip,
+      to_country: shipment.details.to_country,
+      to_phone: shipment.details.to_phone || '',
+      to_email: shipment.details.to_email || '',
+      weight: shipment.details.weight || 1,
+      length: shipment.details.length || 12,
+      width: shipment.details.width || 8,
+      height: shipment.details.height || 4,
+      reference: shipment.details.reference || ''
     }
   });
 
@@ -244,89 +272,107 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit,
     <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="name">Name</Label>
-          <Input id="name" {...form.register('name')} required />
+          <Label htmlFor="to_name">Customer Name *</Label>
+          <Input id="to_name" {...form.register('to_name')} required />
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="company">Company</Label>
-          <Input id="company" {...form.register('company')} />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="street1">Address Line 1</Label>
-        <Input id="street1" {...form.register('street1')} required />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="street2">Address Line 2</Label>
-        <Input id="street2" {...form.register('street2')} />
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="city">City</Label>
-          <Input id="city" {...form.register('city')} required />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="state">State</Label>
-          <Input id="state" {...form.register('state')} required />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="zip">ZIP Code</Label>
-          <Input id="zip" {...form.register('zip')} required />
+          <Label htmlFor="to_company">Company</Label>
+          <Input id="to_company" {...form.register('to_company')} />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="country">Country</Label>
-          <Input id="country" {...form.register('country')} required />
+          <Label htmlFor="to_phone">Phone</Label>
+          <Input id="to_phone" {...form.register('to_phone')} />
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone</Label>
-          <Input id="phone" {...form.register('phone')} />
+          <Label htmlFor="to_email">Email</Label>
+          <Input id="to_email" type="email" {...form.register('to_email')} />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="to_street1">Address Line 1 *</Label>
+        <Input id="to_street1" {...form.register('to_street1')} required />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="to_street2">Address Line 2</Label>
+        <Input id="to_street2" {...form.register('to_street2')} />
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="to_city">City *</Label>
+          <Input id="to_city" {...form.register('to_city')} required />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="to_state">State *</Label>
+          <Input id="to_state" {...form.register('to_state')} required />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="to_zip">ZIP Code *</Label>
+          <Input id="to_zip" {...form.register('to_zip')} required />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="to_country">Country *</Label>
+        <Input id="to_country" {...form.register('to_country')} required />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="reference">Reference/Order #</Label>
+        <Input id="reference" {...form.register('reference')} />
       </div>
 
       <div className="grid grid-cols-4 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="parcel_length">Length (in)</Label>
+          <Label htmlFor="weight">Weight (oz) *</Label>
           <Input 
-            id="parcel_length" 
+            id="weight" 
             type="number" 
-            {...form.register('parcel_length', { valueAsNumber: true })} 
+            step="0.1"
+            {...form.register('weight', { valueAsNumber: true })} 
+            required
           />
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="parcel_width">Width (in)</Label>
+          <Label htmlFor="length">Length (in) *</Label>
           <Input 
-            id="parcel_width"
+            id="length" 
             type="number" 
-            {...form.register('parcel_width', { valueAsNumber: true })} 
+            step="0.1"
+            {...form.register('length', { valueAsNumber: true })} 
+            required
           />
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="parcel_height">Height (in)</Label>
+          <Label htmlFor="width">Width (in) *</Label>
           <Input 
-            id="parcel_height"
+            id="width"
+            type="number" 
+            step="0.1"
+            {...form.register('width', { valueAsNumber: true })} 
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="height">Height (in) *</Label>
+          <Input 
+            id="height"
             type="number"
-            {...form.register('parcel_height', { valueAsNumber: true })} 
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="parcel_weight">Weight (lbs)</Label>
-          <Input 
-            id="parcel_weight"
-            type="number" 
-            {...form.register('parcel_weight', { valueAsNumber: true })} 
+            step="0.1"
+            {...form.register('height', { valueAsNumber: true })} 
+            required
           />
         </div>
       </div>
@@ -337,7 +383,7 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit,
         </Button>
         <Button type="submit">
           <Check className="h-4 w-4 mr-1" />
-          Save Changes
+          Save Customer Details
         </Button>
       </div>
     </form>

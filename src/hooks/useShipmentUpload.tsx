@@ -9,38 +9,13 @@ const normalizeStatus = (status: string): 'pending' | 'processing' | 'error' | '
   if (status === 'pending' || status === 'processing' || status === 'error' || status === 'completed') {
     return status;
   }
-  // Map other potential statuses to one of our allowed values
   if (status === 'created') return 'pending';
   if (status === 'success') return 'completed';
   if (status === 'failed') return 'error';
-  // Default fallback
   return 'pending';
 };
 
-// Standardized template download function
-const downloadTemplate = () => {
-  const csvContent = [
-    'name,company,street1,street2,city,state,zip,country,phone,parcel_length,parcel_width,parcel_height,parcel_weight',
-    'John Doe,ACME Inc,123 Main St,,San Francisco,CA,94105,US,5551234567,12,8,2,16',
-    'Jane Smith,Tech Corp,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,5559876543,10,6,4,8',
-    'Bob Johnson,Global LLC,789 Pine St,,New York,NY,10001,US,5555551234,15,10,6,25'
-  ].join('\n');
-  
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.setAttribute('hidden', '');
-  a.setAttribute('href', url);
-  a.setAttribute('download', 'bulk_shipping_template.csv');
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);
-  
-  toast.success('Template downloaded successfully');
-};
-
-export const useShipmentUpload = (pickupAddress?: any) => {
+export const useShipmentUpload = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'editing'>('idle');
@@ -51,7 +26,6 @@ export const useShipmentUpload = (pickupAddress?: any) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
       
-      // Check if it's a CSV file
       if (selectedFile.type !== 'text/csv' && !selectedFile.name.endsWith('.csv')) {
         toast.error('Please upload a CSV file');
         return;
@@ -64,75 +38,81 @@ export const useShipmentUpload = (pickupAddress?: any) => {
     }
   };
 
-  const handleUpload = async (file: File, currentPickupAddress?: any): Promise<void> => {
+  const handleUpload = async (file: File, pickupAddress?: any): Promise<void> => {
     if (!file) {
       toast.error('Please select a file to upload');
       return;
     }
 
-    // Use the provided pickup address or the hook's pickup address
-    const addressToUse = currentPickupAddress || pickupAddress;
-    
-    if (!addressToUse) {
-      toast.error('Pickup address is required for bulk upload');
+    if (!pickupAddress) {
+      toast.error('Pickup address is required. Please set one in your settings.');
       return;
     }
 
-    console.log('Using pickup address for upload:', addressToUse);
-
     setIsUploading(true);
     setUploadStatus('idle');
-    setProgress(10); // Start progress
+    setProgress(10);
 
     try {
-      // Convert file to base64 to send to edge function
-      const reader = new FileReader();
-      
-      const fileReadPromise = new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result?.toString();
-          if (result) {
-            const base64Data = result.split(',')[1];
-            resolve(base64Data);
-          } else {
-            reject(new Error('Failed to read file'));
-          }
-        };
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsDataURL(file);
-      });
-      
-      setProgress(20); // File reading started
-      
-      const base64Data = await fileReadPromise;
-      setProgress(30); // File read complete
+      console.log('Starting EasyPost bulk upload process');
+      console.log('File details:', { name: file.name, size: file.size, type: file.type });
+      console.log('Pickup address:', pickupAddress);
 
-      setProgress(40); // Ready to process
+      // Read the file as text
+      const text = await file.text();
+      console.log('File read successfully, length:', text.length);
+      
+      setProgress(20);
+      
+      // Validate CSV structure for EasyPost format
+      const lines = text.split('\n').filter(line => line.trim() !== '');
+      if (lines.length < 2) {
+        throw new Error('CSV file must have at least a header row and one data row');
+      }
+      
+      // Check EasyPost CSV headers
+      const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+      const requiredFields = ['to_name', 'to_street1', 'to_city', 'to_state', 'to_zip', 'to_country', 'weight', 'length', 'width', 'height'];
+      const missingFields = requiredFields.filter(field => !headers.includes(field));
+      
+      if (missingFields.length > 0) {
+        throw new Error(`CSV is missing required EasyPost fields: ${missingFields.join(', ')}`);
+      }
+      
+      setProgress(30);
+      console.log('EasyPost CSV validation passed');
 
-      // Process file via the API with proper pickup address
+      // Process file via the EasyPost API integration
+      console.log('Sending to EasyPost process-bulk-upload function');
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
         body: { 
-          fileName: file.name,
-          fileContent: base64Data,
-          pickupAddress: addressToUse
+          csvContent: text,
+          pickupAddress: pickupAddress
         }
       });
 
       if (error) {
-        throw new Error(error.message);
+        console.error('Supabase function error:', error);
+        throw new Error(error.message || 'Failed to process EasyPost bulk upload');
       }
 
-      if (data.error) {
-        throw new Error(data.error);
+      if (!data) {
+        throw new Error('No data received from EasyPost processing function');
       }
 
-      setProgress(90); // Processing complete
+      console.log('EasyPost processing response:', data);
+      setProgress(90);
       
-      // Initialize the shipments with empty available rates and properly typed status
+      // Initialize the shipments with properly typed status and customer details
       const processedShipments: BulkShipment[] = data.processedShipments.map((shipment: any) => ({
         ...shipment,
         availableRates: shipment.availableRates || [],
-        status: normalizeStatus(shipment.status || 'pending')
+        status: normalizeStatus(shipment.status || 'pending'),
+        customer_name: shipment.customer_name || shipment.details?.to_name || shipment.recipient,
+        customer_address: shipment.customer_address || `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
+        customer_phone: shipment.customer_phone || shipment.details?.to_phone,
+        customer_email: shipment.customer_email || shipment.details?.to_email,
+        customer_company: shipment.customer_company || shipment.details?.to_company,
       }));
 
       const resultData = {
@@ -141,55 +121,55 @@ export const useShipmentUpload = (pickupAddress?: any) => {
         failed: data.failed,
         totalCost: data.totalCost,
         processedShipments,
-        failedShipments: data.failedShipments || [],
-        pickupAddress: addressToUse
+        failedShipments: data.failedShipments || []
       };
       
       setResults(resultData);
       setUploadStatus('editing');
       setProgress(100);
       
-      toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments. Ready for carrier selection.`);
+      toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments using live EasyPost API with full carrier details.`);
       
-    } catch (error: any) {
-      console.error('Bulk upload error:', error);
+      if (data.failedShipments && data.failedShipments.length > 0) {
+        toast.error(`${data.failedShipments.length} shipments failed to process. Check the error details.`);
+      }
+      
+    } catch (error) {
+      console.error('EasyPost bulk upload error:', error);
       setUploadStatus('error');
       setProgress(0);
       
-      // Show specific error message if available
-      let errorMessage = 'Failed to process the uploaded file';
-      let detailedErrors: string[] = [];
-      
-      if (error.cause?.detailedErrors) {
-        detailedErrors = error.cause.detailedErrors;
-      }
-      
-      if (error.cause?.details) {
-        errorMessage = error.cause.details;
-      } else if (error.message) {
+      let errorMessage = 'Failed to process the uploaded file with EasyPost';
+      if (error instanceof Error) {
         errorMessage = error.message;
       }
       
       toast.error(errorMessage);
-      
-      // Store detailed errors for the error component
-      setResults({
-        total: 0,
-        successful: 0,
-        failed: 0,
-        totalCost: 0,
-        processedShipments: [],
-        failedShipments: [],
-        errorDetails: detailedErrors
-      } as any);
-      
+      throw error;
     } finally {
       setIsUploading(false);
     }
   };
 
   const handleDownloadTemplate = () => {
-    downloadTemplate();
+    const csvContent = [
+      'to_name,to_company,to_street1,to_street2,to_city,to_state,to_zip,to_country,to_phone,to_email,weight,length,width,height,reference',
+      'John Doe,JD Inc.,123 Test St,Apt 4,Los Angeles,CA,90001,US,555-555-5555,john@example.com,5.0,10,5,5,Order #1234',
+      'Jane Smith,Acme Co.,456 Demo Rd,,New York,NY,10001,US,555-555-5556,jane@example.com,7.5,12,8,4,Order #1235',
+      'Bob Johnson,Tech Corp,789 Pine St,,Miami,FL,33101,US,555-555-5557,bob@example.com,3.2,8,6,3,Order #1236'
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', 'easypost_bulk_shipping_template.csv');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    toast.success('EasyPost CSV template downloaded with all required fields for live carrier rates');
   };
 
   return {
