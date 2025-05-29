@@ -33,13 +33,10 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         <CheckCircle className="h-6 w-6 text-green-600" />
         <div>
           <h3 className="text-lg font-semibold text-green-800">
-            {hasLabels ? 'Labels Generated Successfully!' : 'Shipments Processed Successfully!'}
+            Labels Generated Successfully!
           </h3>
           <p className="text-green-700">
-            {hasLabels 
-              ? `${results.successful} shipping labels have been created and are ready for download.`
-              : `${results.successful} shipments have been processed with live rates.`
-            }
+            {results.successful} shipping labels have been created and are ready for download.
           </p>
         </div>
       </div>
@@ -74,40 +71,28 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
       {/* Action Buttons - Matching International Shipping */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        {hasLabels ? (
-          <>
-            <Button 
-              onClick={onDownloadAllLabels}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              disabled={isCreatingLabels}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download All Labels
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              onClick={() => window.print()}
-              className="border-green-200 hover:bg-green-50"
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              Print Summary
-            </Button>
-          </>
-        ) : (
-          <Button 
-            onClick={onCreateLabels}
-            disabled={isCreatingLabels || isPaying}
-            className="bg-green-600 hover:bg-green-700 text-white"
-          >
-            {isCreatingLabels ? 'Creating Labels...' : 'Generate Shipping Labels'}
-          </Button>
-        )}
+        <Button 
+          onClick={onDownloadAllLabels}
+          className="bg-green-600 hover:bg-green-700 text-white"
+          disabled={isCreatingLabels}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Download All Labels
+        </Button>
+        
+        <Button 
+          variant="outline" 
+          onClick={() => window.print()}
+          className="border-green-200 hover:bg-green-50"
+        >
+          <FileText className="mr-2 h-4 w-4" />
+          Print Summary
+        </Button>
       </div>
 
       {/* Successful Shipments Table - Matches international shipping behavior exactly */}
       <SuccessfulShipmentsTable
-        shipments={results.processedShipments.filter(s => s.label_url || !hasLabels)}
+        shipments={results.processedShipments.filter(s => s.label_url)}
         onDownloadSingleLabel={onDownloadSingleLabel}
         onDownloadAllLabels={onDownloadAllLabels}
       />
