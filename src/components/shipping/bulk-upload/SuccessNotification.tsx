@@ -72,7 +72,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
       </div>
 
-      {/* Action Buttons */}
+      {/* Action Buttons - Matching International Shipping */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         {hasLabels ? (
           <>
@@ -105,14 +105,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         )}
       </div>
 
-      {/* Successful Shipments Table - matches international shipping behavior */}
-      {hasLabels && (
-        <SuccessfulShipmentsTable
-          shipments={results.processedShipments.filter(s => s.label_url)}
-          onDownloadSingleLabel={onDownloadSingleLabel}
-          onDownloadAllLabels={onDownloadAllLabels}
-        />
-      )}
+      {/* Successful Shipments Table - Matches international shipping behavior exactly */}
+      <SuccessfulShipmentsTable
+        shipments={results.processedShipments.filter(s => s.label_url || !hasLabels)}
+        onDownloadSingleLabel={onDownloadSingleLabel}
+        onDownloadAllLabels={onDownloadAllLabels}
+      />
 
       {/* Failed Shipments */}
       {results.failedShipments && results.failedShipments.length > 0 && (
