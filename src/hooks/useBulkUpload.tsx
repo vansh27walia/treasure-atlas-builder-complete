@@ -45,11 +45,11 @@ export const useBulkUpload = () => {
     loadDefaultAddress();
   }, []);
 
-  // Filter and sort shipments - ensure all shipments are shown
-  const filteredShipments = results?.processedShipments?.filter(shipment => {
+  // Filter and sort shipments
+  const filteredShipments = results?.processedShipments.filter(shipment => {
     const matchesSearch = !searchTerm || 
-      shipment.recipient?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      shipment.carrier?.toLowerCase().includes(searchTerm.toLowerCase());
+      shipment.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      shipment.carrier.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCarrier = !selectedCarrierFilter || 
       shipment.carrier === selectedCarrierFilter;
@@ -60,16 +60,16 @@ export const useBulkUpload = () => {
     
     switch (sortField) {
       case 'recipient':
-        aValue = a.recipient || '';
-        bValue = b.recipient || '';
+        aValue = a.recipient;
+        bValue = b.recipient;
         break;
       case 'carrier':
-        aValue = a.carrier || '';
-        bValue = b.carrier || '';
+        aValue = a.carrier;
+        bValue = b.carrier;
         break;
       case 'rate':
-        aValue = a.rate || 0;
-        bValue = b.rate || 0;
+        aValue = a.rate;
+        bValue = b.rate;
         break;
       default:
         return 0;
@@ -177,8 +177,12 @@ export const useBulkUpload = () => {
     toast.success(`Applied ${carrier} to all applicable shipments`);
   };
 
-  // Direct label creation like international shipping - send to EasyPost
+  // Direct label creation like international shipping - no payment step
   const handleProceedToPayment = async () => {
+    await handleCreateLabels();
+  };
+
+  const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
       return;
@@ -187,9 +191,8 @@ export const useBulkUpload = () => {
     setIsCreatingLabels(true);
     
     try {
-      console.log('Creating labels for all shipments:', results.processedShipments);
+      console.log('Creating labels for shipments:', results.processedShipments);
       
-      // Send all shipments to EasyPost for label creation
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
           shipments: results.processedShipments,
@@ -208,7 +211,7 @@ export const useBulkUpload = () => {
       console.log('Label creation response:', data);
 
       if (data.processedLabels && data.processedLabels.length > 0) {
-        // Update results with the new label URLs
+        // Update results with the new label URLs and set status to success
         const updatedShipments = results.processedShipments.map(shipment => {
           const labelData = data.processedLabels.find((label: any) => label.id === shipment.id);
           if (labelData) {
@@ -227,7 +230,7 @@ export const useBulkUpload = () => {
           processedShipments: updatedShipments
         });
 
-        // Move directly to success state - no popup
+        // Move directly to success state like international shipping
         setUploadStatus('success');
         toast.success(`Successfully created ${data.processedLabels.length} shipping labels`);
       } else {
@@ -240,11 +243,6 @@ export const useBulkUpload = () => {
     } finally {
       setIsCreatingLabels(false);
     }
-  };
-
-  const handleCreateLabels = async () => {
-    // Redirect to EasyPost for label creation
-    await handleProceedToPayment();
   };
 
   const handleDownloadAllLabels = () => {
