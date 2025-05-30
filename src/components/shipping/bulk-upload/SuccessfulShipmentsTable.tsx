@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -26,7 +25,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   onDownloadSingleLabel,
   onDownloadAllLabels
 }) => {
-  const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
+  const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl' | 'zip'>('pdf');
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<BulkShipment | null>(null);
   
