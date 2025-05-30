@@ -12,7 +12,7 @@ interface LabelOptions {
   size?: string;
 }
 
-const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options: LabelOptions = {}) => {
+const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, userId: string, options: LabelOptions = {}) => {
   const apiKey = Deno.env.get('EASYPOST_API_KEY');
   if (!apiKey) {
     throw new Error('EasyPost API key not configured');
@@ -41,7 +41,7 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
       console.log(`Shipment ${shipmentId} already has postage, processing existing labels`);
       
       // Download and store all available label formats
-      const labelUrls = await downloadAndStoreAllFormats(existingShipment.postage_label, existingShipment.tracking_code);
+      const labelUrls = await downloadAndStoreAllFormats(existingShipment.postage_label, existingShipment.tracking_code, userId);
       
       return {
         id: existingShipment.id,
@@ -82,21 +82,23 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
       if (buyResponse.status === 409 || errorData.error?.code === 'SHIPMENT.POSTAGE.EXISTS') {
         console.log(`Postage exists for ${shipmentId}, processing existing labels`);
         
-        const labelUrls = await downloadAndStoreAllFormats(existingShipment.postage_label, existingShipment.tracking_code);
-        
-        return {
-          id: existingShipment.id,
-          tracking_code: existingShipment.tracking_code || 'TRACKING_PENDING',
-          label_urls: labelUrls,
-          carrier: existingShipment.selected_rate?.carrier || 'Unknown',
-          service: existingShipment.selected_rate?.service || 'Unknown',
-          rate: existingShipment.selected_rate?.rate || '0',
-          customer_name: existingShipment.to_address?.name,
-          customer_address: `${existingShipment.to_address?.street1}, ${existingShipment.to_address?.city}, ${existingShipment.to_address?.state} ${existingShipment.to_address?.zip}`,
-          customer_phone: existingShipment.to_address?.phone,
-          customer_email: existingShipment.to_address?.email,
-          customer_company: existingShipment.to_address?.company,
-        };
+        if (existingShipment.postage_label) {
+          const labelUrls = await downloadAndStoreAllFormats(existingShipment.postage_label, existingShipment.tracking_code, userId);
+          
+          return {
+            id: existingShipment.id,
+            tracking_code: existingShipment.tracking_code || 'TRACKING_PENDING',
+            label_urls: labelUrls,
+            carrier: existingShipment.selected_rate?.carrier || 'Unknown',
+            service: existingShipment.selected_rate?.service || 'Unknown',
+            rate: existingShipment.selected_rate?.rate || '0',
+            customer_name: existingShipment.to_address?.name,
+            customer_address: `${existingShipment.to_address?.street1}, ${existingShipment.to_address?.city}, ${existingShipment.to_address?.state} ${existingShipment.to_address?.zip}`,
+            customer_phone: existingShipment.to_address?.phone,
+            customer_email: existingShipment.to_address?.email,
+            customer_company: existingShipment.to_address?.company,
+          };
+        }
       }
       
       throw new Error(`EasyPost purchase error: ${errorData.error?.message || 'Unknown error'}`);
@@ -106,7 +108,7 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
     console.log(`Successfully purchased new label for shipment ${shipmentId}`);
     
     // Download and store all available label formats
-    const labelUrls = await downloadAndStoreAllFormats(boughtShipment.postage_label, boughtShipment.tracking_code);
+    const labelUrls = await downloadAndStoreAllFormats(boughtShipment.postage_label, boughtShipment.tracking_code, userId);
     
     return {
       id: boughtShipment.id,
@@ -128,13 +130,19 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
   }
 };
 
-const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: string): Promise<Record<string, string>> => {
+const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: string, userId: string): Promise<Record<string, string>> => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   const labelUrls: Record<string, string> = {};
   const batchId = `batch_${Date.now()}`;
+  
+  // Check if postageLabel exists and has valid URLs
+  if (!postageLabel) {
+    console.error('No postage label data available');
+    return labelUrls;
+  }
   
   // Format mappings from EasyPost to our storage
   const formats = [
@@ -144,7 +152,10 @@ const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: strin
   ];
 
   for (const format of formats) {
-    if (!format.url) continue;
+    if (!format.url) {
+      console.log(`No ${format.key.toUpperCase()} URL available`);
+      continue;
+    }
     
     try {
       console.log(`Downloading ${format.key.toUpperCase()} label from EasyPost: ${format.url}`);
@@ -187,10 +198,11 @@ const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: strin
         
       labelUrls[format.key] = urlData.publicUrl;
       
-      // Insert record into bulk_label_uploads table
+      // Insert record into bulk_label_uploads table with user_id
       const { error: insertError } = await supabase
         .from('bulk_label_uploads')
         .insert({
+          user_id: userId,
           batch_id: batchId,
           file_name: fileName,
           file_path: filePath,
@@ -220,6 +232,30 @@ serve(async (req) => {
   }
 
   try {
+    // Get user from JWT token
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'No authorization header' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get user from the auth header
+    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    
+    if (userError || !user) {
+      console.error('User authentication error:', userError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
     const { shipments, pickupAddress, labelOptions = {} } = await req.json();
     
     if (!shipments || !Array.isArray(shipments)) {
@@ -244,7 +280,7 @@ serve(async (req) => {
         }
 
         // Purchase label via EasyPost and store all formats in our system
-        const labelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId, labelOptions);
+        const labelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId, user.id, labelOptions);
 
         // Ensure we preserve all customer details and add label URLs
         const processedLabel = {

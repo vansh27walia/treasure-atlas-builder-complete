@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -58,10 +57,13 @@ const BulkUpload: React.FC = () => {
     setSelectedCarrierFilter
   } = useBulkUpload();
 
-  // Generate batch ID when labels are created
+  // Generate batch ID when labels are created successfully
   useEffect(() => {
-    if (uploadStatus === 'success' && results && !currentBatchId) {
-      const batchId = `batch_${Date.now()}`;
+    if (uploadStatus === 'success' && results && results.processedShipments.length > 0 && !currentBatchId) {
+      // Generate a batch ID based on timestamp and first tracking code
+      const firstTrackingCode = results.processedShipments[0]?.tracking_code || 'unknown';
+      const batchId = `batch_${Date.now()}_${firstTrackingCode.substring(0, 8)}`;
+      console.log('Generated batch ID:', batchId);
       setCurrentBatchId(batchId);
     }
   }, [uploadStatus, results, currentBatchId]);
@@ -243,7 +245,7 @@ const BulkUpload: React.FC = () => {
       {uploadStatus === 'success' && results && (
         <EnhancedSuccessNotification
           results={results}
-          batchId={currentBatchId}
+          batchId={currentBatchId || undefined}
         />
       )}
       

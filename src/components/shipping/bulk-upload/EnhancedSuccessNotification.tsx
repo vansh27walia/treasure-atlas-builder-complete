@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, Package, Eye } from 'lucide-react';
+import { CheckCircle, Download, FileText, Package, Eye, AlertCircle } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import { bulkStorageService, DownloadableLabel } from '@/services/BulkStorageService';
 import { toast } from '@/components/ui/sonner';
@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface EnhancedSuccessNotificationProps {
   results: BulkUploadResult;
@@ -26,23 +27,38 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
 }) => {
   const [downloadableLabels, setDownloadableLabels] = useState<Record<string, DownloadableLabel[]>>({});
   const [isLoadingLabels, setIsLoadingLabels] = useState(false);
+  const [labelsError, setLabelsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (batchId) {
       loadDownloadableLabels();
+    } else {
+      console.log('No batch ID provided for downloadable labels');
     }
   }, [batchId]);
 
   const loadDownloadableLabels = async () => {
-    if (!batchId) return;
+    if (!batchId) {
+      console.log('Cannot load downloadable labels: no batch ID');
+      return;
+    }
     
     setIsLoadingLabels(true);
+    setLabelsError(null);
+    
     try {
+      console.log(`Loading downloadable labels for batch: ${batchId}`);
       const labels = await bulkStorageService.getDownloadableLabels(batchId);
+      console.log('Loaded downloadable labels:', labels);
       setDownloadableLabels(labels);
+      
+      const totalLabels = Object.values(labels).reduce((total, labelArray) => total + labelArray.length, 0);
+      if (totalLabels === 0) {
+        setLabelsError('No downloadable labels found. Labels may still be processing.');
+      }
     } catch (error) {
       console.error('Error loading downloadable labels:', error);
-      toast.error('Failed to load downloadable labels');
+      setLabelsError(error instanceof Error ? error.message : 'Failed to load downloadable labels');
     } finally {
       setIsLoadingLabels(false);
     }
@@ -61,7 +77,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
       toast.success(`Started ${format} downloads`);
     } catch (error) {
       toast.dismiss();
-      toast.error(`Failed to download ${format} labels`);
+      toast.error(`Failed to download ${format} labels: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -78,7 +94,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
       toast.success('Started all label downloads');
     } catch (error) {
       toast.dismiss();
-      toast.error('Failed to download all labels');
+      toast.error(`Failed to download all labels: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -111,8 +127,13 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
             Enhanced Bulk Labels Generated Successfully!
           </h3>
           <p className="text-green-700">
-            {results.successful} shipping labels created with multiple format options available.
+            {results.successful} shipping labels created with multiple format options.
           </p>
+          {batchId && (
+            <p className="text-sm text-green-600 mt-1">
+              Batch ID: {batchId}
+            </p>
+          )}
         </div>
       </div>
 
@@ -122,6 +143,15 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
             <strong>Note:</strong> {results.failed} shipments failed to process. Please check the error details below.
           </p>
         </div>
+      )}
+
+      {labelsError && (
+        <Alert className="mb-4 border-orange-200 bg-orange-50">
+          <AlertCircle className="h-4 w-4 text-orange-600" />
+          <AlertDescription className="text-orange-800">
+            {labelsError}
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Enhanced Summary Stats */}
@@ -138,7 +168,9 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
         
         <div className="bg-white p-4 rounded-lg border border-green-200">
           <div className="text-2xl font-bold text-green-600">{totalLabels}</div>
-          <div className="text-sm text-gray-600">Labels Generated</div>
+          <div className="text-sm text-gray-600">
+            {isLoadingLabels ? 'Loading...' : 'Labels Generated'}
+          </div>
         </div>
 
         <div className="bg-white p-4 rounded-lg border border-green-200">
@@ -156,7 +188,10 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button className="bg-green-600 hover:bg-green-700 text-white">
+            <Button 
+              className="bg-green-600 hover:bg-green-700 text-white"
+              disabled={isLoadingLabels || totalLabels === 0}
+            >
               <Download className="mr-2 h-4 w-4" />
               Download Labels
             </Button>
@@ -194,7 +229,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
         <Button 
           variant="outline"
           onClick={loadDownloadableLabels}
-          disabled={isLoadingLabels}
+          disabled={isLoadingLabels || !batchId}
           className="border-green-200 hover:bg-green-50"
         >
           <Eye className="mr-2 h-4 w-4" />
@@ -229,6 +264,18 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Debug Information */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
+          <p><strong>Debug Info:</strong></p>
+          <p>Batch ID: {batchId || 'Not set'}</p>
+          <p>Has Labels: {hasLabels ? 'Yes' : 'No'}</p>
+          <p>Total Downloadable Labels: {totalLabels}</p>
+          <p>Is Loading: {isLoadingLabels ? 'Yes' : 'No'}</p>
+          <p>Labels Error: {labelsError || 'None'}</p>
         </div>
       )}
 

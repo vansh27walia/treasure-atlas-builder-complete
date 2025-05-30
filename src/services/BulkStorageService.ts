@@ -42,9 +42,11 @@ class BulkStorageService {
       const { data, error } = await query;
 
       if (error) {
+        console.error('Error fetching bulk uploads:', error);
         throw new Error(`Error fetching bulk uploads: ${error.message}`);
       }
 
+      console.log(`Found ${data?.length || 0} bulk label uploads`);
       return data || [];
     } catch (error) {
       console.error('Error fetching bulk label uploads:', error);
@@ -58,10 +60,15 @@ class BulkStorageService {
   async getDownloadableLabels(batchId: string): Promise<Record<string, DownloadableLabel[]>> {
     try {
       const uploads = await this.getBulkLabelUploads(batchId);
+      console.log(`Processing ${uploads.length} uploads for batch ${batchId}`);
+      
       const labelsByTracking: Record<string, DownloadableLabel[]> = {};
 
       for (const upload of uploads) {
-        if (!upload.tracking_code) continue;
+        if (!upload.tracking_code) {
+          console.log(`Skipping upload ${upload.id} - no tracking code`);
+          continue;
+        }
 
         const { data } = supabase.storage
           .from(this.bucketName)
@@ -79,8 +86,10 @@ class BulkStorageService {
         }
 
         labelsByTracking[upload.tracking_code].push(downloadable);
+        console.log(`Added ${upload.file_type} label for tracking ${upload.tracking_code}`);
       }
 
+      console.log(`Grouped labels by tracking code:`, Object.keys(labelsByTracking));
       return labelsByTracking;
     } catch (error) {
       console.error('Error getting downloadable labels:', error);
@@ -96,6 +105,8 @@ class BulkStorageService {
       const { data } = supabase.storage
         .from(this.bucketName)
         .getPublicUrl(filePath);
+
+      console.log(`Downloading label: ${fileName} from ${data.publicUrl}`);
 
       // Create a temporary anchor element to trigger download
       const link = document.createElement('a');
@@ -117,13 +128,21 @@ class BulkStorageService {
    */
   async downloadLabelsByFormat(batchId: string, format: 'PDF' | 'PNG' | 'ZPL'): Promise<void> {
     try {
+      console.log(`Starting download of ${format} labels for batch ${batchId}`);
       const uploads = await this.getBulkLabelUploads(batchId);
       const formatUploads = uploads.filter(upload => upload.file_type === format);
 
-      for (const upload of formatUploads) {
-        await this.downloadLabel(upload.file_path, upload.file_name);
-        // Add small delay to prevent browser blocking multiple downloads
-        await new Promise(resolve => setTimeout(resolve, 500));
+      console.log(`Found ${formatUploads.length} ${format} labels to download`);
+
+      if (formatUploads.length === 0) {
+        throw new Error(`No ${format} labels found for batch ${batchId}`);
+      }
+
+      for (let i = 0; i < formatUploads.length; i++) {
+        const upload = formatUploads[i];
+        setTimeout(() => {
+          this.downloadLabel(upload.file_path, upload.file_name);
+        }, i * 500); // Stagger downloads
       }
     } catch (error) {
       console.error(`Error downloading ${format} labels:`, error);
@@ -136,12 +155,20 @@ class BulkStorageService {
    */
   async downloadAllLabels(batchId: string): Promise<void> {
     try {
+      console.log(`Starting download of all labels for batch ${batchId}`);
       const uploads = await this.getBulkLabelUploads(batchId);
 
-      for (const upload of uploads) {
-        await this.downloadLabel(upload.file_path, upload.file_name);
-        // Add small delay to prevent browser blocking multiple downloads
-        await new Promise(resolve => setTimeout(resolve, 300));
+      console.log(`Found ${uploads.length} total labels to download`);
+
+      if (uploads.length === 0) {
+        throw new Error(`No labels found for batch ${batchId}`);
+      }
+
+      for (let i = 0; i < uploads.length; i++) {
+        const upload = uploads[i];
+        setTimeout(() => {
+          this.downloadLabel(upload.file_path, upload.file_name);
+        }, i * 300); // Stagger downloads
       }
     } catch (error) {
       console.error('Error downloading all labels:', error);
