@@ -12,40 +12,6 @@ interface LabelOptions {
   size?: string;
 }
 
-const ensureStorageBucket = async (supabase: any) => {
-  try {
-    // Check if bucket exists
-    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-    
-    if (listError) {
-      console.error('Error listing buckets:', listError);
-    }
-    
-    const bucketExists = buckets?.some((bucket: any) => bucket.name === 'shipping-labels');
-    
-    if (!bucketExists) {
-      console.log('Creating shipping-labels bucket');
-      const { error: bucketError } = await supabase.storage.createBucket('shipping-labels', {
-        public: true,
-        fileSizeLimit: 10485760, // 10MB
-        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
-      });
-      
-      if (bucketError) {
-        console.error('Error creating bucket:', bucketError);
-        throw new Error(`Failed to create storage bucket: ${bucketError.message}`);
-      }
-      
-      console.log('Successfully created shipping-labels bucket');
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error ensuring storage bucket:', error);
-    throw error;
-  }
-};
-
 const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options: LabelOptions = {}) => {
   const apiKey = Deno.env.get('EASYPOST_API_KEY');
   if (!apiKey) {
@@ -53,7 +19,46 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
   }
 
   try {
-    console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
+    console.log(`Checking shipment ${shipmentId} status before purchase`);
+    
+    // First, check if the shipment already has postage
+    const checkResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!checkResponse.ok) {
+      throw new Error(`Failed to check shipment status: ${checkResponse.status}`);
+    }
+
+    const existingShipment = await checkResponse.json();
+    
+    // If shipment already has postage, return existing label info
+    if (existingShipment.postage_label && existingShipment.tracking_code) {
+      console.log(`Shipment ${shipmentId} already has postage, downloading and storing label`);
+      
+      // Download and store the existing label
+      const labelUrl = await downloadAndStoreLabel(existingShipment.postage_label.label_url, existingShipment.tracking_code);
+      
+      return {
+        id: existingShipment.id,
+        tracking_code: existingShipment.tracking_code,
+        label_url: labelUrl,
+        carrier: existingShipment.selected_rate?.carrier,
+        service: existingShipment.selected_rate?.service,
+        rate: existingShipment.selected_rate?.rate,
+        customer_name: existingShipment.to_address?.name,
+        customer_address: `${existingShipment.to_address?.street1}, ${existingShipment.to_address?.city}, ${existingShipment.to_address?.state} ${existingShipment.to_address?.zip}`,
+        customer_phone: existingShipment.to_address?.phone,
+        customer_email: existingShipment.to_address?.email,
+        customer_company: existingShipment.to_address?.company,
+      };
+    }
+    
+    console.log(`Purchasing new label for shipment ${shipmentId} with rate ${rateId}`);
     
     // Buy the shipment with selected rate via EasyPost API
     const buyResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
@@ -72,11 +77,33 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
     if (!buyResponse.ok) {
       const errorData = await buyResponse.json();
       console.error(`EasyPost purchase error for ${shipmentId}:`, errorData);
+      
+      // If conflict error, try to get the existing shipment data
+      if (buyResponse.status === 409 || errorData.error?.code === 'SHIPMENT.POSTAGE.EXISTS') {
+        console.log(`Postage exists for ${shipmentId}, downloading and storing existing label`);
+        
+        const labelUrl = await downloadAndStoreLabel(existingShipment.postage_label?.label_url, existingShipment.tracking_code);
+        
+        return {
+          id: existingShipment.id,
+          tracking_code: existingShipment.tracking_code || 'TRACKING_PENDING',
+          label_url: labelUrl,
+          carrier: existingShipment.selected_rate?.carrier || 'Unknown',
+          service: existingShipment.selected_rate?.service || 'Unknown',
+          rate: existingShipment.selected_rate?.rate || '0',
+          customer_name: existingShipment.to_address?.name,
+          customer_address: `${existingShipment.to_address?.street1}, ${existingShipment.to_address?.city}, ${existingShipment.to_address?.state} ${existingShipment.to_address?.zip}`,
+          customer_phone: existingShipment.to_address?.phone,
+          customer_email: existingShipment.to_address?.email,
+          customer_company: existingShipment.to_address?.company,
+        };
+      }
+      
       throw new Error(`EasyPost purchase error: ${errorData.error?.message || 'Unknown error'}`);
     }
 
     const boughtShipment = await buyResponse.json();
-    console.log(`Successfully purchased label for shipment ${shipmentId}`);
+    console.log(`Successfully purchased new label for shipment ${shipmentId}`);
     
     // Download and store the label in our system
     const labelUrl = await downloadAndStoreLabel(boughtShipment.postage_label?.label_url, boughtShipment.tracking_code);
@@ -110,9 +137,6 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
 
     console.log(`Downloading label from EasyPost: ${easyPostLabelUrl}`);
     
-    // Ensure bucket exists
-    await ensureStorageBucket(supabase);
-    
     // Download the label from EasyPost
     const response = await fetch(easyPostLabelUrl);
     if (!response.ok) {
@@ -125,6 +149,23 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
     
     // Create filename
     const fileName = `shipping_label_${trackingCode}_${Date.now()}.pdf`;
+    
+    // Check if bucket exists
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(bucket => bucket.name === 'shipping-labels');
+    
+    if (!bucketExists) {
+      console.log('Creating shipping-labels bucket');
+      const { error: bucketError } = await supabase.storage.createBucket('shipping-labels', {
+        public: true,
+        fileSizeLimit: 10485760, // 10MB
+      });
+      
+      if (bucketError) {
+        console.error('Error creating bucket:', bucketError);
+        throw new Error('Failed to create storage bucket');
+      }
+    }
     
     // Upload the label to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase
