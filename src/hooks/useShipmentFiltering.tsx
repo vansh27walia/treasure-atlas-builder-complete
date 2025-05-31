@@ -16,17 +16,17 @@ export const useShipmentFiltering = (
     
     return results.processedShipments
       .filter(shipment => {
-        // Filter by search term
+        // Filter by search term - safely access properties with fallbacks
         const searchFields = [
-          shipment.recipient,
-          shipment.details.name,
-          shipment.details.company || '',
-          shipment.details.street1,
-          shipment.details.city,
-          shipment.details.state,
-          shipment.details.zip,
-          shipment.carrier,
-          shipment.service
+          shipment.recipient || '',
+          shipment.details?.name || shipment.details?.to_name || '',
+          shipment.details?.company || shipment.details?.to_company || '',
+          shipment.details?.street1 || shipment.details?.to_street1 || '',
+          shipment.details?.city || shipment.details?.to_city || '',
+          shipment.details?.state || shipment.details?.to_state || '',
+          shipment.details?.zip || shipment.details?.to_zip || '',
+          shipment.carrier || '',
+          shipment.service || ''
         ].join(' ').toLowerCase();
         
         const matchesSearch = !searchTerm || searchFields.includes(searchTerm.toLowerCase());
@@ -41,15 +41,19 @@ export const useShipmentFiltering = (
       })
       .sort((a, b) => {
         if (sortField === 'recipient') {
+          const aRecipient = a.recipient || '';
+          const bRecipient = b.recipient || '';
           return sortDirection === 'asc' 
-            ? a.recipient.localeCompare(b.recipient)
-            : b.recipient.localeCompare(a.recipient);
+            ? aRecipient.localeCompare(bRecipient)
+            : bRecipient.localeCompare(aRecipient);
         }
         
         if (sortField === 'carrier') {
+          const aCarrier = a.carrier || '';
+          const bCarrier = b.carrier || '';
           return sortDirection === 'asc' 
-            ? a.carrier.localeCompare(b.carrier)
-            : b.carrier.localeCompare(a.carrier);
+            ? aCarrier.localeCompare(bCarrier)
+            : bCarrier.localeCompare(aCarrier);
         }
         
         // Sort by rate
