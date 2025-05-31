@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface BulkLabelUpload {
@@ -26,10 +25,28 @@ class BulkStorageService {
   private readonly bucketName = 'shipping-labels-2';
 
   /**
+   * Initialize storage bucket if needed
+   */
+  async initializeStorage(): Promise<void> {
+    try {
+      // Call the edge function to ensure bucket exists
+      const { error } = await supabase.functions.invoke('create-storage-bucket');
+      if (error) {
+        console.error('Error initializing storage:', error);
+      }
+    } catch (error) {
+      console.error('Error calling storage initialization:', error);
+    }
+  }
+
+  /**
    * Get all bulk label uploads for the current user
    */
   async getBulkLabelUploads(batchId?: string): Promise<BulkLabelUpload[]> {
     try {
+      // Ensure storage is initialized
+      await this.initializeStorage();
+      
       let query = supabase
         .from('bulk_label_uploads')
         .select('*')
@@ -54,6 +71,7 @@ class BulkStorageService {
     }
   }
 
+  
   /**
    * Get downloadable labels grouped by tracking code
    */
