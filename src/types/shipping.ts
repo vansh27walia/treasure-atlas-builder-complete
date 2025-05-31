@@ -72,6 +72,9 @@ export interface BulkShipment {
   tracking_code?: string;
   trackingCode?: string;
   label_url?: string;
+  label_urls?: Record<string, string>;
+  batch_id?: string;
+  batch_label_url?: string;
   status: 'pending' | 'processing' | 'error' | 'completed';
   error?: string;
   easypost_id?: string;

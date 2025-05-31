@@ -131,7 +131,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
     rate: shipment.rate || 0,
     status: shipment.status || 'pending',
     label_url: shipment.label_url,
-    label_urls: shipment.label_urls_all_formats,
+    label_urls: shipment.label_urls,
     customer_name: shipment.customer_name || shipment.recipient || 'Unknown',
     customer_address: shipment.customer_address || 'Unknown'
   }));
