@@ -19,6 +19,7 @@ import { toast } from '@/components/ui/sonner';
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
   const [currentBatchId, setCurrentBatchId] = useState<string | null>(null);
+  const [currentBatchLabelUrl, setCurrentBatchLabelUrl] = useState<string | null>(null);
   
   const {
     file,
@@ -59,12 +60,24 @@ const BulkUpload: React.FC = () => {
 
   // Generate batch ID when labels are created successfully
   useEffect(() => {
-    if (uploadStatus === 'success' && results && results.processedShipments.length > 0 && !currentBatchId) {
-      // Generate a batch ID based on timestamp and first tracking code
-      const firstTrackingCode = results.processedShipments[0]?.tracking_code || 'unknown';
-      const batchId = `batch_${Date.now()}_${firstTrackingCode.substring(0, 8)}`;
-      console.log('Generated batch ID:', batchId);
-      setCurrentBatchId(batchId);
+    if (uploadStatus === 'success' && results && results.processedShipments.length > 0) {
+      // Check if batch info is already available from the results
+      const firstShipment = results.processedShipments[0];
+      if (firstShipment && firstShipment.batch_id) {
+        console.log('Using batch ID from results:', firstShipment.batch_id);
+        setCurrentBatchId(firstShipment.batch_id);
+        
+        // Set batch label URL if available
+        if (firstShipment.batch_label_url) {
+          setCurrentBatchLabelUrl(firstShipment.batch_label_url);
+        }
+      } else if (!currentBatchId) {
+        // Generate a fallback batch ID based on timestamp and first tracking code
+        const firstTrackingCode = results.processedShipments[0]?.tracking_code || 'unknown';
+        const batchId = `batch_${Date.now()}_${firstTrackingCode.substring(0, 8)}`;
+        console.log('Generated fallback batch ID:', batchId);
+        setCurrentBatchId(batchId);
+      }
     }
   }, [uploadStatus, results, currentBatchId]);
 
@@ -105,6 +118,7 @@ const BulkUpload: React.FC = () => {
 
   const resetUpload = () => {
     setCurrentBatchId(null);
+    setCurrentBatchLabelUrl(null);
     window.location.reload();
   };
 
@@ -170,9 +184,9 @@ const BulkUpload: React.FC = () => {
           
           <Alert className="mb-6">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Enhanced Label Generation</AlertTitle>
+            <AlertTitle>Enhanced Batch Label Generation</AlertTitle>
             <AlertDescription>
-              Select carrier and service options for each shipment. Labels will be generated in PDF, PNG, and ZPL formats and stored for easy download.
+              Select carrier and service options for each shipment. Labels will be generated using EasyPost's Batch API for optimal processing and consolidated batch labels.
             </AlertDescription>
           </Alert>
           
@@ -203,12 +217,12 @@ const BulkUpload: React.FC = () => {
             <div className="mt-8 p-4 border rounded-lg bg-gray-50">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
                 <div>
-                  <h3 className="font-semibold text-lg">Enhanced Order Summary</h3>
+                  <h3 className="font-semibold text-lg">Enhanced Batch Order Summary</h3>
                   <p className="text-gray-600">
                     {results.processedShipments.length} shipments selected with a total cost of ${results.totalCost.toFixed(2)}
                   </p>
                   <p className="text-sm text-blue-600 mt-1">
-                    Labels will be generated in PDF, PNG, and ZPL formats
+                    Labels will be generated using EasyPost Batch API in PDF, PNG, and ZPL formats
                   </p>
                   {pickupAddress && (
                     <p className="text-sm text-blue-600 mt-1">
@@ -232,7 +246,7 @@ const BulkUpload: React.FC = () => {
                     disabled={isPaying || results.processedShipments.length === 0 || !pickupAddress}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
-                    {isPaying ? 'Processing...' : 'Generate Enhanced Labels'} 
+                    {isPaying || isCreatingLabels ? 'Processing...' : 'Create Batch Labels'} 
                     <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
@@ -246,6 +260,7 @@ const BulkUpload: React.FC = () => {
         <EnhancedSuccessNotification
           results={results}
           batchId={currentBatchId || undefined}
+          batchLabelUrl={currentBatchLabelUrl || undefined}
         />
       )}
       

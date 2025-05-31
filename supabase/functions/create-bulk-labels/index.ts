@@ -12,139 +12,194 @@ interface LabelOptions {
   size?: string;
 }
 
-const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, userId: string, options: LabelOptions = {}) => {
+interface ShipmentData {
+  id: string;
+  easypost_id: string;
+  selectedRateId: string;
+  recipient: string;
+  details: any;
+}
+
+const createEasyPostBatch = async (shipments: ShipmentData[], userId: string, labelOptions: LabelOptions = {}) => {
   const apiKey = Deno.env.get('EASYPOST_API_KEY');
   if (!apiKey) {
     throw new Error('EasyPost API key not configured');
   }
 
   try {
-    console.log(`Checking shipment ${shipmentId} status before purchase`);
+    console.log(`Initiating bulk label creation for ${shipments.length} shipments via EasyPost Batch API.`);
     
-    // First, check if the shipment already has postage
-    const checkResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    // Prepare shipment data for batch creation
+    const batchShipments = shipments.map(shipment => ({
+      id: shipment.easypost_id,
+      rate: { id: shipment.selectedRateId }
+    }));
 
-    if (!checkResponse.ok) {
-      throw new Error(`Failed to check shipment status: ${checkResponse.status}`);
-    }
+    console.log(`Creating EasyPost Batch with ${batchShipments.length} shipments.`);
 
-    const existingShipment = await checkResponse.json();
-    
-    // If shipment already has postage, return existing label info
-    if (existingShipment.postage_label && existingShipment.tracking_code) {
-      console.log(`Shipment ${shipmentId} already has postage, processing existing labels`);
-      
-      // Download and store all available label formats
-      const labelUrls = await downloadAndStoreAllFormats(existingShipment.postage_label, existingShipment.tracking_code, userId);
-      
-      return {
-        id: existingShipment.id,
-        tracking_code: existingShipment.tracking_code,
-        label_urls: labelUrls,
-        carrier: existingShipment.selected_rate?.carrier,
-        service: existingShipment.selected_rate?.service,
-        rate: existingShipment.selected_rate?.rate,
-        customer_name: existingShipment.to_address?.name,
-        customer_address: `${existingShipment.to_address?.street1}, ${existingShipment.to_address?.city}, ${existingShipment.to_address?.state} ${existingShipment.to_address?.zip}`,
-        customer_phone: existingShipment.to_address?.phone,
-        customer_email: existingShipment.to_address?.email,
-        customer_company: existingShipment.to_address?.company,
-      };
-    }
-    
-    console.log(`Purchasing new label for shipment ${shipmentId} with rate ${rateId}`);
-    
-    // Buy the shipment with selected rate via EasyPost API
-    const buyResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
+    // Create batch with EasyPost
+    const batchResponse = await fetch('https://api.easypost.com/v2/batches', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        rate: { id: rateId },
-        label_format: 'PDF', // Primary format
-        label_size: options.size || '4x6',
+        batch: {
+          shipments: batchShipments,
+          label_format: labelOptions.format || 'PDF',
+          label_size: labelOptions.size || '4x6'
+        }
       }),
     });
 
-    if (!buyResponse.ok) {
-      const errorData = await buyResponse.json();
-      console.error(`EasyPost purchase error for ${shipmentId}:`, errorData);
-      
-      // If conflict error, try to get the existing shipment data
-      if (buyResponse.status === 409 || errorData.error?.code === 'SHIPMENT.POSTAGE.EXISTS') {
-        console.log(`Postage exists for ${shipmentId}, processing existing labels`);
-        
-        if (existingShipment.postage_label) {
-          const labelUrls = await downloadAndStoreAllFormats(existingShipment.postage_label, existingShipment.tracking_code, userId);
-          
-          return {
-            id: existingShipment.id,
-            tracking_code: existingShipment.tracking_code || 'TRACKING_PENDING',
-            label_urls: labelUrls,
-            carrier: existingShipment.selected_rate?.carrier || 'Unknown',
-            service: existingShipment.selected_rate?.service || 'Unknown',
-            rate: existingShipment.selected_rate?.rate || '0',
-            customer_name: existingShipment.to_address?.name,
-            customer_address: `${existingShipment.to_address?.street1}, ${existingShipment.to_address?.city}, ${existingShipment.to_address?.state} ${existingShipment.to_address?.zip}`,
-            customer_phone: existingShipment.to_address?.phone,
-            customer_email: existingShipment.to_address?.email,
-            customer_company: existingShipment.to_address?.company,
-          };
-        }
-      }
-      
-      throw new Error(`EasyPost purchase error: ${errorData.error?.message || 'Unknown error'}`);
+    if (!batchResponse.ok) {
+      const errorData = await batchResponse.json();
+      console.error('Batch creation error:', errorData);
+      throw new Error(`EasyPost batch creation failed: ${errorData.error?.message || 'Unknown error'}`);
     }
 
-    const boughtShipment = await buyResponse.json();
-    console.log(`Successfully purchased new label for shipment ${shipmentId}`);
-    
-    // Download and store all available label formats
-    const labelUrls = await downloadAndStoreAllFormats(boughtShipment.postage_label, boughtShipment.tracking_code, userId);
-    
+    const batch = await batchResponse.json();
+    console.log(`EasyPost Batch created with ID: ${batch.id}. Initial state: ${batch.state}`);
+
+    // Purchase the batch (buy postage for all shipments)
+    console.log(`Purchasing EasyPost Batch ${batch.id}.`);
+    const purchaseResponse = await fetch(`https://api.easypost.com/v2/batches/${batch.id}/buy`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!purchaseResponse.ok) {
+      const errorData = await purchaseResponse.json();
+      console.error('Batch purchase error:', errorData);
+      throw new Error(`Failed to initiate Batch purchase for ${batch.id}: ${JSON.stringify(errorData)}`);
+    }
+
+    const purchasedBatch = await purchaseResponse.json();
+    console.log(`Batch purchase initiated. State: ${purchasedBatch.state}`);
+
+    // Wait for batch processing and get final batch with labels
+    let finalBatch = purchasedBatch;
+    let attempts = 0;
+    const maxAttempts = 30; // 30 seconds timeout
+
+    while (finalBatch.state === 'creating' || finalBatch.state === 'purchasing') {
+      if (attempts >= maxAttempts) {
+        throw new Error(`Batch processing timeout after ${maxAttempts} seconds`);
+      }
+      
+      console.log(`Waiting for batch processing... State: ${finalBatch.state} (attempt ${attempts + 1})`);
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+      
+      // Check batch status
+      const statusResponse = await fetch(`https://api.easypost.com/v2/batches/${batch.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (statusResponse.ok) {
+        finalBatch = await statusResponse.json();
+      }
+      attempts++;
+    }
+
+    console.log(`Final batch state: ${finalBatch.state}`);
+
+    if (finalBatch.state === 'purchase_failed') {
+      throw new Error('Batch purchase failed');
+    }
+
+    // Generate consolidated batch label
+    let batchLabelUrl = null;
+    if (finalBatch.state === 'purchased') {
+      console.log('Generating consolidated batch label...');
+      const labelResponse = await fetch(`https://api.easypost.com/v2/batches/${batch.id}/label`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          label_format: labelOptions.format || 'PDF',
+          label_size: labelOptions.size || '4x6'
+        }),
+      });
+
+      if (labelResponse.ok) {
+        const labelData = await labelResponse.json();
+        batchLabelUrl = labelData.batch_label_url;
+        console.log('Batch label generated:', batchLabelUrl);
+      }
+    }
+
+    // Process individual shipments and store labels
+    const processedLabels = [];
+    const batchId = `batch_${Date.now()}`;
+
+    for (const shipment of finalBatch.shipments || []) {
+      try {
+        if (shipment.postage_label && shipment.tracking_code) {
+          // Store all label formats
+          const labelUrls = await downloadAndStoreAllFormats(shipment.postage_label, shipment.tracking_code, userId, batchId);
+          
+          // Find corresponding shipment data
+          const originalShipment = shipments.find(s => s.easypost_id === shipment.id);
+          
+          processedLabels.push({
+            id: originalShipment?.id || shipment.id,
+            easypost_id: shipment.id,
+            tracking_code: shipment.tracking_code,
+            label_urls: labelUrls,
+            label_url: labelUrls.pdf || labelUrls.png || '', // Backward compatibility
+            status: 'completed',
+            carrier: shipment.selected_rate?.carrier,
+            service: shipment.selected_rate?.service,
+            rate: shipment.selected_rate?.rate,
+            customer_name: originalShipment?.details?.to_name || originalShipment?.recipient,
+            customer_address: `${shipment.to_address?.street1}, ${shipment.to_address?.city}, ${shipment.to_address?.state} ${shipment.to_address?.zip}`,
+            customer_phone: shipment.to_address?.phone,
+            customer_email: shipment.to_address?.email,
+            batch_id: batchId,
+            batch_label_url: batchLabelUrl
+          });
+        }
+      } catch (error) {
+        console.error(`Error processing shipment ${shipment.id}:`, error);
+      }
+    }
+
     return {
-      id: boughtShipment.id,
-      tracking_code: boughtShipment.tracking_code,
-      label_urls: labelUrls,
-      carrier: boughtShipment.selected_rate?.carrier,
-      service: boughtShipment.selected_rate?.service,
-      rate: boughtShipment.selected_rate?.rate,
-      customer_name: boughtShipment.to_address?.name,
-      customer_address: `${boughtShipment.to_address?.street1}, ${boughtShipment.to_address?.city}, ${boughtShipment.to_address?.state} ${boughtShipment.to_address?.zip}`,
-      customer_phone: boughtShipment.to_address?.phone,
-      customer_email: boughtShipment.to_address?.email,
-      customer_company: boughtShipment.to_address?.company,
+      batchId,
+      batchEasyPostId: batch.id,
+      batchLabelUrl,
+      processedLabels,
+      totalLabels: processedLabels.length
     };
-    
+
   } catch (error) {
-    console.error(`EasyPost label purchase error for shipment ${shipmentId}:`, error);
+    console.error('Error during batch label creation process:', error);
     throw error;
   }
 };
 
-const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: string, userId: string): Promise<Record<string, string>> => {
+const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: string, userId: string, batchId: string): Promise<Record<string, string>> => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   const labelUrls: Record<string, string> = {};
-  const batchId = `batch_${Date.now()}`;
   
-  // Check if postageLabel exists and has valid URLs
   if (!postageLabel) {
     console.error('No postage label data available');
     return labelUrls;
   }
   
-  // Format mappings from EasyPost to our storage
   const formats = [
     { key: 'pdf', url: postageLabel.label_url, contentType: 'application/pdf', extension: 'pdf' },
     { key: 'png', url: postageLabel.label_png_url, contentType: 'image/png', extension: 'png' },
@@ -160,7 +215,6 @@ const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: strin
     try {
       console.log(`Downloading ${format.key.toUpperCase()} label from EasyPost: ${format.url}`);
       
-      // Download the label from EasyPost
       const response = await fetch(format.url);
       if (!response.ok) {
         console.warn(`Failed to download ${format.key} format: ${response.status}`);
@@ -171,11 +225,9 @@ const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: strin
       const labelArrayBuffer = await labelBlob.arrayBuffer();
       const labelBuffer = new Uint8Array(labelArrayBuffer);
       
-      // Create filename
       const fileName = `shipping_label_${trackingCode}_${Date.now()}.${format.extension}`;
       const filePath = `${batchId}/${fileName}`;
       
-      // Upload to shipping-labels-2 bucket
       const { data: uploadData, error: uploadError } = await supabase
         .storage
         .from('shipping-labels-2')
@@ -190,7 +242,6 @@ const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: strin
         continue;
       }
       
-      // Get public URL
       const { data: urlData } = await supabase
         .storage
         .from('shipping-labels-2')
@@ -198,7 +249,6 @@ const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: strin
         
       labelUrls[format.key] = urlData.publicUrl;
       
-      // Insert record into bulk_label_uploads table with user_id
       const { error: insertError } = await supabase
         .from('bulk_label_uploads')
         .insert({
@@ -232,7 +282,6 @@ serve(async (req) => {
   }
 
   try {
-    // Get user from JWT token
     const authHeader = req.headers.get('authorization');
     if (!authHeader) {
       return new Response(
@@ -245,7 +294,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user from the auth header
     const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
     
     if (userError || !user) {
@@ -256,6 +304,8 @@ serve(async (req) => {
       );
     }
 
+    console.log(`Authenticated user: ${user.id}`);
+
     const { shipments, pickupAddress, labelOptions = {} } = await req.json();
     
     if (!shipments || !Array.isArray(shipments)) {
@@ -265,62 +315,38 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing ${shipments.length} shipments for bulk label creation`);
-    
-    const processedLabels = [];
-    const failedLabels = [];
+    // Create labels using EasyPost Batch API
+    const batchResult = await createEasyPostBatch(shipments, user.id, labelOptions);
 
-    // Process each shipment individually to ensure we get all labels
-    for (const shipment of shipments) {
-      try {
-        console.log(`Processing label for shipment ${shipment.id} with EasyPost ID ${shipment.easypost_id}`);
-        
-        if (!shipment.selectedRateId || !shipment.easypost_id) {
-          throw new Error('Missing EasyPost shipment ID or rate ID for live label generation');
-        }
+    // Store batch information in Supabase
+    const { error: batchInsertError } = await supabase
+      .from('batches')
+      .insert({
+        user_id: user.id,
+        batch_id: batchResult.batchId,
+        easypost_batch_id: batchResult.batchEasyPostId,
+        batch_label_url: batchResult.batchLabelUrl,
+        total_shipments: shipments.length,
+        successful_shipments: batchResult.processedLabels.length,
+        status: 'completed'
+      });
 
-        // Purchase label via EasyPost and store all formats in our system
-        const labelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId, user.id, labelOptions);
-
-        // Ensure we preserve all customer details and add label URLs
-        const processedLabel = {
-          ...shipment,
-          ...labelData,
-          status: 'completed' as const,
-          // Maintain backward compatibility with single label_url
-          label_url: labelData.label_urls?.pdf || labelData.label_urls?.png || '',
-          // Add all format URLs
-          label_urls_all_formats: labelData.label_urls,
-          customer_name: labelData.customer_name || shipment.details?.to_name || shipment.recipient,
-          customer_address: labelData.customer_address || `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
-          customer_phone: labelData.customer_phone || shipment.details?.to_phone,
-          customer_email: labelData.customer_email || shipment.details?.to_email,
-          customer_company: labelData.customer_company || shipment.details?.to_company,
-        };
-
-        processedLabels.push(processedLabel);
-        console.log(`Successfully processed labels for shipment ${shipment.id}`);
-
-      } catch (error) {
-        console.error(`Failed to create labels for shipment ${shipment.id}:`, error);
-        failedLabels.push({
-          shipmentId: shipment.id,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
+    if (batchInsertError) {
+      console.error('Error storing batch information:', batchInsertError);
     }
 
-    console.log(`Label processing complete: ${processedLabels.length} successful, ${failedLabels.length} failed`);
+    console.log(`Batch processing complete: ${batchResult.processedLabels.length} successful labels created`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        processedLabels,
-        failedLabels,
+        processedLabels: batchResult.processedLabels,
+        batchId: batchResult.batchId,
+        batchLabelUrl: batchResult.batchLabelUrl,
         total: shipments.length,
-        successful: processedLabels.length,
-        failed: failedLabels.length,
-        message: `Processed ${processedLabels.length} shipments with labels in PDF, PNG, and ZPL formats stored in shipping-labels-2 bucket`,
+        successful: batchResult.processedLabels.length,
+        failed: shipments.length - batchResult.processedLabels.length,
+        message: `Batch created with ${batchResult.processedLabels.length} labels in PDF, PNG, and ZPL formats`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
@@ -329,7 +355,7 @@ serve(async (req) => {
     console.error('Error in create-bulk-labels function:', error);
     return new Response(
       JSON.stringify({ 
-        error: 'Label Creation Error', 
+        error: 'Bulk Label Creation Error', 
         message: error instanceof Error ? error.message : 'Unknown error' 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
