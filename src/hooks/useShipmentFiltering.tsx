@@ -12,7 +12,11 @@ export const useShipmentFiltering = (
 
   // Filter and sort shipments
   const filteredShipments = useMemo(() => {
-    if (!results) return [];
+    // Early return if no results or processedShipments is not available
+    if (!results || !results.processedShipments || !Array.isArray(results.processedShipments)) {
+      console.log('No valid results or processedShipments found:', results);
+      return [];
+    }
     
     return results.processedShipments
       .filter(shipment => {
