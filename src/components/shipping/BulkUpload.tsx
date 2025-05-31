@@ -1,9 +1,9 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
 import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
 import BulkUploadForm from './bulk-upload/BulkUploadForm';
-import SuccessNotification from './bulk-upload/SuccessNotification';
 import EnhancedSuccessNotification from './bulk-upload/EnhancedSuccessNotification';
 import UploadError from './bulk-upload/UploadError';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
@@ -186,7 +186,7 @@ const BulkUpload: React.FC = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Enhanced Batch Label Generation</AlertTitle>
             <AlertDescription>
-              Select carrier and service options for each shipment. Labels will be generated using EasyPost's Batch API for optimal processing and consolidated batch labels.
+              Select carrier and service options for each shipment. Labels will be generated using EasyPost's API for optimal processing and consolidated batch labels.
             </AlertDescription>
           </Alert>
           
@@ -222,7 +222,7 @@ const BulkUpload: React.FC = () => {
                     {results.processedShipments.length} shipments selected with a total cost of ${results.totalCost.toFixed(2)}
                   </p>
                   <p className="text-sm text-blue-600 mt-1">
-                    Labels will be generated using EasyPost Batch API in PDF, PNG, and ZPL formats
+                    Labels will be generated using EasyPost API in PDF, PNG, and ZPL formats
                   </p>
                   {pickupAddress && (
                     <p className="text-sm text-blue-600 mt-1">
@@ -242,11 +242,11 @@ const BulkUpload: React.FC = () => {
                   </Button>
                   
                   <Button
-                    onClick={handleProceedToPayment}
-                    disabled={isPaying || results.processedShipments.length === 0 || !pickupAddress}
+                    onClick={handleCreateLabels}
+                    disabled={isCreatingLabels || results.processedShipments.length === 0 || !pickupAddress}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
-                    {isPaying || isCreatingLabels ? 'Processing...' : 'Create Batch Labels'} 
+                    {isCreatingLabels ? 'Creating Labels...' : 'Create Batch Labels'} 
                     <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>

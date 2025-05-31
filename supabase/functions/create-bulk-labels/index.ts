@@ -27,13 +27,10 @@ const createEasyPostBatch = async (shipments: ShipmentData[], userId: string, la
   }
 
   try {
-    console.log(`Initiating bulk label creation for ${shipments.length} shipments via EasyPost Batch API.`);
+    console.log(`Initiating bulk label creation for ${shipments.length} shipments via EasyPost.`);
     
-    // First, let's buy the shipments individually instead of using batch API
-    // This is more reliable for smaller batches
     const processedLabels = [];
     const batchId = `batch_${Date.now()}`;
-    let batchLabelUrl = null;
 
     for (const shipmentData of shipments) {
       try {
@@ -61,7 +58,7 @@ const createEasyPostBatch = async (shipments: ShipmentData[], userId: string, la
         console.log(`Successfully purchased shipment ${shipment.id}, tracking: ${shipment.tracking_code}`);
 
         if (shipment.postage_label && shipment.tracking_code) {
-          // Store all label formats
+          // Store all label formats with proper error handling
           const labelUrls = await downloadAndStoreAllFormats(shipment.postage_label, shipment.tracking_code, userId, batchId);
           
           processedLabels.push({
@@ -79,7 +76,7 @@ const createEasyPostBatch = async (shipments: ShipmentData[], userId: string, la
             customer_phone: shipment.to_address?.phone,
             customer_email: shipment.to_address?.email,
             batch_id: batchId,
-            batch_label_url: batchLabelUrl
+            batch_label_url: null // Will be set later
           });
         }
       } catch (error) {
@@ -88,10 +85,10 @@ const createEasyPostBatch = async (shipments: ShipmentData[], userId: string, la
     }
 
     // Create a consolidated batch label if we have processed labels
+    let batchLabelUrl = null;
     if (processedLabels.length > 0) {
       try {
-        // For now, we'll use the first label as the "batch" label
-        // In a real implementation, you might want to create a custom batch label
+        // Use the first label as the "batch" label for now
         batchLabelUrl = processedLabels[0].label_url;
         
         // Update all processed labels with the batch label URL
@@ -99,15 +96,15 @@ const createEasyPostBatch = async (shipments: ShipmentData[], userId: string, la
           label.batch_label_url = batchLabelUrl;
         });
         
-        console.log('Batch label created:', batchLabelUrl);
+        console.log('Batch label URL set:', batchLabelUrl);
       } catch (error) {
-        console.error('Error creating batch label:', error);
+        console.error('Error setting batch label:', error);
       }
     }
 
     return {
       batchId,
-      batchEasyPostId: batchId, // Using our generated batch ID
+      batchEasyPostId: batchId,
       batchLabelUrl,
       processedLabels,
       totalLabels: processedLabels.length
@@ -131,34 +128,51 @@ const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: strin
     return labelUrls;
   }
   
+  // EasyPost provides different format URLs
   const formats = [
     { key: 'pdf', url: postageLabel.label_url, contentType: 'application/pdf', extension: 'pdf' },
     { key: 'png', url: postageLabel.label_png_url, contentType: 'image/png', extension: 'png' },
-    { key: 'zpl', url: postageLabel.label_zpl_url, contentType: 'application/x-zpl', extension: 'zpl' }
+    { key: 'zpl', url: postageLabel.label_zpl_url, contentType: 'text/plain', extension: 'zpl' }
   ];
 
   for (const format of formats) {
     if (!format.url) {
-      console.log(`No ${format.key.toUpperCase()} URL available`);
+      console.log(`No ${format.key.toUpperCase()} URL available for tracking ${trackingCode}`);
       continue;
     }
     
     try {
       console.log(`Downloading ${format.key.toUpperCase()} label from EasyPost: ${format.url}`);
       
-      const response = await fetch(format.url);
+      // Download the label from EasyPost
+      const response = await fetch(format.url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Lovable-Shipping-App/1.0'
+        }
+      });
+      
       if (!response.ok) {
-        console.warn(`Failed to download ${format.key} format: ${response.status}`);
+        console.warn(`Failed to download ${format.key} format: ${response.status} ${response.statusText}`);
         continue;
       }
       
-      const labelBlob = await response.blob();
-      const labelArrayBuffer = await labelBlob.arrayBuffer();
+      // Get the file content as array buffer
+      const labelArrayBuffer = await response.arrayBuffer();
       const labelBuffer = new Uint8Array(labelArrayBuffer);
+      
+      // Verify we got actual content
+      if (labelBuffer.length === 0) {
+        console.warn(`Downloaded ${format.key} label is empty for tracking ${trackingCode}`);
+        continue;
+      }
+      
+      console.log(`Downloaded ${format.key} label: ${labelBuffer.length} bytes`);
       
       const fileName = `shipping_label_${trackingCode}_${Date.now()}.${format.extension}`;
       const filePath = `${batchId}/${fileName}`;
       
+      // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase
         .storage
         .from('shipping-labels-2')
@@ -173,6 +187,7 @@ const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: strin
         continue;
       }
       
+      // Get the public URL
       const { data: urlData } = await supabase
         .storage
         .from('shipping-labels-2')
@@ -180,6 +195,7 @@ const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: strin
         
       labelUrls[format.key] = urlData.publicUrl;
       
+      // Insert record into bulk_label_uploads table
       const { error: insertError } = await supabase
         .from('bulk_label_uploads')
         .insert({
@@ -200,7 +216,7 @@ const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: strin
       }
       
     } catch (error) {
-      console.error(`Error processing ${format.key} label:`, error);
+      console.error(`Error processing ${format.key} label for tracking ${trackingCode}:`, error);
     }
   }
   
@@ -246,25 +262,16 @@ serve(async (req) => {
       );
     }
 
-    // Create labels using individual purchases instead of batch API for better reliability
-    const batchResult = await createEasyPostBatch(shipments, user.id, labelOptions);
+    console.log(`Processing ${shipments.length} shipments for bulk label creation`);
 
-    // Store batch information in Supabase
-    const { error: batchInsertError } = await supabase
-      .from('batches')
-      .insert({
-        user_id: user.id,
-        batch_id: batchResult.batchId,
-        easypost_batch_id: batchResult.batchEasyPostId,
-        batch_label_url: batchResult.batchLabelUrl,
-        total_shipments: shipments.length,
-        successful_shipments: batchResult.processedLabels.length,
-        status: 'completed'
-      });
-
-    if (batchInsertError) {
-      console.error('Error storing batch information:', batchInsertError);
+    // Ensure storage bucket exists
+    const { error: bucketError } = await supabase.functions.invoke('create-storage-bucket');
+    if (bucketError) {
+      console.error('Error initializing storage bucket:', bucketError);
     }
+
+    // Create labels using individual purchases
+    const batchResult = await createEasyPostBatch(shipments, user.id, labelOptions);
 
     console.log(`Batch processing complete: ${batchResult.processedLabels.length} successful labels created`);
 
