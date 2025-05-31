@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -33,6 +34,7 @@ export const useShipmentManagement = (
   });
 
   const handleRemoveShipment = (shipmentId: string) => {
+    console.log('Removing shipment:', shipmentId);
     if (!initialResults) return;
     
     const updatedShipments = initialResults.processedShipments.filter(
@@ -58,6 +60,7 @@ export const useShipmentManagement = (
   };
 
   const handleEditShipment = (shipmentId: string, details: BulkShipment['details']) => {
+    console.log('Editing shipment:', shipmentId, details);
     if (!initialResults) return;
     
     const updatedShipments = initialResults.processedShipments.map(shipment => {
@@ -84,8 +87,15 @@ export const useShipmentManagement = (
   };
 
   const handleCreateLabels = async () => {
+    console.log('handleCreateLabels called');
+    
     if (!initialResults || initialResults.processedShipments.length === 0) {
       toast.error("No shipments to process");
+      return;
+    }
+    
+    if (!pickupAddress) {
+      toast.error("Pickup address is required. Please set a pickup address in Settings.");
       return;
     }
     
@@ -105,18 +115,21 @@ export const useShipmentManagement = (
         }
       });
 
+      console.log('Label creation response:', { data, error });
+
       if (error) {
         console.error('Label creation error:', error);
         throw new Error(error.message);
       }
 
-      console.log('Label creation response:', data);
-
-      if (data && data.labels && data.labels.length > 0) {
+      if (data && data.labels && Array.isArray(data.labels) && data.labels.length > 0) {
+        console.log('Processing successful label creation response');
+        
         // Update results with the new label data from the structured response
         const updatedShipments = initialResults.processedShipments.map(shipment => {
           const labelData = data.labels.find((label: any) => label.shipment_id === shipment.id);
           if (labelData) {
+            console.log('Updating shipment with label data:', { shipment: shipment.id, labelData });
             return {
               ...shipment,
               label_url: labelData.label_url,
@@ -129,6 +142,8 @@ export const useShipmentManagement = (
           return shipment;
         });
 
+        console.log('Updated shipments with labels:', updatedShipments);
+
         updateResults({
           ...initialResults,
           processedShipments: updatedShipments,
@@ -137,7 +152,8 @@ export const useShipmentManagement = (
 
         toast.success(`Successfully created ${data.labels.length} shipping labels`);
       } else {
-        throw new Error('No labels were created');
+        console.error('Invalid response from label creation:', data);
+        throw new Error('No labels were created or invalid response format');
       }
 
     } catch (error) {
@@ -149,6 +165,7 @@ export const useShipmentManagement = (
   };
   
   const handleProceedToPayment = async () => {
+    console.log('handleProceedToPayment called');
     if (!initialResults) {
       toast.error("No shipments to process");
       return;
@@ -169,6 +186,7 @@ export const useShipmentManagement = (
   };
 
   const handleDownloadAllLabels = () => {
+    console.log('handleDownloadAllLabels called');
     if (!initialResults || !initialResults.processedShipments.length) {
       toast.error("No labels available to download");
       return;
@@ -179,6 +197,7 @@ export const useShipmentManagement = (
   };
   
   const handleDownloadLabelsWithFormat = (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
+    console.log('handleDownloadLabelsWithFormat called with format:', format);
     if (!initialResults || !initialResults.processedShipments.length) return;
     
     setShowLabelOptions(false);
@@ -227,7 +246,18 @@ export const useShipmentManagement = (
   };
 
   const handleDownloadSingleLabel = (labelUrl: string) => {
-    window.open(labelUrl, '_blank');
+    console.log('handleDownloadSingleLabel called with:', labelUrl);
+    if (!labelUrl) {
+      toast.error('Label URL not available');
+      return;
+    }
+    
+    try {
+      window.open(labelUrl, '_blank');
+    } catch (error) {
+      console.error('Error opening label URL:', error);
+      toast.error('Failed to open label');
+    }
   };
   
   const handleEmailLabels = () => {
@@ -235,6 +265,7 @@ export const useShipmentManagement = (
   };
 
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
+    console.log('handlePickupAddressSelect called with:', address);
     setPickupAddress(address);
     
     if (address) {

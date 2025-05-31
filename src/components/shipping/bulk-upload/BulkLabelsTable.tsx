@@ -31,27 +31,69 @@ const BulkLabelsTable: React.FC<BulkLabelsTableProps> = ({
   onDownloadLabel,
   onDownloadBulkLabels
 }) => {
+  console.log('BulkLabelsTable rendered with:', { labels, bulkLabelUrl });
+
+  // Safety check for labels
+  if (!labels || !Array.isArray(labels)) {
+    console.error('BulkLabelsTable: Invalid labels data:', labels);
+    return (
+      <Card className="p-6 text-center">
+        <p className="text-red-600">Error: Invalid labels data</p>
+      </Card>
+    );
+  }
+
+  if (labels.length === 0) {
+    return (
+      <Card className="p-6 text-center">
+        <p className="text-gray-500">No labels were successfully created.</p>
+      </Card>
+    );
+  }
+
   const handleDownloadSingle = (labelUrl: string, recipientName: string) => {
+    console.log('Downloading single label:', { labelUrl, recipientName });
     if (!labelUrl) {
       toast.error('Label not available for download');
       return;
     }
-    onDownloadLabel(labelUrl);
-    toast.success(`Downloading label for ${recipientName}`);
+    try {
+      onDownloadLabel(labelUrl);
+      toast.success(`Downloading label for ${recipientName}`);
+    } catch (error) {
+      console.error('Error downloading single label:', error);
+      toast.error('Failed to download label');
+    }
   };
 
   const handleDownloadBulk = () => {
+    console.log('Downloading bulk labels:', bulkLabelUrl);
     if (!bulkLabelUrl) {
       toast.error('Bulk label not available');
       return;
     }
-    onDownloadBulkLabels(bulkLabelUrl);
-    toast.success('Downloading bulk labels');
+    try {
+      onDownloadBulkLabels(bulkLabelUrl);
+      toast.success('Downloading bulk labels');
+    } catch (error) {
+      console.error('Error downloading bulk labels:', error);
+      toast.error('Failed to download bulk labels');
+    }
   };
 
   const handleTrackingClick = (trackingUrl: string, trackingNumber: string) => {
-    window.open(trackingUrl, '_blank', 'noopener,noreferrer');
-    toast.success(`Opening tracking for ${trackingNumber}`);
+    console.log('Opening tracking:', { trackingUrl, trackingNumber });
+    if (!trackingUrl) {
+      toast.error('Tracking URL not available');
+      return;
+    }
+    try {
+      window.open(trackingUrl, '_blank', 'noopener,noreferrer');
+      toast.success(`Opening tracking for ${trackingNumber}`);
+    } catch (error) {
+      console.error('Error opening tracking URL:', error);
+      toast.error('Failed to open tracking URL');
+    }
   };
 
   return (
@@ -104,28 +146,32 @@ const BulkLabelsTable: React.FC<BulkLabelsTableProps> = ({
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {labels.map((label, index) => (
-                <tr key={label.shipment_id} className="hover:bg-gray-50">
+                <tr key={label.shipment_id || index} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
-                      {label.recipient_name}
+                      {label.recipient_name || 'Unknown Recipient'}
                     </div>
                   </td>
                   
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-500 max-w-xs">
-                      {label.drop_off_address}
+                      {label.drop_off_address || 'Address not available'}
                     </div>
                   </td>
                   
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => handleTrackingClick(label.tracking_url, label.tracking_number)}
-                      className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
-                    >
-                      <Truck className="mr-1 h-3 w-3" />
-                      {label.tracking_number}
-                      <ExternalLink className="ml-1 h-3 w-3" />
-                    </button>
+                    {label.tracking_number && label.tracking_url ? (
+                      <button
+                        onClick={() => handleTrackingClick(label.tracking_url, label.tracking_number)}
+                        className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors"
+                      >
+                        <Truck className="mr-1 h-3 w-3" />
+                        {label.tracking_number}
+                        <ExternalLink className="ml-1 h-3 w-3" />
+                      </button>
+                    ) : (
+                      <span className="text-gray-400 text-sm">No tracking</span>
+                    )}
                   </td>
                   
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -152,7 +198,7 @@ const BulkLabelsTable: React.FC<BulkLabelsTableProps> = ({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleDownloadSingle(label.label_url, label.recipient_name)}
+                      onClick={() => handleDownloadSingle(label.label_url, label.recipient_name || 'Label')}
                       disabled={!label.label_url}
                       className="text-blue-600 border-blue-600 hover:bg-blue-50"
                     >
