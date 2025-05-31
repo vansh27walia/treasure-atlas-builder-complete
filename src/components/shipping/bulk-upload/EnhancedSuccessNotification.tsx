@@ -1,22 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, Package, Eye, AlertCircle } from 'lucide-react';
+import { CheckCircle, Download, RotateCcw } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
-import { bulkStorageService, DownloadableLabel } from '@/services/BulkStorageService';
+import BulkLabelsTable from './BulkLabelsTable';
 import { toast } from '@/components/ui/sonner';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger,
-  DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu";
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import BatchDownload from './BatchDownload';
-import ShipmentList from './ShipmentList';
 
 interface EnhancedSuccessNotificationProps {
   results: BulkUploadResult;
@@ -29,264 +18,109 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
   batchId,
   batchLabelUrl
 }) => {
-  const [downloadableLabels, setDownloadableLabels] = useState<Record<string, DownloadableLabel[]>>({});
-  const [isLoadingLabels, setIsLoadingLabels] = useState(false);
-  const [labelsError, setLabelsError] = useState<string | null>(null);
+  // Transform shipments into the format expected by BulkLabelsTable
+  const labels = results.processedShipments
+    .filter(shipment => shipment.label_url && shipment.tracking_code)
+    .map(shipment => ({
+      shipment_id: shipment.id,
+      recipient_name: shipment.details?.to_name || shipment.recipient,
+      drop_off_address: `${shipment.details?.to_street1 || ''}, ${shipment.details?.to_city || ''}, ${shipment.details?.to_state || ''} ${shipment.details?.to_zip || ''}`.trim().replace(/^,\s*/, '').replace(/,\s*$/, ''),
+      tracking_number: shipment.tracking_code || shipment.trackingCode || '',
+      tracking_url: `https://tools.usps.com/go/TrackConfirmAction?tLabels=${shipment.tracking_code || shipment.trackingCode}`,
+      label_url: shipment.label_url || '',
+      carrier: shipment.carrier,
+      service: shipment.service,
+      rate: shipment.rate
+    }));
 
-  useEffect(() => {
-    if (batchId) {
-      loadDownloadableLabels();
-    } else {
-      console.log('No batch ID provided for downloadable labels');
-    }
-  }, [batchId]);
-
-  const loadDownloadableLabels = async () => {
-    if (!batchId) {
-      console.log('Cannot load downloadable labels: no batch ID');
-      return;
-    }
-    
-    setIsLoadingLabels(true);
-    setLabelsError(null);
-    
+  const handleDownloadLabel = (labelUrl: string) => {
     try {
-      console.log(`Loading downloadable labels for batch: ${batchId}`);
-      const labels = await bulkStorageService.getDownloadableLabels(batchId);
-      console.log('Loaded downloadable labels:', labels);
-      setDownloadableLabels(labels);
-      
-      const totalLabels = Object.values(labels).reduce((total, labelArray) => total + labelArray.length, 0);
-      if (totalLabels === 0) {
-        setLabelsError('No downloadable labels found. Labels may still be processing.');
-      }
-    } catch (error) {
-      console.error('Error loading downloadable labels:', error);
-      setLabelsError(error instanceof Error ? error.message : 'Failed to load downloadable labels');
-    } finally {
-      setIsLoadingLabels(false);
-    }
-  };
-
-  const handleDownloadByFormat = async (format: 'PDF' | 'PNG' | 'ZPL') => {
-    if (!batchId) {
-      toast.error('No batch ID available for download');
-      return;
-    }
-
-    try {
-      toast.loading(`Preparing ${format} downloads...`);
-      await bulkStorageService.downloadLabelsByFormat(batchId, format);
-      toast.dismiss();
-      toast.success(`Started ${format} downloads`);
-    } catch (error) {
-      toast.dismiss();
-      toast.error(`Failed to download ${format} labels: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  };
-
-  const handleDownloadAll = async () => {
-    if (!batchId) {
-      toast.error('No batch ID available for download');
-      return;
-    }
-
-    try {
-      toast.loading('Preparing all label downloads...');
-      await bulkStorageService.downloadAllLabels(batchId);
-      toast.dismiss();
-      toast.success('Started all label downloads');
-    } catch (error) {
-      toast.dismiss();
-      toast.error(`Failed to download all labels: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  };
-
-  const handleDownloadSingle = (labelUrl: string, format: string = 'pdf') => {
-    try {
+      // Create a temporary link element and trigger download
       const link = document.createElement('a');
       link.href = labelUrl;
-      link.download = `shipping_label_${Date.now()}.${format}`;
       link.target = '_blank';
-      
+      link.rel = 'noopener noreferrer';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      toast.success(`Downloaded ${format.toUpperCase()} label`);
     } catch (error) {
-      toast.error(`Failed to download ${format.toUpperCase()} label`);
+      console.error('Download error:', error);
+      toast.error('Failed to download label');
     }
   };
 
-  const hasLabels = results.processedShipments.some(shipment => shipment.label_url);
-  const totalLabels = Object.values(downloadableLabels).reduce((total, labels) => total + labels.length, 0);
+  const handleDownloadBulkLabels = (bulkLabelUrl: string) => {
+    try {
+      // Create a temporary link element and trigger download
+      const link = document.createElement('a');
+      link.href = bulkLabelUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.download = `bulk_labels_${batchId || Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Bulk download error:', error);
+      toast.error('Failed to download bulk labels');
+    }
+  };
 
-  // Prepare shipments for ShipmentList component
-  const shipmentsForList = results.processedShipments.map(shipment => ({
-    id: shipment.id,
-    tracking_code: shipment.tracking_code || 'PENDING',
-    carrier: shipment.carrier || 'Unknown',
-    service: shipment.service || 'Unknown',
-    rate: shipment.rate || 0,
-    status: shipment.status || 'pending',
-    label_url: shipment.label_url,
-    label_urls: shipment.label_urls,
-    customer_name: shipment.customer_name || shipment.recipient || 'Unknown',
-    customer_address: shipment.customer_address || 'Unknown'
-  }));
+  const handleStartOver = () => {
+    window.location.reload();
+  };
 
   return (
-    <div className="mt-6 space-y-6">
+    <div className="space-y-6">
+      {/* Success Header */}
       <Card className="p-6 border-green-200 bg-green-50">
-        <div className="flex items-center space-x-3 mb-4">
-          <CheckCircle className="h-6 w-6 text-green-600" />
-          <div>
-            <h3 className="text-lg font-semibold text-green-800">
-              Bulk Labels Created Successfully!
-            </h3>
-            <p className="text-green-700">
-              {results.successful} shipping labels created using EasyPost Batch API.
-            </p>
-            {batchId && (
-              <p className="text-sm text-green-600 mt-1">
-                Batch ID: {batchId}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <CheckCircle className="h-8 w-8 text-green-600 mr-3" />
+            <div>
+              <h2 className="text-xl font-semibold text-green-800">
+                Bulk Label Creation Successful!
+              </h2>
+              <p className="text-green-700 mt-1">
+                Successfully created {labels.length} shipping labels
+                {batchId && (
+                  <span className="text-sm text-green-600 block">
+                    Batch ID: {batchId}
+                  </span>
+                )}
               </p>
-            )}
-          </div>
-        </div>
-
-        {results.failed > 0 && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p className="text-yellow-800 text-sm">
-              <strong>Note:</strong> {results.failed} shipments failed to process. Please check the error details below.
-            </p>
-          </div>
-        )}
-
-        {labelsError && (
-          <Alert className="mb-4 border-orange-200 bg-orange-50">
-            <AlertCircle className="h-4 w-4 text-orange-600" />
-            <AlertDescription className="text-orange-800">
-              {labelsError}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Enhanced Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg border border-green-200">
-            <div className="text-2xl font-bold text-green-600">{results.successful}</div>
-            <div className="text-sm text-gray-600">Successful Shipments</div>
-          </div>
-          
-          <div className="bg-white p-4 rounded-lg border border-green-200">
-            <div className="text-2xl font-bold text-green-600">${results.totalCost.toFixed(2)}</div>
-            <div className="text-sm text-gray-600">Total Shipping Cost</div>
-          </div>
-          
-          <div className="bg-white p-4 rounded-lg border border-green-200">
-            <div className="text-2xl font-bold text-green-600">{totalLabels}</div>
-            <div className="text-sm text-gray-600">
-              {isLoadingLabels ? 'Loading...' : 'Labels Generated'}
             </div>
           </div>
-
-          <div className="bg-white p-4 rounded-lg border border-green-200">
-            <div className="text-2xl font-bold text-green-600">3</div>
-            <div className="text-sm text-gray-600">Formats Available</div>
-            <div className="flex gap-1 mt-1">
-              <Badge variant="secondary" className="text-xs">PDF</Badge>
-              <Badge variant="secondary" className="text-xs">PNG</Badge>
-              <Badge variant="secondary" className="text-xs">ZPL</Badge>
-            </div>
-          </div>
-        </div>
-
-        {/* Enhanced Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                className="bg-green-600 hover:bg-green-700 text-white"
-                disabled={isLoadingLabels || totalLabels === 0}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download Labels
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={() => handleDownloadByFormat('PDF')}>
-                <FileText className="mr-2 h-4 w-4 text-red-600" />
-                Download All PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDownloadByFormat('PNG')}>
-                <FileText className="mr-2 h-4 w-4 text-blue-600" />
-                Download All PNG
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDownloadByFormat('ZPL')}>
-                <FileText className="mr-2 h-4 w-4 text-purple-600" />
-                Download All ZPL
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleDownloadAll}>
-                <Package className="mr-2 h-4 w-4 text-green-600" />
-                Download All Formats
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
           
-          <Button 
-            variant="outline" 
-            onClick={() => window.print()}
-            className="border-green-200 hover:bg-green-50"
-          >
-            <FileText className="mr-2 h-4 w-4" />
-            Print Summary
-          </Button>
-
-          <Button 
+          <Button
             variant="outline"
-            onClick={loadDownloadableLabels}
-            disabled={isLoadingLabels || !batchId}
-            className="border-green-200 hover:bg-green-50"
+            onClick={handleStartOver}
+            className="text-green-700 border-green-300 hover:bg-green-100"
           >
-            <Eye className="mr-2 h-4 w-4" />
-            {isLoadingLabels ? 'Refreshing...' : 'Refresh Labels'}
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Start Over
           </Button>
         </div>
       </Card>
 
-      {/* Batch Download Section */}
-      {batchId && (
-        <BatchDownload
-          batchId={batchId}
-          batchLabelUrl={batchLabelUrl}
-          totalShipments={results.successful}
-          onDownloadBatch={handleDownloadAll}
+      {/* Labels Table */}
+      {labels.length > 0 ? (
+        <BulkLabelsTable
+          labels={labels}
+          bulkLabelUrl={batchLabelUrl}
+          onDownloadLabel={handleDownloadLabel}
+          onDownloadBulkLabels={handleDownloadBulkLabels}
         />
-      )}
-
-      {/* Individual Shipments List */}
-      {hasLabels && shipmentsForList.length > 0 && (
-        <ShipmentList
-          shipments={shipmentsForList}
-          onDownloadLabel={handleDownloadSingle}
-        />
-      )}
-
-      {/* Failed Shipments */}
-      {results.failedShipments && results.failedShipments.length > 0 && (
-        <Card className="p-4">
-          <h4 className="font-medium text-red-800 mb-3">Failed Shipments</h4>
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            {results.failedShipments.map((failed, index) => (
-              <div key={index} className="mb-2 last:mb-0">
-                <span className="font-medium text-red-700">Row {failed.row}:</span>
-                <span className="text-red-600 ml-2">{failed.details}</span>
-              </div>
-            ))}
-          </div>
+      ) : (
+        <Card className="p-6 text-center">
+          <p className="text-gray-500">No labels were successfully created.</p>
+          <Button
+            onClick={handleStartOver}
+            className="mt-4"
+            variant="outline"
+          >
+            Try Again
+          </Button>
         </Card>
       )}
     </div>

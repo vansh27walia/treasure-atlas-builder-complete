@@ -20,16 +20,16 @@ interface ShipmentData {
   details: any;
 }
 
-const createEasyPostBatch = async (shipments: ShipmentData[], userId: string, labelOptions: LabelOptions = {}) => {
+const createEasyPostBulkLabels = async (shipments: ShipmentData[], userId: string, labelOptions: LabelOptions = {}) => {
   const apiKey = Deno.env.get('EASYPOST_API_KEY');
   if (!apiKey) {
     throw new Error('EasyPost API key not configured');
   }
 
   try {
-    console.log(`Initiating bulk label creation for ${shipments.length} shipments via EasyPost.`);
+    console.log(`Creating bulk labels for ${shipments.length} shipments via EasyPost.`);
     
-    const processedLabels = [];
+    const labels = [];
     const batchId = `batch_${Date.now()}`;
 
     for (const shipmentData of shipments) {
@@ -58,25 +58,27 @@ const createEasyPostBatch = async (shipments: ShipmentData[], userId: string, la
         console.log(`Successfully purchased shipment ${shipment.id}, tracking: ${shipment.tracking_code}`);
 
         if (shipment.postage_label && shipment.tracking_code) {
-          // Store all label formats with proper error handling
-          const labelUrls = await downloadAndStoreAllFormats(shipment.postage_label, shipment.tracking_code, userId, batchId);
+          // Store label in our storage
+          const labelUrls = await downloadAndStoreLabel(shipment.postage_label, shipment.tracking_code, userId, batchId);
           
-          processedLabels.push({
-            id: shipmentData.id,
-            easypost_id: shipment.id,
-            tracking_code: shipment.tracking_code,
-            label_urls: labelUrls,
-            label_url: labelUrls.pdf || labelUrls.png || '', // Backward compatibility
-            status: 'completed',
+          // Get drop-off address (use from_address as drop-off location)
+          const dropOffAddress = `${shipment.from_address?.street1 || ''}, ${shipment.from_address?.city || ''}, ${shipment.from_address?.state || ''} ${shipment.from_address?.zip || ''}`.trim().replace(/^,\s*/, '').replace(/,\s*$/, '');
+          
+          // Create tracking URL
+          const trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${shipment.tracking_code}`;
+          
+          labels.push({
+            shipment_id: shipmentData.id,
+            recipient_name: shipmentData.details?.to_name || shipmentData.recipient,
+            drop_off_address: dropOffAddress,
+            tracking_number: shipment.tracking_code,
+            tracking_url: trackingUrl,
+            label_url: labelUrls.pdf || labelUrls.png || '',
             carrier: shipment.selected_rate?.carrier || 'Unknown',
             service: shipment.selected_rate?.service || 'Unknown',
             rate: shipment.selected_rate?.rate || 0,
-            customer_name: shipmentData.details?.to_name || shipmentData.recipient,
-            customer_address: `${shipment.to_address?.street1}, ${shipment.to_address?.city}, ${shipment.to_address?.state} ${shipment.to_address?.zip}`,
-            customer_phone: shipment.to_address?.phone,
-            customer_email: shipment.to_address?.email,
-            batch_id: batchId,
-            batch_label_url: null // Will be set later
+            easypost_id: shipment.id,
+            batch_id: batchId
           });
         }
       } catch (error) {
@@ -84,39 +86,26 @@ const createEasyPostBatch = async (shipments: ShipmentData[], userId: string, la
       }
     }
 
-    // Create a consolidated batch label if we have processed labels
-    let batchLabelUrl = null;
-    if (processedLabels.length > 0) {
-      try {
-        // Use the first label as the "batch" label for now
-        batchLabelUrl = processedLabels[0].label_url;
-        
-        // Update all processed labels with the batch label URL
-        processedLabels.forEach(label => {
-          label.batch_label_url = batchLabelUrl;
-        });
-        
-        console.log('Batch label URL set:', batchLabelUrl);
-      } catch (error) {
-        console.error('Error setting batch label:', error);
-      }
+    // Generate bulk label URL (for now, we'll use the first label as bulk - in production you'd merge PDFs)
+    let bulkLabelUrl = null;
+    if (labels.length > 0) {
+      bulkLabelUrl = labels[0].label_url; // In production, you'd create a merged PDF here
     }
 
     return {
-      batchId,
-      batchEasyPostId: batchId,
-      batchLabelUrl,
-      processedLabels,
-      totalLabels: processedLabels.length
+      status: 'success',
+      labels,
+      bulk_label_url: bulkLabelUrl,
+      total_labels: labels.length
     };
 
   } catch (error) {
-    console.error('Error during batch label creation process:', error);
+    console.error('Error during bulk label creation process:', error);
     throw error;
   }
 };
 
-const downloadAndStoreAllFormats = async (postageLabel: any, trackingCode: string, userId: string, batchId: string): Promise<Record<string, string>> => {
+const downloadAndStoreLabel = async (postageLabel: any, trackingCode: string, userId: string, batchId: string): Promise<Record<string, string>> => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -253,7 +242,7 @@ serve(async (req) => {
 
     console.log(`Authenticated user: ${user.id}`);
 
-    const { shipments, pickupAddress, labelOptions = {} } = await req.json();
+    const { shipments, labelOptions = {} } = await req.json();
     
     if (!shipments || !Array.isArray(shipments)) {
       return new Response(
@@ -270,22 +259,13 @@ serve(async (req) => {
       console.error('Error initializing storage bucket:', bucketError);
     }
 
-    // Create labels using individual purchases
-    const batchResult = await createEasyPostBatch(shipments, user.id, labelOptions);
+    // Create labels using EasyPost
+    const result = await createEasyPostBulkLabels(shipments, user.id, labelOptions);
 
-    console.log(`Batch processing complete: ${batchResult.processedLabels.length} successful labels created`);
+    console.log(`Bulk label creation complete: ${result.labels.length} successful labels created`);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        processedLabels: batchResult.processedLabels,
-        batchId: batchResult.batchId,
-        batchLabelUrl: batchResult.batchLabelUrl,
-        total: shipments.length,
-        successful: batchResult.processedLabels.length,
-        failed: shipments.length - batchResult.processedLabels.length,
-        message: `Successfully created ${batchResult.processedLabels.length} labels in PDF, PNG, and ZPL formats`,
-      }),
+      JSON.stringify(result),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 

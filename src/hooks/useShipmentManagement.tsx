@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -113,19 +112,18 @@ export const useShipmentManagement = (
 
       console.log('Label creation response:', data);
 
-      if (data && data.processedLabels && data.processedLabels.length > 0) {
-        // Update results with the new label URLs and batch information
+      if (data && data.labels && data.labels.length > 0) {
+        // Update results with the new label data from the structured response
         const updatedShipments = initialResults.processedShipments.map(shipment => {
-          const labelData = data.processedLabels.find((label: any) => label.id === shipment.id);
+          const labelData = data.labels.find((label: any) => label.shipment_id === shipment.id);
           if (labelData) {
             return {
               ...shipment,
               label_url: labelData.label_url,
-              label_urls: labelData.label_urls,
-              tracking_code: labelData.tracking_code,
+              tracking_code: labelData.tracking_number,
               status: 'completed' as const,
               batch_id: labelData.batch_id,
-              batch_label_url: labelData.batch_label_url
+              batch_label_url: data.bulk_label_url
             };
           }
           return shipment;
@@ -137,7 +135,7 @@ export const useShipmentManagement = (
           uploadStatus: 'success'
         });
 
-        toast.success(`Successfully created ${data.processedLabels.length} shipping labels`);
+        toast.success(`Successfully created ${data.labels.length} shipping labels`);
       } else {
         throw new Error('No labels were created');
       }
