@@ -116,6 +116,11 @@ const BulkUpload: React.FC = () => {
     }
   };
 
+  // Create a proper event handler wrapper for handleCreateLabels
+  const handleCreateLabelsClick = () => {
+    handleCreateLabels();
+  };
+
   const resetUpload = () => {
     setCurrentBatchId(null);
     setCurrentBatchLabelUrl(null);
@@ -242,7 +247,7 @@ const BulkUpload: React.FC = () => {
                   </Button>
                   
                   <Button
-                    onClick={handleCreateLabels}
+                    onClick={handleCreateLabelsClick}
                     disabled={isCreatingLabels || results.processedShipments.length === 0 || !pickupAddress}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
