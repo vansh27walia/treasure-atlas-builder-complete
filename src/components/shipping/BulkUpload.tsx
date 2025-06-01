@@ -291,11 +291,13 @@ const BulkUpload: React.FC = () => {
         )}
         
         {uploadStatus === 'success' && results && (
-          <EnhancedSuccessNotification
-            results={results}
-            batchId={currentBatchId || undefined}
-            batchLabelUrl={currentBatchLabelUrl || undefined}
-          />
+          <div className="mt-6">
+            <EnhancedSuccessNotification
+              results={results}
+              batchId={currentBatchId || undefined}
+              batchLabelUrl={currentBatchLabelUrl || undefined}
+            />
+          </div>
         )}
         
         {uploadStatus === 'error' && (
