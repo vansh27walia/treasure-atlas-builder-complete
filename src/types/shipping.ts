@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -143,6 +142,26 @@ export interface BulkUploadResult {
   failedShipments: BulkShipmentError[];
   uploadStatus?: 'idle' | 'success' | 'error' | 'editing';
   pickupAddress?: ShippingAddress;
+  labels?: Array<{
+    shipment_id: string;
+    recipient_name: string;
+    drop_off_address: string;
+    tracking_number: string;
+    tracking_url: string;
+    label_url: string;
+    label_urls?: {
+      pdf?: string;
+      png?: string;
+      zpl?: string;
+    };
+    carrier?: string;
+    service?: string;
+    rate?: number;
+    batch_id?: string;
+    easypost_id?: string;
+  }>;
+  bulk_label_png_url?: string;
+  bulk_label_pdf_url?: string;
 }
 
 export const CARRIER_OPTIONS = [

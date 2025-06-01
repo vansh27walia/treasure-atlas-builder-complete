@@ -33,71 +33,69 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
     );
   }
 
-  // Safety check for processedShipments
-  if (!results.processedShipments || !Array.isArray(results.processedShipments)) {
-    console.error('EnhancedSuccessNotification: Invalid processedShipments:', results.processedShipments);
-    return (
-      <Card className="p-6 text-center">
-        <p className="text-red-600">Error: Invalid shipments data</p>
-        <Button onClick={() => window.location.reload()} className="mt-4">
-          Reload Page
-        </Button>
-      </Card>
-    );
+  // Try to get labels from either the labels array or transform processedShipments
+  let labels = [];
+  
+  if (results.labels && Array.isArray(results.labels)) {
+    // Use the labels array if available
+    labels = results.labels;
+    console.log('Using labels array from results:', labels);
+  } else if (results.processedShipments && Array.isArray(results.processedShipments)) {
+    // Transform shipments into the format expected by BulkLabelsTable
+    labels = results.processedShipments
+      .filter(shipment => {
+        console.log('Filtering shipment:', shipment);
+        return shipment && (shipment.label_url || shipment.tracking_code);
+      })
+      .map(shipment => {
+        try {
+          const label = {
+            shipment_id: shipment.id || 'unknown',
+            recipient_name: shipment.details?.to_name || shipment.recipient || 'Unknown Recipient',
+            drop_off_address: (() => {
+              const details = shipment.details;
+              if (!details) return 'Address not available';
+              
+              const parts = [
+                details.to_street1 || '',
+                details.to_city || '',
+                details.to_state || '',
+                details.to_zip || ''
+              ].filter(Boolean);
+              
+              return parts.length > 0 ? parts.join(', ') : 'Address not available';
+            })(),
+            tracking_number: shipment.tracking_code || shipment.trackingCode || '',
+            tracking_url: shipment.tracking_code ? 
+              `https://tools.usps.com/go/TrackConfirmAction?tLabels=${shipment.tracking_code}` : '',
+            label_url: shipment.label_url || '',
+            label_urls: shipment.label_urls || {},
+            carrier: shipment.carrier || 'Unknown',
+            service: shipment.service || 'Unknown',
+            rate: shipment.rate || 0
+          };
+          
+          console.log('Transformed label:', label);
+          return label;
+        } catch (error) {
+          console.error('Error transforming shipment:', shipment, error);
+          return {
+            shipment_id: shipment?.id || 'error',
+            recipient_name: 'Error processing shipment',
+            drop_off_address: 'Error',
+            tracking_number: '',
+            tracking_url: '',
+            label_url: '',
+            label_urls: {},
+            carrier: 'Error',
+            service: 'Error',
+            rate: 0
+          };
+        }
+      });
+    
+    console.log('Transformed labels from processedShipments:', labels);
   }
-
-  // Transform shipments into the format expected by BulkLabelsTable
-  const labels = results.processedShipments
-    .filter(shipment => {
-      console.log('Filtering shipment:', shipment);
-      return shipment && (shipment.label_url || shipment.tracking_code);
-    })
-    .map(shipment => {
-      try {
-        const label = {
-          shipment_id: shipment.id || 'unknown',
-          recipient_name: shipment.details?.to_name || shipment.recipient || 'Unknown Recipient',
-          drop_off_address: (() => {
-            const details = shipment.details;
-            if (!details) return 'Address not available';
-            
-            const parts = [
-              details.to_street1 || '',
-              details.to_city || '',
-              details.to_state || '',
-              details.to_zip || ''
-            ].filter(Boolean);
-            
-            return parts.length > 0 ? parts.join(', ') : 'Address not available';
-          })(),
-          tracking_number: shipment.tracking_code || shipment.trackingCode || '',
-          tracking_url: shipment.tracking_code ? 
-            `https://tools.usps.com/go/TrackConfirmAction?tLabels=${shipment.tracking_code}` : '',
-          label_url: shipment.label_url || '',
-          carrier: shipment.carrier || 'Unknown',
-          service: shipment.service || 'Unknown',
-          rate: shipment.rate || 0
-        };
-        
-        console.log('Transformed label:', label);
-        return label;
-      } catch (error) {
-        console.error('Error transforming shipment:', shipment, error);
-        return {
-          shipment_id: shipment?.id || 'error',
-          recipient_name: 'Error processing shipment',
-          drop_off_address: 'Error',
-          tracking_number: '',
-          tracking_url: '',
-          label_url: '',
-          carrier: 'Error',
-          service: 'Error',
-          rate: 0
-        };
-      }
-    });
-
-  console.log('Transformed labels:', labels);
 
   const handleDownloadLabel = (labelUrl: string) => {
     console.log('handleDownloadLabel called with:', labelUrl);
@@ -139,6 +137,9 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
     window.location.reload();
   };
 
+  // Use bulk label URL from results if available, otherwise use the passed batchLabelUrl
+  const bulkDownloadUrl = results.bulk_label_png_url || results.bulk_label_pdf_url || batchLabelUrl;
+
   return (
     <div className="space-y-6">
       {/* Success Header */}
@@ -176,7 +177,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
       {labels.length > 0 ? (
         <BulkLabelsTable
           labels={labels}
-          bulkLabelUrl={batchLabelUrl}
+          bulkLabelUrl={bulkDownloadUrl}
           onDownloadLabel={handleDownloadLabel}
           onDownloadBulkLabels={handleDownloadBulkLabels}
         />
