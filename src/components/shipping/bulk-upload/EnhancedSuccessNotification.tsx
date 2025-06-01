@@ -48,7 +48,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
       tracking_code: label.tracking_number || '',
       carrier: label.carrier || 'Unknown',
       service: label.service || 'Unknown',
-      rate: parseFloat(label.rate || '0'),
+      rate: typeof label.rate === 'number' ? label.rate : parseFloat(String(label.rate || '0')),
       details: {
         to_name: label.recipient_name || 'Unknown Recipient',
         to_street1: label.drop_off_address?.split(',')[0] || '',
