@@ -2,9 +2,10 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, RotateCcw } from 'lucide-react';
+import { CheckCircle, Download, RotateCcw } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import BulkLabelsTable from './BulkLabelsTable';
+import { toast } from '@/components/ui/sonner';
 
 interface EnhancedSuccessNotificationProps {
   results: BulkUploadResult;
@@ -19,6 +20,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
 }) => {
   console.log('EnhancedSuccessNotification rendered with:', { results, batchId, batchLabelUrl });
 
+  // Safety check for results
   if (!results) {
     console.error('EnhancedSuccessNotification: No results provided');
     return (
@@ -31,6 +33,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
     );
   }
 
+  // Safety check for processedShipments
   if (!results.processedShipments || !Array.isArray(results.processedShipments)) {
     console.error('EnhancedSuccessNotification: Invalid processedShipments:', results.processedShipments);
     return (
@@ -97,13 +100,38 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
   console.log('Transformed labels:', labels);
 
   const handleDownloadLabel = (labelUrl: string) => {
-    // This function is now handled directly in BulkLabelsTable
     console.log('handleDownloadLabel called with:', labelUrl);
+    try {
+      // Create a temporary link element and trigger download
+      const link = document.createElement('a');
+      link.href = labelUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download label');
+    }
   };
 
   const handleDownloadBulkLabels = (bulkLabelUrl: string) => {
-    // This function is now handled directly in BulkLabelsTable
     console.log('handleDownloadBulkLabels called with:', bulkLabelUrl);
+    try {
+      // Create a temporary link element and trigger download
+      const link = document.createElement('a');
+      link.href = bulkLabelUrl;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.download = `bulk_labels_${batchId || Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Bulk download error:', error);
+      toast.error('Failed to download bulk labels');
+    }
   };
 
   const handleStartOver = () => {
