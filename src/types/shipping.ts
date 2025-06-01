@@ -134,28 +134,6 @@ export interface BulkShipmentError {
   details: string;
 }
 
-// New interface for backend label response
-export interface BulkLabel {
-  shipment_id: string;
-  recipient_name: string;
-  drop_off_address: string;
-  tracking_number: string;
-  tracking_url: string;
-  label_url: string;
-  label_urls?: {
-    png?: string;
-    pdf?: string;
-    zpl?: string;
-  };
-  carrier: string;
-  service: string;
-  rate: number;
-  easypost_id: string;
-  batch_id: string;
-  status?: string;
-  batch_id_storage_path?: string;
-}
-
 export interface BulkUploadResult {
   total: number;
   successful: number;
@@ -165,13 +143,6 @@ export interface BulkUploadResult {
   failedShipments: BulkShipmentError[];
   uploadStatus?: 'idle' | 'success' | 'error' | 'editing';
   pickupAddress?: ShippingAddress;
-  // New properties from backend response
-  labels?: BulkLabel[];
-  bulk_label_png_url?: string;
-  bulk_label_pdf_url?: string;
-  bulk_label_url?: string;
-  status?: string;
-  total_labels?: number;
 }
 
 export const CARRIER_OPTIONS = [
