@@ -3,7 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, ExternalLink, Package, Truck, FileImage } from 'lucide-react';
+import { Download, ExternalLink, Package, Truck } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
 interface BulkLabel {
@@ -13,11 +13,6 @@ interface BulkLabel {
   tracking_number: string;
   tracking_url: string;
   label_url: string;
-  label_urls?: {
-    pdf?: string;
-    png?: string;
-    zpl?: string;
-  };
   carrier?: string;
   service?: string;
   rate?: number;
@@ -56,26 +51,15 @@ const BulkLabelsTable: React.FC<BulkLabelsTableProps> = ({
     );
   }
 
-  const handleDownloadSingle = (label: BulkLabel, format: 'png' | 'pdf' = 'png') => {
-    console.log('Downloading single label:', { label, format });
-    
-    let labelUrl = '';
-    
-    // Try to get the URL for the requested format
-    if (label.label_urls && label.label_urls[format]) {
-      labelUrl = label.label_urls[format];
-    } else if (label.label_url) {
-      labelUrl = label.label_url;
-    }
-    
+  const handleDownloadSingle = (labelUrl: string, recipientName: string) => {
+    console.log('Downloading single label:', { labelUrl, recipientName });
     if (!labelUrl) {
-      toast.error(`${format.toUpperCase()} label not available for download`);
+      toast.error('Label not available for download');
       return;
     }
-    
     try {
       onDownloadLabel(labelUrl);
-      toast.success(`Downloading ${format.toUpperCase()} label for ${label.recipient_name}`);
+      toast.success(`Downloading label for ${recipientName}`);
     } catch (error) {
       console.error('Error downloading single label:', error);
       toast.error('Failed to download label');
@@ -127,15 +111,13 @@ const BulkLabelsTable: React.FC<BulkLabelsTableProps> = ({
         </div>
         
         {bulkLabelUrl && (
-          <div className="flex gap-2">
-            <Button
-              onClick={handleDownloadBulk}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download All Labels
-            </Button>
-          </div>
+          <Button
+            onClick={handleDownloadBulk}
+            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Download All Labels
+          </Button>
         )}
       </div>
 
@@ -158,7 +140,7 @@ const BulkLabelsTable: React.FC<BulkLabelsTableProps> = ({
                   Carrier/Service
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Download Options
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -206,53 +188,23 @@ const BulkLabelsTable: React.FC<BulkLabelsTableProps> = ({
                       )}
                       {label.rate && (
                         <span className="text-xs text-green-600 font-medium">
-                          ${typeof label.rate === 'number' ? label.rate.toFixed(2) : label.rate}
+                          ${label.rate}
                         </span>
                       )}
                     </div>
                   </td>
                   
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col space-y-2">
-                      {/* PNG Download */}
-                      {(label.label_urls?.png || label.label_url) && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDownloadSingle(label, 'png')}
-                          className="text-blue-600 border-blue-600 hover:bg-blue-50 w-full"
-                        >
-                          <FileImage className="mr-1 h-3 w-3" />
-                          PNG
-                        </Button>
-                      )}
-                      
-                      {/* PDF Download */}
-                      {label.label_urls?.pdf && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDownloadSingle(label, 'pdf')}
-                          className="text-red-600 border-red-600 hover:bg-red-50 w-full"
-                        >
-                          <Download className="mr-1 h-3 w-3" />
-                          PDF
-                        </Button>
-                      )}
-                      
-                      {/* Fallback download if no specific formats */}
-                      {!label.label_urls?.png && !label.label_urls?.pdf && label.label_url && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDownloadSingle(label)}
-                          className="text-blue-600 border-blue-600 hover:bg-blue-50 w-full"
-                        >
-                          <Download className="mr-1 h-3 w-3" />
-                          Download
-                        </Button>
-                      )}
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDownloadSingle(label.label_url, label.recipient_name || 'Label')}
+                      disabled={!label.label_url}
+                      className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                    >
+                      <Download className="mr-1 h-3 w-3" />
+                      Download
+                    </Button>
                   </td>
                 </tr>
               ))}

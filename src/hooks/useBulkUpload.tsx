@@ -226,61 +226,30 @@ export const useBulkUpload = () => {
 
       console.log('Label creation response:', data);
 
-      if (data && data.labels && Array.isArray(data.labels) && data.labels.length > 0) {
-        console.log('Processing successful label creation response');
-        
-        // Transform the response data to match our expected format
-        const transformedLabels = data.labels.map((label: any) => ({
-          shipment_id: label.shipment_id,
-          recipient_name: label.recipient_name || 'Unknown Recipient',
-          drop_off_address: label.drop_off_address || 'Address not available',
-          tracking_number: label.tracking_number || '',
-          tracking_url: label.tracking_url || '',
-          label_url: label.label_urls?.png || label.label_url || '',
-          label_urls: label.label_urls || {},
-          carrier: label.carrier || 'Unknown',
-          service: label.service || 'Unknown',
-          rate: label.rate || 0,
-          batch_id: label.batch_id,
-          easypost_id: label.easypost_id
-        }));
-
-        // Update results with the new label data and add the labels array
+      if (data.processedLabels && data.processedLabels.length > 0) {
+        // Update results with the new label URLs
         const updatedShipments = results.processedShipments.map(shipment => {
-          const labelData = data.labels.find((label: any) => label.shipment_id === shipment.id);
+          const labelData = data.processedLabels.find((label: any) => label.id === shipment.id);
           if (labelData) {
-            console.log('Updating shipment with label data:', { shipment: shipment.id, labelData });
             return {
               ...shipment,
-              label_url: labelData.label_urls?.png || labelData.label_url,
-              label_urls: labelData.label_urls,
-              tracking_code: labelData.tracking_number,
-              status: 'completed' as const,
-              batch_id: labelData.batch_id,
-              batch_label_url: data.bulk_label_png_url || data.bulk_label_pdf_url
+              label_url: labelData.label_url,
+              tracking_code: labelData.tracking_code,
+              status: 'completed' as const
             };
           }
           return shipment;
         });
 
-        console.log('Updated shipments with labels:', updatedShipments);
-
-        // Update the results with both the updated shipments and the labels array
-        const updatedResults = {
+        setResults({
           ...results,
-          processedShipments: updatedShipments,
-          labels: transformedLabels, // Add the labels array
-          bulk_label_png_url: data.bulk_label_png_url,
-          bulk_label_pdf_url: data.bulk_label_pdf_url,
-          uploadStatus: 'success' as const
-        };
+          processedShipments: updatedShipments
+        });
 
-        setResults(updatedResults);
         setUploadStatus('success');
-        toast.success(`Successfully created ${data.labels.length} shipping labels`);
+        toast.success(`Successfully created ${data.processedLabels.length} shipping labels`);
       } else {
-        console.error('Invalid response from label creation:', data);
-        throw new Error('No labels were created or invalid response format');
+        throw new Error('No labels were created');
       }
 
     } catch (error) {
