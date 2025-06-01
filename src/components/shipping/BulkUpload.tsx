@@ -61,7 +61,11 @@ const BulkUpload: React.FC = () => {
 
   console.log('BulkUpload hook data:', {
     uploadStatus,
-    results: results ? { ...results, processedShipments: results.processedShipments?.length } : null,
+    results: results ? { 
+      ...results, 
+      processedShipments: results.processedShipments?.length,
+      labels: results.labels?.length 
+    } : null,
     isCreatingLabels,
     currentBatchId,
     currentBatchLabelUrl
@@ -71,30 +75,46 @@ const BulkUpload: React.FC = () => {
   useEffect(() => {
     console.log('BulkUpload useEffect - checking for batch info:', {
       uploadStatus,
-      resultsLength: results?.processedShipments?.length,
+      resultsStructure: results ? Object.keys(results) : null,
       currentBatchId
     });
     
-    if (uploadStatus === 'success' && results && results.processedShipments && results.processedShipments.length > 0) {
-      // Check if batch info is already available from the results
-      const firstShipment = results.processedShipments[0];
-      if (firstShipment && firstShipment.batch_id) {
-        console.log('Using batch ID from results:', firstShipment.batch_id);
-        setCurrentBatchId(firstShipment.batch_id);
+    if (uploadStatus === 'success' && results) {
+      // Handle new backend response structure
+      if (results.labels && Array.isArray(results.labels) && results.labels.length > 0) {
+        console.log('Using new backend structure with labels array');
         
-        // Set batch label URL if available
-        if (firstShipment.batch_label_url) {
+        // Check if batch info is available from the labels
+        const firstLabel = results.labels.find(label => label.batch_id_storage_path);
+        if (firstLabel && !currentBatchId) {
+          setCurrentBatchId(firstLabel.batch_id_storage_path);
+        }
+        
+        // Set batch label URLs from backend response
+        if (results.bulk_label_png_url && !currentBatchLabelUrl) {
+          setCurrentBatchLabelUrl(results.bulk_label_png_url);
+        }
+      }
+      // Handle old structure
+      else if (results.processedShipments && results.processedShipments.length > 0) {
+        console.log('Using old structure with processedShipments');
+        const firstShipment = results.processedShipments[0];
+        if (firstShipment && firstShipment.batch_id && !currentBatchId) {
+          setCurrentBatchId(firstShipment.batch_id);
+        }
+        if (firstShipment && firstShipment.batch_label_url && !currentBatchLabelUrl) {
           setCurrentBatchLabelUrl(firstShipment.batch_label_url);
         }
-      } else if (!currentBatchId) {
-        // Generate a fallback batch ID based on timestamp and first tracking code
-        const firstTrackingCode = results.processedShipments[0]?.tracking_code || 'unknown';
-        const batchId = `batch_${Date.now()}_${firstTrackingCode.substring(0, 8)}`;
+      }
+      
+      // Generate fallback batch ID if none exists
+      if (!currentBatchId) {
+        const batchId = `batch_${Date.now()}`;
         console.log('Generated fallback batch ID:', batchId);
         setCurrentBatchId(batchId);
       }
     }
-  }, [uploadStatus, results, currentBatchId]);
+  }, [uploadStatus, results, currentBatchId, currentBatchLabelUrl]);
 
   // Log pickup address on mount and when it changes (less frequently)
   useEffect(() => {
@@ -247,16 +267,16 @@ const BulkUpload: React.FC = () => {
               onRefreshRates={handleRefreshRates}
             />
             
-            {results.processedShipments.length > 0 && (
+            {(results.processedShipments?.length > 0 || results.labels?.length > 0) && (
               <div className="mt-8 p-4 border rounded-lg bg-gray-50">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
                   <div>
                     <h3 className="font-semibold text-lg">Enhanced Batch Order Summary</h3>
                     <p className="text-gray-600">
-                      {results.processedShipments.length} shipments selected with a total cost of ${results.totalCost.toFixed(2)}
+                      {results.processedShipments?.length || results.labels?.length || 0} shipments selected with a total cost of ${results.totalCost?.toFixed(2) || '0.00'}
                     </p>
                     <p className="text-sm text-blue-600 mt-1">
-                      Labels will be generated using EasyPost API in PDF, PNG, and ZPL formats
+                      Labels will be generated using EasyPost API in PNG format
                     </p>
                     {pickupAddress && (
                       <p className="text-sm text-blue-600 mt-1">
@@ -277,7 +297,7 @@ const BulkUpload: React.FC = () => {
                     
                     <Button
                       onClick={handleCreateLabelsClick}
-                      disabled={isCreatingLabels || results.processedShipments.length === 0 || !pickupAddress}
+                      disabled={isCreatingLabels || (results.processedShipments?.length || 0) === 0 || !pickupAddress}
                       className="px-6 bg-green-600 hover:bg-green-700"
                     >
                       {isCreatingLabels ? 'Creating Labels...' : 'Create Batch Labels'} 
@@ -313,7 +333,7 @@ const BulkUpload: React.FC = () => {
           onOpenChange={setShowLabelOptions}
           onFormatSelect={handleDownloadLabelsWithFormat}
           onEmailLabels={() => handleEmailLabels("")}
-          shipmentCount={results?.processedShipments.length || 0}
+          shipmentCount={results?.processedShipments?.length || results?.labels?.length || 0}
         />
       </Card>
     );
