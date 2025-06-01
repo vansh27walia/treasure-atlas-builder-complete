@@ -74,10 +74,9 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
           tracking_url: shipment.tracking_code ? 
             `https://tools.usps.com/go/TrackConfirmAction?tLabels=${shipment.tracking_code}` : '',
           label_url: shipment.label_url || '',
-          label_png_url: shipment.label_png_url || shipment.label_url || '',
           carrier: shipment.carrier || 'Unknown',
           service: shipment.service || 'Unknown',
-          rate: shipment.rate ? shipment.rate.toString() : '0'
+          rate: shipment.rate || 0
         };
         
         console.log('Transformed label:', label);
@@ -91,10 +90,9 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
           tracking_number: '',
           tracking_url: '',
           label_url: '',
-          label_png_url: '',
           carrier: 'Error',
           service: 'Error',
-          rate: '0'
+          rate: 0
         };
       }
     });
@@ -118,25 +116,10 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
     }
   };
 
-  const handleDownloadPngLabel = (pngUrl: string) => {
-    console.log('handleDownloadPngLabel called with:', pngUrl);
-    try {
-      const link = document.createElement('a');
-      link.href = pngUrl;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (error) {
-      console.error('PNG Download error:', error);
-      toast.error('Failed to download PNG label');
-    }
-  };
-
   const handleDownloadBulkLabels = (bulkLabelUrl: string) => {
     console.log('handleDownloadBulkLabels called with:', bulkLabelUrl);
     try {
+      // Create a temporary link element and trigger download
       const link = document.createElement('a');
       link.href = bulkLabelUrl;
       link.target = '_blank';
@@ -148,24 +131,6 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
     } catch (error) {
       console.error('Bulk download error:', error);
       toast.error('Failed to download bulk labels');
-    }
-  };
-
-  const handleDownloadBulkPngLabels = () => {
-    console.log('handleDownloadBulkPngLabels called');
-    try {
-      // Download all PNG labels individually
-      labels.forEach((label, index) => {
-        if (label.label_png_url) {
-          setTimeout(() => {
-            handleDownloadPngLabel(label.label_png_url);
-          }, index * 500); // Stagger downloads
-        }
-      });
-      toast.success(`Downloading ${labels.length} PNG labels`);
-    } catch (error) {
-      console.error('Bulk PNG download error:', error);
-      toast.error('Failed to download bulk PNG labels');
     }
   };
 
@@ -196,24 +161,14 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
             </div>
           </div>
           
-          <div className="flex gap-2">
-            <Button
-              onClick={handleDownloadBulkPngLabels}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download All PNG
-            </Button>
-            
-            <Button
-              variant="outline"
-              onClick={handleStartOver}
-              className="text-green-700 border-green-300 hover:bg-green-100"
-            >
-              <RotateCcw className="mr-2 h-4 w-4" />
-              Start Over
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            onClick={handleStartOver}
+            className="text-green-700 border-green-300 hover:bg-green-100"
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Start Over
+          </Button>
         </div>
       </Card>
 
@@ -223,9 +178,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
           labels={labels}
           bulkLabelUrl={batchLabelUrl}
           onDownloadLabel={handleDownloadLabel}
-          onDownloadPngLabel={handleDownloadPngLabel}
           onDownloadBulkLabels={handleDownloadBulkLabels}
-          onDownloadBulkPngLabels={handleDownloadBulkPngLabels}
         />
       ) : (
         <Card className="p-6 text-center">

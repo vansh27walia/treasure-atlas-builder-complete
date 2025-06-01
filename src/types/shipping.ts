@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -71,11 +72,9 @@ export interface BulkShipment {
   tracking_code?: string;
   trackingCode?: string;
   label_url?: string;
-  label_png_url?: string;
   label_urls?: Record<string, string>;
   batch_id?: string;
   batch_label_url?: string;
-  batch_label_png_url?: string;
   status: 'pending' | 'processing' | 'error' | 'completed';
   error?: string;
   easypost_id?: string;
@@ -144,9 +143,6 @@ export interface BulkUploadResult {
   failedShipments: BulkShipmentError[];
   uploadStatus?: 'idle' | 'success' | 'error' | 'editing';
   pickupAddress?: ShippingAddress;
-  labels?: any[];
-  bulk_label_png_url?: string;
-  bulk_label_pdf_url?: string;
 }
 
 export const CARRIER_OPTIONS = [
