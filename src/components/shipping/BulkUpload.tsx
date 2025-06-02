@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from '@/hooks/useBulkUpload';
@@ -166,7 +167,7 @@ const BulkUpload: React.FC = () => {
     if (field === "address") {
       mappedField = "recipient";
     }
-    setSortField(mappedField as any);
+    setSortField(mappedField as "recipient" | "carrier" | "rate");
     setSortDirection(direction as "asc" | "desc");
   };
 
@@ -236,7 +237,7 @@ const BulkUpload: React.FC = () => {
           <BulkShipmentFilters
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
-            sortField={sortField === "recipient" ? "address" : sortField}
+            sortField={sortField === "recipient" ? "recipient" : sortField as "recipient" | "rate" | "carrier"}
             sortDirection={sortDirection}
             onSortChange={handleSortChange}
             selectedCarrier={selectedCarrierFilter}
