@@ -1,13 +1,15 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
 import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
 import BulkUploadForm from './bulk-upload/BulkUploadForm';
 import SuccessNotification from './bulk-upload/SuccessNotification';
+import EnhancedSuccessNotification from './bulk-upload/EnhancedSuccessNotification';
 import UploadError from './bulk-upload/UploadError';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
+import LabelOptionsModal from './bulk-upload/LabelOptionsModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -17,6 +19,7 @@ import { toast } from '@/components/ui/sonner';
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
+  const [currentBatchId, setCurrentBatchId] = useState<string | null>(null);
   
   const {
     file,
@@ -27,6 +30,7 @@ const BulkUpload: React.FC = () => {
     uploadStatus,
     results,
     progress,
+    showLabelOptions,
     searchTerm,
     sortField,
     sortDirection,
@@ -47,11 +51,20 @@ const BulkUpload: React.FC = () => {
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
+    setShowLabelOptions,
     setSearchTerm,
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter
   } = useBulkUpload();
+
+  // Generate batch ID when labels are created
+  useEffect(() => {
+    if (uploadStatus === 'success' && results && !currentBatchId) {
+      const batchId = `batch_${Date.now()}`;
+      setCurrentBatchId(batchId);
+    }
+  }, [uploadStatus, results, currentBatchId]);
 
   // Log pickup address on mount and when it changes (less frequently)
   useEffect(() => {
@@ -89,6 +102,7 @@ const BulkUpload: React.FC = () => {
   };
 
   const resetUpload = () => {
+    setCurrentBatchId(null);
     window.location.reload();
   };
 
@@ -131,7 +145,7 @@ const BulkUpload: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
             <h2 className="text-xl font-semibold flex items-center">
               <FileText className="mr-2 h-5 w-5 text-blue-600" />
-              Bulk Shipment Options ({results.processedShipments?.length || 0} shipments)
+              Enhanced Bulk Shipment Options
               {isFetchingRates && (
                 <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full animate-pulse">
                   Fetching rates...
@@ -154,9 +168,9 @@ const BulkUpload: React.FC = () => {
           
           <Alert className="mb-6">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Important</AlertTitle>
+            <AlertTitle>Enhanced Label Generation</AlertTitle>
             <AlertDescription>
-              Select carrier and service options for each shipment. You can edit address details or remove shipments before proceeding.
+              Select carrier and service options for each shipment. Labels will be generated in PDF, PNG, and ZPL formats and stored for easy download.
             </AlertDescription>
           </Alert>
           
@@ -183,13 +197,16 @@ const BulkUpload: React.FC = () => {
             onRefreshRates={handleRefreshRates}
           />
           
-          {results.processedShipments && results.processedShipments.length > 0 && (
+          {results.processedShipments.length > 0 && (
             <div className="mt-8 p-4 border rounded-lg bg-gray-50">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
                 <div>
-                  <h3 className="font-semibold text-lg">Order Summary</h3>
+                  <h3 className="font-semibold text-lg">Enhanced Order Summary</h3>
                   <p className="text-gray-600">
-                    {results.processedShipments.length} shipments selected with a total cost of ${results.totalCost?.toFixed(2) || '0.00'}
+                    {results.processedShipments.length} shipments selected with a total cost of ${results.totalCost.toFixed(2)}
+                  </p>
+                  <p className="text-sm text-blue-600 mt-1">
+                    Labels will be generated in PDF, PNG, and ZPL formats
                   </p>
                   {pickupAddress && (
                     <p className="text-sm text-blue-600 mt-1">
@@ -210,10 +227,10 @@ const BulkUpload: React.FC = () => {
                   
                   <Button
                     onClick={handleProceedToPayment}
-                    disabled={isCreatingLabels || !results.processedShipments?.length || !pickupAddress}
+                    disabled={isPaying || results.processedShipments.length === 0 || !pickupAddress}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
-                    {isCreatingLabels ? 'Creating Labels...' : 'Create Labels'} 
+                    {isPaying ? 'Processing...' : 'Generate Enhanced Labels'} 
                     <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
@@ -224,14 +241,9 @@ const BulkUpload: React.FC = () => {
       )}
       
       {uploadStatus === 'success' && results && (
-        <SuccessNotification
+        <EnhancedSuccessNotification
           results={results}
-          onDownloadAllLabels={handleDownloadAllLabels}
-          onDownloadSingleLabel={handleDownloadSingleLabel}
-          onProceedToPayment={handleProceedToPayment}
-          onCreateLabels={handleCreateLabels}
-          isPaying={isPaying}
-          isCreatingLabels={isCreatingLabels}
+          batchId={currentBatchId}
         />
       )}
       
@@ -242,6 +254,14 @@ const BulkUpload: React.FC = () => {
           errorMessage="Upload failed. Please check your file format and try again."
         />
       )}
+      
+      <LabelOptionsModal 
+        open={showLabelOptions}
+        onOpenChange={setShowLabelOptions}
+        onFormatSelect={handleDownloadLabelsWithFormat}
+        onEmailLabels={() => handleEmailLabels("")}
+        shipmentCount={results?.processedShipments.length || 0}
+      />
     </Card>
   );
 };
