@@ -56,8 +56,8 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
       try {
         const label = {
           shipment_id: shipment.id || 'unknown',
-          recipient_name: shipment.recipient_name || shipment.details?.to_name || shipment.recipient || 'Unknown Recipient',
-          drop_off_address: shipment.drop_off_address || (() => {
+          recipient_name: shipment.details?.to_name || shipment.details?.name || shipment.recipient || 'Unknown Recipient',
+          drop_off_address: (() => {
             const details = shipment.details;
             if (!details) return 'Address not available';
             
@@ -71,8 +71,8 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
             return parts.length > 0 ? parts.join(', ') : 'Address not available';
           })(),
           tracking_number: shipment.tracking_code || shipment.trackingCode || '',
-          tracking_url: shipment.tracking_url || (shipment.tracking_code ? 
-            `https://tools.usps.com/go/TrackConfirmAction?tLabels=${shipment.tracking_code}` : ''),
+          tracking_url: shipment.tracking_code ? 
+            `https://tools.usps.com/go/TrackConfirmAction?tLabels=${shipment.tracking_code}` : '',
           label_url: shipment.label_url || '',
           carrier: shipment.carrier || 'Unknown',
           service: shipment.service || 'Unknown',

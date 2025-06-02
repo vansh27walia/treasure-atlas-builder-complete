@@ -363,6 +363,7 @@ export const useBulkUpload = () => {
     setShowLabelOptions,
     
     // Handlers
+    handleFileChange,
     handleUpload,
     handleProceedToPayment,
     handleCreateLabels,
