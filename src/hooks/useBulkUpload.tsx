@@ -221,13 +221,12 @@ export const useBulkUpload = () => {
       });
 
       if (error) {
-        console.error('Supabase function error:', error);
         throw new Error(error.message);
       }
 
       console.log('Label creation response:', data);
 
-      if (data && data.processedLabels && data.processedLabels.length > 0) {
+      if (data.processedLabels && data.processedLabels.length > 0) {
         // Update results with the new label URLs
         const updatedShipments = results.processedShipments.map(shipment => {
           const labelData = data.processedLabels.find((label: any) => label.id === shipment.id);
@@ -255,9 +254,7 @@ export const useBulkUpload = () => {
 
     } catch (error) {
       console.error('Error creating labels:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create labels';
-      toast.error(errorMessage);
-      setUploadStatus('error');
+      toast.error(error instanceof Error ? error.message : 'Failed to create labels');
     } finally {
       setIsCreatingLabels(false);
     }

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -62,7 +61,7 @@ const BulkUpload: React.FC = () => {
 
   console.log('BulkUpload hook data:', {
     uploadStatus,
-    results: results ? { ...results, processedShipments: Array.isArray(results.processedShipments) ? results.processedShipments.length : 'NOT_ARRAY' } : null,
+    results: results ? { ...results, processedShipments: results.processedShipments?.length } : null,
     isCreatingLabels,
     currentBatchId,
     currentBatchLabelUrl
@@ -72,11 +71,11 @@ const BulkUpload: React.FC = () => {
   useEffect(() => {
     console.log('BulkUpload useEffect - checking for batch info:', {
       uploadStatus,
-      resultsLength: results && Array.isArray(results.processedShipments) ? results.processedShipments.length : 'NOT_ARRAY',
+      resultsLength: results?.processedShipments?.length,
       currentBatchId
     });
     
-    if (uploadStatus === 'success' && results && Array.isArray(results.processedShipments) && results.processedShipments.length > 0) {
+    if (uploadStatus === 'success' && results && results.processedShipments && results.processedShipments.length > 0) {
       // Check if batch info is already available from the results
       const firstShipment = results.processedShipments[0];
       if (firstShipment && firstShipment.batch_id) {
@@ -128,7 +127,7 @@ const BulkUpload: React.FC = () => {
   // Wrapper function to match expected signature
   const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
     console.log("handleEditShipmentWrapper called with:", shipmentId, details);
-    const shipment = results && Array.isArray(results.processedShipments) ? results.processedShipments.find(s => s.id === shipmentId) : null;
+    const shipment = results?.processedShipments.find(s => s.id === shipmentId);
     if (shipment) {
       handleEditShipment(shipment);
     }
@@ -137,7 +136,12 @@ const BulkUpload: React.FC = () => {
   // Create a proper event handler wrapper for handleCreateLabels
   const handleCreateLabelsClick = () => {
     console.log("handleCreateLabelsClick called");
-    handleCreateLabels();
+    try {
+      handleCreateLabels();
+    } catch (error) {
+      console.error("Error in handleCreateLabelsClick:", error);
+      toast.error("Failed to create labels. Please try again.");
+    }
   };
 
   const resetUpload = () => {
@@ -155,163 +159,176 @@ const BulkUpload: React.FC = () => {
     }
   };
 
-  // Safe check for processedShipments
-  const processedShipmentsCount = results && Array.isArray(results.processedShipments) ? results.processedShipments.length : 0;
-
-  console.log('Rendering BulkUpload with status:', uploadStatus);
-  
-  return (
-    <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
-      <BulkUploadHeader onDownloadTemplate={handleDownloadTemplate} />
-      
-      {uploadStatus === 'idle' && (
-        <BulkUploadForm 
-          onUploadSuccess={handleUploadSuccess}
-          onUploadFail={handleUploadFail}
-          onPickupAddressSelect={handlePickupAddressSelect}
-          isUploading={isUploading}
-          progress={progress}
-          handleUpload={handleUpload}
-        />
-      )}
-      
-      {isUploading && (
-        <div className="my-6">
-          <h3 className="font-medium mb-2">Processing your shipments</h3>
-          <Progress value={progress} className="h-2" />
-          <p className="text-sm text-gray-500 mt-2">
-            {progress < 100 
-              ? `Processing shipments (${progress}%)...` 
-              : 'Processing complete! Preparing shipment options...'}
-          </p>
-        </div>
-      )}
-      
-      {uploadStatus === 'editing' && results && Array.isArray(results.processedShipments) && (
-        <div className="mt-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
-            <h2 className="text-xl font-semibold flex items-center">
-              <FileText className="mr-2 h-5 w-5 text-blue-600" />
-              Enhanced Bulk Shipment Options
-              {isFetchingRates && (
-                <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full animate-pulse">
-                  Fetching rates...
-                </span>
-              )}
-            </h2>
-            
-            <div className="flex gap-2 mt-2 md:mt-0">
-              <Button variant="outline" onClick={handleDownloadTemplate} className="text-sm">
-                <UploadCloud className="mr-1 h-4 w-4" />
-                Template
-              </Button>
-              
-              <Button onClick={resetUpload} className="text-sm">
-                <UploadCloud className="mr-1 h-4 w-4" />
-                Upload Another File
-              </Button>
-            </div>
+  // Error boundary-like error handling
+  try {
+    console.log('Rendering BulkUpload with status:', uploadStatus);
+    
+    return (
+      <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
+        <BulkUploadHeader onDownloadTemplate={handleDownloadTemplate} />
+        
+        {uploadStatus === 'idle' && (
+          <BulkUploadForm 
+            onUploadSuccess={handleUploadSuccess}
+            onUploadFail={handleUploadFail}
+            onPickupAddressSelect={handlePickupAddressSelect}
+            isUploading={isUploading}
+            progress={progress}
+            handleUpload={handleUpload}
+          />
+        )}
+        
+        {isUploading && (
+          <div className="my-6">
+            <h3 className="font-medium mb-2">Processing your shipments</h3>
+            <Progress value={progress} className="h-2" />
+            <p className="text-sm text-gray-500 mt-2">
+              {progress < 100 
+                ? `Processing shipments (${progress}%)...` 
+                : 'Processing complete! Preparing shipment options...'}
+            </p>
           </div>
-          
-          <Alert className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Enhanced Batch Label Generation</AlertTitle>
-            <AlertDescription>
-              Select carrier and service options for each shipment. Labels will be generated using EasyPost's API for optimal processing and consolidated batch labels.
-            </AlertDescription>
-          </Alert>
-          
-          <BulkShipmentFilters
-            searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
-            sortField={sortField}
-            sortDirection={sortDirection}
-            onSortChange={(field, direction) => {
-              setSortField(field as any);
-              setSortDirection(direction as any);
-            }}
-            selectedCarrier={selectedCarrierFilter}
-            onCarrierFilterChange={setSelectedCarrierFilter}
-            onApplyCarrierToAll={handleBulkApplyCarrier}
-          />
-          
-          <BulkShipmentsList
-            shipments={filteredShipments}
-            isFetchingRates={isFetchingRates}
-            onSelectRate={handleSelectRate}
-            onRemoveShipment={handleRemoveShipment}
-            onEditShipment={handleEditShipmentWrapper}
-            onRefreshRates={handleRefreshRates}
-          />
-          
-          {processedShipmentsCount > 0 && (
-            <div className="mt-8 p-4 border rounded-lg bg-gray-50">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
-                <div>
-                  <h3 className="font-semibold text-lg">Enhanced Batch Order Summary</h3>
-                  <p className="text-gray-600">
-                    {processedShipmentsCount} shipments selected with a total cost of ${results.totalCost.toFixed(2)}
-                  </p>
-                  <p className="text-sm text-blue-600 mt-1">
-                    Labels will be generated using EasyPost API in PDF, PNG, and ZPL formats
-                  </p>
-                  {pickupAddress && (
-                    <p className="text-sm text-blue-600 mt-1">
-                      <span className="font-medium">From:</span> {pickupAddress.name || pickupAddress.street1}
-                    </p>
-                  )}
-                </div>
+        )}
+        
+        {uploadStatus === 'editing' && results && (
+          <div className="mt-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+              <h2 className="text-xl font-semibold flex items-center">
+                <FileText className="mr-2 h-5 w-5 text-blue-600" />
+                Enhanced Bulk Shipment Options
+                {isFetchingRates && (
+                  <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full animate-pulse">
+                    Fetching rates...
+                  </span>
+                )}
+              </h2>
+              
+              <div className="flex gap-2 mt-2 md:mt-0">
+                <Button variant="outline" onClick={handleDownloadTemplate} className="text-sm">
+                  <UploadCloud className="mr-1 h-4 w-4" />
+                  Template
+                </Button>
                 
-                <div className="flex gap-3 mt-4 lg:mt-0">
-                  <Button 
-                    variant="outline" 
-                    className="px-6"
-                    onClick={handleDownloadAllLabels}
-                    disabled={isPaying || isCreatingLabels}
-                  >
-                    Download All Labels
-                  </Button>
-                  
-                  <Button
-                    onClick={handleCreateLabelsClick}
-                    disabled={isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress}
-                    className="px-6 bg-green-600 hover:bg-green-700"
-                  >
-                    {isCreatingLabels ? 'Creating Labels...' : 'Create Batch Labels'} 
-                    <ChevronRight className="ml-1 h-4 w-4" />
-                  </Button>
-                </div>
+                <Button onClick={resetUpload} className="text-sm">
+                  <UploadCloud className="mr-1 h-4 w-4" />
+                  Upload Another File
+                </Button>
               </div>
             </div>
-          )}
+            
+            <Alert className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Enhanced Batch Label Generation</AlertTitle>
+              <AlertDescription>
+                Select carrier and service options for each shipment. Labels will be generated using EasyPost's API for optimal processing and consolidated batch labels.
+              </AlertDescription>
+            </Alert>
+            
+            <BulkShipmentFilters
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onSortChange={(field, direction) => {
+                setSortField(field as any);
+                setSortDirection(direction as any);
+              }}
+              selectedCarrier={selectedCarrierFilter}
+              onCarrierFilterChange={setSelectedCarrierFilter}
+              onApplyCarrierToAll={handleBulkApplyCarrier}
+            />
+            
+            <BulkShipmentsList
+              shipments={filteredShipments}
+              isFetchingRates={isFetchingRates}
+              onSelectRate={handleSelectRate}
+              onRemoveShipment={handleRemoveShipment}
+              onEditShipment={handleEditShipmentWrapper}
+              onRefreshRates={handleRefreshRates}
+            />
+            
+            {results.processedShipments.length > 0 && (
+              <div className="mt-8 p-4 border rounded-lg bg-gray-50">
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
+                  <div>
+                    <h3 className="font-semibold text-lg">Enhanced Batch Order Summary</h3>
+                    <p className="text-gray-600">
+                      {results.processedShipments.length} shipments selected with a total cost of ${results.totalCost.toFixed(2)}
+                    </p>
+                    <p className="text-sm text-blue-600 mt-1">
+                      Labels will be generated using EasyPost API in PDF, PNG, and ZPL formats
+                    </p>
+                    {pickupAddress && (
+                      <p className="text-sm text-blue-600 mt-1">
+                        <span className="font-medium">From:</span> {pickupAddress.name || pickupAddress.street1}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-3 mt-4 lg:mt-0">
+                    <Button 
+                      variant="outline" 
+                      className="px-6"
+                      onClick={handleDownloadAllLabels}
+                      disabled={isPaying || isCreatingLabels}
+                    >
+                      Download All Labels
+                    </Button>
+                    
+                    <Button
+                      onClick={handleCreateLabelsClick}
+                      disabled={isCreatingLabels || results.processedShipments.length === 0 || !pickupAddress}
+                      className="px-6 bg-green-600 hover:bg-green-700"
+                    >
+                      {isCreatingLabels ? 'Creating Labels...' : 'Create Batch Labels'} 
+                      <ChevronRight className="ml-1 h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {uploadStatus === 'success' && results && (
+          <EnhancedSuccessNotification
+            results={results}
+            batchId={currentBatchId || undefined}
+            batchLabelUrl={currentBatchLabelUrl || undefined}
+          />
+        )}
+        
+        {uploadStatus === 'error' && (
+          <UploadError 
+            onRetry={resetUpload}
+            onSelectNewFile={selectNewFile}
+            errorMessage="Upload failed. Please check your file format and try again."
+          />
+        )}
+        
+        <LabelOptionsModal 
+          open={showLabelOptions}
+          onOpenChange={setShowLabelOptions}
+          onFormatSelect={handleDownloadLabelsWithFormat}
+          onEmailLabels={() => handleEmailLabels("")}
+          shipmentCount={results?.processedShipments.length || 0}
+        />
+      </Card>
+    );
+  } catch (error) {
+    console.error('Error in BulkUpload component:', error);
+    return (
+      <Card className="p-6 border-2 border-red-200 shadow-sm w-full">
+        <div className="text-center">
+          <h3 className="text-red-600 font-semibold mb-2">Something went wrong</h3>
+          <p className="text-gray-600 mb-4">There was an error loading the bulk upload interface.</p>
+          <Button onClick={() => window.location.reload()}>
+            Reload Page
+          </Button>
         </div>
-      )}
-      
-      {uploadStatus === 'success' && results && (
-        <EnhancedSuccessNotification
-          results={results}
-          batchId={currentBatchId || undefined}
-          batchLabelUrl={currentBatchLabelUrl || undefined}
-        />
-      )}
-      
-      {uploadStatus === 'error' && (
-        <UploadError 
-          onRetry={resetUpload}
-          onSelectNewFile={selectNewFile}
-          errorMessage="Upload failed. Please check your file format and try again."
-        />
-      )}
-      
-      <LabelOptionsModal 
-        open={showLabelOptions}
-        onOpenChange={setShowLabelOptions}
-        onFormatSelect={handleDownloadLabelsWithFormat}
-        onEmailLabels={() => handleEmailLabels("")}
-        shipmentCount={processedShipmentsCount}
-      />
-    </Card>
-  );
+      </Card>
+    );
+  }
 };
 
 export default BulkUpload;
