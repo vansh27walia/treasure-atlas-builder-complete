@@ -46,63 +46,66 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
     );
   }
 
+  // Filter shipments that have labels
+  const shipmentsWithLabels = results.processedShipments.filter(shipment => 
+    shipment.label_url || shipment.label_urls?.png || shipment.tracking_code || shipment.trackingCode
+  );
+
+  console.log('Shipments with labels:', shipmentsWithLabels);
+
   // Transform shipments into the format expected by BulkLabelsTable
-  const labels = results.processedShipments
-    .filter(shipment => {
-      console.log('Filtering shipment:', shipment);
-      return shipment && (shipment.label_url || shipment.tracking_code);
-    })
-    .map(shipment => {
-      try {
-        const label = {
-          shipment_id: shipment.id || 'unknown',
-          recipient_name: shipment.details?.to_name || shipment.recipient || 'Unknown Recipient',
-          drop_off_address: (() => {
-            const details = shipment.details;
-            if (!details) return 'Address not available';
-            
-            const parts = [
-              details.to_street1 || '',
-              details.to_city || '',
-              details.to_state || '',
-              details.to_zip || ''
-            ].filter(Boolean);
-            
-            return parts.length > 0 ? parts.join(', ') : 'Address not available';
-          })(),
-          tracking_number: shipment.tracking_code || shipment.trackingCode || '',
-          tracking_url: shipment.tracking_code ? 
-            `https://tools.usps.com/go/TrackConfirmAction?tLabels=${shipment.tracking_code}` : '',
-          label_url: shipment.label_url || '',
-          carrier: shipment.carrier || 'Unknown',
-          service: shipment.service || 'Unknown',
-          rate: shipment.rate || 0
-        };
-        
-        console.log('Transformed label:', label);
-        return label;
-      } catch (error) {
-        console.error('Error transforming shipment:', shipment, error);
-        return {
-          shipment_id: shipment?.id || 'error',
-          recipient_name: 'Error processing shipment',
-          drop_off_address: 'Error',
-          tracking_number: '',
-          tracking_url: '',
-          label_url: '',
-          carrier: 'Error',
-          service: 'Error',
-          rate: 0
-        };
-      }
-    });
+  const labels = shipmentsWithLabels.map(shipment => {
+    try {
+      const label = {
+        shipment_id: shipment.id || 'unknown',
+        recipient_name: shipment.details?.to_name || shipment.recipient || 'Unknown Recipient',
+        drop_off_address: (() => {
+          const details = shipment.details;
+          if (!details) return 'Address not available';
+          
+          const parts = [
+            details.to_street1 || '',
+            details.to_city || '',
+            details.to_state || '',
+            details.to_zip || ''
+          ].filter(Boolean);
+          
+          return parts.length > 0 ? parts.join(', ') : 'Address not available';
+        })(),
+        tracking_number: shipment.tracking_code || shipment.trackingCode || '',
+        tracking_url: (shipment.tracking_code || shipment.trackingCode) ? 
+          `https://tools.usps.com/go/TrackConfirmAction?tLabels=${shipment.tracking_code || shipment.trackingCode}` : '',
+        label_url: shipment.label_urls?.png || shipment.label_url || '',
+        label_urls: shipment.label_urls || { png: shipment.label_url || '' },
+        carrier: shipment.carrier || 'Unknown',
+        service: shipment.service || 'Unknown',
+        rate: typeof shipment.rate === 'string' ? parseFloat(shipment.rate) : (shipment.rate || 0)
+      };
+      
+      console.log('Transformed label:', label);
+      return label;
+    } catch (error) {
+      console.error('Error transforming shipment:', shipment, error);
+      return {
+        shipment_id: shipment?.id || 'error',
+        recipient_name: 'Error processing shipment',
+        drop_off_address: 'Error',
+        tracking_number: '',
+        tracking_url: '',
+        label_url: '',
+        label_urls: { png: '' },
+        carrier: 'Error',
+        service: 'Error',
+        rate: 0
+      };
+    }
+  });
 
   console.log('Transformed labels:', labels);
 
   const handleDownloadLabel = (labelUrl: string) => {
     console.log('handleDownloadLabel called with:', labelUrl);
     try {
-      // Create a temporary link element and trigger download
       const link = document.createElement('a');
       link.href = labelUrl;
       link.target = '_blank';
@@ -110,6 +113,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      toast.success('Downloading label...');
     } catch (error) {
       console.error('Download error:', error);
       toast.error('Failed to download label');
@@ -119,15 +123,15 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
   const handleDownloadBulkLabels = (bulkLabelUrl: string) => {
     console.log('handleDownloadBulkLabels called with:', bulkLabelUrl);
     try {
-      // Create a temporary link element and trigger download
       const link = document.createElement('a');
       link.href = bulkLabelUrl;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      link.download = `bulk_labels_${batchId || Date.now()}.pdf`;
+      link.download = `bulk_labels_${batchId || Date.now()}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      toast.success('Downloading bulk labels...');
     } catch (error) {
       console.error('Bulk download error:', error);
       toast.error('Failed to download bulk labels');
@@ -138,6 +142,9 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
     console.log('Starting over - reloading page');
     window.location.reload();
   };
+
+  // Get bulk label URL from results
+  const bulkLabelUrlFromResults = results.processedShipments[0]?.batch_label_url || batchLabelUrl;
 
   return (
     <div className="space-y-6">
@@ -176,7 +183,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
       {labels.length > 0 ? (
         <BulkLabelsTable
           labels={labels}
-          bulkLabelUrl={batchLabelUrl}
+          bulkLabelUrl={bulkLabelUrlFromResults}
           onDownloadLabel={handleDownloadLabel}
           onDownloadBulkLabels={handleDownloadBulkLabels}
         />

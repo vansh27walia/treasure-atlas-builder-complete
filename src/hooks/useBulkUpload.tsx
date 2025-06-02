@@ -1,13 +1,18 @@
 
 import { useState, useEffect } from 'react';
-import { useShipmentUpload } from './useShipmentUpload';
-import { useShipmentManagement } from './useShipmentManagement';
-import { BulkShipment, BulkUploadResult } from '@/types/shipping';
-import { addressService, SavedAddress } from '@/services/AddressService';
-import { supabase } from '@/integrations/supabase/client';
+import { BulkUploadResult } from '@/types/shipping';
+import { useShipmentUpload } from '@/hooks/useShipmentUpload';
+import { useShipmentRates } from '@/hooks/useShipmentRates';
+import { useShipmentManagement } from '@/hooks/useShipmentManagement';
+import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
+import { SavedAddress } from '@/services/AddressService';
+import { addressService } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useBulkUpload = () => {
+  const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
+  
   const {
     file,
     isUploading,
@@ -17,187 +22,95 @@ export const useBulkUpload = () => {
     setResults,
     setUploadStatus,
     handleFileChange,
-    handleUpload,
+    handleUpload: originalHandleUpload,
     handleDownloadTemplate
   } = useShipmentUpload();
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<'recipient' | 'carrier' | 'rate'>('recipient');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [selectedCarrierFilter, setSelectedCarrierFilter] = useState('');
-  const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
-  const [isFetchingRates, setIsFetchingRates] = useState(false);
-  const [showLabelOptions, setShowLabelOptions] = useState(false);
-  const [isPaying, setIsPaying] = useState(false);
+  // Update results wrapper function
+  const updateResults = (newResults: BulkUploadResult) => {
+    console.log('Updating results:', newResults);
+    
+    // Add pickup address to results if not present
+    const resultsWithPickup = {
+      ...newResults,
+      pickupAddress: newResults.pickupAddress || pickupAddress
+    };
+    
+    setResults(resultsWithPickup);
+    
+    // If a new upload status is provided, update it
+    if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
+      setUploadStatus(newResults.uploadStatus);
+    }
+  };
+
+  const {
+    isFetchingRates,
+    fetchAllShipmentRates,
+    handleSelectRate,
+    handleRefreshRates,
+    handleBulkApplyCarrier
+  } = useShipmentRates(results, updateResults);
+
+  const {
+    isPaying,
+    isCreatingLabels: managementIsCreatingLabels,
+    showLabelOptions,
+    downloadFormat,
+    handleRemoveShipment,
+    handleEditShipment,
+    handleProceedToPayment,
+    handleDownloadAllLabels,
+    handleDownloadLabelsWithFormat,
+    handleDownloadSingleLabel,
+    handleEmailLabels,
+    setShowLabelOptions,
+    setDownloadFormat
+  } = useShipmentManagement(results, updateResults);
+
+  const {
+    searchTerm,
+    sortField,
+    sortDirection,
+    selectedCarrierFilter,
+    filteredShipments,
+    setSearchTerm,
+    setSortField,
+    setSortDirection,
+    setSelectedCarrierFilter
+  } = useShipmentFiltering(results);
+
+  // Local state for label creation
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
 
-  // Load default pickup address
+  // Load the default pickup address when the component initializes
   useEffect(() => {
-    const loadDefaultAddress = async () => {
+    const loadDefaultPickupAddress = async () => {
       try {
-        const address = await addressService.getDefaultFromAddress();
-        if (address) {
-          setPickupAddress(address);
+        console.log('Loading default pickup address...');
+        const defaultAddress = await addressService.getDefaultFromAddress();
+        console.log("Loaded default pickup address:", defaultAddress);
+        if (defaultAddress) {
+          setPickupAddress(defaultAddress);
+        } else {
+          // If no default, get the first available address
+          const addresses = await addressService.getSavedAddresses();
+          if (addresses.length > 0) {
+            const firstAddress = addresses[0];
+            setPickupAddress(firstAddress);
+            console.log("Using first available address:", firstAddress);
+          }
         }
       } catch (error) {
         console.error('Error loading default pickup address:', error);
+        toast.error('Error loading pickup addresses. Please check your settings.');
       }
     };
-    loadDefaultAddress();
+    
+    loadDefaultPickupAddress();
   }, []);
 
-  // Filter and sort shipments
-  const filteredShipments = results?.processedShipments.filter(shipment => {
-    const matchesSearch = !searchTerm || 
-      shipment.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      shipment.carrier.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCarrier = !selectedCarrierFilter || 
-      shipment.carrier === selectedCarrierFilter;
-    
-    return matchesSearch && matchesCarrier;
-  }).sort((a, b) => {
-    let aValue, bValue;
-    
-    switch (sortField) {
-      case 'recipient':
-        aValue = a.recipient;
-        bValue = b.recipient;
-        break;
-      case 'carrier':
-        aValue = a.carrier;
-        bValue = b.carrier;
-        break;
-      case 'rate':
-        aValue = a.rate;
-        bValue = b.rate;
-        break;
-      default:
-        return 0;
-    }
-    
-    if (sortDirection === 'asc') {
-      return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-    } else {
-      return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
-    }
-  }) || [];
-
-  const handleSelectRate = (shipmentId: string, rateId: string) => {
-    if (!results) return;
-    
-    const updatedShipments = results.processedShipments.map(shipment => {
-      if (shipment.id === shipmentId) {
-        const selectedRate = shipment.availableRates?.find(rate => rate.id === rateId);
-        if (selectedRate) {
-          return {
-            ...shipment,
-            selectedRateId: rateId,
-            carrier: selectedRate.carrier,
-            service: selectedRate.service,
-            rate: parseFloat(selectedRate.rate)
-          };
-        }
-      }
-      return shipment;
-    });
-    
-    // Recalculate total cost
-    const totalCost = updatedShipments.reduce((sum, shipment) => {
-      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
-    }, 0);
-    
-    setResults({
-      ...results,
-      processedShipments: updatedShipments,
-      totalCost
-    });
-  };
-
-  const handleRemoveShipment = (shipmentId: string) => {
-    if (!results) return;
-    
-    const updatedShipments = results.processedShipments.filter(
-      shipment => shipment.id !== shipmentId
-    );
-    
-    const totalCost = updatedShipments.reduce((sum, shipment) => {
-      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
-    }, 0);
-    
-    setResults({
-      ...results,
-      processedShipments: updatedShipments,
-      successful: updatedShipments.length,
-      totalCost
-    });
-    
-    toast.success('Shipment removed from list');
-  };
-
-  const handleEditShipment = (shipment: BulkShipment) => {
-    console.log('Edit shipment:', shipment);
-    // Implement edit functionality if needed
-  };
-
-  const handleRefreshRates = async (shipmentId: string) => {
-    console.log('Refresh rates for shipment:', shipmentId);
-    // Implement rate refresh functionality if needed
-  };
-
-  const handleBulkApplyCarrier = (carrier: string) => {
-    if (!results) return;
-    
-    const updatedShipments = results.processedShipments.map(shipment => {
-      const carrierRate = shipment.availableRates?.find(rate => rate.carrier === carrier);
-      if (carrierRate) {
-        return {
-          ...shipment,
-          selectedRateId: carrierRate.id,
-          carrier: carrierRate.carrier,
-          service: carrierRate.service,
-          rate: parseFloat(carrierRate.rate)
-        };
-      }
-      return shipment;
-    });
-    
-    const totalCost = updatedShipments.reduce((sum, shipment) => {
-      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
-    }, 0);
-    
-    setResults({
-      ...results,
-      processedShipments: updatedShipments,
-      totalCost
-    });
-    
-    toast.success(`Applied ${carrier} to all applicable shipments`);
-  };
-
-  const handleProceedToPayment = async () => {
-    if (!results || !pickupAddress) {
-      toast.error('Missing shipments or pickup address');
-      return;
-    }
-    
-    setIsPaying(true);
-    
-    try {
-      // Create labels first
-      await handleCreateLabels();
-      
-    } catch (error) {
-      console.error('Payment error:', error);
-      toast.error('Failed to process payment');
-    } finally {
-      setIsPaying(false);
-    }
-  };
-
+  // Custom handleCreateLabels function
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -221,35 +134,50 @@ export const useBulkUpload = () => {
       });
 
       if (error) {
-        throw new Error(error.message);
+        console.error('Supabase function error:', error);
+        throw new Error(error.message || 'Failed to create labels');
       }
 
       console.log('Label creation response:', data);
 
-      if (data.processedLabels && data.processedLabels.length > 0) {
-        // Update results with the new label URLs
+      if (data && data.labels && data.labels.length > 0) {
+        // Process the response and update shipments with label information
         const updatedShipments = results.processedShipments.map(shipment => {
-          const labelData = data.processedLabels.find((label: any) => label.id === shipment.id);
-          if (labelData) {
+          const labelData = data.labels.find((label: any) => 
+            label.shipment_id === shipment.id || 
+            label.easypost_id === shipment.easypost_id
+          );
+          
+          if (labelData && labelData.status?.includes('success')) {
             return {
               ...shipment,
-              label_url: labelData.label_url,
-              tracking_code: labelData.tracking_code,
+              label_url: labelData.label_urls?.png || labelData.label_url,
+              label_urls: labelData.label_urls || { png: labelData.label_url },
+              tracking_code: labelData.tracking_number || labelData.tracking_code,
+              trackingCode: labelData.tracking_number || labelData.tracking_code,
+              batch_id: labelData.batch_id_storage_path || data.batch_id,
+              batch_label_url: data.bulk_label_png_url || data.bulk_label_pdf_url,
               status: 'completed' as const
             };
           }
           return shipment;
         });
 
-        setResults({
+        // Update results with the new label information
+        const updatedResults = {
           ...results,
-          processedShipments: updatedShipments
-        });
+          processedShipments: updatedShipments,
+          uploadStatus: 'success' as const
+        };
 
+        console.log('Updated results with labels:', updatedResults);
+        setResults(updatedResults);
         setUploadStatus('success');
-        toast.success(`Successfully created ${data.processedLabels.length} shipping labels`);
+        
+        toast.success(`Successfully created ${data.labels.filter((l: any) => l.status?.includes('success')).length} shipping labels`);
       } else {
-        throw new Error('No labels were created');
+        console.error('No labels created or invalid response:', data);
+        throw new Error('No labels were created successfully');
       }
 
     } catch (error) {
@@ -260,111 +188,73 @@ export const useBulkUpload = () => {
     }
   };
 
-  const handleDownloadAllLabels = () => {
-    setShowLabelOptions(true);
-  };
-
-  const handleDownloadLabelsWithFormat = async (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
-    if (!results) return;
+  // Modified handleUpload to include pickup address
+  const handleFileUpload = async (file: File) => {
+    console.log('handleFileUpload called with:', { file: file.name, pickupAddress });
     
-    setShowLabelOptions(false);
-    
-    const labelsWithUrls = results.processedShipments.filter(s => s.label_url);
-    
-    if (labelsWithUrls.length === 0) {
-      toast.error('No labels available for download');
-      return;
-    }
-
-    if (format === 'zip') {
-      toast.loading('Preparing ZIP download...');
-      
-      // Download each label individually with staggered timing
-      labelsWithUrls.forEach((shipment, index) => {
-        setTimeout(() => {
-          handleDownloadSingleLabel(shipment.label_url!, 'pdf');
-        }, index * 300);
+    if (!pickupAddress) {
+      const errorMsg = 'Pickup address is required. Please add a pickup address in Settings first.';
+      toast.error(errorMsg, {
+        description: 'Go to Settings > Pickup Address to add your shipping address.',
+        action: {
+          label: 'Go to Settings',
+          onClick: () => window.location.href = '/settings'
+        }
       });
-      
-      toast.dismiss();
-      toast.success(`Started download of ${labelsWithUrls.length} labels`);
-    } else {
-      // Download each label individually
-      labelsWithUrls.forEach((shipment, index) => {
-        setTimeout(() => {
-          handleDownloadSingleLabel(shipment.label_url!, format);
-        }, index * 300);
-      });
-      
-      toast.success(`Started download of ${labelsWithUrls.length} ${format.toUpperCase()} labels`);
+      throw new Error(errorMsg);
     }
-  };
-
-  const handleDownloadSingleLabel = (labelUrl: string, format: string = 'pdf') => {
-    try {
-      // Create download link
-      const link = document.createElement('a');
-      link.href = labelUrl;
-      link.download = `shipping_label_${Date.now()}.${format}`;
-      link.target = '_blank';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-    } catch (error) {
-      console.error('Download error:', error);
-      toast.error('Failed to download label');
-    }
-  };
-
-  const handleEmailLabels = (email: string) => {
-    toast.success('Email functionality will be implemented soon');
+    
+    return originalHandleUpload(file, pickupAddress);
   };
 
   return {
-    // Upload state
+    // File upload states and handlers
     file,
     isUploading,
-    isPaying,
-    isCreatingLabels,
-    isFetchingRates,
     uploadStatus,
     results,
     progress,
-    showLabelOptions,
     
-    // Filters and sorting
+    // Rate fetching states and handlers
+    isFetchingRates,
+    
+    // Payment and label states and handlers
+    isPaying,
+    isCreatingLabels,
+    showLabelOptions,
+    downloadFormat,
+    
+    // Filtering states and handlers
     searchTerm,
     sortField,
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
-    
-    // Address
+
+    // Pickup address
     pickupAddress,
-    
-    // Setters
     setPickupAddress,
-    setSearchTerm,
-    setSortField,
-    setSortDirection,
-    setSelectedCarrierFilter,
-    setShowLabelOptions,
     
-    // Handlers
-    handleUpload,
-    handleProceedToPayment,
-    handleCreateLabels,
-    handleDownloadAllLabels,
-    handleDownloadLabelsWithFormat,
-    handleDownloadSingleLabel,
-    handleEmailLabels,
-    handleDownloadTemplate,
+    // Handlers from all hooks
+    handleFileChange,
+    handleUpload: handleFileUpload,
     handleSelectRate,
     handleRemoveShipment,
     handleEditShipment,
     handleRefreshRates,
-    handleBulkApplyCarrier
+    handleBulkApplyCarrier,
+    handleProceedToPayment,
+    handleCreateLabels, // Use our custom implementation
+    handleDownloadAllLabels,
+    handleDownloadLabelsWithFormat, 
+    handleDownloadSingleLabel,
+    handleEmailLabels,
+    handleDownloadTemplate,
+    setShowLabelOptions,
+    setDownloadFormat,
+    setSearchTerm,
+    setSortField,
+    setSortDirection,
+    setSelectedCarrierFilter
   };
 };
