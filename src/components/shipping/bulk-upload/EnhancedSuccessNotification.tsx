@@ -56,16 +56,16 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
       try {
         const label = {
           shipment_id: shipment.id || 'unknown',
-          recipient_name: shipment.details?.to_name || shipment.details?.name || shipment.recipient || 'Unknown Recipient',
+          recipient_name: shipment.details?.to_name || shipment.recipient || 'Unknown Recipient',
           drop_off_address: (() => {
             const details = shipment.details;
             if (!details) return 'Address not available';
             
             const parts = [
-              details.to_street1 || details.street1 || '',
-              details.to_city || details.city || '',
-              details.to_state || details.state || '',
-              details.to_zip || details.zip || ''
+              details.to_street1 || '',
+              details.to_city || '',
+              details.to_state || '',
+              details.to_zip || ''
             ].filter(Boolean);
             
             return parts.length > 0 ? parts.join(', ') : 'Address not available';
@@ -76,14 +76,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
           label_url: shipment.label_url || '',
           carrier: shipment.carrier || 'Unknown',
           service: shipment.service || 'Unknown',
-          rate: shipment.rate || 0,
-          // Include package dimensions and weight
-          weight: shipment.details?.weight || shipment.details?.parcel_weight || 0,
-          dimensions: {
-            length: shipment.details?.length || shipment.details?.parcel_length || 0,
-            width: shipment.details?.width || shipment.details?.parcel_width || 0,
-            height: shipment.details?.height || shipment.details?.parcel_height || 0
-          }
+          rate: shipment.rate || 0
         };
         
         console.log('Transformed label:', label);
@@ -99,9 +92,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
           label_url: '',
           carrier: 'Error',
           service: 'Error',
-          rate: 0,
-          weight: 0,
-          dimensions: { length: 0, width: 0, height: 0 }
+          rate: 0
         };
       }
     });
@@ -116,11 +107,9 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
       link.href = labelUrl;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      link.download = `shipping_label_${Date.now()}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success('Label download started');
     } catch (error) {
       console.error('Download error:', error);
       toast.error('Failed to download label');
@@ -139,7 +128,6 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      toast.success('Bulk labels download started');
     } catch (error) {
       console.error('Bulk download error:', error);
       toast.error('Failed to download bulk labels');
@@ -160,7 +148,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
             <CheckCircle className="h-8 w-8 text-green-600 mr-3" />
             <div>
               <h2 className="text-xl font-semibold text-green-800">
-                Labels Generated Successfully!
+                Bulk Label Creation Successful!
               </h2>
               <p className="text-green-700 mt-1">
                 Successfully created {labels.length} shipping labels
@@ -169,9 +157,6 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
                     Batch ID: {batchId}
                   </span>
                 )}
-              </p>
-              <p className="text-sm text-green-600 mt-1">
-                Total cost: ${results.totalCost?.toFixed(2) || '0.00'}
               </p>
             </div>
           </div>
@@ -187,7 +172,7 @@ const EnhancedSuccessNotification: React.FC<EnhancedSuccessNotificationProps> = 
         </div>
       </Card>
 
-      {/* Labels Table with Enhanced Features */}
+      {/* Labels Table */}
       {labels.length > 0 ? (
         <BulkLabelsTable
           labels={labels}
