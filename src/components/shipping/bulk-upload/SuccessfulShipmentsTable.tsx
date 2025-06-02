@@ -33,7 +33,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
       return;
     }
     
-    // Create a temporary link to download the file
+    // Direct download from stored URL
     const link = document.createElement('a');
     link.href = labelUrl;
     link.download = `shipping_label.${format}`;
@@ -43,14 +43,13 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     document.body.removeChild(link);
     
     onDownloadSingleLabel(labelUrl, format);
-    toast.success(`Downloading ${format.toUpperCase()} label`);
+    toast.success(`Downloaded ${format.toUpperCase()} label`);
   };
   
   const handleBulkDownload = (format: 'pdf' | 'png' | 'zip' = 'pdf') => {
     setSelectedFormat(format);
     
     if (format === 'zip' && onDownloadAllLabels) {
-      // Use the bulk download function for ZIP
       onDownloadAllLabels(format);
       toast.success(`Preparing ${format.toUpperCase()} labels for download`);
     } else {
@@ -65,7 +64,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
       labelsWithUrls.forEach((shipment, index) => {
         setTimeout(() => {
           handleDownload(shipment.label_url || '', format);
-        }, index * 500); // Stagger downloads to avoid browser blocking
+        }, index * 500);
       });
       
       toast.success(`Downloading ${labelsWithUrls.length} ${format.toUpperCase()} labels`);
@@ -75,7 +74,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-3">
-        <h5 className="font-medium text-green-800">Successfully Processed Shipments ({shipments.length})</h5>
+        <h5 className="font-medium text-green-800">Successfully Created Labels ({shipments.length})</h5>
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -119,39 +118,31 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                 <TableCell>{shipment.carrier}</TableCell>
                 <TableCell>{shipment.tracking_code || shipment.trackingCode}</TableCell>
                 <TableCell>
-                  <span className={`text-xs font-medium px-2.5 py-0.5 rounded ${
-                    shipment.label_url 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {shipment.label_url ? 'Label Ready' : 'Processing'}
+                  <span className="text-xs font-medium px-2.5 py-0.5 rounded bg-green-100 text-green-800">
+                    Label Ready
                   </span>
                 </TableCell>
                 <TableCell>
-                  {shipment.label_url ? (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          className="flex items-center gap-1"
-                        >
-                          <Download className="h-4 w-4" />
-                          Download
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'pdf')}>
-                          <File className="h-4 w-4 text-blue-600 mr-2" /> Download PDF
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'png')}>
-                          <File className="h-4 w-4 text-green-600 mr-2" /> Download PNG
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ) : (
-                    <span className="text-sm text-gray-500">Label pending</span>
-                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        className="flex items-center gap-1"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'pdf')}>
+                        <File className="h-4 w-4 text-blue-600 mr-2" /> Download PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'png')}>
+                        <File className="h-4 w-4 text-green-600 mr-2" /> Download PNG
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}
