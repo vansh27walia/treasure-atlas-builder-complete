@@ -162,7 +162,7 @@ const BulkUpload: React.FC = () => {
 
   // Fix the sort handler to use the correct type
   const handleSortChange = (field: string, direction: string) => {
-    // Map the sort field to the correct type
+    // Map the sort field to the correct type that matches useShipmentFiltering
     const mappedField = field as "recipient" | "carrier" | "rate";
     setSortField(mappedField);
     setSortDirection(direction as "asc" | "desc");
