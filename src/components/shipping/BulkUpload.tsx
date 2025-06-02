@@ -160,6 +160,14 @@ const BulkUpload: React.FC = () => {
     }
   };
 
+  // Fix the sort handler to use the correct type
+  const handleSortChange = (field: string, direction: string) => {
+    // Map the sort field to the correct type
+    const mappedField = field as "recipient" | "carrier" | "rate";
+    setSortField(mappedField);
+    setSortDirection(direction as "asc" | "desc");
+  };
+
   console.log('Rendering BulkUpload with status:', uploadStatus);
   
   return (
@@ -228,10 +236,7 @@ const BulkUpload: React.FC = () => {
             onSearchChange={setSearchTerm}
             sortField={sortField}
             sortDirection={sortDirection}
-            onSortChange={(field, direction) => {
-              setSortField(field as any);
-              setSortDirection(direction as any);
-            }}
+            onSortChange={handleSortChange}
             selectedCarrier={selectedCarrierFilter}
             onCarrierFilterChange={setSelectedCarrierFilter}
             onApplyCarrierToAll={handleBulkApplyCarrier}
