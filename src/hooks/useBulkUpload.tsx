@@ -47,7 +47,7 @@ export const useBulkUpload = () => {
   }, []);
 
   // Filter and sort shipments
-  const filteredShipments = results?.processedShipments.filter(shipment => {
+  const filteredShipments = results?.processedShipments?.filter(shipment => {
     const matchesSearch = !searchTerm || 
       shipment.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
       shipment.carrier.toLowerCase().includes(searchTerm.toLowerCase());
@@ -221,33 +221,42 @@ export const useBulkUpload = () => {
       });
 
       if (error) {
+        console.error('Label creation error:', error);
         throw new Error(error.message);
       }
 
       console.log('Label creation response:', data);
 
-      if (data.processedLabels && data.processedLabels.length > 0) {
-        // Update results with the new label URLs
+      if (data && data.labels && data.labels.length > 0) {
+        // Transform the response to match our expected format
         const updatedShipments = results.processedShipments.map(shipment => {
-          const labelData = data.processedLabels.find((label: any) => label.id === shipment.id);
+          const labelData = data.labels.find((label: any) => label.shipment_id === shipment.id);
           if (labelData) {
             return {
               ...shipment,
               label_url: labelData.label_url,
-              tracking_code: labelData.tracking_code,
-              status: 'completed' as const
+              tracking_code: labelData.tracking_number,
+              status: 'completed' as const,
+              batch_id: labelData.batch_id,
+              // Store additional label data for the success page
+              recipient_name: labelData.recipient_name,
+              drop_off_address: labelData.drop_off_address,
+              tracking_url: labelData.tracking_url
             };
           }
           return shipment;
         });
 
-        setResults({
+        const updatedResults = {
           ...results,
-          processedShipments: updatedShipments
-        });
+          processedShipments: updatedShipments,
+          batchId: data.labels[0]?.batch_id,
+          bulkLabelUrl: data.bulk_label_url
+        };
 
+        setResults(updatedResults);
         setUploadStatus('success');
-        toast.success(`Successfully created ${data.processedLabels.length} shipping labels`);
+        toast.success(`Successfully created ${data.labels.length} shipping labels`);
       } else {
         throw new Error('No labels were created');
       }
@@ -255,6 +264,7 @@ export const useBulkUpload = () => {
     } catch (error) {
       console.error('Error creating labels:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create labels');
+      setUploadStatus('error');
     } finally {
       setIsCreatingLabels(false);
     }
