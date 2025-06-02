@@ -3,7 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, ExternalLink, Package, Truck, FileImage } from 'lucide-react';
+import { Download, ExternalLink, Package, Truck } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
 interface BulkLabel {
@@ -13,11 +13,6 @@ interface BulkLabel {
   tracking_number: string;
   tracking_url: string;
   label_url: string;
-  label_urls?: {
-    png?: string;
-    pdf?: string;
-    zpl?: string;
-  };
   carrier?: string;
   service?: string;
   rate?: number;
@@ -56,35 +51,18 @@ const BulkLabelsTable: React.FC<BulkLabelsTableProps> = ({
     );
   }
 
-  const handleDownloadPNG = (label: BulkLabel) => {
-    const pngUrl = label.label_urls?.png || label.label_url;
-    console.log('Downloading PNG label:', { pngUrl, recipientName: label.recipient_name });
-    if (!pngUrl) {
-      toast.error('PNG label not available for download');
+  const handleDownloadSingle = (labelUrl: string, recipientName: string) => {
+    console.log('Downloading single label:', { labelUrl, recipientName });
+    if (!labelUrl) {
+      toast.error('Label not available for download');
       return;
     }
     try {
-      onDownloadLabel(pngUrl);
-      toast.success(`Downloading PNG label for ${label.recipient_name}`);
+      onDownloadLabel(labelUrl);
+      toast.success(`Downloading label for ${recipientName}`);
     } catch (error) {
-      console.error('Error downloading PNG label:', error);
-      toast.error('Failed to download PNG label');
-    }
-  };
-
-  const handleDownloadPDF = (label: BulkLabel) => {
-    const pdfUrl = label.label_urls?.pdf;
-    console.log('Downloading PDF label:', { pdfUrl, recipientName: label.recipient_name });
-    if (!pdfUrl) {
-      toast.error('PDF label not available for download');
-      return;
-    }
-    try {
-      onDownloadLabel(pdfUrl);
-      toast.success(`Downloading PDF label for ${label.recipient_name}`);
-    } catch (error) {
-      console.error('Error downloading PDF label:', error);
-      toast.error('Failed to download PDF label');
+      console.error('Error downloading single label:', error);
+      toast.error('Failed to download label');
     }
   };
 
@@ -138,7 +116,7 @@ const BulkLabelsTable: React.FC<BulkLabelsTableProps> = ({
             className="bg-green-600 hover:bg-green-700 text-white px-6 py-2"
           >
             <Download className="mr-2 h-4 w-4" />
-            Download All Labels (PNG)
+            Download All Labels
           </Button>
         )}
       </div>
@@ -162,7 +140,7 @@ const BulkLabelsTable: React.FC<BulkLabelsTableProps> = ({
                   Carrier/Service
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Download Labels
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -210,39 +188,23 @@ const BulkLabelsTable: React.FC<BulkLabelsTableProps> = ({
                       )}
                       {label.rate && (
                         <span className="text-xs text-green-600 font-medium">
-                          ${label.rate.toFixed(2)}
+                          ${label.rate}
                         </span>
                       )}
                     </div>
                   </td>
                   
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex space-x-2">
-                      {/* PNG Download Button */}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownloadPNG(label)}
-                        disabled={!label.label_urls?.png && !label.label_url}
-                        className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                      >
-                        <FileImage className="mr-1 h-3 w-3" />
-                        PNG
-                      </Button>
-                      
-                      {/* PDF Download Button (if available) */}
-                      {label.label_urls?.pdf && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDownloadPDF(label)}
-                          className="text-red-600 border-red-600 hover:bg-red-50"
-                        >
-                          <Download className="mr-1 h-3 w-3" />
-                          PDF
-                        </Button>
-                      )}
-                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDownloadSingle(label.label_url, label.recipient_name || 'Label')}
+                      disabled={!label.label_url}
+                      className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                    >
+                      <Download className="mr-1 h-3 w-3" />
+                      Download
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -261,7 +223,7 @@ const BulkLabelsTable: React.FC<BulkLabelsTableProps> = ({
             </h3>
             <p className="text-sm text-green-700 mt-1">
               All {labels.length} labels have been successfully created and are ready for download.
-              Individual tracking numbers are clickable for carrier tracking. Download individual labels as PNG or PDF format.
+              Individual tracking numbers are clickable for carrier tracking.
             </p>
           </div>
         </div>
