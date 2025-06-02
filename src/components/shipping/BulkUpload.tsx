@@ -62,7 +62,7 @@ const BulkUpload: React.FC = () => {
 
   console.log('BulkUpload hook data:', {
     uploadStatus,
-    results: results ? { ...results, processedShipments: results.processedShipments?.length } : null,
+    results: results ? { ...results, processedShipments: Array.isArray(results.processedShipments) ? results.processedShipments.length : 'NOT_ARRAY' } : null,
     isCreatingLabels,
     currentBatchId,
     currentBatchLabelUrl
@@ -72,11 +72,11 @@ const BulkUpload: React.FC = () => {
   useEffect(() => {
     console.log('BulkUpload useEffect - checking for batch info:', {
       uploadStatus,
-      resultsLength: results?.processedShipments?.length,
+      resultsLength: results && Array.isArray(results.processedShipments) ? results.processedShipments.length : 'NOT_ARRAY',
       currentBatchId
     });
     
-    if (uploadStatus === 'success' && results && results.processedShipments && results.processedShipments.length > 0) {
+    if (uploadStatus === 'success' && results && Array.isArray(results.processedShipments) && results.processedShipments.length > 0) {
       // Check if batch info is already available from the results
       const firstShipment = results.processedShipments[0];
       if (firstShipment && firstShipment.batch_id) {
@@ -128,7 +128,7 @@ const BulkUpload: React.FC = () => {
   // Wrapper function to match expected signature
   const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
     console.log("handleEditShipmentWrapper called with:", shipmentId, details);
-    const shipment = results?.processedShipments.find(s => s.id === shipmentId);
+    const shipment = results && Array.isArray(results.processedShipments) ? results.processedShipments.find(s => s.id === shipmentId) : null;
     if (shipment) {
       handleEditShipment(shipment);
     }
@@ -154,6 +154,9 @@ const BulkUpload: React.FC = () => {
       fileInput.click();
     }
   };
+
+  // Safe check for processedShipments
+  const processedShipmentsCount = results && Array.isArray(results.processedShipments) ? results.processedShipments.length : 0;
 
   console.log('Rendering BulkUpload with status:', uploadStatus);
   
@@ -184,7 +187,7 @@ const BulkUpload: React.FC = () => {
         </div>
       )}
       
-      {uploadStatus === 'editing' && results && (
+      {uploadStatus === 'editing' && results && Array.isArray(results.processedShipments) && (
         <div className="mt-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
             <h2 className="text-xl font-semibold flex items-center">
@@ -241,13 +244,13 @@ const BulkUpload: React.FC = () => {
             onRefreshRates={handleRefreshRates}
           />
           
-          {results.processedShipments.length > 0 && (
+          {processedShipmentsCount > 0 && (
             <div className="mt-8 p-4 border rounded-lg bg-gray-50">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
                 <div>
                   <h3 className="font-semibold text-lg">Enhanced Batch Order Summary</h3>
                   <p className="text-gray-600">
-                    {results.processedShipments.length} shipments selected with a total cost of ${results.totalCost.toFixed(2)}
+                    {processedShipmentsCount} shipments selected with a total cost of ${results.totalCost.toFixed(2)}
                   </p>
                   <p className="text-sm text-blue-600 mt-1">
                     Labels will be generated using EasyPost API in PDF, PNG, and ZPL formats
@@ -271,7 +274,7 @@ const BulkUpload: React.FC = () => {
                   
                   <Button
                     onClick={handleCreateLabelsClick}
-                    disabled={isCreatingLabels || results.processedShipments.length === 0 || !pickupAddress}
+                    disabled={isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
                     {isCreatingLabels ? 'Creating Labels...' : 'Create Batch Labels'} 
@@ -305,7 +308,7 @@ const BulkUpload: React.FC = () => {
         onOpenChange={setShowLabelOptions}
         onFormatSelect={handleDownloadLabelsWithFormat}
         onEmailLabels={() => handleEmailLabels("")}
-        shipmentCount={results?.processedShipments.length || 0}
+        shipmentCount={processedShipmentsCount}
       />
     </Card>
   );
