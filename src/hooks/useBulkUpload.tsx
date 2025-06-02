@@ -27,7 +27,6 @@ export const useBulkUpload = () => {
   const [selectedCarrierFilter, setSelectedCarrierFilter] = useState('');
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
   const [isFetchingRates, setIsFetchingRates] = useState(false);
-  const [showLabelOptions, setShowLabelOptions] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
 
@@ -46,11 +45,11 @@ export const useBulkUpload = () => {
     loadDefaultAddress();
   }, []);
 
-  // Filter and sort shipments
-  const filteredShipments = results?.processedShipments.filter(shipment => {
+  // Filter and sort shipments - ensure all shipments are shown
+  const filteredShipments = results?.processedShipments?.filter(shipment => {
     const matchesSearch = !searchTerm || 
-      shipment.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      shipment.carrier.toLowerCase().includes(searchTerm.toLowerCase());
+      shipment.recipient?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      shipment.carrier?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCarrier = !selectedCarrierFilter || 
       shipment.carrier === selectedCarrierFilter;
@@ -61,16 +60,16 @@ export const useBulkUpload = () => {
     
     switch (sortField) {
       case 'recipient':
-        aValue = a.recipient;
-        bValue = b.recipient;
+        aValue = a.recipient || '';
+        bValue = b.recipient || '';
         break;
       case 'carrier':
-        aValue = a.carrier;
-        bValue = b.carrier;
+        aValue = a.carrier || '';
+        bValue = b.carrier || '';
         break;
       case 'rate':
-        aValue = a.rate;
-        bValue = b.rate;
+        aValue = a.rate || 0;
+        bValue = b.rate || 0;
         break;
       default:
         return 0;
@@ -178,27 +177,8 @@ export const useBulkUpload = () => {
     toast.success(`Applied ${carrier} to all applicable shipments`);
   };
 
+  // Direct label creation like international shipping - send to EasyPost
   const handleProceedToPayment = async () => {
-    if (!results || !pickupAddress) {
-      toast.error('Missing shipments or pickup address');
-      return;
-    }
-    
-    setIsPaying(true);
-    
-    try {
-      // Create labels first
-      await handleCreateLabels();
-      
-    } catch (error) {
-      console.error('Payment error:', error);
-      toast.error('Failed to process payment');
-    } finally {
-      setIsPaying(false);
-    }
-  };
-
-  const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
       return;
@@ -207,8 +187,9 @@ export const useBulkUpload = () => {
     setIsCreatingLabels(true);
     
     try {
-      console.log('Creating labels for shipments:', results.processedShipments);
+      console.log('Creating labels for all shipments:', results.processedShipments);
       
+      // Send all shipments to EasyPost for label creation
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
           shipments: results.processedShipments,
@@ -246,6 +227,7 @@ export const useBulkUpload = () => {
           processedShipments: updatedShipments
         });
 
+        // Move directly to success state - no popup
         setUploadStatus('success');
         toast.success(`Successfully created ${data.processedLabels.length} shipping labels`);
       } else {
@@ -260,14 +242,33 @@ export const useBulkUpload = () => {
     }
   };
 
+  const handleCreateLabels = async () => {
+    // Redirect to EasyPost for label creation
+    await handleProceedToPayment();
+  };
+
   const handleDownloadAllLabels = () => {
-    setShowLabelOptions(true);
+    if (!results) return;
+    
+    const labelsWithUrls = results.processedShipments.filter(s => s.label_url);
+    
+    if (labelsWithUrls.length === 0) {
+      toast.error('No labels available for download');
+      return;
+    }
+
+    // Download each label individually with staggered timing
+    labelsWithUrls.forEach((shipment, index) => {
+      setTimeout(() => {
+        handleDownloadSingleLabel(shipment.label_url!, 'pdf');
+      }, index * 300);
+    });
+    
+    toast.success(`Started download of ${labelsWithUrls.length} labels`);
   };
 
   const handleDownloadLabelsWithFormat = async (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!results) return;
-    
-    setShowLabelOptions(false);
     
     const labelsWithUrls = results.processedShipments.filter(s => s.label_url);
     
@@ -332,7 +333,6 @@ export const useBulkUpload = () => {
     uploadStatus,
     results,
     progress,
-    showLabelOptions,
     
     // Filters and sorting
     searchTerm,
@@ -350,7 +350,6 @@ export const useBulkUpload = () => {
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
-    setShowLabelOptions,
     
     // Handlers
     handleUpload,

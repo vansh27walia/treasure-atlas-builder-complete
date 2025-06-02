@@ -12,25 +12,21 @@ export const useShipmentFiltering = (
 
   // Filter and sort shipments
   const filteredShipments = useMemo(() => {
-    // Early return if no results or processedShipments is not available
-    if (!results || !results.processedShipments || !Array.isArray(results.processedShipments)) {
-      console.log('No valid results or processedShipments found:', results);
-      return [];
-    }
+    if (!results) return [];
     
     return results.processedShipments
       .filter(shipment => {
-        // Filter by search term - safely access properties with fallbacks
+        // Filter by search term
         const searchFields = [
-          shipment.recipient || '',
-          shipment.details?.name || shipment.details?.to_name || '',
-          shipment.details?.company || shipment.details?.to_company || '',
-          shipment.details?.street1 || shipment.details?.to_street1 || '',
-          shipment.details?.city || shipment.details?.to_city || '',
-          shipment.details?.state || shipment.details?.to_state || '',
-          shipment.details?.zip || shipment.details?.to_zip || '',
-          shipment.carrier || '',
-          shipment.service || ''
+          shipment.recipient,
+          shipment.details.name,
+          shipment.details.company || '',
+          shipment.details.street1,
+          shipment.details.city,
+          shipment.details.state,
+          shipment.details.zip,
+          shipment.carrier,
+          shipment.service
         ].join(' ').toLowerCase();
         
         const matchesSearch = !searchTerm || searchFields.includes(searchTerm.toLowerCase());
@@ -45,19 +41,15 @@ export const useShipmentFiltering = (
       })
       .sort((a, b) => {
         if (sortField === 'recipient') {
-          const aRecipient = a.recipient || '';
-          const bRecipient = b.recipient || '';
           return sortDirection === 'asc' 
-            ? aRecipient.localeCompare(bRecipient)
-            : bRecipient.localeCompare(aRecipient);
+            ? a.recipient.localeCompare(b.recipient)
+            : b.recipient.localeCompare(a.recipient);
         }
         
         if (sortField === 'carrier') {
-          const aCarrier = a.carrier || '';
-          const bCarrier = b.carrier || '';
           return sortDirection === 'asc' 
-            ? aCarrier.localeCompare(bCarrier)
-            : bCarrier.localeCompare(aCarrier);
+            ? a.carrier.localeCompare(b.carrier)
+            : b.carrier.localeCompare(a.carrier);
         }
         
         // Sort by rate
