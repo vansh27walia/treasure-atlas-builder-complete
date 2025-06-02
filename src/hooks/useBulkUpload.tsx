@@ -226,45 +226,35 @@ export const useBulkUpload = () => {
 
       console.log('Label creation response:', data);
 
-      if (data && data.labels && data.labels.length > 0) {
-        // Transform the response to match our expected format
+      if (data.processedLabels && data.processedLabels.length > 0) {
+        // Update results with the new label URLs
         const updatedShipments = results.processedShipments.map(shipment => {
-          const labelData = data.labels.find((label: any) => 
-            label.shipment_id === shipment.id && label.status === 'success_individual_png_saved'
-          );
-          
+          const labelData = data.processedLabels.find((label: any) => label.id === shipment.id);
           if (labelData) {
             return {
               ...shipment,
-              label_url: labelData.label_urls?.png || labelData.label_url,
-              tracking_code: labelData.tracking_number,
-              status: 'completed' as const,
-              batch_id: data.batch_id,
-              batch_label_url: data.bulk_label_url
+              label_url: labelData.label_url,
+              tracking_code: labelData.tracking_code,
+              status: 'completed' as const
             };
           }
           return shipment;
         });
 
-        const successfulLabels = updatedShipments.filter(s => s.label_url);
-
         setResults({
           ...results,
-          processedShipments: updatedShipments,
-          successful: successfulLabels.length
+          processedShipments: updatedShipments
         });
 
-        // Set status to success to show the success notification
         setUploadStatus('success');
-        toast.success(`Successfully created ${successfulLabels.length} shipping labels`);
+        toast.success(`Successfully created ${data.processedLabels.length} shipping labels`);
       } else {
-        throw new Error('No labels were created successfully');
+        throw new Error('No labels were created');
       }
 
     } catch (error) {
       console.error('Error creating labels:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create labels');
-      setUploadStatus('error');
     } finally {
       setIsCreatingLabels(false);
     }
