@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -159,6 +160,28 @@ const BulkUpload: React.FC = () => {
     }
   };
 
+  // Handle sort field changes with proper type mapping
+  const handleSortChange = (field: string, direction: string) => {
+    // Map from the filter component's expected types to our hook's types
+    let mappedField: 'recipient' | 'carrier' | 'rate';
+    switch (field) {
+      case 'recipient':
+        mappedField = 'recipient';
+        break;
+      case 'carrier':
+        mappedField = 'carrier';
+        break;
+      case 'rate':
+        mappedField = 'rate';
+        break;
+      default:
+        mappedField = 'recipient'; // fallback
+    }
+    
+    setSortField(mappedField);
+    setSortDirection(direction as 'asc' | 'desc');
+  };
+
   // Error boundary-like error handling
   try {
     console.log('Rendering BulkUpload with status:', uploadStatus);
@@ -229,10 +252,7 @@ const BulkUpload: React.FC = () => {
               onSearchChange={setSearchTerm}
               sortField={sortField}
               sortDirection={sortDirection}
-              onSortChange={(field, direction) => {
-                setSortField(field as any);
-                setSortDirection(direction as any);
-              }}
+              onSortChange={handleSortChange}
               selectedCarrier={selectedCarrierFilter}
               onCarrierFilterChange={setSelectedCarrierFilter}
               onApplyCarrierToAll={handleBulkApplyCarrier}

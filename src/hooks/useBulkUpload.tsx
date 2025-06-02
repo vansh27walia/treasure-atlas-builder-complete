@@ -226,19 +226,24 @@ export const useBulkUpload = () => {
 
       console.log('Label creation response:', data);
 
-      if (data.processedLabels && data.processedLabels.length > 0) {
-        // Update results with the new label URLs
+      if (data && data.labels && data.labels.length > 0) {
+        // Update results with the new label URLs and tracking info
         const updatedShipments = results.processedShipments.map(shipment => {
-          const labelData = data.processedLabels.find((label: any) => label.id === shipment.id);
-          if (labelData) {
+          const labelData = data.labels.find((label: any) => label.shipment_id === shipment.id);
+          if (labelData && labelData.status === 'success_individual_png_saved') {
             return {
               ...shipment,
-              label_url: labelData.label_url,
-              tracking_code: labelData.tracking_code,
-              status: 'completed' as const
+              label_url: labelData.label_urls?.png || labelData.label_urls?.pdf,
+              tracking_code: labelData.tracking_number,
+              status: 'completed' as const,
+              batch_id: data.batch_id || `batch_${Date.now()}`,
+              batch_label_url: data.bulk_label_url
             };
           }
-          return shipment;
+          return {
+            ...shipment,
+            status: labelData?.status === 'error_buy' ? 'failed' as const : shipment.status
+          };
         });
 
         setResults({
@@ -246,8 +251,17 @@ export const useBulkUpload = () => {
           processedShipments: updatedShipments
         });
 
-        setUploadStatus('success');
-        toast.success(`Successfully created ${data.processedLabels.length} shipping labels`);
+        // Only set success if we have some successful labels
+        const successfulLabels = data.labels.filter((label: any) => 
+          label.status === 'success_individual_png_saved'
+        );
+        
+        if (successfulLabels.length > 0) {
+          setUploadStatus('success');
+          toast.success(`Successfully created ${successfulLabels.length} shipping labels`);
+        } else {
+          toast.error('Failed to create any labels. Please try again.');
+        }
       } else {
         throw new Error('No labels were created');
       }
@@ -323,7 +337,7 @@ export const useBulkUpload = () => {
   };
 
   return {
-    // Upload state
+    // Upload state - including the missing file property
     file,
     isUploading,
     isPaying,
