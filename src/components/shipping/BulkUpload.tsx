@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from '@/hooks/useBulkUpload';
@@ -160,11 +159,9 @@ const BulkUpload: React.FC = () => {
     }
   };
 
-  // Fix the sort handler to use the correct type
+  // Fix the sort handler to properly handle the sort field types
   const handleSortChange = (field: string, direction: string) => {
-    // Map the sort field to the correct type that matches useShipmentFiltering
-    const mappedField = field as "recipient" | "carrier" | "rate";
-    setSortField(mappedField);
+    setSortField(field as "recipient" | "carrier" | "rate");
     setSortDirection(direction as "asc" | "desc");
   };
 
