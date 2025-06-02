@@ -1,6 +1,7 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { useBulkUpload } from './bulk-upload/useBulkUpload';
+import { useBulkUpload } from '@/hooks/useBulkUpload';
 import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
 import BulkUploadForm from './bulk-upload/BulkUploadForm';
 import EnhancedSuccessNotification from './bulk-upload/EnhancedSuccessNotification';
@@ -230,8 +231,8 @@ const BulkUpload: React.FC = () => {
               sortField={sortField}
               sortDirection={sortDirection}
               onSortChange={(field, direction) => {
-                setSortField(field as any);
-                setSortDirection(direction as any);
+                setSortField(field as 'recipient' | 'carrier' | 'rate');
+                setSortDirection(direction as 'asc' | 'desc');
               }}
               selectedCarrier={selectedCarrierFilter}
               onCarrierFilterChange={setSelectedCarrierFilter}
