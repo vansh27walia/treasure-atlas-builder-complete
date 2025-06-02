@@ -159,12 +159,6 @@ const BulkUpload: React.FC = () => {
     }
   };
 
-  // Fix the sort field mapping to ensure type compatibility
-  const handleSortChange = (field: 'recipient' | 'carrier' | 'rate', direction: 'asc' | 'desc') => {
-    setSortField(field);
-    setSortDirection(direction);
-  };
-
   // Error boundary-like error handling
   try {
     console.log('Rendering BulkUpload with status:', uploadStatus);
@@ -235,7 +229,10 @@ const BulkUpload: React.FC = () => {
               onSearchChange={setSearchTerm}
               sortField={sortField}
               sortDirection={sortDirection}
-              onSortChange={handleSortChange}
+              onSortChange={(field, direction) => {
+                setSortField(field as any);
+                setSortDirection(direction as any);
+              }}
               selectedCarrier={selectedCarrierFilter}
               onCarrierFilterChange={setSelectedCarrierFilter}
               onApplyCarrierToAll={handleBulkApplyCarrier}
