@@ -25,7 +25,9 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  const hasLabels = results.processedShipments.some(shipment => shipment.label_url);
+  const hasLabels = results.processedShipments?.some(shipment => shipment.label_url);
+  const totalShipments = results.processedShipments?.length || 0;
+  const labelsGenerated = results.processedShipments?.filter(s => s.label_url)?.length || 0;
 
   return (
     <Card className="mt-6 p-6 border-green-200 bg-green-50">
@@ -33,13 +35,10 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         <CheckCircle className="h-6 w-6 text-green-600" />
         <div>
           <h3 className="text-lg font-semibold text-green-800">
-            {hasLabels ? 'Labels Generated Successfully!' : 'Shipments Processed Successfully!'}
+            Labels Generated Successfully!
           </h3>
           <p className="text-green-700">
-            {hasLabels 
-              ? `${results.successful} shipping labels have been created and are ready for download.`
-              : `${results.successful} shipments have been processed with live rates.`
-            }
+            {labelsGenerated} out of {totalShipments} shipping labels have been created and are ready for download.
           </p>
         </div>
       </div>
@@ -55,62 +54,50 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-600">{results.successful}</div>
-          <div className="text-sm text-gray-600">Successful Shipments</div>
+          <div className="text-2xl font-bold text-green-600">{totalShipments}</div>
+          <div className="text-sm text-gray-600">Total Shipments</div>
         </div>
         
         <div className="bg-white p-4 rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-600">${results.totalCost.toFixed(2)}</div>
+          <div className="text-2xl font-bold text-green-600">${results.totalCost?.toFixed(2) || '0.00'}</div>
           <div className="text-sm text-gray-600">Total Shipping Cost</div>
         </div>
         
         <div className="bg-white p-4 rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-600">
-            {results.processedShipments.filter(s => s.label_url).length}
-          </div>
+          <div className="text-2xl font-bold text-green-600">{labelsGenerated}</div>
           <div className="text-sm text-gray-600">Labels Generated</div>
         </div>
       </div>
 
-      {/* Action Buttons - Matching International Shipping */}
+      {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        {hasLabels ? (
-          <>
-            <Button 
-              onClick={onDownloadAllLabels}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              disabled={isCreatingLabels}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download All Labels
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              onClick={() => window.print()}
-              className="border-green-200 hover:bg-green-50"
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              Print Summary
-            </Button>
-          </>
-        ) : (
-          <Button 
-            onClick={onCreateLabels}
-            disabled={isCreatingLabels || isPaying}
-            className="bg-green-600 hover:bg-green-700 text-white"
-          >
-            {isCreatingLabels ? 'Creating Labels...' : 'Generate Shipping Labels'}
-          </Button>
-        )}
+        <Button 
+          onClick={onDownloadAllLabels}
+          className="bg-green-600 hover:bg-green-700 text-white"
+          disabled={isCreatingLabels || labelsGenerated === 0}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Download All Labels ({labelsGenerated})
+        </Button>
+        
+        <Button 
+          variant="outline" 
+          onClick={() => window.print()}
+          className="border-green-200 hover:bg-green-50"
+        >
+          <FileText className="mr-2 h-4 w-4" />
+          Print Summary
+        </Button>
       </div>
 
-      {/* Successful Shipments Table - Matches international shipping behavior exactly */}
-      <SuccessfulShipmentsTable
-        shipments={results.processedShipments.filter(s => s.label_url || !hasLabels)}
-        onDownloadSingleLabel={onDownloadSingleLabel}
-        onDownloadAllLabels={onDownloadAllLabels}
-      />
+      {/* Successful Shipments Table - Show ALL shipments with labels */}
+      {labelsGenerated > 0 && (
+        <SuccessfulShipmentsTable
+          shipments={results.processedShipments?.filter(s => s.label_url) || []}
+          onDownloadSingleLabel={onDownloadSingleLabel}
+          onDownloadAllLabels={onDownloadAllLabels}
+        />
+      )}
 
       {/* Failed Shipments */}
       {results.failedShipments && results.failedShipments.length > 0 && (
