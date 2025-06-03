@@ -1,144 +1,239 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-// createClient might not be needed here anymore if this script doesn't directly touch Supabase DB/Storage
-// import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Define the expected structure for shipments to be sent to the bulk backend
-interface ShipmentForBulkBackend {
-  id: string; // Your internal client-side ID for correlation
-  easypost_id: string;
-  selectedRateId: string;
-  // Add any other fields that your *main bulk backend* might expect per shipment,
-  // based on its `shipmentsFromUser` parameter.
+interface LabelOptions {
+  format?: string;
+  size?: string;
 }
 
-// Interface for the payload sent TO THIS SCRIPT
-// Let's assume the incoming request to this script provides shipments in a compatible way,
-// or we adapt them. The key is that `easypost_id` and `selectedRateId` must be present.
-// And your *main bulk backend* also uses an 'id' field in its input `shipmentsFromUser`
-// for correlation, so we should ensure that's passed too.
-interface IncomingShipmentData {
-  id: string; // This should be the client's original ID for the shipment
-  easypost_id: string;
-  selectedRateId: string;
-  details?: any; // Keep other details if needed for other logic, but not for bulk backend
-  recipient?: string;
-  // ... any other fields your current script receives
-}
+const ensureStorageBucket = async (supabase: any) => {
+  try {
+    // Check if bucket exists
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+    
+    if (listError) {
+      console.error('Error listing buckets:', listError);
+    }
+    
+    const bucketExists = buckets?.some((bucket: any) => bucket.name === 'shipping-labels');
+    
+    if (!bucketExists) {
+      console.log('Creating shipping-labels bucket');
+      const { error: bucketError } = await supabase.storage.createBucket('shipping-labels', {
+        public: true,
+        fileSizeLimit: 10485760, // 10MB
+        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
+      });
+      
+      if (bucketError) {
+        console.error('Error creating bucket:', bucketError);
+        throw new Error(`Failed to create storage bucket: ${bucketError.message}`);
+      }
+      
+      console.log('Successfully created shipping-labels bucket');
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error ensuring storage bucket:', error);
+    throw error;
+  }
+};
 
-interface IncomingRequestBody {
-  shipments: IncomingShipmentData[];
-  labelOptions?: Record<string, any>; // Or a more specific interface if you have one
-  // pickupAddress?: any; // Include if your main backend needs it, otherwise remove
-}
-
-// URL of your *main* Deno backend function (the first one you provided)
-// This is the backend that does the actual bulk processing & uses 'shipping-labels-2'
-const YOUR_BULK_LABEL_BACKEND_FUNCTION_URL = 'YOUR_SUPABASE_URL/functions/v1/your-FIRST-bulk-label-backend-name';
-
-/*
-// These functions (`purchaseEasyPostLabel`, `downloadAndStoreLabel`) were from your original script.
-// If this script's role is now to call your *main bulk backend*, these might no longer be directly used here
-// as the main bulk backend will handle the EasyPost interactions and Supabase storage.
-// I'm commenting them out for now to reflect this changed role. If you still need them for
-// a different purpose, they can be reinstated or adapted.
-
-const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options: any = {}) => { ... };
-const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: string): Promise<string> => { ... };
-*/
-
-serve(async (req: Request) => {
-  console.log(`[PROXY_SCRIPT_RECEIVED_REQUEST] Method: ${req.method}, URL: ${req.url}`);
-
-  if (YOUR_BULK_LABEL_BACKEND_FUNCTION_URL.includes('YOUR_SUPABASE_URL') || YOUR_BULK_LABEL_BACKEND_FUNCTION_URL.includes('your-FIRST-bulk-label-backend-name')) {
-      console.error("[PROXY_SCRIPT_CONFIG_ERROR] The YOUR_BULK_LABEL_BACKEND_FUNCTION_URL is not configured.");
-      return new Response(
-        JSON.stringify({ error: 'Proxy script configuration error: Target backend URL not set.' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
+const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options: LabelOptions = {}) => {
+  const apiKey = Deno.env.get('EASYPOST_API_KEY');
+  if (!apiKey) {
+    throw new Error('EasyPost API key not configured');
   }
 
+  try {
+    console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
+    
+    // Buy the shipment with selected rate via EasyPost API
+    const buyResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        rate: { id: rateId },
+        label_format: options.format || 'PDF',
+        label_size: options.size || '4x6',
+      }),
+    });
+
+    if (!buyResponse.ok) {
+      const errorData = await buyResponse.json();
+      console.error(`EasyPost purchase error for ${shipmentId}:`, errorData);
+      throw new Error(`EasyPost purchase error: ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    const boughtShipment = await buyResponse.json();
+    console.log(`Successfully purchased label for shipment ${shipmentId}`);
+    
+    // Download and store the label in our system
+    const labelUrl = await downloadAndStoreLabel(boughtShipment.postage_label?.label_url, boughtShipment.tracking_code);
+    
+    return {
+      id: boughtShipment.id,
+      tracking_code: boughtShipment.tracking_code,
+      label_url: labelUrl,
+      carrier: boughtShipment.selected_rate?.carrier,
+      service: boughtShipment.selected_rate?.service,
+      rate: boughtShipment.selected_rate?.rate,
+      customer_name: boughtShipment.to_address?.name,
+      customer_address: `${boughtShipment.to_address?.street1}, ${boughtShipment.to_address?.city}, ${boughtShipment.to_address?.state} ${boughtShipment.to_address?.zip}`,
+      customer_phone: boughtShipment.to_address?.phone,
+      customer_email: boughtShipment.to_address?.email,
+      customer_company: boughtShipment.to_address?.company,
+    };
+    
+  } catch (error) {
+    console.error(`EasyPost label purchase error for shipment ${shipmentId}:`, error);
+    throw error;
+  }
+};
+
+const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: string): Promise<string> => {
+  try {
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    console.log(`Downloading label from EasyPost: ${easyPostLabelUrl}`);
+    
+    // Ensure bucket exists
+    await ensureStorageBucket(supabase);
+    
+    // Download the label from EasyPost
+    const response = await fetch(easyPostLabelUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download label: ${response.status}`);
+    }
+    
+    const labelBlob = await response.blob();
+    const labelArrayBuffer = await labelBlob.arrayBuffer();
+    const labelBuffer = new Uint8Array(labelArrayBuffer);
+    
+    // Create filename
+    const fileName = `shipping_label_${trackingCode}_${Date.now()}.pdf`;
+    
+    // Upload the label to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase
+      .storage
+      .from('shipping-labels')
+      .upload(fileName, labelBuffer, {
+        contentType: 'application/pdf',
+        cacheControl: '3600',
+        upsert: false
+      });
+      
+    if (uploadError) {
+      console.error('Error uploading label:', uploadError);
+      throw new Error('Failed to upload label to storage');
+    }
+    
+    // Get public URL
+    const { data: urlData } = await supabase
+      .storage
+      .from('shipping-labels')
+      .getPublicUrl(fileName);
+      
+    console.log(`Label stored successfully: ${urlData.publicUrl}`);
+    return urlData.publicUrl;
+    
+  } catch (error) {
+    console.error('Error downloading and storing label:', error);
+    // Fallback to original EasyPost URL if storage fails
+    return easyPostLabelUrl;
+  }
+};
+
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Extract the Authorization header from the incoming request to this script
-  const authorizationHeader = req.headers.get('Authorization');
-  if (!authorizationHeader) {
-    // Your main bulk backend requires authentication. If this script doesn't receive
-    // an auth token to forward, the call to the main backend will fail.
-    console.warn("[PROXY_SCRIPT_AUTH_WARN] No Authorization header received in the request. The call to the main bulk backend will likely fail if it requires authentication.");
-    // Depending on your policy, you might want to return a 401 here, or proceed and let the main backend handle it.
-    // For now, we'll proceed, but this is a critical point.
-    // return new Response(
-    //   JSON.stringify({ error: 'Authorization header missing' }),
-    //   { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-    // );
-  }
-
-
   try {
-    const requestBody: IncomingRequestBody = await req.json();
-    console.log("[PROXY_SCRIPT_REQUEST_BODY_PARSED]", JSON.stringify(requestBody));
-
-    if (!requestBody.shipments || !Array.isArray(requestBody.shipments) || requestBody.shipments.length === 0) {
+    const { shipments, pickupAddress, labelOptions = {} } = await req.json();
+    
+    if (!shipments || !Array.isArray(shipments)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid or empty shipments data' }),
+        JSON.stringify({ error: 'Invalid shipments data' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
 
-    // Transform the incoming shipments data to match the structure expected by your main bulk backend.
-    // Your main bulk backend expects an array of objects, each with `id`, `easypost_id`, and `selectedRateId`.
-    const shipmentsForBulkPayload: ShipmentForBulkBackend[] = requestBody.shipments.map(s => ({
-      id: s.id, // Pass through the client's original shipment ID
-      easypost_id: s.easypost_id,
-      selectedRateId: s.selectedRateId,
-    }));
+    console.log(`Processing ${shipments.length} shipments for label creation`);
+    
+    const processedLabels = [];
+    const failedLabels = [];
 
-    const payloadForMainBackend = {
-      shipments: shipmentsForBulkPayload,
-      labelOptions: requestBody.labelOptions || {}, // Pass through labelOptions
-    };
+    // Process each shipment individually to ensure we get all labels
+    for (const shipment of shipments) {
+      try {
+        console.log(`Processing label for shipment ${shipment.id} with EasyPost ID ${shipment.easypost_id}`);
+        
+        if (!shipment.selectedRateId || !shipment.easypost_id) {
+          throw new Error('Missing EasyPost shipment ID or rate ID for live label generation');
+        }
 
-    console.log(`[PROXY_SCRIPT_CALLING_MAIN_BACKEND] Calling ${YOUR_BULK_LABEL_BACKEND_FUNCTION_URL} with payload:`, JSON.stringify(payloadForMainBackend));
+        // Purchase label via EasyPost and store in our system
+        const labelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId, labelOptions);
 
-    const backendResponse = await fetch(YOUR_BULK_LABEL_BACKEND_FUNCTION_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // IMPORTANT: Forward the Authorization header.
-        // If `authorizationHeader` is null, this will correctly not add the header.
-        ...(authorizationHeader ? { 'Authorization': authorizationHeader } : {}),
-        // Add any other headers your main bulk backend might require from this "proxy"
-      },
-      body: JSON.stringify(payloadForMainBackend),
-    });
+        // Ensure we preserve all customer details
+        const processedLabel = {
+          ...shipment,
+          ...labelData,
+          status: 'completed' as const,
+          customer_name: labelData.customer_name || shipment.details?.to_name || shipment.recipient,
+          customer_address: labelData.customer_address || `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
+          customer_phone: labelData.customer_phone || shipment.details?.to_phone,
+          customer_email: labelData.customer_email || shipment.details?.to_email,
+          customer_company: labelData.customer_company || shipment.details?.to_company,
+        };
 
-    const responseData = await backendResponse.json();
-    console.log("[PROXY_SCRIPT_RECEIVED_RESPONSE_FROM_MAIN_BACKEND] Status:", backendResponse.status, "Data:", JSON.stringify(responseData));
+        processedLabels.push(processedLabel);
+        console.log(`Successfully processed label for shipment ${shipment.id}`);
 
-    // Return the response from the main bulk backend directly to the original caller of this script
-    return new Response(JSON.stringify(responseData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: backendResponse.status, // Use the status from the main backend
-    });
-
-  } catch (error) {
-    console.error('[PROXY_SCRIPT_ERROR] Error processing request or calling main backend:', error, error.stack);
-    let errorMessage = 'An unexpected error occurred in the proxy script.';
-    if (error instanceof Error) {
-        errorMessage = error.message;
+      } catch (error) {
+        console.error(`Failed to create label for shipment ${shipment.id}:`, error);
+        failedLabels.push({
+          shipmentId: shipment.id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
+
+    console.log(`Label processing complete: ${processedLabels.length} successful, ${failedLabels.length} failed`);
+
     return new Response(
       JSON.stringify({
-        error: 'Proxy Script Error',
-        message: errorMessage,
+        success: true,
+        processedLabels,
+        failedLabels,
+        total: shipments.length,
+        successful: processedLabels.length,
+        failed: failedLabels.length,
+        message: `Processed ${processedLabels.length} live labels and stored them in our system`,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+    );
+
+  } catch (error) {
+    console.error('Error in create-bulk-labels function:', error);
+    return new Response(
+      JSON.stringify({ 
+        error: 'Label Creation Error', 
+        message: error instanceof Error ? error.message : 'Unknown error' 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );

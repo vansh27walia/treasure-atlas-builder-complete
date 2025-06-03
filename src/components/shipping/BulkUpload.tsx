@@ -13,28 +13,27 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { FileText, UploadCloud, ChevronRight, AlertCircle } from 'lucide-react';
-import { SavedAddress } from '@/services/AddressService'; // Ensure this type is correctly defined/imported
+import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
-import { BulkUploadResult } from '@/types/shipping'; // Ensure this type correctly defines 'processedShipments' as optional or an array
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
   
   const {
-    file, // You might want to log 'file' as well if it's involved in conditions
+    file,
     isUploading,
     isPaying,
     isCreatingLabels,
     isFetchingRates,
     uploadStatus,
-    results, // This is the key object to inspect
+    results,
     progress,
     showLabelOptions,
     searchTerm,
     sortField,
     sortDirection,
     selectedCarrierFilter,
-    filteredShipments, // This should be an array from useShipmentFiltering
+    filteredShipments,
     pickupAddress,
     setPickupAddress,
     handleUpload,
@@ -57,11 +56,6 @@ const BulkUpload: React.FC = () => {
     setSelectedCarrierFilter
   } = useBulkUpload();
 
-  // Log results whenever it changes to help debug its structure
-  useEffect(() => {
-    console.log("BulkUpload component: results object updated", JSON.stringify(results, null, 2));
-  }, [results]);
-
   // Log pickup address on mount and when it changes (less frequently)
   useEffect(() => {
     console.log("Current pickup address in BulkUpload:", pickupAddress);
@@ -72,6 +66,7 @@ const BulkUpload: React.FC = () => {
       console.log("Selected pickup address in BulkUpload:", address);
       setPickupAddress(address);
       
+      // Prevent duplicate toasts
       const now = Date.now();
       if (now - lastToastRef.current > 2000) {
         toast.success(`Selected pickup address: ${address.name || address.street1}`);
@@ -88,18 +83,16 @@ const BulkUpload: React.FC = () => {
     console.error("Upload failed in BulkUpload component:", error);
   };
 
+  // Wrapper function to match expected signature
   const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
-    // Safe access to processedShipments
-    const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+    const shipment = results?.processedShipments.find(s => s.id === shipmentId);
     if (shipment) {
       handleEditShipment(shipment);
-    } else {
-      console.warn(`Could not find shipment with ID ${shipmentId} to edit.`);
     }
   };
 
   const resetUpload = () => {
-    window.location.reload(); // Consider a less disruptive way to reset state if possible
+    window.location.reload();
   };
 
   const selectNewFile = () => {
@@ -108,23 +101,6 @@ const BulkUpload: React.FC = () => {
       fileInput.click();
     }
   };
-
-  // Helper to safely get processedShipments array
-  const getProcessedShipments = (): any[] => { // Replace 'any[]' with your actual BulkShipment[] type
-    if (results && results.processedShipments && Array.isArray(results.processedShipments)) {
-      return results.processedShipments;
-    }
-    return [];
-  };
-  const processedShipmentsArray = getProcessedShipments();
-  const processedShipmentsLength = processedShipmentsArray.length;
-
-  // Helper to safely get totalCost
-  const getTotalCost = (): number => {
-    return results?.totalCost ?? 0; // Default to 0 if totalCost is undefined
-  }
-  const totalCost = getTotalCost();
-
 
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
@@ -153,11 +129,7 @@ const BulkUpload: React.FC = () => {
         </div>
       )}
       
-      {/*
-        The error "Cannot read properties of undefined (reading 'length')"
-        likely occurs around here if `results.processedShipments` is undefined.
-      */}
-      {uploadStatus === 'editing' && results && ( // This ensures 'results' is not null/undefined
+      {uploadStatus === 'editing' && results && (
         <div className="mt-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
             <h2 className="text-xl font-semibold flex items-center">
@@ -205,9 +177,8 @@ const BulkUpload: React.FC = () => {
             onApplyCarrierToAll={handleBulkApplyCarrier}
           />
           
-          {/* `filteredShipments` comes from `useShipmentFiltering` which we already made robust */}
           <BulkShipmentsList
-            shipments={filteredShipments} 
+            shipments={filteredShipments}
             isFetchingRates={isFetchingRates}
             onSelectRate={handleSelectRate}
             onRemoveShipment={handleRemoveShipment}
@@ -215,15 +186,13 @@ const BulkUpload: React.FC = () => {
             onRefreshRates={handleRefreshRates}
           />
           
-          {/* SAFER ACCESS to results.processedShipments.length */}
-          {processedShipmentsLength > 0 && (
+          {results.processedShipments.length > 0 && (
             <div className="mt-8 p-4 border rounded-lg bg-gray-50">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
                 <div>
                   <h3 className="font-semibold text-lg">Order Summary</h3>
                   <p className="text-gray-600">
-                    {/* SAFER ACCESS */}
-                    {processedShipmentsLength} shipments selected with a total cost of ${totalCost.toFixed(2)}
+                    {results.processedShipments.length} shipments selected with a total cost of ${results.totalCost.toFixed(2)}
                   </p>
                   {pickupAddress && (
                     <p className="text-sm text-blue-600 mt-1">
@@ -236,16 +205,15 @@ const BulkUpload: React.FC = () => {
                   <Button 
                     variant="outline" 
                     className="px-6"
-                    onClick={handleDownloadAllLabels} // Ensure this handler also checks results safely
+                    onClick={handleDownloadAllLabels}
                     disabled={isPaying || isCreatingLabels}
                   >
                     Download All Labels
                   </Button>
                   
                   <Button
-                    onClick={handleProceedToPayment} // Ensure this handler also checks results safely
-                    // SAFER ACCESS for disabled state
-                    disabled={isPaying || processedShipmentsLength === 0 || !pickupAddress}
+                    onClick={handleProceedToPayment}
+                    disabled={isPaying || results.processedShipments.length === 0 || !pickupAddress}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
                     {isPaying ? 'Processing...' : 'Process Payment'} 
@@ -258,9 +226,9 @@ const BulkUpload: React.FC = () => {
         </div>
       )}
       
-      {uploadStatus === 'success' && results && ( // Ensure results is checked
+      {uploadStatus === 'success' && results && (
         <SuccessNotification
-          results={results} // Pass the whole results; SuccessNotification must also handle potentially missing processedShipments
+          results={results}
           onDownloadAllLabels={handleDownloadAllLabels}
           onDownloadSingleLabel={handleDownloadSingleLabel}
           onProceedToPayment={handleProceedToPayment}
@@ -282,9 +250,8 @@ const BulkUpload: React.FC = () => {
         open={showLabelOptions}
         onOpenChange={setShowLabelOptions}
         onFormatSelect={handleDownloadLabelsWithFormat}
-        onEmailLabels={() => handleEmailLabels("")} // Ensure handleEmailLabels safely accesses results if needed
-        // SAFER ACCESS for shipmentCount
-        shipmentCount={processedShipmentsLength}
+        onEmailLabels={() => handleEmailLabels("")}
+        shipmentCount={results?.processedShipments.length || 0}
       />
     </Card>
   );
