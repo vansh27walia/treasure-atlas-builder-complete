@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,7 +11,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { toast } from '@/components/ui/sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import PrintPreview from '../PrintPreview';
 
 interface SuccessfulShipmentsTableProps {
   shipments: BulkShipment[];
@@ -24,33 +25,8 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   onDownloadAllLabels
 }) => {
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zip'>('pdf');
-  const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
-  const [selectedShipment, setSelectedShipment] = useState<BulkShipment | null>(null);
   
   if (shipments.length === 0) return null;
-
-  const handlePrintPreview = (shipment: BulkShipment) => {
-    if (!shipment.label_url) {
-      toast.error('No label available for preview');
-      return;
-    }
-    setSelectedShipment(shipment);
-    setPrintPreviewOpen(true);
-  };
-
-  const handlePrintLabel = () => {
-    if (selectedShipment?.label_url) {
-      window.open(selectedShipment.label_url, '_blank');
-      setPrintPreviewOpen(false);
-    }
-  };
-
-  const handleDownloadLabel = () => {
-    if (selectedShipment?.label_url) {
-      onDownloadSingleLabel(selectedShipment.label_url, 'pdf');
-      setPrintPreviewOpen(false);
-    }
-  };
 
   const handleDownload = async (shipment: BulkShipment, format: string = 'pdf') => {
     if (!shipment.label_url) {
@@ -61,11 +37,13 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     try {
       console.log(`Downloading ${format.toUpperCase()} label for shipment:`, shipment.id);
       
+      // Create a download link with proper filename
       const link = document.createElement('a');
       link.href = shipment.label_url;
       link.download = `shipping_label_${shipment.tracking_code || shipment.id}.${format}`;
       link.target = '_blank';
       
+      // Add to DOM, click, and remove
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -81,6 +59,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     setSelectedFormat(format);
     
     if (format === 'zip') {
+      // For ZIP download, we'll download all labels and package them
       toast.loading('Preparing ZIP archive...');
       
       try {
@@ -91,11 +70,13 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
           return;
         }
 
+        // Download each label individually for now
+        // In a real implementation, you'd create a ZIP on the backend
         for (let i = 0; i < validShipments.length; i++) {
           const shipment = validShipments[i];
           setTimeout(() => {
             handleDownload(shipment, 'pdf');
-          }, i * 500);
+          }, i * 500); // Stagger downloads to avoid browser blocking
         }
         
         toast.dismiss();
@@ -108,6 +89,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
       return;
     }
     
+    // For PDF/PNG bulk download
     const validShipments = shipments.filter(s => s.label_url);
     
     if (validShipments.length === 0) {
@@ -118,6 +100,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     toast.loading(`Preparing ${format.toUpperCase()} downloads...`);
     
     try {
+      // Download each label with staggered timing
       for (let i = 0; i < validShipments.length; i++) {
         const shipment = validShipments[i];
         setTimeout(() => {
@@ -187,17 +170,21 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-2">
-                    {/* Print Preview Button - matches international shipping */}
+                    {/* Print Preview Button */}
                     {shipment.label_url && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handlePrintPreview(shipment)}
-                        className="flex items-center gap-1"
-                      >
-                        <Eye className="h-4 w-4" />
-                        Preview
-                      </Button>
+                      <PrintPreview
+                        labelUrl={shipment.label_url}
+                        trackingCode={shipment.tracking_code || shipment.trackingCode}
+                        shipmentId={shipment.easypost_id}
+                        shipmentDetails={{
+                          fromAddress: 'Your Pickup Address',
+                          toAddress: `${shipment.customer_name || shipment.recipient}\n${shipment.customer_address || ''}`,
+                          weight: `${shipment.details?.weight || 0} oz`,
+                          dimensions: `${shipment.details?.length || 0}" x ${shipment.details?.width || 0}" x ${shipment.details?.height || 0}"`,
+                          service: shipment.service,
+                          carrier: shipment.carrier
+                        }}
+                      />
                     )}
                     
                     {/* Download Dropdown */}
@@ -226,53 +213,6 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
           </TableBody>
         </Table>
       </div>
-
-      {/* Print Preview Modal - matches international shipping design */}
-      <Dialog open={printPreviewOpen} onOpenChange={setPrintPreviewOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>Shipping Label Preview</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col space-y-4">
-            {selectedShipment && (
-              <>
-                <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <h3 className="font-semibold">Shipment Details</h3>
-                    <p className="text-sm text-gray-600">
-                      <strong>Tracking:</strong> {selectedShipment.tracking_code || selectedShipment.trackingCode}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>Carrier:</strong> {selectedShipment.carrier} - {selectedShipment.service}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>To:</strong> {selectedShipment.customer_name || selectedShipment.recipient}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={handlePrintLabel} variant="outline">
-                      Print Label
-                    </Button>
-                    <Button onClick={handleDownloadLabel}>
-                      Download PDF
-                    </Button>
-                  </div>
-                </div>
-                
-                {selectedShipment.label_url && (
-                  <div className="flex-1 min-h-0">
-                    <iframe
-                      src={selectedShipment.label_url}
-                      className="w-full h-[600px] border rounded"
-                      title="Shipping Label Preview"
-                    />
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
