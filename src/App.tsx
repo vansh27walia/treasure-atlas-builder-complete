@@ -1,8 +1,8 @@
+
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { QueryClient } from 'react-query';
-import { QueryClientProvider } from 'react-query';
-import { AuthProvider } from './contexts/AuthContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { OnboardingProvider } from './contexts/OnboardingContext';
 import Index from './pages/Index';
 import AuthPage from './pages/AuthPage';
@@ -22,7 +22,17 @@ import InternationalShippingPage from './pages/InternationalShippingPage';
 import InstantDeliveryPage from './pages/InstantDeliveryPage';
 import NotFound from './pages/NotFound';
 import Header from './components/Header';
-import BulkUploadPage from './pages/BulkUploadPage';
+import BulkUploadPage from './components/shipping/bulk-upload/BulkUploadPage';
+
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+
+  if (!user) {
+    return <AuthPage />;
+  }
+
+  return <>{children}</>;
+};
 
 function App() {
   return (
@@ -123,13 +133,3 @@ function App() {
 }
 
 export default App;
-
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = React.useContext(AuthContext);
-
-  if (!isAuthenticated) {
-    return <AuthPage />;
-  }
-
-  return <>{children}</>;
-};
