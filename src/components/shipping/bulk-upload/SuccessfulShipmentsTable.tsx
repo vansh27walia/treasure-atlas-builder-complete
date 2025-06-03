@@ -33,6 +33,8 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
       return;
     }
     
+    console.log('Downloading label:', labelUrl, 'as format:', format);
+    
     // Direct download from stored URL
     const link = document.createElement('a');
     link.href = labelUrl;
@@ -49,11 +51,11 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   const handleBulkDownload = (format: 'pdf' | 'png' | 'zip' = 'pdf') => {
     setSelectedFormat(format);
     
-    if (format === 'zip' && onDownloadAllLabels) {
+    if (onDownloadAllLabels) {
       onDownloadAllLabels(format);
-      toast.success(`Preparing ${format.toUpperCase()} labels for download`);
+      toast.success(`Downloading bulk ${format.toUpperCase()} labels`);
     } else {
-      // Download each label individually for PDF/PNG
+      // Download each label individually
       const labelsWithUrls = shipments.filter(shipment => shipment.label_url);
       
       if (labelsWithUrls.length === 0) {
@@ -67,7 +69,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
         }, index * 500);
       });
       
-      toast.success(`Downloading ${labelsWithUrls.length} ${format.toUpperCase()} labels`);
+      toast.success(`Downloading ${labelsWithUrls.length} individual ${format.toUpperCase()} labels`);
     }
   };
   
@@ -114,7 +116,9 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
             {shipments.map((shipment) => (
               <TableRow key={shipment.id}>
                 <TableCell>{shipment.row}</TableCell>
-                <TableCell>{shipment.recipient}</TableCell>
+                <TableCell>
+                  {shipment.recipient || shipment.details?.to_name || 'Unknown'}
+                </TableCell>
                 <TableCell>{shipment.carrier}</TableCell>
                 <TableCell>{shipment.tracking_code || shipment.trackingCode}</TableCell>
                 <TableCell>

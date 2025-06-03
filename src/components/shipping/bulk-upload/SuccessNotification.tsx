@@ -32,10 +32,26 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
   // Handle bulk download with format options
   const handleBulkDownloadWithFormat = (format: string) => {
+    console.log('Downloading bulk labels with format:', format);
+    console.log('Available URLs:', {
+      png: results.bulk_label_png_url,
+      pdf: results.bulk_label_pdf_url
+    });
+
     if (format === 'zip') {
       // For ZIP format, we would need to implement a zip download endpoint
       // For now, fallback to PDF bulk download
-      onDownloadAllLabels('pdf');
+      if (results.bulk_label_pdf_url) {
+        const link = document.createElement('a');
+        link.href = results.bulk_label_pdf_url;
+        link.download = `bulk_shipping_labels.pdf`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        onDownloadAllLabels('pdf');
+      }
     } else if (format === 'png' && results.bulk_label_png_url) {
       // Use the bulk PNG URL from results
       const link = document.createElement('a');
@@ -55,8 +71,21 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       link.click();
       document.body.removeChild(link);
     } else {
-      // Fallback to the original handler
-      onDownloadAllLabels(format);
+      // Fallback to individual labels download
+      console.log('No bulk URL available, downloading individual labels');
+      allShipmentsWithLabels.forEach((shipment, index) => {
+        if (shipment.label_url) {
+          setTimeout(() => {
+            const link = document.createElement('a');
+            link.href = shipment.label_url!;
+            link.download = `shipping_label_${shipment.tracking_code || shipment.id}.${format}`;
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }, index * 500); // Stagger downloads
+        }
+      });
     }
   };
 
@@ -86,10 +115,27 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <div className="mt-3">
             <button 
               onClick={onCreateLabels}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium transition-colors"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-medium transition-colors disabled:opacity-50"
               disabled={isCreatingLabels}
             >
               {isCreatingLabels ? "Creating Labels via EasyPost..." : "Create Labels"}
+            </button>
+          </div>
+        )}
+
+        {hasLabels && (
+          <div className="mt-3 flex gap-2">
+            <button 
+              onClick={() => handleBulkDownloadWithFormat('png')}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-medium transition-colors"
+            >
+              Download All PNG Labels
+            </button>
+            <button 
+              onClick={() => handleBulkDownloadWithFormat('pdf')}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-medium transition-colors"
+            >
+              Download All PDF Labels
             </button>
           </div>
         )}
@@ -103,9 +149,11 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         />
       )}
       
-      <FailedShipmentsTable 
-        shipments={results.failedShipments} 
-      />
+      {results.failedShipments && results.failedShipments.length > 0 && (
+        <FailedShipmentsTable 
+          shipments={results.failedShipments} 
+        />
+      )}
     </div>
   );
 };

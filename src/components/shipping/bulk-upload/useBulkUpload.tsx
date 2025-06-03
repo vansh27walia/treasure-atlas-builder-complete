@@ -88,6 +88,7 @@ export const useBulkUpload = () => {
     
     try {
       console.log('Creating labels via EasyPost for', results.processedShipments.length, 'shipments');
+      setUploadStatus('editing'); // Set to editing state while creating labels
       
       const response = await fetch('/functions/v1/create-bulk-labels', {
         method: 'POST',
@@ -115,14 +116,18 @@ export const useBulkUpload = () => {
       
       if (data.status === 'finished_processing' && data.labels) {
         // Map the response to our expected format
-        const updatedShipments = data.labels.map((label: any) => {
-          const originalShipment = results.processedShipments.find(s => s.id === label.shipment_id);
-          return {
-            ...originalShipment,
-            label_url: label.label_urls?.png || null,
-            tracking_code: label.tracking_number || null,
-            status: 'completed' as const
-          };
+        const updatedShipments = results.processedShipments.map((originalShipment) => {
+          const labelInfo = data.labels.find(label => label.shipment_id === originalShipment.id);
+          if (labelInfo && labelInfo.status.includes('success')) {
+            return {
+              ...originalShipment,
+              label_url: labelInfo.label_urls?.png || null,
+              tracking_code: labelInfo.tracking_number || null,
+              trackingCode: labelInfo.tracking_number || null,
+              status: 'completed' as const
+            };
+          }
+          return originalShipment;
         });
         
         const updatedResults = {
@@ -146,6 +151,7 @@ export const useBulkUpload = () => {
       
     } catch (error) {
       console.error('Label creation error:', error);
+      setUploadStatus('error');
       toast.error('Failed to create labels: ' + (error as Error).message);
     }
   };
