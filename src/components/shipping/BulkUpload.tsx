@@ -102,6 +102,28 @@ const BulkUpload: React.FC = () => {
     }
   };
 
+  // Fix the sort field type conversion
+  const handleSortChange = (field: string, direction: 'asc' | 'desc') => {
+    // Map the field name to match our expected types
+    let mappedField: "recipient" | "rate" | "carrier";
+    switch (field) {
+      case "address":
+        mappedField = "recipient";
+        break;
+      case "rate":
+        mappedField = "rate";
+        break;
+      case "carrier":
+        mappedField = "carrier";
+        break;
+      default:
+        mappedField = "recipient";
+    }
+    
+    setSortField(mappedField);
+    setSortDirection(direction);
+  };
+
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
       <BulkUploadHeader onDownloadTemplate={handleDownloadTemplate} />
@@ -168,10 +190,7 @@ const BulkUpload: React.FC = () => {
             onSearchChange={setSearchTerm}
             sortField={sortField}
             sortDirection={sortDirection}
-            onSortChange={(field, direction) => {
-              setSortField(field as any);
-              setSortDirection(direction as any);
-            }}
+            onSortChange={handleSortChange}
             selectedCarrier={selectedCarrierFilter}
             onCarrierFilterChange={setSelectedCarrierFilter}
             onApplyCarrierToAll={handleBulkApplyCarrier}

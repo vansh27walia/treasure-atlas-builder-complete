@@ -93,7 +93,7 @@ export const useBulkUpload = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkaGVnZXpkenFsbnFxbnltdnBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU2MzI2MTIsImV4cCI6MjA2MTIwODYxMn0.TLYPK_o438RS7WTL9pxjq45KiZvam19lTeioeBDab-c`,
         },
         body: JSON.stringify({
           shipments: results.processedShipments,
@@ -113,19 +113,32 @@ export const useBulkUpload = () => {
       const data = await response.json();
       console.log('Label creation response:', data);
       
-      if (data.success && data.processedLabels) {
-        // Update results with created labels
+      if (data.status === 'finished_processing' && data.labels) {
+        // Map the response to our expected format
+        const updatedShipments = data.labels.map((label: any) => {
+          const originalShipment = results.processedShipments.find(s => s.id === label.shipment_id);
+          return {
+            ...originalShipment,
+            label_url: label.label_urls?.png || null,
+            tracking_code: label.tracking_number || null,
+            status: 'completed' as const
+          };
+        });
+        
         const updatedResults = {
           ...results,
-          processedShipments: data.processedLabels,
+          processedShipments: updatedShipments,
+          bulk_label_png_url: data.bulk_label_png_url,
+          bulk_label_pdf_url: data.bulk_label_pdf_url
         };
         
         updateResults(updatedResults);
         setUploadStatus('success');
-        toast.success(`Successfully created ${data.successful} labels via EasyPost`);
+        toast.success(`Successfully created ${data.total_labels_purchased_successfully_from_easypost} labels via EasyPost`);
         
-        if (data.failed > 0) {
-          toast.error(`${data.failed} labels failed to create`);
+        if (data.total_labels_input > data.total_labels_purchased_successfully_from_easypost) {
+          const failedCount = data.total_labels_input - data.total_labels_purchased_successfully_from_easypost;
+          toast.error(`${failedCount} labels failed to create`);
         }
       } else {
         throw new Error(data.message || 'Failed to create labels');

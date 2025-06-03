@@ -30,6 +30,25 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   const hasLabels = results.processedShipments.some(s => s.label_url);
   const allShipmentsWithLabels = results.processedShipments.filter(s => s.label_url);
 
+  // Handle bulk download with format options
+  const handleBulkDownloadWithFormat = (format: string) => {
+    if (format === 'zip') {
+      // Use the bulk_label_png_url or bulk_label_pdf_url from results
+      const bulkUrl = format === 'png' ? results.bulk_label_png_url : results.bulk_label_pdf_url;
+      if (bulkUrl) {
+        const link = document.createElement('a');
+        link.href = bulkUrl;
+        link.download = `bulk_shipping_labels.${format}`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } else {
+      onDownloadAllLabels(format);
+    }
+  };
+
   return (
     <div className="bg-green-50 border border-green-200 rounded-md mb-6">
       <div className="p-4">
@@ -46,7 +65,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         <OrderSummary
           successfulCount={results.successful}
           totalCost={results.totalCost}
-          onDownloadAllLabels={() => onDownloadAllLabels('pdf')}
+          onDownloadAllLabels={() => handleBulkDownloadWithFormat('pdf')}
           onProceedToPayment={onProceedToPayment}
           isPaying={isPaying}
           isCreatingLabels={isCreatingLabels}
@@ -69,7 +88,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         <SuccessfulShipmentsTable 
           shipments={allShipmentsWithLabels}
           onDownloadSingleLabel={onDownloadSingleLabel}
-          onDownloadAllLabels={onDownloadAllLabels}
+          onDownloadAllLabels={handleBulkDownloadWithFormat}
         />
       )}
       
