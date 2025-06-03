@@ -33,18 +33,29 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   // Handle bulk download with format options
   const handleBulkDownloadWithFormat = (format: string) => {
     if (format === 'zip') {
-      // Use the bulk_label_png_url or bulk_label_pdf_url from results
-      const bulkUrl = format === 'png' ? results.bulk_label_png_url : results.bulk_label_pdf_url;
-      if (bulkUrl) {
-        const link = document.createElement('a');
-        link.href = bulkUrl;
-        link.download = `bulk_shipping_labels.${format}`;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
+      // For ZIP format, we would need to implement a zip download endpoint
+      // For now, fallback to PDF bulk download
+      onDownloadAllLabels('pdf');
+    } else if (format === 'png' && results.bulk_label_png_url) {
+      // Use the bulk PNG URL from results
+      const link = document.createElement('a');
+      link.href = results.bulk_label_png_url;
+      link.download = `bulk_shipping_labels.png`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (format === 'pdf' && results.bulk_label_pdf_url) {
+      // Use the bulk PDF URL from results
+      const link = document.createElement('a');
+      link.href = results.bulk_label_pdf_url;
+      link.download = `bulk_shipping_labels.pdf`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } else {
+      // Fallback to the original handler
       onDownloadAllLabels(format);
     }
   };
