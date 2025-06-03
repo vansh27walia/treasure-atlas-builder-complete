@@ -83,51 +83,6 @@ export type Database = {
           },
         ]
       }
-      bulk_label_uploads: {
-        Row: {
-          batch_id: string
-          created_at: string
-          file_name: string
-          file_path: string
-          file_size: number
-          file_type: string
-          id: string
-          shipment_id: string | null
-          tracking_code: string | null
-          updated_at: string
-          upload_status: string | null
-          user_id: string
-        }
-        Insert: {
-          batch_id: string
-          created_at?: string
-          file_name: string
-          file_path: string
-          file_size: number
-          file_type: string
-          id?: string
-          shipment_id?: string | null
-          tracking_code?: string | null
-          updated_at?: string
-          upload_status?: string | null
-          user_id: string
-        }
-        Update: {
-          batch_id?: string
-          created_at?: string
-          file_name?: string
-          file_path?: string
-          file_size?: number
-          file_type?: string
-          id?: string
-          shipment_id?: string | null
-          tracking_code?: string | null
-          updated_at?: string
-          upload_status?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       saved_parcels: {
         Row: {
           height: number

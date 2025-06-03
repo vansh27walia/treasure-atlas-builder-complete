@@ -25,9 +25,11 @@ export const useBulkUpload = () => {
     handleDownloadTemplate
   } = useShipmentUpload();
 
+  // Update results wrapper function
   const updateResults = (newResults: BulkUploadResult) => {
     console.log('Updating results:', newResults);
     
+    // Add pickup address to results if not present
     const resultsWithPickup = {
       ...newResults,
       pickupAddress: newResults.pickupAddress || pickupAddress
@@ -35,6 +37,7 @@ export const useBulkUpload = () => {
     
     setResults(resultsWithPickup);
     
+    // If a new upload status is provided, update it
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
       setUploadStatus(newResults.uploadStatus);
     }
@@ -56,6 +59,7 @@ export const useBulkUpload = () => {
     handleRemoveShipment,
     handleEditShipment,
     handleProceedToPayment,
+    handleCreateLabels,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
@@ -76,96 +80,6 @@ export const useBulkUpload = () => {
     setSelectedCarrierFilter
   } = useShipmentFiltering(results);
 
-  // Custom label creation handler for EasyPost
-  const handleCreateLabels = async () => {
-    console.log('handleCreateLabels called', { results, pickupAddress });
-    
-    if (!results || results.processedShipments.length === 0) {
-      toast.error('No shipments to process');
-      return;
-    }
-
-    if (!pickupAddress) {
-      toast.error('Pickup address is required');
-      return;
-    }
-    
-    try {
-      console.log('Creating labels via EasyPost for', results.processedShipments.length, 'shipments');
-      setUploadStatus('editing'); // Keep in editing while creating labels
-      
-      // Show loading toast
-      const loadingToast = toast.loading('Creating labels via EasyPost...');
-      
-      const response = await fetch('/functions/v1/create-bulk-labels', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFkaGVnZXpkenFsbnFxbnltdnBzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU2MzI2MTIsImV4cCI6MjA2MTIwODYxMn0.TLYPK_o438RS7WTL9pxjq45KiZvam19lTeioeBDab-c`,
-        },
-        body: JSON.stringify({
-          shipments: results.processedShipments,
-          pickupAddress: pickupAddress,
-          labelOptions: {
-            format: 'pdf',
-            size: '4x6'
-          }
-        }),
-      });
-
-      // Dismiss loading toast
-      toast.dismiss(loadingToast);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('Label creation response:', data);
-      
-      if (data.status === 'finished_processing' && data.labels) {
-        // Map the response to our expected format
-        const updatedShipments = results.processedShipments.map((originalShipment) => {
-          const labelInfo = data.labels.find(label => label.shipment_id === originalShipment.id);
-          if (labelInfo && labelInfo.status.includes('success')) {
-            return {
-              ...originalShipment,
-              label_url: labelInfo.label_urls?.png || null,
-              tracking_code: labelInfo.tracking_number || null,
-              trackingCode: labelInfo.tracking_number || null,
-              status: 'completed' as const
-            };
-          }
-          return originalShipment;
-        });
-        
-        const updatedResults = {
-          ...results,
-          processedShipments: updatedShipments,
-          bulk_label_png_url: data.bulk_label_png_url,
-          bulk_label_pdf_url: data.bulk_label_pdf_url
-        };
-        
-        updateResults(updatedResults);
-        setUploadStatus('success');
-        toast.success(`Successfully created ${data.total_labels_purchased_successfully_from_easypost} labels!`);
-        
-        if (data.total_labels_input > data.total_labels_purchased_successfully_from_easypost) {
-          const failedCount = data.total_labels_input - data.total_labels_purchased_successfully_from_easypost;
-          toast.warning(`${failedCount} labels failed to create`);
-        }
-      } else {
-        throw new Error(data.message || 'Failed to create labels');
-      }
-      
-    } catch (error) {
-      console.error('Label creation error:', error);
-      setUploadStatus('error');
-      toast.error('Failed to create labels: ' + (error as Error).message);
-    }
-  };
-
   // Load the default pickup address when the component initializes
   useEffect(() => {
     const loadDefaultPickupAddress = async () => {
@@ -176,6 +90,7 @@ export const useBulkUpload = () => {
         if (defaultAddress) {
           setPickupAddress(defaultAddress);
         } else {
+          // If no default, get the first available address
           const addresses = await addressService.getSavedAddresses();
           if (addresses.length > 0) {
             const firstAddress = addresses[0];
@@ -191,6 +106,9 @@ export const useBulkUpload = () => {
     
     loadDefaultPickupAddress();
   }, []);
+
+  // No need to fetch rates separately since they come with the upload now
+  // Remove the automatic rate fetching effect since rates are fetched during upload
 
   // Modified handleUpload to include pickup address
   const handleFileUpload = async (file: File) => {
@@ -248,7 +166,7 @@ export const useBulkUpload = () => {
     handleRefreshRates,
     handleBulkApplyCarrier,
     handleProceedToPayment,
-    handleCreateLabels, // Use our custom EasyPost handler
+    handleCreateLabels,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,

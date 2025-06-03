@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, File, FileArchive, ChevronDown } from 'lucide-react';
+import { Download, File, FileArchive, ChevronDown, Eye } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import { 
   DropdownMenu, 
@@ -11,11 +10,12 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { toast } from '@/components/ui/sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface SuccessfulShipmentsTableProps {
   shipments: BulkShipment[];
   onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
-  onDownloadAllLabels?: (format?: string) => void;
+  onDownloadAllLabels?: () => void;
 }
 
 const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
@@ -23,61 +23,121 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   onDownloadSingleLabel,
   onDownloadAllLabels
 }) => {
-  const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zip'>('png');
+  const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zip'>('pdf');
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
+  const [selectedShipment, setSelectedShipment] = useState<BulkShipment | null>(null);
   
   if (shipments.length === 0) return null;
+
+  const handlePrintPreview = (shipment: BulkShipment) => {
+    if (!shipment.label_url) {
+      toast.error('No label available for preview');
+      return;
+    }
+    setSelectedShipment(shipment);
+    setPrintPreviewOpen(true);
+  };
+
+  const handlePrintLabel = () => {
+    if (selectedShipment?.label_url) {
+      window.open(selectedShipment.label_url, '_blank');
+      setPrintPreviewOpen(false);
+    }
+  };
+
+  const handleDownloadLabel = () => {
+    if (selectedShipment?.label_url) {
+      onDownloadSingleLabel(selectedShipment.label_url, 'pdf');
+      setPrintPreviewOpen(false);
+    }
+  };
+
+  const handleDownload = async (shipment: BulkShipment, format: string = 'pdf') => {
+    if (!shipment.label_url) {
+      toast.error('No label URL available for this shipment');
+      return;
+    }
+
+    try {
+      console.log(`Downloading ${format.toUpperCase()} label for shipment:`, shipment.id);
+      
+      const link = document.createElement('a');
+      link.href = shipment.label_url;
+      link.download = `shipping_label_${shipment.tracking_code || shipment.id}.${format}`;
+      link.target = '_blank';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`${format.toUpperCase()} label download started`);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error(`Failed to download ${format.toUpperCase()} label`);
+    }
+  };
   
-  const handleDownload = (labelUrl: string, format: string = 'png') => {
-    if (!labelUrl) {
-      toast.error('Label not available for download');
+  const handleBulkDownload = async (format: 'pdf' | 'png' | 'zip' = 'pdf') => {
+    setSelectedFormat(format);
+    
+    if (format === 'zip') {
+      toast.loading('Preparing ZIP archive...');
+      
+      try {
+        const validShipments = shipments.filter(s => s.label_url);
+        
+        if (validShipments.length === 0) {
+          toast.error('No valid labels to download');
+          return;
+        }
+
+        for (let i = 0; i < validShipments.length; i++) {
+          const shipment = validShipments[i];
+          setTimeout(() => {
+            handleDownload(shipment, 'pdf');
+          }, i * 500);
+        }
+        
+        toast.dismiss();
+        toast.success(`Downloaded ${validShipments.length} labels`);
+        
+      } catch (error) {
+        toast.dismiss();
+        toast.error('Failed to create ZIP archive');
+      }
       return;
     }
     
-    console.log('Downloading label:', labelUrl, 'as format:', format);
+    const validShipments = shipments.filter(s => s.label_url);
     
-    // Direct download from stored URL
-    const link = document.createElement('a');
-    link.href = labelUrl;
-    link.download = `shipping_label.${format}`;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (validShipments.length === 0) {
+      toast.error('No valid labels to download');
+      return;
+    }
+
+    toast.loading(`Preparing ${format.toUpperCase()} downloads...`);
     
-    onDownloadSingleLabel(labelUrl, format);
-    toast.success(`Downloaded ${format.toUpperCase()} label`);
-  };
-  
-  const handleBulkDownload = (format: 'pdf' | 'png' | 'zip' = 'png') => {
-    setSelectedFormat(format);
-    
-    if (onDownloadAllLabels) {
-      onDownloadAllLabels(format);
-      toast.success(`Downloading bulk ${format.toUpperCase()} labels`);
-    } else {
-      // Download each label individually
-      const labelsWithUrls = shipments.filter(shipment => shipment.label_url);
-      
-      if (labelsWithUrls.length === 0) {
-        toast.error('No labels available for download');
-        return;
+    try {
+      for (let i = 0; i < validShipments.length; i++) {
+        const shipment = validShipments[i];
+        setTimeout(() => {
+          handleDownload(shipment, format);
+        }, i * 300);
       }
       
-      labelsWithUrls.forEach((shipment, index) => {
-        setTimeout(() => {
-          handleDownload(shipment.label_url || '', format);
-        }, index * 500);
-      });
+      toast.dismiss();
+      toast.success(`Started ${validShipments.length} ${format.toUpperCase()} downloads`);
       
-      toast.success(`Downloading ${labelsWithUrls.length} individual ${format.toUpperCase()} labels`);
+    } catch (error) {
+      toast.dismiss();
+      toast.error(`Failed to download ${format.toUpperCase()} labels`);
     }
   };
   
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-3">
-        <h5 className="font-medium text-green-800">Successfully Created Labels ({shipments.length})</h5>
+        <h5 className="font-medium text-green-800">Successfully Processed Shipments</h5>
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -88,11 +148,14 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleBulkDownload('pdf')} className="flex items-center gap-2">
+              <File className="h-4 w-4 text-blue-600" /> PDF Format
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleBulkDownload('png')} className="flex items-center gap-2">
               <File className="h-4 w-4 text-green-600" /> PNG Format
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleBulkDownload('pdf')} className="flex items-center gap-2">
-              <File className="h-4 w-4 text-blue-600" /> PDF Format
+            <DropdownMenuItem onClick={() => handleBulkDownload('zip')} className="flex items-center gap-2">
+              <FileArchive className="h-4 w-4 text-amber-600" /> ZIP Archive
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -114,43 +177,102 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
             {shipments.map((shipment) => (
               <TableRow key={shipment.id}>
                 <TableCell>{shipment.row}</TableCell>
-                <TableCell>
-                  {shipment.recipient || shipment.details?.to_name || 'Unknown'}
-                </TableCell>
+                <TableCell>{shipment.customer_name || shipment.recipient}</TableCell>
                 <TableCell>{shipment.carrier}</TableCell>
                 <TableCell>{shipment.tracking_code || shipment.trackingCode}</TableCell>
                 <TableCell>
-                  <span className="text-xs font-medium px-2.5 py-0.5 rounded bg-green-100 text-green-800">
-                    Label Ready
+                  <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                    Label Generated
                   </span>
                 </TableCell>
                 <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button 
-                        size="sm" 
+                  <div className="flex gap-2">
+                    {/* Print Preview Button - matches international shipping */}
+                    {shipment.label_url && (
+                      <Button
+                        size="sm"
                         variant="ghost"
+                        onClick={() => handlePrintPreview(shipment)}
                         className="flex items-center gap-1"
                       >
-                        <Download className="h-4 w-4" />
-                        Download
+                        <Eye className="h-4 w-4" />
+                        Preview
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'png')}>
-                        <File className="h-4 w-4 text-green-600 mr-2" /> Download PNG
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDownload(shipment.label_url || '', 'pdf')}>
-                        <File className="h-4 w-4 text-blue-600 mr-2" /> Download PDF
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    )}
+                    
+                    {/* Download Dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleDownload(shipment, 'pdf')}>
+                          <File className="h-4 w-4 text-blue-600 mr-2" /> Download PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDownload(shipment, 'png')}>
+                          <File className="h-4 w-4 text-green-600 mr-2" /> Download PNG
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+
+      {/* Print Preview Modal - matches international shipping design */}
+      <Dialog open={printPreviewOpen} onOpenChange={setPrintPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Shipping Label Preview</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col space-y-4">
+            {selectedShipment && (
+              <>
+                <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <h3 className="font-semibold">Shipment Details</h3>
+                    <p className="text-sm text-gray-600">
+                      <strong>Tracking:</strong> {selectedShipment.tracking_code || selectedShipment.trackingCode}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <strong>Carrier:</strong> {selectedShipment.carrier} - {selectedShipment.service}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <strong>To:</strong> {selectedShipment.customer_name || selectedShipment.recipient}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handlePrintLabel} variant="outline">
+                      Print Label
+                    </Button>
+                    <Button onClick={handleDownloadLabel}>
+                      Download PDF
+                    </Button>
+                  </div>
+                </div>
+                
+                {selectedShipment.label_url && (
+                  <div className="flex-1 min-h-0">
+                    <iframe
+                      src={selectedShipment.label_url}
+                      className="w-full h-[600px] border rounded"
+                      title="Shipping Label Preview"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
