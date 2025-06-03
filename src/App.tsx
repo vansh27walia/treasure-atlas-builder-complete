@@ -1,74 +1,135 @@
-
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Index from './pages/Index';
-import CreateLabelPage from './pages/CreateLabelPage';
-import LtlShippingPage from './pages/LtlShippingPage';
-import FtlShippingPage from './pages/FtlShippingPage';
-import InstantDeliveryPage from './pages/InstantDeliveryPage';
-import AuthPage from './pages/AuthPage';
-import SidebarNavigation from './components/SidebarNavigation';
-import './App.css';
-import NotFound from './pages/NotFound';
-import Dashboard from './pages/Dashboard';
-import SettingsPage from './pages/SettingsPage';
-import ProtectedRoute from './components/ProtectedRoute';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { QueryClient } from 'react-query';
+import { QueryClientProvider } from 'react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { OnboardingProvider } from './contexts/OnboardingContext';
-import { Toaster } from './components/ui/sonner';
-import PaymentPage from './pages/PaymentPage';
-import InternationalShippingPage from './pages/InternationalShippingPage';
+import Index from './pages/Index';
+import AuthPage from './pages/AuthPage';
+import Dashboard from './pages/Dashboard';
+import UnifiedShippingPage from './pages/UnifiedShippingPage';
+import CreateLabelPage from './pages/CreateLabelPage';
 import LabelSuccessPage from './pages/LabelSuccessPage';
-import PickupPage from './pages/PickupPage';
-import BulkUploadPage from './pages/BulkUploadPage';
 import TrackingPage from './pages/TrackingPage';
+import SettingsPage from './pages/SettingsPage';
+import PaymentPage from './pages/PaymentPage';
 import ShipToPage from './pages/ShipToPage';
+import PickupPage from './pages/PickupPage';
+import LtlShippingPage from './pages/LtlShippingPage';
+import FtlShippingPage from './pages/FtlShippingPage';
 import FreightForwardingPage from './pages/FreightForwardingPage';
+import InternationalShippingPage from './pages/InternationalShippingPage';
+import InstantDeliveryPage from './pages/InstantDeliveryPage';
+import NotFound from './pages/NotFound';
+import Header from './components/Header';
+import BulkUploadPage from './pages/BulkUploadPage';
 
 function App() {
   return (
-    <BrowserRouter>
+    <QueryClientProvider client={new QueryClient()}>
       <AuthProvider>
         <OnboardingProvider>
-          <div className="w-full h-screen overflow-hidden">
-            <SidebarNavigation>
-              <div className="w-full h-full overflow-y-auto">
+          <BrowserRouter>
+            <div className="min-h-screen bg-background">
+              <Header />
+              <main className="container mx-auto px-4 py-8">
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<AuthPage />} />
-                  <Route path="/create-label" element={<CreateLabelPage />} />
-                  <Route path="/freight-forwarding" element={<FreightForwardingPage />} />
-                  <Route path="/ltl-shipping" element={<LtlShippingPage />} />
-                  <Route path="/ftl-shipping" element={<FtlShippingPage />} />
-                  <Route path="/instant-delivery" element={<InstantDeliveryPage />} />
-                  <Route path="/international" element={<InternationalShippingPage />} />
-                  <Route path="/ship-to" element={<ShipToPage />} />
-                  <Route path="/payment" element={<PaymentPage />} />
-                  <Route path="/tracking" element={<TrackingPage />} />
-                  <Route
-                    path="/dashboard"
-                    element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
-                  />
-                  <Route
-                    path="/settings"
-                    element={<ProtectedRoute><SettingsPage /></ProtectedRoute>}
-                  />
-                  <Route path="/label-success" element={<LabelSuccessPage />} />
-                  <Route path="/pickup" element={<PickupPage />} />
-                  <Route
-                    path="/bulk-upload"
-                    element={<ProtectedRoute><BulkUploadPage /></ProtectedRoute>}
-                  />
+                  <Route path="/dashboard" element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/unified-shipping" element={
+                    <ProtectedRoute>
+                      <UnifiedShippingPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/bulk-upload" element={
+                    <ProtectedRoute>
+                      <BulkUploadPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/create-label" element={
+                    <ProtectedRoute>
+                      <CreateLabelPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/label-success" element={
+                    <ProtectedRoute>
+                      <LabelSuccessPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/tracking" element={
+                    <ProtectedRoute>
+                      <TrackingPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/settings" element={
+                    <ProtectedRoute>
+                      <SettingsPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/payment" element={
+                    <ProtectedRoute>
+                      <PaymentPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/ship-to" element={
+                    <ProtectedRoute>
+                      <ShipToPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/pickup" element={
+                    <ProtectedRoute>
+                      <PickupPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/ltl-shipping" element={
+                    <ProtectedRoute>
+                      <LtlShippingPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/ftl-shipping" element={
+                    <ProtectedRoute>
+                      <FtlShippingPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/freight-forwarding" element={
+                    <ProtectedRoute>
+                      <FreightForwardingPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/international-shipping" element={
+                    <ProtectedRoute>
+                      <InternationalShippingPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/instant-delivery" element={
+                    <ProtectedRoute>
+                      <InstantDeliveryPage />
+                    </ProtectedRoute>
+                  } />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
-              </div>
-            </SidebarNavigation>
-          </div>
-          <Toaster />
+              </main>
+            </div>
+          </BrowserRouter>
         </OnboardingProvider>
       </AuthProvider>
-    </BrowserRouter>
+    </QueryClientProvider>
   );
 }
 
 export default App;
+
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated } = React.useContext(AuthContext);
+
+  if (!isAuthenticated) {
+    return <AuthPage />;
+  }
+
+  return <>{children}</>;
+};

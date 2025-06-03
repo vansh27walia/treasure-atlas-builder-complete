@@ -56,17 +56,11 @@ const BulkUpload: React.FC = () => {
     setSelectedCarrierFilter
   } = useBulkUpload();
 
-  // Log pickup address on mount and when it changes (less frequently)
-  useEffect(() => {
-    console.log("Current pickup address in BulkUpload:", pickupAddress);
-  }, [pickupAddress?.id]); // Only log when ID changes
+  console.log('BulkUpload render - uploadStatus:', uploadStatus, 'results:', results);
 
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
     if (address && address.id !== pickupAddress?.id) {
-      console.log("Selected pickup address in BulkUpload:", address);
       setPickupAddress(address);
-      
-      // Prevent duplicate toasts
       const now = Date.now();
       if (now - lastToastRef.current > 2000) {
         toast.success(`Selected pickup address: ${address.name || address.street1}`);
@@ -76,14 +70,15 @@ const BulkUpload: React.FC = () => {
   };
 
   const handleUploadSuccess = (uploadResults: any) => {
-    console.log("Upload success in BulkUpload component:", uploadResults);
+    console.log("Upload success:", uploadResults);
+    toast.success("File uploaded and processed successfully!");
   };
 
   const handleUploadFail = (error: string) => {
-    console.error("Upload failed in BulkUpload component:", error);
+    console.error("Upload failed:", error);
+    toast.error("Upload failed: " + error);
   };
 
-  // Wrapper function to match expected signature
   const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
     const shipment = results?.processedShipments.find(s => s.id === shipmentId);
     if (shipment) {
@@ -95,16 +90,7 @@ const BulkUpload: React.FC = () => {
     window.location.reload();
   };
 
-  const selectNewFile = () => {
-    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.click();
-    }
-  };
-
-  // Fix the sort field type conversion
   const handleSortChange = (field: string, direction: 'asc' | 'desc') => {
-    // Map the field name to match our expected types
     let mappedField: "recipient" | "rate" | "carrier";
     switch (field) {
       case "address":
@@ -124,11 +110,10 @@ const BulkUpload: React.FC = () => {
     setSortDirection(direction);
   };
 
-  return (
-    <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
-      <BulkUploadHeader onDownloadTemplate={handleDownloadTemplate} />
-      
-      {uploadStatus === 'idle' && (
+  if (uploadStatus === 'idle') {
+    return (
+      <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
+        <BulkUploadHeader onDownloadTemplate={handleDownloadTemplate} />
         <BulkUploadForm 
           onUploadSuccess={handleUploadSuccess}
           onUploadFail={handleUploadFail}
@@ -137,26 +122,34 @@ const BulkUpload: React.FC = () => {
           progress={progress}
           handleUpload={handleUpload}
         />
-      )}
-      
-      {isUploading && (
-        <div className="my-6">
-          <h3 className="font-medium mb-2">Processing your shipments</h3>
-          <Progress value={progress} className="h-2" />
-          <p className="text-sm text-gray-500 mt-2">
+      </Card>
+    );
+  }
+
+  if (isUploading) {
+    return (
+      <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Processing Your Shipments</h3>
+          <Progress value={progress} className="h-3" />
+          <p className="text-sm text-gray-600">
             {progress < 100 
-              ? `Processing shipments (${progress}%)...` 
-              : 'Processing complete! Preparing shipment options...'}
+              ? `Uploading and processing shipments (${progress}%)...` 
+              : 'Processing complete! Setting up shipment options...'}
           </p>
         </div>
-      )}
-      
-      {uploadStatus === 'editing' && results && (
-        <div className="mt-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+      </Card>
+    );
+  }
+
+  if (uploadStatus === 'editing' && results) {
+    return (
+      <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
+        <div className="space-y-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
             <h2 className="text-xl font-semibold flex items-center">
               <FileText className="mr-2 h-5 w-5 text-blue-600" />
-              Bulk Shipment Options
+              Review Shipments & Create Labels
               {isFetchingRates && (
                 <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full animate-pulse">
                   Fetching rates...
@@ -172,16 +165,16 @@ const BulkUpload: React.FC = () => {
               
               <Button onClick={resetUpload} className="text-sm">
                 <UploadCloud className="mr-1 h-4 w-4" />
-                Upload Another File
+                Upload New File
               </Button>
             </div>
           </div>
           
-          <Alert className="mb-6">
+          <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Important</AlertTitle>
+            <AlertTitle>Ready to Create Labels</AlertTitle>
             <AlertDescription>
-              Select carrier and service options for each shipment. You can edit address details or remove shipments before proceeding.
+              Your shipments have been processed. Review the details below and click "Create Labels" to generate shipping labels via EasyPost.
             </AlertDescription>
           </Alert>
           
@@ -206,12 +199,12 @@ const BulkUpload: React.FC = () => {
           />
           
           {results.processedShipments.length > 0 && (
-            <div className="mt-8 p-4 border rounded-lg bg-gray-50">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
+            <div className="mt-8 p-6 border rounded-lg bg-gradient-to-r from-green-50 to-blue-50">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div>
-                  <h3 className="font-semibold text-lg">Order Summary</h3>
+                  <h3 className="font-semibold text-lg">Ready to Create Labels</h3>
                   <p className="text-gray-600">
-                    {results.processedShipments.length} shipments selected with a total cost of ${results.totalCost.toFixed(2)}
+                    {results.processedShipments.length} shipments ready • Estimated total: ${results.totalCost.toFixed(2)}
                   </p>
                   {pickupAddress && (
                     <p className="text-sm text-blue-600 mt-1">
@@ -220,22 +213,13 @@ const BulkUpload: React.FC = () => {
                   )}
                 </div>
                 
-                <div className="flex gap-3 mt-4 lg:mt-0">
-                  <Button 
-                    variant="outline" 
-                    className="px-6"
-                    onClick={handleDownloadAllLabels}
-                    disabled={isPaying || isCreatingLabels}
-                  >
-                    Download All Labels
-                  </Button>
-                  
+                <div className="flex gap-3">
                   <Button
-                    onClick={handleProceedToPayment}
-                    disabled={isPaying || results.processedShipments.length === 0 || !pickupAddress}
+                    onClick={handleCreateLabels}
+                    disabled={isCreatingLabels || results.processedShipments.length === 0 || !pickupAddress}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
-                    {isPaying ? 'Processing...' : 'Process Payment'} 
+                    {isCreatingLabels ? 'Creating Labels...' : 'Create Labels via EasyPost'} 
                     <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
@@ -243,9 +227,13 @@ const BulkUpload: React.FC = () => {
             </div>
           )}
         </div>
-      )}
+      </Card>
+    );
+  }
       
-      {uploadStatus === 'success' && results && (
+  if (uploadStatus === 'success' && results) {
+    return (
+      <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
         <SuccessNotification
           results={results}
           onDownloadAllLabels={handleDownloadAllLabels}
@@ -255,23 +243,35 @@ const BulkUpload: React.FC = () => {
           isPaying={isPaying}
           isCreatingLabels={isCreatingLabels}
         />
-      )}
+        
+        <LabelOptionsModal 
+          open={showLabelOptions}
+          onOpenChange={setShowLabelOptions}
+          onFormatSelect={handleDownloadLabelsWithFormat}
+          onEmailLabels={() => handleEmailLabels("")}
+          shipmentCount={results?.processedShipments.length || 0}
+        />
+      </Card>
+    );
+  }
       
-      {uploadStatus === 'error' && (
+  if (uploadStatus === 'error') {
+    return (
+      <Card className="p-6 border-2 border-red-200 shadow-sm w-full">
         <UploadError 
           onRetry={resetUpload}
-          onSelectNewFile={selectNewFile}
+          onSelectNewFile={resetUpload}
           errorMessage="Upload failed. Please check your file format and try again."
         />
-      )}
-      
-      <LabelOptionsModal 
-        open={showLabelOptions}
-        onOpenChange={setShowLabelOptions}
-        onFormatSelect={handleDownloadLabelsWithFormat}
-        onEmailLabels={() => handleEmailLabels("")}
-        shipmentCount={results?.processedShipments.length || 0}
-      />
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
+      <div className="text-center py-8">
+        <p className="text-gray-500">Loading...</p>
+      </div>
     </Card>
   );
 };
