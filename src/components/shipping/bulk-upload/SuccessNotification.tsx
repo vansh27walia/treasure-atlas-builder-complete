@@ -25,7 +25,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  const hasLabels = results.processedShipments.some(shipment => shipment.label_url);
+  const successfulShipments = results.processedShipments.filter(shipment => shipment.label_url);
+  const hasLabels = successfulShipments.length > 0;
 
   return (
     <Card className="mt-6 p-6 border-green-200 bg-green-50">
@@ -36,7 +37,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             Labels Generated Successfully!
           </h3>
           <p className="text-green-700">
-            {results.successful} shipping labels have been created and are ready for download.
+            {successfulShipments.length} shipping labels have been created and are ready for download.
           </p>
         </div>
       </div>
@@ -52,8 +53,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-600">{results.successful}</div>
-          <div className="text-sm text-gray-600">Successful Shipments</div>
+          <div className="text-2xl font-bold text-green-600">{successfulShipments.length}</div>
+          <div className="text-sm text-gray-600">Successful Labels</div>
         </div>
         
         <div className="bg-white p-4 rounded-lg border border-green-200">
@@ -62,23 +63,31 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
         
         <div className="bg-white p-4 rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-600">
-            {results.processedShipments.filter(s => s.label_url).length}
-          </div>
-          <div className="text-sm text-gray-600">Labels Generated</div>
+          <div className="text-2xl font-bold text-green-600">{results.total || results.processedShipments.length}</div>
+          <div className="text-sm text-gray-600">Total Shipments</div>
         </div>
       </div>
 
-      {/* Action Buttons - Matching International Shipping */}
+      {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <Button 
           onClick={onDownloadAllLabels}
           className="bg-green-600 hover:bg-green-700 text-white"
-          disabled={isCreatingLabels}
+          disabled={!hasLabels}
         >
           <Download className="mr-2 h-4 w-4" />
-          Download All Labels
+          Download All Labels (PNG)
         </Button>
+        
+        {results.bulk_label_pdf_url && (
+          <Button 
+            onClick={() => onDownloadSingleLabel(results.bulk_label_pdf_url!, 'pdf')}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Download Bulk PDF
+          </Button>
+        )}
         
         <Button 
           variant="outline" 
@@ -90,12 +99,14 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </Button>
       </div>
 
-      {/* Successful Shipments Table - Matches international shipping behavior exactly */}
-      <SuccessfulShipmentsTable
-        shipments={results.processedShipments.filter(s => s.label_url)}
-        onDownloadSingleLabel={onDownloadSingleLabel}
-        onDownloadAllLabels={onDownloadAllLabels}
-      />
+      {/* Successful Shipments Table */}
+      {hasLabels && (
+        <SuccessfulShipmentsTable
+          shipments={successfulShipments}
+          onDownloadSingleLabel={onDownloadSingleLabel}
+          onDownloadAllLabels={onDownloadAllLabels}
+        />
+      )}
 
       {/* Failed Shipments */}
       {results.failedShipments && results.failedShipments.length > 0 && (

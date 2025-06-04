@@ -138,12 +138,10 @@ export const useBulkUpload = () => {
 
   const handleEditShipment = (shipment: BulkShipment) => {
     console.log('Edit shipment:', shipment);
-    // Implement edit functionality if needed
   };
 
   const handleRefreshRates = async (shipmentId: string) => {
     console.log('Refresh rates for shipment:', shipmentId);
-    // Implement rate refresh functionality if needed
   };
 
   const handleBulkApplyCarrier = (carrier: string) => {
@@ -177,7 +175,6 @@ export const useBulkUpload = () => {
     toast.success(`Applied ${carrier} to all applicable shipments`);
   };
 
-  // Direct label creation like international shipping - no payment step
   const handleProceedToPayment = async () => {
     await handleCreateLabels();
   };
@@ -210,29 +207,52 @@ export const useBulkUpload = () => {
 
       console.log('Label creation response:', data);
 
-      if (data.processedLabels && data.processedLabels.length > 0) {
-        // Update results with the new label URLs and set status to success
+      if (data.labels && data.labels.length > 0) {
+        // Process the response and update shipments with label URLs
         const updatedShipments = results.processedShipments.map(shipment => {
-          const labelData = data.processedLabels.find((label: any) => label.id === shipment.id);
-          if (labelData) {
+          const labelData = data.labels.find((label: any) => 
+            label.shipment_id === shipment.id && 
+            (label.status === 'success_individual_png_saved' || label.status.includes('success'))
+          );
+          
+          if (labelData && labelData.label_urls?.png) {
             return {
               ...shipment,
-              label_url: labelData.label_url,
-              tracking_code: labelData.tracking_code,
-              status: 'completed' as const
+              label_url: labelData.label_urls.png,
+              tracking_code: labelData.tracking_number,
+              status: 'completed' as const,
+              customer_name: labelData.recipient_name || shipment.customer_name,
+              customer_address: labelData.drop_off_address || shipment.customer_address
             };
           }
           return shipment;
         });
 
+        // Count successful labels
+        const successfulLabels = data.labels.filter((label: any) => 
+          label.status === 'success_individual_png_saved' || 
+          label.status.includes('success')
+        ).length;
+
         setResults({
           ...results,
-          processedShipments: updatedShipments
+          processedShipments: updatedShipments,
+          bulk_label_png_url: data.bulk_label_png_url,
+          bulk_label_pdf_url: data.bulk_label_pdf_url
         });
 
-        // Move directly to success state like international shipping
         setUploadStatus('success');
-        toast.success(`Successfully created ${data.processedLabels.length} shipping labels`);
+        toast.success(`Successfully created ${successfulLabels} shipping labels`);
+
+        // Show any failed labels
+        const failedLabels = data.labels.filter((label: any) => 
+          label.status.includes('error') || label.status.includes('fail')
+        );
+        
+        if (failedLabels.length > 0) {
+          console.error('Failed labels:', failedLabels);
+          toast.error(`${failedLabels.length} labels failed to create. Check console for details.`);
+        }
       } else {
         throw new Error('No labels were created');
       }
@@ -258,7 +278,7 @@ export const useBulkUpload = () => {
     // Download each label individually with staggered timing
     labelsWithUrls.forEach((shipment, index) => {
       setTimeout(() => {
-        handleDownloadSingleLabel(shipment.label_url!, 'pdf');
+        handleDownloadSingleLabel(shipment.label_url!, 'png');
       }, index * 300);
     });
     
@@ -267,6 +287,13 @@ export const useBulkUpload = () => {
 
   const handleDownloadLabelsWithFormat = async (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!results) return;
+    
+    if (format === 'pdf' && results.bulk_label_pdf_url) {
+      // Download bulk PDF
+      handleDownloadSingleLabel(results.bulk_label_pdf_url, 'pdf');
+      toast.success('Downloaded bulk PDF label');
+      return;
+    }
     
     const labelsWithUrls = results.processedShipments.filter(s => s.label_url);
     
@@ -278,17 +305,15 @@ export const useBulkUpload = () => {
     if (format === 'zip') {
       toast.loading('Preparing ZIP download...');
       
-      // Download each label individually with staggered timing
       labelsWithUrls.forEach((shipment, index) => {
         setTimeout(() => {
-          handleDownloadSingleLabel(shipment.label_url!, 'pdf');
+          handleDownloadSingleLabel(shipment.label_url!, 'png');
         }, index * 300);
       });
       
       toast.dismiss();
       toast.success(`Started download of ${labelsWithUrls.length} labels`);
     } else {
-      // Download each label individually
       labelsWithUrls.forEach((shipment, index) => {
         setTimeout(() => {
           handleDownloadSingleLabel(shipment.label_url!, format);
@@ -299,9 +324,8 @@ export const useBulkUpload = () => {
     }
   };
 
-  const handleDownloadSingleLabel = (labelUrl: string, format: string = 'pdf') => {
+  const handleDownloadSingleLabel = (labelUrl: string, format: string = 'png') => {
     try {
-      // Create download link
       const link = document.createElement('a');
       link.href = labelUrl;
       link.download = `shipping_label_${Date.now()}.${format}`;
@@ -350,6 +374,7 @@ export const useBulkUpload = () => {
     setSelectedCarrierFilter,
     
     // Handlers
+    handleFileChange,
     handleUpload,
     handleProceedToPayment,
     handleCreateLabels,
