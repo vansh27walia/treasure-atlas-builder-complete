@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, Printer, File } from 'lucide-react';
+import { CheckCircle, Download, FileText, File } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import SuccessfulShipmentsTable from './SuccessfulShipmentsTable';
 import PrintPreview from '../PrintPreview';
@@ -106,89 +106,96 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </Button>
       </div>
 
-      {/* Enhanced Successful Shipments Table with Individual Actions */}
+      {/* Individual Labels Section */}
       {hasLabels && (
-        <div className="bg-white p-4 rounded-lg border border-green-200">
-          <h4 className="font-medium text-green-800 mb-4">Individual Label Actions</h4>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">Tracking #</th>
-                  <th className="text-left p-2">Recipient</th>
-                  <th className="text-left p-2">Address</th>
-                  <th className="text-left p-2">Dimensions</th>
-                  <th className="text-left p-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {successfulShipments.map((shipment) => (
-                  <tr key={shipment.id} className="border-b hover:bg-gray-50">
-                    <td className="p-2 font-mono text-xs">
-                      {shipment.tracking_code || shipment.trackingCode}
-                    </td>
-                    <td className="p-2">
-                      <div>
-                        <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
-                        <div className="text-xs text-gray-500">{shipment.carrier} - {shipment.service}</div>
+        <div className="bg-white p-6 rounded-lg border border-green-200 mb-6">
+          <h4 className="font-medium text-green-800 mb-4 text-lg">Individual Shipping Labels</h4>
+          <div className="space-y-4">
+            {successfulShipments.map((shipment) => (
+              <div key={shipment.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                  {/* Tracking Information */}
+                  <div className="lg:col-span-1">
+                    <div className="text-sm font-medium text-gray-700 mb-1">Tracking Number</div>
+                    <div className="font-mono text-sm bg-gray-100 p-2 rounded">
+                      {shipment.tracking_code || shipment.trackingCode || 'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {shipment.carrier} - {shipment.service}
+                    </div>
+                  </div>
+
+                  {/* Recipient Information */}
+                  <div className="lg:col-span-1">
+                    <div className="text-sm font-medium text-gray-700 mb-1">Ship To</div>
+                    <div className="text-sm">
+                      <div className="font-medium">{shipment.customer_name || shipment.details?.to_name || shipment.recipient}</div>
+                      {shipment.customer_company || shipment.details?.to_company && (
+                        <div className="text-gray-600">{shipment.customer_company || shipment.details?.to_company}</div>
+                      )}
+                      <div className="text-gray-600 text-xs mt-1">
+                        {shipment.details?.to_street1}<br/>
+                        {shipment.details?.to_city}, {shipment.details?.to_state} {shipment.details?.to_zip}
                       </div>
-                    </td>
-                    <td className="p-2 text-xs">
-                      <div>
-                        {shipment.details?.to_name || shipment.details?.name}<br/>
-                        {shipment.details?.to_street1 || shipment.details?.street1}<br/>
-                        {shipment.details?.to_city || shipment.details?.city}, {shipment.details?.to_state || shipment.details?.state} {shipment.details?.to_zip || shipment.details?.zip}
-                      </div>
-                    </td>
-                    <td className="p-2 text-xs">
+                    </div>
+                  </div>
+
+                  {/* Package Details */}
+                  <div className="lg:col-span-1">
+                    <div className="text-sm font-medium text-gray-700 mb-1">Package Details</div>
+                    <div className="text-sm text-gray-600">
                       {shipment.details?.length && shipment.details?.width && shipment.details?.height ? (
                         <div>
-                          {shipment.details.length}" × {shipment.details.width}" × {shipment.details.height}"<br/>
-                          Weight: {shipment.details.weight} lbs
+                          <div>Dimensions: {shipment.details.length}" × {shipment.details.width}" × {shipment.details.height}"</div>
+                          <div>Weight: {shipment.details.weight} lbs</div>
                         </div>
                       ) : (
-                        <span className="text-gray-400">N/A</span>
+                        <div>Weight: {shipment.details?.weight || 0} lbs</div>
                       )}
-                    </td>
-                    <td className="p-2">
-                      <div className="flex gap-2">
-                        {/* Print Preview Button */}
-                        {shipment.label_url && (
-                          <PrintPreview
-                            labelUrl={shipment.label_url}
-                            trackingCode={shipment.tracking_code || shipment.trackingCode}
-                            shipmentDetails={{
-                              fromAddress: results.pickupAddress ? 
-                                `${results.pickupAddress.name}\n${results.pickupAddress.street1}\n${results.pickupAddress.city}, ${results.pickupAddress.state} ${results.pickupAddress.zip}` : 
-                                'Pickup Address',
-                              toAddress: `${shipment.details?.to_name || shipment.details?.name}\n${shipment.details?.to_street1 || shipment.details?.street1}\n${shipment.details?.to_city || shipment.details?.city}, ${shipment.details?.to_state || shipment.details?.state} ${shipment.details?.to_zip || shipment.details?.zip}`,
-                              weight: `${shipment.details?.weight || 0} lbs`,
-                              dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? 
-                                `${shipment.details.length}" × ${shipment.details.width}" × ${shipment.details.height}"` : 
-                                undefined,
-                              service: shipment.service,
-                              carrier: shipment.carrier
-                            }}
-                          />
-                        )}
-                        
-                        {/* Download PNG Button */}
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => onDownloadSingleLabel(shipment.label_url!, 'png')}
-                          disabled={!shipment.label_url}
-                          className="text-xs"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          PNG
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <div className="text-xs mt-1">Rate: ${shipment.rate?.toFixed(2) || '0.00'}</div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="lg:col-span-1 flex flex-col gap-2">
+                    <div className="text-sm font-medium text-gray-700 mb-1">Actions</div>
+                    <div className="flex flex-col gap-2">
+                      {/* Print Preview */}
+                      {shipment.label_url && (
+                        <PrintPreview
+                          labelUrl={shipment.label_url}
+                          trackingCode={shipment.tracking_code || shipment.trackingCode}
+                          shipmentDetails={{
+                            fromAddress: results.pickupAddress ? 
+                              `${results.pickupAddress.name}\n${results.pickupAddress.street1}\n${results.pickupAddress.city}, ${results.pickupAddress.state} ${results.pickupAddress.zip}` : 
+                              'Pickup Address',
+                            toAddress: `${shipment.details?.to_name || shipment.details?.name}\n${shipment.details?.to_street1 || shipment.details?.street1}\n${shipment.details?.to_city || shipment.details?.city}, ${shipment.details?.to_state || shipment.details?.state} ${shipment.details?.to_zip || shipment.details?.zip}`,
+                            weight: `${shipment.details?.weight || 0} lbs`,
+                            dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? 
+                              `${shipment.details.length}" × ${shipment.details.width}" × ${shipment.details.height}"` : 
+                              undefined,
+                            service: shipment.service,
+                            carrier: shipment.carrier
+                          }}
+                        />
+                      )}
+                      
+                      {/* Download PNG Button */}
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => onDownloadSingleLabel(shipment.label_url!, 'png')}
+                        disabled={!shipment.label_url}
+                        className="text-xs"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        Download PNG
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
