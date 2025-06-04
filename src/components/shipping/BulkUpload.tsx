@@ -85,7 +85,7 @@ const BulkUpload: React.FC = () => {
 
   // Wrapper function to match expected signature
   const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
-    const shipment = results?.processedShipments.find(s => s.id === shipmentId);
+    const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
     if (shipment) {
       handleEditShipment(shipment);
     }
@@ -101,6 +101,9 @@ const BulkUpload: React.FC = () => {
       fileInput.click();
     }
   };
+
+  // Safely get processed shipments count
+  const processedShipmentsCount = results?.processedShipments?.length || 0;
 
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
@@ -186,13 +189,13 @@ const BulkUpload: React.FC = () => {
             onRefreshRates={handleRefreshRates}
           />
           
-          {results.processedShipments.length > 0 && (
+          {processedShipmentsCount > 0 && (
             <div className="mt-8 p-4 border rounded-lg bg-gray-50">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
                 <div>
                   <h3 className="font-semibold text-lg">Order Summary</h3>
                   <p className="text-gray-600">
-                    {results.processedShipments.length} shipments selected with a total cost of ${results.totalCost.toFixed(2)}
+                    {processedShipmentsCount} shipments selected with a total cost of ${results.totalCost?.toFixed(2) || '0.00'}
                   </p>
                   {pickupAddress && (
                     <p className="text-sm text-blue-600 mt-1">
@@ -213,7 +216,7 @@ const BulkUpload: React.FC = () => {
                   
                   <Button
                     onClick={handleProceedToPayment}
-                    disabled={isPaying || results.processedShipments.length === 0 || !pickupAddress}
+                    disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
                     {isPaying ? 'Processing...' : 'Process Payment'} 
@@ -251,7 +254,7 @@ const BulkUpload: React.FC = () => {
         onOpenChange={setShowLabelOptions}
         onFormatSelect={handleDownloadLabelsWithFormat}
         onEmailLabels={() => handleEmailLabels("")}
-        shipmentCount={results?.processedShipments.length || 0}
+        shipmentCount={processedShipmentsCount}
       />
     </Card>
   );
