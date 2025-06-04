@@ -140,6 +140,8 @@ export interface BulkUploadResult {
   failedShipments: BulkShipmentError[];
   uploadStatus?: 'idle' | 'success' | 'error' | 'editing';
   pickupAddress?: ShippingAddress;
+  bulk_label_png_url?: string;
+  bulk_label_pdf_url?: string;
 }
 
 export const CARRIER_OPTIONS = [
