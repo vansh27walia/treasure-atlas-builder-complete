@@ -12,19 +12,19 @@ export const useShipmentFiltering = (
 
   // Filter and sort shipments
   const filteredShipments = useMemo(() => {
-    if (!results) return [];
+    if (!results || !results.processedShipments) return [];
     
     return results.processedShipments
       .filter(shipment => {
         // Filter by search term
         const searchFields = [
           shipment.recipient,
-          shipment.details.name,
-          shipment.details.company || '',
-          shipment.details.street1,
-          shipment.details.city,
-          shipment.details.state,
-          shipment.details.zip,
+          shipment.details?.name || '',
+          shipment.details?.company || '',
+          shipment.details?.street1 || '',
+          shipment.details?.city || '',
+          shipment.details?.state || '',
+          shipment.details?.zip || '',
           shipment.carrier,
           shipment.service
         ].join(' ').toLowerCase();
