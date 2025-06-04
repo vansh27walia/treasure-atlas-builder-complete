@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -138,7 +137,7 @@ export interface BulkUploadResult {
   totalCost: number;
   processedShipments: BulkShipment[];
   failedShipments: BulkShipmentError[];
-  uploadStatus?: 'idle' | 'success' | 'error' | 'editing';
+  uploadStatus?: 'idle' | 'success' | 'error' | 'editing' | 'creating-labels';
   pickupAddress?: ShippingAddress;
   bulk_label_png_url?: string;
   bulk_label_pdf_url?: string;

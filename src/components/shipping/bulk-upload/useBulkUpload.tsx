@@ -122,7 +122,11 @@ export const useBulkUpload = () => {
       return;
     }
     
-    setResults(prev => prev ? { ...prev, uploadStatus: 'creating-labels' } : prev);
+    // Fix the type issue by ensuring prev is not null and properly typed
+    setResults(prev => {
+      if (!prev) return prev;
+      return { ...prev, uploadStatus: 'creating-labels' as const };
+    });
     
     try {
       console.log('Creating labels for shipments:', shipmentsToProcess);
