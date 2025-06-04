@@ -2,9 +2,10 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText } from 'lucide-react';
+import { CheckCircle, Download, FileText, Printer, File } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import SuccessfulShipmentsTable from './SuccessfulShipmentsTable';
+import PrintPreview from '../PrintPreview';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
@@ -27,6 +28,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 }) => {
   const successfulShipments = results.processedShipments?.filter(shipment => shipment.label_url) || [];
   const hasLabels = successfulShipments.length > 0;
+
+  const handleDownloadAllPDF = () => {
+    if (results.bulk_label_pdf_url) {
+      onDownloadSingleLabel(results.bulk_label_pdf_url, 'pdf');
+    }
+  };
 
   return (
     <Card className="mt-6 p-6 border-green-200 bg-green-50">
@@ -81,11 +88,11 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         
         {results.bulk_label_pdf_url && (
           <Button 
-            onClick={() => onDownloadSingleLabel(results.bulk_label_pdf_url!, 'pdf')}
+            onClick={handleDownloadAllPDF}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
-            <Download className="mr-2 h-4 w-4" />
-            Download Bulk PDF
+            <File className="mr-2 h-4 w-4" />
+            Download All Labels (PDF)
           </Button>
         )}
         
@@ -99,7 +106,94 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </Button>
       </div>
 
-      {/* Successful Shipments Table */}
+      {/* Enhanced Successful Shipments Table with Individual Actions */}
+      {hasLabels && (
+        <div className="bg-white p-4 rounded-lg border border-green-200">
+          <h4 className="font-medium text-green-800 mb-4">Individual Label Actions</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2">Tracking #</th>
+                  <th className="text-left p-2">Recipient</th>
+                  <th className="text-left p-2">Address</th>
+                  <th className="text-left p-2">Dimensions</th>
+                  <th className="text-left p-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {successfulShipments.map((shipment) => (
+                  <tr key={shipment.id} className="border-b hover:bg-gray-50">
+                    <td className="p-2 font-mono text-xs">
+                      {shipment.tracking_code || shipment.trackingCode}
+                    </td>
+                    <td className="p-2">
+                      <div>
+                        <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
+                        <div className="text-xs text-gray-500">{shipment.carrier} - {shipment.service}</div>
+                      </div>
+                    </td>
+                    <td className="p-2 text-xs">
+                      <div>
+                        {shipment.details?.to_name || shipment.details?.name}<br/>
+                        {shipment.details?.to_street1 || shipment.details?.street1}<br/>
+                        {shipment.details?.to_city || shipment.details?.city}, {shipment.details?.to_state || shipment.details?.state} {shipment.details?.to_zip || shipment.details?.zip}
+                      </div>
+                    </td>
+                    <td className="p-2 text-xs">
+                      {shipment.details?.length && shipment.details?.width && shipment.details?.height ? (
+                        <div>
+                          {shipment.details.length}" × {shipment.details.width}" × {shipment.details.height}"<br/>
+                          Weight: {shipment.details.weight} lbs
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">N/A</span>
+                      )}
+                    </td>
+                    <td className="p-2">
+                      <div className="flex gap-2">
+                        {/* Print Preview Button */}
+                        {shipment.label_url && (
+                          <PrintPreview
+                            labelUrl={shipment.label_url}
+                            trackingCode={shipment.tracking_code || shipment.trackingCode}
+                            shipmentDetails={{
+                              fromAddress: results.pickupAddress ? 
+                                `${results.pickupAddress.name}\n${results.pickupAddress.street1}\n${results.pickupAddress.city}, ${results.pickupAddress.state} ${results.pickupAddress.zip}` : 
+                                'Pickup Address',
+                              toAddress: `${shipment.details?.to_name || shipment.details?.name}\n${shipment.details?.to_street1 || shipment.details?.street1}\n${shipment.details?.to_city || shipment.details?.city}, ${shipment.details?.to_state || shipment.details?.state} ${shipment.details?.to_zip || shipment.details?.zip}`,
+                              weight: `${shipment.details?.weight || 0} lbs`,
+                              dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? 
+                                `${shipment.details.length}" × ${shipment.details.width}" × ${shipment.details.height}"` : 
+                                undefined,
+                              service: shipment.service,
+                              carrier: shipment.carrier
+                            }}
+                          />
+                        )}
+                        
+                        {/* Download PNG Button */}
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => onDownloadSingleLabel(shipment.label_url!, 'png')}
+                          disabled={!shipment.label_url}
+                          className="text-xs"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          PNG
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Regular SuccessfulShipmentsTable for additional functionality */}
       {hasLabels && (
         <SuccessfulShipmentsTable
           shipments={successfulShipments}
