@@ -25,7 +25,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  const successfulShipments = results.processedShipments.filter(shipment => shipment.label_url);
+  const successfulShipments = results.processedShipments?.filter(shipment => shipment.label_url) || [];
   const hasLabels = successfulShipments.length > 0;
 
   return (
@@ -58,12 +58,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
         
         <div className="bg-white p-4 rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-600">${results.totalCost.toFixed(2)}</div>
+          <div className="text-2xl font-bold text-green-600">${results.totalCost?.toFixed(2) || '0.00'}</div>
           <div className="text-sm text-gray-600">Total Shipping Cost</div>
         </div>
         
         <div className="bg-white p-4 rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-600">{results.total || results.processedShipments.length}</div>
+          <div className="text-2xl font-bold text-green-600">{results.total || results.processedShipments?.length || 0}</div>
           <div className="text-sm text-gray-600">Total Shipments</div>
         </div>
       </div>
