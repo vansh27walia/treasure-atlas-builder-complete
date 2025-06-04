@@ -31,8 +31,40 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
   const handleDownloadAllPDF = () => {
     if (results.bulk_label_pdf_url) {
-      onDownloadSingleLabel(results.bulk_label_pdf_url, 'pdf');
+      // Create a temporary anchor element to trigger download
+      const link = document.createElement('a');
+      link.href = results.bulk_label_pdf_url;
+      link.download = `bulk_shipping_labels_${Date.now()}.pdf`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
+  };
+
+  const handleDownloadIndividualLabel = (labelUrl: string, format: string = 'png') => {
+    console.log('Downloading individual label:', labelUrl, format);
+    
+    // Create a temporary anchor element to trigger download
+    const link = document.createElement('a');
+    link.href = labelUrl;
+    link.download = `shipping_label_${Date.now()}.${format}`;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadAllIndividualLabels = () => {
+    console.log('Downloading all individual labels, count:', successfulShipments.length);
+    
+    successfulShipments.forEach((shipment, index) => {
+      if (shipment.label_url) {
+        setTimeout(() => {
+          handleDownloadIndividualLabel(shipment.label_url!, 'png');
+        }, index * 500); // Stagger downloads by 500ms
+      }
+    });
   };
 
   return (
@@ -78,12 +110,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <Button 
-          onClick={onDownloadAllLabels}
+          onClick={handleDownloadAllIndividualLabels}
           className="bg-green-600 hover:bg-green-700 text-white"
           disabled={!hasLabels}
         >
           <Download className="mr-2 h-4 w-4" />
-          Download All Labels (PNG)
+          Download All Individual Labels (PNG)
         </Button>
         
         {results.bulk_label_pdf_url && (
@@ -92,7 +124,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             <File className="mr-2 h-4 w-4" />
-            Download All Labels (PDF)
+            Download Bulk PDF
           </Button>
         )}
         
@@ -130,7 +162,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                     <div className="text-sm font-medium text-gray-700 mb-1">Ship To</div>
                     <div className="text-sm">
                       <div className="font-medium">{shipment.customer_name || shipment.details?.to_name || shipment.recipient}</div>
-                      {shipment.customer_company || shipment.details?.to_company && (
+                      {(shipment.customer_company || shipment.details?.to_company) && (
                         <div className="text-gray-600">{shipment.customer_company || shipment.details?.to_company}</div>
                       )}
                       <div className="text-gray-600 text-xs mt-1">
@@ -184,7 +216,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                       <Button 
                         size="sm" 
                         variant="outline"
-                        onClick={() => onDownloadSingleLabel(shipment.label_url!, 'png')}
+                        onClick={() => handleDownloadIndividualLabel(shipment.label_url!, 'png')}
                         disabled={!shipment.label_url}
                         className="text-xs"
                       >
@@ -204,8 +236,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       {hasLabels && (
         <SuccessfulShipmentsTable
           shipments={successfulShipments}
-          onDownloadSingleLabel={onDownloadSingleLabel}
-          onDownloadAllLabels={onDownloadAllLabels}
+          onDownloadSingleLabel={handleDownloadIndividualLabel}
+          onDownloadAllLabels={handleDownloadAllIndividualLabels}
         />
       )}
 

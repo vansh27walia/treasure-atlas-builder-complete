@@ -70,7 +70,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   
   const handleBulkDownload = async (format: 'png' | 'zip' = 'png') => {
     if (format === 'zip') {
-      toast.loading('Preparing ZIP archive...');
+      toast.loading('Preparing downloads...');
       
       try {
         const validShipments = shipments.filter(s => s.label_url);
@@ -92,7 +92,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
         
       } catch (error) {
         toast.dismiss();
-        toast.error('Failed to create ZIP archive');
+        toast.error('Failed to download labels');
       }
       return;
     }
@@ -141,7 +141,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
               <File className="h-4 w-4 text-blue-600" /> PNG Format
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleBulkDownload('zip')} className="flex items-center gap-2">
-              <FileArchive className="h-4 w-4 text-amber-600" /> ZIP Archive
+              <FileArchive className="h-4 w-4 text-amber-600" /> Multiple Downloads
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -192,8 +192,10 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                       variant="ghost"
                       onClick={() => handleDownload(shipment, 'png')}
                       disabled={!shipment.label_url}
+                      className="flex items-center gap-1"
                     >
                       <Download className="h-4 w-4" />
+                      Download
                     </Button>
                   </div>
                 </TableCell>
