@@ -108,7 +108,7 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // Custom handleCreateLabels with proper response processing for label downloads
+  // Custom handleCreateLabels with proper response processing
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -122,7 +122,11 @@ export const useBulkUpload = () => {
       return;
     }
     
-    setUploadStatus('creating-labels');
+    // Fix the type issue by ensuring prev is not null and properly typed
+    setResults(prev => {
+      if (!prev) return prev;
+      return { ...prev, uploadStatus: 'creating-labels' as const };
+    });
     
     try {
       console.log('Creating labels for shipments:', shipmentsToProcess);
