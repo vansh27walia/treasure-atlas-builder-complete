@@ -31,7 +31,29 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
   const handleDownloadAllPDF = () => {
     if (results.bulk_label_pdf_url) {
-      onDownloadSingleLabel(results.bulk_label_pdf_url, 'pdf');
+      const link = document.createElement('a');
+      link.href = results.bulk_label_pdf_url;
+      link.download = `bulk_shipping_labels_${Date.now()}.pdf`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const handleDownloadSingleLabelFixed = (labelUrl: string, format: string = 'png') => {
+    try {
+      const link = document.createElement('a');
+      link.href = labelUrl;
+      link.download = `shipping_label_${Date.now()}.${format}`;
+      link.target = '_blank';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+    } catch (error) {
+      console.error('Download error:', error);
     }
   };
 
@@ -130,7 +152,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                     <div className="text-sm font-medium text-gray-700 mb-1">Ship To</div>
                     <div className="text-sm">
                       <div className="font-medium">{shipment.customer_name || shipment.details?.to_name || shipment.recipient}</div>
-                      {shipment.customer_company || shipment.details?.to_company && (
+                      {(shipment.customer_company || shipment.details?.to_company) && (
                         <div className="text-gray-600">{shipment.customer_company || shipment.details?.to_company}</div>
                       )}
                       <div className="text-gray-600 text-xs mt-1">
@@ -184,7 +206,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                       <Button 
                         size="sm" 
                         variant="outline"
-                        onClick={() => onDownloadSingleLabel(shipment.label_url!, 'png')}
+                        onClick={() => handleDownloadSingleLabelFixed(shipment.label_url!, 'png')}
                         disabled={!shipment.label_url}
                         className="text-xs"
                       >
@@ -204,7 +226,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       {hasLabels && (
         <SuccessfulShipmentsTable
           shipments={successfulShipments}
-          onDownloadSingleLabel={onDownloadSingleLabel}
+          onDownloadSingleLabel={handleDownloadSingleLabelFixed}
           onDownloadAllLabels={onDownloadAllLabels}
         />
       )}
