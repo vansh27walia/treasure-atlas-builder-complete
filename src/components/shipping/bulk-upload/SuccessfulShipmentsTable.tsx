@@ -27,7 +27,15 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<BulkShipment | null>(null);
   
-  if (shipments.length === 0) return null;
+  if (!shipments || shipments.length === 0) {
+    console.log('No shipments to display in SuccessfulShipmentsTable');
+    return null;
+  }
+
+  console.log('SuccessfulShipmentsTable received shipments:', shipments.length, shipments);
+
+  // Show all shipments, not just ones with labels
+  const displayShipments = shipments;
 
   const downloadFile = async (url: string, filename: string) => {
     try {
@@ -91,7 +99,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   };
   
   const handleBulkDownload = async (format: 'pdf' | 'zip' = 'pdf') => {
-    const validShipments = shipments.filter(s => s.label_url);
+    const validShipments = displayShipments.filter(s => s.label_url);
     
     if (validShipments.length === 0) {
       toast.error('No valid labels to download');
@@ -120,7 +128,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-3">
-        <h5 className="font-medium text-green-800">Successfully Generated Labels ({shipments.length})</h5>
+        <h5 className="font-medium text-green-800">Successfully Processed Shipments ({displayShipments.length})</h5>
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -154,63 +162,79 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {shipments.map((shipment) => (
-              <TableRow key={shipment.id}>
-                <TableCell>{shipment.row}</TableCell>
-                <TableCell>{shipment.customer_name || shipment.recipient}</TableCell>
-                <TableCell>{shipment.carrier}</TableCell>
-                <TableCell>
-                  <div className="font-mono text-sm bg-gray-100 p-1 rounded">
-                    {shipment.tracking_code || shipment.trackingCode}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                    Label Generated
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    {/* Print Preview Button */}
-                    {shipment.label_url && (
-                      <Button
-                        size="sm"
+            {displayShipments.map((shipment) => {
+              const hasLabel = !!shipment.label_url;
+              const trackingNumber = shipment.tracking_code || shipment.trackingCode;
+              const recipientName = shipment.customer_name || shipment.details?.to_name || shipment.recipient || 'Unknown';
+              
+              return (
+                <TableRow key={shipment.id}>
+                  <TableCell>{shipment.row}</TableCell>
+                  <TableCell>{recipientName}</TableCell>
+                  <TableCell>{shipment.carrier || 'N/A'}</TableCell>
+                  <TableCell>
+                    {trackingNumber ? (
+                      <div className="font-mono text-sm bg-gray-100 p-1 rounded">
+                        {trackingNumber}
+                      </div>
+                    ) : (
+                      <span className="text-gray-500 text-sm">No tracking</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {hasLabel ? (
+                      <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                        Label Generated
+                      </span>
+                    ) : (
+                      <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                        Processed
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      {/* Preview Button */}
+                      {hasLabel && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handlePrintPreview(shipment)}
+                          className="flex items-center gap-1"
+                        >
+                          <Eye className="h-4 w-4" />
+                          Preview
+                        </Button>
+                      )}
+                      
+                      {/* Download Button */}
+                      <Button 
+                        size="sm" 
                         variant="ghost"
-                        onClick={() => handlePrintPreview(shipment)}
+                        onClick={() => handleDownload(shipment, 'pdf')}
+                        disabled={!hasLabel}
                         className="flex items-center gap-1"
                       >
-                        <Eye className="h-4 w-4" />
-                        Preview
+                        <Download className="h-4 w-4" />
+                        Download
                       </Button>
-                    )}
-                    
-                    {/* Download Button */}
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      onClick={() => handleDownload(shipment, 'pdf')}
-                      disabled={!shipment.label_url}
-                      className="flex items-center gap-1"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download
-                    </Button>
 
-                    {/* Print Button */}
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      onClick={() => window.open(shipment.label_url, '_blank')}
-                      disabled={!shipment.label_url}
-                      className="flex items-center gap-1"
-                    >
-                      <Printer className="h-4 w-4" />
-                      Print
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                      {/* Print Button */}
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={() => window.open(shipment.label_url, '_blank')}
+                        disabled={!hasLabel}
+                        className="flex items-center gap-1"
+                      >
+                        <Printer className="h-4 w-4" />
+                        Print
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

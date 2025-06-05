@@ -26,8 +26,20 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  const successfulShipments = results.processedShipments?.filter(shipment => shipment.label_url) || [];
+  // Fix the success detection logic
+  const successfulShipments = results.processedShipments?.filter(shipment => 
+    shipment.label_url || shipment.tracking_code || shipment.trackingCode
+  ) || [];
+  
   const hasLabels = successfulShipments.length > 0;
+  const actualSuccessCount = successfulShipments.length;
+
+  console.log('SuccessNotification Debug:', {
+    processedShipments: results.processedShipments?.length || 0,
+    successfulShipments: successfulShipments.length,
+    hasLabels,
+    sampleShipment: successfulShipments[0]
+  });
 
   const downloadFile = async (url: string, filename: string) => {
     try {
@@ -105,7 +117,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             Labels Generated Successfully!
           </h3>
           <p className="text-green-700">
-            {successfulShipments.length} shipping labels have been created and are ready for download.
+            {actualSuccessCount} shipping labels have been created and are ready for download.
           </p>
         </div>
       </div>
@@ -121,7 +133,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-600">{successfulShipments.length}</div>
+          <div className="text-2xl font-bold text-green-600">{actualSuccessCount}</div>
           <div className="text-sm text-gray-600">Successful Labels</div>
         </div>
         
@@ -167,109 +179,10 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </Button>
       </div>
 
-      {/* Individual Labels Section with detailed tracking and download options */}
-      {hasLabels && (
-        <div className="bg-white p-6 rounded-lg border border-green-200 mb-6">
-          <h4 className="font-medium text-green-800 mb-4 text-lg">Individual Shipping Labels</h4>
-          <div className="space-y-4">
-            {successfulShipments.map((shipment) => (
-              <div key={shipment.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                  {/* Tracking Information */}
-                  <div className="lg:col-span-1">
-                    <div className="text-sm font-medium text-gray-700 mb-1">Tracking Number</div>
-                    <div className="font-mono text-sm bg-gray-100 p-2 rounded border">
-                      {shipment.tracking_code || shipment.trackingCode || 'N/A'}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {shipment.carrier} - {shipment.service}
-                    </div>
-                  </div>
-
-                  {/* Recipient Information */}
-                  <div className="lg:col-span-1">
-                    <div className="text-sm font-medium text-gray-700 mb-1">Ship To</div>
-                    <div className="text-sm">
-                      <div className="font-medium">{shipment.customer_name || shipment.details?.to_name || shipment.recipient}</div>
-                      {(shipment.customer_company || shipment.details?.to_company) && (
-                        <div className="text-gray-600">{shipment.customer_company || shipment.details?.to_company}</div>
-                      )}
-                      <div className="text-gray-600 text-xs mt-1">
-                        {shipment.details?.to_street1 || shipment.customer_address}<br/>
-                        {shipment.details?.to_city}, {shipment.details?.to_state} {shipment.details?.to_zip}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Package Details */}
-                  <div className="lg:col-span-1">
-                    <div className="text-sm font-medium text-gray-700 mb-1">Package Details</div>
-                    <div className="text-sm text-gray-600">
-                      {shipment.details?.length && shipment.details?.width && shipment.details?.height ? (
-                        <div>
-                          <div>Dimensions: {shipment.details.length}" × {shipment.details.width}" × {shipment.details.height}"</div>
-                          <div>Weight: {shipment.details.weight} lbs</div>
-                        </div>
-                      ) : (
-                        <div>Weight: {shipment.details?.weight || 0} lbs</div>
-                      )}
-                      <div className="text-xs mt-1">Rate: ${shipment.rate?.toFixed(2) || '0.00'}</div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="lg:col-span-1 flex flex-col gap-2">
-                    <div className="text-sm font-medium text-gray-700 mb-1">Actions</div>
-                    <div className="flex flex-col gap-2">
-                      {/* Preview Button */}
-                      {shipment.label_url && (
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handlePrintLabel(shipment.label_url!)}
-                          className="text-xs"
-                        >
-                          <Eye className="h-3 w-3 mr-1" />
-                          Preview Label
-                        </Button>
-                      )}
-                      
-                      {/* Download PDF Button */}
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleDownloadIndividualLabel(shipment.label_url!, 'pdf')}
-                        disabled={!shipment.label_url}
-                        className="text-xs"
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        Download PDF
-                      </Button>
-
-                      {/* Print Button */}
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handlePrintLabel(shipment.label_url!)}
-                        disabled={!shipment.label_url}
-                        className="text-xs"
-                      >
-                        <Printer className="h-3 w-3 mr-1" />
-                        Print Label
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Regular SuccessfulShipmentsTable for additional functionality */}
-      {hasLabels && (
+      {/* Always show the SuccessfulShipmentsTable when we have processed shipments */}
+      {results.processedShipments && results.processedShipments.length > 0 && (
         <SuccessfulShipmentsTable
-          shipments={successfulShipments}
+          shipments={results.processedShipments}
           onDownloadSingleLabel={handleDownloadIndividualLabel}
           onDownloadAllLabels={handleDownloadAllIndividualLabels}
         />
