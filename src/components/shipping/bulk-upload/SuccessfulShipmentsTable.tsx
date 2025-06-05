@@ -39,9 +39,8 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
 
   console.log('SuccessfulShipmentsTable received shipments:', shipments.length, shipments);
 
-  // Separate shipments with and without labels
-  const shipmentsWithLabels = shipments.filter(s => s.label_url);
-  const shipmentsWithoutLabels = shipments.filter(s => !s.label_url);
+  // Count shipments with labels for display
+  const shipmentsWithLabels = shipments.filter(s => s.label_url || s.tracking_code || s.trackingCode);
 
   const downloadFile = async (url: string, filename: string) => {
     try {
@@ -133,7 +132,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     <div className="p-4">
       <div className="flex justify-between items-center mb-3">
         <h5 className="font-medium text-green-800">
-          Processed Shipments ({shipments.length})
+          Successfully Processed Shipments ({shipments.length})
           {shipmentsWithLabels.length > 0 && (
             <span className="ml-2 text-sm bg-green-100 text-green-700 px-2 py-1 rounded">
               {shipmentsWithLabels.length} with labels
@@ -168,8 +167,6 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
             <TableRow>
               <TableHead>Row</TableHead>
               <TableHead>Recipient</TableHead>
-              <TableHead>Address</TableHead>
-              <TableHead>Package</TableHead>
               <TableHead>Carrier</TableHead>
               <TableHead>Tracking #</TableHead>
               <TableHead>Status</TableHead>
@@ -178,14 +175,16 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
           </TableHeader>
           <TableBody>
             {shipments.map((shipment) => {
-              const hasLabel = !!shipment.label_url;
-              const trackingNumber = shipment.tracking_code || shipment.trackingCode;
+              const hasLabel = !!(shipment.label_url);
+              const trackingNumber = shipment.tracking_code || shipment.trackingCode || 'N/A';
               const recipientName = shipment.customer_name || shipment.details?.to_name || shipment.recipient || 'Unknown';
-              const recipientAddress = shipment.customer_address || 
-                (shipment.details ? `${shipment.details.to_city}, ${shipment.details.to_state} ${shipment.details.to_zip}` : 'Address not available');
+              const carrier = shipment.carrier || 'N/A';
+              const service = shipment.service || '';
+              
+              console.log(`Shipment ${shipment.id} - hasLabel: ${hasLabel}, label_url: ${shipment.label_url}, tracking: ${trackingNumber}`);
               
               return (
-                <TableRow key={shipment.id}>
+                <TableRow key={shipment.id || shipment.row}>
                   <TableCell className="font-medium">{shipment.row}</TableCell>
                   <TableCell>
                     <div className="font-medium">{recipientName}</div>
@@ -194,34 +193,15 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center text-sm">
-                      <MapPin className="h-3 w-3 mr-1 text-gray-400" />
-                      <span className="text-gray-600">{recipientAddress}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
                     <div className="text-sm">
-                      <div className="flex items-center">
-                        <Package className="h-3 w-3 mr-1 text-gray-400" />
-                        <span>{shipment.details?.weight || 'N/A'} lbs</span>
-                      </div>
-                      {shipment.details && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          {shipment.details.length}"×{shipment.details.width}"×{shipment.details.height}"
-                        </div>
+                      <div className="font-medium">{carrier}</div>
+                      {service && (
+                        <div className="text-xs text-gray-500">{service}</div>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm">
-                      <div className="font-medium">{shipment.carrier || 'N/A'}</div>
-                      {shipment.service && (
-                        <div className="text-xs text-gray-500">{shipment.service}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {trackingNumber ? (
+                    {trackingNumber !== 'N/A' ? (
                       <div className="font-mono text-sm bg-gray-100 p-1 rounded max-w-[150px] break-all">
                         {trackingNumber}
                       </div>
@@ -232,7 +212,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                   <TableCell>
                     {hasLabel ? (
                       <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                        Label Available
+                        Label Generated
                       </span>
                     ) : (
                       <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">
@@ -248,7 +228,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                             size="sm"
                             variant="ghost"
                             onClick={() => handlePrintPreview(shipment)}
-                            className="flex items-center gap-1 h-8 px-2"
+                            className="flex items-center gap-1 h-8 px-2 text-xs"
                           >
                             <Eye className="h-3 w-3" />
                             Preview
@@ -258,24 +238,13 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                             size="sm" 
                             variant="ghost"
                             onClick={() => handleDownload(shipment, 'pdf')}
-                            className="flex items-center gap-1 h-8 px-2"
+                            className="flex items-center gap-1 h-8 px-2 text-xs"
                           >
                             <Download className="h-3 w-3" />
-                            Download
-                          </Button>
-
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            onClick={() => window.open(shipment.label_url, '_blank')}
-                            className="flex items-center gap-1 h-8 px-2"
-                          >
-                            <Printer className="h-3 w-3" />
-                            Print
                           </Button>
                         </>
                       ) : (
-                        <span className="text-xs text-gray-500 px-2 py-1">No label available</span>
+                        <span className="text-xs text-gray-500 px-2 py-1">No label</span>
                       )}
                     </div>
                   </TableCell>

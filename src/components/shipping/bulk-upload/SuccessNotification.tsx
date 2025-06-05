@@ -26,7 +26,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  // Count successful shipments (those with labels)
+  // Count successful shipments (those with labels or tracking codes)
   const successfulShipments = results.processedShipments?.filter(shipment => 
     shipment.label_url || shipment.tracking_code || shipment.trackingCode
   ) || [];
@@ -38,7 +38,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     totalProcessed,
     successfulShipments: successfulShipments.length,
     hasLabels,
-    sampleShipment: results.processedShipments?.[0]
+    sampleShipment: results.processedShipments?.[0],
+    allShipments: results.processedShipments
   });
 
   const downloadFile = async (url: string, filename: string) => {
@@ -107,7 +108,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <p className="text-green-700">
             {hasLabels 
               ? `${successfulShipments.length} shipping labels have been created and are ready for download.`
-              : `${totalProcessed} shipments have been processed. ${successfulShipments.length} labels are available.`
+              : `${totalProcessed} shipments have been processed.`
             }
           </p>
         </div>
@@ -125,7 +126,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg border border-green-200">
           <div className="text-2xl font-bold text-green-600">{successfulShipments.length}</div>
-          <div className="text-sm text-gray-600">Labels Available</div>
+          <div className="text-sm text-gray-600">Labels Generated</div>
         </div>
         
         <div className="bg-white p-4 rounded-lg border border-green-200">
@@ -135,11 +136,11 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         
         <div className="bg-white p-4 rounded-lg border border-green-200">
           <div className="text-2xl font-bold text-green-600">{totalProcessed}</div>
-          <div className="text-sm text-gray-600">Total Shipments</div>
+          <div className="text-sm text-gray-600">Total Processed</div>
         </div>
       </div>
 
-      {/* Action Buttons - only show if we have labels */}
+      {/* Action Buttons - show if we have labels */}
       {hasLabels && (
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <Button 
@@ -147,7 +148,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             className="bg-green-600 hover:bg-green-700 text-white"
           >
             <Download className="mr-2 h-4 w-4" />
-            Download All Individual Labels
+            Download All Labels
           </Button>
           
           {results.bulk_label_pdf_url && (
@@ -171,10 +172,10 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
       )}
 
-      {/* Always show the SuccessfulShipmentsTable when we have ANY processed shipments */}
-      {totalProcessed > 0 && (
+      {/* Always show the SuccessfulShipmentsTable when we have processed shipments */}
+      {totalProcessed > 0 && results.processedShipments && (
         <SuccessfulShipmentsTable
-          shipments={results.processedShipments || []}
+          shipments={results.processedShipments}
           onDownloadSingleLabel={onDownloadSingleLabel}
           onDownloadAllLabels={handleDownloadAllIndividualLabels}
         />
