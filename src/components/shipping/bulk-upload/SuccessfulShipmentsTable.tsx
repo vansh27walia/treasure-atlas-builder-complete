@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, File, FileArchive, ChevronDown, Eye } from 'lucide-react';
+import { Download, File, FileArchive, ChevronDown, Eye, Printer } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import { 
   DropdownMenu, 
@@ -33,26 +33,16 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     try {
       console.log('Downloading file from URL:', url);
       
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const blob = await response.blob();
-      
-      // Create download link
-      const downloadUrl = window.URL.createObjectURL(blob);
+      // Create a temporary anchor element to trigger download
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = url;
       link.download = filename;
+      link.target = '_blank';
       
-      // Trigger download
+      // Append to body, click, and remove
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      // Clean up
-      window.URL.revokeObjectURL(downloadUrl);
       
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
@@ -79,12 +69,12 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
 
   const handleDownloadLabel = async () => {
     if (selectedShipment?.label_url) {
-      await downloadFile(selectedShipment.label_url, `shipping_label_${Date.now()}.png`);
+      await downloadFile(selectedShipment.label_url, `shipping_label_${Date.now()}.pdf`);
       setPrintPreviewOpen(false);
     }
   };
 
-  const handleDownload = async (shipment: BulkShipment, format: string = 'png') => {
+  const handleDownload = async (shipment: BulkShipment, format: string = 'pdf') => {
     if (!shipment.label_url) {
       toast.error('No label URL available for this shipment');
       return;
@@ -100,7 +90,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     }
   };
   
-  const handleBulkDownload = async (format: 'png' | 'zip' = 'png') => {
+  const handleBulkDownload = async (format: 'pdf' | 'zip' = 'pdf') => {
     const validShipments = shipments.filter(s => s.label_url);
     
     if (validShipments.length === 0) {
@@ -114,7 +104,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
       for (let i = 0; i < validShipments.length; i++) {
         const shipment = validShipments[i];
         setTimeout(async () => {
-          await handleDownload(shipment, format === 'zip' ? 'png' : format);
+          await handleDownload(shipment, format === 'zip' ? 'pdf' : format);
         }, i * 500);
       }
       
@@ -141,8 +131,8 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleBulkDownload('png')} className="flex items-center gap-2">
-              <File className="h-4 w-4 text-blue-600" /> PNG Format
+            <DropdownMenuItem onClick={() => handleBulkDownload('pdf')} className="flex items-center gap-2">
+              <File className="h-4 w-4 text-blue-600" /> PDF Format
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleBulkDownload('zip')} className="flex items-center gap-2">
               <FileArchive className="h-4 w-4 text-amber-600" /> Multiple Downloads
@@ -169,7 +159,11 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                 <TableCell>{shipment.row}</TableCell>
                 <TableCell>{shipment.customer_name || shipment.recipient}</TableCell>
                 <TableCell>{shipment.carrier}</TableCell>
-                <TableCell>{shipment.tracking_code || shipment.trackingCode}</TableCell>
+                <TableCell>
+                  <div className="font-mono text-sm bg-gray-100 p-1 rounded">
+                    {shipment.tracking_code || shipment.trackingCode}
+                  </div>
+                </TableCell>
                 <TableCell>
                   <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
                     Label Generated
@@ -194,12 +188,24 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                     <Button 
                       size="sm" 
                       variant="ghost"
-                      onClick={() => handleDownload(shipment, 'png')}
+                      onClick={() => handleDownload(shipment, 'pdf')}
                       disabled={!shipment.label_url}
                       className="flex items-center gap-1"
                     >
                       <Download className="h-4 w-4" />
                       Download
+                    </Button>
+
+                    {/* Print Button */}
+                    <Button 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => window.open(shipment.label_url, '_blank')}
+                      disabled={!shipment.label_url}
+                      className="flex items-center gap-1"
+                    >
+                      <Printer className="h-4 w-4" />
+                      Print
                     </Button>
                   </div>
                 </TableCell>
@@ -236,7 +242,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                       Print Label
                     </Button>
                     <Button onClick={handleDownloadLabel}>
-                      Download PNG
+                      Download PDF
                     </Button>
                   </div>
                 </div>

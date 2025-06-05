@@ -2,10 +2,9 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, File } from 'lucide-react';
+import { CheckCircle, Download, FileText, File, Eye, Printer } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import SuccessfulShipmentsTable from './SuccessfulShipmentsTable';
-import PrintPreview from '../PrintPreview';
 import { toast } from '@/components/ui/sonner';
 
 interface SuccessNotificationProps {
@@ -34,26 +33,16 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     try {
       console.log('Downloading file from URL:', url);
       
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const blob = await response.blob();
-      
-      // Create download link
-      const downloadUrl = window.URL.createObjectURL(blob);
+      // Create a temporary anchor element to trigger download
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = url;
       link.download = filename;
+      link.target = '_blank';
       
-      // Trigger download
+      // Append to body, click, and remove
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      // Clean up
-      window.URL.revokeObjectURL(downloadUrl);
       
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
@@ -91,7 +80,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         try {
           // Stagger downloads to avoid overwhelming the browser
           setTimeout(async () => {
-            await handleDownloadIndividualLabel(shipment.label_url!, 'png');
+            await handleDownloadIndividualLabel(shipment.label_url!, 'pdf');
           }, i * 500);
         } catch (error) {
           console.error('Error downloading label for shipment:', shipment.id, error);
@@ -101,6 +90,10 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     
     toast.dismiss();
     toast.success(`Started download of ${successfulShipments.length} labels`);
+  };
+
+  const handlePrintLabel = (labelUrl: string) => {
+    window.open(labelUrl, '_blank');
   };
 
   return (
@@ -151,7 +144,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           disabled={!hasLabels}
         >
           <Download className="mr-2 h-4 w-4" />
-          Download All Individual Labels (PNG)
+          Download All Individual Labels (PDF)
         </Button>
         
         {results.bulk_label_pdf_url && (
@@ -174,7 +167,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </Button>
       </div>
 
-      {/* Individual Labels Section */}
+      {/* Individual Labels Section with detailed tracking and download options */}
       {hasLabels && (
         <div className="bg-white p-6 rounded-lg border border-green-200 mb-6">
           <h4 className="font-medium text-green-800 mb-4 text-lg">Individual Shipping Labels</h4>
@@ -185,7 +178,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                   {/* Tracking Information */}
                   <div className="lg:col-span-1">
                     <div className="text-sm font-medium text-gray-700 mb-1">Tracking Number</div>
-                    <div className="font-mono text-sm bg-gray-100 p-2 rounded">
+                    <div className="font-mono text-sm bg-gray-100 p-2 rounded border">
                       {shipment.tracking_code || shipment.trackingCode || 'N/A'}
                     </div>
                     <div className="text-xs text-gray-500 mt-1">
@@ -202,7 +195,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                         <div className="text-gray-600">{shipment.customer_company || shipment.details?.to_company}</div>
                       )}
                       <div className="text-gray-600 text-xs mt-1">
-                        {shipment.details?.to_street1}<br/>
+                        {shipment.details?.to_street1 || shipment.customer_address}<br/>
                         {shipment.details?.to_city}, {shipment.details?.to_state} {shipment.details?.to_zip}
                       </div>
                     </div>
@@ -228,36 +221,41 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                   <div className="lg:col-span-1 flex flex-col gap-2">
                     <div className="text-sm font-medium text-gray-700 mb-1">Actions</div>
                     <div className="flex flex-col gap-2">
-                      {/* Print Preview */}
+                      {/* Preview Button */}
                       {shipment.label_url && (
-                        <PrintPreview
-                          labelUrl={shipment.label_url}
-                          trackingCode={shipment.tracking_code || shipment.trackingCode}
-                          shipmentDetails={{
-                            fromAddress: results.pickupAddress ? 
-                              `${results.pickupAddress.name}\n${results.pickupAddress.street1}\n${results.pickupAddress.city}, ${results.pickupAddress.state} ${results.pickupAddress.zip}` : 
-                              'Pickup Address',
-                            toAddress: `${shipment.details?.to_name || shipment.details?.name}\n${shipment.details?.to_street1 || shipment.details?.street1}\n${shipment.details?.to_city || shipment.details?.city}, ${shipment.details?.to_state || shipment.details?.state} ${shipment.details?.to_zip || shipment.details?.zip}`,
-                            weight: `${shipment.details?.weight || 0} lbs`,
-                            dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? 
-                              `${shipment.details.length}" × ${shipment.details.width}" × ${shipment.details.height}"` : 
-                              undefined,
-                            service: shipment.service,
-                            carrier: shipment.carrier
-                          }}
-                        />
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handlePrintLabel(shipment.label_url!)}
+                          className="text-xs"
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          Preview Label
+                        </Button>
                       )}
                       
-                      {/* Download PNG Button */}
+                      {/* Download PDF Button */}
                       <Button 
                         size="sm" 
                         variant="outline"
-                        onClick={() => handleDownloadIndividualLabel(shipment.label_url!, 'png')}
+                        onClick={() => handleDownloadIndividualLabel(shipment.label_url!, 'pdf')}
                         disabled={!shipment.label_url}
                         className="text-xs"
                       >
                         <Download className="h-3 w-3 mr-1" />
-                        Download PNG
+                        Download PDF
+                      </Button>
+
+                      {/* Print Button */}
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handlePrintLabel(shipment.label_url!)}
+                        disabled={!shipment.label_url}
+                        className="text-xs"
+                      >
+                        <Printer className="h-3 w-3 mr-1" />
+                        Print Label
                       </Button>
                     </div>
                   </div>
