@@ -6,6 +6,7 @@ import { CheckCircle, Download, FileText, File } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import SuccessfulShipmentsTable from './SuccessfulShipmentsTable';
 import PrintPreview from '../PrintPreview';
+import { toast } from '@/components/ui/sonner';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
@@ -29,42 +30,77 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   const successfulShipments = results.processedShipments?.filter(shipment => shipment.label_url) || [];
   const hasLabels = successfulShipments.length > 0;
 
-  const handleDownloadAllPDF = () => {
-    if (results.bulk_label_pdf_url) {
-      // Create a temporary anchor element to trigger download
+  const downloadFile = async (url: string, filename: string) => {
+    try {
+      console.log('Downloading file from URL:', url);
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      
+      // Create download link
+      const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = results.bulk_label_pdf_url;
-      link.download = `bulk_shipping_labels_${Date.now()}.pdf`;
-      link.target = '_blank';
+      link.href = downloadUrl;
+      link.download = filename;
+      
+      // Trigger download
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+      // Clean up
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      toast.success(`Downloaded ${filename}`);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error(`Failed to download ${filename}`);
     }
   };
 
-  const handleDownloadIndividualLabel = (labelUrl: string, format: string = 'png') => {
-    console.log('Downloading individual label:', labelUrl, format);
-    
-    // Create a temporary anchor element to trigger download
-    const link = document.createElement('a');
-    link.href = labelUrl;
-    link.download = `shipping_label_${Date.now()}.${format}`;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownloadAllPDF = async () => {
+    if (results.bulk_label_pdf_url) {
+      await downloadFile(results.bulk_label_pdf_url, `bulk_shipping_labels_${Date.now()}.pdf`);
+    } else {
+      toast.error('Bulk PDF not available');
+    }
   };
 
-  const handleDownloadAllIndividualLabels = () => {
+  const handleDownloadIndividualLabel = async (labelUrl: string, format: string = 'png') => {
+    const filename = `shipping_label_${Date.now()}.${format}`;
+    await downloadFile(labelUrl, filename);
+  };
+
+  const handleDownloadAllIndividualLabels = async () => {
     console.log('Downloading all individual labels, count:', successfulShipments.length);
     
-    successfulShipments.forEach((shipment, index) => {
+    if (successfulShipments.length === 0) {
+      toast.error('No labels available for download');
+      return;
+    }
+
+    toast.loading('Starting downloads...');
+    
+    for (let i = 0; i < successfulShipments.length; i++) {
+      const shipment = successfulShipments[i];
       if (shipment.label_url) {
-        setTimeout(() => {
-          handleDownloadIndividualLabel(shipment.label_url!, 'png');
-        }, index * 500); // Stagger downloads by 500ms
+        try {
+          // Stagger downloads to avoid overwhelming the browser
+          setTimeout(async () => {
+            await handleDownloadIndividualLabel(shipment.label_url!, 'png');
+          }, i * 500);
+        } catch (error) {
+          console.error('Error downloading label for shipment:', shipment.id, error);
+        }
       }
-    });
+    }
+    
+    toast.dismiss();
+    toast.success(`Started download of ${successfulShipments.length} labels`);
   };
 
   return (

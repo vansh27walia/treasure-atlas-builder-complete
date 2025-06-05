@@ -29,6 +29,38 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   
   if (shipments.length === 0) return null;
 
+  const downloadFile = async (url: string, filename: string) => {
+    try {
+      console.log('Downloading file from URL:', url);
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      
+      // Create download link
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      toast.success(`Downloaded ${filename}`);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error(`Failed to download ${filename}`);
+    }
+  };
+
   const handlePrintPreview = (shipment: BulkShipment) => {
     if (!shipment.label_url) {
       toast.error('No label available for preview');
@@ -45,9 +77,9 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     }
   };
 
-  const handleDownloadLabel = () => {
+  const handleDownloadLabel = async () => {
     if (selectedShipment?.label_url) {
-      onDownloadSingleLabel(selectedShipment.label_url, 'png');
+      await downloadFile(selectedShipment.label_url, `shipping_label_${Date.now()}.png`);
       setPrintPreviewOpen(false);
     }
   };
@@ -60,8 +92,8 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
 
     try {
       console.log(`Downloading ${format.toUpperCase()} label for shipment:`, shipment.id);
-      onDownloadSingleLabel(shipment.label_url, format);
-      toast.success(`${format.toUpperCase()} label download started`);
+      const filename = `shipping_label_${shipment.tracking_code || shipment.trackingCode || Date.now()}.${format}`;
+      await downloadFile(shipment.label_url, filename);
     } catch (error) {
       console.error('Download error:', error);
       toast.error(`Failed to download ${format.toUpperCase()} label`);
@@ -69,34 +101,6 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   };
   
   const handleBulkDownload = async (format: 'png' | 'zip' = 'png') => {
-    if (format === 'zip') {
-      toast.loading('Preparing downloads...');
-      
-      try {
-        const validShipments = shipments.filter(s => s.label_url);
-        
-        if (validShipments.length === 0) {
-          toast.error('No valid labels to download');
-          return;
-        }
-
-        for (let i = 0; i < validShipments.length; i++) {
-          const shipment = validShipments[i];
-          setTimeout(() => {
-            handleDownload(shipment, 'png');
-          }, i * 500);
-        }
-        
-        toast.dismiss();
-        toast.success(`Downloaded ${validShipments.length} labels`);
-        
-      } catch (error) {
-        toast.dismiss();
-        toast.error('Failed to download labels');
-      }
-      return;
-    }
-    
     const validShipments = shipments.filter(s => s.label_url);
     
     if (validShipments.length === 0) {
@@ -109,9 +113,9 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     try {
       for (let i = 0; i < validShipments.length; i++) {
         const shipment = validShipments[i];
-        setTimeout(() => {
-          handleDownload(shipment, format);
-        }, i * 300);
+        setTimeout(async () => {
+          await handleDownload(shipment, format === 'zip' ? 'png' : format);
+        }, i * 500);
       }
       
       toast.dismiss();
