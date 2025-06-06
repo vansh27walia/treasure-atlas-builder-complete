@@ -173,9 +173,9 @@ export const useBulkUpload = () => {
                 customer_name: labelData.recipient_name || shipment.details?.to_name || shipment.recipient,
                 customer_address: labelData.drop_off_address || 
                   `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
-                customer_phone: shipment.details?.to_phone,
-                customer_email: shipment.details?.to_email,
-                customer_company: shipment.details?.to_company,
+                customer_phone: shipment.details?.to_phone || '',
+                customer_email: shipment.details?.to_email || '',
+                customer_company: shipment.details?.to_company || '',
               };
             }
             
@@ -199,7 +199,7 @@ export const useBulkUpload = () => {
 
         console.log(`Label creation results - Success: ${successfulLabels.length}, Failed: ${failedLabels.length}`);
 
-        const updatedResults = {
+        const updatedResults: BulkUploadResult = {
           ...results,
           processedShipments: updatedShipments,
           successful: successfulLabels.length,

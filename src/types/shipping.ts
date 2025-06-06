@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -71,7 +72,7 @@ export interface BulkShipment {
   tracking_code?: string;
   trackingCode?: string;
   label_url?: string;
-  status: 'pending' | 'processing' | 'error' | 'completed';
+  status: 'pending' | 'processing' | 'error' | 'completed' | 'failed';
   error?: string;
   easypost_id?: string;
   details: {
