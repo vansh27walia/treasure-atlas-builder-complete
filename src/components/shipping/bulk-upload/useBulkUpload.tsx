@@ -149,91 +149,62 @@ export const useBulkUpload = () => {
       console.log('Label creation response:', data);
       toast.dismiss('creating-labels');
 
-      if (data && data.processedLabels && data.processedLabels.length > 0) {
-        // Update shipments with the label information from the response
-        const updatedShipments = results.processedShipments?.map(shipment => {
-          const labelData = data.processedLabels.find((label: any) => 
-            label.id === shipment.id || label.easypost_id === shipment.easypost_id
-          );
-          
-          if (labelData) {
-            console.log(`Updating shipment ${shipment.id} with label data:`, labelData);
-            return {
-              ...shipment,
-              label_url: labelData.label_url,
-              tracking_code: labelData.tracking_code,
-              trackingCode: labelData.tracking_code,
-              status: 'completed' as const,
-              customer_name: labelData.customer_name || shipment.details?.to_name || shipment.recipient,
-              customer_address: labelData.customer_address || 
-                `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
-              customer_phone: labelData.customer_phone || shipment.details?.to_phone,
-              customer_email: labelData.customer_email || shipment.details?.to_email,
-              customer_company: labelData.customer_company || shipment.details?.to_company,
-            };
-          }
-          return shipment;
-        }) || [];
-
-        // Count successful labels
-        const successfulLabels = updatedShipments.filter(s => s.label_url);
-        console.log(`Successfully created ${successfulLabels.length} labels out of ${shipmentsToProcess.length}`);
-
-        const updatedResults = {
-          ...results,
-          processedShipments: updatedShipments,
-          successful: successfulLabels.length,
-          failed: shipmentsToProcess.length - successfulLabels.length,
-          bulk_label_pdf_url: data.bulk_label_pdf_url,
-          uploadStatus: 'success' as const
-        };
-
-        setResults(updatedResults);
-        setUploadStatus('success');
-        
-        toast.success(`Successfully created ${successfulLabels.length} shipping labels!`);
-
-        // Show any failed labels
-        if (data.failedLabels && data.failedLabels.length > 0) {
-          console.error('Failed labels:', data.failedLabels);
-          toast.error(`${data.failedLabels.length} labels failed to create. Check console for details.`);
-        }
-      } else if (data && data.labels && data.labels.length > 0) {
-        // Handle alternative response format from edge function logs
-        console.log('Processing labels from alternative format:', data.labels);
+      if (data && data.labels && data.labels.length > 0) {
+        // Process the response based on the actual format from edge function
+        console.log('Processing labels from edge function response:', data.labels);
         
         const updatedShipments = results.processedShipments?.map(shipment => {
           const labelData = data.labels.find((label: any) => 
-            label.shipment_id === shipment.id || label.easypost_id === shipment.easypost_id
+            label.shipment_id === shipment.id || 
+            label.easypost_id === shipment.easypost_id
           );
           
-          if (labelData && labelData.status === 'success_individual_png_saved' && labelData.label_urls?.png) {
-            console.log(`Updating shipment ${shipment.id} with PNG label:`, labelData);
-            return {
-              ...shipment,
-              label_url: labelData.label_urls.png,
-              tracking_code: labelData.tracking_number,
-              trackingCode: labelData.tracking_number,
-              status: 'completed' as const,
-              customer_name: labelData.recipient_name || shipment.details?.to_name || shipment.recipient,
-              customer_address: labelData.drop_off_address || `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
-              customer_phone: shipment.details?.to_phone,
-              customer_email: shipment.details?.to_email,
-              customer_company: shipment.details?.to_company,
-            };
+          if (labelData) {
+            console.log(`Processing label data for shipment ${shipment.id}:`, labelData);
+            
+            // Handle successful labels
+            if (labelData.status === 'success_individual_png_saved' && labelData.label_urls?.png) {
+              return {
+                ...shipment,
+                label_url: labelData.label_urls.png,
+                tracking_code: labelData.tracking_number,
+                trackingCode: labelData.tracking_number,
+                status: 'completed' as const,
+                customer_name: labelData.recipient_name || shipment.details?.to_name || shipment.recipient,
+                customer_address: labelData.drop_off_address || 
+                  `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
+                customer_phone: shipment.details?.to_phone,
+                customer_email: shipment.details?.to_email,
+                customer_company: shipment.details?.to_company,
+              };
+            }
+            
+            // Handle failed labels
+            if (labelData.status && labelData.status.includes('error')) {
+              return {
+                ...shipment,
+                status: 'failed' as const,
+                error: labelData.error || 'Label creation failed',
+              };
+            }
           }
           return shipment;
         }) || [];
 
-        // Count successful labels
-        const successfulLabels = updatedShipments.filter(s => s.label_url);
-        console.log(`Successfully processed ${successfulLabels.length} labels from PNG format`);
+        // Count successful and failed labels
+        const successfulLabels = updatedShipments.filter(s => s.label_url && s.label_url.trim() !== '');
+        const failedLabels = data.labels.filter((label: any) => 
+          label.status && (label.status.includes('error') || label.status.includes('fail'))
+        );
+
+        console.log(`Label creation results - Success: ${successfulLabels.length}, Failed: ${failedLabels.length}`);
 
         const updatedResults = {
           ...results,
           processedShipments: updatedShipments,
           successful: successfulLabels.length,
-          failed: shipmentsToProcess.length - successfulLabels.length,
+          failed: failedLabels.length,
+          bulk_label_png_url: data.bulk_label_png_url,
           bulk_label_pdf_url: data.bulk_label_pdf_url,
           uploadStatus: 'success' as const
         };
@@ -241,20 +212,18 @@ export const useBulkUpload = () => {
         setResults(updatedResults);
         setUploadStatus('success');
         
-        toast.success(`Successfully created ${successfulLabels.length} shipping labels!`);
+        if (successfulLabels.length > 0) {
+          toast.success(`Successfully created ${successfulLabels.length} shipping labels!`);
+        }
 
         // Show any failed labels
-        const failedLabels = data.labels.filter((label: any) => 
-          label.status === 'error_buy' || label.status.includes('error')
-        );
-        
         if (failedLabels.length > 0) {
           console.error('Failed labels:', failedLabels);
           toast.error(`${failedLabels.length} labels failed to create. Check console for details.`);
         }
       } else {
-        console.error('No processed labels in response:', data);
-        throw new Error('No labels were created in the response');
+        console.error('Invalid response format:', data);
+        throw new Error('No labels were created or invalid response format');
       }
 
     } catch (error) {

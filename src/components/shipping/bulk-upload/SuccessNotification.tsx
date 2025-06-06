@@ -38,12 +38,14 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   console.log('SuccessNotification Debug:', {
     totalShipments: allShipments.length,
     shipmentsWithLabels: shipmentsWithLabels.length,
-    sampleShipment: allShipments[0],
-    allShipments: allShipments
+    bulkPngUrl: results.bulk_label_png_url,
+    bulkPdfUrl: results.bulk_label_pdf_url,
+    sampleShipment: allShipments[0]
   });
 
   const hasLabels = shipmentsWithLabels.length > 0;
   const totalProcessed = allShipments.length;
+  const hasBulkLabels = !!(results.bulk_label_png_url || results.bulk_label_pdf_url);
 
   const downloadFile = async (url: string, filename: string) => {
     try {
@@ -65,7 +67,15 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     }
   };
 
-  const handleDownloadAllPDF = async () => {
+  const handleDownloadBulkPNG = async () => {
+    if (results.bulk_label_png_url) {
+      await downloadFile(results.bulk_label_png_url, `bulk_shipping_labels_${Date.now()}.png`);
+    } else {
+      toast.error('Bulk PNG not available');
+    }
+  };
+
+  const handleDownloadBulkPDF = async () => {
     if (results.bulk_label_pdf_url) {
       await downloadFile(results.bulk_label_pdf_url, `bulk_shipping_labels_${Date.now()}.pdf`);
     } else {
@@ -88,7 +98,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       if (shipment.label_url) {
         try {
           setTimeout(async () => {
-            await downloadFile(shipment.label_url!, `label_${shipment.tracking_code || shipment.trackingCode || Date.now()}.pdf`);
+            await downloadFile(shipment.label_url!, `label_${shipment.tracking_code || shipment.trackingCode || Date.now()}.png`);
           }, i * 500);
         } catch (error) {
           console.error('Error downloading label for shipment:', shipment.id, error);
@@ -143,35 +153,56 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
       </div>
 
-      {/* Action Buttons - show if we have labels */}
+      {/* Bulk Download Section - Ballot Level Labels */}
+      {hasBulkLabels && (
+        <div className="mb-6">
+          <h4 className="font-semibold text-lg text-green-800 mb-3">Download All Labels (Bulk)</h4>
+          <div className="flex flex-col sm:flex-row gap-3">
+            {results.bulk_label_png_url && (
+              <Button 
+                onClick={handleDownloadBulkPNG}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download All Labels (PNG)
+              </Button>
+            )}
+            
+            {results.bulk_label_pdf_url && (
+              <Button 
+                onClick={handleDownloadBulkPDF}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <File className="mr-2 h-4 w-4" />
+                Download All Labels (PDF)
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Individual Downloads Section */}
       {hasLabels && (
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <Button 
-            onClick={handleDownloadAllIndividualLabels}
-            className="bg-green-600 hover:bg-green-700 text-white"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Download All Labels ({shipmentsWithLabels.length})
-          </Button>
-          
-          {results.bulk_label_pdf_url && (
+        <div className="mb-6">
+          <h4 className="font-semibold text-lg text-green-800 mb-3">Individual Label Downloads</h4>
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button 
-              onClick={handleDownloadAllPDF}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={handleDownloadAllIndividualLabels}
+              className="bg-purple-600 hover:bg-purple-700 text-white"
             >
-              <File className="mr-2 h-4 w-4" />
-              Download Bulk PDF
+              <Download className="mr-2 h-4 w-4" />
+              Download All Individual Labels ({shipmentsWithLabels.length})
             </Button>
-          )}
-          
-          <Button 
-            variant="outline" 
-            onClick={() => window.print()}
-            className="border-green-200 hover:bg-green-50"
-          >
-            <FileText className="mr-2 h-4 w-4" />
-            Print Summary
-          </Button>
+            
+            <Button 
+              variant="outline" 
+              onClick={() => window.print()}
+              className="border-green-200 hover:bg-green-50"
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Print Summary
+            </Button>
+          </div>
         </div>
       )}
 

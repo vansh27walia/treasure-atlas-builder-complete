@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, File, FileArchive, ChevronDown, Eye, Printer, Package, MapPin } from 'lucide-react';
+import { Download, File, FileArchive, ChevronDown, Eye, Printer, Package } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import { 
   DropdownMenu, 
@@ -87,12 +87,12 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   const handleDownloadLabel = async () => {
     if (selectedShipment?.label_url) {
       const trackingCode = selectedShipment.tracking_code || selectedShipment.trackingCode;
-      await downloadFile(selectedShipment.label_url, `shipping_label_${trackingCode || Date.now()}.pdf`);
+      await downloadFile(selectedShipment.label_url, `shipping_label_${trackingCode || Date.now()}.png`);
       setPrintPreviewOpen(false);
     }
   };
 
-  const handleDownload = async (shipment: BulkShipment, format: string = 'pdf') => {
+  const handleDownload = async (shipment: BulkShipment, format: string = 'png') => {
     if (!shipment.label_url) {
       toast.error('No label URL available for this shipment');
       return;
@@ -109,7 +109,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     }
   };
   
-  const handleBulkDownload = async (format: 'pdf' | 'zip' = 'pdf') => {
+  const handleBulkDownload = async (format: 'png' | 'zip' = 'png') => {
     if (shipmentsWithLabels.length === 0) {
       toast.error('No valid labels to download');
       return;
@@ -121,7 +121,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
       for (let i = 0; i < shipmentsWithLabels.length; i++) {
         const shipment = shipmentsWithLabels[i];
         setTimeout(async () => {
-          await handleDownload(shipment, format === 'zip' ? 'pdf' : format);
+          await handleDownload(shipment, format === 'zip' ? 'png' : format);
         }, i * 500);
       }
       
@@ -138,10 +138,10 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     <div className="p-4">
       <div className="flex justify-between items-center mb-3">
         <h5 className="font-medium text-green-800">
-          Processed Shipments ({shipments.length})
+          Individual Shipment Labels ({shipments.length})
           {shipmentsWithLabels.length > 0 && (
             <span className="ml-2 text-sm bg-green-100 text-green-700 px-2 py-1 rounded">
-              {shipmentsWithLabels.length} with labels
+              {shipmentsWithLabels.length} with labels ready
             </span>
           )}
         </h5>
@@ -151,13 +151,13 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2 border-green-200 hover:bg-green-50">
                 <Download className="h-4 w-4" /> 
-                Download All Labels
+                Download Options
                 <ChevronDown className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleBulkDownload('pdf')} className="flex items-center gap-2">
-                <File className="h-4 w-4 text-blue-600" /> PDF Format
+              <DropdownMenuItem onClick={() => handleBulkDownload('png')} className="flex items-center gap-2">
+                <File className="h-4 w-4 text-green-600" /> PNG Format
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleBulkDownload('zip')} className="flex items-center gap-2">
                 <FileArchive className="h-4 w-4 text-amber-600" /> Multiple Downloads
@@ -233,6 +233,10 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                       <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
                         Label Ready
                       </span>
+                    ) : shipment.status === 'failed' ? (
+                      <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                        Failed
+                      </span>
                     ) : (
                       <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">
                         Processed
@@ -255,11 +259,11 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                           
                           <Button 
                             size="sm" 
-                            onClick={() => handleDownload(shipment, 'pdf')}
+                            onClick={() => handleDownload(shipment, 'png')}
                             className="flex items-center gap-1 h-8 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
                           >
                             <Download className="h-3 w-3" />
-                            Download
+                            Download PNG
                           </Button>
 
                           <Button
@@ -273,7 +277,9 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                           </Button>
                         </>
                       ) : (
-                        <span className="text-xs text-gray-500 px-2 py-1">No label available</span>
+                        <span className="text-xs text-gray-500 px-2 py-1">
+                          {shipment.status === 'failed' ? 'Label creation failed' : 'No label available'}
+                        </span>
                       )}
                     </div>
                   </TableCell>
@@ -313,7 +319,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                     </Button>
                     <Button onClick={handleDownloadLabel}>
                       <Download className="h-4 w-4 mr-2" />
-                      Download PDF
+                      Download PNG
                     </Button>
                   </div>
                 </div>
