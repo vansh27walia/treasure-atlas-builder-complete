@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -10,28 +11,23 @@ import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
 import LabelOptionsModal from './bulk-upload/LabelOptionsModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-// Note: We will build the Progress bar manually to control its animation, so the import is not strictly needed for the new part.
 import { Progress } from '@/components/ui/progress';
-import { FileText, UploadCloud, ChevronRight, AlertCircle, X } from 'lucide-react';
+import { FileText, UploadCloud, ChevronRight, AlertCircle } from 'lucide-react';
 import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
-  // --- CHANGE #1: Add a ref to directly control the progress bar for smooth animation ---
-  const progressFillRef = useRef<HTMLDivElement>(null);
-
+  
   const {
+    file,
     isUploading,
     isPaying,
     isCreatingLabels,
     isFetchingRates,
     uploadStatus,
     results,
-    progress, // This is still important for knowing when we hit 100%
-    // You still need to implement this logic in your useBulkUpload hook
-    uploadStatusMessage,
-    handleCancelUpload,
+    progress,
     showLabelOptions,
     searchTerm,
     sortField,
@@ -60,33 +56,17 @@ const BulkUpload: React.FC = () => {
     setSelectedCarrierFilter
   } = useBulkUpload();
 
-  // --- CHANGE #2: Add an effect to create the visual animation from 30% to 90% ---
+  // Log pickup address on mount and when it changes (less frequently)
   useEffect(() => {
-    if (isUploading && progressFillRef.current) {
-      const bar = progressFillRef.current;
-      // Instantly set the bar to 30% when the upload starts.
-      // The 'progress' prop from your hook should be 30 at this point.
-      bar.style.transition = 'none'; // Turn off animation for the initial set
-      bar.style.width = `${progress}%`;
-
-      // Use a timeout to force the browser to render the initial state (30%)
-      // before applying the smooth animation to 90%.
-      const timer = setTimeout(() => {
-        if (progressFillRef.current) {
-          bar.style.transition = 'width 4s ease-out'; // Animate smoothly over 4 seconds
-          bar.style.width = '90%';
-        }
-      }, 100);
-
-      // Cleanup function to clear the timer if the component unmounts
-      return () => clearTimeout(timer);
-    }
-  }, [isUploading, progress]); // Effect runs when `isUploading` becomes true or if `progress` changes.
-
+    console.log("Current pickup address in BulkUpload:", pickupAddress);
+  }, [pickupAddress?.id]); // Only log when ID changes
 
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
     if (address && address.id !== pickupAddress?.id) {
+      console.log("Selected pickup address in BulkUpload:", address);
       setPickupAddress(address);
+      
+      // Prevent duplicate toasts
       const now = Date.now();
       if (now - lastToastRef.current > 2000) {
         toast.success(`Selected pickup address: ${address.name || address.street1}`);
@@ -95,11 +75,34 @@ const BulkUpload: React.FC = () => {
     }
   };
 
-  const handleUploadSuccess = (uploadResults: any) => { /* ... */ };
-  const handleUploadFail = (error: string) => { /* ... */ };
-  const handleEditShipmentWrapper = (shipmentId: string, details: any) => { /* ... */ };
-  const resetUpload = () => window.location.reload();
-  const selectNewFile = () => { /* ... */ };
+  const handleUploadSuccess = (uploadResults: any) => {
+    console.log("Upload success in BulkUpload component:", uploadResults);
+  };
+
+  const handleUploadFail = (error: string) => {
+    console.error("Upload failed in BulkUpload component:", error);
+  };
+
+  // Wrapper function to match expected signature
+  const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
+    const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+    if (shipment) {
+      handleEditShipment(shipment);
+    }
+  };
+
+  const resetUpload = () => {
+    window.location.reload();
+  };
+
+  const selectNewFile = () => {
+    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
+    }
+  };
+
+  // Safely get processed shipments count
   const processedShipmentsCount = results?.processedShipments?.length || 0;
 
   return (
@@ -117,58 +120,124 @@ const BulkUpload: React.FC = () => {
         />
       )}
       
-      {/* --- CHANGE #3: This ENTIRE block replaces the old `{isUploading}` block --- */}
       {isUploading && (
-        <div className="my-6 p-4 border border-blue-200 rounded-lg bg-blue-50/50">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-semibold text-blue-800">Processing Your Shipments</h3>
-            <span className="text-sm font-medium text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full">
-              {/* Show the actual progress from the hook, which will jump to 100 at the end */}
-              {progress}%
-            </span>
-          </div>
-          
-          {/* Manually created progress bar to allow for direct style manipulation */}
-          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              ref={progressFillRef}
-              className="h-full bg-blue-600 rounded-full"
-              // When the real progress hits 100, this style will take precedence
-              style={{ width: progress === 100 ? '100%' : undefined }}
-            ></div>
-          </div>
-          
-          <div className="flex justify-between items-center mt-3">
-            <p className="text-sm text-gray-600">
-              {uploadStatusMessage || 'Processing...'}
-            </p>
-            {handleCancelUpload && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-red-600 hover:bg-red-100 hover:text-red-700"
-                onClick={handleCancelUpload}
-              >
-                <X className="mr-1 h-4 w-4" />
-                Cancel
-              </Button>
-            )}
-          </div>
+        <div className="my-6">
+          <h3 className="font-medium mb-2">Processing your shipments</h3>
+          <Progress value={progress} className="h-2" />
+          <p className="text-sm text-gray-500 mt-2">
+            {progress < 100 
+              ? `Processing shipments (${progress}%)...` 
+              : 'Processing complete! Preparing shipment options...'}
+          </p>
         </div>
       )}
-      {/* ------------------ End of Replaced Block ------------------ */}
       
       {uploadStatus === 'editing' && results && (
         <div className="mt-6">
-          {/* ... all other existing code for the 'editing' state remains the same ... */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
+            <h2 className="text-xl font-semibold flex items-center">
+              <FileText className="mr-2 h-5 w-5 text-blue-600" />
+              Bulk Shipment Options
+              {isFetchingRates && (
+                <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full animate-pulse">
+                  Fetching rates...
+                </span>
+              )}
+            </h2>
+            
+            <div className="flex gap-2 mt-2 md:mt-0">
+              <Button variant="outline" onClick={handleDownloadTemplate} className="text-sm">
+                <UploadCloud className="mr-1 h-4 w-4" />
+                Template
+              </Button>
+              
+              <Button onClick={resetUpload} className="text-sm">
+                <UploadCloud className="mr-1 h-4 w-4" />
+                Upload Another File
+              </Button>
+            </div>
+          </div>
+          
+          <Alert className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Important</AlertTitle>
+            <AlertDescription>
+              Select carrier and service options for each shipment. You can edit address details or remove shipments before proceeding.
+            </AlertDescription>
+          </Alert>
+          
+          <BulkShipmentFilters
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            sortField={sortField}
+            sortDirection={sortDirection}
+            onSortChange={(field, direction) => {
+              setSortField(field as any);
+              setSortDirection(direction as any);
+            }}
+            selectedCarrier={selectedCarrierFilter}
+            onCarrierFilterChange={setSelectedCarrierFilter}
+            onApplyCarrierToAll={handleBulkApplyCarrier}
+          />
+          
+          <BulkShipmentsList
+            shipments={filteredShipments}
+            isFetchingRates={isFetchingRates}
+            onSelectRate={handleSelectRate}
+            onRemoveShipment={handleRemoveShipment}
+            onEditShipment={handleEditShipmentWrapper}
+            onRefreshRates={handleRefreshRates}
+          />
+          
+          {processedShipmentsCount > 0 && (
+            <div className="mt-8 p-4 border rounded-lg bg-gray-50">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
+                <div>
+                  <h3 className="font-semibold text-lg">Order Summary</h3>
+                  <p className="text-gray-600">
+                    {processedShipmentsCount} shipments selected with a total cost of ${results.totalCost?.toFixed(2) || '0.00'}
+                  </p>
+                  {pickupAddress && (
+                    <p className="text-sm text-blue-600 mt-1">
+                      <span className="font-medium">From:</span> {pickupAddress.name || pickupAddress.street1}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="flex gap-3 mt-4 lg:mt-0">
+                  <Button 
+                    variant="outline" 
+                    className="px-6"
+                    onClick={handleDownloadAllLabels}
+                    disabled={isPaying || isCreatingLabels}
+                  >
+                    Download All Labels
+                  </Button>
+                  
+                  <Button
+                    onClick={handleProceedToPayment}
+                    disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress}
+                    className="px-6 bg-green-600 hover:bg-green-700"
+                  >
+                    {isPaying ? 'Processing...' : 'Process Payment'} 
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
       
       {uploadStatus === 'success' && results && (
-         <SuccessNotification
+        <SuccessNotification
           results={results}
           onDownloadAllLabels={handleDownloadAllLabels}
-          /* ... other props ... */
+          onDownloadSingleLabel={handleDownloadSingleLabel}
+          onProceedToPayment={handleProceedToPayment}
+          onCreateLabels={handleCreateLabels}
+          isPaying={isPaying}
+          isCreatingLabels={isCreatingLabels}
         />
       )}
       
