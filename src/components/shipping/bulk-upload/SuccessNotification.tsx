@@ -26,21 +26,24 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  // Count successful shipments (those with labels or tracking codes)
-  const successfulShipments = results.processedShipments?.filter(shipment => 
-    shipment.label_url || shipment.tracking_code || shipment.trackingCode
-  ) || [];
+  // Get all processed shipments
+  const allShipments = results.processedShipments || [];
+  console.log('SuccessNotification - All shipments:', allShipments);
   
-  const hasLabels = successfulShipments.length > 0;
-  const totalProcessed = results.processedShipments?.length || 0;
-
+  // Count shipments with labels (those that have label_url)
+  const shipmentsWithLabels = allShipments.filter(shipment => 
+    shipment.label_url && shipment.label_url.trim() !== ''
+  );
+  
   console.log('SuccessNotification Debug:', {
-    totalProcessed,
-    successfulShipments: successfulShipments.length,
-    hasLabels,
-    sampleShipment: results.processedShipments?.[0],
-    allShipments: results.processedShipments
+    totalShipments: allShipments.length,
+    shipmentsWithLabels: shipmentsWithLabels.length,
+    sampleShipment: allShipments[0],
+    allShipments: allShipments
   });
+
+  const hasLabels = shipmentsWithLabels.length > 0;
+  const totalProcessed = allShipments.length;
 
   const downloadFile = async (url: string, filename: string) => {
     try {
@@ -71,17 +74,17 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   };
 
   const handleDownloadAllIndividualLabels = async () => {
-    console.log('Downloading all individual labels, count:', successfulShipments.length);
+    console.log('Downloading all individual labels, count:', shipmentsWithLabels.length);
     
-    if (successfulShipments.length === 0) {
+    if (shipmentsWithLabels.length === 0) {
       toast.error('No labels available for download');
       return;
     }
 
     toast.loading('Starting downloads...');
     
-    for (let i = 0; i < successfulShipments.length; i++) {
-      const shipment = successfulShipments[i];
+    for (let i = 0; i < shipmentsWithLabels.length; i++) {
+      const shipment = shipmentsWithLabels[i];
       if (shipment.label_url) {
         try {
           setTimeout(async () => {
@@ -94,7 +97,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     }
     
     toast.dismiss();
-    toast.success(`Started download of ${successfulShipments.length} labels`);
+    toast.success(`Started download of ${shipmentsWithLabels.length} labels`);
   };
 
   return (
@@ -107,8 +110,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </h3>
           <p className="text-green-700">
             {hasLabels 
-              ? `${successfulShipments.length} shipping labels have been created and are ready for download.`
-              : `${totalProcessed} shipments have been processed.`
+              ? `${shipmentsWithLabels.length} shipping labels have been created and are ready for download.`
+              : `${totalProcessed} shipments have been processed and are ready for label creation.`
             }
           </p>
         </div>
@@ -125,18 +128,18 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-600">{successfulShipments.length}</div>
+          <div className="text-2xl font-bold text-green-600">{totalProcessed}</div>
+          <div className="text-sm text-gray-600">Total Processed</div>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg border border-green-200">
+          <div className="text-2xl font-bold text-green-600">{shipmentsWithLabels.length}</div>
           <div className="text-sm text-gray-600">Labels Generated</div>
         </div>
         
         <div className="bg-white p-4 rounded-lg border border-green-200">
           <div className="text-2xl font-bold text-green-600">${results.totalCost?.toFixed(2) || '0.00'}</div>
           <div className="text-sm text-gray-600">Total Shipping Cost</div>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-600">{totalProcessed}</div>
-          <div className="text-sm text-gray-600">Total Processed</div>
         </div>
       </div>
 
@@ -148,7 +151,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             className="bg-green-600 hover:bg-green-700 text-white"
           >
             <Download className="mr-2 h-4 w-4" />
-            Download All Labels
+            Download All Labels ({shipmentsWithLabels.length})
           </Button>
           
           {results.bulk_label_pdf_url && (
@@ -173,9 +176,9 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       )}
 
       {/* Always show the SuccessfulShipmentsTable when we have processed shipments */}
-      {totalProcessed > 0 && results.processedShipments && (
+      {totalProcessed > 0 && (
         <SuccessfulShipmentsTable
-          shipments={results.processedShipments}
+          shipments={allShipments}
           onDownloadSingleLabel={onDownloadSingleLabel}
           onDownloadAllLabels={handleDownloadAllIndividualLabels}
         />

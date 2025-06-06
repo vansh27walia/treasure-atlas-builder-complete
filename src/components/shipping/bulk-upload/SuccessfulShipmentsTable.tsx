@@ -27,6 +27,8 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<BulkShipment | null>(null);
   
+  console.log('SuccessfulShipmentsTable - Received shipments:', shipments);
+  
   if (!shipments || shipments.length === 0) {
     console.log('No shipments to display in SuccessfulShipmentsTable');
     return (
@@ -37,12 +39,10 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     );
   }
 
-  console.log('SuccessfulShipmentsTable - All shipments:', shipments);
-
   // Filter shipments with labels for bulk actions
   const shipmentsWithLabels = shipments.filter(s => {
-    const hasLabel = !!(s.label_url);
-    console.log(`Shipment ${s.id || s.row} - label_url: ${s.label_url}, hasLabel: ${hasLabel}`);
+    const hasLabel = !!(s.label_url && s.label_url.trim() !== '');
+    console.log(`Shipment ${s.id || s.row} - label_url: "${s.label_url}", hasLabel: ${hasLabel}`);
     return hasLabel;
   });
 
@@ -182,7 +182,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
           </TableHeader>
           <TableBody>
             {shipments.map((shipment) => {
-              const hasLabel = !!(shipment.label_url);
+              const hasLabel = !!(shipment.label_url && shipment.label_url.trim() !== '');
               const trackingNumber = shipment.tracking_code || shipment.trackingCode || 'N/A';
               const recipientName = shipment.customer_name || shipment.details?.to_name || shipment.recipient || 'Unknown';
               const recipientAddress = shipment.customer_address || 

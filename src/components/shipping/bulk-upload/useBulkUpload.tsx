@@ -108,7 +108,7 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // Custom handleCreateLabels with proper response processing
+  // Enhanced handleCreateLabels with proper response processing
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -122,14 +122,13 @@ export const useBulkUpload = () => {
       return;
     }
     
-    // Fix the type issue by ensuring prev is not null and properly typed
-    setResults(prev => {
-      if (!prev) return prev;
-      return { ...prev, uploadStatus: 'creating-labels' as const };
-    });
+    console.log('Starting label creation for shipments:', shipmentsToProcess);
+    
+    // Set creating labels status
+    setUploadStatus('creating-labels');
     
     try {
-      console.log('Creating labels for shipments:', shipmentsToProcess);
+      toast.loading('Creating shipping labels...', { id: 'creating-labels' });
       
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
@@ -143,10 +142,12 @@ export const useBulkUpload = () => {
       });
 
       if (error) {
+        console.error('Label creation error:', error);
         throw new Error(error.message);
       }
 
       console.log('Label creation response:', data);
+      toast.dismiss('creating-labels');
 
       if (data && data.processedLabels && data.processedLabels.length > 0) {
         // Update shipments with the label information from the response
@@ -156,6 +157,7 @@ export const useBulkUpload = () => {
           );
           
           if (labelData) {
+            console.log(`Updating shipment ${shipment.id} with label data:`, labelData);
             return {
               ...shipment,
               label_url: labelData.label_url,
@@ -175,6 +177,7 @@ export const useBulkUpload = () => {
 
         // Count successful labels
         const successfulLabels = updatedShipments.filter(s => s.label_url);
+        console.log(`Successfully created ${successfulLabels.length} labels out of ${shipmentsToProcess.length}`);
 
         const updatedResults = {
           ...results,
@@ -188,7 +191,7 @@ export const useBulkUpload = () => {
         setResults(updatedResults);
         setUploadStatus('success');
         
-        toast.success(`Successfully created ${successfulLabels.length} shipping labels`);
+        toast.success(`Successfully created ${successfulLabels.length} shipping labels!`);
 
         // Show any failed labels
         if (data.failedLabels && data.failedLabels.length > 0) {
@@ -196,11 +199,13 @@ export const useBulkUpload = () => {
           toast.error(`${data.failedLabels.length} labels failed to create. Check console for details.`);
         }
       } else {
+        console.error('No processed labels in response:', data);
         throw new Error('No labels were created in the response');
       }
 
     } catch (error) {
       console.error('Error creating labels:', error);
+      toast.dismiss('creating-labels');
       toast.error(error instanceof Error ? error.message : 'Failed to create labels');
       setUploadStatus('error');
     }
@@ -261,7 +266,7 @@ export const useBulkUpload = () => {
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
-    handleProceedToPayment: handleCreateLabels, // Use our custom handler
+    handleProceedToPayment: handleCreateLabels, // Use our custom handler for label creation
     handleCreateLabels,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat, 
