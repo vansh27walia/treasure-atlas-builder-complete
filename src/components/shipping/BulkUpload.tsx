@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -12,13 +11,13 @@ import LabelOptionsModal from './bulk-upload/LabelOptionsModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { FileText, UploadCloud, ChevronRight, AlertCircle } from 'lucide-react';
+import { FileText, UploadCloud, ChevronRight, AlertCircle, X } from 'lucide-react'; // Added X for the cancel icon
 import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
-  
+
   const {
     file,
     isUploading,
@@ -28,6 +27,11 @@ const BulkUpload: React.FC = () => {
     uploadStatus,
     results,
     progress,
+    // --- CHANGE #1: Add new state and handler from your hook ---
+    // NOTE: You must implement this logic in your useBulkUpload hook.
+    uploadStatusMessage,
+    handleCancelUpload,
+    // ---------------------------------------------------------
     showLabelOptions,
     searchTerm,
     sortField,
@@ -120,17 +124,35 @@ const BulkUpload: React.FC = () => {
         />
       )}
       
+      {/* --- CHANGE #2: Replaced the old loading UI with the new, improved component --- */}
       {isUploading && (
-        <div className="my-6">
-          <h3 className="font-medium mb-2">Processing your shipments</h3>
+        <div className="my-6 p-4 border border-blue-200 rounded-lg bg-blue-50/50">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-semibold text-blue-800">Processing Your Shipments</h3>
+            <span className="text-sm font-medium text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-full">
+              {progress}%
+            </span>
+          </div>
           <Progress value={progress} className="h-2" />
-          <p className="text-sm text-gray-500 mt-2">
-            {progress < 100 
-              ? `Processing shipments (${progress}%)...` 
-              : 'Processing complete! Preparing shipment options...'}
-          </p>
+          <div className="flex justify-between items-center mt-3">
+            <p className="text-sm text-gray-600">
+              {uploadStatusMessage || (progress < 100 ? 'Processing...' : 'Finalizing...')}
+            </p>
+            {handleCancelUpload && ( // Only show button if the function exists
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-red-600 hover:bg-red-100 hover:text-red-700"
+                onClick={handleCancelUpload}
+              >
+                <X className="mr-1 h-4 w-4" />
+                Cancel
+              </Button>
+            )}
+          </div>
         </div>
       )}
+      {/* ----------------------------------------------------------------------------- */}
       
       {uploadStatus === 'editing' && results && (
         <div className="mt-6">
