@@ -26,9 +26,9 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  // Get all processed shipments
-  const allShipments = results.processedShipments || [];
-  console.log('SuccessNotification - All shipments:', allShipments);
+  // Ensure we have processed shipments
+  const allShipments = Array.isArray(results.processedShipments) ? results.processedShipments : [];
+  console.log('SuccessNotification - All shipments:', allShipments.length);
   
   // Count shipments with labels (those that have label_url)
   const shipmentsWithLabels = allShipments.filter(shipment => 
@@ -110,6 +110,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     toast.success(`Started download of ${shipmentsWithLabels.length} labels`);
   };
 
+  // If no shipments processed, don't show the success notification
+  if (totalProcessed === 0) {
+    console.log('No shipments processed, not showing success notification');
+    return null;
+  }
+
   return (
     <Card className="mt-6 p-6 border-green-200 bg-green-50">
       <div className="flex items-center space-x-3 mb-4">
@@ -153,7 +159,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
       </div>
 
-      {/* Bulk Download Section - Ballot Level Labels */}
+      {/* Bulk Download Section - only show if we have bulk labels */}
       {hasBulkLabels && (
         <div className="mb-6">
           <h4 className="font-semibold text-lg text-green-800 mb-3">Download All Labels (Bulk)</h4>
@@ -181,7 +187,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
       )}
 
-      {/* Individual Downloads Section */}
+      {/* Individual Downloads Section - show if we have individual labels */}
       {hasLabels && (
         <div className="mb-6">
           <h4 className="font-semibold text-lg text-green-800 mb-3">Individual Label Downloads</h4>
@@ -203,6 +209,20 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
               Print Summary
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* Create Labels Button - show if no labels exist yet */}
+      {!hasLabels && totalProcessed > 0 && (
+        <div className="mb-6">
+          <h4 className="font-semibold text-lg text-green-800 mb-3">Create Shipping Labels</h4>
+          <Button 
+            onClick={onCreateLabels}
+            disabled={isCreatingLabels}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {isCreatingLabels ? 'Creating Labels...' : 'Create Labels Now'}
+          </Button>
         </div>
       )}
 

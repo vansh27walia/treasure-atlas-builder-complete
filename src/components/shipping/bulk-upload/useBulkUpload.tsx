@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { BulkUploadResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -28,15 +27,17 @@ export const useBulkUpload = () => {
 
   // Update results wrapper function
   const updateResults = (newResults: BulkUploadResult) => {
-    console.log('Updating results:', newResults);
+    console.log('Updating results in useBulkUpload:', newResults);
     
-    // Add pickup address to results if not present
-    const resultsWithPickup = {
+    // Ensure processedShipments is always an array
+    const resultsWithShipments = {
       ...newResults,
+      processedShipments: Array.isArray(newResults.processedShipments) ? newResults.processedShipments : [],
       pickupAddress: newResults.pickupAddress || pickupAddress
     };
     
-    setResults(resultsWithPickup);
+    console.log('Setting results with processedShipments:', resultsWithShipments.processedShipments?.length);
+    setResults(resultsWithShipments);
     
     // If a new upload status is provided, update it
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
@@ -150,10 +151,11 @@ export const useBulkUpload = () => {
       toast.dismiss('creating-labels');
 
       if (data && data.labels && data.labels.length > 0) {
-        // Process the response based on the actual format from edge function
-        console.log('Processing labels from edge function response:', data.labels);
+        // Process the response and ensure we have the current shipments
+        const currentShipments = results.processedShipments || [];
+        console.log('Current shipments before update:', currentShipments.length);
         
-        const updatedShipments = results.processedShipments?.map(shipment => {
+        const updatedShipments = currentShipments.map(shipment => {
           const labelData = data.labels.find((label: any) => 
             label.shipment_id === shipment.id || 
             label.easypost_id === shipment.easypost_id
@@ -189,7 +191,7 @@ export const useBulkUpload = () => {
             }
           }
           return shipment;
-        }) || [];
+        });
 
         // Count successful and failed labels
         const successfulLabels = updatedShipments.filter(s => s.label_url && s.label_url.trim() !== '');
@@ -198,17 +200,22 @@ export const useBulkUpload = () => {
         );
 
         console.log(`Label creation results - Success: ${successfulLabels.length}, Failed: ${failedLabels.length}`);
+        console.log('Updated shipments:', updatedShipments);
 
         const updatedResults: BulkUploadResult = {
           ...results,
           processedShipments: updatedShipments,
           successful: successfulLabels.length,
           failed: failedLabels.length,
+          totalCost: results.totalCost || 0,
+          total: updatedShipments.length,
+          failedShipments: results.failedShipments || [],
           bulk_label_png_url: data.bulk_label_png_url,
           bulk_label_pdf_url: data.bulk_label_pdf_url,
           uploadStatus: 'success' as const
         };
 
+        console.log('Final updated results before setting:', updatedResults);
         setResults(updatedResults);
         setUploadStatus('success');
         
