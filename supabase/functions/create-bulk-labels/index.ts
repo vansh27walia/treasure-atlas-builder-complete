@@ -14,33 +14,34 @@ interface LabelOptions {
 
 const ensureStorageBucket = async (supabase: any) => {
   try {
-    // Check if bucket exists by trying to list objects in it
-    const { data, error } = await supabase.storage
-      .from('shipping-labels')
-      .list('', { limit: 1 });
+    // Check if bucket exists
+    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
     
-    if (error && error.message.includes('Bucket not found')) {
-      console.log('Bucket not found, creating it now...');
-      
-      // Try to create the bucket
-      const { error: createError } = await supabase.storage.createBucket('shipping-labels', {
+    if (listError) {
+      console.error('Error listing buckets:', listError);
+    }
+    
+    const bucketExists = buckets?.some((bucket: any) => bucket.name === 'shipping-labels');
+    
+    if (!bucketExists) {
+      console.log('Creating shipping-labels bucket');
+      const { error: bucketError } = await supabase.storage.createBucket('shipping-labels', {
         public: true,
         fileSizeLimit: 10485760, // 10MB
         allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
       });
       
-      if (createError) {
-        console.error('Error creating bucket:', createError);
-        throw new Error(`Failed to create storage bucket: ${createError.message}`);
+      if (bucketError) {
+        console.error('Error creating bucket:', bucketError);
+        throw new Error(`Failed to create storage bucket: ${bucketError.message}`);
       }
       
       console.log('Successfully created shipping-labels bucket');
     }
     
-    console.log('Storage bucket shipping-labels is accessible');
     return true;
   } catch (error) {
-    console.error('Error checking/creating storage bucket:', error);
+    console.error('Error ensuring storage bucket:', error);
     throw error;
   }
 };
@@ -109,7 +110,7 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
 
     console.log(`Downloading label from EasyPost: ${easyPostLabelUrl}`);
     
-    // Ensure bucket exists and is accessible
+    // Ensure bucket exists
     await ensureStorageBucket(supabase);
     
     // Download the label from EasyPost
@@ -122,32 +123,28 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
     const labelArrayBuffer = await labelBlob.arrayBuffer();
     const labelBuffer = new Uint8Array(labelArrayBuffer);
     
-    // Create filename with proper extension based on content
-    const contentType = response.headers.get('content-type') || 'application/pdf';
-    const extension = contentType.includes('png') ? 'png' : 'pdf';
-    const fileName = `shipping_label_${trackingCode}_${Date.now()}.${extension}`;
+    // Create filename
+    const fileName = `shipping_label_${trackingCode}_${Date.now()}.pdf`;
     
-    console.log(`Uploading label to storage: ${fileName}`);
-    
-    // Upload the label to Supabase Storage - FIXED BUCKET NAME
+    // Upload the label to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase
       .storage
-      .from('shipping-labels')  // Fixed: was 'shipping-labels-2'
+      .from('shipping-labels')
       .upload(fileName, labelBuffer, {
-        contentType: contentType,
+        contentType: 'application/pdf',
         cacheControl: '3600',
         upsert: false
       });
       
     if (uploadError) {
       console.error('Error uploading label:', uploadError);
-      throw new Error(`Failed to upload label to storage: ${uploadError.message}`);
+      throw new Error('Failed to upload label to storage');
     }
     
     // Get public URL
     const { data: urlData } = await supabase
       .storage
-      .from('shipping-labels')  // Fixed: was 'shipping-labels-2'
+      .from('shipping-labels')
       .getPublicUrl(fileName);
       
     console.log(`Label stored successfully: ${urlData.publicUrl}`);
@@ -156,7 +153,6 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
   } catch (error) {
     console.error('Error downloading and storing label:', error);
     // Fallback to original EasyPost URL if storage fails
-    console.log('Falling back to original EasyPost URL');
     return easyPostLabelUrl;
   }
 };
