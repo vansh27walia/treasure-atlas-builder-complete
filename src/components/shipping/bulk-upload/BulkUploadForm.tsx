@@ -98,7 +98,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         return;
       }
       
-      // Basic size check (10MB limit)
+      // Basic size check (MB limit)
       if (file.size > 10 * 1024 * 1024) {
         toast.error('File is too large. Maximum size is 10MB.');
         return;
