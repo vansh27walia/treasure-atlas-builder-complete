@@ -233,7 +233,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                       <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
                         Label Ready
                       </span>
-                    ) : shipment.status === 'failed' ? (
+                    ) : shipment.status === 'error' ? (
                       <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">
                         Failed
                       </span>
@@ -278,7 +278,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                         </>
                       ) : (
                         <span className="text-xs text-gray-500 px-2 py-1">
-                          {shipment.status === 'failed' ? 'Label creation failed' : 'No label available'}
+                          {shipment.status === 'error' ? 'Label creation failed' : 'No label available'}
                         </span>
                       )}
                     </div>

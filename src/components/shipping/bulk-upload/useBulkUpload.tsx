@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { BulkUploadResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -125,9 +126,6 @@ export const useBulkUpload = () => {
     
     console.log('Starting label creation for shipments:', shipmentsToProcess);
     
-    // Set creating labels status
-    setUploadStatus('creating-labels');
-    
     try {
       toast.loading('Creating shipping labels...', { id: 'creating-labels' });
       
@@ -150,83 +148,44 @@ export const useBulkUpload = () => {
       console.log('Label creation response:', data);
       toast.dismiss('creating-labels');
 
-      if (data && data.labels && data.labels.length > 0) {
-        // Process the response and ensure we have the current shipments
-        const currentShipments = results.processedShipments || [];
-        console.log('Current shipments before update:', currentShipments.length);
-        
-        const updatedShipments = currentShipments.map(shipment => {
-          const labelData = data.labels.find((label: any) => 
-            label.shipment_id === shipment.id || 
-            label.easypost_id === shipment.easypost_id
-          );
-          
-          if (labelData) {
-            console.log(`Processing label data for shipment ${shipment.id}:`, labelData);
-            
-            // Handle successful labels
-            if (labelData.status === 'success_individual_png_saved' && labelData.label_urls?.png) {
-              return {
-                ...shipment,
-                label_url: labelData.label_urls.png,
-                tracking_code: labelData.tracking_number,
-                trackingCode: labelData.tracking_number,
-                status: 'completed' as const,
-                customer_name: labelData.recipient_name || shipment.details?.to_name || shipment.recipient,
-                customer_address: labelData.drop_off_address || 
-                  `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
-                customer_phone: shipment.details?.to_phone || '',
-                customer_email: shipment.details?.to_email || '',
-                customer_company: shipment.details?.to_company || '',
-              };
-            }
-            
-            // Handle failed labels
-            if (labelData.status && labelData.status.includes('error')) {
-              return {
-                ...shipment,
-                status: 'failed' as const,
-                error: labelData.error || 'Label creation failed',
-              };
-            }
-          }
-          return shipment;
-        });
+      if (data && data.processedLabels && data.processedLabels.length > 0) {
+        // Update shipments with the processed labels data
+        const updatedShipments = data.processedLabels.map((processedLabel: any) => ({
+          ...processedLabel,
+          status: 'completed' as const,
+          label_url: processedLabel.label_url,
+          tracking_code: processedLabel.tracking_code,
+          trackingCode: processedLabel.tracking_code,
+          customer_name: processedLabel.customer_name || processedLabel.recipient,
+          customer_address: processedLabel.customer_address,
+          customer_phone: processedLabel.customer_phone || '',
+          customer_email: processedLabel.customer_email || '',
+          customer_company: processedLabel.customer_company || '',
+        }));
 
-        // Count successful and failed labels
-        const successfulLabels = updatedShipments.filter(s => s.label_url && s.label_url.trim() !== '');
-        const failedLabels = data.labels.filter((label: any) => 
-          label.status && (label.status.includes('error') || label.status.includes('fail'))
-        );
-
-        console.log(`Label creation results - Success: ${successfulLabels.length}, Failed: ${failedLabels.length}`);
-        console.log('Updated shipments:', updatedShipments);
+        console.log('Updated shipments with labels:', updatedShipments);
 
         const updatedResults: BulkUploadResult = {
           ...results,
           processedShipments: updatedShipments,
-          successful: successfulLabels.length,
-          failed: failedLabels.length,
+          successful: data.successful || updatedShipments.length,
+          failed: data.failed || 0,
           totalCost: results.totalCost || 0,
           total: updatedShipments.length,
-          failedShipments: results.failedShipments || [],
+          failedShipments: data.failedLabels || [],
           bulk_label_png_url: data.bulk_label_png_url,
           bulk_label_pdf_url: data.bulk_label_pdf_url,
           uploadStatus: 'success' as const
         };
 
-        console.log('Final updated results before setting:', updatedResults);
+        console.log('Final updated results:', updatedResults);
         setResults(updatedResults);
         setUploadStatus('success');
         
-        if (successfulLabels.length > 0) {
-          toast.success(`Successfully created ${successfulLabels.length} shipping labels!`);
-        }
+        toast.success(`Successfully created ${data.successful || updatedShipments.length} shipping labels!`);
 
-        // Show any failed labels
-        if (failedLabels.length > 0) {
-          console.error('Failed labels:', failedLabels);
-          toast.error(`${failedLabels.length} labels failed to create. Check console for details.`);
+        if (data.failed > 0) {
+          toast.error(`${data.failed} labels failed to create. Check console for details.`);
         }
       } else {
         console.error('Invalid response format:', data);

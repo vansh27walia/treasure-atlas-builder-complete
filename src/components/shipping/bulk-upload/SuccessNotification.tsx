@@ -227,13 +227,11 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       )}
 
       {/* Always show the SuccessfulShipmentsTable when we have processed shipments */}
-      {totalProcessed > 0 && (
-        <SuccessfulShipmentsTable
-          shipments={allShipments}
-          onDownloadSingleLabel={onDownloadSingleLabel}
-          onDownloadAllLabels={handleDownloadAllIndividualLabels}
-        />
-      )}
+      <SuccessfulShipmentsTable
+        shipments={allShipments}
+        onDownloadSingleLabel={onDownloadSingleLabel}
+        onDownloadAllLabels={handleDownloadAllIndividualLabels}
+      />
 
       {/* Failed Shipments */}
       {results.failedShipments && results.failedShipments.length > 0 && (

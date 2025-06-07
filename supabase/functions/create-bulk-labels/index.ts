@@ -189,7 +189,7 @@ serve(async (req) => {
         // Purchase label via EasyPost and store in our system
         const labelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId, labelOptions);
 
-        // Ensure we preserve all customer details
+        // Ensure we preserve all shipment details
         const processedLabel = {
           ...shipment,
           ...labelData,
@@ -223,6 +223,8 @@ serve(async (req) => {
         total: shipments.length,
         successful: processedLabels.length,
         failed: failedLabels.length,
+        bulk_label_png_url: null, // TODO: Implement bulk label generation
+        bulk_label_pdf_url: null, // TODO: Implement bulk label generation
         message: `Processed ${processedLabels.length} live labels and stored them in our system`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
