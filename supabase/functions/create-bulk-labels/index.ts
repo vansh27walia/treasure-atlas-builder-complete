@@ -20,14 +20,27 @@ const ensureStorageBucket = async (supabase: any) => {
       .list('', { limit: 1 });
     
     if (error && error.message.includes('Bucket not found')) {
-      console.log('Bucket not found, but this should not happen as it exists');
-      throw new Error('Storage bucket shipping-labels is not accessible');
+      console.log('Bucket not found, creating it now...');
+      
+      // Try to create the bucket
+      const { error: createError } = await supabase.storage.createBucket('shipping-labels', {
+        public: true,
+        fileSizeLimit: 10485760, // 10MB
+        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
+      });
+      
+      if (createError) {
+        console.error('Error creating bucket:', createError);
+        throw new Error(`Failed to create storage bucket: ${createError.message}`);
+      }
+      
+      console.log('Successfully created shipping-labels bucket');
     }
     
     console.log('Storage bucket shipping-labels is accessible');
     return true;
   } catch (error) {
-    console.error('Error checking storage bucket:', error);
+    console.error('Error checking/creating storage bucket:', error);
     throw error;
   }
 };
@@ -116,10 +129,10 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
     
     console.log(`Uploading label to storage: ${fileName}`);
     
-    // Upload the label to Supabase Storage
+    // Upload the label to Supabase Storage - FIXED BUCKET NAME
     const { data: uploadData, error: uploadError } = await supabase
       .storage
-      .from('shipping-labels')
+      .from('shipping-labels')  // Fixed: was 'shipping-labels-2'
       .upload(fileName, labelBuffer, {
         contentType: contentType,
         cacheControl: '3600',
@@ -134,7 +147,7 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
     // Get public URL
     const { data: urlData } = await supabase
       .storage
-      .from('shipping-labels')
+      .from('shipping-labels')  // Fixed: was 'shipping-labels-2'
       .getPublicUrl(fileName);
       
     console.log(`Label stored successfully: ${urlData.publicUrl}`);
