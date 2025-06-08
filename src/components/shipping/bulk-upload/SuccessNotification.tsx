@@ -32,9 +32,15 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   let allShipments = [];
   if (Array.isArray(results.processedShipments)) {
     allShipments = results.processedShipments;
-  } else if (results.processedShipments && typeof results.processedShipments === 'object' && !results.processedShipments._type) {
-    // If it's an object but not the problematic _type object, extract values
-    allShipments = Object.values(results.processedShipments).filter(Boolean);
+  } else if (results.processedShipments && typeof results.processedShipments === 'object') {
+    // Check if it's a valid object with shipment data
+    const shipmentValues = Object.values(results.processedShipments);
+    // Filter out any invalid entries and ensure we have valid shipment objects
+    allShipments = shipmentValues.filter(item => 
+      item && 
+      typeof item === 'object' && 
+      'id' in item
+    );
   }
   
   console.log('SuccessNotification - All shipments:', allShipments.length, allShipments);
