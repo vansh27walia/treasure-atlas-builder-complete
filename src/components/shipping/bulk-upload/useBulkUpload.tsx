@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -148,15 +147,54 @@ export const useBulkUpload = () => {
       console.log('Label creation response:', data);
       toast.dismiss('creating-labels');
 
-      if (data && data.labels && data.labels.length > 0) {
+      if (data && data.labels && Array.isArray(data.labels) && data.labels.length > 0) {
         // Transform the backend response to match frontend expectations
         const updatedShipments = data.labels.map((label: any) => {
           // Find the original shipment data
-          const originalShipment = shipmentsToProcess.find(s => s.id === label.shipment_id);
+          const originalShipment = shipmentsToProcess.find(s => s.id === label.shipment_id) as BulkShipment | undefined;
           
           if (!originalShipment) {
             console.warn('No original shipment found for label:', label.shipment_id);
-            return null;
+            // Create a minimal shipment object from the label data
+            return {
+              id: label.shipment_id,
+              shipment_id: label.shipment_id,
+              row: 0,
+              recipient: label.recipient_name || 'Unknown',
+              recipient_name: label.recipient_name || 'Unknown',
+              customer_name: label.recipient_name || 'Unknown',
+              customer_address: label.drop_off_address || 'Unknown',
+              customer_phone: '',
+              customer_email: '',
+              customer_company: '',
+              carrier: label.carrier || 'Unknown',
+              service: label.service || 'Unknown',
+              rate: parseFloat(label.rate) || 0,
+              tracking_code: label.tracking_number,
+              tracking_number: label.tracking_number,
+              trackingCode: label.tracking_number,
+              label_url: label.label_urls?.png || null,
+              label_urls: label.label_urls || { png: null },
+              status: label.status?.includes('success') ? 'completed' as const : 'failed' as const,
+              error: label.error,
+              easypost_id: label.easypost_id,
+              details: {
+                to_name: label.recipient_name || 'Unknown',
+                to_company: '',
+                to_street1: '',
+                to_street2: '',
+                to_city: '',
+                to_state: '',
+                to_zip: '',
+                to_country: 'US',
+                to_phone: '',
+                to_email: '',
+                weight: 1,
+                length: 1,
+                width: 1,
+                height: 1
+              }
+            } as BulkShipment;
           }
           
           return {
@@ -211,8 +249,7 @@ export const useBulkUpload = () => {
         };
 
         console.log('Final updated results:', updatedResults);
-        setResults(updatedResults);
-        setUploadStatus('success');
+        updateResults(updatedResults);
         
         toast.success(`Successfully created ${successfulLabels} shipping labels!`);
 
