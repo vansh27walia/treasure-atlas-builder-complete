@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -28,24 +29,7 @@ export const useBulkUpload = () => {
   // Update results wrapper function
   const updateResults = (newResults: BulkUploadResult) => {
     console.log('Updating results in useBulkUpload:', newResults);
-    
-    // Ensure processedShipments is always an array
-    let processedShipments = [];
-    if (Array.isArray(newResults.processedShipments)) {
-      processedShipments = newResults.processedShipments;
-    } else if (newResults.processedShipments && typeof newResults.processedShipments === 'object') {
-      // Handle case where backend returns an object instead of array
-      processedShipments = Object.values(newResults.processedShipments).filter(Boolean);
-    }
-    
-    const resultsWithShipments = {
-      ...newResults,
-      processedShipments,
-      pickupAddress: newResults.pickupAddress || pickupAddress
-    };
-    
-    console.log('Setting results with processedShipments:', resultsWithShipments.processedShipments?.length);
-    setResults(resultsWithShipments);
+    setResults(newResults);
     
     // If a new upload status is provided, update it
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
@@ -170,21 +154,27 @@ export const useBulkUpload = () => {
         const transformedShipments = data.labels.map((labelData: any) => {
           console.log('Processing label data:', labelData);
           
-          // Create a proper shipment object with all required fields
+          // Find the original shipment to preserve data
+          const originalShipment = shipmentsToProcess.find(s => 
+            s.easypost_id === labelData.easypost_id || s.id === labelData.shipment_id
+          );
+          
+          // Create a properly formatted shipment with label data
           const transformedShipment: BulkShipment = {
-            id: labelData.shipment_id,
-            shipment_id: labelData.shipment_id,
-            row: 0, // Will be updated if we have original data
-            recipient: labelData.recipient_name || 'Unknown Recipient',
-            recipient_name: labelData.recipient_name,
-            customer_name: labelData.recipient_name || 'Unknown',
-            customer_address: labelData.drop_off_address || 'Address not provided',
-            customer_phone: '',
-            customer_email: '',
-            customer_company: '',
-            carrier: labelData.carrier || 'Unknown',
-            service: labelData.service || 'Unknown',
-            rate: parseFloat(labelData.rate) || 0,
+            id: labelData.shipment_id || originalShipment?.id || `ship_${Date.now()}`,
+            shipment_id: labelData.shipment_id || originalShipment?.id,
+            easypost_id: labelData.easypost_id,
+            row: originalShipment?.row || 0,
+            recipient: labelData.recipient_name || originalShipment?.recipient || 'Unknown Recipient',
+            recipient_name: labelData.recipient_name || originalShipment?.recipient_name,
+            customer_name: labelData.recipient_name || originalShipment?.customer_name || 'Unknown',
+            customer_address: labelData.drop_off_address || originalShipment?.customer_address || 'Address not provided',
+            customer_phone: originalShipment?.customer_phone || '',
+            customer_email: originalShipment?.customer_email || '',
+            customer_company: originalShipment?.customer_company || '',
+            carrier: labelData.carrier || originalShipment?.carrier || 'Unknown',
+            service: labelData.service || originalShipment?.service || 'Unknown',
+            rate: parseFloat(labelData.rate) || originalShipment?.rate || 0,
             tracking_code: labelData.tracking_number,
             tracking_number: labelData.tracking_number,
             trackingCode: labelData.tracking_number,
@@ -196,8 +186,7 @@ export const useBulkUpload = () => {
             },
             status: labelData.status?.includes('success') ? 'completed' as const : 'failed' as const,
             error: labelData.error,
-            easypost_id: labelData.easypost_id,
-            details: {
+            details: originalShipment?.details || {
               to_name: labelData.recipient_name || 'Unknown',
               to_company: '',
               to_street1: '',
@@ -212,27 +201,15 @@ export const useBulkUpload = () => {
               length: 1,
               width: 1,
               height: 1
-            }
+            },
+            availableRates: originalShipment?.availableRates || [],
+            selectedRateId: originalShipment?.selectedRateId
           };
-
-          // Try to merge with original shipment data if available
-          const originalShipment = shipmentsToProcess.find(s => s.id === labelData.shipment_id);
-          if (originalShipment) {
-            return {
-              ...originalShipment,
-              ...transformedShipment,
-              // Preserve important original data
-              details: originalShipment.details,
-              customer_phone: originalShipment.customer_phone || '',
-              customer_email: originalShipment.customer_email || '',
-              customer_company: originalShipment.customer_company || ''
-            };
-          }
 
           return transformedShipment;
         }).filter(Boolean);
 
-        console.log('Transformed shipments:', transformedShipments);
+        console.log('Transformed shipments with labels:', transformedShipments);
 
         // Count successful and failed labels
         const successfulLabels = transformedShipments.filter(s => s.status === 'completed').length;
