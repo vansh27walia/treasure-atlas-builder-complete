@@ -30,9 +30,10 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   const allShipments = Array.isArray(results.processedShipments) ? results.processedShipments : [];
   console.log('SuccessNotification - All shipments:', allShipments.length);
   
-  // Count shipments with labels (those that have label_url)
+  // Count shipments with labels (those that have label_url or label_urls.png)
   const shipmentsWithLabels = allShipments.filter(shipment => 
-    shipment.label_url && shipment.label_url.trim() !== ''
+    (shipment.label_url && shipment.label_url.trim() !== '') ||
+    (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '')
   );
   
   console.log('SuccessNotification Debug:', {
@@ -95,10 +96,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     
     for (let i = 0; i < shipmentsWithLabels.length; i++) {
       const shipment = shipmentsWithLabels[i];
-      if (shipment.label_url) {
+      const labelUrl = shipment.label_urls?.png || shipment.label_url;
+      if (labelUrl) {
         try {
           setTimeout(async () => {
-            await downloadFile(shipment.label_url!, `label_${shipment.tracking_code || shipment.trackingCode || Date.now()}.png`);
+            const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
+            await downloadFile(labelUrl, `label_${trackingCode || Date.now()}.png`);
           }, i * 500);
         } catch (error) {
           console.error('Error downloading label for shipment:', shipment.id, error);
