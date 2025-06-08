@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -28,16 +29,7 @@ export const useBulkUpload = () => {
   // Update results wrapper function
   const updateResults = (newResults: BulkUploadResult) => {
     console.log('Updating results in useBulkUpload:', newResults);
-    
-    // Ensure processedShipments is always an array
-    const resultsWithShipments = {
-      ...newResults,
-      processedShipments: Array.isArray(newResults.processedShipments) ? newResults.processedShipments : [],
-      pickupAddress: newResults.pickupAddress || pickupAddress
-    };
-    
-    console.log('Setting results with processedShipments:', resultsWithShipments.processedShipments?.length);
-    setResults(resultsWithShipments);
+    setResults(newResults);
     
     // If a new upload status is provided, update it
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
@@ -63,7 +55,7 @@ export const useBulkUpload = () => {
     handleProceedToPayment,
     handleCreateLabels: originalHandleCreateLabels,
     handleDownloadAllLabels,
-    handleDownloadLabelsWithFormat,
+    handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
     handleEmailLabels,
     setShowLabelOptions,
@@ -116,7 +108,20 @@ export const useBulkUpload = () => {
       return;
     }
     
-    const shipmentsToProcess = results.processedShipments?.filter(s => s.selectedRateId && s.easypost_id) || [];
+    // Handle both array and object cases for processedShipments
+    let shipmentsArray = [];
+    if (Array.isArray(results.processedShipments)) {
+      shipmentsArray = results.processedShipments;
+    } else if (results.processedShipments && typeof results.processedShipments === 'object') {
+      const shipmentValues = Object.values(results.processedShipments);
+      shipmentsArray = shipmentValues.filter(item => 
+        item && 
+        typeof item === 'object' && 
+        'id' in item
+      );
+    }
+    
+    const shipmentsToProcess = shipmentsArray.filter(s => s.selectedRateId && s.easypost_id) || [];
     
     if (shipmentsToProcess.length === 0) {
       toast.error('No shipments with selected rates found');
@@ -144,120 +149,112 @@ export const useBulkUpload = () => {
         throw new Error(error.message);
       }
 
-      console.log('Label creation response:', data);
+      console.log('Raw label creation response:', data);
       toast.dismiss('creating-labels');
 
+      // NEW: Handle the corrected backend response format
       if (data && data.labels && Array.isArray(data.labels) && data.labels.length > 0) {
-        // Transform the backend response to match frontend expectations
-        const updatedShipments = data.labels.map((label: any) => {
-          // Find the original shipment data
-          const originalShipment = shipmentsToProcess.find(s => s.id === label.shipment_id) as BulkShipment | undefined;
+        console.log('Processing', data.labels.length, 'labels from backend');
+        
+        // Process successful labels - look for the correct status indicators
+        const successfulLabels = data.labels.filter((labelData: any) => 
+          labelData.status === 'success_individual_png_saved' && labelData.label_urls?.png
+        );
+        
+        const failedLabels = data.labels.filter((labelData: any) => 
+          labelData.status?.includes('error') || !labelData.label_urls?.png
+        );
+
+        console.log('Successful labels:', successfulLabels.length, 'Failed labels:', failedLabels.length);
+
+        // Transform successful labels into proper frontend format
+        const transformedShipments = successfulLabels.map((labelData: any) => {
+          console.log('Processing successful label data:', labelData);
           
-          if (!originalShipment) {
-            console.warn('No original shipment found for label:', label.shipment_id);
-            // Create a minimal shipment object from the label data
-            return {
-              id: label.shipment_id,
-              shipment_id: label.shipment_id,
-              row: 0,
-              recipient: label.recipient_name || 'Unknown',
-              recipient_name: label.recipient_name || 'Unknown',
-              customer_name: label.recipient_name || 'Unknown',
-              customer_address: label.drop_off_address || 'Unknown',
-              customer_phone: '',
-              customer_email: '',
-              customer_company: '',
-              carrier: label.carrier || 'Unknown',
-              service: label.service || 'Unknown',
-              rate: parseFloat(label.rate) || 0,
-              tracking_code: label.tracking_number,
-              tracking_number: label.tracking_number,
-              trackingCode: label.tracking_number,
-              label_url: label.label_urls?.png || null,
-              label_urls: label.label_urls || { png: null },
-              status: label.status?.includes('success') ? 'completed' as const : 'failed' as const,
-              error: label.error,
-              easypost_id: label.easypost_id,
-              details: {
-                to_name: label.recipient_name || 'Unknown',
-                to_company: '',
-                to_street1: '',
-                to_street2: '',
-                to_city: '',
-                to_state: '',
-                to_zip: '',
-                to_country: 'US',
-                to_phone: '',
-                to_email: '',
-                weight: 1,
-                length: 1,
-                width: 1,
-                height: 1
-              }
-            } as BulkShipment;
-          }
+          // Find the original shipment to preserve data
+          const originalShipment = shipmentsToProcess.find(s => 
+            s.easypost_id === labelData.easypost_id || s.id === labelData.shipment_id
+          );
           
           return {
-            ...originalShipment,
-            // Map backend response fields to frontend fields
-            id: label.shipment_id,
-            shipment_id: label.shipment_id,
-            status: label.status?.includes('success') ? 'completed' as const : 'failed' as const,
-            label_url: label.label_urls?.png || null,
-            label_urls: label.label_urls || { png: null },
-            tracking_code: label.tracking_number,
-            tracking_number: label.tracking_number,
-            trackingCode: label.tracking_number,
-            recipient: label.recipient_name || originalShipment.recipient,
-            recipient_name: label.recipient_name,
-            customer_name: label.recipient_name || originalShipment.customer_name,
-            customer_address: label.drop_off_address || originalShipment.customer_address,
-            customer_phone: originalShipment.customer_phone || '',
-            customer_email: originalShipment.customer_email || '',
-            customer_company: originalShipment.customer_company || '',
-            carrier: label.carrier || originalShipment.carrier,
-            service: label.service || originalShipment.service,
-            rate: parseFloat(label.rate) || originalShipment.rate,
-            easypost_id: label.easypost_id || originalShipment.easypost_id,
-            error: label.error
+            id: labelData.shipment_id || originalShipment?.id || `ship_${Date.now()}`,
+            shipment_id: labelData.shipment_id,
+            easypost_id: labelData.easypost_id,
+            row: originalShipment?.row || 0,
+            recipient: labelData.recipient_name || originalShipment?.recipient || 'Unknown Recipient',
+            recipient_name: labelData.recipient_name,
+            customer_name: labelData.recipient_name || originalShipment?.customer_name,
+            customer_address: labelData.drop_off_address || originalShipment?.customer_address,
+            customer_phone: originalShipment?.customer_phone || '',
+            customer_email: originalShipment?.customer_email || '',
+            customer_company: originalShipment?.customer_company || '',
+            carrier: labelData.carrier || originalShipment?.carrier,
+            service: labelData.service || originalShipment?.service,
+            rate: parseFloat(labelData.rate) || originalShipment?.rate || 0,
+            tracking_code: labelData.tracking_number,
+            tracking_number: labelData.tracking_number,
+            trackingCode: labelData.tracking_number,
+            label_url: labelData.label_urls?.png,
+            label_urls: {
+              png: labelData.label_urls?.png,
+              pdf: labelData.label_urls?.pdf,
+              zpl: labelData.label_urls?.zpl
+            },
+            status: 'completed' as const,
+            details: originalShipment?.details || {
+              to_name: labelData.recipient_name || 'Unknown',
+              to_company: '',
+              to_street1: '',
+              to_street2: '',
+              to_city: '',
+              to_state: '',
+              to_zip: '',
+              to_country: 'US',
+              to_phone: '',
+              to_email: '',
+              weight: 1,
+              length: 1,
+              width: 1,
+              height: 1
+            },
+            availableRates: originalShipment?.availableRates || [],
+            selectedRateId: originalShipment?.selectedRateId
           };
-        }).filter(Boolean); // Remove null entries
+        });
 
-        console.log('Updated shipments with labels:', updatedShipments);
+        console.log('Transformed successful shipments:', transformedShipments);
 
-        // Count successful labels
-        const successfulLabels = updatedShipments.filter(s => s.status === 'completed').length;
-        const failedLabels = updatedShipments.filter(s => s.status === 'failed').length;
-
+        // Create updated results object with proper array structure
         const updatedResults: BulkUploadResult = {
-          ...results,
-          processedShipments: updatedShipments,
-          successful: successfulLabels,
-          failed: failedLabels,
-          totalCost: results.totalCost || 0,
-          total: updatedShipments.length,
-          failedShipments: updatedShipments
-            .filter(s => s.status === 'failed')
-            .map((s, index) => ({
-              row: index + 1,
-              error: s.error || 'Unknown error',
-              details: s.error || 'Label creation failed'
-            })),
-          bulk_label_png_url: data.bulk_label_png_url,
-          bulk_label_pdf_url: data.bulk_label_pdf_url,
-          uploadStatus: 'success' as const
+          total: data.labels.length,
+          successful: successfulLabels.length,
+          failed: failedLabels.length,
+          totalCost: transformedShipments.reduce((sum, s) => sum + s.rate, 0),
+          processedShipments: transformedShipments, // THIS IS THE KEY FIX - Ensure this is always an array
+          failedShipments: failedLabels.map((labelData: any, index: number) => ({
+            row: index + 1,
+            error: labelData.error || 'Unknown error',
+            details: labelData.error || 'Label creation failed'
+          })),
+          bulk_label_png_url: data.bulk_label_png_url || null,
+          bulk_label_pdf_url: data.bulk_label_pdf_url || null,
+          uploadStatus: 'success' as const,
+          pickupAddress
         };
 
-        console.log('Final updated results:', updatedResults);
+        console.log('Final updated results with', updatedResults.processedShipments.length, 'shipments');
+        console.log('Updated results object:', updatedResults);
+        
+        // CRITICAL: Update the results with the new data
         updateResults(updatedResults);
         
-        toast.success(`Successfully created ${successfulLabels} shipping labels!`);
+        toast.success(`Successfully created ${successfulLabels.length} shipping labels!`);
 
-        if (failedLabels > 0) {
-          toast.error(`${failedLabels} labels failed to create. Check details below.`);
+        if (failedLabels.length > 0) {
+          toast.error(`${failedLabels.length} labels failed to create. Check details below.`);
         }
       } else {
-        console.error('Invalid response format:', data);
+        console.error('Invalid response format or no labels:', data);
         throw new Error('No labels were created or invalid response format');
       }
 

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, File, FileArchive, ChevronDown, Eye, Printer, Package } from 'lucide-react';
+import { Download, File, FileArchive, ChevronDown, Eye, Package } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import {
   DropdownMenu,
@@ -26,6 +26,8 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
 }) => {
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<BulkShipment | null>(null);
+
+  console.log('SuccessfulShipmentsTable received shipments:', shipments);
 
   if (!shipments || shipments.length === 0) {
     return (
@@ -56,11 +58,53 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     return shipment.recipient_name || shipment.recipient || shipment.customer_name || 'Unknown';
   };
 
+  // Helper function to get package dimensions
+  const getPackageDimensions = (shipment: BulkShipment): string => {
+    const details = shipment.details;
+    if (details && details.length && details.width && details.height) {
+      return `${details.length}" × ${details.width}" × ${details.height}"`;
+    }
+    return 'N/A';
+  };
+
+  // Helper function to get package weight
+  const getPackageWeight = (shipment: BulkShipment): string => {
+    const details = shipment.details;
+    if (details && details.weight) {
+      return `${details.weight} lbs`;
+    }
+    return 'N/A';
+  };
+
+  // Helper function to get full address
+  const getFullAddress = (shipment: BulkShipment): string => {
+    const details = shipment.details;
+    if (details) {
+      const addressParts = [
+        details.to_street1,
+        details.to_street2,
+        details.to_city,
+        details.to_state,
+        details.to_zip,
+        details.to_country
+      ].filter(Boolean);
+      
+      if (addressParts.length > 0) {
+        return addressParts.join(', ');
+      }
+    }
+    return shipment.customer_address || 'Address not available';
+  };
+
   // Filter shipments with labels for bulk actions
   const shipmentsWithLabels = shipments.filter(s => {
     const labelUrl = getLabelUrl(s);
-    return !!(labelUrl && labelUrl.trim() !== '');
+    const hasLabel = !!(labelUrl && labelUrl.trim() !== '');
+    console.log(`Shipment ${getShipmentId(s)} has label:`, hasLabel, 'URL:', labelUrl);
+    return hasLabel;
   });
+
+  console.log('Shipments with labels:', shipmentsWithLabels.length, 'out of', shipments.length);
 
   const downloadFile = async (url: string, filename: string) => {
     try {
@@ -189,7 +233,9 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
             <TableRow>
               <TableHead>Shipment ID</TableHead>
               <TableHead>Recipient</TableHead>
-              <TableHead>Address</TableHead>
+              <TableHead>Drop-off Address</TableHead>
+              <TableHead>Dimensions (L×W×H)</TableHead>
+              <TableHead>Weight</TableHead>
               <TableHead>Carrier</TableHead>
               <TableHead>Tracking #</TableHead>
               <TableHead>Status</TableHead>
@@ -201,10 +247,21 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
               const hasLabel = !!getLabelUrl(shipment);
               const trackingNumber = getTrackingCode(shipment);
               const recipientName = getRecipientName(shipment);
-              const recipientAddress = 'Not provided in API response';
+              const fullAddress = getFullAddress(shipment);
+              const dimensions = getPackageDimensions(shipment);
+              const weight = getPackageWeight(shipment);
               const carrier = shipment.carrier || 'N/A';
               const service = shipment.service || '';
               const shipmentId = getShipmentId(shipment);
+
+              console.log(`Rendering shipment ${shipmentId}:`, {
+                hasLabel,
+                trackingNumber,
+                recipientName,
+                fullAddress,
+                dimensions,
+                weight
+              });
 
               return (
                 <TableRow key={shipmentId}>
@@ -216,8 +273,18 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm text-gray-500">
-                      {recipientAddress}
+                    <div className="text-sm max-w-[200px]">
+                      {fullAddress}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm font-mono">
+                      {dimensions}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm font-medium">
+                      {weight}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -238,7 +305,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                     )}
                   </TableCell>
                   <TableCell>
-                    {shipment.status?.startsWith('success') ? (
+                    {hasLabel ? (
                       <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
                         Label Ready
                       </span>
@@ -248,7 +315,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                       </span>
                     ) : (
                       <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                        Processed
+                        Processing
                       </span>
                     )}
                   </TableCell>
@@ -261,6 +328,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                             variant="outline"
                             onClick={() => handlePrintPreview(shipment)}
                             className="flex items-center gap-1 h-8 px-2 text-xs"
+                            title="Preview label"
                           >
                             <Eye className="h-3 w-3" />
                             Preview
@@ -270,9 +338,10 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                             size="sm"
                             onClick={() => handleDownload(shipment, 'png')}
                             className="flex items-center gap-1 h-8 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                            title="Download PNG label"
                           >
                             <Download className="h-3 w-3" />
-                            Download PNG
+                            PNG
                           </Button>
 
                           <Button
@@ -280,8 +349,9 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                             variant="outline"
                             onClick={() => window.open(getLabelUrl(shipment)!, '_blank')}
                             className="flex items-center gap-1 h-8 px-2 text-xs"
+                            title="Print label"
                           >
-                            <Printer className="h-3 w-3" />
+                            <File className="h-3 w-3" />
                             Print
                           </Button>
                         </>
@@ -303,7 +373,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
       <Dialog open={printPreviewOpen} onOpenChange={setPrintPreviewOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader>
-            <DialogTitle>Shipping Label Preview</DialogTitle>
+            <DialogTitle>Professional Shipping Label Preview</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col space-y-4">
             {selectedShipment && (
@@ -320,10 +390,16 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                     <p className="text-sm text-gray-600">
                       <strong>To:</strong> {getRecipientName(selectedShipment)}
                     </p>
+                    <p className="text-sm text-gray-600">
+                      <strong>Dimensions:</strong> {getPackageDimensions(selectedShipment)}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <strong>Weight:</strong> {getPackageWeight(selectedShipment)}
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     <Button onClick={handlePrintLabel} variant="outline">
-                      <Printer className="h-4 w-4 mr-2" />
+                      <File className="h-4 w-4 mr-2" />
                       Print Label
                     </Button>
                     <Button onClick={handleDownloadLabel}>
@@ -334,11 +410,19 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                 </div>
 
                 {getLabelUrl(selectedShipment) && (
-                  <div className="flex-1 min-h-0">
+                  <div className="flex-1 min-h-0 border-2 border-gray-200 rounded-lg p-4 bg-white">
+                    <div className="text-center mb-4">
+                      <h4 className="text-lg font-semibold text-gray-800">Professional Shipping Label</h4>
+                      <p className="text-sm text-gray-600">Standard 4" × 6" Format</p>
+                    </div>
                     <iframe
                       src={getLabelUrl(selectedShipment)!}
-                      className="w-full h-[600px] border rounded"
-                      title="Shipping Label Preview"
+                      className="w-full h-[600px] border rounded shadow-sm"
+                      title="Professional Shipping Label Preview"
+                      style={{
+                        backgroundColor: 'white',
+                        border: '1px solid #e5e7eb'
+                      }}
                     />
                   </div>
                 )}
