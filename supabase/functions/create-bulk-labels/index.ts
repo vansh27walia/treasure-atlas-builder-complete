@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -13,31 +14,13 @@ interface LabelOptions {
 
 const ensureStorageBucket = async (supabase: any) => {
   try {
-    // Try to create the bucket first
-    const { data: bucketData, error: bucketError } = await supabase.storage.createBucket('shipping-labels', {
-      public: true,
-      fileSizeLimit: 52428800, // 50MB
-      allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
-    });
-    
-    if (bucketError && !bucketError.message.includes('already exists')) {
-      console.error('Error creating bucket:', bucketError);
-      throw bucketError;
-    }
-    
-    if (bucketData) {
-      console.log('Created new shipping-labels bucket');
-    } else {
-      console.log('Bucket shipping-labels already exists');
-    }
-    
     // Verify bucket is accessible by trying to list objects
     const { error: listError } = await supabase.storage
       .from('shipping-labels')
       .list('', { limit: 1 });
     
     if (listError) {
-      console.error('Error accessing bucket after creation:', listError);
+      console.error('Error accessing bucket:', listError);
       throw listError;
     }
     
@@ -75,6 +58,18 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
     if (!buyResponse.ok) {
       const errorData = await buyResponse.json();
       console.error(`EasyPost purchase error for ${shipmentId}:`, errorData);
+      
+      // Handle specific EasyPost errors
+      if (errorData.error?.code === 'RATE_LIMITED') {
+        throw new Error('EasyPost API rate limit exceeded. Please try again in a few minutes.');
+      }
+      if (errorData.error?.code === 'SHIPMENT.POSTAGE.EXISTS') {
+        throw new Error('Label already exists for this shipment. Cannot create duplicate labels.');
+      }
+      if (errorData.error?.code === 'CONFLICT') {
+        throw new Error('Shipment conflict. This shipment may have already been processed.');
+      }
+      
       throw new Error(`EasyPost purchase error: ${errorData.error?.message || 'Unknown error'}`);
     }
 
