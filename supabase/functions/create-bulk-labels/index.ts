@@ -19,28 +19,21 @@ const ensureStorageBucket = async (supabase: any) => {
       .from('shipping-labels')
       .list('', { limit: 1 });
     
-    if (error && error.message.includes('Bucket not found')) {
-      console.log('Bucket not found, creating it now...');
-      
-      // Try to create the bucket
-      const { error: createError } = await supabase.storage.createBucket('shipping-labels', {
-        public: true,
-        fileSizeLimit: 10485760, // 10MB
-        allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
-      });
-      
-      if (createError) {
-        console.error('Error creating bucket:', createError);
-        throw new Error(`Failed to create storage bucket: ${createError.message}`);
+    if (error) {
+      console.error('Error checking storage bucket:', error);
+      // If bucket doesn't exist, the error will be different
+      if (error.message.includes('Bucket not found') || error.message.includes('bucket does not exist')) {
+        console.log('Bucket not found, attempting to create it...');
+        // In edge functions, we can't create buckets directly, so we'll throw an error
+        throw new Error('Storage bucket shipping-labels does not exist. Please create it in the Supabase dashboard.');
       }
-      
-      console.log('Successfully created shipping-labels bucket');
+      throw error;
     }
     
     console.log('Storage bucket shipping-labels is accessible');
     return true;
   } catch (error) {
-    console.error('Error checking/creating storage bucket:', error);
+    console.error('Error checking storage bucket:', error);
     throw error;
   }
 };
@@ -115,12 +108,19 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
     // Download the label from EasyPost
     const response = await fetch(easyPostLabelUrl);
     if (!response.ok) {
-      throw new Error(`Failed to download label: ${response.status}`);
+      console.error(`Failed to download label from EasyPost: ${response.status} ${response.statusText}`);
+      console.log('Falling back to original EasyPost URL');
+      return easyPostLabelUrl;
     }
     
     const labelBlob = await response.blob();
     const labelArrayBuffer = await labelBlob.arrayBuffer();
     const labelBuffer = new Uint8Array(labelArrayBuffer);
+    
+    if (labelBuffer.length === 0) {
+      console.warn('Downloaded label is empty, falling back to original URL');
+      return easyPostLabelUrl;
+    }
     
     // Create filename with proper extension based on content
     const contentType = response.headers.get('content-type') || 'application/pdf';
@@ -129,10 +129,10 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
     
     console.log(`Uploading label to storage: ${fileName}`);
     
-    // Upload the label to Supabase Storage - FIXED BUCKET NAME
+    // Upload the label to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase
       .storage
-      .from('shipping-labels')  // Fixed: was 'shipping-labels-2'
+      .from('shipping-labels')
       .upload(fileName, labelBuffer, {
         contentType: contentType,
         cacheControl: '3600',
@@ -141,14 +141,20 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
       
     if (uploadError) {
       console.error('Error uploading label:', uploadError);
-      throw new Error(`Failed to upload label to storage: ${uploadError.message}`);
+      console.log('Falling back to original EasyPost URL');
+      return easyPostLabelUrl;
     }
     
     // Get public URL
     const { data: urlData } = await supabase
       .storage
-      .from('shipping-labels')  // Fixed: was 'shipping-labels-2'
+      .from('shipping-labels')
       .getPublicUrl(fileName);
+      
+    if (!urlData.publicUrl) {
+      console.warn('Could not get public URL, falling back to original');
+      return easyPostLabelUrl;
+    }
       
     console.log(`Label stored successfully: ${urlData.publicUrl}`);
     return urlData.publicUrl;
