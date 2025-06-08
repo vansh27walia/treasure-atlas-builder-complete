@@ -189,69 +189,82 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
       </div>
 
-      {/* Bulk Download Section - only show if we have bulk labels */}
-      {hasBulkLabels && (
-        <div className="mb-6">
-          <h4 className="font-semibold text-lg text-green-800 mb-3">Download All Labels (Bulk)</h4>
-          <div className="flex flex-col sm:flex-row gap-3">
-            {results.bulk_label_png_url && (
-              <Button 
-                onClick={handleDownloadBulkPNG}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download Bulk PNG
-              </Button>
+      {/* Download Buttons Section - Always visible when labels exist */}
+      {(hasLabels || hasBulkLabels) && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Options</h4>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Bulk Downloads */}
+            {hasBulkLabels && (
+              <div>
+                <h5 className="font-medium text-blue-700 mb-2">Bulk Downloads</h5>
+                <div className="flex flex-col gap-2">
+                  {results.bulk_label_png_url && (
+                    <Button 
+                      onClick={handleDownloadBulkPNG}
+                      className="bg-green-600 hover:bg-green-700 text-white w-full"
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Download All Labels (PNG)
+                    </Button>
+                  )}
+                  
+                  {results.bulk_label_pdf_url && (
+                    <Button 
+                      onClick={handleDownloadBulkPDF}
+                      className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+                    >
+                      <File className="mr-2 h-4 w-4" />
+                      Download All Labels (PDF)
+                    </Button>
+                  )}
+                </div>
+              </div>
             )}
-            
-            {results.bulk_label_pdf_url && (
-              <Button 
-                onClick={handleDownloadBulkPDF}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <File className="mr-2 h-4 w-4" />
-                Download Bulk PDF
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
 
-      {/* Individual Downloads Section - show if we have individual labels */}
-      {hasLabels && (
-        <div className="mb-6">
-          <h4 className="font-semibold text-lg text-green-800 mb-3">Individual Label Downloads</h4>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button 
-              onClick={handleDownloadAllIndividualLabels}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download All Individual Labels ({shipmentsWithLabels.length})
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              onClick={() => window.print()}
-              className="border-green-200 hover:bg-green-50"
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              Print Summary
-            </Button>
+            {/* Individual Downloads */}
+            {hasLabels && (
+              <div>
+                <h5 className="font-medium text-blue-700 mb-2">Individual Downloads</h5>
+                <div className="flex flex-col gap-2">
+                  <Button 
+                    onClick={handleDownloadAllIndividualLabels}
+                    className="bg-purple-600 hover:bg-purple-700 text-white w-full"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Individual Labels ({shipmentsWithLabels.length})
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={() => window.print()}
+                    className="border-blue-200 hover:bg-blue-50 w-full"
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Print Summary
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Create Labels Button - show if no labels exist yet but we have processed shipments */}
       {!hasLabels && !hasBulkLabels && displayTotal > 0 && (
-        <div className="mb-6">
-          <h4 className="font-semibold text-lg text-green-800 mb-3">Create Shipping Labels</h4>
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h4 className="font-semibold text-lg text-yellow-800 mb-3">Create Shipping Labels</h4>
+          <p className="text-yellow-700 mb-3">
+            Your shipments have been processed. Click below to create and download shipping labels.
+          </p>
           <Button 
             onClick={onCreateLabels}
             disabled={isCreatingLabels}
             className="bg-blue-600 hover:bg-blue-700 text-white"
+            size="lg"
           >
-            {isCreatingLabels ? 'Creating Labels...' : 'Create Labels Now'}
+            {isCreatingLabels ? 'Creating Labels...' : 'Create All Labels Now'}
           </Button>
         </div>
       )}
@@ -259,7 +272,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       {/* ALWAYS show the SuccessfulShipmentsTable when we have processed shipments */}
       {allShipments.length > 0 && (
         <div className="mt-6">
-          <h4 className="font-semibold text-lg text-green-800 mb-3">Shipment Details & Individual Downloads</h4>
           <SuccessfulShipmentsTable
             shipments={allShipments}
             onDownloadSingleLabel={onDownloadSingleLabel}

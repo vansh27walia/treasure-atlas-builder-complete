@@ -310,7 +310,6 @@ export const useBulkUpload = () => {
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
-    handleProceedToPayment: handleCreateLabels, // Use our custom handler for label creation
     handleCreateLabels,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat, 
