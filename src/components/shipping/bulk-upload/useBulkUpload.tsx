@@ -113,12 +113,7 @@ export const useBulkUpload = () => {
     if (Array.isArray(results.processedShipments)) {
       shipmentsArray = results.processedShipments;
     } else if (results.processedShipments && typeof results.processedShipments === 'object') {
-      const shipmentValues = Object.values(results.processedShipments);
-      shipmentsArray = shipmentValues.filter(item => 
-        item && 
-        typeof item === 'object' && 
-        'id' in item
-      );
+      shipmentsArray = Object.values(results.processedShipments).filter(Boolean);
     }
     
     const shipmentsToProcess = shipmentsArray.filter(s => s.selectedRateId && s.easypost_id) || [];
@@ -152,11 +147,10 @@ export const useBulkUpload = () => {
       console.log('Raw label creation response:', data);
       toast.dismiss('creating-labels');
 
-      // NEW: Handle the corrected backend response format
       if (data && data.labels && Array.isArray(data.labels) && data.labels.length > 0) {
         console.log('Processing', data.labels.length, 'labels from backend');
         
-        // Process successful labels - look for the correct status indicators
+        // Process successful labels
         const successfulLabels = data.labels.filter((labelData: any) => 
           labelData.status === 'success_individual_png_saved' && labelData.label_urls?.png
         );
@@ -165,9 +159,7 @@ export const useBulkUpload = () => {
           labelData.status?.includes('error') || !labelData.label_urls?.png
         );
 
-        console.log('Successful labels:', successfulLabels.length, 'Failed labels:', failedLabels.length);
-
-        // Transform successful labels into proper frontend format
+        // Transform successful labels into frontend format
         const transformedShipments = successfulLabels.map((labelData: any) => {
           console.log('Processing successful label data:', labelData);
           
@@ -230,7 +222,7 @@ export const useBulkUpload = () => {
           successful: successfulLabels.length,
           failed: failedLabels.length,
           totalCost: transformedShipments.reduce((sum, s) => sum + s.rate, 0),
-          processedShipments: transformedShipments, // THIS IS THE KEY FIX - Ensure this is always an array
+          processedShipments: transformedShipments, // This should be an array
           failedShipments: failedLabels.map((labelData: any, index: number) => ({
             row: index + 1,
             error: labelData.error || 'Unknown error',
@@ -243,9 +235,6 @@ export const useBulkUpload = () => {
         };
 
         console.log('Final updated results with', updatedResults.processedShipments.length, 'shipments');
-        console.log('Updated results object:', updatedResults);
-        
-        // CRITICAL: Update the results with the new data
         updateResults(updatedResults);
         
         toast.success(`Successfully created ${successfulLabels.length} shipping labels!`);
