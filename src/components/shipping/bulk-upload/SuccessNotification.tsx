@@ -1,39 +1,15 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Download, FileText, File, XCircle } from 'lucide-react';
-import { BulkUploadResult } from '@/types/shipping'; // NOTE: This type should be updated to match the backend response
+import { BulkUploadResult } from '@/types/shipping';
 import SuccessfulShipmentsTable from './SuccessfulShipmentsTable';
 import { toast } from '@/components/ui/sonner';
-
-/*
-  Your `BulkUploadResult` type in '@/types/shipping' should match the backend response:
-  
-  export interface BulkShipment {
-    shipment_id: string | number;
-    status: string;
-    recipient_name: string;
-    tracking_number?: string;
-    label_urls: { png: string | null };
-    carrier?: string;
-    service?: string;
-    rate?: number;
-    error?: string;
-  }
-
-  export interface BulkUploadResult {
-    status: string;
-    labels: BulkShipment[];
-    bulk_label_png_url: string | null;
-    bulk_label_pdf_url: string | null;
-  }
-*/
-
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
   onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
-  // These props are kept for API consistency, but their primary logic is now handled within this component
   onDownloadAllLabels: () => void;
   onCreateLabels: () => void;
   isCreatingLabels: boolean;
@@ -42,25 +18,25 @@ interface SuccessNotificationProps {
 const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   results,
   onDownloadSingleLabel,
+  onDownloadAllLabels,
   onCreateLabels,
   isCreatingLabels
 }) => {
   console.log('SuccessNotification received results:', results);
 
-  // --- FIX 1: Correctly parse the data from the backend ---
-  // The backend sends processed shipments in the `labels` array.
-  const allShipments = results?.labels || [];
+  // Get processed shipments from the results
+  const allShipments = results?.processedShipments || [];
 
-  // --- FIX 2: Derive successful and failed shipments from the `allShipments` array ---
+  // Find shipments with labels
   const shipmentsWithLabels = allShipments.filter(shipment => 
-    shipment && typeof shipment.label_urls?.png === 'string' && shipment.label_urls.png.trim() !== ''
+    shipment && shipment.label_url && shipment.label_url.trim() !== ''
   );
   
   const failedShipments = allShipments.filter(shipment => 
-    shipment?.status?.startsWith('error')
+    shipment?.status === 'error' || shipment?.status === 'failed'
   );
 
-  // --- FIX 3: Calculate total cost from the successful shipments ---
+  // Calculate total cost from the successful shipments
   const totalCost = shipmentsWithLabels.reduce((sum, shipment) => sum + (shipment.rate || 0), 0);
 
   const hasLabels = shipmentsWithLabels.length > 0;
@@ -100,7 +76,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     }
   };
 
-  // --- FIX 4: Simplify individual label download logic ---
   const handleDownloadAllIndividualLabels = async () => {
     if (shipmentsWithLabels.length === 0) {
       toast.error('No individual labels available for download.');
@@ -109,13 +84,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
     toast.loading('Preparing individual label downloads...');
     
-    // Use a short delay between downloads to prevent browser from blocking popups
     for (let i = 0; i < shipmentsWithLabels.length; i++) {
       const shipment = shipmentsWithLabels[i];
-      const labelUrl = shipment.label_urls.png; // We know this exists from the filter
+      const labelUrl = shipment.label_url;
       setTimeout(async () => {
-        const trackingCode = shipment.tracking_number;
-        await downloadFile(labelUrl, `label_${trackingCode || shipment.shipment_id || i}.png`);
+        const trackingCode = shipment.tracking_code || shipment.tracking_number;
+        await downloadFile(labelUrl!, `label_${trackingCode || shipment.id || i}.png`);
       }, i * 400);
     }
     
@@ -215,7 +189,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <SuccessfulShipmentsTable
             shipments={allShipments}
             onDownloadSingleLabel={onDownloadSingleLabel}
-            onDownloadAllLabels={handleDownloadAllIndividualLabels}
+            onDownloadAllLabels={onDownloadAllLabels}
           />
         </div>
       )}
