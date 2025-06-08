@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, File, FileArchive, ChevronDown, Eye, Package } from 'lucide-react';
+import { Download, File, FileArchive, ChevronDown, Eye, Printer, Package } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import {
   DropdownMenu,
@@ -351,7 +351,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                             className="flex items-center gap-1 h-8 px-2 text-xs"
                             title="Print label"
                           >
-                            <File className="h-3 w-3" />
+                            <Printer className="h-3 w-3" />
                             Print
                           </Button>
                         </>
@@ -373,7 +373,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
       <Dialog open={printPreviewOpen} onOpenChange={setPrintPreviewOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader>
-            <DialogTitle>Professional Shipping Label Preview</DialogTitle>
+            <DialogTitle>Shipping Label Preview</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col space-y-4">
             {selectedShipment && (
@@ -399,7 +399,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                   </div>
                   <div className="flex gap-2">
                     <Button onClick={handlePrintLabel} variant="outline">
-                      <File className="h-4 w-4 mr-2" />
+                      <Printer className="h-4 w-4 mr-2" />
                       Print Label
                     </Button>
                     <Button onClick={handleDownloadLabel}>
@@ -410,19 +410,11 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                 </div>
 
                 {getLabelUrl(selectedShipment) && (
-                  <div className="flex-1 min-h-0 border-2 border-gray-200 rounded-lg p-4 bg-white">
-                    <div className="text-center mb-4">
-                      <h4 className="text-lg font-semibold text-gray-800">Professional Shipping Label</h4>
-                      <p className="text-sm text-gray-600">Standard 4" × 6" Format</p>
-                    </div>
+                  <div className="flex-1 min-h-0">
                     <iframe
                       src={getLabelUrl(selectedShipment)!}
-                      className="w-full h-[600px] border rounded shadow-sm"
-                      title="Professional Shipping Label Preview"
-                      style={{
-                        backgroundColor: 'white',
-                        border: '1px solid #e5e7eb'
-                      }}
+                      className="w-full h-[600px] border rounded"
+                      title="Shipping Label Preview"
                     />
                   </div>
                 )}
