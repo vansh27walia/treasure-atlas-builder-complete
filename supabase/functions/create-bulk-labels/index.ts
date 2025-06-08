@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -14,26 +13,38 @@ interface LabelOptions {
 
 const ensureStorageBucket = async (supabase: any) => {
   try {
-    // Check if bucket exists by trying to list objects in it
-    const { data, error } = await supabase.storage
+    // Try to create the bucket first
+    const { data: bucketData, error: bucketError } = await supabase.storage.createBucket('shipping-labels', {
+      public: true,
+      fileSizeLimit: 52428800, // 50MB
+      allowedMimeTypes: ['application/pdf', 'image/png', 'image/jpeg']
+    });
+    
+    if (bucketError && !bucketError.message.includes('already exists')) {
+      console.error('Error creating bucket:', bucketError);
+      throw bucketError;
+    }
+    
+    if (bucketData) {
+      console.log('Created new shipping-labels bucket');
+    } else {
+      console.log('Bucket shipping-labels already exists');
+    }
+    
+    // Verify bucket is accessible by trying to list objects
+    const { error: listError } = await supabase.storage
       .from('shipping-labels')
       .list('', { limit: 1 });
     
-    if (error) {
-      console.error('Error checking storage bucket:', error);
-      // If bucket doesn't exist, the error will be different
-      if (error.message.includes('Bucket not found') || error.message.includes('bucket does not exist')) {
-        console.log('Bucket not found, attempting to create it...');
-        // In edge functions, we can't create buckets directly, so we'll throw an error
-        throw new Error('Storage bucket shipping-labels does not exist. Please create it in the Supabase dashboard.');
-      }
-      throw error;
+    if (listError) {
+      console.error('Error accessing bucket after creation:', listError);
+      throw listError;
     }
     
     console.log('Storage bucket shipping-labels is accessible');
     return true;
   } catch (error) {
-    console.error('Error checking storage bucket:', error);
+    console.error('Error with storage bucket:', error);
     throw error;
   }
 };
