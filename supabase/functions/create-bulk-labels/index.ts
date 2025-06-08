@@ -129,10 +129,10 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
     
     console.log(`Uploading label to storage: ${fileName}`);
     
-    // Upload the label to Supabase Storage - FIXED BUCKET NAME
+    // Upload the label to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase
       .storage
-      .from('shipping-labels')  // Fixed: was 'shipping-labels-2'
+      .from('shipping-labels')
       .upload(fileName, labelBuffer, {
         contentType: contentType,
         cacheControl: '3600',
@@ -147,7 +147,7 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
     // Get public URL
     const { data: urlData } = await supabase
       .storage
-      .from('shipping-labels')  // Fixed: was 'shipping-labels-2'
+      .from('shipping-labels')
       .getPublicUrl(fileName);
       
     console.log(`Label stored successfully: ${urlData.publicUrl}`);

@@ -147,67 +147,59 @@ export const useBulkUpload = () => {
       console.log('Raw label creation response:', data);
       toast.dismiss('creating-labels');
 
-      if (data && data.labels && Array.isArray(data.labels) && data.labels.length > 0) {
-        console.log('Processing', data.labels.length, 'labels from backend');
+      // Process the response based on new backend format
+      if (data && data.processedLabels && Array.isArray(data.processedLabels) && data.processedLabels.length > 0) {
+        console.log('Processing', data.processedLabels.length, 'labels from backend');
         
-        // Process successful labels
-        const successfulLabels = data.labels.filter((labelData: any) => 
-          labelData.status === 'success_individual_png_saved' && labelData.label_urls?.png
-        );
-        
-        const failedLabels = data.labels.filter((labelData: any) => 
-          labelData.status?.includes('error') || !labelData.label_urls?.png
-        );
-
         // Transform successful labels into frontend format
-        const transformedShipments = successfulLabels.map((labelData: any) => {
+        const transformedShipments = data.processedLabels.map((labelData: any) => {
           console.log('Processing successful label data:', labelData);
           
           // Find the original shipment to preserve data
           const originalShipment = shipmentsToProcess.find(s => 
-            s.easypost_id === labelData.easypost_id || s.id === labelData.shipment_id
+            s.easypost_id === labelData.id || s.id === labelData.id
           );
           
           return {
-            id: labelData.shipment_id || originalShipment?.id || `ship_${Date.now()}`,
-            shipment_id: labelData.shipment_id,
-            easypost_id: labelData.easypost_id,
+            id: labelData.id || originalShipment?.id || `ship_${Date.now()}`,
+            shipment_id: labelData.id,
+            easypost_id: labelData.id,
             row: originalShipment?.row || 0,
-            recipient: labelData.recipient_name || originalShipment?.recipient || 'Unknown Recipient',
-            recipient_name: labelData.recipient_name,
-            customer_name: labelData.recipient_name || originalShipment?.customer_name,
-            customer_address: labelData.drop_off_address || originalShipment?.customer_address,
-            customer_phone: originalShipment?.customer_phone || '',
-            customer_email: originalShipment?.customer_email || '',
-            customer_company: originalShipment?.customer_company || '',
+            recipient: labelData.customer_name || originalShipment?.recipient || 'Unknown Recipient',
+            recipient_name: labelData.customer_name,
+            customer_name: labelData.customer_name || originalShipment?.customer_name,
+            customer_address: labelData.customer_address || originalShipment?.customer_address,
+            customer_phone: labelData.customer_phone || originalShipment?.customer_phone || '',
+            customer_email: labelData.customer_email || originalShipment?.customer_email || '',
+            customer_company: labelData.customer_company || originalShipment?.customer_company || '',
             carrier: labelData.carrier || originalShipment?.carrier,
             service: labelData.service || originalShipment?.service,
             rate: parseFloat(labelData.rate) || originalShipment?.rate || 0,
-            tracking_code: labelData.tracking_number,
-            tracking_number: labelData.tracking_number,
-            trackingCode: labelData.tracking_number,
-            label_url: labelData.label_urls?.png,
+            tracking_code: labelData.tracking_code,
+            tracking_number: labelData.tracking_code,
+            trackingCode: labelData.tracking_code,
+            label_url: labelData.label_url,
             label_urls: {
-              png: labelData.label_urls?.png,
-              pdf: labelData.label_urls?.pdf,
-              zpl: labelData.label_urls?.zpl
+              png: labelData.label_url,
+              pdf: labelData.label_url,
+              zpl: labelData.label_url
             },
             status: 'completed' as const,
             details: originalShipment?.details || {
-              to_name: labelData.recipient_name || 'Unknown',
-              to_company: '',
+              to_name: labelData.customer_name || 'Unknown',
+              to_company: labelData.customer_company || '',
               to_street1: '',
               to_street2: '',
               to_city: '',
               to_state: '',
               to_zip: '',
               to_country: 'US',
-              to_phone: '',
-              to_email: '',
-              weight: 1,
-              length: 1,
-              width: 1,
-              height: 1
+              to_phone: labelData.customer_phone || '',
+              to_email: labelData.customer_email || '',
+              weight: originalShipment?.details?.weight || 1,
+              length: originalShipment?.details?.length || 1,
+              width: originalShipment?.details?.width || 1,
+              height: originalShipment?.details?.height || 1
             },
             availableRates: originalShipment?.availableRates || [],
             selectedRateId: originalShipment?.selectedRateId
@@ -216,18 +208,21 @@ export const useBulkUpload = () => {
 
         console.log('Transformed successful shipments:', transformedShipments);
 
+        // Process failed labels if any
+        const failedShipments = data.failedLabels ? data.failedLabels.map((failed: any, index: number) => ({
+          row: index + 1,
+          error: failed.error || 'Unknown error',
+          details: failed.error || 'Label creation failed'
+        })) : [];
+
         // Create updated results object with proper array structure
         const updatedResults: BulkUploadResult = {
-          total: data.labels.length,
-          successful: successfulLabels.length,
-          failed: failedLabels.length,
+          total: data.total || transformedShipments.length,
+          successful: data.successful || transformedShipments.length,
+          failed: data.failed || failedShipments.length,
           totalCost: transformedShipments.reduce((sum, s) => sum + s.rate, 0),
-          processedShipments: transformedShipments, // This should be an array
-          failedShipments: failedLabels.map((labelData: any, index: number) => ({
-            row: index + 1,
-            error: labelData.error || 'Unknown error',
-            details: labelData.error || 'Label creation failed'
-          })),
+          processedShipments: transformedShipments,
+          failedShipments: failedShipments,
           bulk_label_png_url: data.bulk_label_png_url || null,
           bulk_label_pdf_url: data.bulk_label_pdf_url || null,
           uploadStatus: 'success' as const,
@@ -237,10 +232,10 @@ export const useBulkUpload = () => {
         console.log('Final updated results with', updatedResults.processedShipments.length, 'shipments');
         updateResults(updatedResults);
         
-        toast.success(`Successfully created ${successfulLabels.length} shipping labels!`);
+        toast.success(`Successfully created ${transformedShipments.length} shipping labels!`);
 
-        if (failedLabels.length > 0) {
-          toast.error(`${failedLabels.length} labels failed to create. Check details below.`);
+        if (failedShipments.length > 0) {
+          toast.error(`${failedShipments.length} labels failed to create. Check details below.`);
         }
       } else {
         console.error('Invalid response format or no labels:', data);
