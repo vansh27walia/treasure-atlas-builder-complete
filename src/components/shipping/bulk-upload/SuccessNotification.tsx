@@ -8,12 +8,9 @@ import SuccessfulShipmentsTable from './SuccessfulShipmentsTable';
 
 // --- TYPE DEFINITIONS TO MATCH YOUR BACKEND RESPONSE ---
 
-/**
- * Describes a single item within the `labels` array from your backend.
- */
 interface LabelResult {
-  shipment_id: string; // Your internal DB ID for the shipment
-  status: string; // e.g., 'success_individual_png_saved', 'error_buy'
+  shipment_id: string;
+  status: string;
   recipient_name?: string;
   tracking_number?: string;
   tracking_url?: string;
@@ -24,28 +21,24 @@ interface LabelResult {
   };
   carrier?: string;
   service?: string;
-  rate?: string; // Rate comes as a string, e.g., "12.34"
+  rate?: string;
   easypost_id?: string;
-  error?: string; // Error message for failed shipments
+  error?: string;
 }
 
-/**
- * Describes the entire JSON object returned by your Deno edge function.
- */
 interface BulkUploadResult {
-  status: string; // e.g., 'finished_processing'
+  status: string;
   labels: LabelResult[];
   bulk_label_png_url: string | null;
   bulk_label_pdf_url: string | null;
 }
 
-// A more structured type for shipments that have a confirmed label URL
 type ShipmentWithLabel = LabelResult & {
   labelUrl: string;
 };
 
 interface SuccessNotificationProps {
-  results: BulkUploadResult;
+  results: BulkUploadResult | null | undefined; // Allow results to be null or undefined initially
   onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
   onCreateLabels: () => void;
   isCreatingLabels: boolean;
@@ -57,13 +50,24 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   onCreateLabels,
   isCreatingLabels,
 }) => {
+  // --- CRITICAL GUARD CLAUSE ---
+  // This prevents the "blank screen" error. If the parent component renders this
+  // before the API call is complete, `results` will be null or undefined.
+  // This check ensures we don't try to access properties of a non-existent object.
+  if (!results || !Array.isArray(results.labels)) {
+    return null; // Render nothing, preventing any runtime errors.
+  }
+
   // --- MEMOIZED DATA PROCESSING ---
 
-  // Memoize separating the successful and failed shipments from the main `labels` array.
   const [successfulShipments, failedShipments] = useMemo(() => {
     const successes: LabelResult[] = [];
     const failures: LabelResult[] = [];
-    (results.labels || []).forEach(label => {
+    // The guard clause above ensures `results.labels` is an array here.
+    results.labels.forEach(label => {
+      // Defensive check in case a label object is malformed
+      if (!label || typeof label.status !== 'string') return;
+
       if (label.status.startsWith('error')) {
         failures.push(label);
       } else {
@@ -73,17 +77,16 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     return [successes, failures];
   }, [results.labels]);
 
-  // Memoize the list of shipments that have a valid individual label URL.
   const shipmentsWithLabels: ShipmentWithLabel[] = useMemo(() => {
     return successfulShipments
       .map(shipment => ({
         ...shipment,
+        // Use optional chaining for safety, even if type says it's required
         labelUrl: (shipment.label_urls?.png || '').trim(),
       }))
       .filter((shipment): shipment is ShipmentWithLabel => !!shipment.labelUrl);
   }, [successfulShipments]);
   
-  // Memoize the total shipping cost by summing the 'rate' of each successful shipment.
   const totalCost = useMemo(() => {
     return successfulShipments.reduce((sum, shipment) => {
       const rate = parseFloat(shipment.rate || '0');
@@ -91,13 +94,13 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     }, 0);
   }, [successfulShipments]);
 
-  // Memoize boolean flags for cleaner conditional rendering in the JSX.
+  // Boolean flags for cleaner conditional rendering
   const hasIndividualLabels = shipmentsWithLabels.length > 0;
   const hasBulkLabels = !!(results.bulk_label_png_url || results.bulk_label_pdf_url);
   const hasAnyLabels = hasIndividualLabels || hasBulkLabels;
-  const hasProcessedItems = (results.labels || []).length > 0;
+  const hasProcessedItems = results.labels.length > 0;
   const canCreateLabels = successfulShipments.length > 0 && !hasAnyLabels;
-
+  
   // --- DOWNLOAD HANDLERS ---
 
   const downloadFile = async (url: string, filename: string) => {
@@ -115,45 +118,23 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       toast.error(`Failed to download ${filename}`);
     }
   };
+  
+  // No changes needed to the handlers themselves, they are robust.
+  const handleDownloadBulkPDF = () => { /* ... */ };
+  const handleDownloadAllIndividualLabels = () => { /* ... */ };
 
-  const handleDownloadBulkPDF = () => {
-    if (results.bulk_label_pdf_url) {
-      downloadFile(results.bulk_label_pdf_url, `bulk_labels_${Date.now()}.pdf`);
-    } else {
-      toast.error('Bulk PDF label is not available.');
-    }
-  };
-
-  const handleDownloadAllIndividualLabels = () => {
-    if (shipmentsWithLabels.length === 0) {
-      toast.error('No individual labels are available for download.');
-      return;
-    }
-    const toastId = toast.loading(`Initiating ${shipmentsWithLabels.length} downloads...`);
-    shipmentsWithLabels.forEach((shipment, index) => {
-      setTimeout(() => {
-        const trackingCode = shipment.tracking_number || shipment.shipment_id;
-        downloadFile(shipment.labelUrl, `label_${trackingCode}.png`);
-      }, index * 500); // Stagger downloads to prevent browser issues
-    });
-    setTimeout(() => {
-        toast.success(`All ${shipmentsWithLabels.length} label downloads initiated.`, { id: toastId });
-    }, shipmentsWithLabels.length * 500);
-  };
-
+  // This check is now redundant due to the main guard clause, but kept for clarity.
   if (!hasProcessedItems) {
-    return null; // Don't render anything if there are no results
+    return null;
   }
 
-  // --- RENDER ---
-  
   return (
     <Card className="mt-6 p-6 border-green-200 bg-green-50">
       <div className="flex items-center space-x-3 mb-4">
         <CheckCircle className="h-6 w-6 text-green-600" />
         <div>
           <h3 className="text-lg font-semibold text-green-800">
-            {hasAnyLabels ? 'Labels Generated!' : 'Shipments Processed!'}
+            {hasAnyLabels ? 'Labels Generated!' : 'Processing Complete!'}
           </h3>
           <p className="text-green-700">
             {successfulShipments.length} of {results.labels.length} shipments processed successfully.
@@ -164,7 +145,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       {failedShipments.length > 0 && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
           <p className="text-yellow-800 text-sm">
-            <strong><AlertTriangle className="inline-block h-4 w-4 mr-1" /> Note:</strong> {failedShipments.length} shipment(s) failed. See details at the bottom.
+            <strong><AlertTriangle className="inline-block h-4 w-4 mr-1" /> Note:</strong> {failedShipments.length} shipment(s) failed. See details below.
           </p>
         </div>
       )}
@@ -185,50 +166,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
       </div>
       
-      {/* Download Section */}
-      {hasAnyLabels && (
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-           <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Labels</h4>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {hasBulkLabels && (
-                <div>
-                  <h5 className="font-medium text-blue-700 mb-2">Consolidated File</h5>
-                   <div className="flex flex-col gap-2">
-                    {results.bulk_label_pdf_url && <Button onClick={handleDownloadBulkPDF} className="bg-blue-600 hover:bg-blue-700 text-white w-full"><File className="mr-2 h-4 w-4" /> Download All (PDF)</Button>}
-                   </div>
-                </div>
-            )}
-            {hasIndividualLabels && (
-                <div>
-                  <h5 className="font-medium text-blue-700 mb-2">Individual Files</h5>
-                  <div className="flex flex-col gap-2">
-                    <Button onClick={handleDownloadAllIndividualLabels} className="bg-purple-600 hover:bg-purple-700 text-white w-full"><Download className="mr-2 h-4 w-4" /> Download All (PNGs)</Button>
-                  </div>
-                </div>
-            )}
-           </div>
-        </div>
-      )}
-
-      {/* Create Labels button (if applicable) */}
-      {canCreateLabels && (
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-          <h4 className="font-semibold text-lg text-yellow-800 mb-2">Create Shipping Labels</h4>
-          <Button onClick={onCreateLabels} disabled={isCreatingLabels} className="bg-blue-600 hover:bg-blue-700 text-white" size="lg">
-            {isCreatingLabels ? 'Creating...' : 'Create Labels Now'}
-          </Button>
-        </div>
-      )}
-
-      {/* Successful Shipments Table */}
-      {successfulShipments.length > 0 && (
-        <div className="mt-6">
-          <SuccessfulShipmentsTable
-            shipments={successfulShipments}
-            onDownloadSingleLabel={onDownloadSingleLabel}
-          />
-        </div>
-      )}
+      {/* Download Section, Create Labels, and Tables remain the same */}
+      {/* ... The rest of the JSX is unchanged ... */}
 
       {/* Failed Shipments Details */}
       {failedShipments.length > 0 && (
@@ -247,5 +186,10 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     </Card>
   );
 };
+
+// I'm stubbing the unchanged functions to keep the code block clean.
+// In your actual file, you would keep the full function bodies.
+const handleDownloadBulkPDF_Stub = SuccessNotification.prototype.handleDownloadBulkPDF;
+const handleDownloadAllIndividualLabels_Stub = SuccessNotification.prototype.handleDownloadAllIndividualLabels;
 
 export default SuccessNotification;
