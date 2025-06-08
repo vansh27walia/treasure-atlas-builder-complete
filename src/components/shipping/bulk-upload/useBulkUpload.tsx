@@ -147,7 +147,7 @@ export const useBulkUpload = () => {
       console.log('Raw label creation response:', data);
       toast.dismiss('creating-labels');
 
-      // Process the response - check if we have successfully processed labels
+      // Process the response based on new backend format
       if (data && data.processedLabels && Array.isArray(data.processedLabels) && data.processedLabels.length > 0) {
         console.log('Processing', data.processedLabels.length, 'labels from backend');
         
@@ -239,13 +239,7 @@ export const useBulkUpload = () => {
         }
       } else {
         console.error('Invalid response format or no labels:', data);
-        
-        // Handle case where we might have some processed but not all
-        if (data && data.successful > 0) {
-          toast.warning(`Only ${data.successful} out of ${shipmentsToProcess.length} labels were created successfully`);
-        } else {
-          throw new Error('No labels were created or invalid response format');
-        }
+        throw new Error('No labels were created or invalid response format');
       }
 
     } catch (error) {
