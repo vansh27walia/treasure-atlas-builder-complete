@@ -125,7 +125,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         try {
           setTimeout(async () => {
             const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
-            await downloadFile(labelUrl, `label_${trackingCode || Date.now()}.png`);
+            await downloadFile(labelUrl, `label_${trackingCode || shipment.id || Date.now()}.png`);
           }, i * 500);
         } catch (error) {
           console.error('Error downloading label for shipment:', shipment.id, error);
@@ -242,7 +242,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                     className="border-blue-200 hover:bg-blue-50 w-full"
                   >
                     <FileText className="mr-2 h-4 w-4" />
-                    Print Summary
+                    Print Preview
                   </Button>
                 </div>
               </div>

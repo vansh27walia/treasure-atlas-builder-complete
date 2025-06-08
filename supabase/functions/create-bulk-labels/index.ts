@@ -92,6 +92,7 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
       customer_phone: boughtShipment.to_address?.phone,
       customer_email: boughtShipment.to_address?.email,
       customer_company: boughtShipment.to_address?.company,
+      status: 'completed',
     };
     
   } catch (error) {
@@ -182,9 +183,10 @@ serve(async (req) => {
     const failedLabels = [];
 
     // Process each shipment individually to ensure we get all labels
-    for (const shipment of shipments) {
+    for (let i = 0; i < shipments.length; i++) {
+      const shipment = shipments[i];
       try {
-        console.log(`Processing label for shipment ${shipment.id} with EasyPost ID ${shipment.easypost_id}`);
+        console.log(`Processing label ${i + 1}/${shipments.length} for shipment ${shipment.id} with EasyPost ID ${shipment.easypost_id}`);
         
         if (!shipment.selectedRateId || !shipment.easypost_id) {
           throw new Error('Missing EasyPost shipment ID or rate ID for live label generation');
@@ -206,7 +208,7 @@ serve(async (req) => {
         };
 
         processedLabels.push(processedLabel);
-        console.log(`Successfully processed label for shipment ${shipment.id}`);
+        console.log(`Successfully processed label ${i + 1}/${shipments.length} for shipment ${shipment.id}`);
 
       } catch (error) {
         console.error(`Failed to create label for shipment ${shipment.id}:`, error);
