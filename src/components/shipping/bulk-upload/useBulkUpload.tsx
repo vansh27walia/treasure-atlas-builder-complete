@@ -149,19 +149,27 @@ export const useBulkUpload = () => {
       toast.dismiss('creating-labels');
 
       if (data && data.processedLabels && data.processedLabels.length > 0) {
-        // Update shipments with the processed labels data
-        const updatedShipments = data.processedLabels.map((processedLabel: any) => ({
-          ...processedLabel,
-          status: 'completed' as const,
-          label_url: processedLabel.label_url,
-          tracking_code: processedLabel.tracking_code,
-          trackingCode: processedLabel.tracking_code,
-          customer_name: processedLabel.customer_name || processedLabel.recipient,
-          customer_address: processedLabel.customer_address,
-          customer_phone: processedLabel.customer_phone || '',
-          customer_email: processedLabel.customer_email || '',
-          customer_company: processedLabel.customer_company || '',
-        }));
+        // Process the labels to ensure all required fields are present
+        const updatedShipments = data.processedLabels.map((processedLabel: any) => {
+          console.log('Processing label data:', processedLabel);
+          
+          return {
+            ...processedLabel,
+            status: 'completed' as const,
+            // Ensure we have label_url in the correct format
+            label_url: processedLabel.label_url || processedLabel.labelUrl,
+            labelUrl: processedLabel.label_url || processedLabel.labelUrl,
+            // Ensure we have tracking_code in the correct format
+            tracking_code: processedLabel.tracking_code || processedLabel.trackingCode,
+            trackingCode: processedLabel.tracking_code || processedLabel.trackingCode,
+            // Customer information
+            customer_name: processedLabel.customer_name || processedLabel.recipient,
+            customer_address: processedLabel.customer_address,
+            customer_phone: processedLabel.customer_phone || '',
+            customer_email: processedLabel.customer_email || '',
+            customer_company: processedLabel.customer_company || '',
+          };
+        });
 
         console.log('Updated shipments with labels:', updatedShipments);
 
@@ -185,7 +193,7 @@ export const useBulkUpload = () => {
         toast.success(`Successfully created ${data.successful || updatedShipments.length} shipping labels!`);
 
         if (data.failed > 0) {
-          toast.error(`${data.failed} labels failed to create. Check console for details.`);
+          toast.error(`${data.failed} labels failed to create. Check the failed labels table for details.`);
         }
       } else {
         console.error('Invalid response format:', data);

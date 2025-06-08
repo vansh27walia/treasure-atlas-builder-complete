@@ -82,7 +82,9 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
     return {
       id: boughtShipment.id,
       tracking_code: boughtShipment.tracking_code,
+      trackingCode: boughtShipment.tracking_code, // Include both formats for compatibility
       label_url: labelUrl,
+      labelUrl: labelUrl, // Include both formats for compatibility
       carrier: boughtShipment.selected_rate?.carrier,
       service: boughtShipment.selected_rate?.service,
       rate: boughtShipment.selected_rate?.rate,
@@ -91,6 +93,7 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, options
       customer_phone: boughtShipment.to_address?.phone,
       customer_email: boughtShipment.to_address?.email,
       customer_company: boughtShipment.to_address?.company,
+      status: 'completed'
     };
     
   } catch (error) {
@@ -205,10 +208,15 @@ serve(async (req) => {
         // Purchase label via EasyPost and store in our system
         const labelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId, labelOptions);
 
-        // Ensure we preserve all shipment details
+        // Merge shipment data with label data, ensuring all required fields are present
         const processedLabel = {
           ...shipment,
           ...labelData,
+          // Ensure we have both formats for maximum compatibility
+          tracking_code: labelData.tracking_code || labelData.trackingCode,
+          trackingCode: labelData.tracking_code || labelData.trackingCode,
+          label_url: labelData.label_url || labelData.labelUrl,
+          labelUrl: labelData.label_url || labelData.labelUrl,
           status: 'completed' as const,
           customer_name: labelData.customer_name || shipment.details?.to_name || shipment.recipient,
           customer_address: labelData.customer_address || `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
