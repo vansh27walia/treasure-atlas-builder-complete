@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { BulkUploadResult, BulkShipment } from '@/types/shipping';
+import { BulkUploadResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
@@ -151,34 +151,11 @@ export const useBulkUpload = () => {
       if (data && data.labels && data.labels.length > 0) {
         // Transform the backend response to match frontend expectations
         const updatedShipments = data.labels.map((label: any) => {
-          // Find the original shipment data with proper typing
-          const originalShipment: BulkShipment | undefined = shipmentsToProcess.find(s => s.id === label.shipment_id);
-          
-          // Provide fallback values for required fields
-          const baseShipment: BulkShipment = originalShipment || {
-            id: label.shipment_id || '',
-            row: 0,
-            recipient: label.recipient_name || '',
-            carrier: label.carrier || '',
-            service: label.service || '',
-            rate: parseFloat(label.rate) || 0,
-            status: 'pending' as const,
-            details: {
-              to_name: label.recipient_name || '',
-              to_street1: '',
-              to_city: '',
-              to_state: '',
-              to_zip: '',
-              to_country: 'US',
-              weight: 0,
-              length: 0,
-              width: 0,
-              height: 0
-            }
-          };
+          // Find the original shipment data
+          const originalShipment = shipmentsToProcess.find(s => s.id === label.shipment_id) || {};
           
           return {
-            ...baseShipment,
+            ...originalShipment,
             // Map backend response fields to frontend fields
             id: label.shipment_id,
             shipment_id: label.shipment_id,
@@ -188,17 +165,17 @@ export const useBulkUpload = () => {
             tracking_code: label.tracking_number,
             tracking_number: label.tracking_number,
             trackingCode: label.tracking_number,
-            recipient: label.recipient_name || baseShipment.recipient,
+            recipient: label.recipient_name || originalShipment.recipient,
             recipient_name: label.recipient_name,
-            customer_name: label.recipient_name || baseShipment.customer_name,
-            customer_address: label.drop_off_address || baseShipment.customer_address,
-            customer_phone: baseShipment.customer_phone || '',
-            customer_email: baseShipment.customer_email || '',
-            customer_company: baseShipment.customer_company || '',
-            carrier: label.carrier || baseShipment.carrier,
-            service: label.service || baseShipment.service,
-            rate: parseFloat(label.rate) || baseShipment.rate,
-            easypost_id: label.easypost_id || baseShipment.easypost_id,
+            customer_name: label.recipient_name || originalShipment.customer_name,
+            customer_address: label.drop_off_address || originalShipment.customer_address,
+            customer_phone: originalShipment.customer_phone || '',
+            customer_email: originalShipment.customer_email || '',
+            customer_company: originalShipment.customer_company || '',
+            carrier: label.carrier || originalShipment.carrier,
+            service: label.service || originalShipment.service,
+            rate: parseFloat(label.rate) || originalShipment.rate,
+            easypost_id: label.easypost_id || originalShipment.easypost_id,
             error: label.error
           };
         });
