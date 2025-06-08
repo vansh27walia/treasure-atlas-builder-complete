@@ -26,8 +26,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  console.log('SuccessNotification received results:', results);
-
   // Safely get shipments array - handle both array and object cases
   let allShipments = [];
   if (Array.isArray(results.processedShipments)) {
@@ -198,7 +196,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 <Download className="mr-2 h-4 w-4" />
-                Download Bulk PNG
+                Download All Labels (PNG)
               </Button>
             )}
             
@@ -208,7 +206,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <File className="mr-2 h-4 w-4" />
-                Download Bulk PDF
+                Download All Labels (PDF)
               </Button>
             )}
           </div>

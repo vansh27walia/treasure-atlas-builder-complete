@@ -27,8 +27,6 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState<BulkShipment | null>(null);
 
-  console.log('SuccessfulShipmentsTable received shipments:', shipments);
-
   if (!shipments || shipments.length === 0) {
     return (
       <div className="p-4 text-center text-gray-500">
@@ -58,53 +56,11 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     return shipment.recipient_name || shipment.recipient || shipment.customer_name || 'Unknown';
   };
 
-  // Helper function to get package dimensions
-  const getPackageDimensions = (shipment: BulkShipment): string => {
-    const details = shipment.details;
-    if (details && details.length && details.width && details.height) {
-      return `${details.length}" × ${details.width}" × ${details.height}"`;
-    }
-    return 'N/A';
-  };
-
-  // Helper function to get package weight
-  const getPackageWeight = (shipment: BulkShipment): string => {
-    const details = shipment.details;
-    if (details && details.weight) {
-      return `${details.weight} lbs`;
-    }
-    return 'N/A';
-  };
-
-  // Helper function to get full address
-  const getFullAddress = (shipment: BulkShipment): string => {
-    const details = shipment.details;
-    if (details) {
-      const addressParts = [
-        details.to_street1,
-        details.to_street2,
-        details.to_city,
-        details.to_state,
-        details.to_zip,
-        details.to_country
-      ].filter(Boolean);
-      
-      if (addressParts.length > 0) {
-        return addressParts.join(', ');
-      }
-    }
-    return shipment.customer_address || 'Address not available';
-  };
-
   // Filter shipments with labels for bulk actions
   const shipmentsWithLabels = shipments.filter(s => {
     const labelUrl = getLabelUrl(s);
-    const hasLabel = !!(labelUrl && labelUrl.trim() !== '');
-    console.log(`Shipment ${getShipmentId(s)} has label:`, hasLabel, 'URL:', labelUrl);
-    return hasLabel;
+    return !!(labelUrl && labelUrl.trim() !== '');
   });
-
-  console.log('Shipments with labels:', shipmentsWithLabels.length, 'out of', shipments.length);
 
   const downloadFile = async (url: string, filename: string) => {
     try {
@@ -233,9 +189,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
             <TableRow>
               <TableHead>Shipment ID</TableHead>
               <TableHead>Recipient</TableHead>
-              <TableHead>Drop-off Address</TableHead>
-              <TableHead>Dimensions (L×W×H)</TableHead>
-              <TableHead>Weight</TableHead>
+              <TableHead>Address</TableHead>
               <TableHead>Carrier</TableHead>
               <TableHead>Tracking #</TableHead>
               <TableHead>Status</TableHead>
@@ -247,21 +201,10 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
               const hasLabel = !!getLabelUrl(shipment);
               const trackingNumber = getTrackingCode(shipment);
               const recipientName = getRecipientName(shipment);
-              const fullAddress = getFullAddress(shipment);
-              const dimensions = getPackageDimensions(shipment);
-              const weight = getPackageWeight(shipment);
+              const recipientAddress = 'Not provided in API response';
               const carrier = shipment.carrier || 'N/A';
               const service = shipment.service || '';
               const shipmentId = getShipmentId(shipment);
-
-              console.log(`Rendering shipment ${shipmentId}:`, {
-                hasLabel,
-                trackingNumber,
-                recipientName,
-                fullAddress,
-                dimensions,
-                weight
-              });
 
               return (
                 <TableRow key={shipmentId}>
@@ -273,18 +216,8 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm max-w-[200px]">
-                      {fullAddress}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm font-mono">
-                      {dimensions}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm font-medium">
-                      {weight}
+                    <div className="text-sm text-gray-500">
+                      {recipientAddress}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -305,7 +238,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                     )}
                   </TableCell>
                   <TableCell>
-                    {hasLabel ? (
+                    {shipment.status?.startsWith('success') ? (
                       <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
                         Label Ready
                       </span>
@@ -315,7 +248,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                       </span>
                     ) : (
                       <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                        Processing
+                        Processed
                       </span>
                     )}
                   </TableCell>
@@ -328,7 +261,6 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                             variant="outline"
                             onClick={() => handlePrintPreview(shipment)}
                             className="flex items-center gap-1 h-8 px-2 text-xs"
-                            title="Preview label"
                           >
                             <Eye className="h-3 w-3" />
                             Preview
@@ -338,10 +270,9 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                             size="sm"
                             onClick={() => handleDownload(shipment, 'png')}
                             className="flex items-center gap-1 h-8 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
-                            title="Download PNG label"
                           >
                             <Download className="h-3 w-3" />
-                            PNG
+                            Download PNG
                           </Button>
 
                           <Button
@@ -349,7 +280,6 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                             variant="outline"
                             onClick={() => window.open(getLabelUrl(shipment)!, '_blank')}
                             className="flex items-center gap-1 h-8 px-2 text-xs"
-                            title="Print label"
                           >
                             <Printer className="h-3 w-3" />
                             Print
@@ -389,12 +319,6 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                     </p>
                     <p className="text-sm text-gray-600">
                       <strong>To:</strong> {getRecipientName(selectedShipment)}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>Dimensions:</strong> {getPackageDimensions(selectedShipment)}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>Weight:</strong> {getPackageWeight(selectedShipment)}
                     </p>
                   </div>
                   <div className="flex gap-2">
