@@ -26,12 +26,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  // Ensure we have processed shipments - handle both array and object cases
+  // Safely get shipments array - handle both array and object cases
   let allShipments = [];
   if (Array.isArray(results.processedShipments)) {
     allShipments = results.processedShipments;
   } else if (results.processedShipments && typeof results.processedShipments === 'object') {
-    // If it's an object, try to extract shipments from it
+    // If it's an object, extract values
     allShipments = Object.values(results.processedShipments).filter(Boolean);
   }
   
@@ -252,13 +252,16 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
       )}
 
-      {/* Always show the SuccessfulShipmentsTable when we have processed shipments */}
+      {/* ALWAYS show the SuccessfulShipmentsTable when we have processed shipments */}
       {allShipments.length > 0 && (
-        <SuccessfulShipmentsTable
-          shipments={allShipments}
-          onDownloadSingleLabel={onDownloadSingleLabel}
-          onDownloadAllLabels={handleDownloadAllIndividualLabels}
-        />
+        <div className="mt-6">
+          <h4 className="font-semibold text-lg text-green-800 mb-3">Shipment Details & Individual Downloads</h4>
+          <SuccessfulShipmentsTable
+            shipments={allShipments}
+            onDownloadSingleLabel={onDownloadSingleLabel}
+            onDownloadAllLabels={handleDownloadAllIndividualLabels}
+          />
+        </div>
       )}
 
       {/* Failed Shipments */}
