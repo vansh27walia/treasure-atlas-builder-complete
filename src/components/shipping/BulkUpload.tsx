@@ -37,7 +37,6 @@ const BulkUpload: React.FC = () => {
     pickupAddress,
     setPickupAddress,
     handleUpload,
-    handleProceedToPayment,
     handleCreateLabels,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat,
@@ -215,11 +214,11 @@ const BulkUpload: React.FC = () => {
                   </Button>
                   
                   <Button
-                    onClick={handleProceedToPayment}
+                    onClick={handleCreateLabels}
                     disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
-                    {isPaying ? 'Processing...' : 'Process Payment'} 
+                    {isPaying || isCreatingLabels ? 'Processing...' : 'Create Labels'} 
                     <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
@@ -234,7 +233,6 @@ const BulkUpload: React.FC = () => {
           results={results}
           onDownloadAllLabels={handleDownloadAllLabels}
           onDownloadSingleLabel={handleDownloadSingleLabel}
-          onProceedToPayment={handleProceedToPayment}
           onCreateLabels={handleCreateLabels}
           isPaying={isPaying}
           isCreatingLabels={isCreatingLabels}

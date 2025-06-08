@@ -11,7 +11,6 @@ interface SuccessNotificationProps {
   results: BulkUploadResult;
   onDownloadAllLabels: () => void;
   onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
-  onProceedToPayment: () => void;
   onCreateLabels: () => void;
   isPaying: boolean;
   isCreatingLabels: boolean;
@@ -21,21 +20,18 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   results,
   onDownloadAllLabels,
   onDownloadSingleLabel,
-  onProceedToPayment,
   onCreateLabels,
   isPaying,
   isCreatingLabels
 }) => {
   console.log('SuccessNotification received results:', results);
 
-  // Safely get shipments array - handle both array and object cases
+  // Safely get shipments array
   let allShipments = [];
   if (Array.isArray(results.processedShipments)) {
     allShipments = results.processedShipments;
   } else if (results.processedShipments && typeof results.processedShipments === 'object') {
-    // Check if it's a valid object with shipment data
     const shipmentValues = Object.values(results.processedShipments);
-    // Filter out any invalid entries and ensure we have valid shipment objects
     allShipments = shipmentValues.filter(item => 
       item && 
       typeof item === 'object' && 
