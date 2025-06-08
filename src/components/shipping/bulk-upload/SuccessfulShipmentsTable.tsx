@@ -1,28 +1,8 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Download, File, FileArchive, ChevronDown, Eye, Printer, Package } from 'lucide-react';
-// CHANGED: It is highly recommended to update your 'BulkShipment' type definition
-// to match the structure returned by your backend API.
-/*
-  // In your '@/types/shipping' file, the type should look like this:
-  export interface BulkShipment {
-    shipment_id: string | number;
-    status: string; // e.g., 'success_individual_png_saved', 'error_buy'
-    recipient_name: string;
-    tracking_number?: string;
-    label_urls: {
-      png: string | null;
-      pdf?: string | null;
-      zpl?: string | null;
-    };
-    carrier?: string;
-    service?: string;
-    error?: string;
-    // Note: The original 'row' property is not returned from the backend.
-    // 'shipment_id' is used as the primary identifier instead.
-  }
-*/
 import { BulkShipment } from '@/types/shipping';
 import {
   DropdownMenu,
@@ -35,7 +15,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 
 interface SuccessfulShipmentsTableProps {
   shipments: BulkShipment[];
-  // These props were in the original code but not used internally; their implementation is assumed to be in the parent component.
   onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
   onDownloadAllLabels?: () => void;
 }
@@ -57,11 +36,30 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     );
   }
 
+  // Helper function to get label URL (handles both formats)
+  const getLabelUrl = (shipment: BulkShipment): string | null => {
+    return shipment.label_urls?.png || shipment.label_url || null;
+  };
+
+  // Helper function to get tracking code (handles both formats)
+  const getTrackingCode = (shipment: BulkShipment): string => {
+    return shipment.tracking_number || shipment.tracking_code || shipment.trackingCode || 'N/A';
+  };
+
+  // Helper function to get shipment ID (handles both formats)
+  const getShipmentId = (shipment: BulkShipment): string => {
+    return shipment.shipment_id || shipment.id;
+  };
+
+  // Helper function to get recipient name (handles both formats)
+  const getRecipientName = (shipment: BulkShipment): string => {
+    return shipment.recipient_name || shipment.recipient || shipment.customer_name || 'Unknown';
+  };
+
   // Filter shipments with labels for bulk actions
-  // CHANGED: Updated logic to check for nested label URL property.
   const shipmentsWithLabels = shipments.filter(s => {
-    const hasLabel = !!(s.label_urls?.png && s.label_urls.png.trim() !== '');
-    return hasLabel;
+    const labelUrl = getLabelUrl(s);
+    return !!(labelUrl && labelUrl.trim() !== '');
   });
 
   const downloadFile = async (url: string, filename: string) => {
@@ -83,8 +81,8 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   };
 
   const handlePrintPreview = (shipment: BulkShipment) => {
-    // CHANGED: Check for nested label URL.
-    if (!shipment.label_urls?.png) {
+    const labelUrl = getLabelUrl(shipment);
+    if (!labelUrl) {
       toast.error('No label available for preview');
       return;
     }
@@ -93,36 +91,34 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   };
 
   const handlePrintLabel = () => {
-    // CHANGED: Access nested label URL.
-    if (selectedShipment?.label_urls?.png) {
-      window.open(selectedShipment.label_urls.png, '_blank');
+    const labelUrl = getLabelUrl(selectedShipment!);
+    if (labelUrl) {
+      window.open(labelUrl, '_blank');
       setPrintPreviewOpen(false);
     }
   };
 
   const handleDownloadLabel = async () => {
-    // CHANGED: Access nested label URL and new tracking number property.
-    if (selectedShipment?.label_urls?.png) {
-      const trackingCode = selectedShipment.tracking_number;
-      await downloadFile(selectedShipment.label_urls.png, `shipping_label_${trackingCode || Date.now()}.png`);
+    const labelUrl = getLabelUrl(selectedShipment!);
+    if (labelUrl) {
+      const trackingCode = getTrackingCode(selectedShipment!);
+      await downloadFile(labelUrl, `shipping_label_${trackingCode || Date.now()}.png`);
       setPrintPreviewOpen(false);
     }
   };
 
   const handleDownload = async (shipment: BulkShipment, format: string = 'png') => {
-    // CHANGED: Check for nested label URL.
-    if (!shipment.label_urls?.png) {
+    const labelUrl = getLabelUrl(shipment);
+    if (!labelUrl) {
       toast.error('No label URL available for this shipment');
       return;
     }
 
     try {
-      console.log(`Downloading ${format.toUpperCase()} label for shipment:`, shipment.shipment_id);
-      // CHANGED: Use the new tracking number property for the filename.
-      const trackingCode = shipment.tracking_number;
+      console.log(`Downloading ${format.toUpperCase()} label for shipment:`, getShipmentId(shipment));
+      const trackingCode = getTrackingCode(shipment);
       const filename = `shipping_label_${trackingCode || Date.now()}.${format}`;
-      // CHANGED: Use nested label URL.
-      await downloadFile(shipment.label_urls.png, filename);
+      await downloadFile(labelUrl, filename);
     } catch (error) {
       console.error('Download error:', error);
       toast.error(`Failed to download ${format.toUpperCase()} label`);
@@ -191,7 +187,6 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
         <Table>
           <TableHeader>
             <TableRow>
-              {/* CHANGED: Label changed from "Row" to "Shipment ID" for clarity */}
               <TableHead>Shipment ID</TableHead>
               <TableHead>Recipient</TableHead>
               <TableHead>Address</TableHead>
@@ -203,23 +198,19 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
           </TableHeader>
           <TableBody>
             {shipments.map((shipment) => {
-              // CHANGED: Updated all property access to match the backend response.
-              const hasLabel = !!(shipment.label_urls?.png && shipment.label_urls.png.trim() !== '');
-              const trackingNumber = shipment.tracking_number || 'N/A';
-              const recipientName = shipment.recipient_name || 'Unknown';
-              // NOTE: The backend response does not include the recipient's address. Displaying a placeholder.
+              const hasLabel = !!getLabelUrl(shipment);
+              const trackingNumber = getTrackingCode(shipment);
+              const recipientName = getRecipientName(shipment);
               const recipientAddress = 'Not provided in API response';
               const carrier = shipment.carrier || 'N/A';
               const service = shipment.service || '';
+              const shipmentId = getShipmentId(shipment);
 
               return (
-                // CHANGED: Use `shipment_id` for the key.
-                <TableRow key={shipment.shipment_id}>
-                  {/* CHANGED: Display `shipment_id` instead of `row`. */}
-                  <TableCell className="font-medium">{shipment.shipment_id}</TableCell>
+                <TableRow key={shipmentId}>
+                  <TableCell className="font-medium">{shipmentId}</TableCell>
                   <TableCell>
                     <div className="font-medium">{recipientName}</div>
-                    {/* Note: `customer_company` is not in the backend response, so this will not render. Kept for graceful compatibility. */}
                     {shipment.customer_company && (
                       <div className="text-sm text-gray-500">{shipment.customer_company}</div>
                     )}
@@ -247,7 +238,6 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                     )}
                   </TableCell>
                   <TableCell>
-                    {/* CHANGED: Updated status logic to work with new status strings from the backend. */}
                     {shipment.status?.startsWith('success') ? (
                       <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
                         Label Ready
@@ -288,8 +278,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                           <Button
                             size="sm"
                             variant="outline"
-                            // CHANGED: Access nested label URL.
-                            onClick={() => window.open(shipment.label_urls.png, '_blank')}
+                            onClick={() => window.open(getLabelUrl(shipment)!, '_blank')}
                             className="flex items-center gap-1 h-8 px-2 text-xs"
                           >
                             <Printer className="h-3 w-3" />
@@ -298,7 +287,6 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                         </>
                       ) : (
                         <span className="text-xs text-gray-500 px-2 py-1">
-                          {/* CHANGED: Updated status check for more descriptive text. */}
                           {shipment.status?.startsWith('error') ? 'Label creation failed' : 'No label available'}
                         </span>
                       )}
@@ -323,15 +311,14 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                 <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
                   <div>
                     <h3 className="font-semibold">Shipment Details</h3>
-                    {/* CHANGED: Updated property access for modal details */}
                     <p className="text-sm text-gray-600">
-                      <strong>Tracking:</strong> {selectedShipment.tracking_number}
+                      <strong>Tracking:</strong> {getTrackingCode(selectedShipment)}
                     </p>
                     <p className="text-sm text-gray-600">
                       <strong>Carrier:</strong> {selectedShipment.carrier} - {selectedShipment.service}
                     </p>
                     <p className="text-sm text-gray-600">
-                      <strong>To:</strong> {selectedShipment.recipient_name}
+                      <strong>To:</strong> {getRecipientName(selectedShipment)}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -346,11 +333,10 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                   </div>
                 </div>
 
-                {/* CHANGED: Use nested label URL for iframe source */}
-                {selectedShipment.label_urls?.png && (
+                {getLabelUrl(selectedShipment) && (
                   <div className="flex-1 min-h-0">
                     <iframe
-                      src={selectedShipment.label_urls.png}
+                      src={getLabelUrl(selectedShipment)!}
                       className="w-full h-[600px] border rounded"
                       title="Shipping Label Preview"
                     />
