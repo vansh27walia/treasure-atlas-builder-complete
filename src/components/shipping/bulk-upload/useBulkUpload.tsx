@@ -113,7 +113,12 @@ export const useBulkUpload = () => {
     if (Array.isArray(results.processedShipments)) {
       shipmentsArray = results.processedShipments;
     } else if (results.processedShipments && typeof results.processedShipments === 'object') {
-      shipmentsArray = Object.values(results.processedShipments).filter(Boolean);
+      const shipmentValues = Object.values(results.processedShipments);
+      shipmentsArray = shipmentValues.filter(item => 
+        item && 
+        typeof item === 'object' && 
+        'id' in item
+      );
     }
     
     const shipmentsToProcess = shipmentsArray.filter(s => s.selectedRateId && s.easypost_id) || [];
@@ -159,7 +164,7 @@ export const useBulkUpload = () => {
           labelData.status?.includes('error') || !labelData.label_urls?.png
         );
 
-        // Transform successful labels into frontend format
+        // Transform successful labels into proper frontend format
         const transformedShipments = successfulLabels.map((labelData: any) => {
           console.log('Processing successful label data:', labelData);
           
@@ -222,7 +227,7 @@ export const useBulkUpload = () => {
           successful: successfulLabels.length,
           failed: failedLabels.length,
           totalCost: transformedShipments.reduce((sum, s) => sum + s.rate, 0),
-          processedShipments: transformedShipments, // This should be an array
+          processedShipments: transformedShipments, // Ensure this is an array
           failedShipments: failedLabels.map((labelData: any, index: number) => ({
             row: index + 1,
             error: labelData.error || 'Unknown error',
