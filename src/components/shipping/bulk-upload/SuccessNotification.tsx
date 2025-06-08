@@ -26,58 +26,26 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  console.log('SuccessNotification received results:', results);
-
-  // FIXED: Better handling of processedShipments data structure
-  let allShipments = [];
+  // Ensure we have processed shipments
+  const allShipments = Array.isArray(results.processedShipments) ? results.processedShipments : [];
+  console.log('SuccessNotification - All shipments:', allShipments.length);
   
-  if (Array.isArray(results.processedShipments)) {
-    allShipments = results.processedShipments;
-    console.log('SuccessNotification - processedShipments is array with', allShipments.length, 'items');
-  } else if (results.processedShipments && typeof results.processedShipments === 'object') {
-    // Handle object case but with better checking
-    const shipmentValues = Object.values(results.processedShipments);
-    allShipments = shipmentValues.filter(item => 
-      item && 
-      typeof item === 'object' && 
-      'id' in item &&
-      item.id // Ensure id is not null/undefined
-    );
-    console.log('SuccessNotification - processedShipments converted from object to array with', allShipments.length, 'valid items');
-  }
-
-  console.log('SuccessNotification - Final allShipments:', allShipments);
-  
-  // Count shipments with labels
-  const shipmentsWithLabels = allShipments.filter(shipment => {
-    const hasLabel = !!(
-      (shipment.label_url && shipment.label_url.trim() !== '') ||
-      (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '')
-    );
-    console.log('Shipment label check:', shipment.id, 'hasLabel:', hasLabel, {
-      label_url: shipment.label_url,
-      label_urls_png: shipment.label_urls?.png
-    });
-    return hasLabel;
-  });
+  // Count shipments with labels (those that have label_url)
+  const shipmentsWithLabels = allShipments.filter(shipment => 
+    shipment.label_url && shipment.label_url.trim() !== ''
+  );
   
   console.log('SuccessNotification Debug:', {
     totalShipments: allShipments.length,
     shipmentsWithLabels: shipmentsWithLabels.length,
     bulkPngUrl: results.bulk_label_png_url,
     bulkPdfUrl: results.bulk_label_pdf_url,
-    resultsTotal: results.total,
-    resultsSuccessful: results.successful
+    sampleShipment: allShipments[0]
   });
 
   const hasLabels = shipmentsWithLabels.length > 0;
   const totalProcessed = allShipments.length;
   const hasBulkLabels = !!(results.bulk_label_png_url || results.bulk_label_pdf_url);
-
-  // Show notification if we have shipments or results
-  const shouldShowNotification = totalProcessed > 0 || results.total > 0 || results.successful > 0;
-
-  console.log('SuccessNotification shouldShowNotification:', shouldShowNotification);
 
   const downloadFile = async (url: string, filename: string) => {
     try {
@@ -127,12 +95,10 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     
     for (let i = 0; i < shipmentsWithLabels.length; i++) {
       const shipment = shipmentsWithLabels[i];
-      const labelUrl = shipment.label_urls?.png || shipment.label_url;
-      if (labelUrl) {
+      if (shipment.label_url) {
         try {
           setTimeout(async () => {
-            const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
-            await downloadFile(labelUrl, `label_${trackingCode || Date.now()}.png`);
+            await downloadFile(shipment.label_url!, `label_${shipment.tracking_code || shipment.trackingCode || Date.now()}.png`);
           }, i * 500);
         } catch (error) {
           console.error('Error downloading label for shipment:', shipment.id, error);
@@ -144,14 +110,11 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     toast.success(`Started download of ${shipmentsWithLabels.length} labels`);
   };
 
-  // Don't show if no data
-  if (!shouldShowNotification) {
-    console.log('No shipments or results to show, not showing success notification');
+  // If no shipments processed, don't show the success notification
+  if (totalProcessed === 0) {
+    console.log('No shipments processed, not showing success notification');
     return null;
   }
-
-  const displayTotal = totalProcessed || results.total || 0;
-  const displaySuccessful = shipmentsWithLabels.length || results.successful || 0;
 
   return (
     <Card className="mt-6 p-6 border-green-200 bg-green-50">
@@ -159,12 +122,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         <CheckCircle className="h-6 w-6 text-green-600" />
         <div>
           <h3 className="text-lg font-semibold text-green-800">
-            {hasLabels || hasBulkLabels ? 'Labels Generated Successfully!' : 'Shipments Processed Successfully!'}
+            {hasLabels ? 'Labels Generated Successfully!' : 'Shipments Processed Successfully!'}
           </h3>
           <p className="text-green-700">
-            {hasLabels || hasBulkLabels
-              ? `${displaySuccessful} shipping labels have been created and are ready for download.`
-              : `${displayTotal} shipments have been processed and are ready for label creation.`
+            {hasLabels 
+              ? `${shipmentsWithLabels.length} shipping labels have been created and are ready for download.`
+              : `${totalProcessed} shipments have been processed and are ready for label creation.`
             }
           </p>
         </div>
@@ -181,12 +144,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-600">{displayTotal}</div>
+          <div className="text-2xl font-bold text-green-600">{totalProcessed}</div>
           <div className="text-sm text-gray-600">Total Processed</div>
         </div>
         
         <div className="bg-white p-4 rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-600">{displaySuccessful}</div>
+          <div className="text-2xl font-bold text-green-600">{shipmentsWithLabels.length}</div>
           <div className="text-sm text-gray-600">Labels Generated</div>
         </div>
         
@@ -207,7 +170,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 <Download className="mr-2 h-4 w-4" />
-                Download Bulk PNG
+                Download All Labels (PNG)
               </Button>
             )}
             
@@ -217,7 +180,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <File className="mr-2 h-4 w-4" />
-                Download Bulk PDF
+                Download All Labels (PDF)
               </Button>
             )}
           </div>
@@ -249,8 +212,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
       )}
 
-      {/* Create Labels Button - show if no labels exist yet but we have processed shipments */}
-      {!hasLabels && !hasBulkLabels && displayTotal > 0 && (
+      {/* Create Labels Button - show if no labels exist yet */}
+      {!hasLabels && totalProcessed > 0 && (
         <div className="mb-6">
           <h4 className="font-semibold text-lg text-green-800 mb-3">Create Shipping Labels</h4>
           <Button 
@@ -263,17 +226,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
       )}
 
-      {/* ALWAYS show the SuccessfulShipmentsTable when we have processed shipments */}
-      {allShipments.length > 0 && (
-        <div className="mt-6">
-          <h4 className="font-semibold text-lg text-green-800 mb-3">Shipment Details & Individual Downloads</h4>
-          <SuccessfulShipmentsTable
-            shipments={allShipments}
-            onDownloadSingleLabel={onDownloadSingleLabel}
-            onDownloadAllLabels={handleDownloadAllIndividualLabels}
-          />
-        </div>
-      )}
+      {/* Always show the SuccessfulShipmentsTable when we have processed shipments */}
+      <SuccessfulShipmentsTable
+        shipments={allShipments}
+        onDownloadSingleLabel={onDownloadSingleLabel}
+        onDownloadAllLabels={handleDownloadAllIndividualLabels}
+      />
 
       {/* Failed Shipments */}
       {results.failedShipments && results.failedShipments.length > 0 && (

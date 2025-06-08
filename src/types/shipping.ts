@@ -71,18 +71,10 @@ export interface BulkShipment {
   rate: number;
   tracking_code?: string;
   trackingCode?: string;
-  tracking_number?: string; // Added for backend compatibility
   label_url?: string;
-  label_urls?: { // Added for backend compatibility
-    png: string | null;
-    pdf?: string | null;
-    zpl?: string | null;
-  };
   status: 'pending' | 'processing' | 'error' | 'completed' | 'failed';
   error?: string;
   easypost_id?: string;
-  shipment_id?: string; // Added for backend compatibility
-  recipient_name?: string; // Added for backend compatibility
   details: {
     // EasyPost CSV format fields (to_address fields)
     to_name: string;
