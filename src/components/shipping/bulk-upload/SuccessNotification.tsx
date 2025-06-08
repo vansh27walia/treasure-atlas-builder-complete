@@ -28,25 +28,22 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 }) => {
   console.log('SuccessNotification received results:', results);
 
-  // FIXED: Better handling of processedShipments data structure
+  // Safely get shipments array - handle both array and object cases
   let allShipments = [];
-  
   if (Array.isArray(results.processedShipments)) {
     allShipments = results.processedShipments;
-    console.log('SuccessNotification - processedShipments is array with', allShipments.length, 'items');
   } else if (results.processedShipments && typeof results.processedShipments === 'object') {
-    // Handle object case but with better checking
+    // Check if it's a valid object with shipment data
     const shipmentValues = Object.values(results.processedShipments);
+    // Filter out any invalid entries and ensure we have valid shipment objects
     allShipments = shipmentValues.filter(item => 
       item && 
       typeof item === 'object' && 
-      'id' in item &&
-      item.id // Ensure id is not null/undefined
+      'id' in item
     );
-    console.log('SuccessNotification - processedShipments converted from object to array with', allShipments.length, 'valid items');
   }
-
-  console.log('SuccessNotification - Final allShipments:', allShipments);
+  
+  console.log('SuccessNotification - All shipments:', allShipments.length, allShipments);
   
   // Count shipments with labels
   const shipmentsWithLabels = allShipments.filter(shipment => {
