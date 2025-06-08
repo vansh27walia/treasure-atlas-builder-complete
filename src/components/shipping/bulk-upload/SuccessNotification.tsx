@@ -26,22 +26,35 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  // Ensure we have processed shipments
-  const allShipments = Array.isArray(results.processedShipments) ? results.processedShipments : [];
-  console.log('SuccessNotification - All shipments:', allShipments.length);
+  // Ensure we have processed shipments - handle both array and object cases
+  let allShipments = [];
+  if (Array.isArray(results.processedShipments)) {
+    allShipments = results.processedShipments;
+  } else if (results.processedShipments && typeof results.processedShipments === 'object') {
+    // If it's an object, try to extract shipments from it
+    allShipments = Object.values(results.processedShipments).filter(Boolean);
+  }
   
-  // Count shipments with labels (those that have label_url or label_urls.png)
-  const shipmentsWithLabels = allShipments.filter(shipment => 
-    (shipment.label_url && shipment.label_url.trim() !== '') ||
-    (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '')
-  );
+  console.log('SuccessNotification - All shipments:', allShipments.length, allShipments);
+  
+  // Count shipments with labels
+  const shipmentsWithLabels = allShipments.filter(shipment => {
+    const hasLabel = !!(
+      (shipment.label_url && shipment.label_url.trim() !== '') ||
+      (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '')
+    );
+    console.log('Shipment label check:', shipment.id, 'hasLabel:', hasLabel, {
+      label_url: shipment.label_url,
+      label_urls_png: shipment.label_urls?.png
+    });
+    return hasLabel;
+  });
   
   console.log('SuccessNotification Debug:', {
     totalShipments: allShipments.length,
     shipmentsWithLabels: shipmentsWithLabels.length,
     bulkPngUrl: results.bulk_label_png_url,
     bulkPdfUrl: results.bulk_label_pdf_url,
-    sampleShipment: allShipments[0],
     resultsTotal: results.total,
     resultsSuccessful: results.successful
   });
@@ -50,7 +63,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   const totalProcessed = allShipments.length;
   const hasBulkLabels = !!(results.bulk_label_png_url || results.bulk_label_pdf_url);
 
-  // If we have results.total or results.successful but no processedShipments, show the notification anyway
+  // Show notification if we have shipments or results
   const shouldShowNotification = totalProcessed > 0 || results.total > 0 || results.successful > 0;
 
   console.log('SuccessNotification shouldShowNotification:', shouldShowNotification);
@@ -120,7 +133,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     toast.success(`Started download of ${shipmentsWithLabels.length} labels`);
   };
 
-  // If no shipments processed and no results to show, don't show the success notification
+  // Don't show if no data
   if (!shouldShowNotification) {
     console.log('No shipments or results to show, not showing success notification');
     return null;
