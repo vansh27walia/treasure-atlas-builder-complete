@@ -30,17 +30,9 @@ export const useBulkUpload = () => {
     console.log('Updating results in useBulkUpload:', newResults);
     
     // Ensure processedShipments is always an array
-    let processedShipments = [];
-    if (Array.isArray(newResults.processedShipments)) {
-      processedShipments = newResults.processedShipments;
-    } else if (newResults.processedShipments && typeof newResults.processedShipments === 'object') {
-      // Handle case where backend returns an object instead of array
-      processedShipments = Object.values(newResults.processedShipments).filter(Boolean);
-    }
-    
     const resultsWithShipments = {
       ...newResults,
-      processedShipments,
+      processedShipments: Array.isArray(newResults.processedShipments) ? newResults.processedShipments : [],
       pickupAddress: newResults.pickupAddress || pickupAddress
     };
     
@@ -124,15 +116,7 @@ export const useBulkUpload = () => {
       return;
     }
     
-    // Handle both array and object cases for processedShipments
-    let shipmentsArray = [];
-    if (Array.isArray(results.processedShipments)) {
-      shipmentsArray = results.processedShipments;
-    } else if (results.processedShipments && typeof results.processedShipments === 'object') {
-      shipmentsArray = Object.values(results.processedShipments).filter(Boolean);
-    }
-    
-    const shipmentsToProcess = shipmentsArray.filter(s => s.selectedRateId && s.easypost_id) || [];
+    const shipmentsToProcess = results.processedShipments?.filter(s => s.selectedRateId && s.easypost_id) || [];
     
     if (shipmentsToProcess.length === 0) {
       toast.error('No shipments with selected rates found');
@@ -167,7 +151,7 @@ export const useBulkUpload = () => {
         // Transform the backend response to match frontend expectations
         const updatedShipments = data.labels.map((label: any) => {
           // Find the original shipment data
-          const originalShipment = shipmentsToProcess.find(s => s.id === label.shipment_id);
+          const originalShipment = shipmentsToProcess.find(s => s.id === label.shipment_id) as BulkShipment | undefined;
           
           if (!originalShipment) {
             console.warn('No original shipment found for label:', label.shipment_id);
@@ -210,7 +194,7 @@ export const useBulkUpload = () => {
                 width: 1,
                 height: 1
               }
-            };
+            } as BulkShipment;
           }
           
           return {
