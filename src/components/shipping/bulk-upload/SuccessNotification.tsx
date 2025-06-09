@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -81,10 +80,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     try {
       console.log('Downloading file from URL:', url);
       
+      // For files stored in shipping-labels bucket, download directly
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
       link.target = '_blank';
+      link.setAttribute('crossorigin', 'anonymous');
       
       document.body.appendChild(link);
       link.click();
@@ -101,7 +102,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     if (results.bulk_label_png_url) {
       await downloadFile(results.bulk_label_png_url, `bulk_shipping_labels_${Date.now()}.png`);
     } else {
-      toast.error('Bulk PNG not available');
+      // If no bulk URL, download all individual labels
+      await handleDownloadAllIndividualLabels();
     }
   };
 
@@ -208,32 +210,28 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Bulk Downloads */}
-            {hasBulkLabels && (
-              <div>
-                <h5 className="font-medium text-blue-700 mb-2">Bulk Downloads</h5>
-                <div className="flex flex-col gap-2">
-                  {results.bulk_label_png_url && (
-                    <Button 
-                      onClick={handleDownloadBulkPNG}
-                      className="bg-green-600 hover:bg-green-700 text-white w-full"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download All Labels (PNG)
-                    </Button>
-                  )}
-                  
-                  {results.bulk_label_pdf_url && (
-                    <Button 
-                      onClick={handleDownloadBulkPDF}
-                      className="bg-blue-600 hover:bg-blue-700 text-white w-full"
-                    >
-                      <File className="mr-2 h-4 w-4" />
-                      Download All Labels (PDF)
-                    </Button>
-                  )}
-                </div>
+            <div>
+              <h5 className="font-medium text-blue-700 mb-2">Bulk Downloads</h5>
+              <div className="flex flex-col gap-2">
+                <Button 
+                  onClick={handleDownloadBulkPNG}
+                  className="bg-green-600 hover:bg-green-700 text-white w-full"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download All Labels (PNG)
+                </Button>
+                
+                {results.bulk_label_pdf_url && (
+                  <Button 
+                    onClick={handleDownloadBulkPDF}
+                    className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+                  >
+                    <File className="mr-2 h-4 w-4" />
+                    Download All Labels (PDF)
+                  </Button>
+                )}
               </div>
-            )}
+            </div>
 
             {/* Individual Downloads */}
             {hasLabels && (
