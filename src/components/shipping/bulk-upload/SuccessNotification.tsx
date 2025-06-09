@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -299,7 +300,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             {results.failedShipments.map((failed, index) => (
               <div key={index} className="mb-2 last:mb-0 p-2 bg-white rounded border-l-4 border-red-400">
                 <span className="font-medium text-red-700">
-                  Shipment {failed.shipmentId || `#${failed.row || index + 1}`}:
+                  Shipment {failed.row ? `#${failed.row}` : index + 1}:
                 </span>
                 <span className="text-red-600 ml-2 block text-sm">{failed.details || failed.error}</span>
               </div>
