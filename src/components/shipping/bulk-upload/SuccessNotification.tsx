@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,7 +25,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 }) => {
   console.log('SuccessNotification received results:', results);
 
-  // Safely get shipments array
+  // Safely get shipments array - handle both array and object formats
   let allShipments = [];
   if (Array.isArray(results.processedShipments)) {
     allShipments = results.processedShipments;
@@ -39,24 +38,29 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     );
   }
   
-  console.log('SuccessNotification - All shipments:', allShipments.length, allShipments);
+  console.log(`SuccessNotification - All shipments: ${allShipments.length}`, allShipments);
   
-  // Count shipments with labels
+  // Count shipments with labels (successful ones)
   const shipmentsWithLabels = allShipments.filter(shipment => {
     const hasLabel = !!(
       (shipment.label_url && shipment.label_url.trim() !== '') ||
-      (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '')
+      (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '') ||
+      shipment.status === 'completed'
     );
-    console.log('Shipment label check:', shipment.id, 'hasLabel:', hasLabel, {
+    console.log('Shipment label check:', shipment.id, 'status:', shipment.status, 'hasLabel:', hasLabel, {
       label_url: shipment.label_url,
       label_urls_png: shipment.label_urls?.png
     });
     return hasLabel;
   });
+
+  // Count failed shipments
+  const failedShipments = allShipments.filter(shipment => shipment.status === 'failed');
   
   console.log('SuccessNotification Debug:', {
     totalShipments: allShipments.length,
     shipmentsWithLabels: shipmentsWithLabels.length,
+    failedShipments: failedShipments.length,
     bulkPngUrl: results.bulk_label_png_url,
     bulkPdfUrl: results.bulk_label_pdf_url,
     resultsTotal: results.total,
@@ -145,6 +149,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
   const displayTotal = totalProcessed || results.total || 0;
   const displaySuccessful = shipmentsWithLabels.length || results.successful || 0;
+  const displayFailed = failedShipments.length || results.failed || 0;
 
   return (
     <Card className="mt-6 p-6 border-green-200 bg-green-50">
@@ -152,27 +157,28 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         <CheckCircle className="h-6 w-6 text-green-600" />
         <div>
           <h3 className="text-lg font-semibold text-green-800">
-            {hasLabels || hasBulkLabels ? 'Labels Generated Successfully!' : 'Shipments Processed Successfully!'}
+            {hasLabels || hasBulkLabels ? 'Labels Processing Complete!' : 'Shipments Processed Successfully!'}
           </h3>
           <p className="text-green-700">
             {hasLabels || hasBulkLabels
-              ? `${displaySuccessful} shipping labels have been created and are ready for download.`
+              ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created and are ready for download.`
               : `${displayTotal} shipments have been processed and are ready for label creation.`
             }
+            {displayFailed > 0 && ` ${displayFailed} shipments failed.`}
           </p>
         </div>
       </div>
 
-      {results.failed > 0 && (
+      {displayFailed > 0 && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
           <p className="text-yellow-800 text-sm">
-            <strong>Note:</strong> {results.failed} shipments failed to process. Please check the error details below.
+            <strong>Note:</strong> {displayFailed} shipments failed to process. Please check the error details below.
           </p>
         </div>
       )}
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-lg border border-green-200">
           <div className="text-2xl font-bold text-green-600">{displayTotal}</div>
           <div className="text-sm text-gray-600">Total Processed</div>
@@ -180,7 +186,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         
         <div className="bg-white p-4 rounded-lg border border-green-200">
           <div className="text-2xl font-bold text-green-600">{displaySuccessful}</div>
-          <div className="text-sm text-gray-600">Labels Generated</div>
+          <div className="text-sm text-gray-600">Labels Created</div>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg border border-red-200">
+          <div className="text-2xl font-bold text-red-600">{displayFailed}</div>
+          <div className="text-sm text-gray-600">Failed</div>
         </div>
         
         <div className="bg-white p-4 rounded-lg border border-green-200">
@@ -280,15 +291,17 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
       )}
 
-      {/* Failed Shipments */}
+      {/* Failed Shipments Details */}
       {results.failedShipments && results.failedShipments.length > 0 && (
         <div className="mt-6">
-          <h4 className="font-medium text-red-800 mb-3">Failed Shipments</h4>
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+          <h4 className="font-medium text-red-800 mb-3">Failed Shipments Details</h4>
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 max-h-60 overflow-y-auto">
             {results.failedShipments.map((failed, index) => (
-              <div key={index} className="mb-2 last:mb-0">
-                <span className="font-medium text-red-700">Row {failed.row}:</span>
-                <span className="text-red-600 ml-2">{failed.details}</span>
+              <div key={index} className="mb-2 last:mb-0 p-2 bg-white rounded border-l-4 border-red-400">
+                <span className="font-medium text-red-700">
+                  Shipment {failed.shipmentId || `#${failed.row || index + 1}`}:
+                </span>
+                <span className="text-red-600 ml-2 block text-sm">{failed.details || failed.error}</span>
               </div>
             ))}
           </div>

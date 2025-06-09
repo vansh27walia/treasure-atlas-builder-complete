@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -101,7 +100,7 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // Enhanced handleCreateLabels with proper response processing
+  // Enhanced handleCreateLabels with proper response processing for ALL shipments
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -123,10 +122,10 @@ export const useBulkUpload = () => {
       return;
     }
     
-    console.log('Starting label creation for shipments:', shipmentsToProcess);
+    console.log(`Starting label creation for ${shipmentsToProcess.length} shipments:`, shipmentsToProcess);
     
     try {
-      toast.loading('Creating shipping labels...', { id: 'creating-labels' });
+      toast.loading(`Creating ${shipmentsToProcess.length} shipping labels...`, { id: 'creating-labels' });
       
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
@@ -147,12 +146,12 @@ export const useBulkUpload = () => {
       console.log('Raw label creation response:', data);
       toast.dismiss('creating-labels');
 
-      // Process the response based on new backend format
-      if (data && data.processedLabels && Array.isArray(data.processedLabels) && data.processedLabels.length > 0) {
-        console.log('Processing', data.processedLabels.length, 'labels from backend');
+      // Process the response - handle ALL labels (successful and failed)
+      if (data && data.processedLabels && Array.isArray(data.processedLabels)) {
+        console.log(`Processing ${data.processedLabels.length} successful labels from backend`);
         
         // Transform successful labels into frontend format
-        const transformedShipments = data.processedLabels.map((labelData: any) => {
+        const transformedSuccessfulShipments = data.processedLabels.map((labelData: any) => {
           console.log('Processing successful label data:', labelData);
           
           // Find the original shipment to preserve data
@@ -206,36 +205,57 @@ export const useBulkUpload = () => {
           };
         });
 
-        console.log('Transformed successful shipments:', transformedShipments);
+        // Handle failed shipments - keep them in the list but mark as failed
+        const transformedFailedShipments = [];
+        if (data.failedLabels && Array.isArray(data.failedLabels)) {
+          console.log(`Processing ${data.failedLabels.length} failed labels from backend`);
+          
+          data.failedLabels.forEach((failed: any) => {
+            const originalShipment = shipmentsToProcess.find(s => s.id === failed.shipmentId);
+            if (originalShipment) {
+              transformedFailedShipments.push({
+                ...originalShipment,
+                status: 'failed' as const,
+                error: failed.error || 'Label creation failed'
+              });
+            }
+          });
+        }
 
-        // Process failed labels if any
-        const failedShipments = data.failedLabels ? data.failedLabels.map((failed: any, index: number) => ({
+        // Combine successful and failed shipments to show ALL results
+        const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
+
+        console.log(`Final transformation: ${transformedSuccessfulShipments.length} successful + ${transformedFailedShipments.length} failed = ${allTransformedShipments.length} total shipments`);
+
+        // Process failed labels for display
+        const failedShipmentsForDisplay = data.failedLabels ? data.failedLabels.map((failed: any, index: number) => ({
           row: index + 1,
           error: failed.error || 'Unknown error',
-          details: failed.error || 'Label creation failed'
+          details: failed.error || 'Label creation failed',
+          shipmentId: failed.shipmentId
         })) : [];
 
-        // Create updated results object with proper array structure
+        // Create updated results object with ALL shipments
         const updatedResults: BulkUploadResult = {
-          total: data.total || transformedShipments.length,
-          successful: data.successful || transformedShipments.length,
-          failed: data.failed || failedShipments.length,
-          totalCost: transformedShipments.reduce((sum, s) => sum + s.rate, 0),
-          processedShipments: transformedShipments,
-          failedShipments: failedShipments,
+          total: data.total || shipmentsToProcess.length,
+          successful: data.successful || transformedSuccessfulShipments.length,
+          failed: data.failed || transformedFailedShipments.length,
+          totalCost: transformedSuccessfulShipments.reduce((sum, s) => sum + s.rate, 0),
+          processedShipments: allTransformedShipments, // Show ALL shipments
+          failedShipments: failedShipmentsForDisplay,
           bulk_label_png_url: data.bulk_label_png_url || null,
           bulk_label_pdf_url: data.bulk_label_pdf_url || null,
           uploadStatus: 'success' as const,
           pickupAddress
         };
 
-        console.log('Final updated results with', updatedResults.processedShipments.length, 'shipments');
+        console.log(`Final updated results: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
         updateResults(updatedResults);
         
-        toast.success(`Successfully created ${transformedShipments.length} shipping labels!`);
+        toast.success(`Successfully created ${transformedSuccessfulShipments.length} out of ${shipmentsToProcess.length} shipping labels!`);
 
-        if (failedShipments.length > 0) {
-          toast.error(`${failedShipments.length} labels failed to create. Check details below.`);
+        if (transformedFailedShipments.length > 0) {
+          toast.error(`${transformedFailedShipments.length} labels failed to create. Check details below.`);
         }
       } else {
         console.error('Invalid response format or no labels:', data);
