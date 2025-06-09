@@ -1,313 +1,252 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"; // Corrected import path for Supabase client
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Download, Eye, Truck, Package, MapPin, Phone, Mail, Building2 } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
-};
+interface ShipmentData {
+  id: string;
+  status: string;
+  tracking_code?: string;
+  tracking_number?: string;
+  trackingCode?: string;
+  label_url?: string;
+  label_urls?: {
+    png?: string;
+    pdf?: string;
+    zpl?: string;
+  };
+  carrier?: string;
+  service?: string;
+  rate?: string | number;
+  customer_name?: string;
+  customer_address?: string;
+  customer_phone?: string;
+  customer_email?: string;
+  customer_company?: string;
+  recipient?: string;
+  details?: any;
+}
 
-/**
- * Purchases a label from EasyPost. This typically buys one specific format.
- * Returns the bought shipment data.
- */
-const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, format: string = 'PNG', size: string = '4x6') => {
-  const apiKey = Deno.env.get('EASYPOST_API_KEY');
-  if (!apiKey) {
-    throw new Error('EasyPost API key not configured');
-  }
+interface SuccessfulShipmentsTableProps {
+  shipments: ShipmentData[];
+  onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
+  onDownloadAllLabels: () => void;
+}
 
-  try {
-    console.log(`Creating label for shipment ${shipmentId} with rate ${rateId} in ${format} format.`);
-    const buyResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        rate: {
-          id: rateId
-        },
-        label_format: format, // Use the requested format here
-        label_size: size      // Use the requested size here
-      })
-    });
+const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
+  shipments,
+  onDownloadSingleLabel,
+  onDownloadAllLabels
+}) => {
+  console.log('SuccessfulShipmentsTable received shipments:', shipments);
 
-    if (!buyResponse.ok) {
-      const errorData = await buyResponse.json();
-      console.error(`EasyPost purchase error for ${shipmentId}:`, errorData);
-      throw new Error(`EasyPost purchase error: ${errorData.error?.message || 'Unknown error'}`);
-    }
+  const getTrackingNumber = (shipment: ShipmentData): string => {
+    return shipment.tracking_code || shipment.tracking_number || shipment.trackingCode || 'N/A';
+  };
 
-    const boughtShipment = await buyResponse.json();
-    console.log(`Successfully purchased label for shipment ${shipmentId}. Tracking: ${boughtShipment.tracking_code}`);
-    return boughtShipment;
-  } catch (error) {
-    console.error(`EasyPost label purchase error for shipment ${shipmentId}:`, error);
-    throw error;
-  }
-};
-
-/**
- * Fetches a label from EasyPost in a specific format after it has been bought.
- * Note: This function can still request PDF/ZPL from EasyPost, but the formatsToGenerate array
- * in the main handler will now only request 'png'.
- */
-const getEasyPostLabelByFormat = async (easypostShipmentId: string, format: 'pdf' | 'png' | 'zpl'): Promise<string> => {
-  const apiKey = Deno.env.get('EASYPOST_API_KEY');
-  if (!apiKey) {
-    throw new Error('EASYPOST_API_KEY not configured');
-  }
-  const easyPostFormat = format === 'zpl' ? 'ZPL' : format.toUpperCase(); 
-  try {
-    console.log(`Requesting ${easyPostFormat} label from EasyPost for shipment ${easypostShipmentId}`);
-    const labelResponse = await fetch(`https://api.easypost.com/v2/shipments/${easypostShipmentId}/label?file_format=${easyPostFormat}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
-      }
-    });
-
-    if (!labelResponse.ok) {
-      const errorData = await labelResponse.json();
-      console.error(`Failed to get ${easyPostFormat} label from EasyPost: ${labelResponse.status} ${labelResponse.statusText}`, errorData);
-      throw new Error(`EasyPost label fetch error for ${easyPostFormat}: ${errorData.error?.message || 'Unknown error'}`);
-    }
-
-    const labelShipment = await labelResponse.json();
-    if (!labelShipment.postage_label?.label_url) {
-      console.error(`EasyPost response for ${easyPostFormat} did not contain a label_url:`, labelShipment);
-      throw new Error(`EasyPost did not return label URL for format: ${easyPostFormat}`);
-    }
-    return labelShipment.postage_label.label_url; // This URL points to the label file on EasyPost's CDN
-  } catch (error) {
-    console.error(`Error fetching ${format} label from EasyPost:`, error);
-    throw error;
-  }
-};
-
-/**
- * Downloads a label from a given URL (EasyPost CDN) and uploads it directly to the 'shipping-labels-2' bucket.
- * The storage path within the bucket is dynamic based on a unique run ID.
- */
-const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: string, fileExtension: 'png' | 'pdf' | 'zpl', runId: string): Promise<string | null> => {
-  if (!easyPostLabelUrl) {
-    console.warn('No EasyPost label URL provided for download and store.');
+  const getLabelUrl = (shipment: ShipmentData): string | null => {
+    if (shipment.label_urls?.png) return shipment.label_urls.png;
+    if (shipment.label_url) return shipment.label_url;
     return null;
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+        return <Badge className="bg-green-100 text-green-800 border-green-200">Completed</Badge>;
+      case 'failed':
+        return <Badge className="bg-red-100 text-red-800 border-red-200">Failed</Badge>;
+      case 'processing':
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Processing</Badge>;
+      default:
+        return <Badge className="bg-gray-100 text-gray-800 border-gray-200">{status || 'Unknown'}</Badge>;
+    }
+  };
+
+  const handleDownloadLabel = async (shipment: ShipmentData) => {
+    const labelUrl = getLabelUrl(shipment);
+    if (!labelUrl || labelUrl.trim() === '') {
+      toast.error('No label available for this shipment');
+      return;
+    }
+
+    try {
+      console.log('Downloading label for shipment:', shipment.id, 'URL:', labelUrl);
+      onDownloadSingleLabel(labelUrl, 'png');
+    } catch (error) {
+      console.error('Error downloading label:', error);
+      toast.error('Failed to download label');
+    }
+  };
+
+  const hasLabels = shipments.some(shipment => getLabelUrl(shipment));
+
+  if (!shipments || shipments.length === 0) {
+    return (
+      <Card className="p-6">
+        <p className="text-center text-gray-500">No shipments to display</p>
+      </Card>
+    );
   }
 
-  try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Supabase config not found for downloadAndStoreLabel');
-      return null;
-    }
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  return (
+    <Card className="p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Shipment Details</h3>
+          <p className="text-sm text-gray-600">
+            {shipments.length} shipment{shipments.length !== 1 ? 's' : ''} processed
+          </p>
+        </div>
+        
+        {hasLabels && (
+          <Button 
+            onClick={onDownloadAllLabels}
+            className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Download All Labels
+          </Button>
+        )}
+      </div>
 
-    const bucketName = 'shipping-labels-2'; // Hardcoded bucket name
-    console.log(`Using hardcoded bucket: ${bucketName} for upload`);
+      <div className="space-y-4">
+        {shipments.map((shipment, index) => {
+          const trackingNumber = getTrackingNumber(shipment);
+          const labelUrl = getLabelUrl(shipment);
+          const hasLabel = !!(labelUrl && labelUrl.trim() !== '');
 
-    // Download the label from EasyPost
-    const response = await fetch(easyPostLabelUrl);
-    if (!response.ok) {
-      console.error(`Failed to download label from EasyPost: ${response.status} ${response.statusText}. URL: ${easyPostLabelUrl}`);
-      return null;
-    }
+          return (
+            <div key={shipment.id || index} className="border rounded-lg p-4 bg-gray-50">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4">
+                <div className="flex items-center space-x-3 mb-2 lg:mb-0">
+                  <Package className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <h4 className="font-medium">Shipment #{index + 1}</h4>
+                    <p className="text-sm text-gray-600">ID: {shipment.id}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  {getStatusBadge(shipment.status)}
+                  {hasLabel && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleDownloadLabel(shipment)}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Download className="mr-1 h-3 w-3" />
+                      Download Label
+                    </Button>
+                  )}
+                </div>
+              </div>
 
-    const labelBlob = await response.blob();
-    const labelArrayBuffer = await labelBlob.arrayBuffer();
-    const labelBuffer = new Uint8Array(labelArrayBuffer);
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Tracking Information */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Truck className="h-4 w-4 text-gray-500" />
+                    <span className="font-medium text-sm">Shipping Details</span>
+                  </div>
+                  <div className="pl-6 space-y-1">
+                    <p className="text-sm">
+                      <span className="font-medium">Tracking:</span> {trackingNumber}
+                    </p>
+                    {shipment.carrier && (
+                      <p className="text-sm">
+                        <span className="font-medium">Carrier:</span> {shipment.carrier}
+                      </p>
+                    )}
+                    {shipment.service && (
+                      <p className="text-sm">
+                        <span className="font-medium">Service:</span> {shipment.service}
+                      </p>
+                    )}
+                    {shipment.rate && (
+                      <p className="text-sm">
+                        <span className="font-medium">Rate:</span> ${typeof shipment.rate === 'string' ? shipment.rate : shipment.rate.toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-    // Determine content type based on extension
-    let contentType: string;
-    switch (fileExtension) {
-      case 'png':
-        contentType = 'image/png';
-        break;
-      case 'pdf':
-        contentType = 'application/pdf';
-        break;
-      case 'zpl':
-        contentType = 'application/octet-stream'; // ZPL is often treated as binary data
-        break;
-      default: // Fallback for any unexpected type
-        contentType = 'application/octet-stream';
-    }
+                {/* Customer Information */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="h-4 w-4 text-gray-500" />
+                    <span className="font-medium text-sm">Customer Details</span>
+                  </div>
+                  <div className="pl-6 space-y-1">
+                    {(shipment.customer_name || shipment.recipient) && (
+                      <p className="text-sm">
+                        <span className="font-medium">Name:</span> {shipment.customer_name || shipment.recipient}
+                      </p>
+                    )}
+                    {shipment.customer_company && (
+                      <p className="text-sm flex items-center">
+                        <Building2 className="h-3 w-3 mr-1" />
+                        {shipment.customer_company}
+                      </p>
+                    )}
+                    {shipment.customer_address && (
+                      <p className="text-sm">
+                        <span className="font-medium">Address:</span> {shipment.customer_address}
+                      </p>
+                    )}
+                  </div>
+                </div>
 
-    // File path is {runId}/{filename}
-    const fileName = `shipping_label_${trackingCode}_${Date.now()}.${fileExtension}`; // Timestamp for uniqueness
-    const filePath = `${runId}/${fileName}`; // Path within the bucket: {runId}/{filename}
+                {/* Contact Information */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Phone className="h-4 w-4 text-gray-500" />
+                    <span className="font-medium text-sm">Contact Info</span>
+                  </div>
+                  <div className="pl-6 space-y-1">
+                    {shipment.customer_phone && (
+                      <p className="text-sm flex items-center">
+                        <Phone className="h-3 w-3 mr-1" />
+                        {shipment.customer_phone}
+                      </p>
+                    )}
+                    {shipment.customer_email && (
+                      <p className="text-sm flex items-center">
+                        <Mail className="h-3 w-3 mr-1" />
+                        {shipment.customer_email}
+                      </p>
+                    )}
+                    {!shipment.customer_phone && !shipment.customer_email && (
+                      <p className="text-sm text-gray-500">No contact info</p>
+                    )}
+                  </div>
+                </div>
+              </div>
 
-    console.log(`Attempting upload to ${bucketName} bucket at path: ${filePath} with Content-Type: ${contentType}`);
-
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage.from(bucketName).upload(filePath, labelBuffer, {
-      contentType: contentType,
-      cacheControl: '3600',
-      upsert: true
-    });
-
-    if (uploadError) {
-      console.error(`Error uploading ${fileExtension} label to ${bucketName} bucket:`, uploadError);
-      return null;
-    }
-
-    // Get public URL
-    const { data: urlData } = await supabase.storage.from(bucketName).getPublicUrl(filePath);
-    console.log(`Label stored successfully in ${bucketName} bucket: ${urlData.publicUrl}`);
-    return urlData.publicUrl;
-
-  } catch (error) {
-    console.error(`Error downloading and storing ${fileExtension} label:`, error);
-    return null;
-  }
+              {/* Label Status */}
+              {hasLabel ? (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                  <p className="text-sm text-green-800 flex items-center">
+                    <Eye className="mr-2 h-4 w-4" />
+                    Label created successfully and ready for download
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-sm text-yellow-800">
+                    Label not available - processing may have failed
+                  </p>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
 };
 
-// Main Edge Function Handler
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  try {
-    const { shipments, labelOptions = {}, isIndividualRequest = false } = await req.json();
-
-    // Generate a unique ID for this specific run
-    const runId = `run_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    console.log(`Starting new label creation run with ID: ${runId}`);
-
-    if (!shipments || !Array.isArray(shipments)) {
-      return new Response(JSON.stringify({ error: 'Invalid shipments data' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
-      });
-    }
-
-    console.log(`Processing ${shipments.length} shipments for label creation.`);
-    console.log(`Current Request Type: ${isIndividualRequest ? 'Individual' : 'Batch'}`);
-
-
-    const processedLabels = [];
-    const failedLabels = [];
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return new Response(JSON.stringify({ error: 'Supabase configuration not found' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500
-      });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // --- CRITICAL CORRECTION: Formats to generate based on request type ---
-    // Both individual and batch requests will now only generate PNGs.
-    const formatsToGenerate = ['png']; // Only PNG for both individual and batch
-
-    console.log(`Formats to generate for this request: ${formatsToGenerate.join(', ')}`);
-
-
-    // Process each shipment individually
-    for (let i = 0; i < shipments.length; i++) {
-      const shipment = shipments[i];
-      try {
-        console.log(`Processing shipment ${i + 1}/${shipments.length}: ${shipment.id} with EasyPost ID ${shipment.easypost_id}`);
-
-        if (!shipment.selectedRateId || !shipment.easypost_id) {
-          throw new Error('Missing EasyPost shipment ID or rate ID for label generation');
-        }
-
-        // --- Step 1: Purchase the label ---
-        // Primary purchase format will always be PNG now
-        const primaryPurchaseFormat = 'PNG';
-        const boughtShipment = await purchaseEasyPostLabel(
-          shipment.easypost_id,
-          shipment.selectedRateId,
-          primaryPurchaseFormat,
-          labelOptions.label_size || '4x6'
-        );
-
-        // labelUrls will only have 'png' property now
-        const labelUrls: { png?: string } = {}; 
-
-        // --- Step 2: Fetch and store each required format ---
-        for (const format of formatsToGenerate) { // This loop will only run for 'png' now
-          try {
-            console.log(`Attempting to get and store ${format.toUpperCase()} label for shipment ${shipment.id}`);
-            const easyPostLabelUrl = await getEasyPostLabelByFormat(boughtShipment.id, format as 'png'); // Only PNG allowed here now
-            
-            if (easyPostLabelUrl) {
-              // Pass the runId down to downloadAndStoreLabel
-              const supabaseLabelUrl = await downloadAndStoreLabel(easyPostLabelUrl, boughtShipment.tracking_code, format as 'png', runId);
-              if (supabaseLabelUrl) {
-                labelUrls[format as 'png'] = supabaseLabelUrl;
-                console.log(`Successfully stored ${format} label for shipment ${shipment.id}.`);
-              } else {
-                console.error(`FAILURE: Storing ${format} label in Supabase for shipment ${shipment.id} failed.`);
-              }
-            } else {
-              console.error(`FAILURE: EasyPost did not provide a URL for ${format} label for shipment ${shipment.id}.`);
-            }
-          } catch (formatError) {
-            console.error(`ERROR: Problem getting/storing ${format} label for shipment ${shipment.id}:`, formatError);
-            // Don't rethrow, allow other formats to proceed
-          }
-        }
-
-        const processedLabel = {
-          ...shipment, // Original shipment data
-          ...boughtShipment, // Data returned from EasyPost buy call
-          label_urls: labelUrls, // Store only 'png' URL now
-          status: 'completed',
-          // Ensure other fields are populated from boughtShipment or original shipment
-          customer_name: boughtShipment.to_address?.name || shipment.details?.to_name || shipment.recipient,
-          customer_address: `${boughtShipment.to_address?.street1 || shipment.details?.to_street1}, ${boughtShipment.to_address?.city || shipment.details?.to_city}, ${boughtShipment.to_address?.state || shipment.details?.to_state} ${boughtShipment.to_address?.zip || shipment.details?.to_zip}`,
-          customer_phone: boughtShipment.to_address?.phone || shipment.details?.to_phone,
-          customer_email: boughtShipment.to_address?.email || shipment.details?.to_email,
-          customer_company: boughtShipment.to_address?.company || shipment.details?.to_company,
-          // Use tracking_code from boughtShipment as it's the official one after purchase
-          tracking_code: boughtShipment.tracking_code,
-          shipment_id: boughtShipment.id // Ensure we use the EasyPost shipment ID here
-        };
-        processedLabels.push(processedLabel);
-        console.log(`Successfully processed label ${i + 1}/${shipments.length} for shipment ${shipment.id}`);
-
-      } catch (error) {
-        console.error(`FAILED to process label for shipment ${shipment.id}:`, error);
-        failedLabels.push({
-          shipmentId: shipment.id,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          originalShipment: shipment
-        });
-        console.log(`Continuing with remaining ${shipments.length - i - 1} shipments...`);
-      }
-    }
-
-    console.log(`Label processing complete: ${processedLabels.length} successful, ${failedLabels.length} failed out of ${shipments.length} total`);
-
-    return new Response(JSON.stringify({
-      success: true,
-      processedLabels,
-      failedLabels,
-      total: shipments.length,
-      successful: processedLabels.length,
-      failed: failedLabels.length,
-      message: `Processed ${processedLabels.length} out of ${shipments.length} labels successfully`
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200
-    });
-
-  } catch (error) {
-    console.error('CRITICAL ERROR in create-bulk-labels function:', error);
-    return new Response(JSON.stringify({
-      error: 'Label Creation Error',
-      message: error instanceof Error ? error.message : 'Unknown error'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500
-    });
-  }
-});
+export default SuccessfulShipmentsTable;
