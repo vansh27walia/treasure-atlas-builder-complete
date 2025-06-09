@@ -1,472 +1,313 @@
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, File, FileArchive, ChevronDown, Eye, Printer, Package } from 'lucide-react';
-import { BulkShipment } from '@/types/shipping';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
-import { toast } from '@/components/ui/sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"; // Corrected import path for Supabase client
 
-interface SuccessfulShipmentsTableProps {
-  shipments: BulkShipment[];
-  onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
-  onDownloadAllLabels?: () => void;
-}
-
-const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
-  shipments,
-  onDownloadSingleLabel,
-  onDownloadAllLabels
-}) => {
-  const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
-  const [selectedShipment, setSelectedShipment] = useState<BulkShipment | null>(null);
-
-  console.log('SuccessfulShipmentsTable received shipments:', shipments);
-
-  if (!shipments || shipments.length === 0) {
-    return (
-      <div className="p-4 text-center text-gray-500">
-        <Package className="h-8 w-8 mx-auto mb-2" />
-        <p>No shipments to display</p>
-      </div>
-    );
-  }
-
-  // Helper function to get label URL (handles both formats)
-  const getLabelUrl = (shipment: BulkShipment): string | null => {
-    const url = shipment.label_urls?.png || shipment.label_url || null;
-    // Validate URL
-    if (!url || url.trim() === '' || url === 'undefined' || url === 'null') {
-      return null;
-    }
-    return url;
-  };
-
-  // Helper function to get tracking code (handles both formats)
-  const getTrackingCode = (shipment: BulkShipment): string => {
-    return shipment.tracking_number || shipment.tracking_code || shipment.trackingCode || 'N/A';
-  };
-
-  // Helper function to get shipment ID (handles both formats)
-  const getShipmentId = (shipment: BulkShipment): string => {
-    return shipment.shipment_id || shipment.id;
-  };
-
-  // Helper function to get recipient name (handles both formats)
-  const getRecipientName = (shipment: BulkShipment): string => {
-    return shipment.recipient_name || shipment.recipient || shipment.customer_name || 'Unknown';
-  };
-
-  // Helper function to get package dimensions
-  const getPackageDimensions = (shipment: BulkShipment): string => {
-    const details = shipment.details;
-    if (details && details.length && details.width && details.height) {
-      return `${details.length}" × ${details.width}" × ${details.height}"`;
-    }
-    return 'N/A';
-  };
-
-  // Helper function to get package weight
-  const getPackageWeight = (shipment: BulkShipment): string => {
-    const details = shipment.details;
-    if (details && details.weight) {
-      return `${details.weight} lbs`;
-    }
-    return 'N/A';
-  };
-
-  // Helper function to get full address
-  const getFullAddress = (shipment: BulkShipment): string => {
-    const details = shipment.details;
-    if (details) {
-      const addressParts = [
-        details.to_street1,
-        details.to_street2,
-        details.to_city,
-        details.to_state,
-        details.to_zip,
-        details.to_country
-      ].filter(Boolean);
-      
-      if (addressParts.length > 0) {
-        return addressParts.join(', ');
-      }
-    }
-    return shipment.customer_address || 'Address not available';
-  };
-
-  // Filter shipments with labels for bulk actions
-  const shipmentsWithLabels = shipments.filter(s => {
-    const labelUrl = getLabelUrl(s);
-    const hasLabel = !!(labelUrl && labelUrl.trim() !== '');
-    console.log(`Shipment ${getShipmentId(s)} has label:`, hasLabel, 'URL:', labelUrl);
-    return hasLabel;
-  });
-
-  console.log('Shipments with labels:', shipmentsWithLabels.length, 'out of', shipments.length);
-
-  const downloadFile = async (url: string, filename: string) => {
-    try {
-      // Validate URL before attempting download
-      if (!url || url.trim() === '') {
-        toast.error('Invalid label URL - cannot download');
-        return;
-      }
-
-      // Check if URL is accessible
-      try {
-        const response = await fetch(url, { method: 'HEAD' });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-      } catch (fetchError) {
-        console.error('URL not accessible:', fetchError);
-        toast.error(`Label file not accessible: ${fetchError.message}`);
-        return;
-      }
-
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      link.target = '_blank';
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast.success(`Downloaded ${filename}`);
-    } catch (error) {
-      console.error('Download error:', error);
-      toast.error(`Failed to download ${filename}: ${error.message}`);
-    }
-  };
-
-  const handlePrintPreview = (shipment: BulkShipment) => {
-    const labelUrl = getLabelUrl(shipment);
-    if (!labelUrl) {
-      toast.error('No label available for preview');
-      return;
-    }
-    setSelectedShipment(shipment);
-    setPrintPreviewOpen(true);
-  };
-
-  const handlePrintLabel = () => {
-    const labelUrl = getLabelUrl(selectedShipment!);
-    if (labelUrl) {
-      window.open(labelUrl, '_blank');
-      setPrintPreviewOpen(false);
-    }
-  };
-
-  const handleDownloadLabel = async () => {
-    const labelUrl = getLabelUrl(selectedShipment!);
-    if (labelUrl) {
-      const trackingCode = getTrackingCode(selectedShipment!);
-      await downloadFile(labelUrl, `shipping_label_${trackingCode || Date.now()}.png`);
-      setPrintPreviewOpen(false);
-    }
-  };
-
-  const handleDownload = async (shipment: BulkShipment, format: string = 'png') => {
-    const labelUrl = getLabelUrl(shipment);
-    if (!labelUrl) {
-      toast.error('No label URL available for this shipment');
-      return;
-    }
-
-    try {
-      console.log(`Downloading ${format.toUpperCase()} label for shipment:`, getShipmentId(shipment));
-      const trackingCode = getTrackingCode(shipment);
-      const filename = `shipping_label_${trackingCode || Date.now()}.${format}`;
-      await downloadFile(labelUrl, filename);
-    } catch (error) {
-      console.error('Download error:', error);
-      toast.error(`Failed to download ${format.toUpperCase()} label: ${error.message}`);
-    }
-  };
-
-  const handleBulkDownload = async (format: 'png' | 'zip' = 'png') => {
-    if (shipmentsWithLabels.length === 0) {
-      toast.error('No valid labels to download');
-      return;
-    }
-
-    toast.loading(`Preparing ${format.toUpperCase()} downloads...`);
-
-    try {
-      let successCount = 0;
-      let failCount = 0;
-
-      for (let i = 0; i < shipmentsWithLabels.length; i++) {
-        const shipment = shipmentsWithLabels[i];
-        setTimeout(async () => {
-          try {
-            await handleDownload(shipment, format === 'zip' ? 'png' : format);
-            successCount++;
-          } catch (error) {
-            console.error('Download failed for shipment:', shipment.id, error);
-            failCount++;
-          }
-        }, i * 500);
-      }
-
-      toast.dismiss();
-      
-      setTimeout(() => {
-        if (successCount > 0) {
-          toast.success(`Started ${successCount} ${format.toUpperCase()} downloads`);
-        }
-        if (failCount > 0) {
-          toast.error(`${failCount} downloads failed`);
-        }
-      }, 1000);
-
-    } catch (error) {
-      toast.dismiss();
-      toast.error(`Failed to download ${format.toUpperCase()} labels: ${error.message}`);
-    }
-  };
-
-  return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-3">
-        <h5 className="font-medium text-green-800">
-          Individual Shipment Labels ({shipments.length})
-          {shipmentsWithLabels.length > 0 && (
-            <span className="ml-2 text-sm bg-green-100 text-green-700 px-2 py-1 rounded">
-              {shipmentsWithLabels.length} with labels ready
-            </span>
-          )}
-        </h5>
-
-        {shipmentsWithLabels.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2 border-green-200 hover:bg-green-50">
-                <Download className="h-4 w-4" />
-                Download Options
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleBulkDownload('png')} className="flex items-center gap-2">
-                <File className="h-4 w-4 text-green-600" /> PNG Format
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleBulkDownload('zip')} className="flex items-center gap-2">
-                <FileArchive className="h-4 w-4 text-amber-600" /> Multiple Downloads
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
-
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Shipment ID</TableHead>
-              <TableHead>Recipient</TableHead>
-              <TableHead>Drop-off Address</TableHead>
-              <TableHead>Dimensions (L×W×H)</TableHead>
-              <TableHead>Weight</TableHead>
-              <TableHead>Carrier</TableHead>
-              <TableHead>Tracking #</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {shipments.map((shipment) => {
-              const labelUrl = getLabelUrl(shipment);
-              const hasLabel = !!labelUrl;
-              const trackingNumber = getTrackingCode(shipment);
-              const recipientName = getRecipientName(shipment);
-              const fullAddress = getFullAddress(shipment);
-              const dimensions = getPackageDimensions(shipment);
-              const weight = getPackageWeight(shipment);
-              const carrier = shipment.carrier || 'N/A';
-              const service = shipment.service || '';
-              const shipmentId = getShipmentId(shipment);
-
-              console.log(`Rendering shipment ${shipmentId}:`, {
-                hasLabel,
-                labelUrl,
-                trackingNumber,
-                recipientName,
-                fullAddress,
-                dimensions,
-                weight
-              });
-
-              return (
-                <TableRow key={shipmentId}>
-                  <TableCell className="font-medium">{shipmentId}</TableCell>
-                  <TableCell>
-                    <div className="font-medium">{recipientName}</div>
-                    {shipment.customer_company && (
-                      <div className="text-sm text-gray-500">{shipment.customer_company}</div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm max-w-[200px]">
-                      {fullAddress}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm font-mono">
-                      {dimensions}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm font-medium">
-                      {weight}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      <div className="font-medium">{carrier}</div>
-                      {service && (
-                        <div className="text-xs text-gray-500">{service}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {trackingNumber !== 'N/A' ? (
-                      <div className="font-mono text-sm bg-gray-100 p-1 rounded max-w-[150px] break-all">
-                        {trackingNumber}
-                      </div>
-                    ) : (
-                      <span className="text-gray-500 text-sm">No tracking</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {hasLabel ? (
-                      <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                        Label Ready
-                      </span>
-                    ) : shipment.status?.startsWith('error') || shipment.status === 'failed' ? (
-                      <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded" title={shipment.error || 'An error occurred'}>
-                        Failed
-                      </span>
-                    ) : (
-                      <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                        Processing
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      {hasLabel ? (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handlePrintPreview(shipment)}
-                            className="flex items-center gap-1 h-8 px-2 text-xs"
-                            title="Preview label"
-                          >
-                            <Eye className="h-3 w-3" />
-                            Preview
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            onClick={() => onDownloadSingleLabel(labelUrl, 'png')}
-                            className="flex items-center gap-1 h-8 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
-                            title="Download PNG label"
-                          >
-                            <Download className="h-3 w-3" />
-                            PNG
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => window.open(labelUrl, '_blank')}
-                            className="flex items-center gap-1 h-8 px-2 text-xs"
-                            title="Print label"
-                          >
-                            <Printer className="h-3 w-3" />
-                            Print
-                          </Button>
-                        </>
-                      ) : (
-                        <span className="text-xs text-gray-500 px-2 py-1">
-                          {shipment.status?.startsWith('error') || shipment.status === 'failed' ? 'Label creation failed' : 'No label available'}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Print Preview Modal */}
-      <Dialog open={printPreviewOpen} onOpenChange={setPrintPreviewOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>Shipping Label Preview</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-col space-y-4">
-            {selectedShipment && (
-              <>
-                <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <h3 className="font-semibold">Shipment Details</h3>
-                    <p className="text-sm text-gray-600">
-                      <strong>Tracking:</strong> {getTrackingCode(selectedShipment)}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>Carrier:</strong> {selectedShipment.carrier} - {selectedShipment.service}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>To:</strong> {getRecipientName(selectedShipment)}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>Dimensions:</strong> {getPackageDimensions(selectedShipment)}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <strong>Weight:</strong> {getPackageWeight(selectedShipment)}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button onClick={handlePrintLabel} variant="outline">
-                      <Printer className="h-4 w-4 mr-2" />
-                      Print Label
-                    </Button>
-                    <Button onClick={handleDownloadLabel}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download PNG
-                    </Button>
-                  </div>
-                </div>
-
-                {getLabelUrl(selectedShipment) && (
-                  <div className="flex-1 min-h-0">
-                    <iframe
-                      src={getLabelUrl(selectedShipment)!}
-                      className="w-full h-[600px] border rounded"
-                      title="Shipping Label Preview"
-                    />
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
 
-export default SuccessfulShipmentsTable;
+/**
+ * Purchases a label from EasyPost. This typically buys one specific format.
+ * Returns the bought shipment data.
+ */
+const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, format: string = 'PNG', size: string = '4x6') => {
+  const apiKey = Deno.env.get('EASYPOST_API_KEY');
+  if (!apiKey) {
+    throw new Error('EasyPost API key not configured');
+  }
+
+  try {
+    console.log(`Creating label for shipment ${shipmentId} with rate ${rateId} in ${format} format.`);
+    const buyResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        rate: {
+          id: rateId
+        },
+        label_format: format, // Use the requested format here
+        label_size: size      // Use the requested size here
+      })
+    });
+
+    if (!buyResponse.ok) {
+      const errorData = await buyResponse.json();
+      console.error(`EasyPost purchase error for ${shipmentId}:`, errorData);
+      throw new Error(`EasyPost purchase error: ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    const boughtShipment = await buyResponse.json();
+    console.log(`Successfully purchased label for shipment ${shipmentId}. Tracking: ${boughtShipment.tracking_code}`);
+    return boughtShipment;
+  } catch (error) {
+    console.error(`EasyPost label purchase error for shipment ${shipmentId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Fetches a label from EasyPost in a specific format after it has been bought.
+ * Note: This function can still request PDF/ZPL from EasyPost, but the formatsToGenerate array
+ * in the main handler will now only request 'png'.
+ */
+const getEasyPostLabelByFormat = async (easypostShipmentId: string, format: 'pdf' | 'png' | 'zpl'): Promise<string> => {
+  const apiKey = Deno.env.get('EASYPOST_API_KEY');
+  if (!apiKey) {
+    throw new Error('EASYPOST_API_KEY not configured');
+  }
+  const easyPostFormat = format === 'zpl' ? 'ZPL' : format.toUpperCase(); 
+  try {
+    console.log(`Requesting ${easyPostFormat} label from EasyPost for shipment ${easypostShipmentId}`);
+    const labelResponse = await fetch(`https://api.easypost.com/v2/shipments/${easypostShipmentId}/label?file_format=${easyPostFormat}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      }
+    });
+
+    if (!labelResponse.ok) {
+      const errorData = await labelResponse.json();
+      console.error(`Failed to get ${easyPostFormat} label from EasyPost: ${labelResponse.status} ${labelResponse.statusText}`, errorData);
+      throw new Error(`EasyPost label fetch error for ${easyPostFormat}: ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    const labelShipment = await labelResponse.json();
+    if (!labelShipment.postage_label?.label_url) {
+      console.error(`EasyPost response for ${easyPostFormat} did not contain a label_url:`, labelShipment);
+      throw new Error(`EasyPost did not return label URL for format: ${easyPostFormat}`);
+    }
+    return labelShipment.postage_label.label_url; // This URL points to the label file on EasyPost's CDN
+  } catch (error) {
+    console.error(`Error fetching ${format} label from EasyPost:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Downloads a label from a given URL (EasyPost CDN) and uploads it directly to the 'shipping-labels-2' bucket.
+ * The storage path within the bucket is dynamic based on a unique run ID.
+ */
+const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: string, fileExtension: 'png' | 'pdf' | 'zpl', runId: string): Promise<string | null> => {
+  if (!easyPostLabelUrl) {
+    console.warn('No EasyPost label URL provided for download and store.');
+    return null;
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Supabase config not found for downloadAndStoreLabel');
+      return null;
+    }
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const bucketName = 'shipping-labels-2'; // Hardcoded bucket name
+    console.log(`Using hardcoded bucket: ${bucketName} for upload`);
+
+    // Download the label from EasyPost
+    const response = await fetch(easyPostLabelUrl);
+    if (!response.ok) {
+      console.error(`Failed to download label from EasyPost: ${response.status} ${response.statusText}. URL: ${easyPostLabelUrl}`);
+      return null;
+    }
+
+    const labelBlob = await response.blob();
+    const labelArrayBuffer = await labelBlob.arrayBuffer();
+    const labelBuffer = new Uint8Array(labelArrayBuffer);
+
+    // Determine content type based on extension
+    let contentType: string;
+    switch (fileExtension) {
+      case 'png':
+        contentType = 'image/png';
+        break;
+      case 'pdf':
+        contentType = 'application/pdf';
+        break;
+      case 'zpl':
+        contentType = 'application/octet-stream'; // ZPL is often treated as binary data
+        break;
+      default: // Fallback for any unexpected type
+        contentType = 'application/octet-stream';
+    }
+
+    // File path is {runId}/{filename}
+    const fileName = `shipping_label_${trackingCode}_${Date.now()}.${fileExtension}`; // Timestamp for uniqueness
+    const filePath = `${runId}/${fileName}`; // Path within the bucket: {runId}/{filename}
+
+    console.log(`Attempting upload to ${bucketName} bucket at path: ${filePath} with Content-Type: ${contentType}`);
+
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage.from(bucketName).upload(filePath, labelBuffer, {
+      contentType: contentType,
+      cacheControl: '3600',
+      upsert: true
+    });
+
+    if (uploadError) {
+      console.error(`Error uploading ${fileExtension} label to ${bucketName} bucket:`, uploadError);
+      return null;
+    }
+
+    // Get public URL
+    const { data: urlData } = await supabase.storage.from(bucketName).getPublicUrl(filePath);
+    console.log(`Label stored successfully in ${bucketName} bucket: ${urlData.publicUrl}`);
+    return urlData.publicUrl;
+
+  } catch (error) {
+    console.error(`Error downloading and storing ${fileExtension} label:`, error);
+    return null;
+  }
+};
+
+// Main Edge Function Handler
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { shipments, labelOptions = {}, isIndividualRequest = false } = await req.json();
+
+    // Generate a unique ID for this specific run
+    const runId = `run_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    console.log(`Starting new label creation run with ID: ${runId}`);
+
+    if (!shipments || !Array.isArray(shipments)) {
+      return new Response(JSON.stringify({ error: 'Invalid shipments data' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
+    }
+
+    console.log(`Processing ${shipments.length} shipments for label creation.`);
+    console.log(`Current Request Type: ${isIndividualRequest ? 'Individual' : 'Batch'}`);
+
+
+    const processedLabels = [];
+    const failedLabels = [];
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return new Response(JSON.stringify({ error: 'Supabase configuration not found' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500
+      });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // --- CRITICAL CORRECTION: Formats to generate based on request type ---
+    // Both individual and batch requests will now only generate PNGs.
+    const formatsToGenerate = ['png']; // Only PNG for both individual and batch
+
+    console.log(`Formats to generate for this request: ${formatsToGenerate.join(', ')}`);
+
+
+    // Process each shipment individually
+    for (let i = 0; i < shipments.length; i++) {
+      const shipment = shipments[i];
+      try {
+        console.log(`Processing shipment ${i + 1}/${shipments.length}: ${shipment.id} with EasyPost ID ${shipment.easypost_id}`);
+
+        if (!shipment.selectedRateId || !shipment.easypost_id) {
+          throw new Error('Missing EasyPost shipment ID or rate ID for label generation');
+        }
+
+        // --- Step 1: Purchase the label ---
+        // Primary purchase format will always be PNG now
+        const primaryPurchaseFormat = 'PNG';
+        const boughtShipment = await purchaseEasyPostLabel(
+          shipment.easypost_id,
+          shipment.selectedRateId,
+          primaryPurchaseFormat,
+          labelOptions.label_size || '4x6'
+        );
+
+        // labelUrls will only have 'png' property now
+        const labelUrls: { png?: string } = {}; 
+
+        // --- Step 2: Fetch and store each required format ---
+        for (const format of formatsToGenerate) { // This loop will only run for 'png' now
+          try {
+            console.log(`Attempting to get and store ${format.toUpperCase()} label for shipment ${shipment.id}`);
+            const easyPostLabelUrl = await getEasyPostLabelByFormat(boughtShipment.id, format as 'png'); // Only PNG allowed here now
+            
+            if (easyPostLabelUrl) {
+              // Pass the runId down to downloadAndStoreLabel
+              const supabaseLabelUrl = await downloadAndStoreLabel(easyPostLabelUrl, boughtShipment.tracking_code, format as 'png', runId);
+              if (supabaseLabelUrl) {
+                labelUrls[format as 'png'] = supabaseLabelUrl;
+                console.log(`Successfully stored ${format} label for shipment ${shipment.id}.`);
+              } else {
+                console.error(`FAILURE: Storing ${format} label in Supabase for shipment ${shipment.id} failed.`);
+              }
+            } else {
+              console.error(`FAILURE: EasyPost did not provide a URL for ${format} label for shipment ${shipment.id}.`);
+            }
+          } catch (formatError) {
+            console.error(`ERROR: Problem getting/storing ${format} label for shipment ${shipment.id}:`, formatError);
+            // Don't rethrow, allow other formats to proceed
+          }
+        }
+
+        const processedLabel = {
+          ...shipment, // Original shipment data
+          ...boughtShipment, // Data returned from EasyPost buy call
+          label_urls: labelUrls, // Store only 'png' URL now
+          status: 'completed',
+          // Ensure other fields are populated from boughtShipment or original shipment
+          customer_name: boughtShipment.to_address?.name || shipment.details?.to_name || shipment.recipient,
+          customer_address: `${boughtShipment.to_address?.street1 || shipment.details?.to_street1}, ${boughtShipment.to_address?.city || shipment.details?.to_city}, ${boughtShipment.to_address?.state || shipment.details?.to_state} ${boughtShipment.to_address?.zip || shipment.details?.to_zip}`,
+          customer_phone: boughtShipment.to_address?.phone || shipment.details?.to_phone,
+          customer_email: boughtShipment.to_address?.email || shipment.details?.to_email,
+          customer_company: boughtShipment.to_address?.company || shipment.details?.to_company,
+          // Use tracking_code from boughtShipment as it's the official one after purchase
+          tracking_code: boughtShipment.tracking_code,
+          shipment_id: boughtShipment.id // Ensure we use the EasyPost shipment ID here
+        };
+        processedLabels.push(processedLabel);
+        console.log(`Successfully processed label ${i + 1}/${shipments.length} for shipment ${shipment.id}`);
+
+      } catch (error) {
+        console.error(`FAILED to process label for shipment ${shipment.id}:`, error);
+        failedLabels.push({
+          shipmentId: shipment.id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          originalShipment: shipment
+        });
+        console.log(`Continuing with remaining ${shipments.length - i - 1} shipments...`);
+      }
+    }
+
+    console.log(`Label processing complete: ${processedLabels.length} successful, ${failedLabels.length} failed out of ${shipments.length} total`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      processedLabels,
+      failedLabels,
+      total: shipments.length,
+      successful: processedLabels.length,
+      failed: failedLabels.length,
+      message: `Processed ${processedLabels.length} out of ${shipments.length} labels successfully`
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
+    });
+
+  } catch (error) {
+    console.error('CRITICAL ERROR in create-bulk-labels function:', error);
+    return new Response(JSON.stringify({
+      error: 'Label Creation Error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500
+    });
+  }
+});
