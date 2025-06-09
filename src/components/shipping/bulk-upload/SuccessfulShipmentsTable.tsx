@@ -40,7 +40,12 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
 
   // Helper function to get label URL (handles both formats)
   const getLabelUrl = (shipment: BulkShipment): string | null => {
-    return shipment.label_urls?.png || shipment.label_url || null;
+    const url = shipment.label_urls?.png || shipment.label_url || null;
+    // Validate URL
+    if (!url || url.trim() === '' || url === 'undefined' || url === 'null') {
+      return null;
+    }
+    return url;
   };
 
   // Helper function to get tracking code (handles both formats)
@@ -108,6 +113,24 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
 
   const downloadFile = async (url: string, filename: string) => {
     try {
+      // Validate URL before attempting download
+      if (!url || url.trim() === '') {
+        toast.error('Invalid label URL - cannot download');
+        return;
+      }
+
+      // Check if URL is accessible
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+      } catch (fetchError) {
+        console.error('URL not accessible:', fetchError);
+        toast.error(`Label file not accessible: ${fetchError.message}`);
+        return;
+      }
+
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
@@ -120,7 +143,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
       console.error('Download error:', error);
-      toast.error(`Failed to download ${filename}`);
+      toast.error(`Failed to download ${filename}: ${error.message}`);
     }
   };
 
@@ -165,7 +188,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
       await downloadFile(labelUrl, filename);
     } catch (error) {
       console.error('Download error:', error);
-      toast.error(`Failed to download ${format.toUpperCase()} label`);
+      toast.error(`Failed to download ${format.toUpperCase()} label: ${error.message}`);
     }
   };
 
@@ -178,19 +201,36 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
     toast.loading(`Preparing ${format.toUpperCase()} downloads...`);
 
     try {
+      let successCount = 0;
+      let failCount = 0;
+
       for (let i = 0; i < shipmentsWithLabels.length; i++) {
         const shipment = shipmentsWithLabels[i];
         setTimeout(async () => {
-          await handleDownload(shipment, format === 'zip' ? 'png' : format);
+          try {
+            await handleDownload(shipment, format === 'zip' ? 'png' : format);
+            successCount++;
+          } catch (error) {
+            console.error('Download failed for shipment:', shipment.id, error);
+            failCount++;
+          }
         }, i * 500);
       }
 
       toast.dismiss();
-      toast.success(`Started ${shipmentsWithLabels.length} ${format.toUpperCase()} downloads`);
+      
+      setTimeout(() => {
+        if (successCount > 0) {
+          toast.success(`Started ${successCount} ${format.toUpperCase()} downloads`);
+        }
+        if (failCount > 0) {
+          toast.error(`${failCount} downloads failed`);
+        }
+      }, 1000);
 
     } catch (error) {
       toast.dismiss();
-      toast.error(`Failed to download ${format.toUpperCase()} labels`);
+      toast.error(`Failed to download ${format.toUpperCase()} labels: ${error.message}`);
     }
   };
 
@@ -244,7 +284,8 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
           </TableHeader>
           <TableBody>
             {shipments.map((shipment) => {
-              const hasLabel = !!getLabelUrl(shipment);
+              const labelUrl = getLabelUrl(shipment);
+              const hasLabel = !!labelUrl;
               const trackingNumber = getTrackingCode(shipment);
               const recipientName = getRecipientName(shipment);
               const fullAddress = getFullAddress(shipment);
@@ -256,6 +297,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
 
               console.log(`Rendering shipment ${shipmentId}:`, {
                 hasLabel,
+                labelUrl,
                 trackingNumber,
                 recipientName,
                 fullAddress,
@@ -309,7 +351,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                       <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
                         Label Ready
                       </span>
-                    ) : shipment.status?.startsWith('error') ? (
+                    ) : shipment.status?.startsWith('error') || shipment.status === 'failed' ? (
                       <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded" title={shipment.error || 'An error occurred'}>
                         Failed
                       </span>
@@ -336,7 +378,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
 
                           <Button
                             size="sm"
-                            onClick={() => handleDownload(shipment, 'png')}
+                            onClick={() => onDownloadSingleLabel(labelUrl, 'png')}
                             className="flex items-center gap-1 h-8 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
                             title="Download PNG label"
                           >
@@ -347,7 +389,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => window.open(getLabelUrl(shipment)!, '_blank')}
+                            onClick={() => window.open(labelUrl, '_blank')}
                             className="flex items-center gap-1 h-8 px-2 text-xs"
                             title="Print label"
                           >
@@ -357,7 +399,7 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
                         </>
                       ) : (
                         <span className="text-xs text-gray-500 px-2 py-1">
-                          {shipment.status?.startsWith('error') ? 'Label creation failed' : 'No label available'}
+                          {shipment.status?.startsWith('error') || shipment.status === 'failed' ? 'Label creation failed' : 'No label available'}
                         </span>
                       )}
                     </div>

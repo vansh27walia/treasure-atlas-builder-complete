@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -80,7 +81,25 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     try {
       console.log('Downloading file from URL:', url);
       
-      // For files stored in shipping-labels bucket, download directly
+      // Validate URL before attempting download
+      if (!url || url.trim() === '') {
+        toast.error('Invalid label URL - cannot download');
+        return;
+      }
+
+      // Check if URL is accessible
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+      } catch (fetchError) {
+        console.error('URL not accessible:', fetchError);
+        toast.error(`Label file not accessible: ${fetchError.message}`);
+        return;
+      }
+      
+      // Create download link
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
@@ -94,7 +113,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
       console.error('Download error:', error);
-      toast.error(`Failed to download ${filename}`);
+      toast.error(`Failed to download ${filename}: ${error.message}`);
     }
   };
 
@@ -125,23 +144,44 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
     toast.loading('Starting downloads...');
     
+    let successCount = 0;
+    let failCount = 0;
+    
     for (let i = 0; i < shipmentsWithLabels.length; i++) {
       const shipment = shipmentsWithLabels[i];
       const labelUrl = shipment.label_urls?.png || shipment.label_url;
-      if (labelUrl) {
+      if (labelUrl && labelUrl.trim() !== '') {
         try {
           setTimeout(async () => {
-            const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
-            await downloadFile(labelUrl, `label_${trackingCode || Date.now()}.png`);
+            try {
+              const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
+              await downloadFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.png`);
+              successCount++;
+            } catch (error) {
+              console.error('Error downloading label for shipment:', shipment.id, error);
+              failCount++;
+            }
           }, i * 500);
         } catch (error) {
-          console.error('Error downloading label for shipment:', shipment.id, error);
+          console.error('Error scheduling download for shipment:', shipment.id, error);
+          failCount++;
         }
+      } else {
+        console.warn('No valid label URL for shipment:', shipment.id);
+        failCount++;
       }
     }
     
     toast.dismiss();
-    toast.success(`Started download of ${shipmentsWithLabels.length} labels`);
+    
+    setTimeout(() => {
+      if (successCount > 0) {
+        toast.success(`Started download of ${successCount} labels`);
+      }
+      if (failCount > 0) {
+        toast.error(`${failCount} labels failed to download`);
+      }
+    }, 1000);
   };
 
   // Don't show if no data
@@ -284,7 +324,15 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         <div className="mt-6">
           <SuccessfulShipmentsTable
             shipments={allShipments}
-            onDownloadSingleLabel={onDownloadSingleLabel}
+            onDownloadSingleLabel={(labelUrl: string, format?: string) => {
+              if (labelUrl && labelUrl.trim() !== '') {
+                const timestamp = Date.now();
+                const filename = `shipping_label_${timestamp}.${format || 'png'}`;
+                downloadFile(labelUrl, filename);
+              } else {
+                toast.error('Invalid label URL - cannot download');
+              }
+            }}
             onDownloadAllLabels={handleDownloadAllIndividualLabels}
           />
         </div>
