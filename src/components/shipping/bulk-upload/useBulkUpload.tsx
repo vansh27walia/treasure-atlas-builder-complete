@@ -100,7 +100,7 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // Enhanced handleCreateLabels with proper response processing for ALL shipments
+  // Enhanced handleCreateLabels with strict validation and proper response processing
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -121,8 +121,19 @@ export const useBulkUpload = () => {
       toast.error('No shipments with selected rates found');
       return;
     }
+
+    // STRICT VALIDATION: Ensure ALL shipments have rates selected
+    const totalShipments = shipmentsArray.length;
+    const shipmentsWithRates = shipmentsToProcess.length;
     
-    console.log(`Starting label creation for ${shipmentsToProcess.length} shipments:`, shipmentsToProcess);
+    if (shipmentsWithRates !== totalShipments) {
+      const missingRates = totalShipments - shipmentsWithRates;
+      toast.error(`${missingRates} shipment(s) are missing rate selections. ALL shipments must have rates selected before creating labels.`);
+      console.error(`Rate validation failed: ${shipmentsWithRates}/${totalShipments} shipments have rates selected`);
+      return;
+    }
+    
+    console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with rates selected`);
     
     try {
       toast.loading(`Creating ${shipmentsToProcess.length} shipping labels...`, { id: 'creating-labels' });
@@ -146,9 +157,17 @@ export const useBulkUpload = () => {
       console.log('Raw label creation response:', data);
       toast.dismiss('creating-labels');
 
-      // Process the response - handle ALL labels (successful and failed)
+      // STRICT VALIDATION: Ensure we got the expected number of labels
       if (data && data.processedLabels && Array.isArray(data.processedLabels)) {
-        console.log(`Processing ${data.processedLabels.length} successful labels from backend`);
+        const expectedLabels = shipmentsToProcess.length;
+        const actualLabels = data.processedLabels.length;
+        
+        console.log(`Label creation result: ${actualLabels}/${expectedLabels} labels created successfully`);
+        
+        if (actualLabels !== expectedLabels) {
+          console.warn(`⚠️ Label count mismatch: Expected ${expectedLabels} labels, got ${actualLabels}`);
+          toast.warning(`Only ${actualLabels} out of ${expectedLabels} labels were created successfully`);
+        }
         
         // Transform successful labels into frontend format
         const transformedSuccessfulShipments = data.processedLabels.map((labelData: any) => {
@@ -178,7 +197,7 @@ export const useBulkUpload = () => {
             tracking_number: labelData.tracking_code,
             trackingCode: labelData.tracking_code,
             label_url: labelData.label_url,
-            label_urls: {
+            label_urls: labelData.label_urls || {
               png: labelData.label_url,
               pdf: labelData.label_url,
               zpl: labelData.label_url
@@ -205,7 +224,7 @@ export const useBulkUpload = () => {
           };
         });
 
-        // Handle failed shipments - keep them in the list but mark as failed
+        // Handle failed shipments
         const transformedFailedShipments = [];
         if (data.failedLabels && Array.isArray(data.failedLabels)) {
           console.log(`Processing ${data.failedLabels.length} failed labels from backend`);
@@ -222,7 +241,7 @@ export const useBulkUpload = () => {
           });
         }
 
-        // Combine successful and failed shipments to show ALL results
+        // Combine successful and failed shipments
         const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
 
         console.log(`Final transformation: ${transformedSuccessfulShipments.length} successful + ${transformedFailedShipments.length} failed = ${allTransformedShipments.length} total shipments`);
@@ -241,7 +260,7 @@ export const useBulkUpload = () => {
           successful: data.successful || transformedSuccessfulShipments.length,
           failed: data.failed || transformedFailedShipments.length,
           totalCost: transformedSuccessfulShipments.reduce((sum, s) => sum + s.rate, 0),
-          processedShipments: allTransformedShipments, // Show ALL shipments
+          processedShipments: allTransformedShipments,
           failedShipments: failedShipmentsForDisplay,
           bulk_label_png_url: data.bulk_label_png_url || null,
           bulk_label_pdf_url: data.bulk_label_pdf_url || null,
@@ -249,10 +268,15 @@ export const useBulkUpload = () => {
           pickupAddress
         };
 
-        console.log(`Final updated results: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
+        console.log(`✅ Label creation complete: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
         updateResults(updatedResults);
         
-        toast.success(`Successfully created ${transformedSuccessfulShipments.length} out of ${shipmentsToProcess.length} shipping labels!`);
+        // Success message with strict validation
+        if (updatedResults.successful === expectedLabels) {
+          toast.success(`🎉 ALL ${transformedSuccessfulShipments.length} shipping labels created successfully!`);
+        } else {
+          toast.warning(`⚠️ ${transformedSuccessfulShipments.length} out of ${expectedLabels} labels created. ${transformedFailedShipments.length} failed.`);
+        }
 
         if (transformedFailedShipments.length > 0) {
           toast.error(`${transformedFailedShipments.length} labels failed to create. Check details below.`);

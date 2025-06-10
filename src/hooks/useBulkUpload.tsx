@@ -29,6 +29,7 @@ export const useBulkUpload = () => {
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
 
   // Load default pickup address
   useEffect(() => {
@@ -175,10 +176,6 @@ export const useBulkUpload = () => {
     toast.success(`Applied ${carrier} to all applicable shipments`);
   };
 
-  const handleProceedToPayment = async () => {
-    await handleCreateLabels();
-  };
-
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -215,11 +212,13 @@ export const useBulkUpload = () => {
             (label.status === 'success_individual_png_saved' || label.status.includes('success'))
           );
           
-          if (labelData && labelData.label_urls?.png) {
+          if (labelData && labelData.label_urls) {
             return {
               ...shipment,
-              label_url: labelData.label_urls.png,
+              label_url: labelData.label_urls.png || labelData.label_urls.pdf || Object.values(labelData.label_urls)[0],
+              label_urls: labelData.label_urls,
               tracking_code: labelData.tracking_number,
+              tracking_number: labelData.tracking_number,
               status: 'completed' as const,
               customer_name: labelData.recipient_name || shipment.customer_name,
               customer_address: labelData.drop_off_address || shipment.customer_address
@@ -237,8 +236,6 @@ export const useBulkUpload = () => {
         setResults({
           ...results,
           processedShipments: updatedShipments,
-          bulk_label_png_url: data.bulk_label_png_url,
-          bulk_label_pdf_url: data.bulk_label_pdf_url
         });
 
         setUploadStatus('success');
@@ -288,14 +285,9 @@ export const useBulkUpload = () => {
   const handleDownloadLabelsWithFormat = async (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!results) return;
     
-    if (format === 'pdf' && results.bulk_label_pdf_url) {
-      // Download bulk PDF
-      handleDownloadSingleLabel(results.bulk_label_pdf_url, 'pdf');
-      toast.success('Downloaded bulk PDF label');
-      return;
-    }
-    
-    const labelsWithUrls = results.processedShipments.filter(s => s.label_url);
+    const labelsWithUrls = results.processedShipments.filter(s => 
+      s.label_urls && Object.keys(s.label_urls).length > 0
+    );
     
     if (labelsWithUrls.length === 0) {
       toast.error('No labels available for download');
@@ -307,7 +299,8 @@ export const useBulkUpload = () => {
       
       labelsWithUrls.forEach((shipment, index) => {
         setTimeout(() => {
-          handleDownloadSingleLabel(shipment.label_url!, 'png');
+          const url = shipment.label_urls?.png || shipment.label_url;
+          if (url) handleDownloadSingleLabel(url, 'png');
         }, index * 300);
       });
       
@@ -316,7 +309,8 @@ export const useBulkUpload = () => {
     } else {
       labelsWithUrls.forEach((shipment, index) => {
         setTimeout(() => {
-          handleDownloadSingleLabel(shipment.label_url!, format);
+          const url = shipment.label_urls?.[format] || (format === 'png' ? shipment.label_url : null);
+          if (url) handleDownloadSingleLabel(url, format);
         }, index * 300);
       });
       
@@ -355,6 +349,7 @@ export const useBulkUpload = () => {
     uploadStatus,
     results,
     progress,
+    showLabelOptions,
     
     // Filters and sorting
     searchTerm,
@@ -372,11 +367,11 @@ export const useBulkUpload = () => {
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
+    setShowLabelOptions,
     
     // Handlers
     handleFileChange,
     handleUpload,
-    handleProceedToPayment,
     handleCreateLabels,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat,
