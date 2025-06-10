@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, File } from 'lucide-react';
+import { CheckCircle, Download, FileText, File, FileImage } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import LabelResultsTable from './LabelResultsTable';
 import { toast } from '@/components/ui/sonner';
@@ -41,14 +41,14 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   
   console.log(`SuccessNotification - All shipments: ${allShipments.length}`, allShipments);
   
-  // Count shipments with labels
+  // Count shipments with labels (stored in OUR system)
   const shipmentsWithLabels = allShipments.filter(shipment => {
-    const hasLabel = !!(
-      (shipment.label_url && shipment.label_url.trim() !== '') ||
-      (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '') ||
+    const hasOurLabels = !!(
+      (shipment.label_url && shipment.label_url.trim() !== '' && !shipment.label_url.includes('easypost.com')) ||
+      (shipment.label_urls && typeof shipment.label_urls === 'object' && Object.keys(shipment.label_urls).length > 0) ||
       shipment.status === 'completed'
     );
-    return hasLabel;
+    return hasOurLabels;
   });
 
   // Count failed shipments
@@ -75,6 +75,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         return;
       }
 
+      // Security check: ensure we never download from EasyPost
+      if (url.includes('easypost.com')) {
+        toast.error('EasyPost URLs are blocked. Please regenerate labels.');
+        return;
+      }
+
       // Direct download approach
       const link = document.createElement('a');
       link.href = url;
@@ -92,26 +98,34 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     }
   };
 
-  const handleDownloadAllIndividualLabels = async () => {
-    console.log('Downloading all individual labels, count:', shipmentsWithLabels.length);
+  const downloadByFormat = async (format: 'png' | 'pdf' | 'zpl') => {
+    console.log(`Downloading all ${format.toUpperCase()} labels`);
     
     if (shipmentsWithLabels.length === 0) {
       toast.error('No labels available for download');
       return;
     }
 
-    toast.loading('Starting downloads...');
+    toast.loading(`Starting ${format.toUpperCase()} downloads...`);
     
     let successCount = 0;
     
     for (let i = 0; i < shipmentsWithLabels.length; i++) {
       const shipment = shipmentsWithLabels[i];
-      const labelUrl = shipment.label_urls?.png || shipment.label_url;
-      if (labelUrl && labelUrl.trim() !== '') {
+      let labelUrl = '';
+      
+      // Get URL for specific format
+      if (shipment.label_urls && typeof shipment.label_urls === 'object') {
+        labelUrl = shipment.label_urls[format] || '';
+      } else if (format === 'png' && shipment.label_url) {
+        labelUrl = shipment.label_url;
+      }
+      
+      if (labelUrl && labelUrl.trim() !== '' && !labelUrl.includes('easypost.com')) {
         try {
           setTimeout(async () => {
             const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
-            await downloadFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.png`);
+            await downloadFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.${format}`);
             successCount++;
           }, i * 500);
         } catch (error) {
@@ -122,7 +136,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     
     toast.dismiss();
     setTimeout(() => {
-      toast.success(`Started download of ${shipmentsWithLabels.length} labels`);
+      toast.success(`Started download of ${format.toUpperCase()} labels`);
     }, 1000);
   };
 
@@ -142,11 +156,11 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <CheckCircle className="h-6 w-6 text-green-600" />
           <div>
             <h3 className="text-lg font-semibold text-green-800">
-              {hasLabels ? 'Labels Processing Complete!' : 'Shipments Processed Successfully!'}
+              {hasLabels ? 'Labels Created Successfully!' : 'Shipments Processed Successfully!'}
             </h3>
             <p className="text-green-700">
               {hasLabels
-                ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created and are ready for download.`
+                ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created and stored in your system.`
                 : `${displayTotal} shipments have been processed and are ready for label creation.`
               }
               {displayFailed > 0 && ` ${displayFailed} shipments failed.`}
@@ -190,13 +204,29 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Labels</h4>
             
-            <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <Button 
-                onClick={handleDownloadAllIndividualLabels}
+                onClick={() => downloadByFormat('png')}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
-                <Download className="mr-2 h-4 w-4" />
-                Download All Labels ({shipmentsWithLabels.length} PNG files)
+                <FileImage className="mr-2 h-4 w-4" />
+                Download All PNG
+              </Button>
+              
+              <Button 
+                onClick={() => downloadByFormat('pdf')}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <File className="mr-2 h-4 w-4" />
+                Download All PDF
+              </Button>
+              
+              <Button 
+                onClick={() => downloadByFormat('zpl')}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Download All ZPL
               </Button>
             </div>
           </div>
@@ -221,12 +251,18 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         )}
       </Card>
 
-      {/* New Clean Table Display */}
+      {/* Enhanced Table Display */}
       {allShipments.length > 0 && (
         <LabelResultsTable
           shipments={allShipments}
           onDownloadLabel={(url: string, format?: string) => {
             if (url && url.trim() !== '') {
+              // Security check: ensure we never download from EasyPost
+              if (url.includes('easypost.com')) {
+                toast.error('EasyPost URLs are blocked. Please regenerate labels.');
+                return;
+              }
+              
               const timestamp = Date.now();
               const filename = `shipping_label_${timestamp}.${format || 'png'}`;
               downloadFile(url, filename);
