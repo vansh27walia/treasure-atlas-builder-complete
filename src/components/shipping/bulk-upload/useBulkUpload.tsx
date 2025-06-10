@@ -100,7 +100,7 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // Enhanced handleCreateLabels with strict validation and proper response processing
+  // Enhanced handleCreateLabels with progress tracking and strict validation
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -133,10 +133,22 @@ export const useBulkUpload = () => {
       return;
     }
     
-    console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with rates selected`);
+    console.log(`🎯 VALIDATION PASSED: Creating labels for ALL ${shipmentsToProcess.length} shipments with rates selected`);
     
     try {
       toast.loading(`Creating ${shipmentsToProcess.length} shipping labels...`, { id: 'creating-labels' });
+      
+      // Start progress tracking
+      let progressInterval: NodeJS.Timeout;
+      let progressCount = 0;
+      
+      progressInterval = setInterval(() => {
+        progressCount += 1;
+        if (progressCount <= shipmentsToProcess.length) {
+          // Simulated progress - in a real implementation, this would come from the backend
+          console.log(`Progress: ${progressCount}/${shipmentsToProcess.length} shipments processed`);
+        }
+      }, 2000); // Update every 2 seconds
       
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
@@ -149,12 +161,14 @@ export const useBulkUpload = () => {
         }
       });
 
+      clearInterval(progressInterval);
+
       if (error) {
         console.error('Label creation error:', error);
         throw new Error(error.message);
       }
 
-      console.log('Raw label creation response:', data);
+      console.log('🔍 Raw label creation response:', data);
       toast.dismiss('creating-labels');
 
       // STRICT VALIDATION: Ensure we got the expected number of labels
@@ -162,16 +176,16 @@ export const useBulkUpload = () => {
         const expectedLabels = shipmentsToProcess.length;
         const actualLabels = data.processedLabels.length;
         
-        console.log(`Label creation result: ${actualLabels}/${expectedLabels} labels created successfully`);
+        console.log(`📊 Label creation result: ${actualLabels}/${expectedLabels} labels created successfully (${data.successRate}% success rate)`);
         
         if (actualLabels !== expectedLabels) {
           console.warn(`⚠️ Label count mismatch: Expected ${expectedLabels} labels, got ${actualLabels}`);
-          toast.warning(`Only ${actualLabels} out of ${expectedLabels} labels were created successfully`);
+          toast.warning(`${actualLabels} out of ${expectedLabels} labels were created successfully (${data.successRate}% success rate)`);
         }
         
-        // Transform successful labels into frontend format
+        // Transform successful labels into frontend format with enhanced data
         const transformedSuccessfulShipments = data.processedLabels.map((labelData: any) => {
-          console.log('Processing successful label data:', labelData);
+          console.log('🔄 Processing successful label data:', labelData);
           
           // Find the original shipment to preserve data
           const originalShipment = shipmentsToProcess.find(s => 
@@ -199,8 +213,8 @@ export const useBulkUpload = () => {
             label_url: labelData.label_url,
             label_urls: labelData.label_urls || {
               png: labelData.label_url,
-              pdf: labelData.label_url,
-              zpl: labelData.label_url
+              pdf: labelData.label_urls?.pdf || null,
+              zpl: labelData.label_urls?.zpl || null
             },
             status: 'completed' as const,
             details: originalShipment?.details || {
@@ -224,10 +238,10 @@ export const useBulkUpload = () => {
           };
         });
 
-        // Handle failed shipments
+        // Handle failed shipments with enhanced error details
         const transformedFailedShipments = [];
         if (data.failedLabels && Array.isArray(data.failedLabels)) {
-          console.log(`Processing ${data.failedLabels.length} failed labels from backend`);
+          console.log(`⚠️ Processing ${data.failedLabels.length} failed labels from backend`);
           
           data.failedLabels.forEach((failed: any) => {
             const originalShipment = shipmentsToProcess.find(s => s.id === failed.shipmentId);
@@ -244,7 +258,7 @@ export const useBulkUpload = () => {
         // Combine successful and failed shipments
         const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
 
-        console.log(`Final transformation: ${transformedSuccessfulShipments.length} successful + ${transformedFailedShipments.length} failed = ${allTransformedShipments.length} total shipments`);
+        console.log(`✅ Final transformation: ${transformedSuccessfulShipments.length} successful + ${transformedFailedShipments.length} failed = ${allTransformedShipments.length} total shipments`);
 
         // Process failed labels for display
         const failedShipmentsForDisplay = data.failedLabels ? data.failedLabels.map((failed: any, index: number) => ({
@@ -268,7 +282,7 @@ export const useBulkUpload = () => {
           pickupAddress
         };
 
-        console.log(`✅ Label creation complete: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
+        console.log(`🎉 Label creation complete: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
         updateResults(updatedResults);
         
         // Success message with strict validation
@@ -282,12 +296,12 @@ export const useBulkUpload = () => {
           toast.error(`${transformedFailedShipments.length} labels failed to create. Check details below.`);
         }
       } else {
-        console.error('Invalid response format or no labels:', data);
+        console.error('❌ Invalid response format or no labels:', data);
         throw new Error('No labels were created or invalid response format');
       }
 
     } catch (error) {
-      console.error('Error creating labels:', error);
+      console.error('❌ Error creating labels:', error);
       toast.dismiss('creating-labels');
       toast.error(error instanceof Error ? error.message : 'Failed to create labels');
       setUploadStatus('error');
