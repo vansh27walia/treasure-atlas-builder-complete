@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -115,7 +116,7 @@ export const useBulkUpload = () => {
       shipmentsArray = Object.values(results.processedShipments).filter(Boolean);
     }
     
-    const shipmentsToProcess = shipmentsArray.filter(s => s.selectedRateId && s.easypost_id) || [];
+    const shipmentsToProcess = shipmentsArray.filter(s => s && s.selectedRateId && s.easypost_id) || [];
     
     if (shipmentsToProcess.length === 0) {
       toast.error('No shipments with selected rates found');
@@ -138,15 +139,16 @@ export const useBulkUpload = () => {
         }
       });
 
+      toast.dismiss('creating-labels');
+
       if (error) {
         console.error('Label creation error:', error);
-        throw new Error(error.message);
+        throw new Error(error.message || 'Failed to create labels');
       }
 
       console.log('Raw label creation response:', data);
-      toast.dismiss('creating-labels');
 
-      // Process the response - handle ALL labels (successful and failed)
+      // Process the response - handle successful and failed labels
       if (data && data.processedLabels && Array.isArray(data.processedLabels)) {
         console.log(`Processing ${data.processedLabels.length} successful labels from backend`);
         
@@ -177,8 +179,8 @@ export const useBulkUpload = () => {
             tracking_code: labelData.tracking_code,
             tracking_number: labelData.tracking_code,
             trackingCode: labelData.tracking_code,
-            label_url: labelData.label_url,
-            label_urls: {
+            label_url: labelData.label_urls?.png || labelData.label_url,
+            label_urls: labelData.label_urls || {
               png: labelData.label_url,
               pdf: labelData.label_url,
               zpl: labelData.label_url
@@ -240,11 +242,9 @@ export const useBulkUpload = () => {
           total: data.total || shipmentsToProcess.length,
           successful: data.successful || transformedSuccessfulShipments.length,
           failed: data.failed || transformedFailedShipments.length,
-          totalCost: transformedSuccessfulShipments.reduce((sum, s) => sum + s.rate, 0),
+          totalCost: transformedSuccessfulShipments.reduce((sum, s) => sum + (s.rate || 0), 0),
           processedShipments: allTransformedShipments, // Show ALL shipments
           failedShipments: failedShipmentsForDisplay,
-          bulk_label_png_url: data.bulk_label_png_url || null,
-          bulk_label_pdf_url: data.bulk_label_pdf_url || null,
           uploadStatus: 'success' as const,
           pickupAddress
         };
@@ -252,7 +252,9 @@ export const useBulkUpload = () => {
         console.log(`Final updated results: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
         updateResults(updatedResults);
         
-        toast.success(`Successfully created ${transformedSuccessfulShipments.length} out of ${shipmentsToProcess.length} shipping labels!`);
+        if (transformedSuccessfulShipments.length > 0) {
+          toast.success(`Successfully created ${transformedSuccessfulShipments.length} out of ${shipmentsToProcess.length} shipping labels!`);
+        }
 
         if (transformedFailedShipments.length > 0) {
           toast.error(`${transformedFailedShipments.length} labels failed to create. Check details below.`);

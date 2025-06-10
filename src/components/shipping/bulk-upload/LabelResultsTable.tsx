@@ -3,7 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Truck, Package, MapPin, Calendar, FileText } from 'lucide-react';
+import { Download, Truck, Package, Calendar, FileText } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import PrintPreview from '@/components/shipping/PrintPreview';
 
@@ -17,13 +17,24 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   onDownloadLabel
 }) => {
   const handleDownload = (shipment: any, format: string = 'png') => {
-    // Get URL from Supabase-stored labels only
-    const url = shipment.label_urls?.[format];
-    if (!url) {
-      toast.error(`${format.toUpperCase()} label not available for this shipment`);
-      return;
+    try {
+      // Get URL from Supabase-stored labels only
+      const url = shipment.label_urls?.[format];
+      if (!url) {
+        toast.error(`${format.toUpperCase()} label not available for this shipment`);
+        return;
+      }
+      
+      if (!url.includes('supabase')) {
+        toast.error('Only Supabase-stored labels can be downloaded');
+        return;
+      }
+      
+      onDownloadLabel(url, format);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error(`Failed to download ${format.toUpperCase()} label`);
     }
-    onDownloadLabel(url, format);
   };
 
   const formatDate = (dateString: string) => {
@@ -96,6 +107,8 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       <div className="text-xs text-gray-500">
                         {shipment.status === 'completed' ? (
                           <Badge className="bg-green-100 text-green-800">Completed</Badge>
+                        ) : shipment.status === 'failed' ? (
+                          <Badge className="bg-red-100 text-red-800">Failed</Badge>
                         ) : (
                           <Badge className="bg-yellow-100 text-yellow-800">Processing</Badge>
                         )}
@@ -160,60 +173,68 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
 
                 {/* Actions - Download Buttons for All Formats */}
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex flex-col space-y-2">
-                    {/* PNG Download */}
-                    {shipment.label_urls?.png && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleDownload(shipment, 'png')}
-                        className="bg-green-600 hover:bg-green-700 text-white text-xs"
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        PNG Label
-                      </Button>
-                    )}
-                    
-                    {/* PDF Download */}
-                    {shipment.label_urls?.pdf && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleDownload(shipment, 'pdf')}
-                        className="bg-red-600 hover:bg-red-700 text-white text-xs"
-                      >
-                        <FileText className="h-3 w-3 mr-1" />
-                        PDF Label
-                      </Button>
-                    )}
-                    
-                    {/* ZPL Download */}
-                    {shipment.label_urls?.zpl && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleDownload(shipment, 'zpl')}
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        ZPL Label
-                      </Button>
-                    )}
-                    
-                    {/* Print Preview */}
-                    <PrintPreview
-                      labelUrl={shipment.label_urls?.png || shipment.label_url || ''}
-                      trackingCode={shipment.tracking_code || shipment.tracking_number}
-                      labelUrls={shipment.label_urls}
-                      shipmentDetails={{
-                        fromAddress: 'Pickup address',
-                        toAddress: shipment.customer_address || '',
-                        weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : '',
-                        dimensions: shipment.details?.length ? 
-                          `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : '',
-                        service: shipment.service || '',
-                        carrier: shipment.carrier || ''
-                      }}
-                      shipmentId={shipment.id}
-                    />
-                  </div>
+                  {shipment.status === 'failed' ? (
+                    <div className="text-red-600 text-sm">
+                      Label creation failed
+                    </div>
+                  ) : (
+                    <div className="flex flex-col space-y-2">
+                      {/* PNG Download */}
+                      {shipment.label_urls?.png && shipment.label_urls.png.includes('supabase') && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleDownload(shipment, 'png')}
+                          className="bg-green-600 hover:bg-green-700 text-white text-xs"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          PNG Label
+                        </Button>
+                      )}
+                      
+                      {/* PDF Download */}
+                      {shipment.label_urls?.pdf && shipment.label_urls.pdf.includes('supabase') && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleDownload(shipment, 'pdf')}
+                          className="bg-red-600 hover:bg-red-700 text-white text-xs"
+                        >
+                          <FileText className="h-3 w-3 mr-1" />
+                          PDF Label
+                        </Button>
+                      )}
+                      
+                      {/* ZPL Download */}
+                      {shipment.label_urls?.zpl && shipment.label_urls.zpl.includes('supabase') && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleDownload(shipment, 'zpl')}
+                          className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          ZPL Label
+                        </Button>
+                      )}
+                      
+                      {/* Print Preview - only for completed shipments */}
+                      {shipment.status === 'completed' && shipment.label_urls?.png && (
+                        <PrintPreview
+                          labelUrl={shipment.label_urls.png}
+                          trackingCode={shipment.tracking_code || shipment.tracking_number}
+                          labelUrls={shipment.label_urls}
+                          shipmentDetails={{
+                            fromAddress: 'Pickup address',
+                            toAddress: shipment.customer_address || '',
+                            weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : '',
+                            dimensions: shipment.details?.length ? 
+                              `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : '',
+                            service: shipment.service || '',
+                            carrier: shipment.carrier || ''
+                          }}
+                          shipmentId={shipment.id}
+                        />
+                      )}
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
