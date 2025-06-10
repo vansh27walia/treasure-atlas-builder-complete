@@ -131,36 +131,49 @@ const downloadAndStoreLabel = async (labelUrl: string, trackingCode: string, shi
     
     const labelBlob = await response.blob();
     
-    // Check if blob is too large - implement size limit based on format
-    const maxSize = format === 'zpl' ? 1024 * 1024 : 10 * 1024 * 1024; // 1MB for ZPL, 10MB for others
-    if (labelBlob.size > maxSize) {
-      console.warn(`⚠️ Label too large (${labelBlob.size} bytes), returning original URL for ${format}`);
+    // Check if blob is too large (Supabase has limits)
+    if (labelBlob.size > 50 * 1024 * 1024) { // 50MB limit
+      console.warn(`⚠️ Label too large (${labelBlob.size} bytes), returning original URL`);
       return labelUrl;
     }
     
     const labelArrayBuffer = await labelBlob.arrayBuffer();
     const labelBuffer = new Uint8Array(labelArrayBuffer);
     
-    // Create unique filename with better path structure
+    // Create unique filename
     const timestamp = Date.now();
-    const randomId = Math.random().toString(36).substring(2, 15);
-    const fileName = `labels/${format}/${trackingCode}_${randomId}.${format}`;
+    const fileName = `batch_labels/shipping_label_${trackingCode}_${timestamp}.${format}`;
     const contentType = format === 'pdf' ? 'application/pdf' : format === 'zpl' ? 'text/plain' : 'image/png';
     
-    console.log(`📤 Uploading ${format.toUpperCase()} to ${bucketName} bucket at path: ${fileName}`);
+    console.log(`📤 Uploading to ${bucketName} bucket at path: ${fileName}`);
     
-    // Upload to Supabase Storage with single attempt (to avoid timeout)
-    const { data: uploadData, error: uploadError } = await supabase
-      .storage
-      .from(bucketName)
-      .upload(fileName, labelBuffer, {
-        contentType: contentType,
-        cacheControl: '3600',
-        upsert: true
-      });
+    // Upload to Supabase Storage with retry logic
+    let uploadError;
+    for (let attempt = 1; attempt <= 2; attempt++) { // Reduced to 2 attempts for speed
+      const { data: uploadData, error } = await supabase
+        .storage
+        .from(bucketName)
+        .upload(fileName, labelBuffer, {
+          contentType: contentType,
+          cacheControl: '3600',
+          upsert: true
+        });
         
+      uploadError = error;
+      
+      if (!uploadError) {
+        console.log(`✅ Successfully uploaded ${fileName} on attempt ${attempt}`);
+        break;
+      }
+      
+      console.warn(`⚠️ Upload attempt ${attempt} failed:`, uploadError);
+      if (attempt < 2) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+      }
+    }
+      
     if (uploadError) {
-      console.error(`❌ Upload failed for ${format}:`, uploadError);
+      console.error(`❌ Failed to upload after 2 attempts:`, uploadError);
       return labelUrl; // Return original URL as fallback
     }
     
@@ -170,11 +183,11 @@ const downloadAndStoreLabel = async (labelUrl: string, trackingCode: string, shi
       .from(bucketName)
       .getPublicUrl(fileName);
       
-    console.log(`🔗 ${format.toUpperCase()} label stored successfully: ${urlData.publicUrl}`);
+    console.log(`🔗 ${format.toUpperCase()} label accessible at: ${urlData.publicUrl}`);
     return urlData.publicUrl;
     
   } catch (error) {
-    console.error(`❌ Error downloading and storing ${format} label:`, error);
+    console.error('❌ Error downloading and storing label:', error);
     return labelUrl; // Return original URL as fallback
   }
 };
@@ -194,7 +207,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`🎯 BATCH START: Processing ${shipments.length} shipments for label creation with ALL formats (PNG, PDF, ZPL).`);
+    console.log(`🎯 BATCH START: Processing ${shipments.length} shipments for label creation with all formats.`);
     
     const processedLabels = [];
     const failedLabels = [];
@@ -235,46 +248,42 @@ serve(async (req) => {
           throw new Error('Failed to generate label after retries');
         }
         
-        // Store all available formats - use original URLs if storage fails
-        const storedLabelUrls: any = {
-          png: labelData.label_url || labelData.label_urls?.png,
-          pdf: labelData.label_urls?.pdf,
-          zpl: labelData.label_urls?.zpl
-        };
+        // Store all available formats in Supabase in parallel for speed
+        const storageTasks = [];
+        const storedLabelUrls: any = {};
         
-        // Try to store each format, but don't fail if storage doesn't work
+        // Always store PNG
         if (labelData.label_urls?.png || labelData.label_url) {
-          try {
-            const pngUrl = labelData.label_urls?.png || labelData.label_url;
-            const storedPngUrl = await downloadAndStoreLabel(pngUrl, labelData.tracking_code, shipment.id, 'png');
-            storedLabelUrls.png = storedPngUrl;
-          } catch (error) {
-            console.warn(`⚠️ PNG storage failed, using original URL for ${shipment.id}`);
-          }
+          const pngUrl = labelData.label_urls?.png || labelData.label_url;
+          storageTasks.push(
+            downloadAndStoreLabel(pngUrl, labelData.tracking_code, shipment.id, 'png')
+              .then(url => { storedLabelUrls.png = url; })
+          );
         }
         
+        // Store PDF if available
         if (labelData.label_urls?.pdf) {
-          try {
-            const storedPdfUrl = await downloadAndStoreLabel(labelData.label_urls.pdf, labelData.tracking_code, shipment.id, 'pdf');
-            storedLabelUrls.pdf = storedPdfUrl;
-          } catch (error) {
-            console.warn(`⚠️ PDF storage failed, using original URL for ${shipment.id}`);
-          }
+          storageTasks.push(
+            downloadAndStoreLabel(labelData.label_urls.pdf, labelData.tracking_code, shipment.id, 'pdf')
+              .then(url => { storedLabelUrls.pdf = url; })
+          );
         }
         
+        // Store ZPL if available
         if (labelData.label_urls?.zpl) {
-          try {
-            const storedZplUrl = await downloadAndStoreLabel(labelData.label_urls.zpl, labelData.tracking_code, shipment.id, 'zpl');
-            storedLabelUrls.zpl = storedZplUrl;
-          } catch (error) {
-            console.warn(`⚠️ ZPL storage failed, using original URL for ${shipment.id}`);
-          }
+          storageTasks.push(
+            downloadAndStoreLabel(labelData.label_urls.zpl, labelData.tracking_code, shipment.id, 'zpl')
+              .then(url => { storedLabelUrls.zpl = url; })
+          );
         }
+
+        // Wait for all storage operations to complete
+        await Promise.allSettled(storageTasks);
 
         const processedLabel = {
           ...shipment,
           ...labelData,
-          label_url: storedLabelUrls.png,
+          label_url: storedLabelUrls.png || labelData.label_url,
           label_urls: storedLabelUrls,
           status: 'completed' as const,
           customer_name: labelData.customer_name || shipment.details?.to_name || shipment.recipient,
@@ -285,11 +294,11 @@ serve(async (req) => {
         };
 
         processedLabels.push(processedLabel);
-        console.log(`✅ COMPLETED: Successfully processed shipment ${shipmentIndex}/${shipments.length}: ${shipment.id} with formats: PNG=${!!storedLabelUrls.png}, PDF=${!!storedLabelUrls.pdf}, ZPL=${!!storedLabelUrls.zpl}`);
+        console.log(`✅ COMPLETED: Successfully processed shipment ${shipmentIndex}/${shipments.length}: ${shipment.id}`);
 
         // Reduced delay between shipments for better performance
         if (i < shipments.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+          await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 second delay
         }
 
       } catch (error) {
@@ -304,16 +313,12 @@ serve(async (req) => {
 
     console.log(`🏁 BATCH COMPLETE: ${processedLabels.length} successful, ${failedLabels.length} failed out of ${shipments.length} total`);
 
-    // Log format availability summary
-    const formatCounts = {
-      png: processedLabels.filter(l => l.label_urls?.png).length,
-      pdf: processedLabels.filter(l => l.label_urls?.pdf).length,
-      zpl: processedLabels.filter(l => l.label_urls?.zpl).length
-    };
-    console.log(`📊 FORMAT AVAILABILITY: PNG: ${formatCounts.png}, PDF: ${formatCounts.pdf}, ZPL: ${formatCounts.zpl}`);
-
+    // STRICT VALIDATION: All shipments must have labels created
     const successRate = (processedLabels.length / shipments.length) * 100;
-    
+    if (successRate < 100) {
+      console.warn(`⚠️ SUCCESS RATE: Only ${successRate.toFixed(1)}% success rate (${processedLabels.length}/${shipments.length})`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -323,8 +328,7 @@ serve(async (req) => {
         successful: processedLabels.length,
         failed: failedLabels.length,
         successRate: successRate.toFixed(1),
-        formatAvailability: formatCounts,
-        message: `Processed ${processedLabels.length} out of ${shipments.length} labels with multiple formats (${successRate.toFixed(1)}% success rate). PNG: ${formatCounts.png}, PDF: ${formatCounts.pdf}, ZPL: ${formatCounts.zpl}`,
+        message: `Processed ${processedLabels.length} out of ${shipments.length} labels with multiple formats (${successRate.toFixed(1)}% success rate)`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );

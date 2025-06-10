@@ -113,6 +113,10 @@ const BulkUpload: React.FC = () => {
     }
   };
 
+  // Safely get processed shipments count and successful shipments
+  const processedShipmentsCount = results?.processedShipments?.length || 0;
+  const successfulShipments = results?.processedShipments?.filter(s => s.status === 'completed') || [];
+
   const handleCreateLabelsWithProgress = async () => {
     if (!results?.processedShipments || results.processedShipments.length === 0) {
       toast.error("No shipments available for label creation");
@@ -172,8 +176,7 @@ const BulkUpload: React.FC = () => {
         setTimeout(() => {
           const url = shipment.label_urls?.png || shipment.label_url;
           if (url) {
-            const filename = `label_${shipment.tracking_code || shipment.tracking_number}_${index + 1}.png`;
-            handleDownloadSingleLabel(url, filename);
+            handleDownloadSingleLabel(url);
           }
         }, index * 300);
       });
@@ -192,9 +195,6 @@ const BulkUpload: React.FC = () => {
     
     setShowPrintPreview(true);
   };
-
-  const successfulShipments = results?.processedShipments?.filter(s => s.status === 'completed') || [];
-  const totalShipmentsCount = results?.processedShipments?.length || 0;
 
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
@@ -222,18 +222,17 @@ const BulkUpload: React.FC = () => {
           </p>
         </div>
       )}
-
+      
+      {/* Show progress during label creation */}
       {isCreatingLabels && (
-        <div className="my-6">
-          <BulkUploadProgress
-            totalShipments={labelCreationProgress.totalShipments}
-            processedCount={labelCreationProgress.processedCount}
-            successCount={labelCreationProgress.successCount}
-            failedCount={labelCreationProgress.failedCount}
-            currentOperation={labelCreationProgress.currentOperation}
-            isComplete={labelCreationProgress.isComplete}
-          />
-        </div>
+        <BulkUploadProgress
+          totalShipments={labelCreationProgress.totalShipments}
+          processedCount={labelCreationProgress.processedCount}
+          successCount={labelCreationProgress.successCount}
+          failedCount={labelCreationProgress.failedCount}
+          currentOperation={labelCreationProgress.currentOperation}
+          isComplete={labelCreationProgress.isComplete}
+        />
       )}
       
       {uploadStatus === 'editing' && results && (
@@ -293,13 +292,13 @@ const BulkUpload: React.FC = () => {
             onRefreshRates={handleRefreshRates}
           />
           
-          {totalShipmentsCount > 0 && (
+          {processedShipmentsCount > 0 && (
             <div className="mt-8 p-4 border rounded-lg bg-gray-50">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
                 <div>
                   <h3 className="font-semibold text-lg">Order Summary</h3>
                   <p className="text-gray-600">
-                    {totalShipmentsCount} shipments selected with a total cost of ${results.totalCost?.toFixed(2) || '0.00'}
+                    {processedShipmentsCount} shipments selected with a total cost of ${results.totalCost?.toFixed(2) || '0.00'}
                   </p>
                   {pickupAddress && (
                     <p className="text-sm text-blue-600 mt-1">
@@ -320,7 +319,7 @@ const BulkUpload: React.FC = () => {
                   
                   <Button
                     onClick={handleCreateLabelsWithProgress}
-                    disabled={isPaying || totalShipmentsCount === 0 || !pickupAddress || isCreatingLabels}
+                    disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress || isCreatingLabels}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
                     {isPaying || isCreatingLabels ? 'Processing...' : 'Create Labels'} 
@@ -336,23 +335,25 @@ const BulkUpload: React.FC = () => {
       {uploadStatus === 'success' && results && successfulShipments.length > 0 && (
         <div className="mt-6">
           <LabelBatchDisplay
-            labels={results.processedShipments.map(shipment => ({
-              id: shipment.id,
-              tracking_code: shipment.tracking_code || shipment.tracking_number || '',
-              label_urls: shipment.label_urls || {
-                png: shipment.label_url,
-                pdf: shipment.label_url,
-                zpl: shipment.label_url
-              },
-              carrier: shipment.carrier || 'Unknown',
-              service: shipment.service || '',
-              customer_name: shipment.customer_name || shipment.recipient || 'Unknown',
-              customer_address: shipment.customer_address || '',
-              rate: shipment.rate || 0,
-              status: (shipment.status === 'completed' || shipment.status === 'failed') ? shipment.status : 'completed',
-              error: shipment.error
-            }))}
-            onDownloadSingle={(url, format, filename) => handleDownloadSingleLabel(url, filename)}
+            labels={results.processedShipments
+              .filter(shipment => shipment.status === 'completed' || shipment.status === 'failed')
+              .map(shipment => ({
+                id: shipment.id,
+                tracking_code: shipment.tracking_code || shipment.tracking_number || '',
+                label_urls: shipment.label_urls || {
+                  png: shipment.label_url,
+                  pdf: shipment.label_url,
+                  zpl: shipment.label_url
+                },
+                carrier: shipment.carrier || 'Unknown',
+                service: shipment.service || '',
+                customer_name: shipment.customer_name || shipment.recipient || 'Unknown',
+                customer_address: shipment.customer_address || '',
+                rate: shipment.rate || 0,
+                status: shipment.status as 'completed' | 'failed',
+                error: shipment.error
+              }))}
+            onDownloadSingle={(url, format, filename) => handleDownloadSingleLabel(url)}
             onDownloadAll={handleDownloadAllWithFormat}
             onPrintPreview={handlePrintPreview}
           />
@@ -384,7 +385,7 @@ const BulkUpload: React.FC = () => {
         onOpenChange={setShowLabelOptions}
         onFormatSelect={handleDownloadLabelsWithFormat}
         onEmailLabels={() => handleEmailLabels("")}
-        shipmentCount={totalShipmentsCount}
+        shipmentCount={processedShipmentsCount}
       />
       
       <PrintPreviewModal
