@@ -190,6 +190,51 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   )}
                 </div>
               </div>
+              
+              {/* Shipment Details */}
+              {shipmentDetails && (
+                <div className="border border-gray-300 rounded p-4 mt-4">
+                  <h3 className="font-semibold text-lg mb-2">Shipment Details</h3>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="font-medium">From:</p>
+                      <p className="whitespace-pre-line">{shipmentDetails.fromAddress}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="font-medium">To:</p>
+                      <p className="whitespace-pre-line">{shipmentDetails.toAddress}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="font-medium">Service:</p>
+                      <p>{shipmentDetails.carrier} - {shipmentDetails.service}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="font-medium">Weight:</p>
+                      <p>{shipmentDetails.weight}</p>
+                    </div>
+                  </div>
+                  
+                  {shipmentDetails.dimensions && (
+                    <div className="mt-2 text-sm">
+                      <p className="font-medium">Dimensions:</p>
+                      <p>{shipmentDetails.dimensions}</p>
+                    </div>
+                  )}
+                  
+                  {trackingCode && (
+                    <div className="mt-4 text-sm">
+                      <p className="font-medium">Tracking Number:</p>
+                      <p className="font-mono">{trackingCode}</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </TabsContent>
 
