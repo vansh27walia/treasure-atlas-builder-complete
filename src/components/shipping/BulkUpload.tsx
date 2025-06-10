@@ -176,6 +176,7 @@ const BulkUpload: React.FC = () => {
         setTimeout(() => {
           const url = shipment.label_urls?.png || shipment.label_url;
           if (url) {
+            const filename = `label_${shipment.tracking_code || shipment.tracking_number}_${index + 1}.png`;
             handleDownloadSingleLabel(url);
           }
         }, index * 300);
@@ -221,18 +222,6 @@ const BulkUpload: React.FC = () => {
               : 'Processing complete! Preparing shipment options...'}
           </p>
         </div>
-      )}
-      
-      {/* Show progress during label creation */}
-      {isCreatingLabels && (
-        <BulkUploadProgress
-          totalShipments={labelCreationProgress.totalShipments}
-          processedCount={labelCreationProgress.processedCount}
-          successCount={labelCreationProgress.successCount}
-          failedCount={labelCreationProgress.failedCount}
-          currentOperation={labelCreationProgress.currentOperation}
-          isComplete={labelCreationProgress.isComplete}
-        />
       )}
       
       {uploadStatus === 'editing' && results && (
@@ -335,24 +324,22 @@ const BulkUpload: React.FC = () => {
       {uploadStatus === 'success' && results && successfulShipments.length > 0 && (
         <div className="mt-6">
           <LabelBatchDisplay
-            labels={results.processedShipments
-              .filter(shipment => shipment.status === 'completed' || shipment.status === 'failed')
-              .map(shipment => ({
-                id: shipment.id,
-                tracking_code: shipment.tracking_code || shipment.tracking_number || '',
-                label_urls: shipment.label_urls || {
-                  png: shipment.label_url,
-                  pdf: shipment.label_url,
-                  zpl: shipment.label_url
-                },
-                carrier: shipment.carrier || 'Unknown',
-                service: shipment.service || '',
-                customer_name: shipment.customer_name || shipment.recipient || 'Unknown',
-                customer_address: shipment.customer_address || '',
-                rate: shipment.rate || 0,
-                status: shipment.status as 'completed' | 'failed',
-                error: shipment.error
-              }))}
+            labels={results.processedShipments.map(shipment => ({
+              id: shipment.id,
+              tracking_code: shipment.tracking_code || shipment.tracking_number || '',
+              label_urls: shipment.label_urls || {
+                png: shipment.label_url,
+                pdf: shipment.label_url,
+                zpl: shipment.label_url
+              },
+              carrier: shipment.carrier || 'Unknown',
+              service: shipment.service || '',
+              customer_name: shipment.customer_name || shipment.recipient || 'Unknown',
+              customer_address: shipment.customer_address || '',
+              rate: shipment.rate || 0,
+              status: (shipment.status === 'completed' || shipment.status === 'failed') ? shipment.status : 'completed',
+              error: shipment.error
+            }))}
             onDownloadSingle={(url, format, filename) => handleDownloadSingleLabel(url)}
             onDownloadAll={handleDownloadAllWithFormat}
             onPrintPreview={handlePrintPreview}
