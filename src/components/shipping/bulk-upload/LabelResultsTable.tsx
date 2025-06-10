@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,8 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   onDownloadLabel
 }) => {
   const handleDownload = (shipment: any, format: string = 'png') => {
-    const url = shipment.label_urls?.[format] || shipment.label_url;
+    // Get URL from Supabase-stored labels only
+    const url = shipment.label_urls?.[format];
     if (!url) {
       toast.error(`${format.toUpperCase()} label not available for this shipment`);
       return;
@@ -52,7 +54,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
       <div className="px-6 py-4 border-b bg-gray-50">
         <h3 className="text-lg font-semibold text-gray-900">Generated Shipping Labels</h3>
         <p className="text-sm text-gray-600 mt-1">
-          {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download
+          {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download in multiple formats (PNG, PDF, ZPL)
         </p>
       </div>
       
@@ -156,19 +158,46 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   </div>
                 </td>
 
-                {/* Actions */}
+                {/* Actions - Download Buttons for All Formats */}
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleDownload(shipment, 'png')}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                      disabled={!shipment.label_urls?.png && !shipment.label_url}
-                    >
-                      <Download className="h-3 w-3 mr-1" />
-                      Download Label
-                    </Button>
+                  <div className="flex flex-col space-y-2">
+                    {/* PNG Download */}
+                    {shipment.label_urls?.png && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleDownload(shipment, 'png')}
+                        className="bg-green-600 hover:bg-green-700 text-white text-xs"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        PNG Label
+                      </Button>
+                    )}
                     
+                    {/* PDF Download */}
+                    {shipment.label_urls?.pdf && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleDownload(shipment, 'pdf')}
+                        className="bg-red-600 hover:bg-red-700 text-white text-xs"
+                      >
+                        <FileText className="h-3 w-3 mr-1" />
+                        PDF Label
+                      </Button>
+                    )}
+                    
+                    {/* ZPL Download */}
+                    {shipment.label_urls?.zpl && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleDownload(shipment, 'zpl')}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        ZPL Label
+                      </Button>
+                    )}
+                    
+                    {/* Print Preview */}
                     <PrintPreview
                       labelUrl={shipment.label_urls?.png || shipment.label_url || ''}
                       trackingCode={shipment.tracking_code || shipment.tracking_number}

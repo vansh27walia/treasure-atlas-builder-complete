@@ -7,11 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface LabelOptions {
-  format?: string;
-  size?: string;
-}
-
 const ensureStorageBucket = async (supabase: any) => {
   try {
     console.log('Using shipping-labels-2 bucket for label storage');
@@ -48,7 +43,6 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, format:
       const errorData = await buyResponse.json();
       console.error(`EasyPost purchase error for ${shipmentId}:`, errorData);
       
-      // Handle postage already exists - fetch existing data
       if (errorData.error?.code === 'SHIPMENT.POSTAGE.EXISTS') {
         console.log(`Postage already exists for ${shipmentId}, fetching existing data...`);
         const getResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
@@ -100,7 +94,7 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, format:
   }
 };
 
-const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: string, shipmentId: string, format: string = 'png'): Promise<string> => {
+const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: string, shipmentId: string, format: string = 'png'): Promise<string | null> => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -114,7 +108,7 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
     const response = await fetch(easyPostLabelUrl);
     if (!response.ok) {
       console.error(`Failed to download label: ${response.status} ${response.statusText}`);
-      return easyPostLabelUrl;
+      return null;
     }
     
     const labelBlob = await response.blob();
@@ -155,7 +149,7 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
       
     if (uploadError) {
       console.error(`Failed to upload after 3 attempts:`, uploadError);
-      return easyPostLabelUrl;
+      return null;
     }
     
     // Get public URL
@@ -164,12 +158,12 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
       .from(bucketName)
       .getPublicUrl(fileName);
       
-    console.log(`${format.toUpperCase()} label accessible at: ${urlData.publicUrl}`);
+    console.log(`${format.toUpperCase()} label stored successfully at: ${urlData.publicUrl}`);
     return urlData.publicUrl;
     
   } catch (error) {
     console.error('Error downloading and storing label:', error);
-    return easyPostLabelUrl;
+    return null;
   }
 };
 
@@ -205,7 +199,7 @@ serve(async (req) => {
           throw new Error('Missing EasyPost shipment ID or rate ID for label generation');
         }
 
-        // Generate labels in all three formats
+        // Generate labels in all three formats and store in Supabase
         const formats = ['PNG', 'PDF', 'ZPL'];
         const labelUrls = {};
         let mainLabelData = null;
@@ -220,7 +214,7 @@ serve(async (req) => {
               mainLabelData = labelData; // Use first successful format for main data
             }
 
-            // Store the label in Supabase
+            // Download and store the label in Supabase (NO EasyPost URLs exposed)
             const storedLabelUrl = await downloadAndStoreLabel(
               labelData.label_url, 
               labelData.tracking_code, 
@@ -228,8 +222,12 @@ serve(async (req) => {
               format.toLowerCase()
             );
 
-            labelUrls[format.toLowerCase()] = storedLabelUrl;
-            console.log(`✅ Successfully generated and stored ${format} label for shipment ${shipment.id}`);
+            if (storedLabelUrl) {
+              labelUrls[format.toLowerCase()] = storedLabelUrl;
+              console.log(`✅ Successfully generated and stored ${format} label for shipment ${shipment.id}`);
+            } else {
+              console.warn(`⚠️ Failed to store ${format} label for shipment ${shipment.id}`);
+            }
             
             // Add small delay between format generations
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -244,8 +242,8 @@ serve(async (req) => {
           const processedLabel = {
             ...shipment,
             ...mainLabelData,
-            label_url: labelUrls.png || labelUrls.pdf || Object.values(labelUrls)[0],
-            label_urls: labelUrls,
+            label_url: labelUrls.png || labelUrls.pdf || Object.values(labelUrls)[0], // Primary URL from Supabase
+            label_urls: labelUrls, // All format URLs from Supabase
             status: 'completed' as const,
             customer_name: mainLabelData.customer_name || shipment.details?.to_name || shipment.recipient,
             customer_address: mainLabelData.customer_address || `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
@@ -257,7 +255,7 @@ serve(async (req) => {
           processedLabels.push(processedLabel);
           console.log(`✅ Successfully processed all formats for shipment ${shipmentIndex}/${shipments.length}: ${shipment.id}`);
         } else {
-          throw new Error('Failed to generate any label formats');
+          throw new Error('Failed to generate and store any label formats');
         }
 
         // Add delay between shipments to avoid rate limiting (except for last shipment)
@@ -285,7 +283,7 @@ serve(async (req) => {
         total: shipments.length,
         successful: processedLabels.length,
         failed: failedLabels.length,
-        message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels in multiple formats`,
+        message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels in multiple formats (PNG, PDF, ZPL) - all stored in Supabase`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );

@@ -41,14 +41,15 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   
   console.log(`SuccessNotification - All shipments: ${allShipments.length}`, allShipments);
   
-  // Count shipments with labels
+  // Count shipments with Supabase-stored labels
   const shipmentsWithLabels = allShipments.filter(shipment => {
-    const hasLabel = !!(
-      (shipment.label_url && shipment.label_url.trim() !== '') ||
-      (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '') ||
+    const hasSupabaseLabel = !!(
+      (shipment.label_urls?.png && shipment.label_urls.png.includes('supabase')) ||
+      (shipment.label_urls?.pdf && shipment.label_urls.pdf.includes('supabase')) ||
+      (shipment.label_urls?.zpl && shipment.label_urls.zpl.includes('supabase')) ||
       shipment.status === 'completed'
     );
-    return hasLabel;
+    return hasSupabaseLabel;
   });
 
   // Count failed shipments
@@ -66,16 +67,16 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   // Show notification if we have shipments or results
   const shouldShowNotification = totalProcessed > 0 || results.total > 0 || results.successful > 0;
 
-  const downloadFile = async (url: string, filename: string) => {
+  const downloadFileFromSupabase = async (url: string, filename: string) => {
     try {
-      console.log('Downloading file from URL:', url);
+      console.log('Downloading file from Supabase URL:', url);
       
-      if (!url || url.trim() === '') {
-        toast.error('Invalid label URL - cannot download');
+      if (!url || url.trim() === '' || !url.includes('supabase')) {
+        toast.error('Invalid Supabase URL - cannot download');
         return;
       }
 
-      // Direct download approach
+      // Direct download approach for Supabase URLs
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
@@ -85,44 +86,45 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       link.click();
       document.body.removeChild(link);
       
-      toast.success(`Downloaded ${filename}`);
+      toast.success(`Downloaded ${filename} from Supabase`);
     } catch (error) {
       console.error('Download error:', error);
       toast.error(`Failed to download ${filename}`);
     }
   };
 
-  const handleDownloadAllIndividualLabels = async () => {
-    console.log('Downloading all individual labels, count:', shipmentsWithLabels.length);
+  const handleDownloadAllByFormat = async (format: 'png' | 'pdf' | 'zpl') => {
+    console.log(`Downloading all ${format.toUpperCase()} labels from Supabase`);
     
-    if (shipmentsWithLabels.length === 0) {
-      toast.error('No labels available for download');
+    const shipmentsWithFormat = shipmentsWithLabels.filter(shipment => 
+      shipment.label_urls?.[format] && shipment.label_urls[format].includes('supabase')
+    );
+    
+    if (shipmentsWithFormat.length === 0) {
+      toast.error(`No ${format.toUpperCase()} labels available for download`);
       return;
     }
 
-    toast.loading('Starting downloads...');
+    toast.loading(`Starting download of ${shipmentsWithFormat.length} ${format.toUpperCase()} labels...`);
     
-    let successCount = 0;
-    
-    for (let i = 0; i < shipmentsWithLabels.length; i++) {
-      const shipment = shipmentsWithLabels[i];
-      const labelUrl = shipment.label_urls?.png || shipment.label_url;
-      if (labelUrl && labelUrl.trim() !== '') {
+    for (let i = 0; i < shipmentsWithFormat.length; i++) {
+      const shipment = shipmentsWithFormat[i];
+      const labelUrl = shipment.label_urls[format];
+      if (labelUrl && labelUrl.includes('supabase')) {
         try {
           setTimeout(async () => {
             const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
-            await downloadFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.png`);
-            successCount++;
+            await downloadFileFromSupabase(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.${format}`);
           }, i * 500);
         } catch (error) {
-          console.error('Error downloading label for shipment:', shipment.id, error);
+          console.error(`Error downloading ${format} label for shipment:`, shipment.id, error);
         }
       }
     }
     
     toast.dismiss();
     setTimeout(() => {
-      toast.success(`Started download of ${shipmentsWithLabels.length} labels`);
+      toast.success(`Started download of ${shipmentsWithFormat.length} ${format.toUpperCase()} labels from Supabase`);
     }, 1000);
   };
 
@@ -146,7 +148,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             </h3>
             <p className="text-green-700">
               {hasLabels
-                ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created and are ready for download.`
+                ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created and stored in Supabase for download.`
                 : `${displayTotal} shipments have been processed and are ready for label creation.`
               }
               {displayFailed > 0 && ` ${displayFailed} shipments failed.`}
@@ -185,18 +187,34 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </div>
         </div>
 
-        {/* Download Buttons Section */}
+        {/* Download Buttons Section - All Formats from Supabase */}
         {hasLabels && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Labels</h4>
+            <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Labels from Supabase</h4>
             
-            <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <Button 
-                onClick={handleDownloadAllIndividualLabels}
+                onClick={() => handleDownloadAllByFormat('png')}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 <Download className="mr-2 h-4 w-4" />
-                Download All Labels ({shipmentsWithLabels.length} PNG files)
+                Download All PNG
+              </Button>
+              
+              <Button 
+                onClick={() => handleDownloadAllByFormat('pdf')}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Download All PDF
+              </Button>
+              
+              <Button 
+                onClick={() => handleDownloadAllByFormat('zpl')}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <File className="mr-2 h-4 w-4" />
+                Download All ZPL
               </Button>
             </div>
           </div>
@@ -221,17 +239,17 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         )}
       </Card>
 
-      {/* New Clean Table Display */}
+      {/* Updated Table Display with Supabase URLs */}
       {allShipments.length > 0 && (
         <LabelResultsTable
           shipments={allShipments}
           onDownloadLabel={(url: string, format?: string) => {
-            if (url && url.trim() !== '') {
+            if (url && url.trim() !== '' && url.includes('supabase')) {
               const timestamp = Date.now();
               const filename = `shipping_label_${timestamp}.${format || 'png'}`;
-              downloadFile(url, filename);
+              downloadFileFromSupabase(url, filename);
             } else {
-              toast.error('Invalid label URL - cannot download');
+              toast.error('Invalid Supabase URL - cannot download');
             }
           }}
         />
