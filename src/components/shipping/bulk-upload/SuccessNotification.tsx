@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Download, FileText, File } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
-import LabelResultsTable from './LabelResultsTable';
+import SuccessfulShipmentsTable from './SuccessfulShipmentsTable';
 import { toast } from '@/components/ui/sonner';
 
 interface SuccessNotificationProps {
@@ -136,110 +136,111 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   const displayFailed = failedShipments.length || results.failed || 0;
 
   return (
-    <div className="space-y-6">
-      <Card className="p-6 border-green-200 bg-green-50">
-        <div className="flex items-center space-x-3 mb-4">
-          <CheckCircle className="h-6 w-6 text-green-600" />
-          <div>
-            <h3 className="text-lg font-semibold text-green-800">
-              {hasLabels ? 'Labels Processing Complete!' : 'Shipments Processed Successfully!'}
-            </h3>
-            <p className="text-green-700">
-              {hasLabels
-                ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created and are ready for download.`
-                : `${displayTotal} shipments have been processed and are ready for label creation.`
-              }
-              {displayFailed > 0 && ` ${displayFailed} shipments failed.`}
-            </p>
-          </div>
+    <Card className="mt-6 p-6 border-green-200 bg-green-50">
+      <div className="flex items-center space-x-3 mb-4">
+        <CheckCircle className="h-6 w-6 text-green-600" />
+        <div>
+          <h3 className="text-lg font-semibold text-green-800">
+            {hasLabels ? 'Labels Processing Complete!' : 'Shipments Processed Successfully!'}
+          </h3>
+          <p className="text-green-700">
+            {hasLabels
+              ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created and are ready for download.`
+              : `${displayTotal} shipments have been processed and are ready for label creation.`
+            }
+            {displayFailed > 0 && ` ${displayFailed} shipments failed.`}
+          </p>
         </div>
+      </div>
 
-        {displayFailed > 0 && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p className="text-yellow-800 text-sm">
-              <strong>Note:</strong> {displayFailed} shipments failed to process. Please check the error details below.
-            </p>
-          </div>
-        )}
-
-        {/* Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg border border-green-200">
-            <div className="text-2xl font-bold text-green-600">{displayTotal}</div>
-            <div className="text-sm text-gray-600">Total Processed</div>
-          </div>
-          
-          <div className="bg-white p-4 rounded-lg border border-green-200">
-            <div className="text-2xl font-bold text-green-600">{displaySuccessful}</div>
-            <div className="text-sm text-gray-600">Labels Created</div>
-          </div>
-          
-          <div className="bg-white p-4 rounded-lg border border-red-200">
-            <div className="text-2xl font-bold text-red-600">{displayFailed}</div>
-            <div className="text-sm text-gray-600">Failed</div>
-          </div>
-          
-          <div className="bg-white p-4 rounded-lg border border-green-200">
-            <div className="text-2xl font-bold text-green-600">${results.totalCost?.toFixed(2) || '0.00'}</div>
-            <div className="text-sm text-gray-600">Total Shipping Cost</div>
-          </div>
+      {displayFailed > 0 && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+          <p className="text-yellow-800 text-sm">
+            <strong>Note:</strong> {displayFailed} shipments failed to process. Please check the error details below.
+          </p>
         </div>
+      )}
 
-        {/* Download Buttons Section */}
-        {hasLabels && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Labels</h4>
-            
-            <div className="flex flex-col gap-3">
-              <Button 
-                onClick={handleDownloadAllIndividualLabels}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download All Labels ({shipmentsWithLabels.length} PNG files)
-              </Button>
-            </div>
-          </div>
-        )}
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-lg border border-green-200">
+          <div className="text-2xl font-bold text-green-600">{displayTotal}</div>
+          <div className="text-sm text-gray-600">Total Processed</div>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg border border-green-200">
+          <div className="text-2xl font-bold text-green-600">{displaySuccessful}</div>
+          <div className="text-sm text-gray-600">Labels Created</div>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg border border-red-200">
+          <div className="text-2xl font-bold text-red-600">{displayFailed}</div>
+          <div className="text-sm text-gray-600">Failed</div>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg border border-green-200">
+          <div className="text-2xl font-bold text-green-600">${results.totalCost?.toFixed(2) || '0.00'}</div>
+          <div className="text-sm text-gray-600">Total Shipping Cost</div>
+        </div>
+      </div>
 
-        {/* Create Labels Button */}
-        {!hasLabels && displayTotal > 0 && (
-          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <h4 className="font-semibold text-lg text-yellow-800 mb-3">Create Shipping Labels</h4>
-            <p className="text-yellow-700 mb-3">
-              Your shipments have been processed. Click below to create and download shipping labels.
-            </p>
+      {/* Download Buttons Section */}
+      {hasLabels && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Labels</h4>
+          
+          <div className="flex flex-col gap-3">
             <Button 
-              onClick={onCreateLabels}
-              disabled={isCreatingLabels}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              size="lg"
+              onClick={handleDownloadAllIndividualLabels}
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
-              {isCreatingLabels ? 'Creating Labels...' : 'Create All Labels Now'}
+              <Download className="mr-2 h-4 w-4" />
+              Download All Labels ({shipmentsWithLabels.length} PNG files)
             </Button>
           </div>
-        )}
-      </Card>
+        </div>
+      )}
 
-      {/* New Clean Table Display */}
+      {/* Create Labels Button */}
+      {!hasLabels && displayTotal > 0 && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h4 className="font-semibold text-lg text-yellow-800 mb-3">Create Shipping Labels</h4>
+          <p className="text-yellow-700 mb-3">
+            Your shipments have been processed. Click below to create and download shipping labels.
+          </p>
+          <Button 
+            onClick={onCreateLabels}
+            disabled={isCreatingLabels}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            size="lg"
+          >
+            {isCreatingLabels ? 'Creating Labels...' : 'Create All Labels Now'}
+          </Button>
+        </div>
+      )}
+
+      {/* Shipments Table */}
       {allShipments.length > 0 && (
-        <LabelResultsTable
-          shipments={allShipments}
-          onDownloadLabel={(url: string, format?: string) => {
-            if (url && url.trim() !== '') {
-              const timestamp = Date.now();
-              const filename = `shipping_label_${timestamp}.${format || 'png'}`;
-              downloadFile(url, filename);
-            } else {
-              toast.error('Invalid label URL - cannot download');
-            }
-          }}
-        />
+        <div className="mt-6">
+          <SuccessfulShipmentsTable
+            shipments={allShipments}
+            onDownloadSingleLabel={(labelUrl: string, format?: string) => {
+              if (labelUrl && labelUrl.trim() !== '') {
+                const timestamp = Date.now();
+                const filename = `shipping_label_${timestamp}.${format || 'png'}`;
+                downloadFile(labelUrl, filename);
+              } else {
+                toast.error('Invalid label URL - cannot download');
+              }
+            }}
+            onDownloadAllLabels={handleDownloadAllIndividualLabels}
+          />
+        </div>
       )}
 
       {/* Failed Shipments Details */}
       {results.failedShipments && results.failedShipments.length > 0 && (
-        <Card className="p-6">
+        <div className="mt-6">
           <h4 className="font-medium text-red-800 mb-3">Failed Shipments Details</h4>
           <div className="bg-red-50 border border-red-200 rounded-md p-4 max-h-60 overflow-y-auto">
             {results.failedShipments.map((failed, index) => (
@@ -251,9 +252,9 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       )}
-    </div>
+    </Card>
   );
 };
 

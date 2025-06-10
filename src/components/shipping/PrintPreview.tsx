@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Printer, Download, File, FileArchive, X, FileImage, FileText } from 'lucide-react';
+import { Printer, Download, File, FileArchive, X } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
@@ -27,11 +27,6 @@ interface PrintPreviewProps {
   };
   onFormatChange?: (format: string) => Promise<void>;
   shipmentId?: string;
-  labelUrls?: {
-    png?: string;
-    pdf?: string;
-    zpl?: string;
-  };
 }
 
 const PrintPreview: React.FC<PrintPreviewProps> = ({ 
@@ -39,11 +34,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   trackingCode, 
   shipmentDetails,
   onFormatChange,
-  shipmentId,
-  labelUrls
+  shipmentId
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState('4x6');
+  const [selectedFileFormat, setSelectedFileFormat] = useState<'pdf' | 'png'>('pdf');
   const contentRef = useRef<HTMLDivElement>(null);
   const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
   const [currentLabelUrl, setCurrentLabelUrl] = useState(labelUrl);
@@ -65,6 +60,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     if (onFormatChange) {
       try {
         setIsRegeneratingLabel(true);
+        // Call the provided function to update the label format
         await onFormatChange(format);
         setIsRegeneratingLabel(false);
         toast.success(`Label format changed to ${format}`);
@@ -76,23 +72,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const handleDownloadFormat = (format: 'png' | 'pdf' | 'zpl') => {
-    const url = labelUrls?.[format];
-    if (!url) {
-      toast.error(`${format.toUpperCase()} format not available for this label`);
-      return;
-    }
-
+  const handleDownload = (format: 'pdf' | 'png' = 'pdf') => {
     try {
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `shipping_label_${trackingCode || Date.now()}.${format}`;
-      link.target = '_blank';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
+      window.open(currentLabelUrl, '_blank');
       toast.success(`Downloading ${format.toUpperCase()} label`);
     } catch (error) {
       console.error("Error downloading label:", error);
@@ -103,31 +85,31 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50">
-          <Eye className="h-3 w-3 mr-1" />
-          Print Preview
+        <Button variant="outline" className="flex items-center gap-2 bg-white border-purple-200 hover:bg-purple-50">
+          <Printer className="h-4 w-4" /> Print Label
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-5xl bg-white">
+      <DialogContent className="max-w-4xl bg-white">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Shipping Label Preview</span>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setIsOpen(false)}
-              disabled={isRegeneratingLabel}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <span>Shipping Label</span>
+            <div className="flex gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setIsOpen(false)}
+                disabled={isRegeneratingLabel}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="preview" className="w-full">
-          <TabsList className="grid grid-cols-3 mb-4">
+          <TabsList className="grid grid-cols-2 mb-4">
             <TabsTrigger value="preview">Preview</TabsTrigger>
-            <TabsTrigger value="international">International Options</TabsTrigger>
-            <TabsTrigger value="print">Print Settings</TabsTrigger>
+            <TabsTrigger value="download">Download</TabsTrigger>
           </TabsList>
           
           <TabsContent value="preview">
@@ -161,6 +143,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             </div>
 
             <div ref={contentRef} className="p-6 bg-white">
+              {/* Label Image */}
               <div className="mb-6">
                 <div className="mb-3 text-sm text-gray-500">
                   {isRegeneratingLabel ? (
@@ -237,93 +220,41 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             </div>
           </TabsContent>
 
-          <TabsContent value="international">
+          <TabsContent value="download">
             <div className="space-y-6 p-4">
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Download Label in Multiple Formats</h3>
-                <p className="text-sm text-gray-600 mb-6">
-                  Choose from different label formats for various printer types and international shipping requirements.
-                </p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* PNG Format */}
-                <div className="border rounded-lg p-4 text-center hover:border-green-300 transition-colors">
-                  <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
-                  <h4 className="font-medium mb-2">PNG Format</h4>
-                  <p className="text-xs text-gray-500 mb-4">
-                    High-quality image format. Perfect for most standard printers and email attachments.
-                  </p>
-                  <Button 
-                    onClick={() => handleDownloadFormat('png')}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                    disabled={!labelUrls?.png}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download PNG
-                  </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div 
+                  className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
+                    ${selectedFileFormat === 'pdf' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
+                  `}
+                  onClick={() => setSelectedFileFormat('pdf')}
+                >
+                  <File className="h-12 w-12 mx-auto mb-2 text-blue-600" />
+                  <h4 className="font-medium">PDF Format</h4>
+                  <p className="text-xs text-gray-500">Best for printing</p>
                 </div>
-
-                {/* PDF Format */}
-                <div className="border rounded-lg p-4 text-center hover:border-blue-300 transition-colors">
-                  <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
-                  <h4 className="font-medium mb-2">PDF Format</h4>
-                  <p className="text-xs text-gray-500 mb-4">
-                    Professional document format. Ideal for printing and archiving shipment records.
-                  </p>
-                  <Button 
-                    onClick={() => handleDownloadFormat('pdf')}
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    disabled={!labelUrls?.pdf}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download PDF
-                  </Button>
-                </div>
-
-                {/* ZPL Format */}
-                <div className="border rounded-lg p-4 text-center hover:border-purple-300 transition-colors">
-                  <FileText className="h-12 w-12 mx-auto mb-3 text-purple-600" />
-                  <h4 className="font-medium mb-2">ZPL Format</h4>
-                  <p className="text-xs text-gray-500 mb-4">
-                    Zebra Programming Language. Optimized for thermal label printers and industrial use.
-                  </p>
-                  <Button 
-                    onClick={() => handleDownloadFormat('zpl')}
-                    className="w-full bg-purple-600 hover:bg-purple-700"
-                    disabled={!labelUrls?.zpl}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download ZPL
-                  </Button>
+                
+                <div 
+                  className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
+                    ${selectedFileFormat === 'png' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}
+                  `}
+                  onClick={() => setSelectedFileFormat('png')}
+                >
+                  <File className="h-12 w-12 mx-auto mb-2 text-green-600" />
+                  <h4 className="font-medium">PNG Format</h4>
+                  <p className="text-xs text-gray-500">Image format</p>
                 </div>
               </div>
-
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                <h4 className="font-medium text-blue-800 mb-2">Format Recommendations:</h4>
-                <ul className="text-sm text-blue-700 space-y-1">
-                  <li>• <strong>PNG:</strong> Best for standard office printers and sharing via email</li>
-                  <li>• <strong>PDF:</strong> Professional format for documentation and multi-page printing</li>
-                  <li>• <strong>ZPL:</strong> Required for Zebra thermal printers and warehouse operations</li>
-                </ul>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="print">
-            <div className="space-y-4 p-4">
-              <h3 className="text-lg font-semibold">Print Settings</h3>
-              <p className="text-sm text-gray-600">
-                Configure your print settings for optimal label output.
-              </p>
               
               <Button 
-                onClick={handlePrint} 
-                className="w-full h-12 bg-purple-600 hover:bg-purple-700"
+                onClick={() => handleDownload(selectedFileFormat)} 
+                className={`w-full h-12 ${
+                  selectedFileFormat === 'pdf' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'
+                }`}
                 disabled={isRegeneratingLabel}
               >
-                <Printer className="mr-2 h-5 w-5" />
-                Print Label Now
+                <Download className="mr-2 h-5 w-5" />
+                Download {selectedFileFormat.toUpperCase()} File
               </Button>
             </div>
           </TabsContent>
