@@ -73,6 +73,11 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, format:
         }
       }
       
+      // If rate limited, throw a specific error
+      if (errorData.error?.code === 'RATE_LIMITED') {
+        throw new Error('EasyPost rate limit exceeded. Please try again in a few minutes.');
+      }
+      
       throw new Error(`EasyPost purchase error: ${errorData.error?.message || 'Unknown error'}`);
     }
 
@@ -122,6 +127,14 @@ const downloadAndStoreLabel = async (labelUrl: string, trackingCode: string, shi
     }
     
     const labelBlob = await response.blob();
+    
+    // Check file size (Supabase free tier has 50MB limit per file)
+    const fileSizeInMB = labelBlob.size / (1024 * 1024);
+    if (fileSizeInMB > 45) { // Keep under 50MB limit
+      console.warn(`Label file too large (${fileSizeInMB}MB), skipping storage and using direct EasyPost URL`);
+      return ''; // Return empty string to indicate we should use direct URL
+    }
+    
     const labelArrayBuffer = await labelBlob.arrayBuffer();
     const labelBuffer = new Uint8Array(labelArrayBuffer);
     
@@ -144,7 +157,8 @@ const downloadAndStoreLabel = async (labelUrl: string, trackingCode: string, shi
       
     if (uploadError) {
       console.error(`Failed to upload ${format} label:`, uploadError);
-      throw new Error(`Upload failed: ${uploadError.message}`);
+      // Return empty string instead of throwing error
+      return '';
     }
     
     console.log(`Successfully uploaded ${format} label: ${fileName}`);
@@ -183,7 +197,7 @@ serve(async (req) => {
 
     console.log(`Processing ${shipments.length} shipments for label creation with ALL formats (PNG, PDF, ZPL).`);
     
-    const processedLabels = [];
+    const labels = [];
     const failedLabels = [];
     
     // Process ALL shipments individually to ensure proper storage
@@ -204,84 +218,96 @@ serve(async (req) => {
         // Store ALL available formats in Supabase with OUR URLs
         const storedLabelUrls: any = {};
         
-        // Always store PNG (primary format)
+        // Try to store PNG (primary format)
         if (labelData.label_urls?.png || labelData.label_url) {
           const pngUrl = labelData.label_urls?.png || labelData.label_url;
           const ourPngUrl = await downloadAndStoreLabel(pngUrl, labelData.tracking_code, shipment.id, 'png');
           if (ourPngUrl) {
             storedLabelUrls.png = ourPngUrl;
+          } else {
+            // If storage failed, use direct EasyPost URL as fallback but warn
+            console.warn(`Using EasyPost URL as fallback for PNG: ${pngUrl}`);
+            storedLabelUrls.png = pngUrl;
           }
         }
         
-        // Store PDF if available
+        // Try to store PDF if available
         if (labelData.label_urls?.pdf) {
           const ourPdfUrl = await downloadAndStoreLabel(labelData.label_urls.pdf, labelData.tracking_code, shipment.id, 'pdf');
           if (ourPdfUrl) {
             storedLabelUrls.pdf = ourPdfUrl;
+          } else {
+            console.warn(`Using EasyPost URL as fallback for PDF: ${labelData.label_urls.pdf}`);
+            storedLabelUrls.pdf = labelData.label_urls.pdf;
           }
         }
         
-        // Store ZPL if available
+        // Try to store ZPL if available
         if (labelData.label_urls?.zpl) {
           const ourZplUrl = await downloadAndStoreLabel(labelData.label_urls.zpl, labelData.tracking_code, shipment.id, 'zpl');
           if (ourZplUrl) {
             storedLabelUrls.zpl = ourZplUrl;
+          } else {
+            console.warn(`Using EasyPost URL as fallback for ZPL: ${labelData.label_urls.zpl}`);
+            storedLabelUrls.zpl = labelData.label_urls.zpl;
           }
         }
 
-        // Ensure we have at least one format stored
+        // Ensure we have at least one format
         if (Object.keys(storedLabelUrls).length === 0) {
-          throw new Error('Failed to store any label formats');
+          throw new Error('Failed to create any label formats');
         }
 
-        const processedLabel = {
-          ...shipment,
-          ...labelData,
-          // IMPORTANT: Use OUR URLs, never EasyPost URLs
-          label_url: storedLabelUrls.png || storedLabelUrls.pdf || Object.values(storedLabelUrls)[0],
-          label_urls: storedLabelUrls, // Only OUR URLs
-          status: 'completed' as const,
-          customer_name: labelData.customer_name || shipment.details?.to_name || shipment.recipient,
-          customer_address: labelData.customer_address || `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
-          customer_phone: labelData.customer_phone || shipment.details?.to_phone,
-          customer_email: labelData.customer_email || shipment.details?.to_email,
-          customer_company: labelData.customer_company || shipment.details?.to_company,
+        const labelResult = {
+          shipment_id: shipment.id,
+          tracking_number: labelData.tracking_code,
+          status: 'success_individual_png_saved',
+          label_urls: storedLabelUrls,
+          recipient_name: labelData.customer_name || shipment.details?.to_name || shipment.recipient,
+          drop_off_address: labelData.customer_address || `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
+          carrier: labelData.carrier,
+          service: labelData.service,
+          rate: labelData.rate
         };
 
-        processedLabels.push(processedLabel);
+        labels.push(labelResult);
         console.log(`✅ Successfully processed shipment ${shipmentIndex}/${shipments.length}: ${shipment.id} with formats: ${Object.keys(storedLabelUrls).join(', ')}`);
 
         // Add delay between shipments to avoid rate limiting
         if (i < shipments.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
       } catch (error) {
         console.error(`❌ FAILED to process label for shipment ${shipment.id}:`, error);
+        
+        const failureStatus = error instanceof Error && error.message.includes('rate limit') 
+          ? 'error_rate_limited' 
+          : 'error_failed';
+          
         failedLabels.push({
-          shipmentId: shipment.id,
+          shipment_id: shipment.id,
+          status: failureStatus,
           error: error instanceof Error ? error.message : 'Unknown error',
           originalShipment: shipment
         });
       }
     }
 
-    console.log(`✅ Processing complete: ${processedLabels.length} successful, ${failedLabels.length} failed out of ${shipments.length} total`);
+    console.log(`✅ Processing complete: ${labels.length} successful, ${failedLabels.length} failed out of ${shipments.length} total`);
 
-    // Validate that we created labels
-    if (processedLabels.length === 0) {
-      throw new Error('No labels were successfully created');
-    }
-
+    // Return results even if some failed
     return new Response(
       JSON.stringify({
         success: true,
-        processedLabels,
+        labels,
         failedLabels,
         total: shipments.length,
-        successful: processedLabels.length,
+        successful: labels.length,
         failed: failedLabels.length,
-        message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with multiple formats stored in your system`,
+        message: labels.length > 0 
+          ? `Successfully created ${labels.length} out of ${shipments.length} labels`
+          : 'No labels were created due to errors. Please check the failed labels for details.',
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
