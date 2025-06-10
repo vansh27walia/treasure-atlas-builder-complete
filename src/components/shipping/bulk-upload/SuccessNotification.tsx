@@ -26,7 +26,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 }) => {
   console.log('SuccessNotification received results:', results);
 
-  // Safely get shipments array
+  // Safely get shipments array - handle both array and object formats
   let allShipments = [];
   if (Array.isArray(results.processedShipments)) {
     allShipments = results.processedShipments;
@@ -41,13 +41,17 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   
   console.log(`SuccessNotification - All shipments: ${allShipments.length}`, allShipments);
   
-  // Count shipments with labels
+  // Count shipments with labels (successful ones)
   const shipmentsWithLabels = allShipments.filter(shipment => {
     const hasLabel = !!(
       (shipment.label_url && shipment.label_url.trim() !== '') ||
       (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '') ||
       shipment.status === 'completed'
     );
+    console.log('Shipment label check:', shipment.id, 'status:', shipment.status, 'hasLabel:', hasLabel, {
+      label_url: shipment.label_url,
+      label_urls_png: shipment.label_urls?.png
+    });
     return hasLabel;
   });
 
@@ -57,29 +61,50 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   console.log('SuccessNotification Debug:', {
     totalShipments: allShipments.length,
     shipmentsWithLabels: shipmentsWithLabels.length,
-    failedShipments: failedShipments.length
+    failedShipments: failedShipments.length,
+    bulkPngUrl: results.bulk_label_png_url,
+    bulkPdfUrl: results.bulk_label_pdf_url,
+    resultsTotal: results.total,
+    resultsSuccessful: results.successful
   });
 
   const hasLabels = shipmentsWithLabels.length > 0;
   const totalProcessed = allShipments.length;
+  const hasBulkLabels = !!(results.bulk_label_png_url || results.bulk_label_pdf_url);
 
   // Show notification if we have shipments or results
   const shouldShowNotification = totalProcessed > 0 || results.total > 0 || results.successful > 0;
+
+  console.log('SuccessNotification shouldShowNotification:', shouldShowNotification);
 
   const downloadFile = async (url: string, filename: string) => {
     try {
       console.log('Downloading file from URL:', url);
       
+      // Validate URL before attempting download
       if (!url || url.trim() === '') {
         toast.error('Invalid label URL - cannot download');
         return;
       }
 
-      // Direct download approach
+      // Check if URL is accessible
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+      } catch (fetchError) {
+        console.error('URL not accessible:', fetchError);
+        toast.error(`Label file not accessible: ${fetchError.message}`);
+        return;
+      }
+      
+      // Create download link
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
       link.target = '_blank';
+      link.setAttribute('crossorigin', 'anonymous');
       
       document.body.appendChild(link);
       link.click();
@@ -88,7 +113,24 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
       console.error('Download error:', error);
-      toast.error(`Failed to download ${filename}`);
+      toast.error(`Failed to download ${filename}: ${error.message}`);
+    }
+  };
+
+  const handleDownloadBulkPNG = async () => {
+    if (results.bulk_label_png_url) {
+      await downloadFile(results.bulk_label_png_url, `bulk_shipping_labels_${Date.now()}.png`);
+    } else {
+      // If no bulk URL, download all individual labels
+      await handleDownloadAllIndividualLabels();
+    }
+  };
+
+  const handleDownloadBulkPDF = async () => {
+    if (results.bulk_label_pdf_url) {
+      await downloadFile(results.bulk_label_pdf_url, `bulk_shipping_labels_${Date.now()}.pdf`);
+    } else {
+      toast.error('Bulk PDF not available');
     }
   };
 
@@ -103,6 +145,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     toast.loading('Starting downloads...');
     
     let successCount = 0;
+    let failCount = 0;
     
     for (let i = 0; i < shipmentsWithLabels.length; i++) {
       const shipment = shipmentsWithLabels[i];
@@ -110,24 +153,40 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       if (labelUrl && labelUrl.trim() !== '') {
         try {
           setTimeout(async () => {
-            const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
-            await downloadFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.png`);
-            successCount++;
+            try {
+              const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
+              await downloadFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.png`);
+              successCount++;
+            } catch (error) {
+              console.error('Error downloading label for shipment:', shipment.id, error);
+              failCount++;
+            }
           }, i * 500);
         } catch (error) {
-          console.error('Error downloading label for shipment:', shipment.id, error);
+          console.error('Error scheduling download for shipment:', shipment.id, error);
+          failCount++;
         }
+      } else {
+        console.warn('No valid label URL for shipment:', shipment.id);
+        failCount++;
       }
     }
     
     toast.dismiss();
+    
     setTimeout(() => {
-      toast.success(`Started download of ${shipmentsWithLabels.length} labels`);
+      if (successCount > 0) {
+        toast.success(`Started download of ${successCount} labels`);
+      }
+      if (failCount > 0) {
+        toast.error(`${failCount} labels failed to download`);
+      }
     }, 1000);
   };
 
   // Don't show if no data
   if (!shouldShowNotification) {
+    console.log('No shipments or results to show, not showing success notification');
     return null;
   }
 
@@ -141,10 +200,10 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         <CheckCircle className="h-6 w-6 text-green-600" />
         <div>
           <h3 className="text-lg font-semibold text-green-800">
-            {hasLabels ? 'Labels Processing Complete!' : 'Shipments Processed Successfully!'}
+            {hasLabels || hasBulkLabels ? 'Labels Processing Complete!' : 'Shipments Processed Successfully!'}
           </h3>
           <p className="text-green-700">
-            {hasLabels
+            {hasLabels || hasBulkLabels
               ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created and are ready for download.`
               : `${displayTotal} shipments have been processed and are ready for label creation.`
             }
@@ -184,25 +243,66 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
       </div>
 
-      {/* Download Buttons Section */}
-      {hasLabels && (
+      {/* Download Buttons Section - Always visible when labels exist */}
+      {(hasLabels || hasBulkLabels) && (
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Labels</h4>
           
-          <div className="flex flex-col gap-3">
-            <Button 
-              onClick={handleDownloadAllIndividualLabels}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download All Labels ({shipmentsWithLabels.length} PNG files)
-            </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Bulk Downloads */}
+            <div>
+              <h5 className="font-medium text-blue-700 mb-2">Bulk Downloads</h5>
+              <div className="flex flex-col gap-2">
+                <Button 
+                  onClick={handleDownloadBulkPNG}
+                  className="bg-green-600 hover:bg-green-700 text-white w-full"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download All Labels (PNG)
+                </Button>
+                
+                {results.bulk_label_pdf_url && (
+                  <Button 
+                    onClick={handleDownloadBulkPDF}
+                    className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+                  >
+                    <File className="mr-2 h-4 w-4" />
+                    Download All Labels (PDF)
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Individual Downloads */}
+            {hasLabels && (
+              <div>
+                <h5 className="font-medium text-blue-700 mb-2">Individual Downloads</h5>
+                <div className="flex flex-col gap-2">
+                  <Button 
+                    onClick={handleDownloadAllIndividualLabels}
+                    className="bg-purple-600 hover:bg-purple-700 text-white w-full"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Individual Labels ({shipmentsWithLabels.length})
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={() => window.print()}
+                    className="border-blue-200 hover:bg-blue-50 w-full"
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Print Summary
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Create Labels Button */}
-      {!hasLabels && displayTotal > 0 && (
+      {/* Create Labels Button - show if no labels exist yet but we have processed shipments */}
+      {!hasLabels && !hasBulkLabels && displayTotal > 0 && (
         <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <h4 className="font-semibold text-lg text-yellow-800 mb-3">Create Shipping Labels</h4>
           <p className="text-yellow-700 mb-3">
@@ -219,7 +319,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
       )}
 
-      {/* Shipments Table */}
+      {/* ALWAYS show the SuccessfulShipmentsTable when we have processed shipments */}
       {allShipments.length > 0 && (
         <div className="mt-6">
           <SuccessfulShipmentsTable
