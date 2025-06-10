@@ -1,9 +1,12 @@
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
 import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
 import BulkUploadForm from './bulk-upload/BulkUploadForm';
+import BulkUploadProgress from './bulk-upload/BulkUploadProgress';
+import LabelBatchDisplay from './bulk-upload/LabelBatchDisplay';
+import PrintPreviewModal from './bulk-upload/PrintPreviewModal';
 import SuccessNotification from './bulk-upload/SuccessNotification';
 import UploadError from './bulk-upload/UploadError';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
@@ -18,6 +21,15 @@ import { toast } from '@/components/ui/sonner';
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [labelCreationProgress, setLabelCreationProgress] = useState({
+    totalShipments: 0,
+    processedCount: 0,
+    successCount: 0,
+    failedCount: 0,
+    currentOperation: '',
+    isComplete: false
+  });
   
   const {
     file,
@@ -101,8 +113,89 @@ const BulkUpload: React.FC = () => {
     }
   };
 
-  // Safely get processed shipments count
+  // Safely get processed shipments count and successful shipments
   const processedShipmentsCount = results?.processedShipments?.length || 0;
+  const successfulShipments = results?.processedShipments?.filter(s => s.status === 'completed') || [];
+
+  const handleCreateLabelsWithProgress = async () => {
+    if (!results?.processedShipments || results.processedShipments.length === 0) {
+      toast.error("No shipments available for label creation");
+      return;
+    }
+
+    if (!pickupAddress) {
+      toast.error("Please select a pickup address before creating labels");
+      return;
+    }
+
+    // Validate that ALL shipments have selected rates
+    const shipmentsWithoutRates = results.processedShipments.filter(shipment => 
+      !shipment.selectedRateId || !shipment.easypost_id
+    );
+
+    if (shipmentsWithoutRates.length > 0) {
+      toast.error(`${shipmentsWithoutRates.length} shipment(s) don't have rates selected. Please select rates for all shipments before creating labels.`);
+      return;
+    }
+
+    // Initialize progress
+    const totalShipments = results.processedShipments.length;
+    setLabelCreationProgress({
+      totalShipments,
+      processedCount: 0,
+      successCount: 0,
+      failedCount: 0,
+      currentOperation: 'Initializing batch processing...',
+      isComplete: false
+    });
+
+    try {
+      await handleCreateLabels();
+    } catch (error) {
+      console.error("Label creation failed:", error);
+      toast.error("Label creation failed. Please try again.");
+    }
+  };
+
+  const handleDownloadAllWithFormat = (format: string) => {
+    if (!results?.processedShipments) return;
+    
+    const labelsWithFormat = results.processedShipments.filter(shipment => {
+      if (format === 'zip') return shipment.label_urls?.png || shipment.label_url;
+      return shipment.label_urls?.[format as keyof typeof shipment.label_urls];
+    });
+
+    if (labelsWithFormat.length === 0) {
+      toast.error(`No labels available in ${format.toUpperCase()} format`);
+      return;
+    }
+
+    if (format === 'zip') {
+      // Trigger multiple downloads with staggered timing
+      labelsWithFormat.forEach((shipment, index) => {
+        setTimeout(() => {
+          const url = shipment.label_urls?.png || shipment.label_url;
+          if (url) {
+            const filename = `label_${shipment.tracking_code || shipment.tracking_number}_${index + 1}.png`;
+            handleDownloadSingleLabel(url);
+          }
+        }, index * 300);
+      });
+      
+      toast.success(`Started download of ${labelsWithFormat.length} labels`);
+    } else {
+      handleDownloadLabelsWithFormat(format as any);
+    }
+  };
+
+  const handlePrintPreview = () => {
+    if (!results?.processedShipments || results.processedShipments.length === 0) {
+      toast.error("No labels available for print preview");
+      return;
+    }
+    
+    setShowPrintPreview(true);
+  };
 
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
@@ -214,8 +307,8 @@ const BulkUpload: React.FC = () => {
                   </Button>
                   
                   <Button
-                    onClick={handleCreateLabels}
-                    disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress}
+                    onClick={handleCreateLabelsWithProgress}
+                    disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress || isCreatingLabels}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
                     {isPaying || isCreatingLabels ? 'Processing...' : 'Create Labels'} 
@@ -228,7 +321,34 @@ const BulkUpload: React.FC = () => {
         </div>
       )}
       
-      {uploadStatus === 'success' && results && (
+      {uploadStatus === 'success' && results && successfulShipments.length > 0 && (
+        <div className="mt-6">
+          <LabelBatchDisplay
+            labels={results.processedShipments.map(shipment => ({
+              id: shipment.id,
+              tracking_code: shipment.tracking_code || shipment.tracking_number || '',
+              label_urls: shipment.label_urls || {
+                png: shipment.label_url,
+                pdf: shipment.label_url,
+                zpl: shipment.label_url
+              },
+              carrier: shipment.carrier || 'Unknown',
+              service: shipment.service || '',
+              customer_name: shipment.customer_name || shipment.recipient || 'Unknown',
+              customer_address: shipment.customer_address || '',
+              rate: shipment.rate || 0,
+              status: (shipment.status === 'completed' || shipment.status === 'failed') ? shipment.status : 'completed',
+              error: shipment.error
+            }))}
+            onDownloadSingle={(url, format, filename) => handleDownloadSingleLabel(url)}
+            onDownloadAll={handleDownloadAllWithFormat}
+            onPrintPreview={handlePrintPreview}
+          />
+        </div>
+      )}
+      
+      {/* Legacy Success Notification for backward compatibility */}
+      {uploadStatus === 'success' && results && successfulShipments.length === 0 && (
         <SuccessNotification
           results={results}
           onDownloadAllLabels={handleDownloadAllLabels}
@@ -253,6 +373,23 @@ const BulkUpload: React.FC = () => {
         onFormatSelect={handleDownloadLabelsWithFormat}
         onEmailLabels={() => handleEmailLabels("")}
         shipmentCount={processedShipmentsCount}
+      />
+      
+      <PrintPreviewModal
+        open={showPrintPreview}
+        onOpenChange={setShowPrintPreview}
+        labels={successfulShipments.map(shipment => ({
+          id: shipment.id,
+          tracking_code: shipment.tracking_code || shipment.tracking_number || '',
+          label_urls: shipment.label_urls || {
+            png: shipment.label_url,
+            pdf: shipment.label_url,
+            zpl: shipment.label_url
+          },
+          carrier: shipment.carrier || 'Unknown',
+          customer_name: shipment.customer_name || shipment.recipient || 'Unknown',
+          customer_address: shipment.customer_address || ''
+        }))}
       />
     </Card>
   );
