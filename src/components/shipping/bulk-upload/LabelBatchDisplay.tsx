@@ -64,9 +64,9 @@ const LabelBatchDisplay: React.FC<LabelBatchDisplayProps> = ({
     onDownloadSingle(url, format, filename);
   };
 
-  // Calculate total cost properly
+  // Calculate total cost properly with explicit type handling
   const totalCost = successfulLabels.reduce((sum, label) => {
-    const rate = typeof label.rate === 'number' ? label.rate : parseFloat(label.rate?.toString() || '0');
+    const rate = typeof label.rate === 'number' ? label.rate : parseFloat(String(label.rate) || '0');
     return sum + (isNaN(rate) ? 0 : rate);
   }, 0);
 
@@ -163,7 +163,7 @@ const LabelBatchDisplay: React.FC<LabelBatchDisplayProps> = ({
               <div className="space-y-1 text-xs">
                 <div className="font-medium">{label.customer_name}</div>
                 <div className="text-gray-600 line-clamp-2">{label.customer_address}</div>
-                <div className="text-gray-600">{label.service} • ${typeof label.rate === 'number' ? label.rate.toFixed(2) : parseFloat(label.rate?.toString() || '0').toFixed(2)}</div>
+                <div className="text-gray-600">{label.service} • ${typeof label.rate === 'number' ? label.rate.toFixed(2) : parseFloat(String(label.rate) || '0').toFixed(2)}</div>
               </div>
 
               {/* Download Options */}
