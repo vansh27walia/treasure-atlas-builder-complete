@@ -64,9 +64,25 @@ const LabelBatchDisplay: React.FC<LabelBatchDisplayProps> = ({
     onDownloadSingle(url, format, filename);
   };
 
+  // Calculate total cost properly
+  const totalCost = successfulLabels.reduce((sum, label) => {
+    const rate = typeof label.rate === 'number' ? label.rate : parseFloat(label.rate?.toString() || '0');
+    return sum + (isNaN(rate) ? 0 : rate);
+  }, 0);
+
+  // Get available formats from the actual labels
   const availableFormats = ['png', 'pdf', 'zpl'].filter(format => 
     successfulLabels.some(label => label.label_urls[format as keyof typeof label.label_urls])
   );
+
+  // Count labels per format
+  const formatCounts = {
+    png: successfulLabels.filter(label => label.label_urls.png).length,
+    pdf: successfulLabels.filter(label => label.label_urls.pdf).length,
+    zpl: successfulLabels.filter(label => label.label_urls.zpl).length
+  };
+
+  console.log('🔍 Label format availability:', formatCounts);
 
   return (
     <div className="space-y-6">
@@ -78,9 +94,12 @@ const LabelBatchDisplay: React.FC<LabelBatchDisplayProps> = ({
               Batch Complete: {successfulLabels.length} Labels Generated
             </h3>
             <p className="text-sm text-gray-600">
-              Total cost: ${successfulLabels.reduce((sum, label) => sum + label.rate, 0).toFixed(2)}
+              Total cost: ${totalCost.toFixed(2)}
               {failedLabels.length > 0 && ` • ${failedLabels.length} failed`}
             </p>
+            <div className="text-xs text-gray-500 mt-1">
+              Formats available: PNG({formatCounts.png}), PDF({formatCounts.pdf}), ZPL({formatCounts.zpl})
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -93,17 +112,21 @@ const LabelBatchDisplay: React.FC<LabelBatchDisplayProps> = ({
               <span>Print Preview</span>
             </Button>
 
-            {availableFormats.map(format => (
-              <Button
-                key={format}
-                onClick={() => onDownloadAll(format)}
-                className={`flex items-center space-x-1 ${formatColors[format as keyof typeof formatColors]}`}
-                variant="outline"
-              >
-                {React.createElement(formatIcons[format as keyof typeof formatIcons], { className: "h-4 w-4" })}
-                <span>All {format.toUpperCase()}</span>
-              </Button>
-            ))}
+            {availableFormats.map(format => {
+              const count = formatCounts[format as keyof typeof formatCounts];
+              return (
+                <Button
+                  key={format}
+                  onClick={() => onDownloadAll(format)}
+                  className={`flex items-center space-x-1 ${formatColors[format as keyof typeof formatColors]}`}
+                  variant="outline"
+                  disabled={count === 0}
+                >
+                  {React.createElement(formatIcons[format as keyof typeof formatIcons], { className: "h-4 w-4" })}
+                  <span>All {format.toUpperCase()} ({count})</span>
+                </Button>
+              );
+            })}
 
             <Button
               onClick={() => onDownloadAll('zip')}
@@ -140,7 +163,7 @@ const LabelBatchDisplay: React.FC<LabelBatchDisplayProps> = ({
               <div className="space-y-1 text-xs">
                 <div className="font-medium">{label.customer_name}</div>
                 <div className="text-gray-600 line-clamp-2">{label.customer_address}</div>
-                <div className="text-gray-600">{label.service} • ${label.rate.toFixed(2)}</div>
+                <div className="text-gray-600">{label.service} • ${typeof label.rate === 'number' ? label.rate.toFixed(2) : parseFloat(label.rate?.toString() || '0').toFixed(2)}</div>
               </div>
 
               {/* Download Options */}
@@ -157,6 +180,7 @@ const LabelBatchDisplay: React.FC<LabelBatchDisplayProps> = ({
                       disabled={!url}
                       onClick={() => handleDownloadSingle(label, format)}
                       className={`text-xs ${url ? formatColors[format] : 'opacity-50'}`}
+                      title={url ? `Download ${format.toUpperCase()}` : `${format.toUpperCase()} not available`}
                     >
                       <IconComponent className="h-3 w-3 mr-1" />
                       {format.toUpperCase()}

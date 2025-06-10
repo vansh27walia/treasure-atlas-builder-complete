@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -112,9 +113,6 @@ const BulkUpload: React.FC = () => {
     }
   };
 
-  // Safely get processed shipments count
-  const processedShipmentsCount = results?.processedShipments?.length || 0;
-
   const handleCreateLabelsWithProgress = async () => {
     if (!results?.processedShipments || results.processedShipments.length === 0) {
       toast.error("No shipments available for label creation");
@@ -196,7 +194,7 @@ const BulkUpload: React.FC = () => {
   };
 
   const successfulShipments = results?.processedShipments?.filter(s => s.status === 'completed') || [];
-  const processedShipmentsCount = results?.processedShipments?.length || 0;
+  const totalShipmentsCount = results?.processedShipments?.length || 0;
 
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
@@ -222,6 +220,19 @@ const BulkUpload: React.FC = () => {
               ? `Processing shipments (${progress}%)...` 
               : 'Processing complete! Preparing shipment options...'}
           </p>
+        </div>
+      )}
+
+      {isCreatingLabels && (
+        <div className="my-6">
+          <BulkUploadProgress
+            totalShipments={labelCreationProgress.totalShipments}
+            processedCount={labelCreationProgress.processedCount}
+            successCount={labelCreationProgress.successCount}
+            failedCount={labelCreationProgress.failedCount}
+            currentOperation={labelCreationProgress.currentOperation}
+            isComplete={labelCreationProgress.isComplete}
+          />
         </div>
       )}
       
@@ -282,13 +293,13 @@ const BulkUpload: React.FC = () => {
             onRefreshRates={handleRefreshRates}
           />
           
-          {processedShipmentsCount > 0 && (
+          {totalShipmentsCount > 0 && (
             <div className="mt-8 p-4 border rounded-lg bg-gray-50">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
                 <div>
                   <h3 className="font-semibold text-lg">Order Summary</h3>
                   <p className="text-gray-600">
-                    {processedShipmentsCount} shipments selected with a total cost of ${results.totalCost?.toFixed(2) || '0.00'}
+                    {totalShipmentsCount} shipments selected with a total cost of ${results.totalCost?.toFixed(2) || '0.00'}
                   </p>
                   {pickupAddress && (
                     <p className="text-sm text-blue-600 mt-1">
@@ -309,7 +320,7 @@ const BulkUpload: React.FC = () => {
                   
                   <Button
                     onClick={handleCreateLabelsWithProgress}
-                    disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress || isCreatingLabels}
+                    disabled={isPaying || totalShipmentsCount === 0 || !pickupAddress || isCreatingLabels}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
                     {isPaying || isCreatingLabels ? 'Processing...' : 'Create Labels'} 
@@ -338,7 +349,7 @@ const BulkUpload: React.FC = () => {
               customer_name: shipment.customer_name || shipment.recipient || 'Unknown',
               customer_address: shipment.customer_address || '',
               rate: shipment.rate || 0,
-              status: shipment.status || 'completed',
+              status: (shipment.status === 'completed' || shipment.status === 'failed') ? shipment.status : 'completed',
               error: shipment.error
             }))}
             onDownloadSingle={(url, format, filename) => handleDownloadSingleLabel(url, filename)}
@@ -373,7 +384,7 @@ const BulkUpload: React.FC = () => {
         onOpenChange={setShowLabelOptions}
         onFormatSelect={handleDownloadLabelsWithFormat}
         onEmailLabels={() => handleEmailLabels("")}
-        shipmentCount={processedShipmentsCount}
+        shipmentCount={totalShipmentsCount}
       />
       
       <PrintPreviewModal
