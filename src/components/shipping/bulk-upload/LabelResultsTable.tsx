@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Truck, Package, MapPin, Calendar, FileText } from 'lucide-react';
+import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, File, FileImage } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import PrintPreview from '@/components/shipping/PrintPreview';
 
@@ -16,6 +17,8 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   onDownloadLabel
 }) => {
   const handleDownload = (shipment: any, format: string = 'png') => {
+    console.log('Attempting download for:', { format, shipment: shipment.id, labelUrls: shipment.label_urls });
+    
     const url = shipment.label_urls?.[format] || shipment.label_url;
     if (!url) {
       toast.error(`${format.toUpperCase()} label not available for this shipment`);
@@ -52,7 +55,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
       <div className="px-6 py-4 border-b bg-gray-50">
         <h3 className="text-lg font-semibold text-gray-900">Generated Shipping Labels</h3>
         <p className="text-sm text-gray-600 mt-1">
-          {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download
+          {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download in multiple formats
         </p>
       </div>
       
@@ -70,10 +73,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                 Dimensions & Weight
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Estimated Delivery
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Notes
+                Label Formats
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
@@ -137,21 +137,50 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   </div>
                 </td>
 
-                {/* Estimated Delivery */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                    <div className="text-sm text-gray-900">
-                      {formatDate(shipment.estimated_delivery)}
-                    </div>
-                  </div>
-                </td>
-
-                {/* Notes */}
+                {/* Label Formats */}
                 <td className="px-6 py-4">
-                  <div className="text-sm text-gray-600 max-w-xs">
-                    {shipment.notes || shipment.details?.reference || (
-                      <span className="text-gray-400 italic">No notes</span>
+                  <div className="flex flex-wrap gap-2">
+                    {/* PNG Format */}
+                    {(shipment.label_urls?.png || shipment.label_url) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownload(shipment, 'png')}
+                        className="text-xs border-green-300 text-green-700 hover:bg-green-50"
+                      >
+                        <FileImage className="h-3 w-3 mr-1" />
+                        PNG
+                      </Button>
+                    )}
+                    
+                    {/* PDF Format */}
+                    {shipment.label_urls?.pdf && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownload(shipment, 'pdf')}
+                        className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
+                      >
+                        <File className="h-3 w-3 mr-1" />
+                        PDF
+                      </Button>
+                    )}
+                    
+                    {/* ZPL Format */}
+                    {shipment.label_urls?.zpl && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownload(shipment, 'zpl')}
+                        className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
+                      >
+                        <FileText className="h-3 w-3 mr-1" />
+                        ZPL
+                      </Button>
+                    )}
+                    
+                    {!shipment.label_urls?.png && !shipment.label_url && (
+                      <span className="text-xs text-gray-400 italic">No formats available</span>
                     )}
                   </div>
                 </td>
@@ -166,7 +195,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       disabled={!shipment.label_urls?.png && !shipment.label_url}
                     >
                       <Download className="h-3 w-3 mr-1" />
-                      Download Label
+                      Download
                     </Button>
                     
                     <PrintPreview
