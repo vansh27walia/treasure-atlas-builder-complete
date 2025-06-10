@@ -68,12 +68,6 @@ const LabelBatchDisplay: React.FC<LabelBatchDisplayProps> = ({
     successfulLabels.some(label => label.label_urls[format as keyof typeof label.label_urls])
   );
 
-  // Fix the total cost calculation to ensure we always get a valid number
-  const totalCost = successfulLabels.reduce((sum, label) => {
-    const rate = typeof label.rate === 'number' ? label.rate : 0;
-    return sum + rate;
-  }, 0);
-
   return (
     <div className="space-y-6">
       {/* Batch Actions */}
@@ -84,7 +78,7 @@ const LabelBatchDisplay: React.FC<LabelBatchDisplayProps> = ({
               Batch Complete: {successfulLabels.length} Labels Generated
             </h3>
             <p className="text-sm text-gray-600">
-              Total cost: ${totalCost.toFixed(2)}
+              Total cost: ${successfulLabels.reduce((sum, label) => sum + label.rate, 0).toFixed(2)}
               {failedLabels.length > 0 && ` • ${failedLabels.length} failed`}
             </p>
           </div>
@@ -146,7 +140,7 @@ const LabelBatchDisplay: React.FC<LabelBatchDisplayProps> = ({
               <div className="space-y-1 text-xs">
                 <div className="font-medium">{label.customer_name}</div>
                 <div className="text-gray-600 line-clamp-2">{label.customer_address}</div>
-                <div className="text-gray-600">{label.service} • ${(typeof label.rate === 'number' ? label.rate : 0).toFixed(2)}</div>
+                <div className="text-gray-600">{label.service} • ${label.rate.toFixed(2)}</div>
               </div>
 
               {/* Download Options */}
