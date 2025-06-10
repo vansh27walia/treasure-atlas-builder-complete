@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -173,8 +172,9 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                     <PrintPreview
                       labelUrl={shipment.label_urls?.png || shipment.label_url || ''}
                       trackingCode={shipment.tracking_code || shipment.tracking_number}
+                      labelUrls={shipment.label_urls}
                       shipmentDetails={{
-                        fromAddress: 'Pickup address', // You can get this from pickupAddress
+                        fromAddress: 'Pickup address',
                         toAddress: shipment.customer_address || '',
                         weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : '',
                         dimensions: shipment.details?.length ? 

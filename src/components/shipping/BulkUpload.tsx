@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -103,6 +102,42 @@ const BulkUpload: React.FC = () => {
 
   // Safely get processed shipments count
   const processedShipmentsCount = results?.processedShipments?.length || 0;
+
+  const handleCreateLabels = async () => {
+    console.log("Starting label creation process...");
+    
+    if (!results?.processedShipments || results.processedShipments.length === 0) {
+      toast.error("No shipments available for label creation");
+      return;
+    }
+
+    if (!pickupAddress) {
+      toast.error("Please select a pickup address before creating labels");
+      return;
+    }
+
+    // Validate that ALL shipments have selected rates
+    const shipmentsWithoutRates = results.processedShipments.filter(shipment => 
+      !shipment.selectedRateId || !shipment.easypost_id
+    );
+
+    if (shipmentsWithoutRates.length > 0) {
+      toast.error(`${shipmentsWithoutRates.length} shipment(s) don't have rates selected. Please select rates for all shipments before creating labels.`);
+      console.log("Shipments without rates:", shipmentsWithoutRates);
+      return;
+    }
+
+    // Ensure exactly the same number of labels will be created as shipments with rates
+    const totalShipments = results.processedShipments.length;
+    console.log(`Creating labels for ALL ${totalShipments} shipments - no gaps allowed`);
+
+    try {
+      await handleCreateLabels();
+    } catch (error) {
+      console.error("Label creation failed:", error);
+      toast.error("Label creation failed. Please try again.");
+    }
+  };
 
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
