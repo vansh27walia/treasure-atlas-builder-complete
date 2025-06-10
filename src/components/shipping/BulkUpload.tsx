@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -112,8 +113,9 @@ const BulkUpload: React.FC = () => {
     }
   };
 
-  // Safely get processed shipments count
+  // Safely get processed shipments count and successful shipments
   const processedShipmentsCount = results?.processedShipments?.length || 0;
+  const successfulShipments = results?.processedShipments?.filter(s => s.status === 'completed') || [];
 
   const handleCreateLabelsWithProgress = async () => {
     if (!results?.processedShipments || results.processedShipments.length === 0) {
@@ -175,7 +177,7 @@ const BulkUpload: React.FC = () => {
           const url = shipment.label_urls?.png || shipment.label_url;
           if (url) {
             const filename = `label_${shipment.tracking_code || shipment.tracking_number}_${index + 1}.png`;
-            handleDownloadSingleLabel(url, filename);
+            handleDownloadSingleLabel(url);
           }
         }, index * 300);
       });
@@ -194,9 +196,6 @@ const BulkUpload: React.FC = () => {
     
     setShowPrintPreview(true);
   };
-
-  const successfulShipments = results?.processedShipments?.filter(s => s.status === 'completed') || [];
-  const processedShipmentsCount = results?.processedShipments?.length || 0;
 
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
@@ -338,10 +337,10 @@ const BulkUpload: React.FC = () => {
               customer_name: shipment.customer_name || shipment.recipient || 'Unknown',
               customer_address: shipment.customer_address || '',
               rate: shipment.rate || 0,
-              status: shipment.status || 'completed',
+              status: (shipment.status === 'completed' || shipment.status === 'failed') ? shipment.status : 'completed',
               error: shipment.error
             }))}
-            onDownloadSingle={(url, format, filename) => handleDownloadSingleLabel(url, filename)}
+            onDownloadSingle={(url, format, filename) => handleDownloadSingleLabel(url)}
             onDownloadAll={handleDownloadAllWithFormat}
             onPrintPreview={handlePrintPreview}
           />
