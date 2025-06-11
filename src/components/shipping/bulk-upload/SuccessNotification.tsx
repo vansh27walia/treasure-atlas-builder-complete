@@ -2,12 +2,11 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, File, Truck, Calendar } from 'lucide-react';
+import { CheckCircle, Download, FileText, File } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import LabelResultsTable from './LabelResultsTable';
 import BatchLabelDownloads from '@/components/shipping/BatchLabelDownloads';
 import { toast } from '@/components/ui/sonner';
-import { Badge } from '@/components/ui/badge';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
@@ -77,26 +76,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   const displaySuccessful = shipmentsWithLabels.length || results.successful || 0;
   const displayFailed = failedShipments.length || results.failed || 0;
 
-  // Use batch URLs from results - these should come from the backend now
-  const batchUrls = results.batchUrls || {
-    pdf: results.bulk_label_pdf_url || results.batchPdfUrl,
-    png: results.bulk_label_png_url || results.batchPngUrl,
-    zpl: results.bulk_label_zpl_url || results.batchZplUrl,
+  // Mock batch URLs - in real implementation, these would come from the API response
+  const batchUrls = {
+    pdf: results.batchUrls?.pdf || '/api/batch/labels.pdf',
+    png: results.batchUrls?.png || '/api/batch/labels.png',
+    zpl: results.batchUrls?.zpl || '/api/batch/labels.zpl',
   };
-
-  // Calculate delivery statistics
-  const deliveryStats = allShipments.reduce((stats, shipment) => {
-    if (shipment.delivery_days) {
-      stats.totalDays += shipment.delivery_days;
-      stats.count += 1;
-      if (shipment.delivery_days <= 2) stats.express += 1;
-      else if (shipment.delivery_days <= 5) stats.standard += 1;
-      else stats.economy += 1;
-    }
-    return stats;
-  }, { totalDays: 0, count: 0, express: 0, standard: 0, economy: 0 });
-
-  const avgDeliveryDays = deliveryStats.count > 0 ? (deliveryStats.totalDays / deliveryStats.count).toFixed(1) : 0;
 
   return (
     <div className="space-y-6">
@@ -125,8 +110,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </div>
         )}
 
-        {/* Enhanced Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        {/* Summary Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white p-4 rounded-lg border border-green-200">
             <div className="text-2xl font-bold text-green-600">{displayTotal}</div>
             <div className="text-sm text-gray-600">Total Processed</div>
@@ -146,54 +131,22 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             <div className="text-2xl font-bold text-green-600">${results.totalCost?.toFixed(2) || '0.00'}</div>
             <div className="text-sm text-gray-600">Total Shipping Cost</div>
           </div>
-
-          <div className="bg-white p-4 rounded-lg border border-blue-200">
-            <div className="flex items-center gap-1 mb-1">
-              <Truck className="h-4 w-4 text-blue-600" />
-              <div className="text-2xl font-bold text-blue-600">{avgDeliveryDays}</div>
-            </div>
-            <div className="text-sm text-gray-600">Avg. Delivery Days</div>
-          </div>
         </div>
 
-        {/* Delivery Speed Breakdown */}
-        {deliveryStats.count > 0 && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h4 className="font-medium text-blue-800 mb-3 flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              Delivery Speed Breakdown
-            </h4>
-            <div className="flex gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="bg-green-100 text-green-800">Express (≤2 days)</Badge>
-                <span className="font-medium">{deliveryStats.express} shipments</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">Standard (3-5 days)</Badge>
-                <span className="font-medium">{deliveryStats.standard} shipments</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="bg-gray-100 text-gray-800">Economy (6+ days)</Badge>
-                <span className="font-medium">{deliveryStats.economy} shipments</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Batch Download Section - Only show if we have labels */}
-        {hasLabels && batchUrls && (batchUrls.pdf || batchUrls.png || batchUrls.zpl) && (
+        {/* Batch Download Section */}
+        {hasLabels && (
           <BatchLabelDownloads
             batchUrls={batchUrls}
             shipmentCount={displaySuccessful}
           />
         )}
 
-        {/* Create Labels Button - Only show if no labels exist yet */}
+        {/* Create Labels Button */}
         {!hasLabels && displayTotal > 0 && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <h4 className="font-semibold text-lg text-yellow-800 mb-3">Create Shipping Labels</h4>
             <p className="text-yellow-700 mb-3">
-              Your shipments have been processed. Click below to create and download shipping labels with consolidated batch files.
+              Your shipments have been processed. Click below to create and download shipping labels.
             </p>
             <Button 
               onClick={onCreateLabels}
