@@ -1,41 +1,48 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import * as z from 'zod';
+import { SavedAddress } from '@/services/AddressService';
 import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
-import { toast } from '@/components/ui/sonner';
-import AddressAutoComplete from '@/components/shipping/AddressAutoComplete';
+import AddressAutoComplete from './AddressAutoComplete';
 import { extractAddressComponents } from '@/utils/addressUtils';
+import { toast } from '@/components/ui/sonner';
 
-export interface AddressFormValues {
-  name: string;
-  first_name?: string;
-  last_name?: string;
-  company?: string;
-  street1: string;
-  street2?: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  phone?: string;
-  email?: string;
-  residential?: boolean;
-  is_default_from?: boolean;
-  is_default_to?: boolean;
-}
+const addressSchema = z.object({
+  name: z.string().optional(),
+  company: z.string().optional(),
+  street1: z.string().min(1, 'Address line 1 is required'),
+  street2: z.string().optional(),
+  city: z.string().min(1, 'City is required'),
+  state: z.string().min(1, 'State is required'),
+  zip: z.string().min(1, 'ZIP code is required'),
+  country: z.string().min(1, 'Country is required'),
+  phone: z.string().optional(),
+  is_default_from: z.boolean().default(false),
+  is_default_to: z.boolean().default(false),
+});
+
+export type AddressFormValues = z.infer<typeof addressSchema>;
 
 interface AddressFormProps {
   defaultValues?: Partial<AddressFormValues>;
-  onSubmit: (values: AddressFormValues) => Promise<void>;
+  onSubmit: (values: AddressFormValues) => void;
   isLoading?: boolean;
   buttonText?: string;
-  isPickupAddress?: boolean;
   showDefaultOptions?: boolean;
+  isPickupAddress?: boolean;
 }
 
 const AddressForm: React.FC<AddressFormProps> = ({
@@ -43,23 +50,13 @@ const AddressForm: React.FC<AddressFormProps> = ({
   onSubmit,
   isLoading = false,
   buttonText = 'Save Address',
-  isPickupAddress = false,
-  showDefaultOptions = false,
+  showDefaultOptions = true,
+  isPickupAddress = true,
 }) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-    reset,
-  } = useForm<AddressFormValues>({
+  const form = useForm<AddressFormValues>({
+    resolver: zodResolver(addressSchema),
     defaultValues: {
       name: '',
-      first_name: '',
-      last_name: '',
       company: '',
       street1: '',
       street2: '',
@@ -68,36 +65,22 @@ const AddressForm: React.FC<AddressFormProps> = ({
       zip: '',
       country: 'US',
       phone: '',
-      email: '',
-      residential: true,
       is_default_from: false,
       is_default_to: false,
       ...defaultValues,
     },
   });
 
-  // Reset form when defaultValues change (for editing)
+  // When defaultValues change, update form values
   useEffect(() => {
-    if (defaultValues) {
-      reset({
-        name: defaultValues.name || '',
-        first_name: defaultValues.first_name || '',
-        last_name: defaultValues.last_name || '',
-        company: defaultValues.company || '',
-        street1: defaultValues.street1 || '',
-        street2: defaultValues.street2 || '',
-        city: defaultValues.city || '',
-        state: defaultValues.state || '',
-        zip: defaultValues.zip || '',
-        country: defaultValues.country || 'US',
-        phone: defaultValues.phone || '',
-        email: defaultValues.email || '',
-        residential: defaultValues.residential ?? true,
-        is_default_from: defaultValues.is_default_from || false,
-        is_default_to: defaultValues.is_default_to || false,
+    if (Object.keys(defaultValues).length > 0) {
+      Object.entries(defaultValues).forEach(([key, value]) => {
+        if (value !== undefined) {
+          form.setValue(key as keyof AddressFormValues, value as any);
+        }
       });
     }
-  }, [defaultValues, reset]);
+  }, [defaultValues, form]);
 
   const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
     try {
@@ -114,21 +97,28 @@ const AddressForm: React.FC<AddressFormProps> = ({
       
       // Only set values that are not empty
       if (street1) {
-        setValue('street1', street1, { shouldValidate: true, shouldDirty: true });
+        form.setValue('street1', street1, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
         console.log("Set street1:", street1);
       }
       if (city) {
-        setValue('city', city, { shouldValidate: true, shouldDirty: true });
+        form.setValue('city', city, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
         console.log("Set city:", city);
       }
       if (state) {
-        setValue('state', state, { shouldValidate: true, shouldDirty: true });
+        form.setValue('state', state, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
         console.log("Set state:", state);
       }
       if (zip) {
-        setValue('zip', zip, { shouldValidate: true, shouldDirty: true });
+        form.setValue('zip', zip, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
         console.log("Set zip:", zip);
       }
+      if (country) {
+        form.setValue('country', country, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+        console.log("Set country:", country);
+      }
+      
+      // Manually trigger validation to show updated status
+      form.trigger(['street1', 'city', 'state', 'zip', 'country']);
       
       toast.success('Address details populated from Google Maps');
     } catch (error) {
@@ -137,216 +127,229 @@ const AddressForm: React.FC<AddressFormProps> = ({
     }
   };
 
+  // Handle address line changes directly from the input
   const handleAddressLineChange = (value: string) => {
-    setValue('street1', value, { shouldValidate: true, shouldDirty: true });
+    form.setValue('street1', value, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
   };
 
-  const handleFormSubmit = async (values: AddressFormValues) => {
-    if (isSubmitting) return;
+  // Custom form submit handler that validates before calling the provided onSubmit
+  const handleFormSubmit = (values: AddressFormValues) => {
+    console.log("Form submitted with values:", values);
     
-    try {
-      setIsSubmitting(true);
-      await onSubmit(values);
-    } catch (error) {
-      console.error('Form submission error:', error);
-    } finally {
-      setIsSubmitting(false);
+    // Additional validation check
+    if (!values.street1 || !values.city || !values.state || !values.zip) {
+      toast.error('Please fill in all required address fields');
+      return;
     }
+    
+    // Call the parent onSubmit handler
+    onSubmit(values);
   };
-
-  const watchedValues = watch();
 
   return (
-    <Card>
-      <CardContent className="p-6">
-        <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-          <div>
-            <Label htmlFor="name">Address Name / Location Name *</Label>
-            <Input
-              id="name"
-              {...register('name', { required: 'Address name is required' })}
-              placeholder="Home, Office, Warehouse, etc."
-              className={errors.name ? 'border-red-500' : ''}
-            />
-            {errors.name && (
-              <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Location Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Home, Office, etc." {...field} value={field.value || ''} />
+                </FormControl>
+                <FormDescription>
+                  A name to help you identify this location
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
             )}
-            <p className="text-gray-500 text-xs mt-1">Give this address a memorable name (e.g., "Main Office", "Home", "Warehouse")</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="first_name">First Name</Label>
-              <Input
-                id="first_name"
-                {...register('first_name')}
-                placeholder="First name"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="last_name">Last Name</Label>
-              <Input
-                id="last_name"
-                {...register('last_name')}
-                placeholder="Last name"
-              />
-            </div>
-          </div>
+          />
           
-          <div>
-            <Label htmlFor="company">Company Name</Label>
-            <Input
-              id="company"
-              {...register('company')}
-              placeholder="Company or business name (optional)"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="street1">Street Address *</Label>
-            <AddressAutoComplete 
-              placeholder="Start typing your address (Google autofill enabled)..."
-              defaultValue={watchedValues.street1}
-              onAddressSelected={handleGooglePlaceSelected}
-              onChange={handleAddressLineChange}
-              id="address-form-autocomplete"
-              required
-            />
-            <input
-              type="hidden"
-              {...register('street1', { required: 'Street address is required' })}
-            />
-            {errors.street1 && (
-              <p className="text-red-500 text-sm mt-1">{errors.street1.message}</p>
+          <FormField
+            control={form.control}
+            name="company"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Company (Optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="Company name" {...field} value={field.value || ''} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
-            <p className="text-gray-500 text-xs mt-1">Start typing and select from Google suggestions to auto-fill city, state, and ZIP</p>
-          </div>
-
-          <div>
-            <Label htmlFor="street2">Apartment, Suite, Unit, Floor</Label>
-            <Input
-              id="street2"
-              {...register('street2')}
-              placeholder="Apt, Suite, Unit, Floor, etc. (optional)"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="city">City *</Label>
-              <Input
-                id="city"
-                {...register('city', { required: 'City is required' })}
-                placeholder="City"
-                className={errors.city ? 'border-red-500' : ''}
-              />
-              {errors.city && (
-                <p className="text-red-500 text-sm mt-1">{errors.city.message}</p>
-              )}
-            </div>
-            
-            <div>
-              <Label htmlFor="state">State / Province *</Label>
-              <Input
-                id="state"
-                {...register('state', { required: 'State is required' })}
-                placeholder="State or Province"
-                className={errors.state ? 'border-red-500' : ''}
-              />
-              {errors.state && (
-                <p className="text-red-500 text-sm mt-1">{errors.state.message}</p>
-              )}
-            </div>
-            
-            <div>
-              <Label htmlFor="zip">ZIP / Postal Code *</Label>
-              <Input
-                id="zip"
-                {...register('zip', { required: 'ZIP code is required' })}
-                placeholder="ZIP or Postal Code"
-                className={errors.zip ? 'border-red-500' : ''}
-              />
-              {errors.zip && (
-                <p className="text-red-500 text-sm mt-1">{errors.zip.message}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                {...register('phone')}
-                placeholder="Phone number (recommended)"
-                type="tel"
-              />
-              <p className="text-gray-500 text-xs mt-1">Required by most carriers for pickup/delivery</p>
-            </div>
-            
-            <div>
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                {...register('email')}
-                placeholder="Email address (optional)"
-                type="email"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="residential"
-              {...register('residential')}
-              defaultChecked={watchedValues.residential}
-            />
-            <Label htmlFor="residential">This is a residential address</Label>
-            <p className="text-gray-500 text-xs ml-2">(Uncheck if this is a business/commercial address)</p>
-          </div>
-
-          {showDefaultOptions && (
-            <div className="space-y-2">
-              {isPickupAddress && (
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is_default_from"
-                    {...register('is_default_from')}
-                    defaultChecked={watchedValues.is_default_from}
-                  />
-                  <Label htmlFor="is_default_from">Set as default pickup address</Label>
-                </div>
-              )}
-              
-              {!isPickupAddress && (
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is_default_to"
-                    {...register('is_default_to')}
-                    defaultChecked={watchedValues.is_default_to}
-                  />
-                  <Label htmlFor="is_default_to">Set as default shipping address</Label>
-                </div>
-              )}
-            </div>
+          />
+        </div>
+        
+        <FormField
+          control={form.control}
+          name="street1"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Address</FormLabel>
+              <FormControl>
+                <AddressAutoComplete 
+                  placeholder="Enter your address"
+                  defaultValue={field.value}
+                  onAddressSelected={handleGooglePlaceSelected}
+                  onChange={handleAddressLineChange}
+                  id="address-autocomplete"
+                  required
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
           )}
-
-          <Button 
-            type="submit" 
-            disabled={isLoading || isSubmitting} 
-            className="w-full"
-          >
-            {isLoading || isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : buttonText}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        />
+        
+        <FormField
+          control={form.control}
+          name="street2"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Address Line 2 (Optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="Apartment, suite, unit, building, floor, etc." {...field} value={field.value || ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="city"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>City</FormLabel>
+                <FormControl>
+                  <Input placeholder="City" required {...field} value={field.value || ''} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="state"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>State</FormLabel>
+                <FormControl>
+                  <Input placeholder="State" required {...field} value={field.value || ''} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="zip"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>ZIP Code</FormLabel>
+                <FormControl>
+                  <Input placeholder="ZIP code" required {...field} value={field.value || ''} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="country"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Country</FormLabel>
+                <FormControl>
+                  <Input placeholder="Country" required {...field} value={field.value || ''} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        
+        <FormField
+          control={form.control}
+          name="phone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Phone (Optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="Phone number" {...field} value={field.value || ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {showDefaultOptions && (
+          <div className="flex flex-col space-y-2">
+            {isPickupAddress && (
+              <FormField
+                control={form.control}
+                name="is_default_from"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Set as default pickup location
+                      </FormLabel>
+                      <FormDescription>
+                        This address will be automatically selected when creating new shipments
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            )}
+            
+            {!isPickupAddress && (
+              <FormField
+                control={form.control}
+                name="is_default_to"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Set as default recipient location
+                      </FormLabel>
+                      <FormDescription>
+                        This address will be automatically selected as the recipient when creating new shipments
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+            )}
+          </div>
+        )}
+        
+        <Button type="submit" disabled={isLoading} className="w-full">
+          {isLoading ? 'Saving...' : buttonText}
+        </Button>
+      </form>
+    </Form>
   );
 };
 

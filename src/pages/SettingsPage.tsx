@@ -14,8 +14,6 @@ import { addressService } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
-import AddressAutoComplete from '@/components/shipping/AddressAutoComplete';
-import { extractAddressComponents } from '@/utils/addressUtils';
 
 interface SimpleAddressFormValues {
   name: string;
@@ -41,48 +39,6 @@ const SettingsPage: React.FC = () => {
       isDefault: true,
     }
   });
-
-  const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
-    try {
-      console.log("Google Place selected in Settings:", place);
-      
-      if (!place) {
-        console.warn("No place data received");
-        return;
-      }
-      
-      const { street1, city, state, zip, country } = extractAddressComponents(place);
-      
-      console.log("Extracted components:", { street1, city, state, zip, country });
-      
-      // Only set values that are not empty
-      if (street1) {
-        form.setValue('street1', street1, { shouldValidate: true, shouldDirty: true });
-        console.log("Set street1:", street1);
-      }
-      if (city) {
-        form.setValue('city', city, { shouldValidate: true, shouldDirty: true });
-        console.log("Set city:", city);
-      }
-      if (state) {
-        form.setValue('state', state, { shouldValidate: true, shouldDirty: true });
-        console.log("Set state:", state);
-      }
-      if (zip) {
-        form.setValue('zip', zip, { shouldValidate: true, shouldDirty: true });
-        console.log("Set zip:", zip);
-      }
-      
-      toast.success('Address details populated from Google Maps');
-    } catch (error) {
-      console.error("Error processing Google place selection:", error);
-      toast.error('Failed to process selected address. Please fill in the fields manually.');
-    }
-  };
-
-  const handleAddressLineChange = (value: string) => {
-    form.setValue('street1', value, { shouldValidate: true, shouldDirty: true });
-  };
 
   const onSubmit = async (values: SimpleAddressFormValues) => {
     if (!user) {
@@ -158,7 +114,7 @@ const SettingsPage: React.FC = () => {
             {useAlternativeForm ? (
               <Card className="p-6">
                 <h2 className="text-2xl font-bold mb-4">Simple Address Form</h2>
-                <p className="text-gray-500 mb-4">Use this simplified form to add a pickup address with Google autofill</p>
+                <p className="text-gray-500 mb-4">Use this simplified form to add a pickup address</p>
                 
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -182,14 +138,7 @@ const SettingsPage: React.FC = () => {
                         <FormItem>
                           <FormLabel>Street Address</FormLabel>
                           <FormControl>
-                            <AddressAutoComplete 
-                              placeholder="Enter your address (Google autofill enabled)"
-                              defaultValue={field.value}
-                              onAddressSelected={handleGooglePlaceSelected}
-                              onChange={handleAddressLineChange}
-                              id="simple-address-autocomplete"
-                              required
-                            />
+                            <Input required placeholder="123 Main St" {...field} />
                           </FormControl>
                         </FormItem>
                       )}
