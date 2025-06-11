@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,24 @@ import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-reac
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import EnhancedPrintPreview from './shipping/EnhancedPrintPreview';
-import { ShippingOption } from '@/types/shipping';
+
+// Use the ShippingRate interface from the hook instead of ShippingOption
+interface ShippingRate {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: string;
+  currency: string;
+  delivery_days: number;
+  delivery_date: string;
+  list_rate?: string;
+  retail_rate?: string;
+  est_delivery_days?: number;
+  shipment_id?: string; 
+  original_rate?: string;
+  isPremium?: boolean;
+  estimated_delivery_date?: string;
+}
 
 const ShippingRates: React.FC = () => {
   const {
@@ -76,7 +94,7 @@ const ShippingRates: React.FC = () => {
   // Get shipment details for enhanced preview
   const getShipmentDetails = () => {
     if (selectedRateId && rates.length > 0) {
-      const selectedRate = rates.find((rate: ShippingOption) => rate.id === selectedRateId);
+      const selectedRate = rates.find((rate: ShippingRate) => rate.id === selectedRateId);
       if (selectedRate) {
         return {
           fromAddress: "Your shipping address",
@@ -108,9 +126,9 @@ const ShippingRates: React.FC = () => {
     );
   }
 
-  const sortedRates = [...rates].sort((a: ShippingOption, b: ShippingOption) => {
+  const sortedRates = [...rates].sort((a: ShippingRate, b: ShippingRate) => {
     if (sortOrder === 'price') {
-      return parseFloat(a.rate.toString()) - parseFloat(b.rate.toString());
+      return parseFloat(a.rate) - parseFloat(b.rate);
     } else if (sortOrder === 'speed') {
       const aDays = a.delivery_days || 999;
       const bDays = b.delivery_days || 999;
@@ -213,10 +231,14 @@ const ShippingRates: React.FC = () => {
               <div className="space-y-4 mt-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  {sortedRates.map((rate: ShippingOption) => (
+                  {sortedRates.map((rate: ShippingRate) => (
                     <ShippingRateCard
                       key={rate.id}
-                      rate={rate}
+                      rate={{
+                        ...rate,
+                        rate: parseFloat(rate.rate), // Convert string to number for the component
+                        original_rate: rate.original_rate ? parseFloat(rate.original_rate) : undefined
+                      }}
                       isSelected={selectedRateId === rate.id}
                       onSelect={handleRateSelection}
                       isBestValue={rate.id === bestValueRateId}
@@ -226,7 +248,7 @@ const ShippingRates: React.FC = () => {
                         reason: aiRecommendation.analysisText || ''
                       }}
                       showDiscount={true}
-                      originalRate={rate.original_rate}
+                      originalRate={rate.original_rate ? parseFloat(rate.original_rate) : undefined}
                       isPremium={false}
                     />
                   ))}
