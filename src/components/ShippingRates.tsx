@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,29 +36,6 @@ const ShippingRates: React.FC = () => {
   const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
-  const [shipmentDetails, setShipmentDetails] = useState<{ 
-    fromAddress: string; 
-    toAddress: string; 
-    weight: string; 
-    dimensions?: string; 
-    service: string; 
-    carrier: string; 
-  } | undefined>();
-  
-  useEffect(() => {
-    if (selectedRateId && rates.length > 0) {
-      const selectedRate = rates.find(rate => rate.id === selectedRateId);
-      if (selectedRate) {
-        setShipmentDetails({
-          fromAddress: "Your shipping address",
-          toAddress: "Recipient address",
-          weight: "Package weight",
-          service: selectedRate.service,
-          carrier: selectedRate.carrier.toUpperCase(),
-        });
-      }
-    }
-  }, [selectedRateId, rates]);
   
   const handleLabelFormatChange = async (format: string): Promise<void> => {
     setSelectedLabelFormat(format);
@@ -190,8 +166,6 @@ const ShippingRates: React.FC = () => {
                 labelUrl={labelUrl} 
                 trackingCode={trackingCode} 
                 shipmentId={shipmentId}
-                shipmentDetails={shipmentDetails}
-                onFormatChange={handleLabelFormatChange}
               />
             </div>
           )}
