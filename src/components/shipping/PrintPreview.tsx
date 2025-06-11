@@ -18,24 +18,13 @@ interface PrintPreviewProps {
     pdf?: string;
     zpl?: string;
   };
-  shipmentDetails?: {
-    fromAddress: string;
-    toAddress: string;
-    weight: string;
-    dimensions?: string;
-    service: string;
-    carrier: string;
-  };
-  onFormatChange?: (format: string) => Promise<void>;
 }
 
 const PrintPreview: React.FC<PrintPreviewProps> = ({ 
   labelUrl, 
   trackingCode, 
   shipmentId,
-  labelUrls,
-  shipmentDetails,
-  onFormatChange
+  labelUrls
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
