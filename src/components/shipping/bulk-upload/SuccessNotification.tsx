@@ -1,11 +1,11 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, File } from 'lucide-react';
+import { CheckCircle, Download, FileText, File, Eye, Printer } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import LabelResultsTable from './LabelResultsTable';
-import BatchLabelDownloads from '@/components/shipping/BatchLabelDownloads';
+import BatchLabelDownloads from './BatchLabelDownloads';
+import LabelPrintPreview from './LabelPrintPreview';
 import { toast } from '@/components/ui/sonner';
 
 interface SuccessNotificationProps {
@@ -25,7 +25,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  console.log('SuccessNotification received results:', results);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
 
   // Safely get shipments array
   let allShipments = [];
@@ -67,6 +67,138 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   // Show notification if we have shipments or results
   const shouldShowNotification = totalProcessed > 0 || results.total > 0 || results.successful > 0;
 
+  const downloadFile = async (url: string, filename: string) => {
+    try {
+      console.log('Downloading file from URL:', url);
+      
+      if (!url || url.trim() === '') {
+        toast.error('Invalid label URL - cannot download');
+        return;
+      }
+
+      // Direct download approach
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.target = '_blank';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`Downloaded ${filename}`);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error(`Failed to download ${filename}`);
+    }
+  };
+
+  const handleDownloadAllByFormat = async (format: 'png' | 'pdf' | 'zpl') => {
+    console.log(`Downloading all ${format.toUpperCase()} labels, count:`, shipmentsWithLabels.length);
+    
+    const availableLabels = shipmentsWithLabels.filter(shipment => {
+      const url = shipment.label_urls?.[format] || (format === 'png' ? shipment.label_url : null);
+      return url && url.trim() !== '';
+    });
+
+    if (availableLabels.length === 0) {
+      toast.error(`No ${format.toUpperCase()} labels available for download`);
+      return;
+    }
+
+    toast.loading(`Starting download of ${availableLabels.length} ${format.toUpperCase()} labels...`);
+    
+    for (let i = 0; i < availableLabels.length; i++) {
+      const shipment = availableLabels[i];
+      const labelUrl = shipment.label_urls?.[format] || (format === 'png' ? shipment.label_url : null);
+      
+      if (labelUrl && labelUrl.trim() !== '') {
+        try {
+          setTimeout(async () => {
+            const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
+            await downloadFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.${format}`);
+          }, i * 500);
+        } catch (error) {
+          console.error('Error downloading label for shipment:', shipment.id, error);
+        }
+      }
+    }
+    
+    toast.dismiss();
+    setTimeout(() => {
+      toast.success(`Started download of ${availableLabels.length} ${format.toUpperCase()} labels`);
+    }, 1000);
+  };
+
+  const handleBatchDownload = async (format: 'png' | 'pdf' | 'zpl') => {
+    console.log(`Downloading batch ${format.toUpperCase()} labels, count:`, shipmentsWithLabels.length);
+    
+    const availableLabels = shipmentsWithLabels.filter(shipment => {
+      const url = shipment.label_urls?.[format] || (format === 'png' ? shipment.label_url : null);
+      return url && url.trim() !== '';
+    });
+
+    if (availableLabels.length === 0) {
+      toast.error(`No ${format.toUpperCase()} labels available for download`);
+      return;
+    }
+
+    // For batch downloads, we should use the backend batch URLs if available
+    // or create a batch download request
+    toast.loading(`Preparing batch download of ${availableLabels.length} ${format.toUpperCase()} labels...`);
+    
+    try {
+      // Check if we have a batch URL for this format
+      const batchUrl = results[`batch_${format}_url`];
+      
+      if (batchUrl) {
+        // Download the batch file directly
+        const link = document.createElement('a');
+        link.href = batchUrl;
+        link.download = `batch_labels_${Date.now()}.${format === 'zpl' ? 'zip' : format}`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast.success(`Downloaded batch ${format.toUpperCase()} file`);
+      } else {
+        // Fallback to individual downloads with delay
+        for (let i = 0; i < availableLabels.length; i++) {
+          const shipment = availableLabels[i];
+          const labelUrl = shipment.label_urls?.[format] || (format === 'png' ? shipment.label_url : null);
+          
+          if (labelUrl && labelUrl.trim() !== '') {
+            setTimeout(() => {
+              const link = document.createElement('a');
+              link.href = labelUrl;
+              link.download = `label_${shipment.tracking_code || `shipment_${i + 1}`}.${format}`;
+              link.target = '_blank';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }, i * 500);
+          }
+        }
+        
+        toast.success(`Started download of ${availableLabels.length} ${format.toUpperCase()} labels`);
+      }
+    } catch (error) {
+      console.error('Batch download error:', error);
+      toast.error(`Failed to download batch ${format.toUpperCase()} labels`);
+    }
+    
+    toast.dismiss();
+  };
+
+  const handlePrintPreview = () => {
+    if (shipmentsWithLabels.length === 0) {
+      toast.error('No labels available for preview');
+      return;
+    }
+    setShowPrintPreview(true);
+  };
+
   // Don't show if no data
   if (!shouldShowNotification) {
     return null;
@@ -76,13 +208,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   const displaySuccessful = shipmentsWithLabels.length || results.successful || 0;
   const displayFailed = failedShipments.length || results.failed || 0;
 
-  // Mock batch URLs - in real implementation, these would come from the API response
-  const batchUrls = {
-    pdf: results.batchUrls?.pdf || '/api/batch/labels.pdf',
-    png: results.batchUrls?.png || '/api/batch/labels.png',
-    zpl: results.batchUrls?.zpl || '/api/batch/labels.zpl',
-  };
-
   return (
     <div className="space-y-6">
       <Card className="p-6 border-green-200 bg-green-50">
@@ -90,11 +215,11 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <CheckCircle className="h-6 w-6 text-green-600" />
           <div>
             <h3 className="text-lg font-semibold text-green-800">
-              {hasLabels ? 'Batch Labels Created Successfully!' : 'Shipments Processed Successfully!'}
+              {hasLabels ? 'Labels Processing Complete!' : 'Shipments Processed Successfully!'}
             </h3>
             <p className="text-green-700">
               {hasLabels
-                ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created and consolidated into batch files.`
+                ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created with multiple format options.`
                 : `${displayTotal} shipments have been processed and are ready for label creation.`
               }
               {displayFailed > 0 && ` ${displayFailed} shipments failed.`}
@@ -133,11 +258,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </div>
         </div>
 
-        {/* Batch Download Section */}
+        {/* Enhanced Batch Download Section */}
         {hasLabels && (
           <BatchLabelDownloads
-            batchUrls={batchUrls}
-            shipmentCount={displaySuccessful}
+            results={results}
+            onDownloadBatch={handleBatchDownload}
+            onPrintPreview={handlePrintPreview}
           />
         )}
 
@@ -160,30 +286,21 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         )}
       </Card>
 
-      {/* Individual Labels Table */}
+      {/* Enhanced Table Display */}
       {allShipments.length > 0 && (
         <LabelResultsTable
           shipments={allShipments}
-          onDownloadLabel={(url: string, format?: string) => {
-            if (url && url.trim() !== '') {
-              const timestamp = Date.now();
-              const filename = `shipping_label_${timestamp}.${format || 'png'}`;
-              
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = filename;
-              link.target = '_blank';
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              
-              toast.success(`Downloaded ${filename}`);
-            } else {
-              toast.error('Invalid label URL - cannot download');
-            }
-          }}
+          onDownloadLabel={onDownloadSingleLabel}
         />
       )}
+
+      {/* Print Preview Modal */}
+      <LabelPrintPreview
+        open={showPrintPreview}
+        onOpenChange={setShowPrintPreview}
+        results={results}
+        onDownloadBatch={handleBatchDownload}
+      />
 
       {/* Failed Shipments Details */}
       {results.failedShipments && results.failedShipments.length > 0 && (
