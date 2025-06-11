@@ -76,11 +76,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   const displaySuccessful = shipmentsWithLabels.length || results.successful || 0;
   const displayFailed = failedShipments.length || results.failed || 0;
 
-  // Use batch URLs from results if available, otherwise create placeholder URLs
-  const batchUrls = results.batchUrls || {
-    pdf: results.batchPdfUrl || `/api/batch/labels-${Date.now()}.pdf`,
-    png: results.batchPngUrl || `/api/batch/labels-${Date.now()}.png`,
-    zpl: results.batchZplUrl || `/api/batch/labels-${Date.now()}.zpl`,
+  // Generate batch URLs - in real implementation, these would come from the API response
+  // For now, create mock URLs that point to expected batch file endpoints
+  const batchUrls = {
+    pdf: `/api/batch/labels-${Date.now()}.pdf`,
+    png: `/api/batch/labels-${Date.now()}.png`,
+    zpl: `/api/batch/labels-${Date.now()}.zpl`,
   };
 
   return (
@@ -133,7 +134,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </div>
         </div>
 
-        {/* Batch Download Section - Only show if we have labels */}
+        {/* Batch Download Section */}
         {hasLabels && (
           <BatchLabelDownloads
             batchUrls={batchUrls}
@@ -141,7 +142,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           />
         )}
 
-        {/* Create Labels Button - Only show if no labels exist yet */}
+        {/* Create Labels Button */}
         {!hasLabels && displayTotal > 0 && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <h4 className="font-semibold text-lg text-yellow-800 mb-3">Create Shipping Labels</h4>
