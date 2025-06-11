@@ -47,6 +47,7 @@ export interface ShippingOption {
   estimated_delivery_date?: string;
   listRate?: number;
   retailRate?: number;
+  original_rate?: number;
 }
 
 export interface ShippingLabelFormat {
