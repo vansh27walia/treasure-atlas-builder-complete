@@ -12,7 +12,25 @@ import { toast } from '@/components/ui/sonner';
 import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import PrintPreview from './shipping/PrintPreview';
+import EnhancedPrintPreview from './shipping/EnhancedPrintPreview';
+
+// Use the ShippingRate interface from the hook instead of ShippingOption
+interface ShippingRate {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: string;
+  currency: string;
+  delivery_days: number;
+  delivery_date: string;
+  list_rate?: string;
+  retail_rate?: string;
+  est_delivery_days?: number;
+  shipment_id?: string; 
+  original_rate?: string;
+  isPremium?: boolean;
+  estimated_delivery_date?: string;
+}
 
 const ShippingRates: React.FC = () => {
   const {
@@ -37,29 +55,6 @@ const ShippingRates: React.FC = () => {
   const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
-  const [shipmentDetails, setShipmentDetails] = useState<{ 
-    fromAddress: string; 
-    toAddress: string; 
-    weight: string; 
-    dimensions?: string; 
-    service: string; 
-    carrier: string; 
-  } | undefined>();
-  
-  useEffect(() => {
-    if (selectedRateId && rates.length > 0) {
-      const selectedRate = rates.find(rate => rate.id === selectedRateId);
-      if (selectedRate) {
-        setShipmentDetails({
-          fromAddress: "Your shipping address",
-          toAddress: "Recipient address",
-          weight: "Package weight",
-          service: selectedRate.service,
-          carrier: selectedRate.carrier.toUpperCase(),
-        });
-      }
-    }
-  }, [selectedRateId, rates]);
   
   const handleLabelFormatChange = async (format: string): Promise<void> => {
     setSelectedLabelFormat(format);
@@ -95,6 +90,25 @@ const ShippingRates: React.FC = () => {
       selectRateAndProceed(selectedRateId);
     }
   };
+
+  // Get shipment details for enhanced preview
+  const getShipmentDetails = () => {
+    if (selectedRateId && rates.length > 0) {
+      const selectedRate = rates.find((rate: ShippingRate) => rate.id === selectedRateId);
+      if (selectedRate) {
+        return {
+          fromAddress: "Your shipping address",
+          toAddress: "Recipient address", 
+          weight: "Package weight",
+          service: selectedRate.service,
+          carrier: selectedRate.carrier.toUpperCase(),
+          deliveryDays: selectedRate.delivery_days,
+          estimatedDeliveryDate: selectedRate.estimated_delivery_date,
+        };
+      }
+    }
+    return undefined;
+  };
   
   if (rates.length === 0) {
     return (
@@ -112,7 +126,7 @@ const ShippingRates: React.FC = () => {
     );
   }
 
-  const sortedRates = [...rates].sort((a, b) => {
+  const sortedRates = [...rates].sort((a: ShippingRate, b: ShippingRate) => {
     if (sortOrder === 'price') {
       return parseFloat(a.rate) - parseFloat(b.rate);
     } else if (sortOrder === 'speed') {
@@ -125,6 +139,13 @@ const ShippingRates: React.FC = () => {
   });
 
   const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
+
+  // Mock label URLs for different formats
+  const labelUrls = {
+    pdf: labelUrl || undefined,
+    png: labelUrl ? labelUrl.replace('.pdf', '.png') : undefined,
+    zpl: labelUrl ? labelUrl.replace('.pdf', '.zpl') : undefined,
+  };
 
   return (
     <div className="w-full pb-6" id="shipping-rates-section">
@@ -186,11 +207,12 @@ const ShippingRates: React.FC = () => {
           
           {labelUrl && trackingCode && (
             <div className="mb-6">
-              <PrintPreview 
+              <EnhancedPrintPreview 
                 labelUrl={labelUrl} 
                 trackingCode={trackingCode} 
                 shipmentId={shipmentId}
-                shipmentDetails={shipmentDetails}
+                labelUrls={labelUrls}
+                shipmentDetails={getShipmentDetails()}
                 onFormatChange={handleLabelFormatChange}
               />
             </div>
@@ -209,10 +231,14 @@ const ShippingRates: React.FC = () => {
               <div className="space-y-4 mt-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  {sortedRates.map((rate) => (
+                  {sortedRates.map((rate: ShippingRate) => (
                     <ShippingRateCard
                       key={rate.id}
-                      rate={rate}
+                      rate={{
+                        ...rate,
+                        rate: parseFloat(rate.rate), // Convert string to number for the component
+                        original_rate: rate.original_rate ? parseFloat(rate.original_rate) : undefined
+                      }}
                       isSelected={selectedRateId === rate.id}
                       onSelect={handleRateSelection}
                       isBestValue={rate.id === bestValueRateId}
@@ -222,7 +248,7 @@ const ShippingRates: React.FC = () => {
                         reason: aiRecommendation.analysisText || ''
                       }}
                       showDiscount={true}
-                      originalRate={rate.original_rate}
+                      originalRate={rate.original_rate ? parseFloat(rate.original_rate) : undefined}
                       isPremium={false}
                     />
                   ))}

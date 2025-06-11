@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -48,6 +47,7 @@ export interface ShippingOption {
   estimated_delivery_date?: string;
   listRate?: number;
   retailRate?: number;
+  original_rate?: number;
 }
 
 export interface ShippingLabelFormat {
@@ -71,9 +71,9 @@ export interface BulkShipment {
   rate: number;
   tracking_code?: string;
   trackingCode?: string;
-  tracking_number?: string; // Added for backend compatibility
+  tracking_number?: string;
   label_url?: string;
-  label_urls?: { // Added for backend compatibility
+  label_urls?: {
     png: string | null;
     pdf?: string | null;
     zpl?: string | null;
@@ -81,10 +81,11 @@ export interface BulkShipment {
   status: 'pending' | 'processing' | 'error' | 'completed' | 'failed';
   error?: string;
   easypost_id?: string;
-  shipment_id?: string; // Added for backend compatibility
-  recipient_name?: string; // Added for backend compatibility
+  shipment_id?: string;
+  recipient_name?: string;
+  delivery_days?: number;
+  estimated_delivery_date?: string;
   details: {
-    // EasyPost CSV format fields (to_address fields)
     to_name: string;
     to_company?: string;
     to_street1: string;
@@ -95,13 +96,11 @@ export interface BulkShipment {
     to_country: string;
     to_phone?: string;
     to_email?: string;
-    // Package dimensions and weight
     weight: number;
     length: number;
     width: number;
     height: number;
     reference?: string;
-    // Legacy fields for backward compatibility
     name?: string;
     company?: string;
     street1?: string;
@@ -125,7 +124,6 @@ export interface BulkShipment {
   };
   availableRates?: ShippingOption[];
   selectedRateId?: string;
-  // Customer details for display
   customer_name?: string;
   customer_address?: string;
   customer_phone?: string;
@@ -143,13 +141,26 @@ export interface BulkUploadResult {
   total: number;
   successful: number;
   failed: number;
-  totalCost: number;
-  processedShipments: BulkShipment[];
-  failedShipments: BulkShipmentError[];
-  uploadStatus?: 'idle' | 'success' | 'error' | 'editing' | 'creating-labels';
+  processedShipments: any[];
+  failedShipments?: Array<{
+    row?: number;
+    error: string;
+    details?: string;
+  }>;
+  totalCost?: number;
+  batchUrls?: {
+    pdf?: string;
+    png?: string;
+    zpl?: string;
+  };
+  batchPdfUrl?: string;
+  batchPngUrl?: string;
+  batchZplUrl?: string;
+  uploadStatus?: 'idle' | 'success' | 'error' | 'editing';
   pickupAddress?: ShippingAddress;
   bulk_label_png_url?: string;
   bulk_label_pdf_url?: string;
+  bulk_label_zpl_url?: string;
 }
 
 export const CARRIER_OPTIONS = [
