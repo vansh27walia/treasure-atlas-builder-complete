@@ -92,27 +92,30 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     }
   };
 
-  const handleDownloadAllIndividualLabels = async () => {
-    console.log('Downloading all individual labels, count:', shipmentsWithLabels.length);
+  const handleDownloadAllByFormat = async (format: 'png' | 'pdf' | 'zpl') => {
+    console.log(`Downloading all ${format.toUpperCase()} labels, count:`, shipmentsWithLabels.length);
     
-    if (shipmentsWithLabels.length === 0) {
-      toast.error('No labels available for download');
+    const availableLabels = shipmentsWithLabels.filter(shipment => {
+      const url = shipment.label_urls?.[format] || (format === 'png' ? shipment.label_url : null);
+      return url && url.trim() !== '';
+    });
+
+    if (availableLabels.length === 0) {
+      toast.error(`No ${format.toUpperCase()} labels available for download`);
       return;
     }
 
-    toast.loading('Starting downloads...');
+    toast.loading(`Starting download of ${availableLabels.length} ${format.toUpperCase()} labels...`);
     
-    let successCount = 0;
-    
-    for (let i = 0; i < shipmentsWithLabels.length; i++) {
-      const shipment = shipmentsWithLabels[i];
-      const labelUrl = shipment.label_urls?.png || shipment.label_url;
+    for (let i = 0; i < availableLabels.length; i++) {
+      const shipment = availableLabels[i];
+      const labelUrl = shipment.label_urls?.[format] || (format === 'png' ? shipment.label_url : null);
+      
       if (labelUrl && labelUrl.trim() !== '') {
         try {
           setTimeout(async () => {
             const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
-            await downloadFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.png`);
-            successCount++;
+            await downloadFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.${format}`);
           }, i * 500);
         } catch (error) {
           console.error('Error downloading label for shipment:', shipment.id, error);
@@ -122,7 +125,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     
     toast.dismiss();
     setTimeout(() => {
-      toast.success(`Started download of ${shipmentsWithLabels.length} labels`);
+      toast.success(`Started download of ${availableLabels.length} ${format.toUpperCase()} labels`);
     }, 1000);
   };
 
@@ -146,7 +149,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             </h3>
             <p className="text-green-700">
               {hasLabels
-                ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created and are ready for download.`
+                ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created with multiple format options.`
                 : `${displayTotal} shipments have been processed and are ready for label creation.`
               }
               {displayFailed > 0 && ` ${displayFailed} shipments failed.`}
@@ -190,13 +193,29 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Labels</h4>
             
-            <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <Button 
-                onClick={handleDownloadAllIndividualLabels}
+                onClick={() => handleDownloadAllByFormat('png')}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 <Download className="mr-2 h-4 w-4" />
-                Download All Labels ({shipmentsWithLabels.length} PNG files)
+                Download All PNG ({shipmentsWithLabels.length})
+              </Button>
+              
+              <Button 
+                onClick={() => handleDownloadAllByFormat('pdf')}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                Download All PDF ({shipmentsWithLabels.length})
+              </Button>
+              
+              <Button 
+                onClick={() => handleDownloadAllByFormat('zpl')}
+                className="bg-gray-600 hover:bg-gray-700 text-white"
+              >
+                <File className="mr-2 h-4 w-4" />
+                Download All ZPL ({shipmentsWithLabels.length})
               </Button>
             </div>
           </div>
@@ -221,7 +240,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         )}
       </Card>
 
-      {/* New Clean Table Display */}
+      {/* Enhanced Table Display with Multiple Format Support */}
       {allShipments.length > 0 && (
         <LabelResultsTable
           shipments={allShipments}

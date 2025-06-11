@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,8 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   shipments,
   onDownloadLabel
 }) => {
+  const [showPreview, setShowPreview] = useState<{ [key: string]: boolean }>({});
+
   const handleDownload = (shipment: any, format: string = 'png') => {
     const url = shipment.label_urls?.[format] || shipment.label_url;
     if (!url) {
@@ -23,6 +25,13 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
       return;
     }
     onDownloadLabel(url, format);
+  };
+
+  const handlePreview = (shipmentId: string) => {
+    setShowPreview(prev => ({
+      ...prev,
+      [shipmentId]: !prev[shipmentId]
+    }));
   };
 
   const formatDate = (dateString: string) => {
@@ -53,7 +62,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
       <div className="px-6 py-4 border-b bg-gray-50">
         <h3 className="text-lg font-semibold text-gray-900">Generated Shipping Labels</h3>
         <p className="text-sm text-gray-600 mt-1">
-          {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download
+          {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download in multiple formats
         </p>
       </div>
       
@@ -83,110 +92,174 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {shipments.map((shipment, index) => (
-              <tr key={shipment.id || index} className="hover:bg-gray-50">
-                {/* Tracking */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <Truck className="h-4 w-4 text-blue-500 mr-2" />
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {shipment.tracking_code || shipment.tracking_number || 'Pending'}
+              <React.Fragment key={shipment.id || index}>
+                <tr className="hover:bg-gray-50">
+                  {/* Tracking */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <Truck className="h-4 w-4 text-blue-500 mr-2" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {shipment.tracking_code || shipment.tracking_number || 'Pending'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {shipment.status === 'completed' ? (
+                            <Badge className="bg-green-100 text-green-800">Completed</Badge>
+                          ) : (
+                            <Badge className="bg-yellow-100 text-yellow-800">Processing</Badge>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {shipment.status === 'completed' ? (
-                          <Badge className="bg-green-100 text-green-800">Completed</Badge>
+                    </div>
+                  </td>
+
+                  {/* Carrier & Drop-off Details */}
+                  <td className="px-6 py-4">
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium text-gray-900">
+                        {shipment.carrier || 'Unknown Carrier'}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {shipment.customer_name || shipment.recipient || 'No recipient name'}
+                      </div>
+                      <div className="text-xs text-gray-500 max-w-xs">
+                        {shipment.customer_address || 'No address available'}
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Dimensions & Weight */}
+                  <td className="px-6 py-4">
+                    <div className="space-y-1">
+                      <div className="text-sm text-gray-900">
+                        {shipment.details?.length && shipment.details?.width && shipment.details?.height ? (
+                          <span>{shipment.details.length}"×{shipment.details.width}"×{shipment.details.height}"</span>
                         ) : (
-                          <Badge className="bg-yellow-100 text-yellow-800">Processing</Badge>
+                          <span className="text-gray-400">No dimensions</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {shipment.details?.weight ? (
+                          <span>{shipment.details.weight} lbs</span>
+                        ) : (
+                          <span className="text-gray-400">No weight</span>
                         )}
                       </div>
                     </div>
-                  </div>
-                </td>
+                  </td>
 
-                {/* Carrier & Drop-off Details */}
-                <td className="px-6 py-4">
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium text-gray-900">
-                      {shipment.carrier || 'Unknown Carrier'}
+                  {/* Estimated Delivery */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                      <div className="text-sm text-gray-900">
+                        {formatDate(shipment.estimated_delivery)}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-600">
-                      {shipment.customer_name || shipment.recipient || 'No recipient name'}
-                    </div>
-                    <div className="text-xs text-gray-500 max-w-xs">
-                      {shipment.customer_address || 'No address available'}
-                    </div>
-                  </div>
-                </td>
+                  </td>
 
-                {/* Dimensions & Weight */}
-                <td className="px-6 py-4">
-                  <div className="space-y-1">
-                    <div className="text-sm text-gray-900">
-                      {shipment.details?.length && shipment.details?.width && shipment.details?.height ? (
-                        <span>{shipment.details.length}"×{shipment.details.width}"×{shipment.details.height}"</span>
-                      ) : (
-                        <span className="text-gray-400">No dimensions</span>
+                  {/* Notes */}
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-600 max-w-xs">
+                      {shipment.notes || shipment.details?.reference || (
+                        <span className="text-gray-400 italic">No notes</span>
                       )}
                     </div>
-                    <div className="text-sm text-gray-600">
-                      {shipment.details?.weight ? (
-                        <span>{shipment.details.weight} lbs</span>
-                      ) : (
-                        <span className="text-gray-400">No weight</span>
-                      )}
+                  </td>
+
+                  {/* Actions */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex flex-col space-y-2">
+                      {/* Download Options */}
+                      <div className="flex space-x-1">
+                        <Button
+                          size="sm"
+                          onClick={() => handleDownload(shipment, 'png')}
+                          className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1"
+                          disabled={!shipment.label_urls?.png && !shipment.label_url}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          PNG
+                        </Button>
+                        
+                        <Button
+                          size="sm"
+                          onClick={() => handleDownload(shipment, 'pdf')}
+                          className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1"
+                          disabled={!shipment.label_urls?.pdf}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          PDF
+                        </Button>
+                        
+                        <Button
+                          size="sm"
+                          onClick={() => handleDownload(shipment, 'zpl')}
+                          className="bg-gray-600 hover:bg-gray-700 text-white text-xs px-2 py-1"
+                          disabled={!shipment.label_urls?.zpl}
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          ZPL
+                        </Button>
+                      </div>
+
+                      {/* Preview Options */}
+                      <div className="flex space-x-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handlePreview(shipment.id)}
+                          className="text-xs px-2 py-1"
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          {showPreview[shipment.id] ? 'Hide' : 'Preview'}
+                        </Button>
+                        
+                        {shipment.label_urls?.pdf && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(shipment.label_urls.pdf, '_blank')}
+                            className="text-xs px-2 py-1"
+                          >
+                            <FileText className="h-3 w-3 mr-1" />
+                            PDF View
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </td>
+                  </td>
+                </tr>
 
-                {/* Estimated Delivery */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                    <div className="text-sm text-gray-900">
-                      {formatDate(shipment.estimated_delivery)}
-                    </div>
-                  </div>
-                </td>
-
-                {/* Notes */}
-                <td className="px-6 py-4">
-                  <div className="text-sm text-gray-600 max-w-xs">
-                    {shipment.notes || shipment.details?.reference || (
-                      <span className="text-gray-400 italic">No notes</span>
-                    )}
-                  </div>
-                </td>
-
-                {/* Actions */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleDownload(shipment, 'png')}
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                      disabled={!shipment.label_urls?.png && !shipment.label_url}
-                    >
-                      <Download className="h-3 w-3 mr-1" />
-                      Download Label
-                    </Button>
-                    
-                    <PrintPreview
-                      labelUrl={shipment.label_urls?.png || shipment.label_url || ''}
-                      trackingCode={shipment.tracking_code || shipment.tracking_number}
-                      shipmentDetails={{
-                        fromAddress: 'Pickup address', // You can get this from pickupAddress
-                        toAddress: shipment.customer_address || '',
-                        weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : '',
-                        dimensions: shipment.details?.length ? 
-                          `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : '',
-                        service: shipment.service || '',
-                        carrier: shipment.carrier || ''
-                      }}
-                      shipmentId={shipment.id}
-                    />
-                  </div>
-                </td>
-              </tr>
+                {/* Preview Row */}
+                {showPreview[shipment.id] && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-4 bg-gray-50">
+                      <div className="max-w-md mx-auto">
+                        <h4 className="text-sm font-medium text-gray-900 mb-2">Label Preview</h4>
+                        {shipment.label_urls?.png || shipment.label_url ? (
+                          <img
+                            src={shipment.label_urls?.png || shipment.label_url}
+                            alt={`Label for ${shipment.tracking_code}`}
+                            className="w-full border rounded-lg shadow-sm"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                        ) : (
+                          <div className="text-sm text-gray-500 text-center py-8">
+                            No preview available
+                          </div>
+                        )}
+                        <div className="hidden text-sm text-red-500 text-center py-8">
+                          Failed to load preview
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>
