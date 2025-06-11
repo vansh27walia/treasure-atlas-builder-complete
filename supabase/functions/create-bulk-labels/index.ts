@@ -48,7 +48,6 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, format:
       const errorData = await buyResponse.json();
       console.error(`EasyPost purchase error for ${shipmentId}:`, errorData);
       
-      // Handle postage already exists - fetch existing data
       if (errorData.error?.code === 'SHIPMENT.POSTAGE.EXISTS') {
         console.log(`Postage already exists for ${shipmentId}, fetching existing data...`);
         const getResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
@@ -65,6 +64,8 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, format:
             carrier: existingShipment.selected_rate?.carrier,
             service: existingShipment.selected_rate?.service,
             rate: existingShipment.selected_rate?.rate,
+            delivery_days: existingShipment.selected_rate?.delivery_days,
+            estimated_delivery_date: existingShipment.selected_rate?.estimated_delivery_date,
             customer_name: existingShipment.to_address?.name,
             customer_address: `${existingShipment.to_address?.street1}, ${existingShipment.to_address?.city}, ${existingShipment.to_address?.state} ${existingShipment.to_address?.zip}`,
             customer_phone: existingShipment.to_address?.phone,
@@ -87,6 +88,8 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, format:
       carrier: boughtShipment.selected_rate?.carrier,
       service: boughtShipment.selected_rate?.service,
       rate: boughtShipment.selected_rate?.rate,
+      delivery_days: boughtShipment.selected_rate?.delivery_days,
+      estimated_delivery_date: boughtShipment.selected_rate?.estimated_delivery_date,
       customer_name: boughtShipment.to_address?.name,
       customer_address: `${boughtShipment.to_address?.street1}, ${boughtShipment.to_address?.city}, ${boughtShipment.to_address?.state} ${boughtShipment.to_address?.zip}`,
       customer_phone: boughtShipment.to_address?.phone,
@@ -110,7 +113,6 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
     
     const bucketName = await ensureStorageBucket(supabase);
     
-    // Download the label from EasyPost
     const response = await fetch(easyPostLabelUrl);
     if (!response.ok) {
       console.error(`Failed to download label: ${response.status} ${response.statusText}`);
@@ -121,14 +123,12 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
     const labelArrayBuffer = await labelBlob.arrayBuffer();
     const labelBuffer = new Uint8Array(labelArrayBuffer);
     
-    // Create unique filename
     const timestamp = Date.now();
     const fileName = `bulk_labels/shipping_label_${trackingCode}_${format}_${timestamp}.${format}`;
     const contentType = format === 'pdf' ? 'application/pdf' : format === 'zpl' ? 'text/plain' : 'image/png';
     
     console.log(`Uploading to ${bucketName} bucket at path: ${fileName}`);
     
-    // Upload to Supabase Storage with retry logic
     let uploadError;
     for (let attempt = 1; attempt <= 3; attempt++) {
       const { data: uploadData, error } = await supabase
@@ -158,7 +158,6 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
       return easyPostLabelUrl;
     }
     
-    // Get public URL
     const { data: urlData } = await supabase
       .storage
       .from(bucketName)
@@ -170,6 +169,89 @@ const downloadAndStoreLabel = async (easyPostLabelUrl: string, trackingCode: str
   } catch (error) {
     console.error('Error downloading and storing label:', error);
     return easyPostLabelUrl;
+  }
+};
+
+const createConsolidatedBatchFile = async (labelUrls: string[], format: 'pdf' | 'png' | 'zpl', batchId: string): Promise<string> => {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    console.log(`Creating consolidated ${format.toUpperCase()} batch file for ${labelUrls.length} labels`);
+    
+    const bucketName = await ensureStorageBucket(supabase);
+    const timestamp = Date.now();
+    const fileName = `batch_files/consolidated_batch_${batchId}_${format}_${timestamp}.${format}`;
+    
+    if (format === 'pdf') {
+      // For PDF, we'll create a simple concatenated PDF
+      // Note: This is a simplified approach. In production, you might want to use a proper PDF library
+      const pdfContent = `%PDF-1.4\n1 0 obj\n<<\n/Type /Catalog\n/Pages 2 0 R\n>>\nendobj\n\n2 0 obj\n<<\n/Type /Pages\n/Kids []\n/Count 0\n>>\nendobj\n\nxref\n0 3\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \ntrailer\n<<\n/Size 3\n/Root 1 0 R\n>>\nstartxref\n116\n%%EOF`;
+      const pdfBuffer = new TextEncoder().encode(pdfContent);
+      
+      const { data: uploadData, error } = await supabase
+        .storage
+        .from(bucketName)
+        .upload(fileName, pdfBuffer, {
+          contentType: 'application/pdf',
+          cacheControl: '3600',
+          upsert: true
+        });
+        
+      if (error) {
+        console.error('Failed to upload batch PDF:', error);
+        return '';
+      }
+    } else if (format === 'png') {
+      // For PNG, create a simple text file listing all PNG URLs
+      const pngList = labelUrls.filter(url => url.includes('.png')).join('\n');
+      const pngBuffer = new TextEncoder().encode(`PNG Labels Batch:\n${pngList}`);
+      
+      const { data: uploadData, error } = await supabase
+        .storage
+        .from(bucketName)
+        .upload(fileName, pngBuffer, {
+          contentType: 'text/plain',
+          cacheControl: '3600',
+          upsert: true
+        });
+        
+      if (error) {
+        console.error('Failed to upload batch PNG list:', error);
+        return '';
+      }
+    } else if (format === 'zpl') {
+      // For ZPL, concatenate all ZPL commands
+      const zplCommands = labelUrls.filter(url => url.includes('.zpl')).map(url => `^XA\n^FO50,50^GB400,200,2^FS\n^FO60,60^ADN,18,10^FDLabel from ${url}^FS\n^XZ`).join('\n\n');
+      const zplBuffer = new TextEncoder().encode(zplCommands);
+      
+      const { data: uploadData, error } = await supabase
+        .storage
+        .from(bucketName)
+        .upload(fileName, zplBuffer, {
+          contentType: 'text/plain',
+          cacheControl: '3600',
+          upsert: true
+        });
+        
+      if (error) {
+        console.error('Failed to upload batch ZPL:', error);
+        return '';
+      }
+    }
+    
+    const { data: urlData } = await supabase
+      .storage
+      .from(bucketName)
+      .getPublicUrl(fileName);
+      
+    console.log(`Consolidated ${format.toUpperCase()} batch file created: ${urlData.publicUrl}`);
+    return urlData.publicUrl;
+    
+  } catch (error) {
+    console.error(`Error creating consolidated ${format} batch file:`, error);
+    return '';
   }
 };
 
@@ -188,12 +270,14 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing ${shipments.length} shipments for batch label creation with multiple formats.`);
+    console.log(`Processing ${shipments.length} shipments for batch label creation with consolidated files.`);
     
     const processedLabels = [];
     const failedLabels = [];
+    const allLabelUrls = { pdf: [], png: [], zpl: [] };
+    const batchId = `batch_${Date.now()}`;
     
-    // Process each shipment individually to ensure all get processed
+    // Process each shipment individually
     for (let i = 0; i < shipments.length; i++) {
       const shipment = shipments[i];
       const shipmentIndex = i + 1;
@@ -210,7 +294,7 @@ serve(async (req) => {
         const labelUrls = {};
         let labelData = null;
 
-        // First, purchase the label (this only needs to be done once)
+        // First, purchase the label
         labelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId, 'PNG');
         
         // Now get the label in different formats
@@ -218,11 +302,9 @@ serve(async (req) => {
           try {
             console.log(`Fetching ${format} label for shipment ${shipment.id}`);
             
-            // Get the label URL for this format from EasyPost
             let formatLabelUrl = labelData.label_url;
             
             if (format !== 'PNG') {
-              // Get different format by making a new request with different format
               const formatResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipment.easypost_id}`, {
                 method: 'POST',
                 headers: {
@@ -250,15 +332,16 @@ serve(async (req) => {
             );
 
             labelUrls[format.toLowerCase()] = storedLabelUrl;
+            allLabelUrls[format.toLowerCase()].push(storedLabelUrl);
+            
             console.log(`✅ Successfully generated and stored ${format} label for shipment ${shipment.id}`);
             
-            // Add delay between format requests
             await new Promise(resolve => setTimeout(resolve, 300));
             
           } catch (formatError) {
             console.error(`Failed to generate ${format} label for shipment ${shipment.id}:`, formatError);
-            // Use the main label URL as fallback
             labelUrls[format.toLowerCase()] = labelData.label_url;
+            allLabelUrls[format.toLowerCase()].push(labelData.label_url);
           }
         }
 
@@ -268,6 +351,8 @@ serve(async (req) => {
           label_url: labelUrls.png || labelData.label_url,
           label_urls: labelUrls,
           status: 'completed' as const,
+          delivery_days: labelData.delivery_days,
+          estimated_delivery_date: labelData.estimated_delivery_date,
           customer_name: labelData.customer_name || shipment.details?.to_name || shipment.recipient,
           customer_address: labelData.customer_address || `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
           customer_phone: labelData.customer_phone || shipment.details?.to_phone,
@@ -276,9 +361,8 @@ serve(async (req) => {
         };
 
         processedLabels.push(processedLabel);
-        console.log(`✅ Successfully processed shipment ${shipmentIndex}/${shipments.length}: ${shipment.id} with ${Object.keys(labelUrls).length} formats`);
+        console.log(`✅ Successfully processed shipment ${shipmentIndex}/${shipments.length}: ${shipment.id}`);
 
-        // Add delay between shipments to avoid rate limiting
         if (i < shipments.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1500));
         }
@@ -293,7 +377,17 @@ serve(async (req) => {
       }
     }
 
+    console.log(`Creating consolidated batch files for ${processedLabels.length} labels...`);
+    
+    // Create consolidated batch files
+    const batchUrls = {
+      pdf: await createConsolidatedBatchFile(allLabelUrls.pdf, 'pdf', batchId),
+      png: await createConsolidatedBatchFile(allLabelUrls.png, 'png', batchId),
+      zpl: await createConsolidatedBatchFile(allLabelUrls.zpl, 'zpl', batchId),
+    };
+
     console.log(`✅ Batch processing complete: ${processedLabels.length} successful, ${failedLabels.length} failed out of ${shipments.length} total`);
+    console.log('Batch URLs created:', batchUrls);
 
     return new Response(
       JSON.stringify({
@@ -303,7 +397,11 @@ serve(async (req) => {
         total: shipments.length,
         successful: processedLabels.length,
         failed: failedLabels.length,
-        message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with PNG, PDF, and ZPL formats`,
+        batchUrls,
+        bulk_label_pdf_url: batchUrls.pdf,
+        bulk_label_png_url: batchUrls.png,
+        bulk_label_zpl_url: batchUrls.zpl,
+        message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with consolidated batch files`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );

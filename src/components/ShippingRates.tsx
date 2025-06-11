@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,7 @@ import { toast } from '@/components/ui/sonner';
 import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import PrintPreview from './shipping/PrintPreview';
+import EnhancedPrintPreview from './shipping/EnhancedPrintPreview';
 
 const ShippingRates: React.FC = () => {
   const {
@@ -37,29 +36,6 @@ const ShippingRates: React.FC = () => {
   const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
-  const [shipmentDetails, setShipmentDetails] = useState<{ 
-    fromAddress: string; 
-    toAddress: string; 
-    weight: string; 
-    dimensions?: string; 
-    service: string; 
-    carrier: string; 
-  } | undefined>();
-  
-  useEffect(() => {
-    if (selectedRateId && rates.length > 0) {
-      const selectedRate = rates.find(rate => rate.id === selectedRateId);
-      if (selectedRate) {
-        setShipmentDetails({
-          fromAddress: "Your shipping address",
-          toAddress: "Recipient address",
-          weight: "Package weight",
-          service: selectedRate.service,
-          carrier: selectedRate.carrier.toUpperCase(),
-        });
-      }
-    }
-  }, [selectedRateId, rates]);
   
   const handleLabelFormatChange = async (format: string): Promise<void> => {
     setSelectedLabelFormat(format);
@@ -95,6 +71,25 @@ const ShippingRates: React.FC = () => {
       selectRateAndProceed(selectedRateId);
     }
   };
+
+  // Get shipment details for enhanced preview
+  const getShipmentDetails = () => {
+    if (selectedRateId && rates.length > 0) {
+      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      if (selectedRate) {
+        return {
+          fromAddress: "Your shipping address",
+          toAddress: "Recipient address", 
+          weight: "Package weight",
+          service: selectedRate.service,
+          carrier: selectedRate.carrier.toUpperCase(),
+          deliveryDays: selectedRate.delivery_days,
+          estimatedDeliveryDate: selectedRate.estimated_delivery_date,
+        };
+      }
+    }
+    return undefined;
+  };
   
   if (rates.length === 0) {
     return (
@@ -125,6 +120,13 @@ const ShippingRates: React.FC = () => {
   });
 
   const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
+
+  // Mock label URLs for different formats
+  const labelUrls = {
+    pdf: labelUrl || undefined,
+    png: labelUrl ? labelUrl.replace('.pdf', '.png') : undefined,
+    zpl: labelUrl ? labelUrl.replace('.pdf', '.zpl') : undefined,
+  };
 
   return (
     <div className="w-full pb-6" id="shipping-rates-section">
@@ -186,11 +188,12 @@ const ShippingRates: React.FC = () => {
           
           {labelUrl && trackingCode && (
             <div className="mb-6">
-              <PrintPreview 
+              <EnhancedPrintPreview 
                 labelUrl={labelUrl} 
                 trackingCode={trackingCode} 
                 shipmentId={shipmentId}
-                shipmentDetails={shipmentDetails}
+                labelUrls={labelUrls}
+                shipmentDetails={getShipmentDetails()}
                 onFormatChange={handleLabelFormatChange}
               />
             </div>

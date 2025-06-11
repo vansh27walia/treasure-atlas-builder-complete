@@ -49,22 +49,24 @@ const LabelPrintPreview: React.FC<LabelPrintPreviewProps> = ({
         </DialogHeader>
         
         <div className="print-content">
-          <style jsx>{`
-            @media print {
-              body * {
-                visibility: hidden;
+          <style dangerouslySetInnerHTML={{
+            __html: `
+              @media print {
+                body * {
+                  visibility: hidden;
+                }
+                .print-content, .print-content * {
+                  visibility: visible;
+                }
+                .print-content {
+                  position: absolute;
+                  left: 0;
+                  top: 0;
+                  width: 100%;
+                }
               }
-              .print-content, .print-content * {
-                visibility: visible;
-              }
-              .print-content {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-              }
-            }
-          `}</style>
+            `
+          }} />
           
           <div className="flex justify-center bg-white">
             {labelUrl ? (
