@@ -3,11 +3,11 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CheckCircle, Home, Truck, Download } from 'lucide-react';
+import { CheckCircle, Home, Truck, Download, Printer } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import { Progress } from '@/components/ui/progress';
-import EnhancedPrintPreview from '@/components/shipping/EnhancedPrintPreview';
+import PrintPreview from '@/components/shipping/PrintPreview';
 
 const LabelSuccessPage: React.FC = () => {
   const location = useLocation();
@@ -16,26 +16,17 @@ const LabelSuccessPage: React.FC = () => {
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
-  const [shipmentDetails, setShipmentDetails] = useState<any>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const labelUrlParam = params.get('labelUrl');
     const trackingCodeParam = params.get('trackingCode');
     const shipmentIdParam = params.get('shipmentId');
-    const deliveryDays = params.get('deliveryDays');
-    const estimatedDeliveryDate = params.get('estimatedDeliveryDate');
-    const carrier = params.get('carrier');
-    const service = params.get('service');
 
     console.log("URL Parameters:", {
       labelUrl: labelUrlParam,
       trackingCode: trackingCodeParam,
-      shipmentId: shipmentIdParam,
-      deliveryDays,
-      estimatedDeliveryDate,
-      carrier,
-      service
+      shipmentId: shipmentIdParam
     });
 
     if (labelUrlParam) {
@@ -51,19 +42,6 @@ const LabelSuccessPage: React.FC = () => {
     
     if (shipmentIdParam) {
       setShipmentId(decodeURIComponent(shipmentIdParam));
-    }
-
-    // Set shipment details for the enhanced preview
-    if (carrier && service) {
-      setShipmentDetails({
-        fromAddress: "Your shipping address",
-        toAddress: "Recipient address",
-        weight: "Package weight",
-        service: decodeURIComponent(service),
-        carrier: decodeURIComponent(carrier),
-        deliveryDays: deliveryDays ? parseInt(deliveryDays) : undefined,
-        estimatedDeliveryDate: estimatedDeliveryDate ? decodeURIComponent(estimatedDeliveryDate) : undefined,
-      });
     }
 
     toast.success('Your shipping label is ready!');
@@ -126,26 +104,6 @@ const LabelSuccessPage: React.FC = () => {
           {trackingCode && <> Tracking number: <span className="font-semibold">{trackingCode}</span></>}
         </p>
 
-        {/* Delivery Information Display */}
-        {shipmentDetails && (shipmentDetails.deliveryDays || shipmentDetails.estimatedDeliveryDate) && (
-          <Card className="p-4 mb-6 bg-blue-50 border-blue-200">
-            <div className="flex items-center justify-center gap-2 text-blue-800">
-              <Truck className="h-5 w-5" />
-              <span className="font-medium">Estimated Delivery:</span>
-              {shipmentDetails.estimatedDeliveryDate ? (
-                <span>{new Date(shipmentDetails.estimatedDeliveryDate).toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}</span>
-              ) : shipmentDetails.deliveryDays ? (
-                <span>{shipmentDetails.deliveryDays} business days</span>
-              ) : null}
-            </div>
-          </Card>
-        )}
-
         {/* Main Action Buttons */}
         <div className="flex flex-col sm:flex-row justify-center gap-4 mb-8">
           <Button 
@@ -154,15 +112,14 @@ const LabelSuccessPage: React.FC = () => {
             disabled={!labelUrl}
           >
             <Download className="h-5 w-5" />
-            Download Label (PDF)
+            Download Label
           </Button>
           
-          <EnhancedPrintPreview
+          <PrintPreview
             labelUrl={labelUrl || ''}
             trackingCode={trackingCode}
             shipmentId={shipmentId || undefined}
             labelUrls={labelUrls}
-            shipmentDetails={shipmentDetails}
           />
         </div>
 
