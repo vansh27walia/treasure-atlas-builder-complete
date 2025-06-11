@@ -76,11 +76,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   const displaySuccessful = shipmentsWithLabels.length || results.successful || 0;
   const displayFailed = failedShipments.length || results.failed || 0;
 
-  // Mock batch URLs - in real implementation, these would come from the API response
+  // Generate batch URLs - in real implementation, these would come from the API response
+  // For now, create mock URLs that point to expected batch file endpoints
   const batchUrls = {
-    pdf: results.batchUrls?.pdf || '/api/batch/labels.pdf',
-    png: results.batchUrls?.png || '/api/batch/labels.png',
-    zpl: results.batchUrls?.zpl || '/api/batch/labels.zpl',
+    pdf: `/api/batch/labels-${Date.now()}.pdf`,
+    png: `/api/batch/labels-${Date.now()}.png`,
+    zpl: `/api/batch/labels-${Date.now()}.zpl`,
   };
 
   return (
