@@ -1,39 +1,22 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Truck, Package, MapPin, Phone, Mail, Building2 } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Download, File, FileArchive, ChevronDown, Eye, Printer, Package } from 'lucide-react';
+import { BulkShipment } from '@/types/shipping';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { toast } from '@/components/ui/sonner';
-
-interface ShipmentData {
-  id: string;
-  status: string;
-  tracking_code?: string;
-  tracking_number?: string;
-  trackingCode?: string;
-  label_url?: string;
-  label_urls?: {
-    png?: string;
-    pdf?: string;
-    zpl?: string;
-  };
-  carrier?: string;
-  service?: string;
-  rate?: string | number;
-  customer_name?: string;
-  customer_address?: string;
-  customer_phone?: string;
-  customer_email?: string;
-  customer_company?: string;
-  recipient?: string;
-  details?: any;
-}
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface SuccessfulShipmentsTableProps {
-  shipments: ShipmentData[];
+  shipments: BulkShipment[];
   onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
-  onDownloadAllLabels: () => void;
+  onDownloadAllLabels?: () => void;
 }
 
 const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
@@ -41,211 +24,406 @@ const SuccessfulShipmentsTable: React.FC<SuccessfulShipmentsTableProps> = ({
   onDownloadSingleLabel,
   onDownloadAllLabels
 }) => {
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
+  const [selectedShipment, setSelectedShipment] = useState<BulkShipment | null>(null);
+
   console.log('SuccessfulShipmentsTable received shipments:', shipments);
 
-  const getTrackingNumber = (shipment: ShipmentData): string => {
-    return shipment.tracking_code || shipment.tracking_number || shipment.trackingCode || 'N/A';
+  if (!shipments || shipments.length === 0) {
+    return (
+      <div className="p-4 text-center text-gray-500">
+        <Package className="h-8 w-8 mx-auto mb-2" />
+        <p>No shipments to display</p>
+      </div>
+    );
+  }
+
+  // Helper function to get label URL (handles both formats)
+  const getLabelUrl = (shipment: BulkShipment): string | null => {
+    return shipment.label_urls?.png || shipment.label_url || null;
   };
 
-  const getLabelUrl = (shipment: ShipmentData): string | null => {
-    if (shipment.label_urls?.png) return shipment.label_urls.png;
-    if (shipment.label_url) return shipment.label_url;
-    return null;
+  // Helper function to get tracking code (handles both formats)
+  const getTrackingCode = (shipment: BulkShipment): string => {
+    return shipment.tracking_number || shipment.tracking_code || shipment.trackingCode || 'N/A';
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'completed':
-        return <Badge className="bg-green-100 text-green-800 border-green-200">Completed</Badge>;
-      case 'failed':
-        return <Badge className="bg-red-100 text-red-800 border-red-200">Failed</Badge>;
-      case 'processing':
-        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Processing</Badge>;
-      default:
-        return <Badge className="bg-gray-100 text-gray-800 border-gray-200">{status || 'Unknown'}</Badge>;
+  // Helper function to get shipment ID (handles both formats)
+  const getShipmentId = (shipment: BulkShipment): string => {
+    return shipment.shipment_id || shipment.id;
+  };
+
+  // Helper function to get recipient name (handles both formats)
+  const getRecipientName = (shipment: BulkShipment): string => {
+    return shipment.recipient_name || shipment.recipient || shipment.customer_name || 'Unknown';
+  };
+
+  // Helper function to get package dimensions
+  const getPackageDimensions = (shipment: BulkShipment): string => {
+    const details = shipment.details;
+    if (details && details.length && details.width && details.height) {
+      return `${details.length}" × ${details.width}" × ${details.height}"`;
+    }
+    return 'N/A';
+  };
+
+  // Helper function to get package weight
+  const getPackageWeight = (shipment: BulkShipment): string => {
+    const details = shipment.details;
+    if (details && details.weight) {
+      return `${details.weight} lbs`;
+    }
+    return 'N/A';
+  };
+
+  // Helper function to get full address
+  const getFullAddress = (shipment: BulkShipment): string => {
+    const details = shipment.details;
+    if (details) {
+      const addressParts = [
+        details.to_street1,
+        details.to_street2,
+        details.to_city,
+        details.to_state,
+        details.to_zip,
+        details.to_country
+      ].filter(Boolean);
+      
+      if (addressParts.length > 0) {
+        return addressParts.join(', ');
+      }
+    }
+    return shipment.customer_address || 'Address not available';
+  };
+
+  // Filter shipments with labels for bulk actions
+  const shipmentsWithLabels = shipments.filter(s => {
+    const labelUrl = getLabelUrl(s);
+    const hasLabel = !!(labelUrl && labelUrl.trim() !== '');
+    console.log(`Shipment ${getShipmentId(s)} has label:`, hasLabel, 'URL:', labelUrl);
+    return hasLabel;
+  });
+
+  console.log('Shipments with labels:', shipmentsWithLabels.length, 'out of', shipments.length);
+
+  const downloadFile = async (url: string, filename: string) => {
+    try {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.target = '_blank';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success(`Downloaded ${filename}`);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error(`Failed to download ${filename}`);
     }
   };
 
-  const handleDownloadLabel = async (shipment: ShipmentData) => {
+  const handlePrintPreview = (shipment: BulkShipment) => {
     const labelUrl = getLabelUrl(shipment);
-    if (!labelUrl || labelUrl.trim() === '') {
-      toast.error('No label available for this shipment');
+    if (!labelUrl) {
+      toast.error('No label available for preview');
+      return;
+    }
+    setSelectedShipment(shipment);
+    setPrintPreviewOpen(true);
+  };
+
+  const handlePrintLabel = () => {
+    const labelUrl = getLabelUrl(selectedShipment!);
+    if (labelUrl) {
+      window.open(labelUrl, '_blank');
+      setPrintPreviewOpen(false);
+    }
+  };
+
+  const handleDownloadLabel = async () => {
+    const labelUrl = getLabelUrl(selectedShipment!);
+    if (labelUrl) {
+      const trackingCode = getTrackingCode(selectedShipment!);
+      await downloadFile(labelUrl, `shipping_label_${trackingCode || Date.now()}.png`);
+      setPrintPreviewOpen(false);
+    }
+  };
+
+  const handleDownload = async (shipment: BulkShipment, format: string = 'png') => {
+    const labelUrl = getLabelUrl(shipment);
+    if (!labelUrl) {
+      toast.error('No label URL available for this shipment');
       return;
     }
 
     try {
-      console.log('Downloading label for shipment:', shipment.id, 'URL:', labelUrl);
-      onDownloadSingleLabel(labelUrl, 'png');
+      console.log(`Downloading ${format.toUpperCase()} label for shipment:`, getShipmentId(shipment));
+      const trackingCode = getTrackingCode(shipment);
+      const filename = `shipping_label_${trackingCode || Date.now()}.${format}`;
+      await downloadFile(labelUrl, filename);
     } catch (error) {
-      console.error('Error downloading label:', error);
-      toast.error('Failed to download label');
+      console.error('Download error:', error);
+      toast.error(`Failed to download ${format.toUpperCase()} label`);
     }
   };
 
-  const hasLabels = shipments.some(shipment => getLabelUrl(shipment));
+  const handleBulkDownload = async (format: 'png' | 'zip' = 'png') => {
+    if (shipmentsWithLabels.length === 0) {
+      toast.error('No valid labels to download');
+      return;
+    }
 
-  if (!shipments || shipments.length === 0) {
-    return (
-      <Card className="p-6">
-        <p className="text-center text-gray-500">No shipments to display</p>
-      </Card>
-    );
-  }
+    toast.loading(`Preparing ${format.toUpperCase()} downloads...`);
+
+    try {
+      for (let i = 0; i < shipmentsWithLabels.length; i++) {
+        const shipment = shipmentsWithLabels[i];
+        setTimeout(async () => {
+          await handleDownload(shipment, format === 'zip' ? 'png' : format);
+        }, i * 500);
+      }
+
+      toast.dismiss();
+      toast.success(`Started ${shipmentsWithLabels.length} ${format.toUpperCase()} downloads`);
+
+    } catch (error) {
+      toast.dismiss();
+      toast.error(`Failed to download ${format.toUpperCase()} labels`);
+    }
+  };
 
   return (
-    <Card className="p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Shipment Details</h3>
-          <p className="text-sm text-gray-600">
-            {shipments.length} shipment{shipments.length !== 1 ? 's' : ''} processed
-          </p>
-        </div>
-        
-        {hasLabels && (
-          <Button 
-            onClick={onDownloadAllLabels}
-            className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Download All Labels
-          </Button>
+    <div className="p-4">
+      <div className="flex justify-between items-center mb-3">
+        <h5 className="font-medium text-green-800">
+          Individual Shipment Labels ({shipments.length})
+          {shipmentsWithLabels.length > 0 && (
+            <span className="ml-2 text-sm bg-green-100 text-green-700 px-2 py-1 rounded">
+              {shipmentsWithLabels.length} with labels ready
+            </span>
+          )}
+        </h5>
+
+        {shipmentsWithLabels.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2 border-green-200 hover:bg-green-50">
+                <Download className="h-4 w-4" />
+                Download Options
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleBulkDownload('png')} className="flex items-center gap-2">
+                <File className="h-4 w-4 text-green-600" /> PNG Format
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleBulkDownload('zip')} className="flex items-center gap-2">
+                <FileArchive className="h-4 w-4 text-amber-600" /> Multiple Downloads
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
-      <div className="space-y-4">
-        {shipments.map((shipment, index) => {
-          const trackingNumber = getTrackingNumber(shipment);
-          const labelUrl = getLabelUrl(shipment);
-          const hasLabel = !!(labelUrl && labelUrl.trim() !== '');
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Shipment ID</TableHead>
+              <TableHead>Recipient</TableHead>
+              <TableHead>Drop-off Address</TableHead>
+              <TableHead>Dimensions (L×W×H)</TableHead>
+              <TableHead>Weight</TableHead>
+              <TableHead>Carrier</TableHead>
+              <TableHead>Tracking #</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {shipments.map((shipment) => {
+              const hasLabel = !!getLabelUrl(shipment);
+              const trackingNumber = getTrackingCode(shipment);
+              const recipientName = getRecipientName(shipment);
+              const fullAddress = getFullAddress(shipment);
+              const dimensions = getPackageDimensions(shipment);
+              const weight = getPackageWeight(shipment);
+              const carrier = shipment.carrier || 'N/A';
+              const service = shipment.service || '';
+              const shipmentId = getShipmentId(shipment);
 
-          return (
-            <div key={shipment.id || index} className="border rounded-lg p-4 bg-gray-50">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4">
-                <div className="flex items-center space-x-3 mb-2 lg:mb-0">
-                  <Package className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <h4 className="font-medium">Shipment #{index + 1}</h4>
-                    <p className="text-sm text-gray-600">ID: {shipment.id}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  {getStatusBadge(shipment.status)}
-                  {hasLabel && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleDownloadLabel(shipment)}
-                      className="bg-green-600 hover:bg-green-700"
-                    >
-                      <Download className="mr-1 h-3 w-3" />
-                      Download Label
-                    </Button>
-                  )}
-                </div>
-              </div>
+              console.log(`Rendering shipment ${shipmentId}:`, {
+                hasLabel,
+                trackingNumber,
+                recipientName,
+                fullAddress,
+                dimensions,
+                weight
+              });
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Tracking Information */}
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Truck className="h-4 w-4 text-gray-500" />
-                    <span className="font-medium text-sm">Shipping Details</span>
-                  </div>
-                  <div className="pl-6 space-y-1">
-                    <p className="text-sm">
-                      <span className="font-medium">Tracking:</span> {trackingNumber}
-                    </p>
-                    {shipment.carrier && (
-                      <p className="text-sm">
-                        <span className="font-medium">Carrier:</span> {shipment.carrier}
-                      </p>
-                    )}
-                    {shipment.service && (
-                      <p className="text-sm">
-                        <span className="font-medium">Service:</span> {shipment.service}
-                      </p>
-                    )}
-                    {shipment.rate && (
-                      <p className="text-sm">
-                        <span className="font-medium">Rate:</span> ${typeof shipment.rate === 'string' ? shipment.rate : shipment.rate.toFixed(2)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Customer Information */}
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-4 w-4 text-gray-500" />
-                    <span className="font-medium text-sm">Customer Details</span>
-                  </div>
-                  <div className="pl-6 space-y-1">
-                    {(shipment.customer_name || shipment.recipient) && (
-                      <p className="text-sm">
-                        <span className="font-medium">Name:</span> {shipment.customer_name || shipment.recipient}
-                      </p>
-                    )}
+              return (
+                <TableRow key={shipmentId}>
+                  <TableCell className="font-medium">{shipmentId}</TableCell>
+                  <TableCell>
+                    <div className="font-medium">{recipientName}</div>
                     {shipment.customer_company && (
-                      <p className="text-sm flex items-center">
-                        <Building2 className="h-3 w-3 mr-1" />
-                        {shipment.customer_company}
-                      </p>
+                      <div className="text-sm text-gray-500">{shipment.customer_company}</div>
                     )}
-                    {shipment.customer_address && (
-                      <p className="text-sm">
-                        <span className="font-medium">Address:</span> {shipment.customer_address}
-                      </p>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm max-w-[200px]">
+                      {fullAddress}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm font-mono">
+                      {dimensions}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm font-medium">
+                      {weight}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      <div className="font-medium">{carrier}</div>
+                      {service && (
+                        <div className="text-xs text-gray-500">{service}</div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {trackingNumber !== 'N/A' ? (
+                      <div className="font-mono text-sm bg-gray-100 p-1 rounded max-w-[150px] break-all">
+                        {trackingNumber}
+                      </div>
+                    ) : (
+                      <span className="text-gray-500 text-sm">No tracking</span>
                     )}
-                  </div>
-                </div>
+                  </TableCell>
+                  <TableCell>
+                    {hasLabel ? (
+                      <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                        Label Ready
+                      </span>
+                    ) : shipment.status?.startsWith('error') ? (
+                      <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded" title={shipment.error || 'An error occurred'}>
+                        Failed
+                      </span>
+                    ) : (
+                      <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                        Processing
+                      </span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      {hasLabel ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handlePrintPreview(shipment)}
+                            className="flex items-center gap-1 h-8 px-2 text-xs"
+                            title="Preview label"
+                          >
+                            <Eye className="h-3 w-3" />
+                            Preview
+                          </Button>
 
-                {/* Contact Information */}
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Phone className="h-4 w-4 text-gray-500" />
-                    <span className="font-medium text-sm">Contact Info</span>
-                  </div>
-                  <div className="pl-6 space-y-1">
-                    {shipment.customer_phone && (
-                      <p className="text-sm flex items-center">
-                        <Phone className="h-3 w-3 mr-1" />
-                        {shipment.customer_phone}
-                      </p>
-                    )}
-                    {shipment.customer_email && (
-                      <p className="text-sm flex items-center">
-                        <Mail className="h-3 w-3 mr-1" />
-                        {shipment.customer_email}
-                      </p>
-                    )}
-                    {!shipment.customer_phone && !shipment.customer_email && (
-                      <p className="text-sm text-gray-500">No contact info</p>
-                    )}
-                  </div>
-                </div>
-              </div>
+                          <Button
+                            size="sm"
+                            onClick={() => handleDownload(shipment, 'png')}
+                            className="flex items-center gap-1 h-8 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                            title="Download PNG label"
+                          >
+                            <Download className="h-3 w-3" />
+                            PNG
+                          </Button>
 
-              {/* Label Status */}
-              {hasLabel ? (
-                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
-                  <p className="text-sm text-green-800 flex items-center">
-                    <Eye className="mr-2 h-4 w-4" />
-                    Label created successfully and ready for download
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                  <p className="text-sm text-yellow-800">
-                    Label not available - processing may have failed
-                  </p>
-                </div>
-              )}
-            </div>
-          );
-        })}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => window.open(getLabelUrl(shipment)!, '_blank')}
+                            className="flex items-center gap-1 h-8 px-2 text-xs"
+                            title="Print label"
+                          >
+                            <Printer className="h-3 w-3" />
+                            Print
+                          </Button>
+                        </>
+                      ) : (
+                        <span className="text-xs text-gray-500 px-2 py-1">
+                          {shipment.status?.startsWith('error') ? 'Label creation failed' : 'No label available'}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       </div>
-    </Card>
+
+      {/* Print Preview Modal */}
+      <Dialog open={printPreviewOpen} onOpenChange={setPrintPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Shipping Label Preview</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col space-y-4">
+            {selectedShipment && (
+              <>
+                <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <h3 className="font-semibold">Shipment Details</h3>
+                    <p className="text-sm text-gray-600">
+                      <strong>Tracking:</strong> {getTrackingCode(selectedShipment)}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <strong>Carrier:</strong> {selectedShipment.carrier} - {selectedShipment.service}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <strong>To:</strong> {getRecipientName(selectedShipment)}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <strong>Dimensions:</strong> {getPackageDimensions(selectedShipment)}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      <strong>Weight:</strong> {getPackageWeight(selectedShipment)}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handlePrintLabel} variant="outline">
+                      <Printer className="h-4 w-4 mr-2" />
+                      Print Label
+                    </Button>
+                    <Button onClick={handleDownloadLabel}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download PNG
+                    </Button>
+                  </div>
+                </div>
+
+                {getLabelUrl(selectedShipment) && (
+                  <div className="flex-1 min-h-0">
+                    <iframe
+                      src={getLabelUrl(selectedShipment)!}
+                      className="w-full h-[600px] border rounded"
+                      title="Shipping Label Preview"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 
