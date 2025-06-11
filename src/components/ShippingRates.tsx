@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,7 @@ import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-reac
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import EnhancedPrintPreview from './shipping/EnhancedPrintPreview';
+import { ShippingOption } from '@/types/shipping';
 
 const ShippingRates: React.FC = () => {
   const {
@@ -76,7 +76,7 @@ const ShippingRates: React.FC = () => {
   // Get shipment details for enhanced preview
   const getShipmentDetails = () => {
     if (selectedRateId && rates.length > 0) {
-      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      const selectedRate = rates.find((rate: ShippingOption) => rate.id === selectedRateId);
       if (selectedRate) {
         return {
           fromAddress: "Your shipping address",
@@ -108,9 +108,9 @@ const ShippingRates: React.FC = () => {
     );
   }
 
-  const sortedRates = [...rates].sort((a, b) => {
+  const sortedRates = [...rates].sort((a: ShippingOption, b: ShippingOption) => {
     if (sortOrder === 'price') {
-      return parseFloat(a.rate) - parseFloat(b.rate);
+      return parseFloat(a.rate.toString()) - parseFloat(b.rate.toString());
     } else if (sortOrder === 'speed') {
       const aDays = a.delivery_days || 999;
       const bDays = b.delivery_days || 999;
@@ -213,7 +213,7 @@ const ShippingRates: React.FC = () => {
               <div className="space-y-4 mt-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  {sortedRates.map((rate) => (
+                  {sortedRates.map((rate: ShippingOption) => (
                     <ShippingRateCard
                       key={rate.id}
                       rate={rate}
