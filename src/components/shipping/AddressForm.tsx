@@ -13,6 +13,8 @@ import { extractAddressComponents } from '@/utils/addressUtils';
 
 export interface AddressFormValues {
   name: string;
+  first_name?: string;
+  last_name?: string;
   company?: string;
   street1: string;
   street2?: string;
@@ -56,6 +58,8 @@ const AddressForm: React.FC<AddressFormProps> = ({
   } = useForm<AddressFormValues>({
     defaultValues: {
       name: '',
+      first_name: '',
+      last_name: '',
       company: '',
       street1: '',
       street2: '',
@@ -77,6 +81,8 @@ const AddressForm: React.FC<AddressFormProps> = ({
     if (defaultValues) {
       reset({
         name: defaultValues.name || '',
+        first_name: defaultValues.first_name || '',
+        last_name: defaultValues.last_name || '',
         company: defaultValues.company || '',
         street1: defaultValues.street1 || '',
         street2: defaultValues.street2 || '',
@@ -154,51 +160,75 @@ const AddressForm: React.FC<AddressFormProps> = ({
     <Card>
       <CardContent className="p-6">
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+          <div>
+            <Label htmlFor="name">Address Name / Location Name *</Label>
+            <Input
+              id="name"
+              {...register('name', { required: 'Address name is required' })}
+              placeholder="Home, Office, Warehouse, etc."
+              className={errors.name ? 'border-red-500' : ''}
+            />
+            {errors.name && (
+              <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
+            )}
+            <p className="text-gray-500 text-xs mt-1">Give this address a memorable name (e.g., "Main Office", "Home", "Warehouse")</p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="name">Address Name *</Label>
+              <Label htmlFor="first_name">First Name</Label>
               <Input
-                id="name"
-                {...register('name', { required: 'Address name is required' })}
-                placeholder="Home, Office, etc."
-                className={errors.name ? 'border-red-500' : ''}
+                id="first_name"
+                {...register('first_name')}
+                placeholder="First name"
               />
-              {errors.name && (
-                <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
-              )}
             </div>
             
             <div>
-              <Label htmlFor="company">Company</Label>
+              <Label htmlFor="last_name">Last Name</Label>
               <Input
-                id="company"
-                {...register('company')}
-                placeholder="Company name (optional)"
+                id="last_name"
+                {...register('last_name')}
+                placeholder="Last name"
               />
             </div>
+          </div>
+          
+          <div>
+            <Label htmlFor="company">Company Name</Label>
+            <Input
+              id="company"
+              {...register('company')}
+              placeholder="Company or business name (optional)"
+            />
           </div>
 
           <div>
             <Label htmlFor="street1">Street Address *</Label>
             <AddressAutoComplete 
-              placeholder="Enter your address (Google autofill enabled)"
+              placeholder="Start typing your address (Google autofill enabled)..."
               defaultValue={watchedValues.street1}
               onAddressSelected={handleGooglePlaceSelected}
               onChange={handleAddressLineChange}
               id="address-form-autocomplete"
               required
             />
+            <input
+              type="hidden"
+              {...register('street1', { required: 'Street address is required' })}
+            />
             {errors.street1 && (
               <p className="text-red-500 text-sm mt-1">{errors.street1.message}</p>
             )}
+            <p className="text-gray-500 text-xs mt-1">Start typing and select from Google suggestions to auto-fill city, state, and ZIP</p>
           </div>
 
           <div>
-            <Label htmlFor="street2">Apartment, Suite, etc.</Label>
+            <Label htmlFor="street2">Apartment, Suite, Unit, Floor</Label>
             <Input
               id="street2"
               {...register('street2')}
-              placeholder="Apt, Suite, Floor, etc. (optional)"
+              placeholder="Apt, Suite, Unit, Floor, etc. (optional)"
             />
           </div>
 
@@ -217,11 +247,11 @@ const AddressForm: React.FC<AddressFormProps> = ({
             </div>
             
             <div>
-              <Label htmlFor="state">State *</Label>
+              <Label htmlFor="state">State / Province *</Label>
               <Input
                 id="state"
                 {...register('state', { required: 'State is required' })}
-                placeholder="State"
+                placeholder="State or Province"
                 className={errors.state ? 'border-red-500' : ''}
               />
               {errors.state && (
@@ -230,11 +260,11 @@ const AddressForm: React.FC<AddressFormProps> = ({
             </div>
             
             <div>
-              <Label htmlFor="zip">ZIP Code *</Label>
+              <Label htmlFor="zip">ZIP / Postal Code *</Label>
               <Input
                 id="zip"
                 {...register('zip', { required: 'ZIP code is required' })}
-                placeholder="ZIP Code"
+                placeholder="ZIP or Postal Code"
                 className={errors.zip ? 'border-red-500' : ''}
               />
               {errors.zip && (
@@ -249,9 +279,10 @@ const AddressForm: React.FC<AddressFormProps> = ({
               <Input
                 id="phone"
                 {...register('phone')}
-                placeholder="Phone number (optional)"
+                placeholder="Phone number (recommended)"
                 type="tel"
               />
+              <p className="text-gray-500 text-xs mt-1">Required by most carriers for pickup/delivery</p>
             </div>
             
             <div>
@@ -272,6 +303,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
               defaultChecked={watchedValues.residential}
             />
             <Label htmlFor="residential">This is a residential address</Label>
+            <p className="text-gray-500 text-xs ml-2">(Uncheck if this is a business/commercial address)</p>
           </div>
 
           {showDefaultOptions && (
