@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Truck, Package, MapPin, Calendar, FileText } from 'lucide-react';
+import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, Printer } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import PrintPreview from '@/components/shipping/PrintPreview';
+import LabelDownloadOptions from '@/components/shipping/LabelDownloadOptions';
+import LabelPrintPreview from '@/components/shipping/LabelPrintPreview';
 
 interface LabelResultsTableProps {
   shipments: any[];
@@ -17,6 +18,8 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   onDownloadLabel
 }) => {
   const [showPreview, setShowPreview] = useState<{ [key: string]: boolean }>({});
+  const [showDownloadOptions, setShowDownloadOptions] = useState<{ [key: string]: boolean }>({});
+  const [showPrintPreview, setShowPrintPreview] = useState<{ [key: string]: boolean }>({});
 
   const handleDownload = (shipment: any, format: string = 'png') => {
     const url = shipment.label_urls?.[format] || shipment.label_url;
@@ -31,6 +34,20 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
     setShowPreview(prev => ({
       ...prev,
       [shipmentId]: !prev[shipmentId]
+    }));
+  };
+
+  const toggleDownloadOptions = (shipmentId: string) => {
+    setShowDownloadOptions(prev => ({
+      ...prev,
+      [shipmentId]: !prev[shipmentId]
+    }));
+  };
+
+  const handlePrintLabel = (shipmentId: string) => {
+    setShowPrintPreview(prev => ({
+      ...prev,
+      [shipmentId]: true
     }));
   };
 
@@ -60,9 +77,9 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   return (
     <Card className="overflow-hidden">
       <div className="px-6 py-4 border-b bg-gray-50">
-        <h3 className="text-lg font-semibold text-gray-900">Generated Shipping Labels</h3>
+        <h3 className="text-lg font-semibold text-gray-900">Individual Shipping Labels</h3>
         <p className="text-sm text-gray-600 mt-1">
-          {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download in multiple formats
+          {shipments.length} label{shipments.length !== 1 ? 's' : ''} with download and print options
         </p>
       </div>
       
@@ -81,9 +98,6 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Estimated Delivery
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Notes
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
@@ -158,35 +172,16 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                     </div>
                   </td>
 
-                  {/* Notes */}
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-600 max-w-xs">
-                      {shipment.notes || shipment.details?.reference || (
-                        <span className="text-gray-400 italic">No notes</span>
-                      )}
-                    </div>
-                  </td>
-
                   {/* Actions */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col space-y-2">
-                      {/* Download Options */}
-                      <div className="flex space-x-1">
-                        <Button
-                          size="sm"
-                          onClick={() => handleDownload(shipment, 'png')}
-                          className="bg-green-600 hover:bg-green-700 text-white text-xs px-2 py-1"
-                          disabled={!shipment.label_urls?.png && !shipment.label_url}
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          PNG
-                        </Button>
-                        
+                      {/* Primary Actions */}
+                      <div className="flex space-x-2">
                         <Button
                           size="sm"
                           onClick={() => handleDownload(shipment, 'pdf')}
                           className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1"
-                          disabled={!shipment.label_urls?.pdf}
+                          disabled={!shipment.label_urls?.pdf && !shipment.label_url}
                         >
                           <Download className="h-3 w-3 mr-1" />
                           PDF
@@ -194,17 +189,28 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         
                         <Button
                           size="sm"
-                          onClick={() => handleDownload(shipment, 'zpl')}
-                          className="bg-gray-600 hover:bg-gray-700 text-white text-xs px-2 py-1"
-                          disabled={!shipment.label_urls?.zpl}
+                          variant="outline"
+                          onClick={() => handlePrintLabel(shipment.id)}
+                          className="text-xs px-2 py-1"
+                          disabled={!shipment.label_urls?.pdf && !shipment.label_url}
                         >
-                          <Download className="h-3 w-3 mr-1" />
-                          ZPL
+                          <Printer className="h-3 w-3 mr-1" />
+                          Print
                         </Button>
                       </div>
 
-                      {/* Preview Options */}
-                      <div className="flex space-x-1">
+                      {/* Secondary Actions */}
+                      <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => toggleDownloadOptions(shipment.id)}
+                          className="text-xs px-2 py-1"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          {showDownloadOptions[shipment.id] ? 'Hide' : 'More'}
+                        </Button>
+                        
                         <Button
                           size="sm"
                           variant="outline"
@@ -214,27 +220,36 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                           <Eye className="h-3 w-3 mr-1" />
                           {showPreview[shipment.id] ? 'Hide' : 'Preview'}
                         </Button>
-                        
-                        {shipment.label_urls?.pdf && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => window.open(shipment.label_urls.pdf, '_blank')}
-                            className="text-xs px-2 py-1"
-                          >
-                            <FileText className="h-3 w-3 mr-1" />
-                            PDF View
-                          </Button>
-                        )}
                       </div>
                     </div>
                   </td>
                 </tr>
 
+                {/* Download Options Row */}
+                {showDownloadOptions[shipment.id] && (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-4 bg-gray-50">
+                      <div className="max-w-2xl">
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">Download Options</h4>
+                        <LabelDownloadOptions
+                          labelUrls={{
+                            pdf: shipment.label_urls?.pdf || shipment.label_url,
+                            png: shipment.label_urls?.png,
+                            zpl: shipment.label_urls?.zpl,
+                          }}
+                          labelType="individual"
+                          trackingNumber={shipment.tracking_code || shipment.tracking_number}
+                          onPrintLabel={() => handlePrintLabel(shipment.id)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+
                 {/* Preview Row */}
                 {showPreview[shipment.id] && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-4 bg-gray-50">
+                    <td colSpan={5} className="px-6 py-4 bg-gray-50">
                       <div className="max-w-md mx-auto">
                         <h4 className="text-sm font-medium text-gray-900 mb-2">Label Preview</h4>
                         {shipment.label_urls?.png || shipment.label_url ? (
@@ -259,6 +274,14 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                     </td>
                   </tr>
                 )}
+
+                {/* Print Preview Modal */}
+                <LabelPrintPreview
+                  isOpen={showPrintPreview[shipment.id] || false}
+                  onClose={() => setShowPrintPreview(prev => ({ ...prev, [shipment.id]: false }))}
+                  labelUrl={shipment.label_urls?.pdf || shipment.label_url || ''}
+                  trackingNumber={shipment.tracking_code || shipment.tracking_number}
+                />
               </React.Fragment>
             ))}
           </tbody>
