@@ -106,17 +106,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         return;
       }
 
-      // Construct the download URL
-      const downloadUrl = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipmentId}&type=${format}&download=true`;
-      
-      console.log('Making download request to:', downloadUrl);
-      
-      // Make the download request with proper authentication
-      const response = await fetch(downloadUrl, {
+      // Make direct download request to the edge function
+      const response = await fetch(`https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipmentId}&type=${format}&download=true`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
+          'Accept': '*/*'
         }
       });
 
@@ -142,6 +137,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       const link = document.createElement('a');
       link.href = url;
       link.download = `shipping_label_${trackingCode || Date.now()}.${format}`;
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

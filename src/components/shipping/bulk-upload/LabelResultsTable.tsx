@@ -10,14 +10,14 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface LabelResultsTableProps {
   shipments: any[];
-  onDownloadLabel: (url: string, format: string) => void;
+  onDownloadLabel: (shipmentId: string, format: string) => void;
 }
 
 const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   shipments,
   onDownloadLabel
 }) => {
-  const handleDownload = async (shipment: any, format: string = 'png') => {
+  const handleDownload = async (shipment: any, format: string = 'pdf') => {
     try {
       console.log('Downloading label for shipment:', shipment.id, 'format:', format);
       
@@ -33,17 +33,12 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
         return;
       }
 
-      // Construct the download URL
-      const downloadUrl = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipment.id}&type=${format}&download=true`;
-      
-      console.log('Making download request to:', downloadUrl);
-      
-      // Make the download request with proper authentication
-      const response = await fetch(downloadUrl, {
+      // Make direct download request to the edge function
+      const response = await fetch(`https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipment.id}&type=${format}&download=true`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
+          'Accept': '*/*'
         }
       });
 
@@ -69,6 +64,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
       const link = document.createElement('a');
       link.href = url;
       link.download = `shipping_label_${shipment.id}.${format}`;
+      link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -105,6 +101,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
            shipment.estimatedDelivery || 
            shipment.details?.estimated_delivery ||
            shipment.details?.estimatedDelivery ||
+           shipment.delivery_days ||
            'Not Available';
   };
 
@@ -229,7 +226,10 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   <div className="flex items-center">
                     <Calendar className="h-4 w-4 text-gray-400 mr-2" />
                     <div className="text-sm text-gray-900">
-                      {formatDate(getEstimatedDelivery(shipment))}
+                      {getEstimatedDelivery(shipment) !== 'Not Available' ? 
+                        formatDate(getEstimatedDelivery(shipment)) : 
+                        getEstimatedDelivery(shipment)
+                      }
                     </div>
                   </div>
                 </td>
@@ -250,6 +250,15 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       <>
                         <Button
                           size="sm"
+                          onClick={() => handleDownload(shipment, 'pdf')}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <Download className="h-3 w-3 mr-1" />
+                          PDF
+                        </Button>
+                        
+                        <Button
+                          size="sm"
                           onClick={() => handleDownload(shipment, 'png')}
                           className="bg-green-600 hover:bg-green-700 text-white"
                         >
@@ -259,11 +268,11 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         
                         <Button
                           size="sm"
-                          variant="outline"
-                          onClick={() => handleDownload(shipment, 'pdf')}
+                          onClick={() => handleDownload(shipment, 'zpl')}
+                          className="bg-purple-600 hover:bg-purple-700 text-white"
                         >
-                          <FileText className="h-3 w-3 mr-1" />
-                          PDF
+                          <Download className="h-3 w-3 mr-1" />
+                          ZPL
                         </Button>
                       </>
                     ) : (
