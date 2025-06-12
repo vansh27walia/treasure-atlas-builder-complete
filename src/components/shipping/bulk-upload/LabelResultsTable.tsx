@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, Shield } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import PrintPreview from '@/components/shipping/PrintPreview';
+import { supabase } from '@/integrations/supabase/client';
 
 interface LabelResultsTableProps {
   shipments: any[];
@@ -16,20 +17,68 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   shipments,
   onDownloadLabel
 }) => {
-  const handleDownload = (shipment: any, format: string = 'png') => {
-    const url = shipment.label_urls?.[format] || shipment.label_url;
-    if (!url) {
-      toast.error(`${format.toUpperCase()} label not available for this shipment`);
-      return;
+  const handleDownload = async (shipment: any, format: string = 'png') => {
+    try {
+      console.log('Downloading label for shipment:', shipment.id, 'format:', format);
+      
+      if (!shipment.id || shipment.id.trim() === '') {
+        toast.error('Invalid shipment ID - cannot download');
+        return;
+      }
+
+      // Get current user session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Please sign in to download labels');
+        return;
+      }
+
+      // Construct the download URL
+      const downloadUrl = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipment.id}&type=${format}&download=true`;
+      
+      console.log('Making download request to:', downloadUrl);
+      
+      // Make the download request with proper authentication
+      const response = await fetch(downloadUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Download response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Download failed:', response.status, errorText);
+        toast.error(`Failed to download ${format.toUpperCase()} label`);
+        return;
+      }
+
+      // Get the file blob and trigger download
+      const blob = await response.blob();
+      console.log('Downloaded blob size:', blob.size);
+      
+      if (blob.size === 0) {
+        toast.error('Downloaded file is empty');
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `shipping_label_${shipment.id}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Downloaded ${format.toUpperCase()} label successfully`);
+    } catch (error) {
+      console.error('Error downloading label:', error);
+      toast.error('Failed to download label');
     }
-    
-    // Verify it's a secure Supabase URL
-    if (!url.includes('supabase')) {
-      toast.error('Only secure labels can be downloaded. This label is not stored securely.');
-      return;
-    }
-    
-    onDownloadLabel(url, format);
   };
 
   const formatDate = (dateString: string) => {
@@ -48,6 +97,15 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   const isSecureLabel = (shipment: any) => {
     const url = shipment.label_urls?.png || shipment.label_url;
     return url && url.includes('supabase');
+  };
+
+  const getEstimatedDelivery = (shipment: any) => {
+    // Check multiple possible fields for estimated delivery
+    return shipment.estimated_delivery || 
+           shipment.estimatedDelivery || 
+           shipment.details?.estimated_delivery ||
+           shipment.details?.estimatedDelivery ||
+           'Not Available';
   };
 
   if (!shipments || shipments.length === 0) {
@@ -99,7 +157,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                 Notes
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Secure Downloads
+                Actions
               </th>
             </tr>
           </thead>
@@ -171,7 +229,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   <div className="flex items-center">
                     <Calendar className="h-4 w-4 text-gray-400 mr-2" />
                     <div className="text-sm text-gray-900">
-                      {formatDate(shipment.estimated_delivery)}
+                      {formatDate(getEstimatedDelivery(shipment))}
                     </div>
                   </div>
                 </td>
@@ -185,7 +243,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   </div>
                 </td>
 
-                {/* Secure Downloads */}
+                {/* Actions */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex space-x-2">
                     {isSecureLabel(shipment) ? (
@@ -203,7 +261,6 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                           size="sm"
                           variant="outline"
                           onClick={() => handleDownload(shipment, 'pdf')}
-                          disabled={!shipment.label_urls?.pdf}
                         >
                           <FileText className="h-3 w-3 mr-1" />
                           PDF
@@ -226,7 +283,8 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         dimensions: shipment.details?.length ? 
                           `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : '',
                         service: shipment.service || '',
-                        carrier: shipment.carrier || ''
+                        carrier: shipment.carrier || '',
+                        estimatedDelivery: getEstimatedDelivery(shipment)
                       }}
                       shipmentId={shipment.id}
                     />

@@ -19,6 +19,8 @@ serve(async (req) => {
     const trackingCode = url.searchParams.get('tracking');
     const forceDownload = url.searchParams.get('download') === 'true';
     
+    console.log('Download request received:', { shipmentReference, labelType, trackingCode, forceDownload });
+
     if (!shipmentReference && !trackingCode) {
       return new Response(
         JSON.stringify({ error: 'Missing shipment reference or tracking code' }),
@@ -38,6 +40,7 @@ serve(async (req) => {
       try {
         const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
         userId = user?.id;
+        console.log('User authenticated:', userId);
       } catch (error) {
         console.log('Could not authenticate user:', error);
       }
@@ -71,6 +74,7 @@ serve(async (req) => {
     }
 
     if (!labelFiles || labelFiles.length === 0) {
+      console.log('No label files found for query');
       return new Response(
         JSON.stringify({ error: 'Label not found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
@@ -78,32 +82,40 @@ serve(async (req) => {
     }
 
     const labelFile = labelFiles[0];
+    console.log('Found label file:', labelFile.id, 'URL:', labelFile.supabase_url);
 
     // For direct download, return the file content with proper headers
     if (forceDownload) {
       try {
+        console.log('Fetching file from:', labelFile.supabase_url);
+        
         // Fetch the file from Supabase storage
         const fileResponse = await fetch(labelFile.supabase_url);
         if (!fileResponse.ok) {
+          console.error('Failed to fetch file:', fileResponse.status, fileResponse.statusText);
           throw new Error(`Failed to fetch file: ${fileResponse.status}`);
         }
         
         const fileBlob = await fileResponse.blob();
+        console.log('File fetched successfully, size:', fileBlob.size);
+        
         const contentType = labelType === 'pdf' ? 'application/pdf' : 
                            labelType === 'png' ? 'image/png' : 'text/plain';
+        
+        const filename = `shipping_label_${trackingCode || shipmentReference || 'download'}.${labelType}`;
         
         return new Response(fileBlob, {
           headers: {
             ...corsHeaders,
             'Content-Type': contentType,
-            'Content-Disposition': `attachment; filename="shipping_label_${trackingCode || 'download'}.${labelType}"`,
+            'Content-Disposition': `attachment; filename="${filename}"`,
             'Cache-Control': 'public, max-age=3600'
           }
         });
       } catch (error) {
         console.error('Error fetching file:', error);
         return new Response(
-          JSON.stringify({ error: 'Failed to fetch file' }),
+          JSON.stringify({ error: 'Failed to fetch file', details: error.message }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
         );
       }

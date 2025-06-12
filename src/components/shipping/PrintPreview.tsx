@@ -26,6 +26,7 @@ interface PrintPreviewProps {
     dimensions?: string;
     service: string;
     carrier: string;
+    estimatedDelivery?: string;
   };
   onFormatChange?: (format: string) => Promise<void>;
   shipmentId?: string;
@@ -54,9 +55,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   // Update currentLabelUrl when labelUrl prop changes
   useEffect(() => {
     setCurrentLabelUrl(labelUrl);
-    // Try to get PDF version for preview
+    // Try to get PDF version for preview, fallback to PNG
     if (labelUrls?.pdf) {
       setPreviewUrl(labelUrls.pdf);
+    } else if (labelUrls?.png) {
+      setPreviewUrl(labelUrls.png);
     } else if (labelUrl) {
       setPreviewUrl(labelUrl);
     }
@@ -96,40 +99,55 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
 
     try {
-      // Use the edge function to download the specific format
-      const { data, error } = await supabase.functions.invoke('download-label', {
-        body: { 
-          shipment: shipmentId,
-          type: format,
-          download: true
+      // Get current user session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Please sign in to download labels');
+        return;
+      }
+
+      // Construct the download URL
+      const downloadUrl = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipmentId}&type=${format}&download=true`;
+      
+      console.log('Making download request to:', downloadUrl);
+      
+      // Make the download request with proper authentication
+      const response = await fetch(downloadUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
         }
       });
 
-      if (error) {
-        console.error('Download error:', error);
+      console.log('Download response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Download failed:', response.status, errorText);
         toast.error(`Failed to download ${format.toUpperCase()} label`);
         return;
       }
 
-      // If we get a direct file response, trigger download
-      if (data instanceof Blob) {
-        const blob = new Blob([data], { 
-          type: format === 'pdf' ? 'application/pdf' : 
-                format === 'png' ? 'image/png' : 'text/plain' 
-        });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `shipping_label_${trackingCode || Date.now()}.${format}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        toast.success(`Downloaded ${format.toUpperCase()} label`);
-      } else {
-        toast.error(`${format.toUpperCase()} format not available for this label`);
+      // Get the file blob and trigger download
+      const blob = await response.blob();
+      console.log('Downloaded blob size:', blob.size);
+      
+      if (blob.size === 0) {
+        toast.error('Downloaded file is empty');
+        return;
       }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `shipping_label_${trackingCode || Date.now()}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Downloaded ${format.toUpperCase()} label successfully`);
     } catch (error) {
       console.error("Error downloading label:", error);
       toast.error("Failed to download label");
@@ -150,7 +168,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       <DialogContent className="max-w-5xl bg-white">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Shipping Label Preview</span>
+            <span>Shipping Label Preview & Print Options</span>
             <Button 
               variant="ghost" 
               size="sm" 
@@ -166,7 +184,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           <TabsList className="grid grid-cols-3 mb-4">
             <TabsTrigger value="preview">PDF Preview</TabsTrigger>
             <TabsTrigger value="formats">Download Formats</TabsTrigger>
-            <TabsTrigger value="print">Print Options</TabsTrigger>
+            <TabsTrigger value="details">Shipment Details</TabsTrigger>
           </TabsList>
           
           <TabsContent value="preview">
@@ -234,15 +252,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       </div>
                     </div>
                   ) : previewUrl ? (
-                    <iframe 
-                      src={previewUrl} 
-                      className="w-full h-96 border border-gray-300"
-                      title="Label Preview"
-                      onError={() => {
-                        console.log('PDF iframe failed, falling back to image');
-                        // Fallback to image if PDF fails
-                      }}
-                    />
+                    <div className="border border-gray-300 rounded-lg overflow-hidden">
+                      <iframe 
+                        src={previewUrl} 
+                        className="w-full h-96"
+                        title="Label Preview"
+                        onError={() => {
+                          console.log('PDF iframe failed, checking for image fallback');
+                        }}
+                      />
+                    </div>
                   ) : (
                     <div className="border border-gray-300 h-96 flex items-center justify-center">
                       <div className="text-center">
@@ -329,41 +348,72 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             </div>
           </TabsContent>
 
-          <TabsContent value="print">
+          <TabsContent value="details">
             <div className="space-y-4 p-4">
-              <h3 className="text-lg font-semibold">Print Settings</h3>
-              <p className="text-sm text-gray-600">
-                Configure your print settings for optimal label output.
-              </p>
+              <h3 className="text-lg font-semibold">Shipment Details</h3>
               
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 border rounded-lg">
-                    <h4 className="font-medium mb-2">Standard Printer</h4>
-                    <p className="text-sm text-gray-600 mb-3">For regular office printers</p>
-                    <Button 
-                      onClick={handlePrint} 
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                      disabled={isRegeneratingLabel}
-                    >
-                      <Printer className="mr-2 h-4 w-4" />
-                      Print Now
-                    </Button>
+              {shipmentDetails && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">Shipping Information</h4>
+                      <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                        <div><span className="font-medium">Carrier:</span> {shipmentDetails.carrier}</div>
+                        <div><span className="font-medium">Service:</span> {shipmentDetails.service}</div>
+                        <div><span className="font-medium">Tracking:</span> {trackingCode || 'N/A'}</div>
+                        {shipmentDetails.estimatedDelivery && (
+                          <div><span className="font-medium">Estimated Delivery:</span> {shipmentDetails.estimatedDelivery}</div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">Package Details</h4>
+                      <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+                        <div><span className="font-medium">Weight:</span> {shipmentDetails.weight}</div>
+                        {shipmentDetails.dimensions && (
+                          <div><span className="font-medium">Dimensions:</span> {shipmentDetails.dimensions}</div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   
-                  <div className="p-4 border rounded-lg">
-                    <h4 className="font-medium mb-2">Thermal Printer</h4>
-                    <p className="text-sm text-gray-600 mb-3">Download ZPL for thermal printers</p>
-                    <Button 
-                      onClick={() => handleDownloadFormat('zpl')} 
-                      className="w-full bg-purple-600 hover:bg-purple-700"
-                      disabled={isRegeneratingLabel}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download ZPL
-                    </Button>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">Addresses</h4>
+                      <div className="bg-gray-50 p-3 rounded-lg space-y-3">
+                        <div>
+                          <div className="font-medium text-sm text-gray-600">From:</div>
+                          <div className="text-sm">{shipmentDetails.fromAddress}</div>
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm text-gray-600">To:</div>
+                          <div className="text-sm">{shipmentDetails.toAddress}</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
+              )}
+              
+              <div className="flex gap-3 mt-6">
+                <Button 
+                  onClick={handlePrint} 
+                  className="bg-blue-600 hover:bg-blue-700"
+                  disabled={isRegeneratingLabel}
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Label
+                </Button>
+                
+                <Button 
+                  onClick={() => handleDownloadFormat('pdf')} 
+                  variant="outline"
+                  disabled={isRegeneratingLabel}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PDF
+                </Button>
               </div>
             </div>
           </TabsContent>

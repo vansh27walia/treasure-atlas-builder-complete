@@ -76,67 +76,82 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         return;
       }
 
-      // Use the edge function to download the file
-      const { data, error } = await supabase.functions.invoke('download-label', {
-        body: { 
-          shipment: shipmentId,
-          type: format,
-          download: true
-        }
-      });
-
-      if (error) {
-        console.error('Download error:', error);
-        toast.error(`Failed to download ${format.toUpperCase()} label`);
+      // Get current user session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Please sign in to download labels');
         return;
       }
 
-      // If we get a direct file response, trigger download
-      if (data instanceof Blob) {
-        const blob = new Blob([data], { 
-          type: format === 'pdf' ? 'application/pdf' : 
-                format === 'png' ? 'image/png' : 'text/plain' 
-        });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `shipping_label_${shipmentId}_${format}.${format}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        toast.success(`Downloaded ${format.toUpperCase()} label`);
-      } else {
-        toast.error(`${format.toUpperCase()} format not available for this label`);
+      // Construct the download URL
+      const downloadUrl = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipmentId}&type=${format}&download=true`;
+      
+      console.log('Making download request to:', downloadUrl);
+      
+      // Make the download request with proper authentication
+      const response = await fetch(downloadUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Download response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Download failed:', response.status, errorText);
+        toast.error(`Failed to download ${format.toUpperCase()} label: ${response.statusText}`);
+        return;
       }
+
+      // Get the file blob and trigger download
+      const blob = await response.blob();
+      console.log('Downloaded blob size:', blob.size);
+      
+      if (blob.size === 0) {
+        toast.error('Downloaded file is empty');
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `shipping_label_${shipmentId}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Downloaded ${format.toUpperCase()} label successfully`);
     } catch (error) {
       console.error('Download error:', error);
-      toast.error(`Failed to download ${format} label`);
+      toast.error(`Failed to download ${format} label: ${error.message}`);
     }
   };
 
-  const handleDownloadAllIndividualLabels = async () => {
-    console.log('Downloading all individual labels, count:', shipmentsWithLabels.length);
+  const handleDownloadAllIndividualLabels = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+    console.log('Downloading all individual labels, count:', shipmentsWithLabels.length, 'format:', format);
     
     if (shipmentsWithLabels.length === 0) {
       toast.error('No labels available for download');
       return;
     }
 
-    toast.loading('Starting downloads...');
+    toast.loading(`Starting ${format.toUpperCase()} downloads...`);
     
     let successCount = 0;
     
     for (let i = 0; i < shipmentsWithLabels.length; i++) {
       const shipment = shipmentsWithLabels[i];
       
-      // Download PDF format by default
       try {
+        // Add delay to prevent overwhelming the server
         setTimeout(async () => {
-          await downloadSecureFile(shipment.id, 'pdf');
+          await downloadSecureFile(shipment.id, format);
           successCount++;
-        }, i * 500);
+        }, i * 800); // 800ms delay between downloads
       } catch (error) {
         console.error('Error downloading label for shipment:', shipment.id, error);
       }
@@ -144,7 +159,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     
     toast.dismiss();
     setTimeout(() => {
-      toast.success(`Started download of ${shipmentsWithLabels.length} secure labels`);
+      toast.success(`Started download of ${shipmentsWithLabels.length} ${format.toUpperCase()} labels`);
     }, 1000);
   };
 
@@ -215,7 +230,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             <div className="flex flex-col gap-3">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <Button 
-                  onClick={handleDownloadAllIndividualLabels}
+                  onClick={() => handleDownloadAllIndividualLabels('pdf')}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   <Download className="mr-2 h-4 w-4" />
@@ -223,11 +238,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 </Button>
                 
                 <Button 
-                  onClick={() => {
-                    shipmentsWithLabels.forEach((shipment, index) => {
-                      setTimeout(() => downloadSecureFile(shipment.id, 'png'), index * 500);
-                    });
-                  }}
+                  onClick={() => handleDownloadAllIndividualLabels('png')}
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
                   <Download className="mr-2 h-4 w-4" />
@@ -235,11 +246,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 </Button>
                 
                 <Button 
-                  onClick={() => {
-                    shipmentsWithLabels.forEach((shipment, index) => {
-                      setTimeout(() => downloadSecureFile(shipment.id, 'zpl'), index * 500);
-                    });
-                  }}
+                  onClick={() => handleDownloadAllIndividualLabels('zpl')}
                   className="bg-purple-600 hover:bg-purple-700 text-white"
                 >
                   <Download className="mr-2 h-4 w-4" />
