@@ -73,6 +73,31 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       toast.success('Label sent to printer');
     },
     content: () => contentRef.current,
+    pageStyle: `
+      @page {
+        size: 4in 6in;
+        margin: 0;
+      }
+      @media print {
+        body {
+          margin: 0;
+          padding: 0;
+          background: white;
+        }
+        .print-content {
+          width: 4in;
+          height: 6in;
+          margin: 0;
+          padding: 0;
+          display: block;
+        }
+        .print-content iframe {
+          width: 100%;
+          height: 100%;
+          border: none;
+        }
+      }
+    `
   });
 
   const handleFormatChange = async (format: string) => {
@@ -242,7 +267,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               </div>
             </div>
 
-            <div ref={contentRef} className="p-6 bg-white">
+            <div className="p-6 bg-white">
               <div className="mb-6">
                 <div className="mb-3 text-sm text-gray-500">
                   {isRegeneratingLabel ? (
@@ -263,10 +288,14 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       </div>
                     </div>
                   ) : previewUrl ? (
-                    <div className="border border-gray-300 rounded-lg overflow-hidden">
+                    <div 
+                      ref={contentRef} 
+                      className="print-content border border-gray-300 rounded-lg overflow-hidden mx-auto"
+                      style={{ width: '4in', height: '6in' }}
+                    >
                       <iframe 
                         src={previewUrl} 
-                        className="w-full h-96"
+                        className="w-full h-full"
                         title="PDF Label Preview"
                         style={{ border: 'none' }}
                       />

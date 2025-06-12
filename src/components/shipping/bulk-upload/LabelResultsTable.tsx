@@ -91,15 +91,15 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'Pending';
+    if (!dateString) return 'Not Available';
     try {
       return new Date(dateString).toLocaleDateString('en-US', {
-        month: 'long',
+        month: 'short',
         day: 'numeric',
         year: 'numeric'
       });
     } catch {
-      return 'Pending';
+      return 'Not Available';
     }
   };
 
@@ -115,6 +115,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
            shipment.details?.estimated_delivery ||
            shipment.details?.estimatedDelivery ||
            shipment.delivery_days ||
+           shipment.estimated_delivery_date ||
            'Not Available';
   };
 

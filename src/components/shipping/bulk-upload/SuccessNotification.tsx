@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, File } from 'lucide-react';
+import { CheckCircle, Download, FileText, File, Calendar } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import LabelResultsTable from './LabelResultsTable';
 import { toast } from '@/components/ui/sonner';
@@ -176,6 +177,93 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     }
   };
 
+  const handleDownloadBatchPNG = async () => {
+    try {
+      if (shipmentsWithLabels.length === 0) {
+        toast.error('No labels available for batch PNG download');
+        return;
+      }
+
+      // Get current user session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Please sign in to download batch PNG');
+        return;
+      }
+
+      toast.loading('Creating combined batch PNG...');
+
+      const shipmentIds = shipmentsWithLabels.map(s => s.id);
+      const batchId = `batch_${Date.now()}`;
+
+      const response = await fetch('https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/combine-batch-png', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          batchId,
+          shipmentIds
+        })
+      });
+
+      toast.dismiss();
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Batch PNG creation failed:', response.status, errorText);
+        toast.error('Failed to create batch PNG');
+        return;
+      }
+
+      // Get the file blob and trigger download
+      const blob = await response.blob();
+      console.log('Downloaded batch PNG size:', blob.size);
+      
+      if (blob.size === 0) {
+        toast.error('Batch PNG file is empty');
+        return;
+      }
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `batch_labels_${batchId}.png`;
+      link.style.display = 'none';
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
+      
+      toast.success('Batch PNG downloaded successfully');
+    } catch (error) {
+      console.error('Batch PNG download error:', error);
+      toast.dismiss();
+      toast.error('Failed to download batch PNG');
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'Not Available';
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return 'Not Available';
+    }
+  };
+
   // Don't show if no data
   if (!shouldShowNotification) {
     return null;
@@ -240,8 +328,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Secure Labels</h4>
             
-            <div className="flex flex-col gap-3">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <Button 
                   onClick={() => handleDownloadAllIndividualLabels('pdf')}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -264,6 +352,14 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 >
                   <Download className="mr-2 h-4 w-4" />
                   Download All ZPL ({shipmentsWithLabels.length})
+                </Button>
+
+                <Button 
+                  onClick={handleDownloadBatchPNG}
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                >
+                  <File className="mr-2 h-4 w-4" />
+                  Batch PNG ({shipmentsWithLabels.length})
                 </Button>
               </div>
               

@@ -46,11 +46,10 @@ serve(async (req) => {
       }
     }
 
-    // Query label file by shipment reference or tracking code
+    // First try to find the label file in shipping_label_files table
     let query = supabase
       .from('shipping_label_files')
-      .select('*')
-      .eq('label_type', labelType);
+      .select('*');
 
     if (shipmentReference) {
       query = query.eq('shipment_id', shipmentReference);
@@ -58,26 +57,144 @@ serve(async (req) => {
       query = query.eq('tracking_code', trackingCode);
     }
 
+    // Filter by label type
+    query = query.eq('label_type', labelType);
+
     // If user is authenticated, only show their labels
     if (userId) {
       query = query.eq('user_id', userId);
     }
 
-    const { data: labelFiles, error } = await query.limit(1);
+    const { data: labelFiles, error: labelError } = await query.limit(1);
 
-    if (error) {
-      console.error('Database error:', error);
+    console.log('Label files query result:', { labelFiles, error: labelError });
+
+    // If no label files found in shipping_label_files, try bulk_shipments table
+    if (!labelFiles || labelFiles.length === 0) {
+      console.log('No files in shipping_label_files, checking bulk_shipments...');
+      
+      let bulkQuery = supabase
+        .from('bulk_shipments')
+        .select('*');
+
+      if (shipmentReference) {
+        bulkQuery = bulkQuery.eq('shipment_id', shipmentReference);
+      } else if (trackingCode) {
+        bulkQuery = bulkQuery.eq('tracking_code', trackingCode);
+      }
+
+      if (userId) {
+        bulkQuery = bulkQuery.eq('user_id', userId);
+      }
+
+      const { data: bulkShipments, error: bulkError } = await bulkQuery.limit(1);
+      
+      console.log('Bulk shipments query result:', { bulkShipments, error: bulkError });
+
+      if (bulkError) {
+        console.error('Database error in bulk_shipments:', bulkError);
+        return new Response(
+          JSON.stringify({ error: 'Database error', details: bulkError.message }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+
+      if (!bulkShipments || bulkShipments.length === 0) {
+        console.log('No shipments found in bulk_shipments either');
+        return new Response(
+          JSON.stringify({ error: 'Label not found' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        );
+      }
+
+      const shipment = bulkShipments[0];
+      let labelUrl = null;
+
+      // Try to get the correct URL based on label type
+      if (labelType === 'pdf' && shipment.label_url) {
+        labelUrl = shipment.label_url;
+      } else if (labelType === 'png' && shipment.label_urls?.png) {
+        labelUrl = shipment.label_urls.png;
+      } else if (labelType === 'zpl' && shipment.label_urls?.zpl) {
+        labelUrl = shipment.label_urls.zpl;
+      } else if (shipment.label_urls?.[labelType]) {
+        labelUrl = shipment.label_urls[labelType];
+      }
+
+      if (!labelUrl) {
+        console.log('No URL found for label type:', labelType, 'Available URLs:', shipment.label_urls);
+        return new Response(
+          JSON.stringify({ error: `${labelType.toUpperCase()} label not available` }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        );
+      }
+
+      console.log('Found label URL from bulk_shipments:', labelUrl);
+
+      // For direct download, fetch and return the file
+      if (forceDownload) {
+        try {
+          console.log('Fetching file from URL:', labelUrl);
+          
+          const fileResponse = await fetch(labelUrl);
+          
+          if (!fileResponse.ok) {
+            console.error('Failed to fetch file:', fileResponse.status, fileResponse.statusText);
+            throw new Error(`Failed to fetch file: ${fileResponse.status}`);
+          }
+          
+          const fileBlob = await fileResponse.blob();
+          console.log('File fetched successfully, size:', fileBlob.size);
+          
+          if (fileBlob.size === 0) {
+            throw new Error('File is empty');
+          }
+          
+          const contentType = labelType === 'pdf' ? 'application/pdf' : 
+                             labelType === 'png' ? 'image/png' : 
+                             labelType === 'zpl' ? 'application/octet-stream' : 'text/plain';
+          
+          const filename = `shipping_label_${trackingCode || shipmentReference || 'download'}.${labelType}`;
+          
+          const arrayBuffer = await fileBlob.arrayBuffer();
+          
+          return new Response(arrayBuffer, {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': contentType,
+              'Content-Disposition': `attachment; filename="${filename}"`,
+              'Content-Length': arrayBuffer.byteLength.toString(),
+              'Cache-Control': 'no-cache'
+            }
+          });
+        } catch (error) {
+          console.error('Error fetching file from URL:', error);
+          return new Response(
+            JSON.stringify({ error: 'Failed to fetch file', details: error.message }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          );
+        }
+      }
+
+      // Return label metadata for non-download requests
       return new Response(
-        JSON.stringify({ error: 'Database error', details: error.message }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        JSON.stringify({
+          shipment_id: shipment.shipment_id,
+          tracking_code: shipment.tracking_code,
+          label_type: labelType,
+          download_url: labelUrl,
+          created_at: shipment.created_at
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!labelFiles || labelFiles.length === 0) {
-      console.log('No label files found for query');
+    // Handle shipping_label_files results
+    if (labelError) {
+      console.error('Database error:', labelError);
       return new Response(
-        JSON.stringify({ error: 'Label not found' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 }
+        JSON.stringify({ error: 'Database error', details: labelError.message }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       );
     }
 
@@ -89,12 +206,7 @@ serve(async (req) => {
       try {
         console.log('Fetching file from:', labelFile.supabase_url);
         
-        // Fetch the file from Supabase storage using the service role key
-        const fileResponse = await fetch(labelFile.supabase_url, {
-          headers: {
-            'Authorization': `Bearer ${supabaseServiceKey}`
-          }
-        });
+        const fileResponse = await fetch(labelFile.supabase_url);
         
         if (!fileResponse.ok) {
           console.error('Failed to fetch file:', fileResponse.status, fileResponse.statusText);
@@ -109,11 +221,11 @@ serve(async (req) => {
         }
         
         const contentType = labelType === 'pdf' ? 'application/pdf' : 
-                           labelType === 'png' ? 'image/png' : 'text/plain';
+                           labelType === 'png' ? 'image/png' : 
+                           labelType === 'zpl' ? 'application/octet-stream' : 'text/plain';
         
         const filename = `shipping_label_${trackingCode || shipmentReference || 'download'}.${labelType}`;
         
-        // Convert blob to array buffer for response
         const arrayBuffer = await fileBlob.arrayBuffer();
         
         return new Response(arrayBuffer, {
