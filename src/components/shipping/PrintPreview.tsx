@@ -78,8 +78,21 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   };
 
   const handleDownloadFormat = (format: 'png' | 'pdf' | 'zpl') => {
-    const url = labelUrls?.[format];
-    if (!url) {
+    console.log('Download attempt for format:', format);
+    console.log('Available labelUrls:', labelUrls);
+    
+    // Get the URL for the requested format
+    let url = labelUrls?.[format];
+    
+    // Fallback to main labelUrl if specific format not available
+    if (!url && format === 'png') {
+      url = labelUrl;
+    }
+    
+    console.log('Final URL for download:', url);
+    
+    if (!url || url.trim() === '') {
+      console.error(`No URL available for ${format} format`);
       toast.error(`${format.toUpperCase()} format not available for this label`);
       return;
     }
@@ -90,16 +103,23 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       link.download = `shipping_label_${trackingCode || Date.now()}.${format}`;
       link.target = '_blank';
       
+      // Force download by setting content disposition
+      link.rel = 'noopener noreferrer';
+      
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
+      console.log(`Successfully initiated download for ${format}`);
       toast.success(`Downloading ${format.toUpperCase()} label`);
     } catch (error) {
       console.error("Error downloading label:", error);
       toast.error("Failed to download label");
     }
   };
+
+  // Check if any download formats are available
+  const hasDownloadFormats = labelUrls && (labelUrls.png || labelUrls.pdf || labelUrls.zpl) || labelUrl;
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -213,7 +233,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   <Button 
                     onClick={() => handleDownloadFormat('png')}
                     className="w-full bg-green-600 hover:bg-green-700"
-                    disabled={!labelUrls?.png}
+                    disabled={!hasDownloadFormats}
                   >
                     <Download className="mr-2 h-4 w-4" />
                     Download PNG
