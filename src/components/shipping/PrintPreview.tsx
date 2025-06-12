@@ -52,16 +52,18 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [currentLabelUrl, setCurrentLabelUrl] = useState(labelUrl);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   
-  // Update currentLabelUrl when labelUrl prop changes
+  // Update currentLabelUrl when labelUrl prop changes - ALWAYS use PDF for preview
   useEffect(() => {
     setCurrentLabelUrl(labelUrl);
-    // Try to get PDF version for preview, fallback to PNG
+    // ALWAYS prioritize PDF for preview
     if (labelUrls?.pdf) {
       setPreviewUrl(labelUrls.pdf);
-    } else if (labelUrls?.png) {
-      setPreviewUrl(labelUrls.png);
-    } else if (labelUrl) {
+    } else if (labelUrl && labelUrl.includes('.pdf')) {
       setPreviewUrl(labelUrl);
+    } else {
+      // If no PDF available, still try to show something but log a warning
+      console.warn('No PDF available for preview, using fallback');
+      setPreviewUrl(labelUrls?.png || labelUrl || '');
     }
   }, [labelUrl, labelUrls]);
   
@@ -106,8 +108,12 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         return;
       }
 
+      toast.loading(`Preparing ${format.toUpperCase()} download...`);
+
       // Make direct download request to the edge function
-      const response = await fetch(`https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipmentId}&type=${format}&download=true`, {
+      const downloadUrl = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipmentId}&type=${format}&download=true`;
+      
+      const response = await fetch(downloadUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -116,6 +122,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       });
 
       console.log('Download response status:', response.status);
+      toast.dismiss();
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -133,19 +140,27 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         return;
       }
 
+      // Create download link
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `shipping_label_${trackingCode || Date.now()}.${format}`;
       link.style.display = 'none';
+      
+      // Trigger download
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
       
-      toast.success(`Downloaded ${format.toUpperCase()} label successfully`);
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
+      
+      toast.success(`${format.toUpperCase()} label downloaded successfully`);
     } catch (error) {
       console.error("Error downloading label:", error);
+      toast.dismiss();
       toast.error("Failed to download label");
     }
   };
@@ -236,7 +251,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       <div className="w-4 h-4 border-2 border-t-transparent border-blue-500 rounded-full animate-spin"></div>
                     </div>
                   ) : (
-                    labelFormats.find(f => f.value === selectedFormat)?.description || 'PDF Label Preview'
+                    `PDF Label Preview - ${labelFormats.find(f => f.value === selectedFormat)?.description || 'Standard format'}`
                   )}
                 </div>
                 <div className={`mx-auto ${selectedFormat === '4x6' ? 'max-w-md' : 'max-w-4xl'}`}>
@@ -252,17 +267,15 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       <iframe 
                         src={previewUrl} 
                         className="w-full h-96"
-                        title="Label Preview"
-                        onError={() => {
-                          console.log('PDF iframe failed, checking for image fallback');
-                        }}
+                        title="PDF Label Preview"
+                        style={{ border: 'none' }}
                       />
                     </div>
                   ) : (
                     <div className="border border-gray-300 h-96 flex items-center justify-center">
                       <div className="text-center">
                         <FileText className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-                        <p className="text-gray-500">No preview available</p>
+                        <p className="text-gray-500">No PDF preview available</p>
                       </div>
                     </div>
                   )}

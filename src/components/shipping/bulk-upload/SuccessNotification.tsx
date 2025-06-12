@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,8 +82,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         return;
       }
 
+      toast.loading(`Preparing ${format.toUpperCase()} download...`);
+
       // Make direct download request to the edge function
-      const response = await fetch(`https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipmentId}&type=${format}&download=true`, {
+      const downloadUrl = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipmentId}&type=${format}&download=true`;
+      
+      const response = await fetch(downloadUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -93,6 +96,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       });
 
       console.log('Download response status:', response.status);
+      toast.dismiss();
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -110,19 +114,27 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         return;
       }
 
+      // Create download link
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `shipping_label_${shipmentId}.${format}`;
       link.style.display = 'none';
+      
+      // Trigger download
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
       
-      toast.success(`Downloaded ${format.toUpperCase()} label successfully`);
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
+      
+      toast.success(`${format.toUpperCase()} label downloaded successfully`);
     } catch (error) {
       console.error('Download error:', error);
+      toast.dismiss();
       toast.error(`Failed to download ${format} label: ${error.message}`);
     }
   };
@@ -138,25 +150,30 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     toast.loading(`Starting ${format.toUpperCase()} downloads...`);
     
     let successCount = 0;
+    let errorCount = 0;
     
     for (let i = 0; i < shipmentsWithLabels.length; i++) {
       const shipment = shipmentsWithLabels[i];
       
       try {
         // Add delay to prevent overwhelming the server
-        setTimeout(async () => {
-          await downloadSecureFile(shipment.id, format);
-          successCount++;
-        }, i * 800); // 800ms delay between downloads
+        await new Promise(resolve => setTimeout(resolve, i * 1000)); // 1 second delay
+        await downloadSecureFile(shipment.id, format);
+        successCount++;
       } catch (error) {
         console.error('Error downloading label for shipment:', shipment.id, error);
+        errorCount++;
       }
     }
     
     toast.dismiss();
-    setTimeout(() => {
-      toast.success(`Started download of ${shipmentsWithLabels.length} ${format.toUpperCase()} labels`);
-    }, 1000);
+    
+    if (successCount > 0) {
+      toast.success(`Downloaded ${successCount} ${format.toUpperCase()} labels successfully`);
+    }
+    if (errorCount > 0) {
+      toast.error(`Failed to download ${errorCount} labels`);
+    }
   };
 
   // Don't show if no data

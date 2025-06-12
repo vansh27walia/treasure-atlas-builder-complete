@@ -89,8 +89,13 @@ serve(async (req) => {
       try {
         console.log('Fetching file from:', labelFile.supabase_url);
         
-        // Fetch the file from Supabase storage
-        const fileResponse = await fetch(labelFile.supabase_url);
+        // Fetch the file from Supabase storage using the service role key
+        const fileResponse = await fetch(labelFile.supabase_url, {
+          headers: {
+            'Authorization': `Bearer ${supabaseServiceKey}`
+          }
+        });
+        
         if (!fileResponse.ok) {
           console.error('Failed to fetch file:', fileResponse.status, fileResponse.statusText);
           throw new Error(`Failed to fetch file: ${fileResponse.status}`);
@@ -99,17 +104,25 @@ serve(async (req) => {
         const fileBlob = await fileResponse.blob();
         console.log('File fetched successfully, size:', fileBlob.size);
         
+        if (fileBlob.size === 0) {
+          throw new Error('File is empty');
+        }
+        
         const contentType = labelType === 'pdf' ? 'application/pdf' : 
                            labelType === 'png' ? 'image/png' : 'text/plain';
         
         const filename = `shipping_label_${trackingCode || shipmentReference || 'download'}.${labelType}`;
         
-        return new Response(fileBlob, {
+        // Convert blob to array buffer for response
+        const arrayBuffer = await fileBlob.arrayBuffer();
+        
+        return new Response(arrayBuffer, {
           headers: {
             ...corsHeaders,
             'Content-Type': contentType,
             'Content-Disposition': `attachment; filename="${filename}"`,
-            'Cache-Control': 'public, max-age=3600'
+            'Content-Length': arrayBuffer.byteLength.toString(),
+            'Cache-Control': 'no-cache'
           }
         });
       } catch (error) {
@@ -121,31 +134,14 @@ serve(async (req) => {
       }
     }
 
-    // For redirect download
-    if (url.searchParams.get('redirect') === 'true') {
-      return new Response(null, {
-        status: 302,
-        headers: {
-          ...corsHeaders,
-          'Location': labelFile.supabase_url
-        }
-      });
-    }
-
-    // Return label metadata with all available formats
+    // Return label metadata
     const response = {
       shipment_id: labelFile.shipment_id,
       tracking_code: labelFile.tracking_code,
       label_type: labelFile.label_type,
       download_url: labelFile.supabase_url,
       file_size: labelFile.file_size,
-      created_at: labelFile.created_at,
-      // Add direct download endpoints for different formats
-      download_endpoints: {
-        pdf: `/functions/v1/download-label?shipment=${shipmentReference}&type=pdf&download=true`,
-        png: `/functions/v1/download-label?shipment=${shipmentReference}&type=png&download=true`,
-        zpl: `/functions/v1/download-label?shipment=${shipmentReference}&type=zpl&download=true`
-      }
+      created_at: labelFile.created_at
     };
 
     return new Response(

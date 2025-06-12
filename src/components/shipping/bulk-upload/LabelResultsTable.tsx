@@ -33,8 +33,12 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
         return;
       }
 
+      toast.loading(`Preparing ${format.toUpperCase()} download...`);
+
       // Make direct download request to the edge function
-      const response = await fetch(`https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipment.id}&type=${format}&download=true`, {
+      const downloadUrl = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipment.id}&type=${format}&download=true`;
+      
+      const response = await fetch(downloadUrl, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -43,6 +47,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
       });
 
       console.log('Download response status:', response.status);
+      toast.dismiss();
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -60,19 +65,27 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
         return;
       }
 
+      // Create download link
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `shipping_label_${shipment.id}.${format}`;
       link.style.display = 'none';
+      
+      // Trigger download
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
       
-      toast.success(`Downloaded ${format.toUpperCase()} label successfully`);
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
+      
+      toast.success(`${format.toUpperCase()} label downloaded successfully`);
     } catch (error) {
       console.error('Error downloading label:', error);
+      toast.dismiss();
       toast.error('Failed to download label');
     }
   };
@@ -282,7 +295,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                     )}
                     
                     <PrintPreview
-                      labelUrl={shipment.label_urls?.png || shipment.label_url || ''}
+                      labelUrl={shipment.label_urls?.pdf || shipment.label_url || ''}
                       trackingCode={shipment.tracking_code || shipment.tracking_number}
                       labelUrls={shipment.label_urls}
                       shipmentDetails={{
