@@ -83,39 +83,6 @@ export type Database = {
           },
         ]
       }
-      bulk_label_batches: {
-        Row: {
-          batch_reference: string
-          created_at: string | null
-          id: string
-          total_labels: number
-          updated_at: string | null
-          user_id: string | null
-          zip_file_path: string | null
-          zip_file_url: string | null
-        }
-        Insert: {
-          batch_reference: string
-          created_at?: string | null
-          id?: string
-          total_labels?: number
-          updated_at?: string | null
-          user_id?: string | null
-          zip_file_path?: string | null
-          zip_file_url?: string | null
-        }
-        Update: {
-          batch_reference?: string
-          created_at?: string | null
-          id?: string
-          total_labels?: number
-          updated_at?: string | null
-          user_id?: string | null
-          zip_file_path?: string | null
-          zip_file_url?: string | null
-        }
-        Relationships: []
-      }
       bulk_label_uploads: {
         Row: {
           batch_id: string
@@ -296,51 +263,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      shipping_label_files: {
-        Row: {
-          created_at: string | null
-          easypost_shipment_id: string | null
-          file_path: string
-          file_size: number | null
-          id: string
-          label_type: string
-          order_reference: string | null
-          shipment_id: string
-          supabase_url: string
-          tracking_code: string | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          easypost_shipment_id?: string | null
-          file_path: string
-          file_size?: number | null
-          id?: string
-          label_type: string
-          order_reference?: string | null
-          shipment_id: string
-          supabase_url: string
-          tracking_code?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          easypost_shipment_id?: string | null
-          file_path?: string
-          file_size?: number | null
-          id?: string
-          label_type?: string
-          order_reference?: string | null
-          shipment_id?: string
-          supabase_url?: string
-          tracking_code?: string | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
       }
       user_profiles: {
         Row: {

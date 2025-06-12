@@ -3,120 +3,41 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, Shield } from 'lucide-react';
+import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, File, FileImage } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import PrintPreview from '@/components/shipping/PrintPreview';
-import { supabase } from '@/integrations/supabase/client';
 
 interface LabelResultsTableProps {
   shipments: any[];
-  onDownloadLabel: (shipmentId: string, format: string) => void;
+  onDownloadLabel: (url: string, format: string) => void;
 }
 
 const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   shipments,
   onDownloadLabel
 }) => {
-  const handleDownload = async (shipment: any, format: string = 'pdf') => {
-    try {
-      console.log('Downloading label for shipment:', shipment.id, 'format:', format);
-      
-      if (!shipment.id || shipment.id.trim() === '') {
-        toast.error('Invalid shipment ID - cannot download');
-        return;
-      }
-
-      // Get current user session for authentication
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('Please sign in to download labels');
-        return;
-      }
-
-      toast.loading(`Preparing ${format.toUpperCase()} download...`);
-
-      // Make direct download request to the edge function
-      const downloadUrl = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/download-label?shipment=${shipment.id}&type=${format}&download=true`;
-      
-      const response = await fetch(downloadUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Accept': '*/*'
-        }
-      });
-
-      console.log('Download response status:', response.status);
-      toast.dismiss();
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Download failed:', response.status, errorText);
-        toast.error(`Failed to download ${format.toUpperCase()} label`);
-        return;
-      }
-
-      // Get the file blob and trigger download
-      const blob = await response.blob();
-      console.log('Downloaded blob size:', blob.size);
-      
-      if (blob.size === 0) {
-        toast.error('Downloaded file is empty');
-        return;
-      }
-
-      // Create download link
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `shipping_label_${shipment.id}.${format}`;
-      link.style.display = 'none';
-      
-      // Trigger download
-      document.body.appendChild(link);
-      link.click();
-      
-      // Cleanup
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }, 100);
-      
-      toast.success(`${format.toUpperCase()} label downloaded successfully`);
-    } catch (error) {
-      console.error('Error downloading label:', error);
-      toast.dismiss();
-      toast.error('Failed to download label');
+  const handleDownload = (shipment: any, format: string = 'png') => {
+    console.log('Attempting download for:', { format, shipment: shipment.id, labelUrls: shipment.label_urls });
+    
+    const url = shipment.label_urls?.[format] || shipment.label_url;
+    if (!url) {
+      toast.error(`${format.toUpperCase()} label not available for this shipment`);
+      return;
     }
+    onDownloadLabel(url, format);
   };
 
   const formatDate = (dateString: string) => {
-    if (!dateString) return 'Not Available';
+    if (!dateString) return 'Pending';
     try {
       return new Date(dateString).toLocaleDateString('en-US', {
-        month: 'short',
+        month: 'long',
         day: 'numeric',
         year: 'numeric'
       });
     } catch {
-      return 'Not Available';
+      return 'Pending';
     }
-  };
-
-  const isSecureLabel = (shipment: any) => {
-    const url = shipment.label_urls?.png || shipment.label_url;
-    return url && url.includes('supabase');
-  };
-
-  const getEstimatedDelivery = (shipment: any) => {
-    // Check multiple possible fields for estimated delivery
-    return shipment.estimated_delivery || 
-           shipment.estimatedDelivery || 
-           shipment.details?.estimated_delivery ||
-           shipment.details?.estimatedDelivery ||
-           shipment.delivery_days ||
-           shipment.estimated_delivery_date ||
-           'Not Available';
   };
 
   if (!shipments || shipments.length === 0) {
@@ -132,20 +53,10 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   return (
     <Card className="overflow-hidden">
       <div className="px-6 py-4 border-b bg-gray-50">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Shield className="h-5 w-5 text-green-600 mr-2" />
-              Secure Shipping Labels
-            </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              {shipments.length} label{shipments.length !== 1 ? 's' : ''} securely stored in our system
-            </p>
-          </div>
-          <div className="text-xs text-green-700 bg-green-100 px-3 py-1 rounded-full">
-            🔒 No external URLs exposed
-          </div>
-        </div>
+        <h3 className="text-lg font-semibold text-gray-900">Generated Shipping Labels</h3>
+        <p className="text-sm text-gray-600 mt-1">
+          {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download in multiple formats
+        </p>
       </div>
       
       <div className="overflow-x-auto">
@@ -153,7 +64,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
           <thead className="bg-gray-50 border-b">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tracking & Security
+                Tracking
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Carrier & Drop-off Details
@@ -162,10 +73,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                 Dimensions & Weight
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Estimated Delivery
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Notes
+                Label Formats
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
@@ -175,7 +83,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
           <tbody className="bg-white divide-y divide-gray-200">
             {shipments.map((shipment, index) => (
               <tr key={shipment.id || index} className="hover:bg-gray-50">
-                {/* Tracking & Security */}
+                {/* Tracking */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     <Truck className="h-4 w-4 text-blue-500 mr-2" />
@@ -183,17 +91,11 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       <div className="text-sm font-medium text-gray-900">
                         {shipment.tracking_code || shipment.tracking_number || 'Pending'}
                       </div>
-                      <div className="text-xs text-gray-500 flex items-center mt-1">
+                      <div className="text-xs text-gray-500">
                         {shipment.status === 'completed' ? (
                           <Badge className="bg-green-100 text-green-800">Completed</Badge>
                         ) : (
                           <Badge className="bg-yellow-100 text-yellow-800">Processing</Badge>
-                        )}
-                        {isSecureLabel(shipment) && (
-                          <div className="flex items-center ml-2 text-green-600">
-                            <Shield className="h-3 w-3 mr-1" />
-                            <span className="text-xs">Secure</span>
-                          </div>
                         )}
                       </div>
                     </div>
@@ -235,24 +137,50 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   </div>
                 </td>
 
-                {/* Estimated Delivery */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                    <div className="text-sm text-gray-900">
-                      {getEstimatedDelivery(shipment) !== 'Not Available' ? 
-                        formatDate(getEstimatedDelivery(shipment)) : 
-                        getEstimatedDelivery(shipment)
-                      }
-                    </div>
-                  </div>
-                </td>
-
-                {/* Notes */}
+                {/* Label Formats */}
                 <td className="px-6 py-4">
-                  <div className="text-sm text-gray-600 max-w-xs">
-                    {shipment.notes || shipment.details?.reference || (
-                      <span className="text-gray-400 italic">No notes</span>
+                  <div className="flex flex-wrap gap-2">
+                    {/* PNG Format */}
+                    {(shipment.label_urls?.png || shipment.label_url) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownload(shipment, 'png')}
+                        className="text-xs border-green-300 text-green-700 hover:bg-green-50"
+                      >
+                        <FileImage className="h-3 w-3 mr-1" />
+                        PNG
+                      </Button>
+                    )}
+                    
+                    {/* PDF Format */}
+                    {shipment.label_urls?.pdf && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownload(shipment, 'pdf')}
+                        className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
+                      >
+                        <File className="h-3 w-3 mr-1" />
+                        PDF
+                      </Button>
+                    )}
+                    
+                    {/* ZPL Format */}
+                    {shipment.label_urls?.zpl && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownload(shipment, 'zpl')}
+                        className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
+                      >
+                        <FileText className="h-3 w-3 mr-1" />
+                        ZPL
+                      </Button>
+                    )}
+                    
+                    {!shipment.label_urls?.png && !shipment.label_url && (
+                      <span className="text-xs text-gray-400 italic">No formats available</span>
                     )}
                   </div>
                 </td>
@@ -260,43 +188,18 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                 {/* Actions */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex space-x-2">
-                    {isSecureLabel(shipment) ? (
-                      <>
-                        <Button
-                          size="sm"
-                          onClick={() => handleDownload(shipment, 'pdf')}
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          PDF
-                        </Button>
-                        
-                        <Button
-                          size="sm"
-                          onClick={() => handleDownload(shipment, 'png')}
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          PNG
-                        </Button>
-                        
-                        <Button
-                          size="sm"
-                          onClick={() => handleDownload(shipment, 'zpl')}
-                          className="bg-purple-600 hover:bg-purple-700 text-white"
-                        >
-                          <Download className="h-3 w-3 mr-1" />
-                          ZPL
-                        </Button>
-                      </>
-                    ) : (
-                      <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
-                        ⚠️ Insecure label
-                      </div>
-                    )}
+                    <Button
+                      size="sm"
+                      onClick={() => handleDownload(shipment, 'png')}
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                      disabled={!shipment.label_urls?.png && !shipment.label_url}
+                    >
+                      <Download className="h-3 w-3 mr-1" />
+                      Download
+                    </Button>
                     
                     <PrintPreview
-                      labelUrl={shipment.label_urls?.pdf || shipment.label_url || ''}
+                      labelUrl={shipment.label_urls?.png || shipment.label_url || ''}
                       trackingCode={shipment.tracking_code || shipment.tracking_number}
                       labelUrls={shipment.label_urls}
                       shipmentDetails={{
@@ -306,8 +209,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         dimensions: shipment.details?.length ? 
                           `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : '',
                         service: shipment.service || '',
-                        carrier: shipment.carrier || '',
-                        estimatedDelivery: getEstimatedDelivery(shipment)
+                        carrier: shipment.carrier || ''
                       }}
                       shipmentId={shipment.id}
                     />
@@ -317,14 +219,6 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
             ))}
           </tbody>
         </table>
-      </div>
-      
-      {/* Security Notice */}
-      <div className="px-6 py-3 bg-green-50 border-t">
-        <div className="flex items-center text-sm text-green-800">
-          <Shield className="h-4 w-4 mr-2" />
-          <span>All labels are securely stored and served from our protected storage system. No external URLs are exposed to ensure maximum security.</span>
-        </div>
       </div>
     </Card>
   );
