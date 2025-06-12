@@ -15,8 +15,9 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const shipmentReference = url.searchParams.get('shipment');
-    const labelType = url.searchParams.get('type') || 'png';
+    const labelType = url.searchParams.get('type') || 'pdf';
     const trackingCode = url.searchParams.get('tracking');
+    const forceDownload = url.searchParams.get('download') === 'true';
     
     if (!shipmentReference && !trackingCode) {
       return new Response(
@@ -78,7 +79,37 @@ serve(async (req) => {
 
     const labelFile = labelFiles[0];
 
-    // For direct download, redirect to the Supabase URL
+    // For direct download, return the file content with proper headers
+    if (forceDownload) {
+      try {
+        // Fetch the file from Supabase storage
+        const fileResponse = await fetch(labelFile.supabase_url);
+        if (!fileResponse.ok) {
+          throw new Error(`Failed to fetch file: ${fileResponse.status}`);
+        }
+        
+        const fileBlob = await fileResponse.blob();
+        const contentType = labelType === 'pdf' ? 'application/pdf' : 
+                           labelType === 'png' ? 'image/png' : 'text/plain';
+        
+        return new Response(fileBlob, {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': contentType,
+            'Content-Disposition': `attachment; filename="shipping_label_${trackingCode || 'download'}.${labelType}"`,
+            'Cache-Control': 'public, max-age=3600'
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching file:', error);
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch file' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+        );
+      }
+    }
+
+    // For redirect download
     if (url.searchParams.get('redirect') === 'true') {
       return new Response(null, {
         status: 302,
@@ -89,16 +120,24 @@ serve(async (req) => {
       });
     }
 
-    // Return label metadata
+    // Return label metadata with all available formats
+    const response = {
+      shipment_id: labelFile.shipment_id,
+      tracking_code: labelFile.tracking_code,
+      label_type: labelFile.label_type,
+      download_url: labelFile.supabase_url,
+      file_size: labelFile.file_size,
+      created_at: labelFile.created_at,
+      // Add direct download endpoints for different formats
+      download_endpoints: {
+        pdf: `/functions/v1/download-label?shipment=${shipmentReference}&type=pdf&download=true`,
+        png: `/functions/v1/download-label?shipment=${shipmentReference}&type=png&download=true`,
+        zpl: `/functions/v1/download-label?shipment=${shipmentReference}&type=zpl&download=true`
+      }
+    };
+
     return new Response(
-      JSON.stringify({
-        shipment_id: labelFile.shipment_id,
-        tracking_code: labelFile.tracking_code,
-        label_type: labelFile.label_type,
-        download_url: labelFile.supabase_url,
-        file_size: labelFile.file_size,
-        created_at: labelFile.created_at
-      }),
+      JSON.stringify(response),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

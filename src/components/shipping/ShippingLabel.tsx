@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Download, RefreshCw, ExternalLink, Mail, Save, File, FileArchive, X } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
@@ -154,61 +155,52 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
     }
   };
 
-  const handleDirectDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    // If format has changed, update selectedFileFormat
-    if (format !== selectedFileFormat) {
-      setSelectedFileFormat(format);
+  const handleDirectDownload = async (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+    if (!shipmentId) {
+      toast.error('Missing shipment information for download');
+      return;
     }
 
-    if (blobUrl) {
-      try {
-        console.log(`Starting direct download with blob URL (${format}):`, blobUrl);
-        
+    try {
+      console.log(`Starting secure download for shipment: ${shipmentId}, format: ${format}`);
+      
+      // Use the edge function to download the file
+      const { data, error } = await supabase.functions.invoke('download-label', {
+        body: { 
+          shipment: shipmentId,
+          type: format,
+          download: true
+        }
+      });
+
+      if (error) {
+        console.error('Download error:', error);
+        toast.error(`Failed to download ${format.toUpperCase()} label`);
+        return;
+      }
+
+      // If we get a direct file response, trigger download
+      if (data instanceof Blob) {
+        const blob = new Blob([data], { 
+          type: format === 'pdf' ? 'application/pdf' : 
+                format === 'png' ? 'image/png' : 'text/plain' 
+        });
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = blobUrl;
+        link.href = url;
         link.download = `shipping_label_${trackingCode || 'download'}.${format}`;
         document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
         
-        // Clean up
-        setTimeout(() => {
-          document.body.removeChild(link);
-          toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
-        }, 100);
-      } catch (error) {
-        console.error('Direct download error:', error);
-        toast.error('Failed to download directly');
-        tryFallbackDownload(format);
+        toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
+      } else {
+        toast.error(`${format.toUpperCase()} format not available for this label`);
       }
-    } else {
-      tryFallbackDownload(format);
-    }
-  };
-  
-  const tryFallbackDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    const url = localLabelUrl || labelUrl;
-    if (!url) {
-      toast.error('No label URL available');
-      return;
-    }
-    
-    try {
-      console.log(`Trying fallback download with URL (${format}):`, url);
-      
-      // Create a hidden iframe to download without navigating away
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = url;
-      document.body.appendChild(iframe);
-      
-      // Clean up after a moment
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-        toast.success(`Starting ${format.toUpperCase()} download through fallback method`);
-      }, 1000);
     } catch (error) {
-      console.error('Fallback download error:', error);
-      toast.error('All download methods failed. Try the "Open in New Tab" option');
+      console.error('Download error:', error);
+      toast.error('Failed to download label');
     }
   };
 
@@ -405,9 +397,9 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
       </div>
       
       <Dialog open={isLabelModalOpen} onOpenChange={setIsLabelModalOpen}>
-        <DialogContent className="bg-white max-w-3xl">
+        <DialogContent className="bg-white max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Shipping Label</DialogTitle>
+            <DialogTitle>Shipping Label - PDF Preview & Download</DialogTitle>
             <DialogDescription>
               Tracking #: {trackingCode}
             </DialogDescription>
@@ -415,9 +407,9 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
           
           <Tabs defaultValue="preview" className="w-full">
             <TabsList className="grid grid-cols-3 mb-4">
-              <TabsTrigger value="preview">Preview</TabsTrigger>
-              <TabsTrigger value="download">Download</TabsTrigger>
-              <TabsTrigger value="share">Share</TabsTrigger>
+              <TabsTrigger value="preview">PDF Preview</TabsTrigger>
+              <TabsTrigger value="download">Download Options</TabsTrigger>
+              <TabsTrigger value="share">Share & Save</TabsTrigger>
             </TabsList>
             
             <TabsContent value="preview">
@@ -445,16 +437,27 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
                 </div>
                 
                 {isRefreshing ? (
-                  <div className="flex flex-col items-center justify-center h-64 w-full">
+                  <div className="flex flex-col items-center justify-center h-96 w-full">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
                     <p className="text-purple-800">Regenerating label with new format...</p>
                   </div>
-                ) : blobUrl ? (
-                  <iframe 
-                    src={blobUrl} 
-                    className="w-full h-[500px]" 
-                    title="Label Preview"
-                  />
+                ) : blobUrl || localLabelUrl || labelUrl ? (
+                  <div className="w-full max-w-4xl">
+                    <iframe 
+                      src={blobUrl || localLabelUrl || labelUrl} 
+                      className="w-full h-96 border border-gray-300" 
+                      title="Label Preview"
+                    />
+                    <div className="mt-4 flex justify-center">
+                      <Button 
+                        onClick={() => handleDirectDownload('pdf')}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Download PDF Preview
+                      </Button>
+                    </div>
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full w-full">
                     <File className="h-16 w-16 text-gray-300 mb-4" />
@@ -475,7 +478,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
                   >
                     <File className="h-12 w-12 mx-auto mb-2 text-blue-600" />
                     <h4 className="font-medium">PDF Format</h4>
-                    <p className="text-xs text-gray-500">Best for printing</p>
+                    <p className="text-xs text-gray-500">Best for printing and viewing</p>
                   </div>
                   
                   <div 
@@ -486,7 +489,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
                   >
                     <File className="h-12 w-12 mx-auto mb-2 text-green-600" />
                     <h4 className="font-medium">PNG Format</h4>
-                    <p className="text-xs text-gray-500">Image format</p>
+                    <p className="text-xs text-gray-500">Image format for emails</p>
                   </div>
                   
                   <div 
@@ -508,7 +511,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
                     selectedFileFormat === 'png' ? 'bg-green-600 hover:bg-green-700' : 
                     'bg-purple-600 hover:bg-purple-700'
                   }`}
-                  disabled={isRefreshing || !blobUrl}
+                  disabled={isRefreshing}
                 >
                   <Download className="mr-2 h-5 w-5" />
                   Download {selectedFileFormat.toUpperCase()} File

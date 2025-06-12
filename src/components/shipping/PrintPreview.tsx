@@ -7,6 +7,7 @@ import { useReactToPrint } from 'react-to-print';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
@@ -48,15 +49,24 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const contentRef = useRef<HTMLDivElement>(null);
   const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
   const [currentLabelUrl, setCurrentLabelUrl] = useState(labelUrl);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
   
   // Update currentLabelUrl when labelUrl prop changes
   useEffect(() => {
     setCurrentLabelUrl(labelUrl);
-  }, [labelUrl]);
+    // Try to get PDF version for preview
+    if (labelUrls?.pdf) {
+      setPreviewUrl(labelUrls.pdf);
+    } else if (labelUrl) {
+      setPreviewUrl(labelUrl);
+    }
+  }, [labelUrl, labelUrls]);
   
   const handlePrint = useReactToPrint({
     documentTitle: `Shipping_Label_${trackingCode || 'Print'}`,
-    onAfterPrint: () => setIsOpen(false),
+    onAfterPrint: () => {
+      toast.success('Label sent to printer');
+    },
     content: () => contentRef.current,
   });
 
@@ -77,41 +87,49 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  const handleDownloadFormat = (format: 'png' | 'pdf' | 'zpl') => {
+  const handleDownloadFormat = async (format: 'png' | 'pdf' | 'zpl') => {
     console.log('Download attempt for format:', format);
-    console.log('Available labelUrls:', labelUrls);
     
-    // Get the URL for the requested format
-    let url = labelUrls?.[format];
-    
-    // Fallback to main labelUrl if specific format not available
-    if (!url && format === 'png') {
-      url = labelUrl;
-    }
-    
-    console.log('Final URL for download:', url);
-    
-    if (!url || url.trim() === '') {
-      console.error(`No URL available for ${format} format`);
-      toast.error(`${format.toUpperCase()} format not available for this label`);
+    if (!shipmentId) {
+      toast.error('Missing shipment information for download');
       return;
     }
 
     try {
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `shipping_label_${trackingCode || Date.now()}.${format}`;
-      link.target = '_blank';
-      
-      // Force download by setting content disposition
-      link.rel = 'noopener noreferrer';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      console.log(`Successfully initiated download for ${format}`);
-      toast.success(`Downloading ${format.toUpperCase()} label`);
+      // Use the edge function to download the specific format
+      const { data, error } = await supabase.functions.invoke('download-label', {
+        body: { 
+          shipment: shipmentId,
+          type: format,
+          download: true
+        }
+      });
+
+      if (error) {
+        console.error('Download error:', error);
+        toast.error(`Failed to download ${format.toUpperCase()} label`);
+        return;
+      }
+
+      // If we get a direct file response, trigger download
+      if (data instanceof Blob) {
+        const blob = new Blob([data], { 
+          type: format === 'pdf' ? 'application/pdf' : 
+                format === 'png' ? 'image/png' : 'text/plain' 
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `shipping_label_${trackingCode || Date.now()}.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        toast.success(`Downloaded ${format.toUpperCase()} label`);
+      } else {
+        toast.error(`${format.toUpperCase()} format not available for this label`);
+      }
     } catch (error) {
       console.error("Error downloading label:", error);
       toast.error("Failed to download label");
@@ -146,9 +164,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
         <Tabs defaultValue="preview" className="w-full">
           <TabsList className="grid grid-cols-3 mb-4">
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-            <TabsTrigger value="international">International Options</TabsTrigger>
-            <TabsTrigger value="print">Print Settings</TabsTrigger>
+            <TabsTrigger value="preview">PDF Preview</TabsTrigger>
+            <TabsTrigger value="formats">Download Formats</TabsTrigger>
+            <TabsTrigger value="print">Print Options</TabsTrigger>
           </TabsList>
           
           <TabsContent value="preview">
@@ -158,27 +176,41 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 onValueChange={handleFormatChange}
                 disabled={isRegeneratingLabel}
               >
-                <SelectTrigger className="w-[200px]">
+                <SelectTrigger className="w-[300px]">
                   <SelectValue placeholder="Select Format" />
                 </SelectTrigger>
                 <SelectContent>
                   {labelFormats.map(format => (
                     <SelectItem key={format.value} value={format.value}>
-                      {format.label}
+                      <div>
+                        <div className="font-medium">{format.label}</div>
+                        <div className="text-xs text-gray-500">{format.description}</div>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handlePrint}
-                className="border-purple-200 hover:bg-purple-50"
-                disabled={isRegeneratingLabel}
-              >
-                <Printer className="h-4 w-4 mr-2" /> Print
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => handleDownloadFormat('pdf')}
+                  className="border-blue-200 hover:bg-blue-50"
+                  disabled={isRegeneratingLabel}
+                >
+                  <Download className="h-4 w-4 mr-2" /> Download PDF
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handlePrint}
+                  className="border-purple-200 hover:bg-purple-50"
+                  disabled={isRegeneratingLabel}
+                >
+                  <Printer className="h-4 w-4 mr-2" /> Print
+                </Button>
+              </div>
             </div>
 
             <div ref={contentRef} className="p-6 bg-white">
@@ -190,39 +222,67 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       <div className="w-4 h-4 border-2 border-t-transparent border-blue-500 rounded-full animate-spin"></div>
                     </div>
                   ) : (
-                    labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'
+                    labelFormats.find(f => f.value === selectedFormat)?.description || 'PDF Label Preview'
                   )}
                 </div>
-                <div className={`mx-auto ${selectedFormat === '4x6' ? 'max-w-md' : 'max-w-2xl'}`}>
+                <div className={`mx-auto ${selectedFormat === '4x6' ? 'max-w-md' : 'max-w-4xl'}`}>
                   {isRegeneratingLabel ? (
-                    <div className="border border-gray-300 h-64 flex items-center justify-center">
+                    <div className="border border-gray-300 h-96 flex items-center justify-center">
                       <div className="flex flex-col items-center">
                         <div className="w-8 h-8 border-4 border-t-transparent border-purple-600 rounded-full animate-spin mb-4"></div>
                         <p className="text-purple-800">Regenerating label...</p>
                       </div>
                     </div>
-                  ) : (
-                    <img 
-                      src={currentLabelUrl} 
-                      alt="Shipping Label" 
-                      className="max-w-full h-auto border border-gray-300"
+                  ) : previewUrl ? (
+                    <iframe 
+                      src={previewUrl} 
+                      className="w-full h-96 border border-gray-300"
+                      title="Label Preview"
+                      onError={() => {
+                        console.log('PDF iframe failed, falling back to image');
+                        // Fallback to image if PDF fails
+                      }}
                     />
+                  ) : (
+                    <div className="border border-gray-300 h-96 flex items-center justify-center">
+                      <div className="text-center">
+                        <FileText className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+                        <p className="text-gray-500">No preview available</p>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="international">
+          <TabsContent value="formats">
             <div className="space-y-6 p-4">
               <div>
                 <h3 className="text-lg font-semibold mb-4">Download Label in Multiple Formats</h3>
                 <p className="text-sm text-gray-600 mb-6">
-                  Choose from different label formats for various printer types and international shipping requirements.
+                  Choose from different label formats for various printer types and requirements.
                 </p>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* PDF Format */}
+                <div className="border rounded-lg p-4 text-center hover:border-blue-300 transition-colors">
+                  <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
+                  <h4 className="font-medium mb-2">PDF Format</h4>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Professional document format. Ideal for printing and archiving shipment records.
+                  </p>
+                  <Button 
+                    onClick={() => handleDownloadFormat('pdf')}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    disabled={!hasDownloadFormats}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download PDF
+                  </Button>
+                </div>
+
                 {/* PNG Format */}
                 <div className="border rounded-lg p-4 text-center hover:border-green-300 transition-colors">
                   <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
@@ -240,23 +300,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   </Button>
                 </div>
 
-                {/* PDF Format */}
-                <div className="border rounded-lg p-4 text-center hover:border-blue-300 transition-colors">
-                  <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
-                  <h4 className="font-medium mb-2">PDF Format</h4>
-                  <p className="text-xs text-gray-500 mb-4">
-                    Professional document format. Ideal for printing and archiving shipment records.
-                  </p>
-                  <Button 
-                    onClick={() => handleDownloadFormat('pdf')}
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    disabled={!labelUrls?.pdf}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download PDF
-                  </Button>
-                </div>
-
                 {/* ZPL Format */}
                 <div className="border rounded-lg p-4 text-center hover:border-purple-300 transition-colors">
                   <FileText className="h-12 w-12 mx-auto mb-3 text-purple-600" />
@@ -267,7 +310,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   <Button 
                     onClick={() => handleDownloadFormat('zpl')}
                     className="w-full bg-purple-600 hover:bg-purple-700"
-                    disabled={!labelUrls?.zpl}
+                    disabled={!hasDownloadFormats}
                   >
                     <Download className="mr-2 h-4 w-4" />
                     Download ZPL
@@ -278,8 +321,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                 <h4 className="font-medium text-blue-800 mb-2">Format Recommendations:</h4>
                 <ul className="text-sm text-blue-700 space-y-1">
-                  <li>• <strong>PNG:</strong> Best for standard office printers and sharing via email</li>
                   <li>• <strong>PDF:</strong> Professional format for documentation and multi-page printing</li>
+                  <li>• <strong>PNG:</strong> Best for standard office printers and sharing via email</li>
                   <li>• <strong>ZPL:</strong> Required for Zebra thermal printers and warehouse operations</li>
                 </ul>
               </div>
@@ -293,14 +336,35 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 Configure your print settings for optimal label output.
               </p>
               
-              <Button 
-                onClick={handlePrint} 
-                className="w-full h-12 bg-purple-600 hover:bg-purple-700"
-                disabled={isRegeneratingLabel}
-              >
-                <Printer className="mr-2 h-5 w-5" />
-                Print Label Now
-              </Button>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium mb-2">Standard Printer</h4>
+                    <p className="text-sm text-gray-600 mb-3">For regular office printers</p>
+                    <Button 
+                      onClick={handlePrint} 
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      disabled={isRegeneratingLabel}
+                    >
+                      <Printer className="mr-2 h-4 w-4" />
+                      Print Now
+                    </Button>
+                  </div>
+                  
+                  <div className="p-4 border rounded-lg">
+                    <h4 className="font-medium mb-2">Thermal Printer</h4>
+                    <p className="text-sm text-gray-600 mb-3">Download ZPL for thermal printers</p>
+                    <Button 
+                      onClick={() => handleDownloadFormat('zpl')} 
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                      disabled={isRegeneratingLabel}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Download ZPL
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
           </TabsContent>
         </Tabs>

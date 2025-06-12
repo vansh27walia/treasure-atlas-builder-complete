@@ -6,6 +6,7 @@ import { CheckCircle, Download, FileText, File } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import LabelResultsTable from './LabelResultsTable';
 import { toast } from '@/components/ui/sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
@@ -66,33 +67,52 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   // Show notification if we have shipments or results
   const shouldShowNotification = totalProcessed > 0 || results.total > 0 || results.successful > 0;
 
-  const downloadSecureFile = async (url: string, filename: string) => {
+  const downloadSecureFile = async (shipmentId: string, format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
     try {
-      console.log('Downloading secure file from URL:', url);
+      console.log('Downloading secure file for shipment:', shipmentId, 'format:', format);
       
-      if (!url || url.trim() === '') {
-        toast.error('Invalid label URL - cannot download');
+      if (!shipmentId || shipmentId.trim() === '') {
+        toast.error('Invalid shipment ID - cannot download');
         return;
       }
 
-      // Check if it's a Supabase URL - direct download
-      if (url.includes('supabase')) {
+      // Use the edge function to download the file
+      const { data, error } = await supabase.functions.invoke('download-label', {
+        body: { 
+          shipment: shipmentId,
+          type: format,
+          download: true
+        }
+      });
+
+      if (error) {
+        console.error('Download error:', error);
+        toast.error(`Failed to download ${format.toUpperCase()} label`);
+        return;
+      }
+
+      // If we get a direct file response, trigger download
+      if (data instanceof Blob) {
+        const blob = new Blob([data], { 
+          type: format === 'pdf' ? 'application/pdf' : 
+                format === 'png' ? 'image/png' : 'text/plain' 
+        });
+        const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = filename;
-        link.target = '_blank';
-        
+        link.download = `shipping_label_${shipmentId}_${format}.${format}`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        URL.revokeObjectURL(url);
         
-        toast.success(`Downloaded ${filename}`);
+        toast.success(`Downloaded ${format.toUpperCase()} label`);
       } else {
-        toast.error('Only Supabase-hosted labels can be downloaded');
+        toast.error(`${format.toUpperCase()} format not available for this label`);
       }
     } catch (error) {
       console.error('Download error:', error);
-      toast.error(`Failed to download ${filename}`);
+      toast.error(`Failed to download ${format} label`);
     }
   };
 
@@ -110,19 +130,15 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     
     for (let i = 0; i < shipmentsWithLabels.length; i++) {
       const shipment = shipmentsWithLabels[i];
-      const labelUrl = shipment.label_urls?.png || shipment.label_url;
       
-      // Only download if it's a Supabase URL
-      if (labelUrl && labelUrl.includes('supabase')) {
-        try {
-          setTimeout(async () => {
-            const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
-            await downloadSecureFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.png`);
-            successCount++;
-          }, i * 500);
-        } catch (error) {
-          console.error('Error downloading label for shipment:', shipment.id, error);
-        }
+      // Download PDF format by default
+      try {
+        setTimeout(async () => {
+          await downloadSecureFile(shipment.id, 'pdf');
+          successCount++;
+        }, i * 500);
+      } catch (error) {
+        console.error('Error downloading label for shipment:', shipment.id, error);
       }
     }
     
@@ -197,16 +213,42 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Secure Labels</h4>
             
             <div className="flex flex-col gap-3">
-              <Button 
-                onClick={handleDownloadAllIndividualLabels}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download All Secure Labels ({shipmentsWithLabels.length} files)
-              </Button>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Button 
+                  onClick={handleDownloadAllIndividualLabels}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download All PDF ({shipmentsWithLabels.length})
+                </Button>
+                
+                <Button 
+                  onClick={() => {
+                    shipmentsWithLabels.forEach((shipment, index) => {
+                      setTimeout(() => downloadSecureFile(shipment.id, 'png'), index * 500);
+                    });
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download All PNG ({shipmentsWithLabels.length})
+                </Button>
+                
+                <Button 
+                  onClick={() => {
+                    shipmentsWithLabels.forEach((shipment, index) => {
+                      setTimeout(() => downloadSecureFile(shipment.id, 'zpl'), index * 500);
+                    });
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download All ZPL ({shipmentsWithLabels.length})
+                </Button>
+              </div>
               
               <p className="text-sm text-blue-700">
-                🔒 All labels are securely stored in our system and contain no external tracking URLs.
+                🔒 All labels are securely stored in our system and can be downloaded in multiple formats.
               </p>
             </div>
           </div>
@@ -235,18 +277,9 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       {allShipments.length > 0 && (
         <LabelResultsTable
           shipments={allShipments}
-          onDownloadLabel={(url: string, format?: string) => {
-            if (url && url.trim() !== '') {
-              if (url.includes('supabase')) {
-                const timestamp = Date.now();
-                const filename = `secure_shipping_label_${timestamp}.${format || 'png'}`;
-                downloadSecureFile(url, filename);
-              } else {
-                toast.error('Only secure Supabase-hosted labels can be downloaded');
-              }
-            } else {
-              toast.error('Invalid label URL - cannot download');
-            }
+          onDownloadLabel={(shipmentId: string, format?: string) => {
+            const downloadFormat = (format as 'pdf' | 'png' | 'zpl') || 'pdf';
+            downloadSecureFile(shipmentId, downloadFormat);
           }}
         />
       )}
