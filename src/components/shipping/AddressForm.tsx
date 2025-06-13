@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -43,6 +42,7 @@ interface AddressFormProps {
   buttonText?: string;
   showDefaultOptions?: boolean;
   isPickupAddress?: boolean;
+  enableGoogleAutocomplete?: boolean;
 }
 
 const AddressForm: React.FC<AddressFormProps> = ({
@@ -52,6 +52,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
   buttonText = 'Save Address',
   showDefaultOptions = true,
   isPickupAddress = true,
+  enableGoogleAutocomplete = false,
 }) => {
   const form = useForm<AddressFormValues>({
     resolver: zodResolver(addressSchema),
@@ -95,29 +96,24 @@ const AddressForm: React.FC<AddressFormProps> = ({
       
       console.log("Extracted components:", { street1, city, state, zip, country });
       
-      // Only set values that are not empty
+      // Set all the form values at once for better user experience
       if (street1) {
         form.setValue('street1', street1, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-        console.log("Set street1:", street1);
       }
       if (city) {
         form.setValue('city', city, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-        console.log("Set city:", city);
       }
       if (state) {
         form.setValue('state', state, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-        console.log("Set state:", state);
       }
       if (zip) {
         form.setValue('zip', zip, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-        console.log("Set zip:", zip);
       }
       if (country) {
         form.setValue('country', country, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-        console.log("Set country:", country);
       }
       
-      // Manually trigger validation to show updated status
+      // Trigger validation for all fields
       form.trigger(['street1', 'city', 'state', 'zip', 'country']);
       
       toast.success('Address details populated from Google Maps');
@@ -125,6 +121,33 @@ const AddressForm: React.FC<AddressFormProps> = ({
       console.error("Error processing Google place selection:", error);
       toast.error('Failed to process selected address. Please fill in the fields manually.');
     }
+  };
+
+  // Enhanced handler for when full address data is populated from Google autocomplete
+  const handleFullAddressPopulated = (addressData: any) => {
+    console.log("Populating full address data:", addressData);
+    
+    // Populate all form fields with the extracted address data
+    if (addressData.street1) {
+      form.setValue('street1', addressData.street1, { shouldValidate: true, shouldDirty: true });
+    }
+    if (addressData.city) {
+      form.setValue('city', addressData.city, { shouldValidate: true, shouldDirty: true });
+    }
+    if (addressData.state) {
+      form.setValue('state', addressData.state, { shouldValidate: true, shouldDirty: true });
+    }
+    if (addressData.zip) {
+      form.setValue('zip', addressData.zip, { shouldValidate: true, shouldDirty: true });
+    }
+    if (addressData.country) {
+      form.setValue('country', addressData.country, { shouldValidate: true, shouldDirty: true });
+    }
+    
+    // Trigger validation for all updated fields
+    form.trigger(['street1', 'city', 'state', 'zip', 'country']);
+    
+    toast.success('Complete address populated successfully!');
   };
 
   // Handle address line changes directly from the input
@@ -189,14 +212,26 @@ const AddressForm: React.FC<AddressFormProps> = ({
             <FormItem>
               <FormLabel>Address</FormLabel>
               <FormControl>
-                <AddressAutoComplete 
-                  placeholder="Enter your address"
-                  defaultValue={field.value}
-                  onAddressSelected={handleGooglePlaceSelected}
-                  onChange={handleAddressLineChange}
-                  id="address-autocomplete"
-                  required
-                />
+                {enableGoogleAutocomplete ? (
+                  <AddressAutoComplete 
+                    placeholder="Enter your address"
+                    defaultValue={field.value}
+                    onAddressSelected={handleGooglePlaceSelected}
+                    onChange={handleAddressLineChange}
+                    onFullAddressPopulated={handleFullAddressPopulated}
+                    id="address-autocomplete"
+                    required
+                  />
+                ) : (
+                  <AddressAutoComplete 
+                    placeholder="Enter your address"
+                    defaultValue={field.value}
+                    onAddressSelected={handleGooglePlaceSelected}
+                    onChange={handleAddressLineChange}
+                    id="address-autocomplete"
+                    required
+                  />
+                )}
               </FormControl>
               <FormMessage />
             </FormItem>
