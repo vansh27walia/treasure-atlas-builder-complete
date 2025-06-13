@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Printer, Download, File, FileArchive, X, FileImage, FileText, Eye } from 'lucide-react';
+import { Printer, Download, File, FileArchive, X, FileImage, FileText, Eye, Package } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
@@ -33,6 +32,11 @@ interface PrintPreviewProps {
     pdf?: string;
     zpl?: string;
   };
+  batchResult?: {
+    batchId: string;
+    consolidatedLabelUrls: Record<string, string>;
+    scanFormUrl: string | null;
+  };
 }
 
 const PrintPreview: React.FC<PrintPreviewProps> = ({ 
@@ -41,7 +45,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   shipmentDetails,
   onFormatChange,
   shipmentId,
-  labelUrls
+  labelUrls,
+  batchResult
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState('4x6');
@@ -49,7 +54,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
   const [currentLabelUrl, setCurrentLabelUrl] = useState(labelUrl);
   
-  // Update currentLabelUrl when labelUrl prop changes
   useEffect(() => {
     setCurrentLabelUrl(labelUrl);
   }, [labelUrl]);
@@ -81,10 +85,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     console.log('Download attempt for format:', format);
     console.log('Available labelUrls:', labelUrls);
     
-    // Get the URL for the requested format
     let url = labelUrls?.[format];
     
-    // Fallback to main labelUrl if specific format not available
     if (!url && format === 'png') {
       url = labelUrl;
     }
@@ -102,8 +104,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       link.href = url;
       link.download = `shipping_label_${trackingCode || Date.now()}.${format}`;
       link.target = '_blank';
-      
-      // Force download by setting content disposition
       link.rel = 'noopener noreferrer';
       
       document.body.appendChild(link);
@@ -118,8 +118,58 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     }
   };
 
-  // Check if any download formats are available
+  const handleDownloadBatchFormat = (format: string) => {
+    if (!batchResult?.consolidatedLabelUrls?.[format]) {
+      toast.error(`${format.toUpperCase()} batch label not available`);
+      return;
+    }
+
+    const url = batchResult.consolidatedLabelUrls[format];
+    
+    try {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `batch_labels_${batchResult.batchId}.${format}`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`Downloading batch ${format.toUpperCase()} labels`);
+    } catch (error) {
+      console.error("Error downloading batch label:", error);
+      toast.error("Failed to download batch label");
+    }
+  };
+
+  const handleDownloadManifest = () => {
+    if (!batchResult?.scanFormUrl) {
+      toast.error('Manifest not available');
+      return;
+    }
+
+    try {
+      const link = document.createElement('a');
+      link.href = batchResult.scanFormUrl;
+      link.download = `manifest_${batchResult.batchId}.pdf`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success('Downloading manifest');
+    } catch (error) {
+      console.error("Error downloading manifest:", error);
+      toast.error("Failed to download manifest");
+    }
+  };
+
   const hasDownloadFormats = labelUrls && (labelUrls.png || labelUrls.pdf || labelUrls.zpl) || labelUrl;
+  const hasBatchLabels = batchResult?.consolidatedLabelUrls && Object.keys(batchResult.consolidatedLabelUrls).length > 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -145,9 +195,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         </DialogHeader>
 
         <Tabs defaultValue="preview" className="w-full">
-          <TabsList className="grid grid-cols-3 mb-4">
+          <TabsList className="grid grid-cols-4 mb-4">
             <TabsTrigger value="preview">Preview</TabsTrigger>
-            <TabsTrigger value="international">International Options</TabsTrigger>
+            <TabsTrigger value="individual">Individual Formats</TabsTrigger>
+            <TabsTrigger value="batch">Batch Labels</TabsTrigger>
             <TabsTrigger value="print">Print Settings</TabsTrigger>
           </TabsList>
           
@@ -213,17 +264,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             </div>
           </TabsContent>
 
-          <TabsContent value="international">
+          <TabsContent value="individual">
             <div className="space-y-6 p-4">
               <div>
-                <h3 className="text-lg font-semibold mb-4">Download Label in Multiple Formats</h3>
+                <h3 className="text-lg font-semibold mb-4">Download Individual Label Formats</h3>
                 <p className="text-sm text-gray-600 mb-6">
-                  Choose from different label formats for various printer types and international shipping requirements.
+                  Choose from different label formats for various printer types and requirements.
                 </p>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* PNG Format */}
                 <div className="border rounded-lg p-4 text-center hover:border-green-300 transition-colors">
                   <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
                   <h4 className="font-medium mb-2">PNG Format</h4>
@@ -240,7 +290,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   </Button>
                 </div>
 
-                {/* PDF Format */}
                 <div className="border rounded-lg p-4 text-center hover:border-blue-300 transition-colors">
                   <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
                   <h4 className="font-medium mb-2">PDF Format</h4>
@@ -257,7 +306,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   </Button>
                 </div>
 
-                {/* ZPL Format */}
                 <div className="border rounded-lg p-4 text-center hover:border-purple-300 transition-colors">
                   <FileText className="h-12 w-12 mx-auto mb-3 text-purple-600" />
                   <h4 className="font-medium mb-2">ZPL Format</h4>
@@ -283,6 +331,65 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   <li>• <strong>ZPL:</strong> Required for Zebra thermal printers and warehouse operations</li>
                 </ul>
               </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="batch">
+            <div className="space-y-6 p-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Batch/Consolidated Labels & Manifest</h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  Download consolidated labels for all shipments and the manifest pick-up form.
+                </p>
+              </div>
+
+              {hasBatchLabels ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {Object.entries(batchResult.consolidatedLabelUrls).map(([format, url]) => (
+                      <div key={format} className="border rounded-lg p-4 text-center hover:border-indigo-300 transition-colors">
+                        <Package className="h-10 w-10 mx-auto mb-2 text-indigo-600" />
+                        <h4 className="font-medium mb-2">Batch {format.toUpperCase()}</h4>
+                        <p className="text-xs text-gray-500 mb-3">
+                          Consolidated {format.toUpperCase()} file with all labels
+                        </p>
+                        <Button 
+                          onClick={() => handleDownloadBatchFormat(format)}
+                          className="w-full bg-indigo-600 hover:bg-indigo-700"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Download Batch {format.toUpperCase()}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {batchResult.scanFormUrl && (
+                    <div className="border-2 border-orange-200 rounded-lg p-6 text-center bg-orange-50">
+                      <FileArchive className="h-12 w-12 mx-auto mb-3 text-orange-600" />
+                      <h4 className="font-medium mb-2 text-orange-800">Manifest Pick-Up Form</h4>
+                      <p className="text-sm text-orange-700 mb-4">
+                        Official scan form for carrier pickup. Required for batch shipment pickup scheduling.
+                      </p>
+                      <Button 
+                        onClick={handleDownloadManifest}
+                        className="bg-orange-600 hover:bg-orange-700"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Download Manifest
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <Package className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+                  <h4 className="font-medium text-gray-600 mb-2">No Batch Labels Available</h4>
+                  <p className="text-sm text-gray-500">
+                    Batch labels and manifest will be available after generating batch shipments.
+                  </p>
+                </div>
+              )}
             </div>
           </TabsContent>
 

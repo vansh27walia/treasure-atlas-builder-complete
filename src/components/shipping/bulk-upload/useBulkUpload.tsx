@@ -100,14 +100,13 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // Enhanced handleCreateLabels with strict validation and proper response processing
+  // Enhanced handleCreateLabels with batch label generation
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
       return;
     }
     
-    // Handle both array and object cases for processedShipments
     let shipmentsArray = [];
     if (Array.isArray(results.processedShipments)) {
       shipmentsArray = results.processedShipments;
@@ -122,7 +121,6 @@ export const useBulkUpload = () => {
       return;
     }
 
-    // STRICT VALIDATION: Ensure ALL shipments have rates selected
     const totalShipments = shipmentsArray.length;
     const shipmentsWithRates = shipmentsToProcess.length;
     
@@ -136,7 +134,7 @@ export const useBulkUpload = () => {
     console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with rates selected`);
     
     try {
-      toast.loading(`Creating ${shipmentsToProcess.length} shipping labels...`, { id: 'creating-labels' });
+      toast.loading(`Creating ${shipmentsToProcess.length} shipping labels with all formats...`, { id: 'creating-labels' });
       
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
@@ -144,7 +142,9 @@ export const useBulkUpload = () => {
           pickupAddress,
           labelOptions: {
             format: 'PDF',
-            size: '4x6'
+            size: '4x6',
+            generateBatch: true, // Enable batch generation
+            generateManifest: true // Enable manifest generation
           }
         }
       });
@@ -157,7 +157,6 @@ export const useBulkUpload = () => {
       console.log('Raw label creation response:', data);
       toast.dismiss('creating-labels');
 
-      // STRICT VALIDATION: Ensure we got the expected number of labels
       if (data && data.processedLabels && Array.isArray(data.processedLabels)) {
         const expectedLabels = shipmentsToProcess.length;
         const actualLabels = data.processedLabels.length;
@@ -169,11 +168,9 @@ export const useBulkUpload = () => {
           toast.warning(`Only ${actualLabels} out of ${expectedLabels} labels were created successfully`);
         }
         
-        // Transform successful labels into frontend format
         const transformedSuccessfulShipments = data.processedLabels.map((labelData: any) => {
           console.log('Processing successful label data:', labelData);
           
-          // Find the original shipment to preserve data
           const originalShipment = shipmentsToProcess.find(s => 
             s.easypost_id === labelData.id || s.id === labelData.id
           );
@@ -224,7 +221,6 @@ export const useBulkUpload = () => {
           };
         });
 
-        // Handle failed shipments
         const transformedFailedShipments = [];
         if (data.failedLabels && Array.isArray(data.failedLabels)) {
           console.log(`Processing ${data.failedLabels.length} failed labels from backend`);
@@ -241,12 +237,10 @@ export const useBulkUpload = () => {
           });
         }
 
-        // Combine successful and failed shipments
         const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
 
         console.log(`Final transformation: ${transformedSuccessfulShipments.length} successful + ${transformedFailedShipments.length} failed = ${allTransformedShipments.length} total shipments`);
 
-        // Process failed labels for display
         const failedShipmentsForDisplay = data.failedLabels ? data.failedLabels.map((failed: any, index: number) => ({
           row: index + 1,
           error: failed.error || 'Unknown error',
@@ -254,7 +248,6 @@ export const useBulkUpload = () => {
           shipmentId: failed.shipmentId
         })) : [];
 
-        // Create updated results object with ALL shipments
         const updatedResults: BulkUploadResult = {
           total: data.total || shipmentsToProcess.length,
           successful: data.successful || transformedSuccessfulShipments.length,
@@ -264,6 +257,7 @@ export const useBulkUpload = () => {
           failedShipments: failedShipmentsForDisplay,
           bulk_label_png_url: data.bulk_label_png_url || null,
           bulk_label_pdf_url: data.bulk_label_pdf_url || null,
+          batchResult: data.batchResult || null, // Include batch result with consolidated labels and manifest
           uploadStatus: 'success' as const,
           pickupAddress
         };
@@ -271,11 +265,14 @@ export const useBulkUpload = () => {
         console.log(`✅ Label creation complete: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
         updateResults(updatedResults);
         
-        // Success message with strict validation
         if (updatedResults.successful === expectedLabels) {
-          toast.success(`🎉 ALL ${transformedSuccessfulShipments.length} shipping labels created successfully!`);
+          toast.success(`🎉 ALL ${transformedSuccessfulShipments.length} shipping labels created successfully in multiple formats!`);
         } else {
           toast.warning(`⚠️ ${transformedSuccessfulShipments.length} out of ${expectedLabels} labels created. ${transformedFailedShipments.length} failed.`);
+        }
+
+        if (data.batchResult) {
+          toast.success('✅ Batch labels and manifest generated successfully!');
         }
 
         if (transformedFailedShipments.length > 0) {
