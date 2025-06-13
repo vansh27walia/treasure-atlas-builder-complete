@@ -3,8 +3,8 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Upload, FileText, Package, Download } from 'lucide-react';
-import FileUploadArea from './FileUploadArea';
-import ShipmentRatesList from './ShipmentRatesList';
+import BulkUploadForm from './BulkUploadForm';
+import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
 import LabelGenerationProgress from './LabelGenerationProgress';
 import BulkLabelDownloadOptions from './BulkLabelDownloadOptions';
@@ -70,7 +70,7 @@ const BulkUploadView: React.FC = () => {
       {/* File Upload Section */}
       {uploadStatus === 'idle' && (
         <Card className="p-6">
-          <FileUploadArea
+          <BulkUploadForm
             file={file}
             isUploading={isUploading}
             onFileChange={handleFileChange}
@@ -114,7 +114,7 @@ const BulkUploadView: React.FC = () => {
 
       {/* Shipment Rates Section */}
       {uploadStatus === 'editing' && results && (
-        <ShipmentRatesList
+        <BulkShipmentsList
           shipments={filteredShipments}
           isLoading={isFetchingRates}
           searchTerm={searchTerm}
