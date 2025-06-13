@@ -191,11 +191,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      refreshAddresses();
-                    }}
+                    onClick={refreshAddresses}
                     disabled={isLoading}
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
@@ -204,11 +200,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleAddNew();
-                    }}
+                    onClick={handleAddNew}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Add new
@@ -221,7 +213,10 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                 <CommandItem
                   key={address.id}
                   value={`${address.id}-${address.name || address.street1}`}
-                  onSelect={() => handleSelectAddress(address)}
+                  onSelect={() => {
+                    console.log('Selecting address:', address);
+                    handleSelectAddress(address);
+                  }}
                   className="cursor-pointer hover:bg-gray-50"
                 >
                   <div className="flex items-start mr-2">
@@ -259,7 +254,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
             <CommandGroup>
               {selectedAddress && (
                 <CommandItem 
-                  onSelect={() => handleClearSelection()}
+                  onSelect={handleClearSelection}
                   className="cursor-pointer hover:bg-gray-50 text-red-600"
                 >
                   <span className="font-medium flex items-center">
@@ -268,7 +263,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                 </CommandItem>
               )}
               <CommandItem 
-                onSelect={() => refreshAddresses()}
+                onSelect={refreshAddresses}
                 className="cursor-pointer hover:bg-gray-50"
                 disabled={isLoading}
               >
@@ -278,7 +273,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                 </span>
               </CommandItem>
               <CommandItem 
-                onSelect={() => handleAddNew()}
+                onSelect={handleAddNew}
                 className="cursor-pointer hover:bg-gray-50"
               >
                 <span className="font-medium text-green-600 flex items-center">

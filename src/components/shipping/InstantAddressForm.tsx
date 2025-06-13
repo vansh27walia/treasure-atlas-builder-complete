@@ -66,10 +66,21 @@ const InstantAddressForm: React.FC<InstantAddressFormProps> = ({
       
       const { street1, city, state, zip } = extractAddressComponents(place);
       
-      if (street1) form.setValue('street1', street1, { shouldValidate: true });
-      if (city) form.setValue('city', city, { shouldValidate: true });
-      if (state) form.setValue('state', state, { shouldValidate: true });
-      if (zip) form.setValue('zip', zip, { shouldValidate: true });
+      console.log("Extracted components for instant form:", { street1, city, state, zip });
+      
+      // Set all the form values at once with proper validation triggers
+      if (street1) {
+        form.setValue('street1', street1, { shouldValidate: true, shouldDirty: true });
+      }
+      if (city) {
+        form.setValue('city', city, { shouldValidate: true, shouldDirty: true });
+      }
+      if (state) {
+        form.setValue('state', state, { shouldValidate: true, shouldDirty: true });
+      }
+      if (zip) {
+        form.setValue('zip', zip, { shouldValidate: true, shouldDirty: true });
+      }
       
       toast.success('Address details populated from Google Maps');
     } catch (error) {
@@ -79,7 +90,7 @@ const InstantAddressForm: React.FC<InstantAddressFormProps> = ({
   };
 
   const handleAddressLineChange = (value: string) => {
-    form.setValue('street1', value, { shouldValidate: true });
+    form.setValue('street1', value, { shouldValidate: true, shouldDirty: true });
   };
 
   const onSubmit = async (values: InstantFormValues) => {
