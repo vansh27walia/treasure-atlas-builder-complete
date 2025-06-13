@@ -42,27 +42,22 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(defaultAddress);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
-  // Refresh addresses function
+  // Refresh addresses function with proper state management
   const refreshAddresses = useCallback(async () => {
     setIsLoading(true);
-    setHasLoadedOnce(false);
     try {
       console.log('Refreshing addresses for dropdown...');
       const { data } = await addressService.getSession();
       if (!data?.session?.user) {
         console.log('User not authenticated, skipping address loading');
         setAddresses([]);
-        setIsLoading(false);
-        setHasLoadedOnce(true);
         return;
       }
       
       const savedAddresses = await addressService.getSavedAddresses();
       console.log('Refreshed addresses for dropdown:', savedAddresses);
       setAddresses(savedAddresses || []);
-      setHasLoadedOnce(true);
       toast.success('Addresses refreshed successfully');
     } catch (error) {
       console.error('Error refreshing addresses:', error);
@@ -72,59 +67,71 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     }
   }, []);
 
-  // Memoize the address loading function to prevent constant re-renders
-  const loadAddresses = useCallback(async () => {
-    if (isLoading || hasLoadedOnce) return;
+  // Load addresses on component mount
+  useEffect(() => {
+    let isMounted = true;
     
-    setIsLoading(true);
-    try {
-      console.log('Loading addresses for dropdown...');
-      const { data } = await addressService.getSession();
-      if (!data?.session?.user) {
-        console.log('User not authenticated, skipping address loading');
-        setAddresses([]);
-        setIsLoading(false);
-        setHasLoadedOnce(true);
-        return;
-      }
+    const loadAddresses = async () => {
+      if (isLoading) return;
       
-      const savedAddresses = await addressService.getSavedAddresses();
-      console.log('Loaded addresses for dropdown:', savedAddresses);
-      setAddresses(savedAddresses || []);
-      setHasLoadedOnce(true);
-
-      // Only auto-select default if no address is currently selected
-      if (!selectedAddress && savedAddresses?.length > 0) {
-        const defaultAddr = isPickupAddress 
-          ? savedAddresses.find(addr => addr.is_default_from)
-          : savedAddresses.find(addr => addr.is_default_to);
+      setIsLoading(true);
+      try {
+        console.log('Loading addresses for dropdown...');
+        const { data } = await addressService.getSession();
+        if (!data?.session?.user) {
+          console.log('User not authenticated, skipping address loading');
+          if (isMounted) {
+            setAddresses([]);
+            setIsLoading(false);
+          }
+          return;
+        }
         
-        if (defaultAddr) {
-          console.log('Auto-selecting default address:', defaultAddr);
-          setSelectedAddress(defaultAddr);
-          onAddressSelected(defaultAddr);
+        const savedAddresses = await addressService.getSavedAddresses();
+        console.log('Loaded addresses for dropdown:', savedAddresses);
+        
+        if (isMounted) {
+          setAddresses(savedAddresses || []);
+
+          // Auto-select default if no address is currently selected
+          if (!selectedAddress && savedAddresses?.length > 0) {
+            const defaultAddr = isPickupAddress 
+              ? savedAddresses.find(addr => addr.is_default_from)
+              : savedAddresses.find(addr => addr.is_default_to);
+            
+            if (defaultAddr) {
+              console.log('Auto-selecting default address:', defaultAddr);
+              setSelectedAddress(defaultAddr);
+              onAddressSelected(defaultAddr);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading addresses:', error);
+        if (isMounted) {
+          toast.error('Failed to load saved addresses');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
         }
       }
-    } catch (error) {
-      console.error('Error loading addresses:', error);
-      toast.error('Failed to load saved addresses');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isPickupAddress, onAddressSelected, selectedAddress, isLoading, hasLoadedOnce]);
+    };
 
-  // Load addresses only once when component mounts
-  useEffect(() => {
     loadAddresses();
-  }, [loadAddresses]);
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Empty dependency array to run only once
 
-  // Handle external default address changes without causing re-renders
+  // Handle external default address changes
   useEffect(() => {
     if (defaultAddress && (!selectedAddress || defaultAddress.id !== selectedAddress.id)) {
       console.log('Setting selected address from default prop:', defaultAddress);
       setSelectedAddress(defaultAddress);
     }
-  }, [defaultAddress?.id]); // Only depend on ID to prevent constant updates
+  }, [defaultAddress?.id]);
 
   const handleSelectAddress = useCallback((address: SavedAddress) => {
     console.log('Address selected from dropdown:', address);
@@ -184,7 +191,11 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={refreshAddresses}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      refreshAddresses();
+                    }}
                     disabled={isLoading}
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
@@ -193,7 +204,11 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={handleAddNew}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleAddNew();
+                    }}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Add new
@@ -206,7 +221,11 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                 <CommandItem
                   key={address.id}
                   value={`${address.id}-${address.name || address.street1}`}
-                  onSelect={() => handleSelectAddress(address)}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSelectAddress(address);
+                  }}
                   className="cursor-pointer hover:bg-gray-50"
                 >
                   <div className="flex items-start mr-2">
@@ -244,7 +263,11 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
             <CommandGroup>
               {selectedAddress && (
                 <CommandItem 
-                  onSelect={handleClearSelection}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleClearSelection();
+                  }}
                   className="cursor-pointer hover:bg-gray-50 text-red-600"
                 >
                   <span className="font-medium flex items-center">
@@ -253,7 +276,11 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                 </CommandItem>
               )}
               <CommandItem 
-                onSelect={refreshAddresses}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  refreshAddresses();
+                }}
                 className="cursor-pointer hover:bg-gray-50"
                 disabled={isLoading}
               >
@@ -263,7 +290,11 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                 </span>
               </CommandItem>
               <CommandItem 
-                onSelect={handleAddNew}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleAddNew();
+                }}
                 className="cursor-pointer hover:bg-gray-50"
               >
                 <span className="font-medium text-green-600 flex items-center">
