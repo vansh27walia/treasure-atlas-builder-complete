@@ -221,11 +221,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                 <CommandItem
                   key={address.id}
                   value={`${address.id}-${address.name || address.street1}`}
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleSelectAddress(address);
-                  }}
+                  onSelect={() => handleSelectAddress(address)}
                   className="cursor-pointer hover:bg-gray-50"
                 >
                   <div className="flex items-start mr-2">
@@ -263,11 +259,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
             <CommandGroup>
               {selectedAddress && (
                 <CommandItem 
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleClearSelection();
-                  }}
+                  onSelect={() => handleClearSelection()}
                   className="cursor-pointer hover:bg-gray-50 text-red-600"
                 >
                   <span className="font-medium flex items-center">
@@ -276,11 +268,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                 </CommandItem>
               )}
               <CommandItem 
-                onSelect={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  refreshAddresses();
-                }}
+                onSelect={() => refreshAddresses()}
                 className="cursor-pointer hover:bg-gray-50"
                 disabled={isLoading}
               >
@@ -290,11 +278,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                 </span>
               </CommandItem>
               <CommandItem 
-                onSelect={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleAddNew();
-                }}
+                onSelect={() => handleAddNew()}
                 className="cursor-pointer hover:bg-gray-50"
               >
                 <span className="font-medium text-green-600 flex items-center">
