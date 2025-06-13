@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -157,7 +158,7 @@ export interface BulkUploadResult {
     consolidatedLabelUrls: Record<string, string>;
     scanFormUrl: string | null;
   } | null;
-  uploadStatus: 'idle' | 'uploading' | 'editing' | 'success' | 'error';
+  uploadStatus: 'idle' | 'uploading' | 'editing' | 'success' | 'error' | 'creating-labels';
   pickupAddress?: any;
 }
 

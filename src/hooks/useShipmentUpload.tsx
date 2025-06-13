@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
@@ -17,7 +18,7 @@ const normalizeStatus = (status: string): 'pending' | 'processing' | 'error' | '
 export const useShipmentUpload = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'editing' | 'creating-labels'>('idle');
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels'>('idle');
   const [results, setResults] = useState<BulkUploadResult | null>(null);
   const [progress, setProgress] = useState(0);
 
@@ -49,7 +50,7 @@ export const useShipmentUpload = () => {
     }
 
     setIsUploading(true);
-    setUploadStatus('idle');
+    setUploadStatus('uploading');
     setProgress(10);
 
     try {
@@ -114,13 +115,14 @@ export const useShipmentUpload = () => {
         customer_company: shipment.customer_company || shipment.details?.to_company,
       }));
 
-      const resultData = {
+      const resultData: BulkUploadResult = {
         total: data.total,
         successful: data.successful,
         failed: data.failed,
         totalCost: data.totalCost,
         processedShipments,
-        failedShipments: data.failedShipments || []
+        failedShipments: data.failedShipments || [],
+        uploadStatus: 'editing'
       };
       
       setResults(resultData);
