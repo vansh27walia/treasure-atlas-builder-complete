@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Check, ChevronsUpDown, MapPin, Plus } from 'lucide-react';
+import { Check, ChevronsUpDown, MapPin, Plus, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Command,
@@ -43,6 +43,34 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
   const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(defaultAddress);
   const [isLoading, setIsLoading] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+
+  // Refresh addresses function
+  const refreshAddresses = useCallback(async () => {
+    setIsLoading(true);
+    setHasLoadedOnce(false);
+    try {
+      console.log('Refreshing addresses for dropdown...');
+      const { data } = await addressService.getSession();
+      if (!data?.session?.user) {
+        console.log('User not authenticated, skipping address loading');
+        setAddresses([]);
+        setIsLoading(false);
+        setHasLoadedOnce(true);
+        return;
+      }
+      
+      const savedAddresses = await addressService.getSavedAddresses();
+      console.log('Refreshed addresses for dropdown:', savedAddresses);
+      setAddresses(savedAddresses || []);
+      setHasLoadedOnce(true);
+      toast.success('Addresses refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing addresses:', error);
+      toast.error('Failed to refresh addresses');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   // Memoize the address loading function to prevent constant re-renders
   const loadAddresses = useCallback(async () => {
@@ -103,12 +131,20 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     setSelectedAddress(address);
     onAddressSelected(address);
     setOpen(false);
+    toast.success('Address selected successfully');
   }, [onAddressSelected]);
 
   const handleAddNew = useCallback(() => {
     onAddNew();
     setOpen(false);
   }, [onAddNew]);
+
+  const handleClearSelection = useCallback(() => {
+    console.log('Clearing address selection');
+    setSelectedAddress(null);
+    onAddressSelected(null);
+    toast.info('Address selection cleared');
+  }, [onAddressSelected]);
 
   // Memoize the address label to prevent recalculation
   const addressLabel = useMemo(() => {
@@ -144,14 +180,25 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
             <CommandEmpty>
               <div className="flex flex-col items-center justify-center py-6">
                 <p className="text-sm text-muted-foreground mb-2">No addresses found</p>
-                <Button 
-                  variant="outline" 
-                  onClick={handleAddNew}
-                  className="flex items-center"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add new address
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={refreshAddresses}
+                    disabled={isLoading}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Refresh
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleAddNew}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add new
+                  </Button>
+                </div>
               </div>
             </CommandEmpty>
             <CommandGroup heading={isPickupAddress ? "Pickup Addresses" : "Recipient Addresses"}>
@@ -195,11 +242,31 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
             </CommandGroup>
             <CommandSeparator />
             <CommandGroup>
+              {selectedAddress && (
+                <CommandItem 
+                  onSelect={handleClearSelection}
+                  className="cursor-pointer hover:bg-gray-50 text-red-600"
+                >
+                  <span className="font-medium flex items-center">
+                    Clear Selection
+                  </span>
+                </CommandItem>
+              )}
+              <CommandItem 
+                onSelect={refreshAddresses}
+                className="cursor-pointer hover:bg-gray-50"
+                disabled={isLoading}
+              >
+                <span className="font-medium text-blue-600 flex items-center">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh Addresses
+                </span>
+              </CommandItem>
               <CommandItem 
                 onSelect={handleAddNew}
                 className="cursor-pointer hover:bg-gray-50"
               >
-                <span className="font-medium text-blue-600 flex items-center">
+                <span className="font-medium text-green-600 flex items-center">
                   <Plus className="mr-2 h-4 w-4" />
                   Add new address
                 </span>
