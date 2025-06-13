@@ -46,8 +46,21 @@ const BulkUploadView: React.FC = () => {
     setSearchTerm,
     setSortField,
     setSortDirection,
-    setSelectedCarrierFilter
+    setSelectedCarrierFilter,
+    setPickupAddress
   } = useBulkUpload();
+
+  const handleUploadSuccess = (uploadResults: any) => {
+    console.log('Upload successful:', uploadResults);
+  };
+
+  const handleUploadFail = (error: string) => {
+    console.error('Upload failed:', error);
+  };
+
+  const handlePickupAddressSelect = (address: any) => {
+    setPickupAddress(address);
+  };
 
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-6">
@@ -71,10 +84,12 @@ const BulkUploadView: React.FC = () => {
       {uploadStatus === 'idle' && (
         <Card className="p-6">
           <BulkUploadForm
-            file={file}
+            onUploadSuccess={handleUploadSuccess}
+            onUploadFail={handleUploadFail}
+            onPickupAddressSelect={handlePickupAddressSelect}
             isUploading={isUploading}
-            onFileChange={handleFileChange}
-            onUpload={handleUpload}
+            progress={progress}
+            handleUpload={handleUpload}
           />
         </Card>
       )}
@@ -129,7 +144,9 @@ const BulkUploadView: React.FC = () => {
           onCarrierFilterChange={setSelectedCarrierFilter}
           onSelectRate={handleSelectRate}
           onRemoveShipment={handleRemoveShipment}
-          onEditShipment={handleEditShipment}
+          onEditShipment={(shipmentId: string, details: any) => {
+            console.log('Edit shipment:', shipmentId, details);
+          }}
           onRefreshRates={handleRefreshRates}
           onBulkApplyCarrier={handleBulkApplyCarrier}
           onCreateLabels={handleCreateLabels}
