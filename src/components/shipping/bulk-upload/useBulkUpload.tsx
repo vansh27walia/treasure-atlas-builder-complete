@@ -11,6 +11,15 @@ import { toast } from '@/components/ui/sonner';
 
 export const useBulkUpload = () => {
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
+  const [labelGenerationProgress, setLabelGenerationProgress] = useState({
+    isGenerating: false,
+    totalShipments: 0,
+    processedShipments: 0,
+    successfulShipments: 0,
+    failedShipments: 0,
+    currentStep: '',
+    estimatedTimeRemaining: 0
+  });
   
   const {
     file,
@@ -100,7 +109,7 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // Enhanced handleCreateLabels with batch label generation
+  // Enhanced handleCreateLabels with progress tracking
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -133,9 +142,28 @@ export const useBulkUpload = () => {
     
     console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with rates selected`);
     
+    // Initialize progress tracking
+    setLabelGenerationProgress({
+      isGenerating: true,
+      totalShipments: shipmentsToProcess.length,
+      processedShipments: 0,
+      successfulShipments: 0,
+      failedShipments: 0,
+      currentStep: 'Starting label generation...',
+      estimatedTimeRemaining: shipmentsToProcess.length * 8 // Estimate 8 seconds per shipment
+    });
+    
     try {
-      toast.loading(`Creating ${shipmentsToProcess.length} shipping labels with all formats...`, { id: 'creating-labels' });
+      setUploadStatus('creating-labels');
       
+      // Update progress periodically
+      const progressInterval = setInterval(() => {
+        setLabelGenerationProgress(prev => ({
+          ...prev,
+          estimatedTimeRemaining: Math.max(0, prev.estimatedTimeRemaining - 1)
+        }));
+      }, 1000);
+
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
           shipments: shipmentsToProcess,
@@ -143,11 +171,13 @@ export const useBulkUpload = () => {
           labelOptions: {
             format: 'PDF',
             size: '4x6',
-            generateBatch: true, // Enable batch generation
-            generateManifest: true // Enable manifest generation
+            generateBatch: true,
+            generateManifest: true
           }
         }
       });
+
+      clearInterval(progressInterval);
 
       if (error) {
         console.error('Label creation error:', error);
@@ -155,7 +185,6 @@ export const useBulkUpload = () => {
       }
 
       console.log('Raw label creation response:', data);
-      toast.dismiss('creating-labels');
 
       if (data && data.processedLabels && Array.isArray(data.processedLabels)) {
         const expectedLabels = shipmentsToProcess.length;
@@ -163,11 +192,17 @@ export const useBulkUpload = () => {
         
         console.log(`Label creation result: ${actualLabels}/${expectedLabels} labels created successfully`);
         
-        if (actualLabels !== expectedLabels) {
-          console.warn(`⚠️ Label count mismatch: Expected ${expectedLabels} labels, got ${actualLabels}`);
-          toast.warning(`Only ${actualLabels} out of ${expectedLabels} labels were created successfully`);
-        }
-        
+        // Update progress with final results
+        setLabelGenerationProgress({
+          isGenerating: false,
+          totalShipments: expectedLabels,
+          processedShipments: expectedLabels,
+          successfulShipments: actualLabels,
+          failedShipments: expectedLabels - actualLabels,
+          currentStep: 'Label generation complete!',
+          estimatedTimeRemaining: 0
+        });
+
         const transformedSuccessfulShipments = data.processedLabels.map((labelData: any) => {
           console.log('Processing successful label data:', labelData);
           
@@ -257,7 +292,7 @@ export const useBulkUpload = () => {
           failedShipments: failedShipmentsForDisplay,
           bulk_label_png_url: data.bulk_label_png_url || null,
           bulk_label_pdf_url: data.bulk_label_pdf_url || null,
-          batchResult: data.batchResult || null, // Include batch result with consolidated labels and manifest
+          batchResult: data.batchResult || null,
           uploadStatus: 'success' as const,
           pickupAddress
         };
@@ -285,7 +320,11 @@ export const useBulkUpload = () => {
 
     } catch (error) {
       console.error('Error creating labels:', error);
-      toast.dismiss('creating-labels');
+      setLabelGenerationProgress(prev => ({
+        ...prev,
+        isGenerating: false,
+        currentStep: 'Label generation failed'
+      }));
       toast.error(error instanceof Error ? error.message : 'Failed to create labels');
       setUploadStatus('error');
     }
@@ -357,6 +396,7 @@ export const useBulkUpload = () => {
     setSearchTerm,
     setSortField,
     setSortDirection,
-    setSelectedCarrierFilter
+    setSelectedCarrierFilter,
+    labelGenerationProgress
   };
 };
