@@ -166,7 +166,8 @@ const BulkUploadView: React.FC = () => {
           onEditShipment={(shipmentId: string, details: any) => {
             const originalShipment = results.processedShipments.find(s => s.id === shipmentId);
             if (originalShipment) {
-               handleEditShipment(shipmentId, details);
+               const updatedShipment = { ...originalShipment, ...details };
+               handleEditShipment(updatedShipment);
             }
           }}
           onRefreshRates={handleRefreshRates}
