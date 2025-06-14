@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -72,8 +73,9 @@ const CreateLabelPage = () => {
         id: 'rate-1',
         carrier: 'USPS',
         service: 'Ground',
-        rate: '12.50',
-        currency: 'USD'
+        rate: 12.50,
+        currency: 'USD',
+        delivery_days: 3
       }
     ];
   };
@@ -300,36 +302,42 @@ const CreateLabelPage = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
-            <AddressForm 
-              onAddressChange={(address) => {
-                setFromName(address.name || '');
-                setFromCompany(address.company || '');
-                setFromStreet1(address.street1 || '');
-                setFromStreet2(address.street2 || '');
-                setFromCity(address.city || '');
-                setFromState(address.state || '');
-                setFromZip(address.zip || '');
-                setFromCountry(address.country || 'US');
-                setFromPhone(address.phone || '');
-                setFromEmail(address.email || '');
-                setFromIsResidential(address.is_residential || false);
-              }}
-            />
-            <AddressForm 
-              onAddressChange={(address) => {
-                setToName(address.name || '');
-                setToCompany(address.company || '');
-                setToStreet1(address.street1 || '');
-                setToStreet2(address.street2 || '');
-                setToCity(address.city || '');
-                setToState(address.state || '');
-                setToZip(address.zip || '');
-                setToCountry(address.country || 'US');
-                setToPhone(address.phone || '');
-                setToEmail(address.email || '');
-                setToIsResidential(address.is_residential || false);
-              }}
-            />
+            <div>
+              <h3 className="text-lg font-medium mb-4">Ship From</h3>
+              <AddressForm 
+                onAddressChange={(address) => {
+                  setFromName(address.name || '');
+                  setFromCompany(address.company || '');
+                  setFromStreet1(address.street1 || '');
+                  setFromStreet2(address.street2 || '');
+                  setFromCity(address.city || '');
+                  setFromState(address.state || '');
+                  setFromZip(address.zip || '');
+                  setFromCountry(address.country || 'US');
+                  setFromPhone(address.phone || '');
+                  setFromEmail(address.email || '');
+                  setFromIsResidential(address.is_residential || false);
+                }}
+              />
+            </div>
+            <div>
+              <h3 className="text-lg font-medium mb-4">Ship To</h3>
+              <AddressForm 
+                onAddressChange={(address) => {
+                  setToName(address.name || '');
+                  setToCompany(address.company || '');
+                  setToStreet1(address.street1 || '');
+                  setToStreet2(address.street2 || '');
+                  setToCity(address.city || '');
+                  setToState(address.state || '');
+                  setToZip(address.zip || '');
+                  setToCountry(address.country || 'US');
+                  setToPhone(address.phone || '');
+                  setToEmail(address.email || '');
+                  setToIsResidential(address.is_residential || false);
+                }}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

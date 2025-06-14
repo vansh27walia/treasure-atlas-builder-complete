@@ -1,20 +1,25 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 
 export interface SavedAddress {
-  id: string; // Changed from number to string
-  name: string;
-  company?: string;
+  id: string; 
+  user_id?: string;
+  name?: string | null;
+  company?: string | null;
   street1: string;
-  street2?: string;
+  street2?: string | null;
   city: string;
   state: string;
   zip: string;
-  country: string;
-  phone?: string;
-  email?: string;
-  is_residential?: boolean;
+  country: string; 
+  phone?: string | null;
+  email?: string | null;
+  is_default_from?: boolean;
+  is_default_to?: boolean;
   created_at?: string;
   updated_at?: string;
+  address_type?: 'residential' | 'commercial' | string | null;
+  is_residential?: boolean;
+  validate_address?: boolean;
 }
 
 export class AddressService {

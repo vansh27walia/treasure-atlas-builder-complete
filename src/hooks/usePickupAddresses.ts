@@ -132,7 +132,7 @@ export const usePickupAddresses = () => {
   };
 
   // Update existing address with improved error handling
-  const updateAddress = async (addressId: number, addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">) => {
+  const updateAddress = async (addressId: string, addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">) => {
     setIsUpdating(true);
     try {
       console.log("Updating address with ID:", addressId, "and data:", addressData);
@@ -152,7 +152,7 @@ export const usePickupAddresses = () => {
       // Try first with encryption
       try {
         console.log("Trying to update with encryption method first");
-        const updatedAddress = await addressService.updateAddress(addressId, finalAddressData, true);
+        const updatedAddress = await addressService.updateAddress(parseInt(addressId), finalAddressData, true);
         console.log("Address updated with encryption method:", updatedAddress);
         
         if (updatedAddress) {
@@ -179,7 +179,7 @@ export const usePickupAddresses = () => {
         
         // If that fails, try without encryption
         try {
-          const updatedAddress = await addressService.updateAddress(addressId, finalAddressData, false);
+          const updatedAddress = await addressService.updateAddress(parseInt(addressId), finalAddressData, false);
           console.log("Address updated with standard method:", updatedAddress);
           
           if (updatedAddress) {
@@ -218,10 +218,10 @@ export const usePickupAddresses = () => {
   };
   
   // Delete address with improved error handling
-  const deleteAddress = async (addressId: number) => {
+  const deleteAddress = async (addressId: string) => {
     setIsUpdating(true);
     try {
-      const success = await addressService.deleteAddress(addressId);
+      const success = await addressService.deleteAddress(parseInt(addressId));
       
       if (!success) {
         throw new Error('Failed to delete address');
@@ -248,10 +248,10 @@ export const usePickupAddresses = () => {
   };
   
   // Set address as default from
-  const setAsDefaultFrom = async (addressId: number) => {
+  const setAsDefaultFrom = async (addressId: string) => {
     setIsUpdating(true);
     try {
-      const success = await addressService.setDefaultFromAddress(addressId);
+      const success = await addressService.setDefaultFromAddress(parseInt(addressId));
       
       if (!success) {
         throw new Error('Failed to set default address');

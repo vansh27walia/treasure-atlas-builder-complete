@@ -22,14 +22,14 @@ export const useRates = (params: UseRatesParams) => {
           id: 'rate-1',
           carrier: 'USPS',
           service: 'Ground',
-          rate: '12.50',
+          rate: 12.50,
           currency: 'USD'
         },
         {
           id: 'rate-2',
           carrier: 'UPS',
           service: 'Ground',
-          rate: '15.75',
+          rate: 15.75,
           currency: 'USD'
         }
       ];

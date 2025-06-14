@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -165,6 +166,8 @@ export type BulkShipmentStatus =
   | 'completed' 
   | 'error' 
   | 'failed'; 
+
+export type BulkSortField = 'recipient' | 'carrier' | 'rate' | 'id';
 
 export interface BulkShipment {
   id: string; // Unique identifier for the shipment
