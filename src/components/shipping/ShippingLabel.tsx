@@ -15,27 +15,98 @@ const labelFormats = [
 ];
 
 interface ShippingLabelProps {
-  labelUrls: {
-    png: string | null;
-    pdf: string | null;
-    zpl: string | null;
-  } | null;
+  labelUrl: string | null;
   trackingCode: string | null;
   shipmentId?: string | null;
+  onFormatChange?: (format: string) => void;
 }
 
 const ShippingLabel: React.FC<ShippingLabelProps> = ({ 
-  labelUrls, 
+  labelUrl, 
   trackingCode, 
   shipmentId,
+  onFormatChange
 }) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [localLabelUrl, setLocalLabelUrl] = useState(labelUrl);
   const [isEmailSending, setIsEmailSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState<string>('4x6');
+  const [selectedFileFormat, setSelectedFileFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
+  const downloadLinkRef = useRef<HTMLAnchorElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   
-  if (!labelUrls || (!labelUrls.png && !labelUrls.pdf)) {
+  // Update local URL when prop changes
+  useEffect(() => {
+    if (labelUrl !== localLabelUrl) {
+      setLocalLabelUrl(labelUrl);
+    }
+  }, [labelUrl]);
+  
+  // Handle format changes
+  const handleFormatChange = async (format: string) => {
+    setSelectedFormat(format);
+    
+    if (onFormatChange) {
+      try {
+        setIsRefreshing(true);
+        // Call parent component's handler
+        await onFormatChange(format);
+        setIsRefreshing(false);
+        toast.success(`Label format changed to ${format}`);
+      } catch (error) {
+        console.error("Error changing label format:", error);
+        toast.error("Failed to change label format");
+        setIsRefreshing(false);
+      }
+    }
+  };
+  
+  // Effect to fetch and cache the label as a blob when URL changes
+  useEffect(() => {
+    console.log("ShippingLabel component received props:", { labelUrl, trackingCode, shipmentId });
+    const fetchAndCacheLabel = async () => {
+      const url = localLabelUrl || labelUrl;
+      if (!url) return;
+      
+      try {
+        console.log("Fetching label to cache as blob:", url);
+        const response = await fetch(url, { 
+          method: 'GET',
+          headers: { 'Accept': 'application/pdf' },
+          cache: 'force-cache'
+        });
+        
+        if (!response.ok) {
+          console.error(`Failed to fetch label: ${response.status} ${response.statusText}`);
+          throw new Error(`Failed to fetch label: ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        setBlobUrl(blobUrl);
+        console.log("Label cached as blob URL:", blobUrl);
+      } catch (error) {
+        console.error("Error caching label:", error);
+        toast.error("Error preparing label for download");
+      }
+    };
+    
+    if (labelUrl || localLabelUrl) {
+      fetchAndCacheLabel();
+    }
+    
+    // Clean up blob URL on unmount
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [labelUrl, localLabelUrl]);
+  
+  if (!labelUrl && !localLabelUrl) {
     console.log("No label URL available in ShippingLabel component");
     return (
       <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md mb-6">
@@ -53,9 +124,28 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
     setIsRefreshing(true);
     
     try {
-      // This part would need to be updated to fetch multiple formats if needed
-      // For now, it will refresh based on the selected format in a hypothetical scenario
-      toast.info('Refresh logic would need to be updated for multiple formats.');
+      // Use the Supabase edge function to fetch the stored label
+      const { data, error } = await supabase.functions.invoke('get-stored-label', {
+        body: { 
+          shipment_id: shipmentId,
+          label_format: selectedFormat,
+          file_format: selectedFileFormat
+        }
+      });
+      
+      if (error) {
+        console.error("Error from get-stored-label function:", error);
+        throw new Error('Failed to refresh label: ' + error.message);
+      }
+      
+      console.log("Refreshed label data:", data);
+      
+      if (data.labelUrl) {
+        setLocalLabelUrl(data.labelUrl);
+        toast.success('Label refreshed successfully');
+      } else {
+        throw new Error('No label URL found');
+      }
     } catch (error) {
       console.error('Error refreshing label:', error);
       toast.error('Failed to refresh label');
@@ -64,25 +154,15 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
     }
   };
 
-  const handleDirectDownload = async (format: 'pdf' | 'png' | 'zpl') => {
-    let url: string | null | undefined;
-    if (format === 'pdf') url = labelUrls?.pdf;
-    if (format === 'png') url = labelUrls?.png;
-    if (format === 'zpl') url = labelUrls?.zpl;
-
-    if (!url) {
-        toast.error(`No ${format.toUpperCase()} label available to download.`);
-        return;
+  const handleDirectDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+    // If format has changed, update selectedFileFormat
+    if (format !== selectedFileFormat) {
+      setSelectedFileFormat(format);
     }
 
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch label: ${response.status}`);
-        }
-        
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
+    if (blobUrl) {
+      try {
+        console.log(`Starting direct download with blob URL (${format}):`, blobUrl);
         
         const link = document.createElement('a');
         link.href = blobUrl;
@@ -90,19 +170,50 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
         document.body.appendChild(link);
         link.click();
         
+        // Clean up
         setTimeout(() => {
           document.body.removeChild(link);
-          URL.revokeObjectURL(blobUrl);
           toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
         }, 100);
-    } catch (error) {
+      } catch (error) {
         console.error('Direct download error:', error);
-        toast.error('Failed to download the label.');
+        toast.error('Failed to download directly');
+        tryFallbackDownload(format);
+      }
+    } else {
+      tryFallbackDownload(format);
     }
   };
   
+  const tryFallbackDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+    const url = localLabelUrl || labelUrl;
+    if (!url) {
+      toast.error('No label URL available');
+      return;
+    }
+    
+    try {
+      console.log(`Trying fallback download with URL (${format}):`, url);
+      
+      // Create a hidden iframe to download without navigating away
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      
+      // Clean up after a moment
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        toast.success(`Starting ${format.toUpperCase()} download through fallback method`);
+      }, 1000);
+    } catch (error) {
+      console.error('Fallback download error:', error);
+      toast.error('All download methods failed. Try the "Open in New Tab" option');
+    }
+  };
+
   const handleOpenInNewTab = () => {
-    const urlToOpen = labelUrls?.pdf || labelUrls?.png;
+    const urlToOpen = blobUrl || localLabelUrl || labelUrl;
     if (!urlToOpen) {
       toast.error('No label URL available');
       return;
@@ -125,7 +236,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
   };
 
   const handleEmailLabel = async () => {
-    if (!labelUrls?.pdf && !labelUrls?.png) {
+    if (!blobUrl && !labelUrl && !localLabelUrl) {
       toast.error('No label available to email');
       return;
     }
@@ -152,7 +263,7 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
   };
 
   const handleSaveToAccount = async () => {
-    const url = labelUrls?.pdf || labelUrls?.png;
+    const url = blobUrl || localLabelUrl || labelUrl;
     if (!url || !trackingCode) {
       toast.error('Missing label data or tracking information');
       return;
@@ -167,10 +278,11 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
         .from('shipment_records')
         .insert({
           tracking_code: trackingCode,
-          label_url: url, // Could be improved to save all urls
+          label_url: url,
           shipment_id: shipmentId || '',
           status: 'completed',
-          file_format: 'pdf' // Defaulting to pdf for this example
+          label_format: selectedFormat,
+          file_format: selectedFileFormat
         });
       
       if (error) {
@@ -199,92 +311,250 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
               <h3 className="font-semibold text-purple-800 text-xl mb-2">Label Generated Successfully!</h3>
               <p className="text-sm text-purple-700 mb-1">Tracking Number: <span className="font-medium bg-white px-2 py-1 rounded border border-purple-200">{trackingCode}</span></p>
             </div>
-            <div className="flex flex-wrap gap-2 mt-3 sm:mt-0">
-              <Button
-                onClick={() => handleDirectDownload('pdf')}
-                disabled={!labelUrls?.pdf || isRefreshing}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                <Download className="mr-2 h-4 w-4" /> Download PDF
-              </Button>
-              <Button
-                onClick={() => handleDirectDownload('png')}
-                variant="outline"
-                disabled={!labelUrls?.png || isRefreshing}
-              >
-                <Download className="mr-2 h-4 w-4" /> Download PNG
-              </Button>
-               <Button
-                onClick={() => handleDirectDownload('zpl')}
-                variant="outline"
-                disabled={!labelUrls?.zpl || isRefreshing}
-              >
-                <Download className="mr-2 h-4 w-4" /> Download ZPL
-              </Button>
-            </div>
-          </div>
-          <div className="relative">
-            <div className="absolute top-2 right-2 flex space-x-2">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={handleRefreshLabel}
+            <div className="flex gap-2 mt-3 sm:mt-0">
+              <Select
+                value={selectedFormat}
+                onValueChange={handleFormatChange}
                 disabled={isRefreshing}
-                title="Refresh Label"
               >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={handleOpenInNewTab}
-                title="Open in New Tab"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
+                <SelectTrigger className="w-[200px] bg-white text-purple-800 border-purple-200">
+                  <SelectValue placeholder="Select Label Format" />
+                </SelectTrigger>
+                <SelectContent>
+                  {labelFormats.map(format => (
+                    <SelectItem key={format.value} value={format.value}>
+                      <div>
+                        <div className="font-medium">{format.label}</div>
+                        <div className="text-xs text-gray-500">{format.description}</div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {shipmentId && (
+                <Button
+                  onClick={handleRefreshLabel}
+                  variant="outline"
+                  size="sm"
+                  className="bg-white text-purple-600 border-purple-200 hover:bg-purple-50"
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> 
+                  Refresh
+                </Button>
+              )}
             </div>
-            <iframe
-              ref={iframeRef}
-              className="w-full h-96 rounded-md border"
-              src={labelUrls?.png || labelUrls?.pdf || ''}
-              title="Shipping Label Preview"
-            />
           </div>
-          <div className="flex justify-end space-x-3">
-            <Button 
-              variant="outline"
-              onClick={() => setIsLabelModalOpen(true)}
-            >
-              <FileArchive className="mr-2 h-4 w-4" /> More Options
-            </Button>
-            <Button 
-              onClick={() => handleDirectDownload('pdf')}
-              className="bg-purple-600 hover:bg-purple-700"
-              disabled={!labelUrls?.pdf}
-            >
-              Download Label
-            </Button>
+          
+          <div className="bg-white p-6 rounded-md border border-gray-200 shadow-sm">
+            {isRefreshing ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+                <p className="text-purple-800">Regenerating label with new format...</p>
+              </div>
+            ) : (
+              <>
+                <h4 className="text-gray-700 font-medium mb-4 text-lg">Your label is ready! How would you like to receive it?</h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Button 
+                    onClick={() => setIsLabelModalOpen(true)}
+                    variant="default" 
+                    className="bg-purple-600 hover:bg-purple-700 text-white h-12"
+                  >
+                    <Download className="mr-2 h-5 w-5" /> View & Download Label
+                  </Button>
+                  
+                  <Button 
+                    onClick={handleOpenInNewTab}
+                    variant="outline"
+                    className="border-gray-300 hover:bg-gray-50 h-12"
+                  >
+                    <ExternalLink className="mr-2 h-5 w-5" /> Open in New Tab
+                  </Button>
+                  
+                  <Button 
+                    onClick={handleEmailLabel}
+                    variant="outline"
+                    className="border-gray-300 hover:bg-gray-50 h-12"
+                    disabled={isEmailSending}
+                  >
+                    <Mail className="mr-2 h-5 w-5" /> 
+                    {isEmailSending ? 'Sending...' : 'Email to My Inbox'}
+                  </Button>
+                  
+                  <Button 
+                    onClick={handleSaveToAccount}
+                    variant="outline"
+                    className="border-gray-300 hover:bg-gray-50 h-12"
+                    disabled={isSaving}
+                  >
+                    <Save className="mr-2 h-5 w-5" /> 
+                    {isSaving ? 'Saving...' : 'Save to My Labels'}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="text-sm text-center text-purple-600">
+            <p>You can always access your labels later in your Order History</p>
           </div>
         </div>
       </div>
+      
       <Dialog open={isLabelModalOpen} onOpenChange={setIsLabelModalOpen}>
-        <DialogContent>
+        <DialogContent className="bg-white max-w-3xl">
           <DialogHeader>
-            <DialogTitle>More Label Options</DialogTitle>
+            <DialogTitle>Shipping Label</DialogTitle>
             <DialogDescription>
-              Email, save, or download the label in different formats.
+              Tracking #: {trackingCode}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <Button onClick={handleEmailLabel} disabled={isEmailSending}>
-              <Mail className="mr-2 h-4 w-4" /> {isEmailSending ? 'Sending...' : 'Email Label'}
-            </Button>
-            <Button onClick={handleSaveToAccount} disabled={isSaving}>
-              <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Saving...' : 'Save to My Labels'}
-            </Button>
-          </div>
+          
+          <Tabs defaultValue="preview" className="w-full">
+            <TabsList className="grid grid-cols-3 mb-4">
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+              <TabsTrigger value="download">Download</TabsTrigger>
+              <TabsTrigger value="share">Share</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="preview">
+              <div className="w-full flex flex-col items-center">
+                <div className="mb-4 flex justify-center">
+                  <Select
+                    value={selectedFormat}
+                    onValueChange={handleFormatChange}
+                    disabled={isRefreshing}
+                  >
+                    <SelectTrigger className="w-[280px]">
+                      <SelectValue placeholder="Select Label Format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {labelFormats.map(format => (
+                        <SelectItem key={format.value} value={format.value}>
+                          <div>
+                            <div className="font-medium">{format.label}</div>
+                            <div className="text-xs text-gray-500">{format.description}</div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {isRefreshing ? (
+                  <div className="flex flex-col items-center justify-center h-64 w-full">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+                    <p className="text-purple-800">Regenerating label with new format...</p>
+                  </div>
+                ) : blobUrl ? (
+                  <iframe 
+                    src={blobUrl} 
+                    className="w-full h-[500px]" 
+                    title="Label Preview"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full w-full">
+                    <File className="h-16 w-16 text-gray-300 mb-4" />
+                    <p className="text-gray-500">Loading preview...</p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="download">
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div 
+                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
+                      ${selectedFileFormat === 'pdf' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
+                    `}
+                    onClick={() => setSelectedFileFormat('pdf')}
+                  >
+                    <File className="h-12 w-12 mx-auto mb-2 text-blue-600" />
+                    <h4 className="font-medium">PDF Format</h4>
+                    <p className="text-xs text-gray-500">Best for printing</p>
+                  </div>
+                  
+                  <div 
+                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
+                      ${selectedFileFormat === 'png' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}
+                    `}
+                    onClick={() => setSelectedFileFormat('png')}
+                  >
+                    <File className="h-12 w-12 mx-auto mb-2 text-green-600" />
+                    <h4 className="font-medium">PNG Format</h4>
+                    <p className="text-xs text-gray-500">Image format</p>
+                  </div>
+                  
+                  <div 
+                    className={`p-5 border-2 rounded-md text-center cursor-pointer transition-colors
+                      ${selectedFileFormat === 'zpl' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300'}
+                    `}
+                    onClick={() => setSelectedFileFormat('zpl')}
+                  >
+                    <FileArchive className="h-12 w-12 mx-auto mb-2 text-purple-600" />
+                    <h4 className="font-medium">ZPL Format</h4>
+                    <p className="text-xs text-gray-500">For thermal printers</p>
+                  </div>
+                </div>
+                
+                <Button 
+                  onClick={() => handleDirectDownload(selectedFileFormat)} 
+                  className={`w-full h-12 ${
+                    selectedFileFormat === 'pdf' ? 'bg-blue-600 hover:bg-blue-700' : 
+                    selectedFileFormat === 'png' ? 'bg-green-600 hover:bg-green-700' : 
+                    'bg-purple-600 hover:bg-purple-700'
+                  }`}
+                  disabled={isRefreshing || !blobUrl}
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  Download {selectedFileFormat.toUpperCase()} File
+                </Button>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="share">
+              <div className="space-y-6">
+                <div className="border rounded-md p-4">
+                  <h4 className="font-medium mb-2">Email Label</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Send this label to your email address for easy access later
+                  </p>
+                  <Button 
+                    onClick={handleEmailLabel}
+                    disabled={isEmailSending || isRefreshing}
+                    className="w-full"
+                  >
+                    <Mail className="mr-2 h-4 w-4" />
+                    {isEmailSending ? 'Sending...' : 'Email to My Inbox'}
+                  </Button>
+                </div>
+                
+                <div className="border rounded-md p-4">
+                  <h4 className="font-medium mb-2">Save to Account</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Save this label to your account for easy access later
+                  </p>
+                  <Button 
+                    onClick={handleSaveToAccount}
+                    disabled={isSaving || isRefreshing}
+                    className="w-full"
+                  >
+                    <Save className="mr-2 h-4 w-4" />
+                    {isSaving ? 'Saving...' : 'Save to My Labels'}
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsLabelModalOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setIsLabelModalOpen(false)}>
+              <X className="mr-2 h-4 w-4" /> Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
