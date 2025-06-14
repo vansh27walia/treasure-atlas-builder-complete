@@ -42,7 +42,6 @@ const combinedSchema = z.object({
 
 type FormData = z.infer<typeof combinedSchema>;
 
-
 const CreateLabelPage: React.FC = () => {
   const { toast } = useToast();
   const [defaultFromAddress, setDefaultFromAddress] = useState<SavedAddress | null>(null);
@@ -70,15 +69,22 @@ const CreateLabelPage: React.FC = () => {
         const addrFromService = await addressService.getDefaultFromAddress();
         if (addrFromService) {
           const adaptedAddr: SavedAddress = {
-            ...addrFromService,
-            id: String(addrFromService.id), // Map id to string
-            // Ensure all AddressDetails fields are present if SavedAddress extends it
+            id: String(addrFromService.id),
             name: addrFromService.name || '',
-            street1: addrFromService.street1,
-            city: addrFromService.city,
-            state: addrFromService.state,
-            zip: addrFromService.zip,
-            country: addrFromService.country,
+            company: addrFromService.company || '',
+            street1: addrFromService.street1 || '',
+            street2: addrFromService.street2 || '',
+            city: addrFromService.city || '',
+            state: addrFromService.state || '',
+            zip: addrFromService.zip || '',
+            country: addrFromService.country || 'US',
+            phone: addrFromService.phone || '',
+            email: addrFromService.email || '',
+            is_default_from: addrFromService.is_default_from,
+            is_default_to: addrFromService.is_default_to,
+            user_id: addrFromService.user_id,
+            created_at: addrFromService.created_at,
+            updated_at: addrFromService.updated_at,
           };
           setDefaultFromAddress(adaptedAddr);
           form.reset({ 
@@ -112,9 +118,38 @@ const CreateLabelPage: React.FC = () => {
     setShipmentDataForPreview(null);
     try {
       const payload = {
-        to_address: formDataValues.toAddress,
-        from_address: formDataValues.fromAddress,
-        parcel: formDataValues.parcel,
+        to_address: { // Ensure this conforms to AddressDetails
+          name: formDataValues.toAddress.name || "",
+          company: formDataValues.toAddress.company || "",
+          street1: formDataValues.toAddress.street1 || "",
+          street2: formDataValues.toAddress.street2 || "",
+          city: formDataValues.toAddress.city || "",
+          state: formDataValues.toAddress.state || "",
+          zip: formDataValues.toAddress.zip || "",
+          country: formDataValues.toAddress.country || "US",
+          phone: formDataValues.toAddress.phone || "",
+          email: formDataValues.toAddress.email || "",
+          is_residential: false, // Default or determine
+        },
+        from_address: { // Ensure this conforms to AddressDetails
+          name: formDataValues.fromAddress.name || "",
+          company: formDataValues.fromAddress.company || "",
+          street1: formDataValues.fromAddress.street1 || "",
+          street2: formDataValues.fromAddress.street2 || "",
+          city: formDataValues.fromAddress.city || "",
+          state: formDataValues.fromAddress.state || "",
+          zip: formDataValues.fromAddress.zip || "",
+          country: formDataValues.fromAddress.country || "US",
+          phone: formDataValues.fromAddress.phone || "",
+          email: formDataValues.fromAddress.email || "",
+          is_residential: false, // Default or determine
+        },
+        parcel: { // Ensure this conforms to ParcelDetails
+          length: formDataValues.parcel.length || 1,
+          width: formDataValues.parcel.width || 1,
+          height: formDataValues.parcel.height || 1,
+          weight: formDataValues.parcel.weight || 0.1,
+        },
       };
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', { body: payload });
       if (error) throw error;
@@ -148,7 +183,6 @@ const CreateLabelPage: React.FC = () => {
       const primaryUrl = labelGenData.label_urls?.png || labelGenData.labelUrl || labelGenData.label_urls?.pdf;
       const formDataValues = form.getValues();
 
-      // Ensure formDataValues.toAddress conforms to AddressDetails
       const toAddressDetails: AddressDetails = {
         name: formDataValues.toAddress.name || '',
         company: formDataValues.toAddress.company,
@@ -160,6 +194,7 @@ const CreateLabelPage: React.FC = () => {
         country: formDataValues.toAddress.country || 'US',
         phone: formDataValues.toAddress.phone,
         email: formDataValues.toAddress.email,
+        is_residential: false, // Default or determine
       };
 
       const previewData: SingleShipmentDataForPreview = {
@@ -231,14 +266,15 @@ const CreateLabelPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-6">
-      <FormProvider {...form}> {/* Added FormProvider */}
+      <FormProvider {...form}>
         <Card className="max-w-2xl mx-auto">
           <CardHeader><CardTitle>Create Shipping Label</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-6">
+              {/* Assuming AddressForm uses useFormContext and its props are 'addressType' and 'title' */}
               <AddressForm addressType="fromAddress" title="From Address" />
               <AddressForm addressType="toAddress" title="To Address" />
-              <PackageForm form={form} /> {/* PackageForm might need FormProvider too, or pass form explicitly */}
+              <PackageForm form={form} /> 
               <Button type="submit" disabled={isLoadingRates || isLoading}>
                 {isLoadingRates ? 'Getting Rates...' : 'Get Shipping Rates'}
               </Button>
@@ -253,11 +289,38 @@ const CreateLabelPage: React.FC = () => {
             rates={rates}
             isLoadingRates={isLoadingRates}
             onRateSelected={handleRateSelectedAndPurchase}
-            fromAddress={defaultFromAddress}
-            // Ensure toAddress and parcel are correctly typed if passed
-            // For example, ensure they meet AddressDetails and ParcelDetails from shipping.ts
-            toAddress={form.getValues("toAddress")} 
-            parcel={form.getValues("parcel")}
+            fromAddress={defaultFromAddress ? {
+              name: defaultFromAddress.name || "",
+              company: defaultFromAddress.company || "",
+              street1: defaultFromAddress.street1 || "",
+              street2: defaultFromAddress.street2 || "",
+              city: defaultFromAddress.city || "",
+              state: defaultFromAddress.state || "",
+              zip: defaultFromAddress.zip || "",
+              country: defaultFromAddress.country || "US",
+              phone: defaultFromAddress.phone || "",
+              email: defaultFromAddress.email || "",
+              is_residential: false, // default or determine
+            } : undefined}
+            toAddress={{ // Construct AddressDetails explicitly
+              name: form.getValues("toAddress.name") || "",
+              company: form.getValues("toAddress.company") || "",
+              street1: form.getValues("toAddress.street1") || "",
+              street2: form.getValues("toAddress.street2") || "",
+              city: form.getValues("toAddress.city") || "",
+              state: form.getValues("toAddress.state") || "",
+              zip: form.getValues("toAddress.zip") || "",
+              country: form.getValues("toAddress.country") || "US",
+              phone: form.getValues("toAddress.phone") || "",
+              email: form.getValues("toAddress.email") || "",
+              is_residential: false, // default or determine
+            }}
+            parcel={{ // Construct ParcelDetails explicitly
+              length: form.getValues("parcel.length") || 1,
+              width: form.getValues("parcel.width") || 1,
+              height: form.getValues("parcel.height") || 1,
+              weight: form.getValues("parcel.weight") || 0.1,
+            }}
           />
         </div>
       )}
@@ -269,7 +332,19 @@ const CreateLabelPage: React.FC = () => {
             singleShipmentPreview={shipmentDataForPreview}
             isBatchPreview={false}
             onDownloadFormat={handlePreviewDownloadFormat}
-            pickupAddress={defaultFromAddress} // Ensure this matches expected type in PrintPreview
+            pickupAddress={{ // Construct AddressDetails for pickupAddress
+                name: defaultFromAddress.name || "",
+                company: defaultFromAddress.company || "",
+                street1: defaultFromAddress.street1 || "",
+                street2: defaultFromAddress.street2 || "",
+                city: defaultFromAddress.city || "",
+                state: defaultFromAddress.state || "",
+                zip: defaultFromAddress.zip || "",
+                country: defaultFromAddress.country || "US",
+                phone: defaultFromAddress.phone || "",
+                email: defaultFromAddress.email || "",
+                is_residential: false, // default or determine
+            }}
           />
       )}
     </div>

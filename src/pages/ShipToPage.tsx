@@ -76,14 +76,22 @@ const ShipToPage = () => {
         const addrFromService = await addressService.getDefaultFromAddress();
         if (addrFromService) {
           const adaptedAddr: SavedAddress = {
-            ...addrFromService,
-            id: String(addrFromService.id), // Map id to string
-            name: addrFromService.name || '', // Ensure required fields are present
-            street1: addrFromService.street1,
-            city: addrFromService.city,
-            state: addrFromService.state,
-            zip: addrFromService.zip,
-            country: addrFromService.country,
+            id: String(addrFromService.id), 
+            name: addrFromService.name || '', 
+            company: addrFromService.company || '',
+            street1: addrFromService.street1 || '',
+            street2: addrFromService.street2 || '',
+            city: addrFromService.city || '',
+            state: addrFromService.state || '',
+            zip: addrFromService.zip || '',
+            country: addrFromService.country || 'US',
+            phone: addrFromService.phone || '',
+            email: addrFromService.email || '',
+            is_default_from: addrFromService.is_default_from,
+            is_default_to: addrFromService.is_default_to,
+            user_id: addrFromService.user_id,
+            created_at: addrFromService.created_at,
+            updated_at: addrFromService.updated_at,
           };
           form.setValue("fromAddress", {
             name: adaptedAddr.name || '',
@@ -126,9 +134,38 @@ const ShipToPage = () => {
 
     try {
       const shipmentDetailsPayload = {
-        to_address: data.toAddress,
-        from_address: data.fromAddress,
-        parcel: data.parcel,
+        to_address: {
+          name: data.toAddress.name || "",
+          company: data.toAddress.company || "",
+          street1: data.toAddress.street1 || "",
+          street2: data.toAddress.street2 || "",
+          city: data.toAddress.city || "",
+          state: data.toAddress.state || "",
+          zip: data.toAddress.zip || "",
+          country: data.toAddress.country || "US",
+          phone: data.toAddress.phone || "",
+          email: data.toAddress.email || "",
+          is_residential: false,
+        },
+        from_address: {
+          name: data.fromAddress.name || "",
+          company: data.fromAddress.company || "",
+          street1: data.fromAddress.street1 || "",
+          street2: data.fromAddress.street2 || "",
+          city: data.fromAddress.city || "",
+          state: data.fromAddress.state || "",
+          zip: data.fromAddress.zip || "",
+          country: data.fromAddress.country || "US",
+          phone: data.fromAddress.phone || "",
+          email: data.fromAddress.email || "",
+          is_residential: false,
+        },
+        parcel: {
+          length: data.parcel.length || 1,
+          width: data.parcel.width || 1,
+          height: data.parcel.height || 1,
+          weight: data.parcel.weight || 0.1,
+        },
       };
       
       console.log("Fetching rates with payload:", shipmentDetailsPayload);
@@ -199,6 +236,7 @@ const ShipToPage = () => {
         country: formDataValues.toAddress.country || 'US',
         phone: formDataValues.toAddress.phone,
         email: formDataValues.toAddress.email,
+        is_residential: false, 
       };
 
       const previewData: SingleShipmentDataForPreview = {
@@ -294,6 +332,7 @@ const ShipToPage = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {/* Assuming AddressForm uses useFormContext and its props are 'addressType' and 'title' */}
               <AddressForm addressType="toAddress" title="To Address" />
               <AddressForm addressType="fromAddress" title="From Address" />
               <PackageForm form={form} /> {/* PackageForm might need FormProvider too, or pass form explicitly */}
@@ -311,9 +350,38 @@ const ShipToPage = () => {
             rates={rates}
             isLoadingRates={isLoadingRates}
             onRateSelected={handleRateSelectedForPurchase}
-            fromAddress={defaultFromAddress}
-            toAddress={form.getValues("toAddress")}
-            parcel={form.getValues("parcel")}
+             fromAddress={defaultFromAddress ? {
+              name: defaultFromAddress.name || "",
+              company: defaultFromAddress.company || "",
+              street1: defaultFromAddress.street1 || "",
+              street2: defaultFromAddress.street2 || "",
+              city: defaultFromAddress.city || "",
+              state: defaultFromAddress.state || "",
+              zip: defaultFromAddress.zip || "",
+              country: defaultFromAddress.country || "US",
+              phone: defaultFromAddress.phone || "",
+              email: defaultFromAddress.email || "",
+              is_residential: false, 
+            } : undefined}
+            toAddress={{
+              name: form.getValues("toAddress.name") || "",
+              company: form.getValues("toAddress.company") || "",
+              street1: form.getValues("toAddress.street1") || "",
+              street2: form.getValues("toAddress.street2") || "",
+              city: form.getValues("toAddress.city") || "",
+              state: form.getValues("toAddress.state") || "",
+              zip: form.getValues("toAddress.zip") || "",
+              country: form.getValues("toAddress.country") || "US",
+              phone: form.getValues("toAddress.phone") || "",
+              email: form.getValues("toAddress.email") || "",
+              is_residential: false,
+            }}
+            parcel={{
+              length: form.getValues("parcel.length") || 1,
+              width: form.getValues("parcel.width") || 1,
+              height: form.getValues("parcel.height") || 1,
+              weight: form.getValues("parcel.weight") || 0.1,
+            }}
           />
         </div>
       )}
@@ -325,7 +393,19 @@ const ShipToPage = () => {
           singleShipmentPreview={shipmentDataForPreview}
           isBatchPreview={false}
           onDownloadFormat={handlePreviewDownloadFormat}
-          pickupAddress={defaultFromAddress} // Ensure this matches expected type in PrintPreview
+          pickupAddress={{ // Construct AddressDetails for pickupAddress
+            name: defaultFromAddress.name || "",
+            company: defaultFromAddress.company || "",
+            street1: defaultFromAddress.street1 || "",
+            street2: defaultFromAddress.street2 || "",
+            city: defaultFromAddress.city || "",
+            state: defaultFromAddress.state || "",
+            zip: defaultFromAddress.zip || "",
+            country: defaultFromAddress.country || "US",
+            phone: defaultFromAddress.phone || "",
+            email: defaultFromAddress.email || "",
+            is_residential: false,
+          }}
         />
       )}
     </div>
