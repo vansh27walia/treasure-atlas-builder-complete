@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, File, FileImage } from 'lucide-react';
+import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, File, FileImage, Printer } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import PrintPreview from '@/components/shipping/PrintPreview';
 
@@ -17,11 +16,17 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   onDownloadLabel
 }) => {
   const handleDownload = (shipment: any, format: string = 'png') => {
-    console.log('Attempting download for:', { format, shipment: shipment.id, labelUrls: shipment.label_urls });
+    console.log('Attempting download for:', { format, shipmentId: shipment.id, labelUrls: shipment.label_urls });
     
-    const url = shipment.label_urls?.[format] || shipment.label_url;
+    let url = shipment.label_urls?.[format];
+    // Fallback for primary label_url if specific format not in label_urls (e.g. older data or only PNG was generated)
+    if (!url && format === 'png') {
+      url = shipment.label_url;
+    }
+
     if (!url) {
-      toast.error(`${format.toUpperCase()} label not available for this shipment`);
+      toast.error(`${format.toUpperCase()} label not available for this shipment.`);
+      console.error('URL not found for download:', { format, shipment });
       return;
     }
     onDownloadLabel(url, format);
@@ -82,7 +87,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {shipments.map((shipment, index) => (
-              <tr key={shipment.id || index} className="hover:bg-gray-50">
+              <tr key={shipment.id || shipment.original_shipment_id || index} className="hover:bg-gray-50">
                 {/* Tracking */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
@@ -92,7 +97,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         {shipment.tracking_code || shipment.tracking_number || 'Pending'}
                       </div>
                       <div className="text-xs text-gray-500">
-                        {shipment.status === 'completed' ? (
+                        {shipment.status === 'success' || shipment.status === 'completed' ? (
                           <Badge className="bg-green-100 text-green-800">Completed</Badge>
                         ) : (
                           <Badge className="bg-yellow-100 text-yellow-800">Processing</Badge>
@@ -179,7 +184,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       </Button>
                     )}
                     
-                    {!shipment.label_urls?.png && !shipment.label_url && (
+                    {!(shipment.label_urls?.png || shipment.label_url || shipment.label_urls?.pdf || shipment.label_urls?.zpl) && (
                       <span className="text-xs text-gray-400 italic">No formats available</span>
                     )}
                   </div>
@@ -190,28 +195,29 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   <div className="flex space-x-2">
                     <Button
                       size="sm"
-                      onClick={() => handleDownload(shipment, 'png')}
+                      onClick={() => handleDownload(shipment, 'png')} // Default download is PNG
                       className="bg-green-600 hover:bg-green-700 text-white"
-                      disabled={!shipment.label_urls?.png && !shipment.label_url}
+                      disabled={!(shipment.label_urls?.png || shipment.label_url)}
                     >
                       <Download className="h-3 w-3 mr-1" />
                       Download
                     </Button>
                     
+                    {/* PrintPreview for individual label */}
                     <PrintPreview
                       labelUrl={shipment.label_urls?.png || shipment.label_url || ''}
                       trackingCode={shipment.tracking_code || shipment.tracking_number}
-                      labelUrls={shipment.label_urls}
+                      labelUrls={shipment.label_urls} // Pass all available URLs
                       shipmentDetails={{
-                        fromAddress: 'Pickup address',
+                        fromAddress: 'Your Saved Pickup Address', // Placeholder, consider passing actual if available
                         toAddress: shipment.customer_address || '',
-                        weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : '',
-                        dimensions: shipment.details?.length ? 
-                          `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : '',
-                        service: shipment.service || '',
-                        carrier: shipment.carrier || ''
+                        weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : 'N/A',
+                        dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? 
+                          `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : 'N/A',
+                        service: shipment.service || 'N/A',
+                        carrier: shipment.carrier || 'N/A'
                       }}
-                      shipmentId={shipment.id}
+                      shipmentId={shipment.id || shipment.original_shipment_id} // Use EasyPost ID or original
                     />
                   </div>
                 </td>

@@ -1,13 +1,12 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Package, Download } from 'lucide-react';
+import { Upload, FileText, Package, Download, PrinterIcon } from 'lucide-react';
 import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
 import LabelGenerationProgress from './LabelGenerationProgress';
-import BulkLabelDownloadOptions from './BulkLabelDownloadOptions';
+import PrintPreview from '@/components/shipping/PrintPreview';
 import { useBulkUpload } from './useBulkUpload';
 
 const BulkUploadView: React.FC = () => {
@@ -26,6 +25,8 @@ const BulkUploadView: React.FC = () => {
     filteredShipments,
     pickupAddress,
     labelGenerationProgress,
+    batchPrintPreviewModalOpen,
+    setBatchPrintPreviewModalOpen,
     handleFileChange,
     handleUpload,
     handleSelectRate,
@@ -34,7 +35,7 @@ const BulkUploadView: React.FC = () => {
     handleRefreshRates,
     handleBulkApplyCarrier,
     handleCreateLabels,
-    handleDownloadAllLabels,
+    handleOpenBatchPrintPreview,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
     handleEmailLabels,
@@ -60,20 +61,32 @@ const BulkUploadView: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
         <h1 className="text-3xl font-bold text-gray-900 flex items-center">
           <Upload className="mr-3 h-8 w-8 text-blue-600" />
           Bulk Shipping Upload
         </h1>
         
-        <Button
-          onClick={handleDownloadTemplate}
-          variant="outline"
-          className="flex items-center space-x-2"
-        >
-          <FileText className="h-4 w-4" />
-          <span>Download Template</span>
-        </Button>
+        <div className="flex gap-2">
+          {uploadStatus === 'success' && results?.batchResult && !labelGenerationProgress.isGenerating && (
+            <Button
+              onClick={handleOpenBatchPrintPreview}
+              variant="default"
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+            >
+              <PrinterIcon className="mr-2 h-4 w-4" />
+              Print/Download Batch Output
+            </Button>
+          )}
+          <Button
+            onClick={handleDownloadTemplate}
+            variant="outline"
+            className="flex items-center space-x-2"
+          >
+            <FileText className="h-4 w-4" />
+            <span>Download Template</span>
+          </Button>
+        </div>
       </div>
 
       {/* File Upload Section */}
@@ -91,13 +104,13 @@ const BulkUploadView: React.FC = () => {
       )}
 
       {/* Progress Section */}
-      {(uploadStatus === 'uploading' || uploadStatus === 'editing') && (
+      {(uploadStatus === 'uploading' || uploadStatus === 'editing' && !results?.processedShipments?.length) && (
         <Card className="p-6">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <h3 className="text-lg font-semibold mb-2">Processing Your Upload</h3>
             <p className="text-gray-600">Please wait while we process your shipment data...</p>
-            {progress && (
+            {progress > 0 && progress < 100 && (
               <div className="mt-4">
                 <div className="bg-gray-200 rounded-full h-2">
                   <div 
@@ -124,7 +137,7 @@ const BulkUploadView: React.FC = () => {
       />
 
       {/* Shipment Rates Section */}
-      {uploadStatus === 'editing' && results && (
+      {uploadStatus === 'editing' && results && results.processedShipments && results.processedShipments.length > 0 && (
         <BulkShipmentsList
           shipments={filteredShipments}
           isFetchingRates={isFetchingRates}
@@ -140,21 +153,27 @@ const BulkUploadView: React.FC = () => {
       {/* Results Section */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="space-y-6">
-          {/* Bulk Download Options */}
-          {results.batchResult && (
-            <BulkLabelDownloadOptions
-              batchResult={results.batchResult}
-              onDownloadBatch={handleDownloadLabelsWithFormat}
-              onDownloadManifest={(url) => window.open(url, '_blank')}
+          {/* BulkLabelDownloadOptions is now replaced by the modal */}
+          {results.processedShipments && results.processedShipments.length > 0 && (
+            <LabelResultsTable
+              shipments={results.processedShipments || []}
+              onDownloadLabel={handleDownloadSingleLabel}
             />
           )}
-
-          {/* Individual Labels */}
-          <LabelResultsTable
-            shipments={results.processedShipments || []}
-            onDownloadLabel={handleDownloadSingleLabel}
-          />
         </div>
+      )}
+
+      {/* Batch Print Preview Modal */}
+      {results?.batchResult && (
+        <PrintPreview
+          isOpenProp={batchPrintPreviewModalOpen}
+          onOpenChangeProp={setBatchPrintPreviewModalOpen}
+          labelUrl="" // Not relevant for batch preview trigger, content comes from batchResult
+          trackingCode={null} // Batch ID will be shown in modal title
+          batchResult={results.batchResult}
+          isBatchPreview={true}
+          // No triggerButton prop here, it's controlled by isOpenProp
+        />
       )}
     </div>
   );
