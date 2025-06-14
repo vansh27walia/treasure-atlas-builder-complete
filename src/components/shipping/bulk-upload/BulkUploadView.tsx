@@ -8,6 +8,7 @@ import LabelResultsTable from './LabelResultsTable';
 import LabelGenerationProgress from './LabelGenerationProgress';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import { useBulkUpload } from './useBulkUpload';
+import { BulkShipment } from '@/types/shipping';
 
 const BulkUploadView: React.FC = () => {
   const {
@@ -27,6 +28,8 @@ const BulkUploadView: React.FC = () => {
     labelGenerationProgress,
     batchPrintPreviewModalOpen,
     setBatchPrintPreviewModalOpen,
+    singleLabelToPreview,
+    setSingleLabelToPreview,
     handleFileChange,
     handleUpload,
     handleSelectRate,
@@ -144,7 +147,10 @@ const BulkUploadView: React.FC = () => {
           onSelectRate={handleSelectRate}
           onRemoveShipment={handleRemoveShipment}
           onEditShipment={(shipmentId: string, details: any) => {
-            console.log('Edit shipment:', shipmentId, details);
+            const originalShipment = results.processedShipments.find(s => s.id === shipmentId);
+            if (originalShipment) {
+               handleEditShipment(shipmentId, details);
+            }
           }}
           onRefreshRates={handleRefreshRates}
         />
@@ -153,7 +159,6 @@ const BulkUploadView: React.FC = () => {
       {/* Results Section */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="space-y-6">
-          {/* BulkLabelDownloadOptions is now replaced by the modal */}
           {results.processedShipments && results.processedShipments.length > 0 && (
             <LabelResultsTable
               shipments={results.processedShipments || []}
@@ -168,11 +173,23 @@ const BulkUploadView: React.FC = () => {
         <PrintPreview
           isOpenProp={batchPrintPreviewModalOpen}
           onOpenChangeProp={setBatchPrintPreviewModalOpen}
-          labelUrl="" // Not relevant for batch preview trigger, content comes from batchResult
-          trackingCode={null} // Batch ID will be shown in modal title
+          labelUrl="" // Not relevant for batch preview trigger
+          trackingCode={null}
           batchResult={results.batchResult}
           isBatchPreview={true}
-          // No triggerButton prop here, it's controlled by isOpenProp
+        />
+      )}
+
+      {/* Single Label Print Preview Modal */}
+      {singleLabelToPreview && (
+        <PrintPreview
+          isOpenProp={!!singleLabelToPreview}
+          onOpenChangeProp={(isOpen) => {
+            if (!isOpen) setSingleLabelToPreview(null);
+          }}
+          labelUrl={singleLabelToPreview.label_urls?.pdf || ''}
+          trackingCode={singleLabelToPreview.tracking_code || null}
+          isBatchPreview={false}
         />
       )}
     </div>
