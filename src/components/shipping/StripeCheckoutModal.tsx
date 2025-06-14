@@ -58,17 +58,11 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
     setIsProcessing(true);
 
     try {
-      // Simulate payment processing
+      // Simulate payment processing for testing
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // In a real implementation, you would integrate with Stripe here
-      // const { error } = await stripe.confirmCardPayment(clientSecret, {
-      //   payment_method: {
-      //     card: elements.getElement(CardElement),
-      //     billing_details: { name: cardholderName }
-      //   }
-      // });
-
+      // For testing purposes, we'll simulate a successful payment
+      // In production, you would integrate with actual Stripe here
       toast.success('Payment processed successfully!');
       onSuccess();
       
@@ -116,7 +110,7 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
                 id="cardNumber"
                 value={cardNumber}
                 onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                placeholder="1234 5678 9012 3456"
+                placeholder="4242 4242 4242 4242"
                 maxLength={19}
                 required
               />
@@ -129,7 +123,7 @@ const StripeCheckoutModal: React.FC<StripeCheckoutModalProps> = ({
                   id="expiryDate"
                   value={expiryDate}
                   onChange={(e) => setExpiryDate(formatExpiryDate(e.target.value))}
-                  placeholder="MM/YY"
+                  placeholder="12/24"
                   maxLength={5}
                   required
                 />
