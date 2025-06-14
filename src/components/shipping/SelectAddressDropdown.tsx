@@ -1,291 +1,169 @@
-
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Check, ChevronsUpDown, MapPin, Plus, RefreshCw } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { addressService } from '@/services/AddressService';
+import { SavedAddress } from '@/types/shipping'; // Changed import
+import { supabase } from '@/integrations/supabase/client'; // Import supabase client
 import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandSeparator,
-  CommandList,
-} from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { addressService, SavedAddress } from '@/services/AddressService';
+import { PlusCircle, Loader2, Edit3, Trash2 } from 'lucide-react';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import AddressForm, { AddressFormData } from './AddressForm';
 import { toast } from '@/components/ui/sonner';
-import { formatAddressForDisplay } from '@/utils/addressUtils';
 
 interface SelectAddressDropdownProps {
-  onAddressSelected: (address: SavedAddress | null) => void;
-  onAddNew: () => void;
-  defaultAddress?: SavedAddress | null;
-  placeholder?: string;
-  isPickupAddress?: boolean;
-  className?: string;
+  value?: string; // Address ID
+  onChange: (addressId: string | undefined) => void;
+  onAddressHydrate?: (address: SavedAddress | null) => void; // Callback with full address object
+  addressType: 'from' | 'to';
+  disabled?: boolean;
 }
 
 const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
-  onAddressSelected,
-  onAddNew,
-  defaultAddress = null,
-  placeholder = 'Select an address',
-  isPickupAddress = true,
-  className = '',
+  value,
+  onChange,
+  onAddressHydrate,
+  addressType,
+  disabled,
 }) => {
-  const [open, setOpen] = useState(false);
-  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
-  const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(defaultAddress);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
+  const queryClient = useQueryClient();
 
-  // Refresh addresses function with proper state management
-  const refreshAddresses = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      console.log('Refreshing addresses for dropdown...');
-      const { data } = await addressService.getSession();
-      if (!data?.session?.user) {
-        console.log('User not authenticated, skipping address loading');
-        setAddresses([]);
-        return;
-      }
-      
-      const savedAddresses = await addressService.getSavedAddresses();
-      console.log('Refreshed addresses for dropdown:', savedAddresses);
-      setAddresses(savedAddresses || []);
-      toast.success('Addresses refreshed successfully');
-    } catch (error) {
-      console.error('Error refreshing addresses:', error);
-      toast.error('Failed to refresh addresses');
-    } finally {
-      setIsLoading(false);
+  const { data: addresses = [], isLoading: isLoadingAddresses, refetch } = useQuery<SavedAddress[], Error>({
+    queryKey: ['savedAddresses', addressType], // Query key can be more specific if needed
+    queryFn: async () => {
+      // No need to get session here, addressService handles it
+      return addressService.getSavedAddresses();
     }
-  }, []);
-
-  // Load addresses on component mount
-  useEffect(() => {
-    let isMounted = true;
-    
-    const loadAddresses = async () => {
-      if (isLoading) return;
-      
-      setIsLoading(true);
-      try {
-        console.log('Loading addresses for dropdown...');
-        const { data } = await addressService.getSession();
-        if (!data?.session?.user) {
-          console.log('User not authenticated, skipping address loading');
-          if (isMounted) {
-            setAddresses([]);
-            setIsLoading(false);
-          }
-          return;
-        }
-        
-        const savedAddresses = await addressService.getSavedAddresses();
-        console.log('Loaded addresses for dropdown:', savedAddresses);
-        
-        if (isMounted) {
-          setAddresses(savedAddresses || []);
-
-          // Auto-select default if no address is currently selected
-          if (!selectedAddress && savedAddresses?.length > 0) {
-            const defaultAddr = isPickupAddress 
-              ? savedAddresses.find(addr => addr.is_default_from)
-              : savedAddresses.find(addr => addr.is_default_to);
-            
-            if (defaultAddr) {
-              console.log('Auto-selecting default address:', defaultAddr);
-              setSelectedAddress(defaultAddr);
-              onAddressSelected(defaultAddr);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error loading addresses:', error);
-        if (isMounted) {
-          toast.error('Failed to load saved addresses');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadAddresses();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, []); // Empty dependency array to run only once
-
-  // Handle external default address changes
-  useEffect(() => {
-    if (defaultAddress && (!selectedAddress || defaultAddress.id !== selectedAddress.id)) {
-      console.log('Setting selected address from default prop:', defaultAddress);
-      setSelectedAddress(defaultAddress);
+  });
+  
+  const addAddressMutation = useMutation({
+    mutationFn: (data: AddressFormData) => {
+        const payload: Omit<SavedAddress, 'id' | 'user_id' | 'created_at' | 'updated_at'> = { ...data };
+        if (addressType === 'from') payload.is_default_from = data.is_default_from;
+        if (addressType === 'to') payload.is_default_to = data.is_default_to;
+        return addressService.addAddress(payload);
+    },
+    onSuccess: (newAddress) => {
+        queryClient.invalidateQueries({ queryKey: ['savedAddresses', addressType] });
+        onChange(newAddress.id);
+        if (onAddressHydrate) onAddressHydrate(newAddress);
+        setIsFormOpen(false);
+        setEditingAddress(null);
+        toast.success("Address added successfully!");
+    },
+    onError: (error: Error) => {
+        toast.error(`Failed to add address: ${error.message}`);
     }
-  }, [defaultAddress?.id]);
+  });
 
-  const handleSelectAddress = useCallback((address: SavedAddress) => {
-    console.log('Address selected from dropdown:', address);
-    setSelectedAddress(address);
-    onAddressSelected(address);
-    setOpen(false);
-    toast.success('Address selected successfully');
-  }, [onAddressSelected]);
+  const updateAddressMutation = useMutation({
+    mutationFn: ({id, data}: {id: string, data: AddressFormData}) => {
+        const payload: Partial<SavedAddress> = { ...data };
+        // Retain original default status if not explicitly changed by this form
+        if (addressType === 'from' && data.is_default_from !== undefined) payload.is_default_from = data.is_default_from;
+        else if (addressType === 'from') delete payload.is_default_from;
 
-  const handleAddNew = useCallback(() => {
-    onAddNew();
-    setOpen(false);
-  }, [onAddNew]);
+        if (addressType === 'to' && data.is_default_to !== undefined) payload.is_default_to = data.is_default_to;
+        else if (addressType === 'to') delete payload.is_default_to;
+        
+        return addressService.updateAddress(id, payload);
+    },
+    onSuccess: (updatedAddress) => {
+        queryClient.invalidateQueries({ queryKey: ['savedAddresses', addressType] });
+        onChange(updatedAddress.id);
+        if (onAddressHydrate) onAddressHydrate(updatedAddress);
+        setIsFormOpen(false);
+        setEditingAddress(null);
+        toast.success("Address updated successfully!");
+    },
+    onError: (error: Error) => {
+        toast.error(`Failed to update address: ${error.message}`);
+    }
+  });
 
-  const handleClearSelection = useCallback(() => {
-    console.log('Clearing address selection');
-    setSelectedAddress(null);
-    onAddressSelected(null);
-    toast.info('Address selection cleared');
-  }, [onAddressSelected]);
 
-  // Memoize the address label to prevent recalculation
-  const addressLabel = useMemo(() => {
-    if (!selectedAddress) return placeholder;
-    return selectedAddress.name || formatAddressForDisplay(selectedAddress).split(',')[0];
-  }, [selectedAddress, placeholder]);
+  const handleSelectChange = (selectedValue: string) => {
+    if (selectedValue === 'add_new') {
+      setEditingAddress(null); // Clear editing state for new address
+      setIsFormOpen(true);
+    } else {
+      onChange(selectedValue);
+      if (onAddressHydrate) {
+        const selectedAddr = addresses.find(a => a.id === selectedValue);
+        onAddressHydrate(selectedAddr || null);
+      }
+    }
+  };
+  
+  const handleFormSubmit = (data: AddressFormData) => {
+    if (editingAddress && editingAddress.id) {
+        updateAddressMutation.mutate({ id: editingAddress.id, data });
+    } else {
+        addAddressMutation.mutate(data);
+    }
+  };
 
+  const openEditForm = (address: SavedAddress) => {
+    setEditingAddress(address);
+    setIsFormOpen(true);
+  };
+  
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          disabled={isLoading}
-          className={`w-full justify-between ${className}`}
-        >
-          {isLoading ? (
-            <span className="text-muted-foreground">Loading addresses...</span>
-          ) : (
-            <>
-              <MapPin className="mr-2 h-4 w-4 shrink-0" />
-              <span className="truncate">{addressLabel}</span>
-            </>
-          )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0 bg-white z-50" align="start">
-        <Command className="bg-white">
-          <CommandInput placeholder="Search address..." className="bg-white" />
-          <CommandList className="bg-white max-h-[300px] overflow-y-auto">
-            <CommandEmpty>
-              <div className="flex flex-col items-center justify-center py-6">
-                <p className="text-sm text-muted-foreground mb-2">No addresses found</p>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={refreshAddresses}
-                    disabled={isLoading}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Refresh
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleAddNew}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add new
-                  </Button>
-                </div>
+    <div className="flex items-center space-x-2">
+      <Select onValueChange={handleSelectChange} value={value || ''} disabled={disabled || isLoadingAddresses}>
+        <SelectTrigger className="flex-grow">
+          <SelectValue placeholder={isLoadingAddresses ? "Loading..." : `Select ${addressType === 'from' ? 'Origin' : 'Destination'}`} />
+        </SelectTrigger>
+        <SelectContent>
+          {isLoadingAddresses && <SelectItem value="loading" disabled><Loader2 className="h-4 w-4 animate-spin mr-2" />Loading...</SelectItem>}
+          {!isLoadingAddresses && addresses.map((address) => (
+            <SelectItem key={address.id} value={address.id}>
+              <div className="flex justify-between items-center w-full">
+                <span>{address.name} - {address.street1}, {address.city}</span>
+                <Button variant="ghost" size="sm" className="p-1 h-auto" onClick={(e) => { e.stopPropagation(); openEditForm(address); }}>
+                  <Edit3 className="h-3 w-3" />
+                </Button>
               </div>
-            </CommandEmpty>
-            <CommandGroup heading={isPickupAddress ? "Pickup Addresses" : "Recipient Addresses"}>
-              {addresses.map((address) => (
-                <CommandItem
-                  key={address.id}
-                  value={`${address.id}-${address.name || address.street1}`}
-                  onSelect={() => {
-                    console.log('Selecting address:', address);
-                    handleSelectAddress(address);
-                  }}
-                  className="cursor-pointer hover:bg-gray-50"
-                >
-                  <div className="flex items-start mr-2">
-                    <Check
-                      className={cn(
-                        "h-4 w-4 mt-0.5",
-                        selectedAddress?.id === address.id 
-                          ? "opacity-100" 
-                          : "opacity-0"
-                      )}
-                    />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-medium">
-                      {address.name || 'Unnamed Address'}
-                      {isPickupAddress && address.is_default_from && (
-                        <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
-                          Default
-                        </span>
-                      )}
-                      {!isPickupAddress && address.is_default_to && (
-                        <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
-                          Default
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {formatAddressForDisplay(address)}
-                    </span>
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup>
-              {selectedAddress && (
-                <CommandItem 
-                  onSelect={handleClearSelection}
-                  className="cursor-pointer hover:bg-gray-50 text-red-600"
-                >
-                  <span className="font-medium flex items-center">
-                    Clear Selection
-                  </span>
-                </CommandItem>
-              )}
-              <CommandItem 
-                onSelect={refreshAddresses}
-                className="cursor-pointer hover:bg-gray-50"
-                disabled={isLoading}
-              >
-                <span className="font-medium text-blue-600 flex items-center">
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh Addresses
-                </span>
-              </CommandItem>
-              <CommandItem 
-                onSelect={handleAddNew}
-                className="cursor-pointer hover:bg-gray-50"
-              >
-                <span className="font-medium text-green-600 flex items-center">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add new address
-                </span>
-              </CommandItem>
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+            </SelectItem>
+          ))}
+          <SelectItem value="add_new" className="text-blue-600 hover:text-blue-700">
+            <PlusCircle className="inline-block mr-2 h-4 w-4" /> Add New Address
+          </SelectItem>
+        </SelectContent>
+      </Select>
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline" size="icon" onClick={() => { setEditingAddress(null); setIsFormOpen(true); }} disabled={disabled}>
+            <PlusCircle className="h-4 w-4" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingAddress ? 'Edit' : 'Add New'} {addressType === 'from' ? 'Origin' : 'Destination'} Address</DialogTitle>
+          </DialogHeader>
+          <AddressForm
+            onSubmit={handleFormSubmit}
+            defaultValues={editingAddress ? {
+                ...editingAddress,
+                is_default_from: addressType === 'from' ? editingAddress.is_default_from : undefined,
+                is_default_to: addressType === 'to' ? editingAddress.is_default_to : undefined,
+            } : { country: 'US', is_residential: true }}
+            isLoading={addAddressMutation.isPending || updateAddressMutation.isPending}
+            submitButtonText={editingAddress ? "Update Address" : "Add Address"}
+            showDefaultToggle={true}
+            defaultToggleLabel={`Set as default ${addressType === 'from' ? 'origin' : 'destination'}`}
+            defaultToggleField={addressType === 'from' ? 'is_default_from' : 'is_default_to'}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 

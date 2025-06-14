@@ -8,13 +8,12 @@ import SuccessNotification from './bulk-upload/SuccessNotification';
 import UploadError from './bulk-upload/UploadError';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
-// import LabelCreationOverlay from './LabelCreationOverlay'; // Replaced by LabelGenerationProgress
 import StripePaymentModal from './StripePaymentModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { FileText, UploadCloud, AlertCircle, Download, CreditCard, Eye, Loader2 } from 'lucide-react';
-import { SavedAddress, BulkShipment, BulkUploadResult } from '@/types/shipping';
+import { SavedAddress, BulkShipment, BulkUploadResult, BatchResult } from '@/types/shipping'; // Added BatchResult
 import { toast } from '@/components/ui/sonner';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import LabelGenerationProgress from './bulk-upload/LabelGenerationProgress';
@@ -27,12 +26,11 @@ const BulkUpload: React.FC = () => {
   const [currentShipmentForPreview, setCurrentShipmentForPreview] = useState<BulkShipment | null>(null);
   
   const {
-    // file, // Not directly used in UI rendering here, but part of hook
-    isUploading, 
+    isUploading, // This is the composite uploading/processing state from the hook
     isPaying,
     uploadStatus, 
     results,    
-    progress,   
+    progress, // This is parsingProgress from useShipmentUpload
     searchTerm,
     sortField,
     sortDirection,
@@ -41,13 +39,12 @@ const BulkUpload: React.FC = () => {
     pickupAddress,
     labelGenerationProgress, 
     setPickupAddress,
-    // handleFileChange, 
     handleUpload,     
     handleCreateLabels,
     downloadBatchPdf,
     handleSelectRate,
     handleRemoveShipment,
-    handleEditShipment,
+    handleEditShipment, // This is managedEditShipment from useShipmentManagement
     handleRefreshRates,
     handleBulkApplyCarrier,
     setSearchTerm,
@@ -57,18 +54,16 @@ const BulkUpload: React.FC = () => {
     handleOpenBatchPrintPreview,
     batchPrintPreviewModalOpen,
     setBatchPrintPreviewModalOpen,
-    handleDownloadTemplate, 
-    handleDownloadSingleLabel, 
+    handleDownloadTemplate, // Ensure this is exported from useBulkUpload
+    handleDownloadSingleLabel, // Ensure this is exported from useBulkUpload
     handleDownloadLabelsWithFormat, 
     handleEmailLabels, 
-    isFetchingRates, 
+    isFetchingRates, // This is from useShipmentRates
   } = useBulkUpload();
 
   const isCreatingLabels = labelGenerationProgress.isGenerating;
 
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
-    // The hook's setPickupAddress should handle this.
-    // The AddressSelector should pass SavedAddress with string ID.
     setPickupAddress(address); 
     if (address) {
         const now = Date.now();
@@ -79,7 +74,9 @@ const BulkUpload: React.FC = () => {
     }
   };
 
-  const handleEditShipmentWrapper = (shipmentId: string, shipmentDetails: BulkShipment) => {
+  // Explicitly typed to match BulkShipmentsListProps
+  const handleEditShipmentWrapper: (shipmentId: string, shipmentDetails: BulkShipment) => void = (shipmentId, shipmentDetails) => {
+    // The hook's handleEditShipment expects Partial<BulkShipment>, BulkShipment is assignable to it.
     handleEditShipment(shipmentId, shipmentDetails);
   };
 
@@ -97,10 +94,12 @@ const BulkUpload: React.FC = () => {
   };
   
   const onUploadSuccessCallback = (uploadResults: BulkUploadResult) => {
+    // This callback might be redundant if useBulkUpload hook handles success update.
     console.log("Form upload success (client parsing done):", uploadResults);
   };
 
   const onUploadFailCallback = (error: string) => {
+     // This callback might be redundant if useBulkUpload hook handles error update.
     console.error("Form upload failed (client parsing):", error);
   };
 
@@ -109,6 +108,8 @@ const BulkUpload: React.FC = () => {
     if (readyToCreateLabelsCount > 0) return `Create ${readyToCreateLabelsCount} Labels`;
     return 'Create Labels';
   };
+  
+  const isParsingFile = uploadStatus === 'uploading' && progress < 100; // Specific client-side parsing
 
   return (
     <>
@@ -120,14 +121,14 @@ const BulkUpload: React.FC = () => {
             onUploadSuccess={onUploadSuccessCallback} 
             onUploadFail={onUploadFailCallback}
             onPickupAddressSelect={handlePickupAddressSelect} 
-            isUploading={isUploading && uploadStatus === 'uploading'} // Specific to client parsing
+            isUploading={isParsingFile} // Pass true only if actively parsing file on client
             progress={progress}    
             handleUpload={handleUpload} 
             currentPickupAddress={pickupAddress}
           />
         )}
         
-        {(uploadStatus === 'uploading' || uploadStatus === 'processing') && (
+        {(uploadStatus === 'uploading' || uploadStatus === 'processing') && !isCreatingLabels && (
           <div className="my-6 text-center">
             <Loader2 className="h-12 w-12 mx-auto animate-spin text-blue-600 mb-4" />
             <h3 className="font-medium text-lg mb-2">
@@ -160,7 +161,7 @@ const BulkUpload: React.FC = () => {
               <h2 className="text-xl font-semibold flex items-center">
                 <FileText className="mr-2 h-5 w-5 text-blue-600" />
                 Bulk Shipment Options
-                {isFetchingRates && (
+                {(isFetchingRates || results.isFetchingRates) && ( // Check both states
                   <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full animate-pulse">
                     Fetching rates...
                   </span>
@@ -187,14 +188,14 @@ const BulkUpload: React.FC = () => {
             <BulkShipmentFilters
               searchTerm={searchTerm} onSearchChange={setSearchTerm}
               sortField={sortField} sortDirection={sortDirection}
-              onSortChange={(field, direction) => { setSortField(field as any); setSortDirection(direction as any); }}
+              onSortChange={(field, direction) => { setSortField(field); setSortDirection(direction); }}
               selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter}
               onApplyCarrierToAll={handleBulkApplyCarrier}
             />
             
             <BulkShipmentsList
               shipments={filteredShipments}
-              isFetchingRates={isFetchingRates || false} 
+              isFetchingRates={isFetchingRates || results.isFetchingRates || false} 
               onSelectRate={handleSelectRate}
               onRemoveShipment={handleRemoveShipment}
               onEditShipment={handleEditShipmentWrapper}
@@ -232,8 +233,6 @@ const BulkUpload: React.FC = () => {
                         className="px-6 bg-green-600 hover:bg-green-700"
                        > <Download className="mr-1 h-4 w-4" /> {getActionButtonText()} </Button>
                     )}
-                    {/* Payment button is optional and depends on workflow */}
-                    {/* <Button onClick={() => setShowPaymentModal(true)} ... > Pay Labels </Button> */}
                   </div>
                 </div>
               </div>
@@ -244,12 +243,8 @@ const BulkUpload: React.FC = () => {
         {uploadStatus === 'success' && results && !isCreatingLabels && (
           <SuccessNotification
             results={results}
-            onDownloadAllLabels={() => { 
-                if (results.batchResult?.consolidatedLabelUrls?.pdf) downloadBatchPdf();
-                else if (handleOpenBatchPrintPreview) handleOpenBatchPrintPreview();
-                else toast.error("No batch PDF or preview available.");
-            }}
-            onDownloadSingleLabel={handleDownloadSingleLabel} 
+            onDownloadAllLabels={downloadBatchPdf} // This should ideally download the batch PDF
+            onDownloadSingleLabel={handleDownloadSingleLabel} // For individual labels from the table
             isPaying={isPaying} 
             isCreatingLabels={isCreatingLabels} 
             onOpenBatchPrintPreview={handleOpenBatchPrintPreview}
@@ -258,13 +253,12 @@ const BulkUpload: React.FC = () => {
           />
         )}
         
-        {uploadStatus === 'error' && !isCreatingLabels && ( // Don't show if error happened during label creation if progress shows it
+        {uploadStatus === 'error' && !isCreatingLabels && (
           <UploadError 
             onRetry={() => window.location.reload()} 
             onSelectNewFile={() => { 
-              const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-              if (fileInput) { fileInput.value = ''; fileInput.click(); }
-              else { window.location.reload(); }
+                // Attempt to reset file input logic can be tricky. Reloading or re-triggering component is safer.
+                window.location.reload();
             }}
             errorMessage={results?.failedShipments?.[0]?.error || "An error occurred. Please check details or try again."}
             failedShipments={results?.failedShipments}
@@ -286,6 +280,7 @@ const BulkUpload: React.FC = () => {
           onOpenChangeProp={setBatchPrintPreviewModalOpen}
           batchResult={results.batchResult} 
           isBatchPreview={true}
+          // scanFormUrl={results.batchResult.scanFormUrl} // Pass scanFormUrl if PrintPreview handles it
         />
       )}
 
@@ -298,6 +293,14 @@ const BulkUpload: React.FC = () => {
           trackingCode={currentShipmentForPreview.tracking_code || currentShipmentForPreview.id}
           shipmentId={currentShipmentForPreview.id}
           isBatchPreview={false}
+          shipmentDetails={{ // Example details, ideally populate from shipment
+            fromAddress: pickupAddress ? `${pickupAddress.street1}, ${pickupAddress.city}` : 'N/A',
+            toAddress: `${currentShipmentForPreview.street1}, ${currentShipmentForPreview.city}`,
+            weight: `${currentShipmentForPreview.weight} oz`, // Assuming weight is in oz
+            dimensions: `${currentShipmentForPreview.length}x${currentShipmentForPreview.width}x${currentShipmentForPreview.height} in`,
+            service: currentShipmentForPreview.service || 'N/A',
+            carrier: currentShipmentForPreview.carrier || 'N/A',
+          }}
         />
       )}
     </>

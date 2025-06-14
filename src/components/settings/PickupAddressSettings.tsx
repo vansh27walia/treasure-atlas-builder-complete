@@ -1,401 +1,252 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { addressService } from '@/services/AddressService';
+import { SavedAddress } from '@/types/shipping'; // Changed import
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Progress } from '@/components/ui/progress';
-import { MapPin, Plus, Pencil, Trash2, Star, Check, AlertCircle, Loader2 } from 'lucide-react';
-import { usePickupAddresses } from '@/hooks/usePickupAddresses';
-import { SavedAddress } from '@/services/AddressService';
-import AddressForm from '@/components/shipping/AddressForm';
-import { AddressFormValues } from '@/components/shipping/AddressForm';
-import { formatAddressForDisplay } from '@/utils/addressUtils';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { toast } from '@/components/ui/sonner';
-import { useAuth } from '@/contexts/AuthContext';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PlusCircle, Edit3, Trash2, Home, CheckCircle, Loader2 } from 'lucide-react';
+import AddressFormFields from '@/components/shipping/AddressFormFields';
+
+// Define Zod schema for address form
+const addressSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1, "Name is required"),
+  company: z.string().optional(),
+  street1: z.string().min(1, "Street address is required"),
+  street2: z.string().optional(),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  zip: z.string().min(1, "ZIP code is required"),
+  country: z.string().min(1, "Country is required"),
+  phone: z.string().optional(),
+  email: z.string().email("Invalid email address").optional(),
+  is_residential: z.boolean().optional(),
+  is_default_from: z.boolean().optional(),
+});
+
+type AddressFormData = z.infer<typeof addressSchema>;
+
 
 const PickupAddressSettings: React.FC = () => {
-  const { user, isLoading: isAuthLoading } = useAuth();
-  
-  const {
-    addresses,
-    selectedAddress,
-    isLoading,
-    isUpdating,
-    addressCount,
-    ADDRESS_LIMIT,
-    loadAddresses,
-    createAddress,
-    updateAddress,
-    deleteAddress,
-    setAsDefaultFrom,
-  } = usePickupAddresses();
-
-  const [showAddressModal, setShowAddressModal] = useState(false);
+  // State variables for dialogs and editing address
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [addressToDelete, setAddressToDelete] = useState<SavedAddress | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // Check if user is authenticated
-  const isAuthenticated = !!user;
 
-  // Optimize addresses loading with delayed state update
-  useEffect(() => {
-    let isMounted = true;
-    
-    const loadUserAddresses = async () => {
-      if (isAuthenticated && isMounted) {
-        await loadAddresses();
-      }
-    };
-    
-    loadUserAddresses();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [isAuthenticated]);
+  const queryClient = useQueryClient();
 
-  const handleAddNewClick = () => {
-    if (!isAuthenticated) {
-      toast.error("You need to be logged in to save addresses");
-      return;
+  const { data: addresses, isLoading: isLoadingAddresses, error: addressesError } = useQuery<SavedAddress[], Error>({
+    queryKey: ['savedAddresses'],
+    queryFn: addressService.getSavedAddresses,
+  });
+
+  const addAddressMutation = useMutation({
+    mutationFn: (addressData: Omit<SavedAddress, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => addressService.addAddress(addressData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['savedAddresses'] });
+      queryClient.invalidateQueries({queryKey: ['defaultFromAddress']});
+      toast.success('Address added successfully!');
+      setIsAddDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to add address: ${error.message}`);
+    },
+  });
+
+  const updateAddressMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<SavedAddress> }) => addressService.updateAddress(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['savedAddresses'] });
+      queryClient.invalidateQueries({queryKey: ['defaultFromAddress']});
+      toast.success('Address updated successfully!');
+      setIsEditDialogOpen(false);
+      setEditingAddress(null);
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to update address: ${error.message}`);
+    },
+  });
+
+  const deleteAddressMutation = useMutation({
+    mutationFn: (id: string) => addressService.deleteAddress(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['savedAddresses'] });
+      queryClient.invalidateQueries({queryKey: ['defaultFromAddress']});
+      toast.success('Address deleted successfully!');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to delete address: ${error.message}`);
+    },
+  });
+
+  const setDefaultFromMutation = useMutation({
+    mutationFn: (id: string) => addressService.setDefaultFromAddress(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['savedAddresses'] });
+      queryClient.invalidateQueries({queryKey: ['defaultFromAddress']});
+      toast.success('Default pickup address updated!');
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to set default address: ${error.message}`);
     }
-    
-    // Check if user has reached the address limit
-    if (addressCount >= ADDRESS_LIMIT) {
-      toast.error(`You've reached the limit of ${ADDRESS_LIMIT} addresses`, {
-        description: "Please delete some addresses before adding new ones"
-      });
-      return;
-    }
-    
+  });
+
+  const { control, handleSubmit, reset, formState: { errors: formErrors } } = useForm<AddressFormData>({
+    resolver: zodResolver(addressSchema),
+    defaultValues: { country: 'US', is_residential: true, is_default_from: false },
+  });
+
+  const handleOpenAddDialog = () => {
+    reset({ country: 'US', is_residential: true, is_default_from: false, name: '', street1: '', city: '', state: '', zip: '' });
     setEditingAddress(null);
-    setShowAddressModal(true);
+    setIsAddDialogOpen(true);
   };
 
-  const handleEditClick = (address: SavedAddress) => {
+  const handleOpenEditDialog = (address: SavedAddress) => {
     setEditingAddress(address);
-    setShowAddressModal(true);
+    reset({
+      id: address.id,
+      name: address.name || '',
+      company: address.company || '',
+      street1: address.street1,
+      street2: address.street2 || '',
+      city: address.city,
+      state: address.state,
+      zip: address.zip,
+      country: address.country,
+      phone: address.phone || '',
+      email: address.email || '',
+      is_residential: address.is_residential ?? true,
+      is_default_from: address.is_default_from ?? false,
+    });
+    setIsEditDialogOpen(true);
   };
 
-  const handleDeleteClick = (address: SavedAddress) => {
-    setAddressToDelete(address);
-    setShowDeleteConfirm(true);
-  };
+  const onSubmit = (data: AddressFormData) => {
+    const addressPayload = {
+        name: data.name,
+        company: data.company,
+        street1: data.street1,
+        street2: data.street2,
+        city: data.city,
+        state: data.state,
+        zip: data.zip,
+        country: data.country,
+        phone: data.phone,
+        email: data.email,
+        is_residential: data.is_residential,
+        is_default_from: data.is_default_from,
+    };
 
-  const handleFormSubmit = async (values: AddressFormValues) => {
-    console.log("Form submission values:", values);
-    
-    if (!isAuthenticated) {
-      toast.error("You need to be logged in to save addresses");
-      return;
-    }
-    
-    if (isSubmitting) {
-      return; // Prevent multiple submissions
-    }
-    
-    try {
-      setIsSubmitting(true); // Set local saving state
-      
-      // Ensure all required fields are set
-      const addressData: Omit<SavedAddress, "id" | "user_id" | "created_at"> = {
-        name: values.name || '',
-        company: values.company || '',
-        street1: values.street1,
-        street2: values.street2 || '',
-        city: values.city,
-        state: values.state,
-        zip: values.zip,
-        country: values.country || 'US',
-        phone: values.phone || '', // Ensure phone is never undefined
-        is_default_from: values.is_default_from || false,
-        is_default_to: values.is_default_to || false
-      };
-      
-      let success;
-      
-      if (editingAddress) {
-        // Update existing address
-        success = await updateAddress(editingAddress.id, addressData);
-        if (success) {
-          toast.success("Address updated successfully");
-          setShowAddressModal(false);
-          // Reload addresses to ensure we have the latest data
-          await loadAddresses();
-        } else {
-          throw new Error("Failed to update address");
-        }
-      } else {
-        // Create new address
-        console.log("Creating new address with data:", addressData);
-        success = await createAddress(addressData);
-        if (success) {
-          toast.success("New address saved successfully");
-          setShowAddressModal(false);
-          // Reload addresses to ensure we have the latest data
-          await loadAddresses();
-        } else {
-          throw new Error("Failed to create address");
-        }
-      }
-    } catch (error) {
-      console.error("Error saving address:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to save address. Please try again.");
-    } finally {
-      setIsSubmitting(false); // Reset saving state regardless of outcome
-    }
-  };
-
-  const handleSetDefault = async (address: SavedAddress) => {
-    if (!address.is_default_from) {
-      setIsSaving(true);
-      try {
-        const success = await setAsDefaultFrom(address.id);
-        if (success) {
-          await loadAddresses();
-        }
-      } finally {
-        setIsSaving(false);
-      }
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!addressToDelete) return;
-    
-    try {
-      setIsSaving(true); // Use same state for deletion indicator
-      const success = await deleteAddress(addressToDelete.id);
-      if (success) {
-        setShowDeleteConfirm(false);
-        setAddressToDelete(null);
-        await loadAddresses(); // Reload to ensure we have the most up-to-date list
-      }
-    } catch (error) {
-      console.error("Error deleting address:", error);
-      toast.error("Failed to delete address. Please try again.");
-    } finally {
-      setIsSaving(false);
+    if (editingAddress && editingAddress.id) {
+      updateAddressMutation.mutate({ id: editingAddress.id, data: addressPayload });
+    } else {
+      addAddressMutation.mutate(addressPayload);
     }
   };
   
-  // Calculate address limit usage
-  const addressLimitUsage = Math.min(100, Math.round((addressCount / ADDRESS_LIMIT) * 100));
-  
-  // Combined loading state
-  const showLoading = isAuthLoading || isLoading;
+  // Render loading state
+  if (isLoadingAddresses) {
+    return <div className="flex justify-center items-center h-32"><Loader2 className="h-8 w-8 animate-spin text-blue-500" /></div>;
+  }
+
+  // Render error state
+  if (addressesError) {
+    return <div className="text-red-500">Error loading addresses: {addressesError.message}</div>;
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Pickup Addresses</h2>
-        <Button 
-          onClick={handleAddNewClick} 
-          className="flex items-center gap-2"
-          disabled={!isAuthenticated || addressCount >= ADDRESS_LIMIT || isUpdating || isSaving || isSubmitting}
-        >
-          <Plus className="h-4 w-4" />
-          Add Address
-        </Button>
-      </div>
-      
-      {!isAuthenticated && (
-        <Card className="bg-yellow-50 border-yellow-200">
-          <CardContent className="p-4">
-            <p className="text-yellow-800">
-              Please log in to manage your addresses.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-      
-      {isAuthenticated && (
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-          <div className="flex flex-col flex-grow mr-4">
-            <div className="flex justify-between mb-1">
-              <span className="text-sm font-medium">Address storage</span>
-              <span className="text-sm text-gray-500">{addressCount} / {ADDRESS_LIMIT}</span>
-            </div>
-            <Progress value={addressLimitUsage} className="h-2" />
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>Pickup Addresses</CardTitle>
+            <CardDescription>Manage your saved pickup locations for shipments.</CardDescription>
           </div>
+          <Button onClick={handleOpenAddDialog} size="sm">
+            <PlusCircle className="mr-2 h-4 w-4" /> Add New Address
+          </Button>
         </div>
-      )}
-      
-      {addressCount >= ADDRESS_LIMIT && (
-        <Alert variant="destructive" className="bg-yellow-50 border-yellow-300 text-yellow-800">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            You've reached the limit of {ADDRESS_LIMIT} addresses. Delete some addresses before adding new ones.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {isAuthenticated && showLoading ? (
-        <div className="py-12 flex justify-center">
-          <div className="flex flex-col items-center">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-500 mb-2" />
-            <p className="text-gray-500">Loading addresses...</p>
-          </div>
-        </div>
-      ) : isAuthenticated && addresses.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 flex flex-col items-center justify-center">
-            <MapPin className="h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-xl font-semibold mb-2">No Pickup Addresses</h3>
-            <p className="text-gray-500 text-center mb-4">
-              You haven't added any pickup addresses yet. Add one to make shipping easier.
-            </p>
-            <Button onClick={handleAddNewClick} className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add First Address
-            </Button>
-          </CardContent>
-        </Card>
-      ) : isAuthenticated && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {addresses.map((address) => (
-            <Card key={address.id} className={`overflow-hidden ${address.is_default_from ? 'border-2 border-green-500' : ''}`}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    {address.name || 'Unnamed Address'}
-                  </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {addresses && addresses.length > 0 ? (
+          <ul className="space-y-4">
+            {addresses.map((address) => (
+              <li key={address.id} className={`p-4 border rounded-lg flex justify-between items-start ${address.is_default_from ? 'bg-green-50 border-green-200' : 'bg-gray-50'}`}>
+                <div>
+                  <p className="font-semibold text-gray-800">{address.name} {address.company && `(${address.company})`}</p>
+                  <p className="text-sm text-gray-600">{address.street1}, {address.street2 && `${address.street2}, `}{address.city}, {address.state} {address.zip}, {address.country}</p>
+                  <p className="text-xs text-gray-500">{address.phone && `Phone: ${address.phone}`} {address.email && `Email: ${address.email}`}</p>
                   {address.is_default_from && (
-                    <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full flex items-center">
-                      <Check className="h-3 w-3 mr-1" /> Default
+                    <span className="mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <CheckCircle className="mr-1 h-3 w-3" /> Default Pickup
                     </span>
                   )}
                 </div>
-                {address.company && (
-                  <CardDescription>{address.company}</CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <address className="not-italic">
-                  <p>{address.street1}</p>
-                  {address.street2 && <p>{address.street2}</p>}
-                  <p>
-                    {address.city}, {address.state} {address.zip}
-                  </p>
-                  {address.country !== 'US' && <p>{address.country}</p>}
-                  {address.phone && <p className="mt-1">{address.phone}</p>}
-                </address>
-              </CardContent>
-              <CardFooter className="flex justify-between border-t pt-4">
-                <div>
+                <div className="flex items-center space-x-2 flex-shrink-0 ml-4">
                   {!address.is_default_from && (
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleSetDefault(address)}
-                      disabled={isUpdating || isSaving || isSubmitting}
-                    >
-                      <Star className="h-3.5 w-3.5 mr-1" />
-                      Set Default
+                    <Button variant="outline" size="sm" onClick={() => setDefaultFromMutation.mutate(address.id)} disabled={setDefaultFromMutation.isPending}>
+                      <Home className="mr-1 h-3.5 w-3.5" /> Set Default
                     </Button>
                   )}
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleEditClick(address)}
-                    disabled={isUpdating || isSaving || isSubmitting}
-                  >
-                    <Pencil className="h-3.5 w-3.5 mr-1" />
-                    Edit
+                   <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(address)} className="text-blue-600 hover:text-blue-800 h-8 w-8">
+                    <Edit3 className="h-4 w-4" />
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                    onClick={() => handleDeleteClick(address)}
-                    disabled={isUpdating || isSaving || isSubmitting}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 mr-1" />
-                    Delete
-                  </Button>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-800 h-8 w-8" disabled={address.is_default_from}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Confirm Deletion</DialogTitle>
+                            <DialogDescription>Are you sure you want to delete this address? This action cannot be undone.</DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
+                            <Button variant="destructive" onClick={() => deleteAddressMutation.mutate(address.id)} disabled={deleteAddressMutation.isPending}>
+                                {deleteAddressMutation.isPending ? 'Deleting...' : 'Delete'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-center text-gray-500 py-8">No pickup addresses saved yet. Add one to get started!</p>
+        )}
+      </CardContent>
 
-      {/* Add/Edit Address Modal */}
-      <Dialog open={showAddressModal} onOpenChange={(open) => {
-        if (!open && !isUpdating && !isSaving && !isSubmitting) {
-          setShowAddressModal(false);
-        }
-      }}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      {/* Add/Edit Dialog */}
+      <Dialog open={isAddDialogOpen || isEditDialogOpen} onOpenChange={isAddDialogOpen ? setIsAddDialogOpen : setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>{editingAddress ? 'Edit Pickup Address' : 'Add New Pickup Address'}</DialogTitle>
+            <DialogTitle>{editingAddress ? 'Edit Address' : 'Add New Address'}</DialogTitle>
+            <DialogDescription>
+              {editingAddress ? 'Update the details of your address.' : 'Enter the details for your new address.'}
+            </DialogDescription>
           </DialogHeader>
-          <AddressForm
-            defaultValues={editingAddress || { is_default_from: addresses.length === 0 }}
-            onSubmit={handleFormSubmit}
-            isLoading={isUpdating || isSaving || isSubmitting}
-            buttonText={editingAddress ? 'Update Address' : 'Save Address'}
-            isPickupAddress={true}
-            showDefaultOptions={true}
-            enableGoogleAutocomplete={true}
-          />
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+            <AddressFormFields control={control} errors={formErrors} showDefaultToggle={true} defaultToggleLabel="Set as default pickup address" defaultToggleField="is_default_from" />
+            <DialogFooter>
+                <DialogClose asChild>
+                    <Button type="button" variant="outline">Cancel</Button></DialogClose>
+              <Button type="submit" disabled={addAddressMutation.isPending || updateAddressMutation.isPending}>
+                {(addAddressMutation.isPending || updateAddressMutation.isPending) ? 'Saving...' : 'Save Address'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
-
-      {/* Delete Confirmation Modal */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-        <DialogContent className="sm:max-w-[500px] bg-white">
-          <DialogHeader>
-            <DialogTitle>Delete Pickup Address?</DialogTitle>
-          </DialogHeader>
-          {addressToDelete && (
-            <>
-              <p className="py-2">
-                Are you sure you want to delete this address? This action cannot be undone.
-              </p>
-              <div className="my-2 p-3 bg-gray-100 rounded">
-                <p className="font-medium">{addressToDelete.name || 'Unnamed Address'}</p>
-                <p className="text-sm text-gray-600">{formatAddressForDisplay(addressToDelete)}</p>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isUpdating || isSaving}>Cancel</Button>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleDeleteConfirm}
-                  disabled={isUpdating || isSaving}
-                >
-                  {isUpdating || isSaving ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Deleting...
-                    </>
-                  ) : 'Delete Address'}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
+    </Card>
   );
 };
 

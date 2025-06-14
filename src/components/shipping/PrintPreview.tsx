@@ -1,8 +1,7 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Printer, Download, X, FileText, Link as LinkIcon, CheckCircle, AlertTriangle, Loader2, Info } from 'lucide-react'; // Added Loader2, Info
+import { Printer, Download, X, FileText, Link as LinkIcon, CheckCircle, AlertTriangle, Loader2, Info } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 import { BatchResult, ConsolidatedLabelUrls, BulkShipment } from '@/types/shipping';
 import { toast } from '@/components/ui/sonner';
@@ -16,6 +15,14 @@ interface PrintPreviewProps {
   shipmentId?: string; 
   batchResult?: BatchResult | null; 
   isBatchPreview?: boolean;
+  shipmentDetails?: { // Added shipmentDetails prop
+    fromAddress: string;
+    toAddress: string;
+    weight: string;
+    dimensions?: string;
+    service: string;
+    carrier: string;
+  };
 }
 
 const PrintPreview: React.FC<PrintPreviewProps> = ({
@@ -27,6 +34,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   shipmentId,
   batchResult,
   isBatchPreview = false,
+  shipmentDetails, // Destructure shipmentDetails
 }) => {
   const printRef = useRef<HTMLDivElement>(null);
   const [currentLabelUrl, setCurrentLabelUrl] = useState<string | null>(null);
@@ -67,16 +75,19 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           defaultType = 'epl';
         } else if (initialLabelUrl) {
            defaultUrl = initialLabelUrl;
-           defaultType = initialLabelUrl.endsWith('.pdf') ? 'pdf' : initialLabelUrl.endsWith('.png') ? 'png' : null;
+           // Infer type from initialLabelUrl if other specific URLs are not available
+           const extension = initialLabelUrl.split('.').pop()?.toLowerCase();
+           if (extension === 'pdf') defaultType = 'pdf';
+           else if (extension === 'png') defaultType = 'png';
+           else if (extension === 'zpl') defaultType = 'zpl';
+           else if (extension === 'epl') defaultType = 'epl';
         }
       }
       
       setCurrentLabelUrl(defaultUrl || null);
       setCurrentLabelType(defaultType);
-      // Short delay for UI update, actual content loading is async
       setTimeout(() => setIsLoading(false), 300);
     } else {
-      // Reset when closed
       setCurrentLabelUrl(null);
       setCurrentLabelType(null);
       setIsLoading(false);
@@ -117,12 +128,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       setIframeError(false);
       setCurrentLabelUrl(url);
       setCurrentLabelType(format);
-      // Delay helps browser start loading iframe/img before removing loader
       setTimeout(() => setIsLoading(false), 300); 
       toast.info(`Previewing ${format.toUpperCase()} format.`);
     } else {
       toast.error(`${format.toUpperCase()} format not available for this label.`);
-      setCurrentLabelUrl(null); // Clear preview if format not available
+      setCurrentLabelUrl(null);
       setCurrentLabelType(null);
       setIsLoading(false);
     }
@@ -157,10 +167,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
              />;
     }
     if (currentLabelType === 'png') {
-      // For printing PNG, it must be in the printRef
       return <div ref={printRef}><img src={currentLabelUrl} alt="Shipping Label" className="max-w-full max-h-[calc(100vh-280px)] mx-auto object-contain" onLoad={() => setIsLoading(false)} onError={() => {setIsLoading(false); toast.error("Failed to load image preview.");}}/></div>;
     }
-    // For ZPL/EPL
     return (
       <div className="p-4 bg-gray-100 rounded-md h-auto min-h-[300px] max-h-[calc(100vh-280px)] overflow-auto">
         <h3 className="font-semibold text-lg mb-2">Raw {currentLabelType?.toUpperCase()} Label Content</h3>
@@ -181,7 +189,14 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   const title = isBatchPreview ? `Batch Label Preview (ID: ${batchResult?.batchId || 'N/A'})` : `Label Preview (Tracking: ${trackingCode || shipmentId || 'N/A'})`;
   const scanFormUrl = batchResult?.scanFormUrl;
-  const labelSource = isBatchPreview ? batchResult?.consolidatedLabelUrls : labelUrls;
+  
+  // Adjust labelSource to handle different types
+  let resolvedLabelSource: BulkShipment['label_urls'] | ConsolidatedLabelUrls | undefined;
+  if (isBatchPreview) {
+    resolvedLabelSource = batchResult?.consolidatedLabelUrls;
+  } else {
+    resolvedLabelSource = labelUrls;
+  }
 
   return (
       <Dialog open={isOpenProp} onOpenChange={onOpenChangeProp}>
@@ -199,18 +214,21 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           <div className="p-4 flex-shrink-0 border-b">
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-sm font-medium mr-2">Formats:</span>
-                {labelSource?.pdf && <Button onClick={() => selectLabelFormat('pdf', getFormatUrl('pdf', labelSource))} variant={currentLabelType === 'pdf' ? "default" : "outline"} size="xs">PDF</Button>}
-                {labelSource?.png && !isBatchPreview && <Button onClick={() => selectLabelFormat('png', getFormatUrl('png', labelSource))} variant={currentLabelType === 'png' ? "default" : "outline"} size="xs">PNG</Button>}
-                {labelSource?.zpl && <Button onClick={() => selectLabelFormat('zpl', getFormatUrl('zpl', labelSource))} variant={currentLabelType === 'zpl' ? "default" : "outline"} size="xs">ZPL</Button>}
-                {labelSource?.epl && <Button onClick={() => selectLabelFormat('epl', getFormatUrl('epl', labelSource))} variant={currentLabelType === 'epl' ? "default" : "outline"} size="xs">EPL</Button>}
-                {isBatchPreview && batchResult?.consolidatedLabelUrls?.pdfZip && <Button onClick={() => handleDownload(batchResult.consolidatedLabelUrls.pdfZip, 'zip')} variant="outline" size="xs"><Download className="mr-1 h-3 w-3" /> PDFs (.zip)</Button>}
-                {isBatchPreview && batchResult?.consolidatedLabelUrls?.zplZip && <Button onClick={() => handleDownload(batchResult.consolidatedLabelUrls.zplZip, 'zip')} variant="outline" size="xs"><Download className="mr-1 h-3 w-3" /> ZPLs (.zip)</Button>}
-                {isBatchPreview && batchResult?.consolidatedLabelUrls?.eplZip && <Button onClick={() => handleDownload(batchResult.consolidatedLabelUrls.eplZip, 'zip')} variant="outline" size="xs"><Download className="mr-1 h-3 w-3" /> EPLs (.zip)</Button>}
-                {(!labelSource?.pdf && !labelSource?.png && !labelSource?.zpl && !labelSource?.epl) && <span className="text-xs text-gray-500">No specific formats available for preview.</span>}
+                {resolvedLabelSource?.pdf && <Button onClick={() => selectLabelFormat('pdf', getFormatUrl('pdf', resolvedLabelSource))} variant={currentLabelType === 'pdf' ? "default" : "outline"} size="sm">PDF</Button>}
+                {/* Conditional rendering for PNG based on type of resolvedLabelSource */}
+                {!isBatchPreview && (resolvedLabelSource as BulkShipment['label_urls'])?.png && <Button onClick={() => selectLabelFormat('png', getFormatUrl('png', resolvedLabelSource))} variant={currentLabelType === 'png' ? "default" : "outline"} size="sm">PNG</Button>}
+                {resolvedLabelSource?.zpl && <Button onClick={() => selectLabelFormat('zpl', getFormatUrl('zpl', resolvedLabelSource))} variant={currentLabelType === 'zpl' ? "default" : "outline"} size="sm">ZPL</Button>}
+                {resolvedLabelSource?.epl && <Button onClick={() => selectLabelFormat('epl', getFormatUrl('epl', resolvedLabelSource))} variant={currentLabelType === 'epl' ? "default" : "outline"} size="sm">EPL</Button>}
+                
+                {isBatchPreview && (resolvedLabelSource as ConsolidatedLabelUrls)?.pdfZip && <Button onClick={() => handleDownload((resolvedLabelSource as ConsolidatedLabelUrls).pdfZip, 'zip')} variant="outline" size="sm"><Download className="mr-1 h-3 w-3" /> PDFs (.zip)</Button>}
+                {isBatchPreview && (resolvedLabelSource as ConsolidatedLabelUrls)?.zplZip && <Button onClick={() => handleDownload((resolvedLabelSource as ConsolidatedLabelUrls).zplZip, 'zip')} variant="outline" size="sm"><Download className="mr-1 h-3 w-3" /> ZPLs (.zip)</Button>}
+                {isBatchPreview && (resolvedLabelSource as ConsolidatedLabelUrls)?.eplZip && <Button onClick={() => handleDownload((resolvedLabelSource as ConsolidatedLabelUrls).eplZip, 'zip')} variant="outline" size="sm"><Download className="mr-1 h-3 w-3" /> EPLs (.zip)</Button>}
+
+                {(!resolvedLabelSource?.pdf && !((!isBatchPreview && (resolvedLabelSource as BulkShipment['label_urls'])?.png)) && !resolvedLabelSource?.zpl && !resolvedLabelSource?.epl) && <span className="text-xs text-gray-500">No specific formats available for preview.</span>}
             </div>
              {scanFormUrl && (
               <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-md">
-                <div className="flex items-center justify-between"> <div className="flex items-center"> <CheckCircle className="h-4 w-4 text-green-600 mr-2" /> <span className="text-xs font-medium text-green-700">Scan Form / Manifest Ready</span> </div> <Button onClick={() => window.open(scanFormUrl, '_blank')} variant="outline" size="xs"> <LinkIcon className="mr-1 h-3 w-3" /> View Scan Form </Button> </div>
+                <div className="flex items-center justify-between"> <div className="flex items-center"> <CheckCircle className="h-4 w-4 text-green-600 mr-2" /> <span className="text-xs font-medium text-green-700">Scan Form / Manifest Ready</span> </div> <Button onClick={() => window.open(scanFormUrl, '_blank')} variant="outline" size="sm"> <LinkIcon className="mr-1 h-3 w-3" /> View Scan Form </Button> </div>
               </div>
             )}
              {!scanFormUrl && isBatchPreview && (
@@ -219,7 +237,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           </div>
 
           <div className="flex-grow overflow-auto p-4 bg-gray-50">
-            {/* For PDF, the iframe itself is the print target. For PNG, printRef is on the img parent. */}
             {currentLabelType === 'pdf' ? renderLabelContent() : <div ref={printRef}>{renderLabelContent()}</div>}
           </div>
 
@@ -231,7 +248,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               <Button onClick={() => handleDownload()} variant="outline" size="sm" disabled={!currentLabelUrl || isLoading}>
                 <Download className="mr-1 h-4 w-4" />Download Current
               </Button>
-              {(currentLabelType === 'pdf' || currentLabelType === 'png') && ( // Only allow printing for visual formats
+              {(currentLabelType === 'pdf' || currentLabelType === 'png') && (
                 <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700" size="sm" disabled={isLoading || !currentLabelUrl || iframeError}>
                   <Printer className="mr-1 h-4 w-4" />Print
                 </Button>
@@ -244,4 +261,3 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 };
 
 export default PrintPreview;
-

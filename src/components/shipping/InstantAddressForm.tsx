@@ -1,330 +1,111 @@
-
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import React, { useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { SavedAddress } from '@/types/shipping';
+import { addressService } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
-import { addressService, SavedAddress } from '@/services/AddressService';
-import { useAuth } from '@/contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
-import AddressAutoComplete from './AddressAutoComplete';
-import { extractAddressComponents } from '@/utils/addressUtils';
+import AddressFormFields from './AddressFormFields';
 
-interface InstantFormValues {
-  firstName: string;
-  lastName: string;
-  company: string;
-  phone: string;
-  email: string;
-  addressType: string;
-  street1: string;
-  city: string;
-  state: string;
-  zip: string;
-  isDefault: boolean;
-}
+const addressSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  company: z.string().optional(),
+  street1: z.string().min(1, "Street address is required"),
+  street2: z.string().optional(),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State/Province is required"),
+  zip: z.string().min(1, "Postal code is required"),
+  country: z.string().min(1, "Country is required"),
+  phone: z.string().optional(),
+  email: z.string().email("Invalid email address").optional(),
+  is_residential: z.boolean().optional(),
+});
+
+type AddressFormData = z.infer<typeof addressSchema>;
 
 interface InstantAddressFormProps {
-  onAddressSaved: (address: SavedAddress) => void;
-  isPickupAddress?: boolean;
+  addressType: 'from' | 'to';
+  onAddressSubmit: (address: SavedAddress) => void;
+  onCancel?: () => void;
+  initialData?: Partial<SavedAddress>;
+  isLoading?: boolean;
 }
 
 const InstantAddressForm: React.FC<InstantAddressFormProps> = ({
-  onAddressSaved,
-  isPickupAddress = true
+  addressType,
+  onAddressSubmit,
+  onCancel,
+  initialData,
+  isLoading = false,
 }) => {
-  const { user } = useAuth();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [saveAddress, setSaveAddress] = useState(true);
 
-  const form = useForm<InstantFormValues>({
+  const { control, handleSubmit, reset, formState: { errors } } = useForm<AddressFormData>({
+    resolver: zodResolver(addressSchema),
     defaultValues: {
-      firstName: '',
-      lastName: '',
-      company: '',
-      phone: '',
-      email: '',
-      addressType: 'home',
-      street1: '',
-      city: '',
-      state: '',
-      zip: '',
-      isDefault: false,
-    }
+      country: 'US',
+      is_residential: true,
+      ...initialData,
+    },
   });
 
-  const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
-    try {
-      console.log("Google Place selected in instant form:", place);
-      
-      if (!place) {
-        console.warn("No place data received");
-        return;
-      }
-      
-      const { street1, city, state, zip } = extractAddressComponents(place);
-      
-      console.log("Extracted components for instant form:", { street1, city, state, zip });
-      
-      // Set all the form values at once with proper validation triggers
-      if (street1) {
-        form.setValue('street1', street1, { shouldValidate: true, shouldDirty: true });
-      }
-      if (city) {
-        form.setValue('city', city, { shouldValidate: true, shouldDirty: true });
-      }
-      if (state) {
-        form.setValue('state', state, { shouldValidate: true, shouldDirty: true });
-      }
-      if (zip) {
-        form.setValue('zip', zip, { shouldValidate: true, shouldDirty: true });
-      }
-      
-      toast.success('Address details populated from Google Maps');
-    } catch (error) {
-      console.error("Error processing Google place selection:", error);
-      toast.error('Failed to process selected address');
-    }
-  };
-
-  const handleAddressLineChange = (value: string) => {
-    form.setValue('street1', value, { shouldValidate: true, shouldDirty: true });
-  };
-
-  const onSubmit = async (values: InstantFormValues) => {
-    if (!user) {
-      toast.error('You need to be logged in to save addresses');
-      return;
-    }
-
-    setIsSubmitting(true);
+  const processSubmit = async (data: AddressFormData) => {
+    const addressPayload: Omit<SavedAddress, 'id' | 'created_at' | 'updated_at' | 'user_id'> = {
+      ...data,
+      is_default_from: addressType === 'from' && saveAddress ? true : undefined,
+      is_default_to: addressType === 'to' && saveAddress ? true : undefined,
+    };
 
     try {
-      const addressData = {
-        name: `${values.firstName} ${values.lastName} - ${values.addressType}`,
-        street1: values.street1,
-        street2: '',
-        city: values.city,
-        state: values.state,
-        zip: values.zip,
-        country: 'US',
-        company: values.company,
-        phone: values.phone,
-        is_default_from: isPickupAddress && values.isDefault,
-        is_default_to: !isPickupAddress && values.isDefault,
-      };
-
-      let savedAddress = null;
-      
-      try {
-        savedAddress = await addressService.createAddress(addressData, false);
-      } catch (standardError) {
-        console.log('Standard create failed, trying with encryption', standardError);
-        savedAddress = await addressService.createAddress(addressData, true);
-      }
-
-      if (savedAddress) {
-        toast.success('Address saved successfully!');
-        form.reset();
-        onAddressSaved(savedAddress);
+      if (saveAddress) {
+        const savedAddress = await addressService.addAddress(addressPayload);
+        toast.success(`${addressType === 'from' ? 'Sender' : 'Recipient'} address saved and selected.`);
+        onAddressSubmit(savedAddress);
       } else {
-        throw new Error('Failed to save address');
+        const temporaryAddress: SavedAddress = {
+          id: `temp-${Date.now()}`,
+          ...addressPayload,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        toast.info(`${addressType === 'from' ? 'Sender' : 'Recipient'} address used for this shipment only.`);
+        onAddressSubmit(temporaryAddress);
       }
-    } catch (error) {
-      console.error('Error saving address:', error);
-      toast.error('Failed to save address. Please try again.');
-    } finally {
-      setIsSubmitting(false);
+      reset();
+    } catch (error: any) {
+      toast.error(`Error saving address: ${error.message}`);
+      console.error("Address submission error:", error);
     }
   };
-
+  
   return (
-    <Card className="p-6 bg-blue-50 border-blue-200">
-      <h3 className="text-lg font-semibold mb-4 text-blue-700">
-        Quick Add {isPickupAddress ? 'Pickup' : 'Delivery'} Address
-      </h3>
-      
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="addressType"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Address Type</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select address type" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="home">Home</SelectItem>
-                    <SelectItem value="office">Office</SelectItem>
-                    <SelectItem value="warehouse">Warehouse</SelectItem>
-                    <SelectItem value="delivery-center">Delivery Center</SelectItem>
-                    <SelectItem value="retail-store">Retail Store</SelectItem>
-                    <SelectItem value="relative-house">Relative's House</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
+    <form onSubmit={handleSubmit(processSubmit)} className="space-y-4 p-1">
+        <AddressFormFields control={control} errors={errors} />
+        <div className="flex items-center space-x-2">
+            <Checkbox
+            id="saveAddress"
+            checked={saveAddress}
+            onCheckedChange={(checked) => setSaveAddress(Boolean(checked))}
+            />
+            <Label htmlFor="saveAddress" className="text-sm font-normal">
+            Save this address to your address book
+            </Label>
+        </div>
+        <div className="flex justify-end space-x-2 pt-2">
+            {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
+                Cancel
+            </Button>
             )}
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="firstName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>First Name</FormLabel>
-                  <FormControl>
-                    <Input required placeholder="First name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="lastName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Last Name</FormLabel>
-                  <FormControl>
-                    <Input required placeholder="Last name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="company"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Company (Optional)</FormLabel>
-                <FormControl>
-                  <Input placeholder="Company name" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
-                  <FormControl>
-                    <Input required type="tel" placeholder="Phone number" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email Address</FormLabel>
-                  <FormControl>
-                    <Input required type="email" placeholder="Email address" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <FormField
-            control={form.control}
-            name="street1"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Street Address with Google Autocomplete</FormLabel>
-                <FormControl>
-                  <AddressAutoComplete 
-                    placeholder="Start typing your address..."
-                    defaultValue={field.value}
-                    onAddressSelected={handleGooglePlaceSelected}
-                    onChange={handleAddressLineChange}
-                    id="instant-address-autocomplete"
-                    required
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="grid grid-cols-3 gap-4">
-            <FormField
-              control={form.control}
-              name="city"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>City</FormLabel>
-                  <FormControl>
-                    <Input required placeholder="City" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="state"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>State</FormLabel>
-                  <FormControl>
-                    <Input required placeholder="State" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="zip"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>ZIP Code</FormLabel>
-                  <FormControl>
-                    <Input required placeholder="ZIP Code" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : `Save ${isPickupAddress ? 'Pickup' : 'Delivery'} Address`}
-          </Button>
-        </form>
-      </Form>
-    </Card>
+            <Button type="submit" disabled={isLoading}>
+            {isLoading ? 'Saving...' : `Use This ${addressType === 'from' ? 'Sender' : 'Recipient'} Address`}
+            </Button>
+        </div>
+    </form>
   );
 };
 

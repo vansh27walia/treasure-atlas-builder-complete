@@ -1,64 +1,53 @@
 
 import React from 'react';
-import { AlertCircle, RefreshCw, Upload } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { AlertCircle, RefreshCw, UploadCloud } from 'lucide-react';
 
 interface UploadErrorProps {
-  onRetry?: () => void;
-  onSelectNewFile?: () => void;
-  errorMessage?: string;
+  errorMessage: string;
+  onRetry: () => void;
+  onSelectNewFile: () => void;
+  failedShipments?: Array<{ shipmentId?: string; error: string; row?: number; details?: any }>; // Added prop
 }
 
-const UploadError: React.FC<UploadErrorProps> = ({ 
-  onRetry, 
-  onSelectNewFile,
-  errorMessage = "There was an error processing your bulk upload."
-}) => {
+const UploadError: React.FC<UploadErrorProps> = ({ errorMessage, onRetry, onSelectNewFile, failedShipments }) => {
   return (
-    <Card className="p-6 border-2 border-red-200 bg-red-50 mt-6">
-      <div className="flex items-center mb-3">
-        <AlertCircle className="h-6 w-6 text-red-600 mr-2" />
-        <h4 className="font-semibold text-lg text-red-800">Upload Failed</h4>
-      </div>
-      
-      <p className="text-red-700 mb-4">{errorMessage}</p>
-      
-      <div className="mb-4">
-        <h5 className="font-medium text-red-800 mb-2">Common Issues:</h5>
-        <ul className="list-disc list-inside text-red-700 text-sm space-y-1">
-          <li>Missing required columns: name, street1, city, state, zip, country</li>
-          <li>Invalid address formats or special characters</li>
-          <li>Non-numeric values in package dimensions or weight fields</li>
-          <li>Empty rows or incomplete data</li>
-          <li>File encoding issues (save as UTF-8 CSV)</li>
-        </ul>
-      </div>
-      
-      <div className="flex gap-3">
-        {onRetry && (
-          <Button 
-            onClick={onRetry}
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Retry Upload
-          </Button>
+    <Card className="w-full max-w-lg mx-auto mt-8 border-red-500 bg-red-50">
+      <CardHeader className="text-center">
+        <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-3" />
+        <CardTitle className="text-red-700">Upload Failed</CardTitle>
+        <CardDescription className="text-red-600">
+          {errorMessage || "An unexpected error occurred during the upload process."}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {failedShipments && failedShipments.length > 0 && (
+          <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded-md max-h-60 overflow-y-auto">
+            <h4 className="font-semibold text-sm text-red-700 mb-2">Specific Errors:</h4>
+            <ul className="list-disc list-inside text-xs text-red-600 space-y-1">
+              {failedShipments.map((item, index) => (
+                <li key={item.shipmentId || index}>
+                  {item.row && `Row ${item.row}: `}
+                  {item.error}
+                  {item.details && typeof item.details === 'string' && ` (${item.details})`}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
-        
-        {onSelectNewFile && (
-          <Button 
-            onClick={onSelectNewFile}
-            className="flex items-center gap-2 bg-red-600 hover:bg-red-700"
-          >
-            <Upload className="h-4 w-4" />
-            Select New File
-          </Button>
-        )}
-      </div>
+      </CardContent>
+      <CardFooter className="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-3">
+        <Button onClick={onRetry} variant="outline" className="w-full sm:w-auto">
+          <RefreshCw className="mr-2 h-4 w-4" /> Try Again With Same File
+        </Button>
+        <Button onClick={onSelectNewFile} className="w-full sm:w-auto">
+          <UploadCloud className="mr-2 h-4 w-4" /> Upload a Different File
+        </Button>
+      </CardFooter>
     </Card>
   );
 };
 
 export default UploadError;
+
