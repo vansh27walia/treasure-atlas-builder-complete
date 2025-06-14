@@ -1,13 +1,14 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Package, Download, PrinterIcon, XCircle } from 'lucide-react';
+import { Upload, FileText, Package, Download, PrinterIcon, XCircleIcon } from 'lucide-react';
 import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
-import LabelResultsTable from './LabelResultsTable';
+import LabelResultsTable, { LabelResultsTableProps } from './LabelResultsTable';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import { useBulkUpload } from './useBulkUpload';
-import { BulkUploadResult } from '@/types/shipping';
+import { BulkUploadResult, LabelFormat, BulkShipment } from '@/types/shipping';
+import { toast } from '@/components/ui/sonner';
 
 const BulkUploadView: React.FC = () => {
   const {
@@ -47,6 +48,9 @@ const BulkUploadView: React.FC = () => {
     setPickupAddress
   } = useBulkUpload();
 
+  const [shipmentToPreview, setShipmentToPreview] = React.useState<BulkShipment | null>(null);
+  const [singlePreviewModalOpen, setSinglePreviewModalOpen] = React.useState(false);
+
   const handleUploadSuccess = (uploadResults: BulkUploadResult) => {
     console.log('Upload successful in BulkUploadView:', uploadResults);
   };
@@ -62,6 +66,41 @@ const BulkUploadView: React.FC = () => {
     } else {
       setPickupAddress(address);
     }
+  };
+
+  const onDownloadIndividualLabel = async (format: LabelFormat, shipmentId?: string) => {
+    if (!shipmentId) {
+        toast.error("Shipment ID is missing for download.");
+        return;
+    }
+    // Find the shipment to get its specific label URL for the format
+    const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+    if (!shipment) {
+        toast.error("Shipment not found for download.");
+        return;
+    }
+    
+    let urlToDownload: string | undefined;
+    if (format === 'pdf') urlToDownload = shipment.label_urls?.pdf;
+    else if (format === 'png') urlToDownload = shipment.label_urls?.png || shipment.label_url; // fallback to primary
+    else if (format === 'zpl') urlToDownload = shipment.label_urls?.zpl;
+    else if (format === 'epl') urlToDownload = shipment.label_urls?.epl;
+    // 'zip' format is typically for batch, handleDownloadSingleLabel is for specific URLs
+
+    if (urlToDownload) {
+        await handleDownloadSingleLabel(urlToDownload, format);
+    } else {
+        toast.error(`${format.toUpperCase()} label not available for this shipment.`);
+    }
+  };
+
+  const handleDownloadFromTable: LabelResultsTableProps['onDownloadLabel'] = async (shipmentId, url, format) => {
+    await handleDownloadSingleLabel(url, format as LabelFormat);
+  };
+
+  const handlePreviewSingleShipment = (shipment: BulkShipment) => {
+    setShipmentToPreview(shipment);
+    setSinglePreviewModalOpen(true);
   };
 
   return (
@@ -154,7 +193,8 @@ const BulkUploadView: React.FC = () => {
               <h3 className="text-lg font-semibold mb-3">Processed Shipments & Labels</h3>
               <LabelResultsTable
                 shipments={results.processedShipments || []}
-                onDownloadLabel={(_shipmentId, url, format) => handleDownloadSingleLabel(url, format)}
+                onDownloadLabel={handleDownloadFromTable}
+                onPreviewLabel={handlePreviewSingleShipment}
               />
             </Card>
           )}
@@ -164,14 +204,14 @@ const BulkUploadView: React.FC = () => {
       {uploadStatus === 'error' && !isUploading && (
         <Card className="p-6 bg-red-50 border-red-200">
           <div className="text-center text-red-700">
-            <XCircle className="h-12 w-12 mx-auto mb-4" />
+            <XCircleIcon className="h-12 w-12 mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Upload Failed</h3>
             <p>There was an error processing your file. Please check the file and try again, or download the template for guidance.</p>
           </div>
         </Card>
       )}
 
-      {results?.batchResult && (
+      {results?.batchResult && pickupAddress && (
         <PrintPreview
           isOpenProp={batchPrintPreviewModalOpen}
           onOpenChangeProp={setBatchPrintPreviewModalOpen}
@@ -179,6 +219,17 @@ const BulkUploadView: React.FC = () => {
           processedShipments={results.processedShipments || []}
           isBatchPreview={true}
           onDownloadFormat={handleDownloadLabelsWithFormat}
+          pickupAddress={pickupAddress}
+        />
+      )}
+
+      {shipmentToPreview && pickupAddress && (
+        <PrintPreview
+          isOpenProp={singlePreviewModalOpen}
+          onOpenChangeProp={setSinglePreviewModalOpen}
+          singleShipmentPreview={shipmentToPreview}
+          isBatchPreview={false}
+          onDownloadFormat={onDownloadIndividualLabel}
           pickupAddress={pickupAddress}
         />
       )}

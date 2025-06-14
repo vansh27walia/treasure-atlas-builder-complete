@@ -223,6 +223,8 @@ export interface BulkUploadResult {
   failedShipments?: Array<{ row?: number; shipmentDetails?: any; error?: string; details?: string }>;
   batchResult?: BatchResult | null; 
   uploadStatus?: string; // Broader status: 'idle', 'uploading', 'editing', 'rates_fetching', 'rate_selection', 'paying', 'creating-labels', 'success', 'error'
+  bulk_label_png_url?: string; // Added for bulk PNG URL
+  bulk_label_pdf_url?: string; // Added for bulk PDF URL
 }
 
 export const CARRIER_OPTIONS = [
