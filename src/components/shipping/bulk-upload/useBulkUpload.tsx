@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BulkUploadResult, BulkShipment } from '@/types/shipping';
+import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
@@ -20,6 +20,7 @@ export const useBulkUpload = () => {
     currentStep: '',
     estimatedTimeRemaining: 0
   });
+  const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
   
   const {
     file,
@@ -34,12 +35,10 @@ export const useBulkUpload = () => {
     handleDownloadTemplate
   } = useShipmentUpload();
 
-  // Update results wrapper function
   const updateResults = (newResults: BulkUploadResult) => {
     console.log('Updating results in useBulkUpload:', newResults);
     setResults(newResults);
     
-    // If a new upload status is provided, update it
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
       setUploadStatus(newResults.uploadStatus);
     }
@@ -78,7 +77,6 @@ export const useBulkUpload = () => {
     setSelectedCarrierFilter
   } = useShipmentFiltering(results);
 
-  // Load the default pickup address when the component initializes
   useEffect(() => {
     const loadDefaultPickupAddress = async () => {
       try {
@@ -88,7 +86,6 @@ export const useBulkUpload = () => {
         if (defaultAddress) {
           setPickupAddress(defaultAddress);
         } else {
-          // If no default, get the first available address
           const addresses = await addressService.getSavedAddresses();
           if (addresses.length > 0) {
             const firstAddress = addresses[0];
@@ -105,7 +102,6 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // Enhanced handleCreateLabels with progress tracking - this now goes directly to label creation
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -138,7 +134,6 @@ export const useBulkUpload = () => {
     
     console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with rates selected`);
     
-    // Initialize progress tracking
     setLabelGenerationProgress({
       isGenerating: true,
       totalShipments: shipmentsToProcess.length,
@@ -146,13 +141,12 @@ export const useBulkUpload = () => {
       successfulShipments: 0,
       failedShipments: 0,
       currentStep: 'Starting label generation...',
-      estimatedTimeRemaining: shipmentsToProcess.length * 8 // Estimate 8 seconds per shipment
+      estimatedTimeRemaining: shipmentsToProcess.length * 8 
     });
     
     try {
       setUploadStatus('creating-labels');
       
-      // Update progress periodically
       const progressInterval = setInterval(() => {
         setLabelGenerationProgress(prev => ({
           ...prev,
@@ -162,13 +156,13 @@ export const useBulkUpload = () => {
 
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
-          shipments: shipmentsToProcess,
+          shipments: shipmentsToProcess, // these should be EasyPost shipment objects or IDs
           pickupAddress,
-          labelOptions: {
-            format: 'PDF',
-            size: '4x6',
-            generateBatch: true,
-            generateManifest: true
+          labelOptions: { // These options might be specific to how 'create-bulk-labels' is implemented
+            // format: 'PDF', // Example, may not be used if backend generates all
+            // size: '4x6',
+            generateBatch: true, // Instruct backend to create an EasyPost Batch
+            generateManifest: true // Instruct backend to attempt Scan Form generation
           }
         }
       });
@@ -176,119 +170,91 @@ export const useBulkUpload = () => {
       clearInterval(progressInterval);
 
       if (error) {
-        console.error('Label creation error:', error);
-        throw new Error(error.message);
+        console.error('Label creation error from Supabase function:', error);
+        throw new Error(error.message || 'Unknown error from label generation function.');
       }
 
-      console.log('Raw label creation response:', data);
+      console.log('Raw label creation response from create-bulk-labels:', data);
 
       if (data && data.processedLabels && Array.isArray(data.processedLabels)) {
         const expectedLabels = shipmentsToProcess.length;
         const actualLabels = data.processedLabels.length;
         
-        console.log(`Label creation result: ${actualLabels}/${expectedLabels} labels created successfully`);
-        
-        // Update progress with final results
         setLabelGenerationProgress({
           isGenerating: false,
           totalShipments: expectedLabels,
-          processedShipments: expectedLabels,
+          processedShipments: expectedLabels, // Assuming all attempts are "processed"
           successfulShipments: actualLabels,
-          failedShipments: expectedLabels - actualLabels,
+          failedShipments: data.failedLabels?.length || (expectedLabels - actualLabels),
           currentStep: 'Label generation complete!',
           estimatedTimeRemaining: 0
         });
 
         const transformedSuccessfulShipments = data.processedLabels.map((labelData: any) => {
-          console.log('Processing successful label data:', labelData);
-          
           const originalShipment = shipmentsToProcess.find(s => 
-            s.easypost_id === labelData.id || s.id === labelData.id
+            s.easypost_id === labelData.id || s.id === labelData.original_shipment_id || s.id === labelData.id
           );
-          
           return {
             id: labelData.id || originalShipment?.id || `ship_${Date.now()}`,
-            shipment_id: labelData.id,
+            shipment_id: labelData.id, // EasyPost shipment ID
             easypost_id: labelData.id,
+            original_shipment_id: labelData.original_shipment_id || originalShipment?.id,
             row: originalShipment?.row || 0,
             recipient: labelData.customer_name || originalShipment?.recipient || 'Unknown Recipient',
-            recipient_name: labelData.customer_name,
             customer_name: labelData.customer_name || originalShipment?.customer_name,
             customer_address: labelData.customer_address || originalShipment?.customer_address,
-            customer_phone: labelData.customer_phone || originalShipment?.customer_phone || '',
-            customer_email: labelData.customer_email || originalShipment?.customer_email || '',
-            customer_company: labelData.customer_company || originalShipment?.customer_company || '',
             carrier: labelData.carrier || originalShipment?.carrier,
             service: labelData.service || originalShipment?.service,
             rate: parseFloat(labelData.rate) || originalShipment?.rate || 0,
             tracking_code: labelData.tracking_code,
             tracking_number: labelData.tracking_code,
-            trackingCode: labelData.tracking_code,
-            label_url: labelData.label_url,
-            label_urls: labelData.label_urls || {
-              png: labelData.label_url,
-              pdf: labelData.label_url,
-              zpl: labelData.label_url
-            },
+            label_url: labelData.label_urls?.png || labelData.label_url, // Prioritize PNG from label_urls
+            label_urls: labelData.label_urls || { png: labelData.label_url }, // Ensure label_urls object exists
             status: 'completed' as const,
-            details: originalShipment?.details || {
-              to_name: labelData.customer_name || 'Unknown',
-              to_company: labelData.customer_company || '',
-              to_street1: '',
-              to_street2: '',
-              to_city: '',
-              to_state: '',
-              to_zip: '',
-              to_country: 'US',
-              to_phone: labelData.customer_phone || '',
-              to_email: labelData.customer_email || '',
-              weight: originalShipment?.details?.weight || 1,
-              length: originalShipment?.details?.length || 1,
-              width: originalShipment?.details?.width || 1,
-              height: originalShipment?.details?.height || 1
-            },
+            details: originalShipment?.details || {},
             availableRates: originalShipment?.availableRates || [],
-            selectedRateId: originalShipment?.selectedRateId
+            selectedRateId: originalShipment?.selectedRateId,
           };
         });
-
-        const transformedFailedShipments = [];
-        if (data.failedLabels && Array.isArray(data.failedLabels)) {
-          console.log(`Processing ${data.failedLabels.length} failed labels from backend`);
-          
-          data.failedLabels.forEach((failed: any) => {
-            const originalShipment = shipmentsToProcess.find(s => s.id === failed.shipmentId);
-            if (originalShipment) {
-              transformedFailedShipments.push({
-                ...originalShipment,
+        
+        const transformedFailedShipments = (data.failedLabels || []).map((failed: any) => {
+            const originalFailedShipment = shipmentsToProcess.find(s => s.id === failed.shipmentId || s.easypost_id === failed.shipmentId);
+            return {
+                ...(originalFailedShipment || { id: failed.shipmentId, details: {}, recipient: 'Unknown' }),
                 status: 'failed' as const,
-                error: failed.error || 'Label creation failed'
-              });
-            }
-          });
-        }
+                error: failed.error || 'Label creation failed',
+            };
+        });
+
 
         const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
-
-        console.log(`Final transformation: ${transformedSuccessfulShipments.length} successful + ${transformedFailedShipments.length} failed = ${allTransformedShipments.length} total shipments`);
-
-        const failedShipmentsForDisplay = data.failedLabels ? data.failedLabels.map((failed: any, index: number) => ({
-          row: index + 1,
-          error: failed.error || 'Unknown error',
-          details: failed.error || 'Label creation failed',
-          shipmentId: failed.shipmentId
-        })) : [];
+        
+        // Map backend batchResult (e.g., data.batchDetails) to the BatchResult type used by PrintPreview
+        let frontendBatchResult: BatchResult | null = null;
+        if (data.batchResult && data.batchResult.batchId) {
+            frontendBatchResult = {
+                batchId: data.batchResult.batchId,
+                consolidatedLabelUrls: {
+                    pdf: data.batchResult.batchLabelUrls?.pdfUrl,
+                    zpl: data.batchResult.batchLabelUrls?.zplUrl,
+                    epl: data.batchResult.batchLabelUrls?.eplUrl,
+                    // If backend provides zips too, map them here:
+                    // pdfZip: data.batchResult.batchLabelUrls?.pdfZipUrl, 
+                    // zplZip: data.batchResult.batchLabelUrls?.zplZipUrl,
+                    // eplZip: data.batchResult.batchLabelUrls?.eplZipUrl,
+                },
+                scanFormUrl: data.batchResult.scanFormUrl || null,
+            };
+        }
 
         const updatedResults: BulkUploadResult = {
           total: data.total || shipmentsToProcess.length,
           successful: data.successful || transformedSuccessfulShipments.length,
           failed: data.failed || transformedFailedShipments.length,
-          totalCost: transformedSuccessfulShipments.reduce((sum, s) => sum + s.rate, 0),
+          totalCost: transformedSuccessfulShipments.reduce((sum, s) => sum + (s.rate || 0), 0),
           processedShipments: allTransformedShipments,
-          failedShipments: failedShipmentsForDisplay,
-          bulk_label_png_url: data.bulk_label_png_url || null,
-          bulk_label_pdf_url: data.bulk_label_pdf_url || null,
-          batchResult: data.batchResult || null,
+          failedShipments: (data.failedLabels || []).map((f:any) => ({ shipmentId: f.shipmentId, error: f.error, row: shipmentsToProcess.find(s => s.id === f.shipmentId)?.row })),
+          batchResult: frontendBatchResult,
           uploadStatus: 'success' as const,
           pickupAddress
         };
@@ -296,22 +262,25 @@ export const useBulkUpload = () => {
         console.log(`✅ Label creation complete: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
         updateResults(updatedResults);
         
-        if (updatedResults.successful === expectedLabels) {
-          toast.success(`🎉 ALL ${transformedSuccessfulShipments.length} shipping labels created successfully in multiple formats!`);
-        } else {
+        if (updatedResults.successful === expectedLabels && expectedLabels > 0) {
+          toast.success(`🎉 ALL ${transformedSuccessfulShipments.length} shipping labels generated!`);
+        } else if (transformedSuccessfulShipments.length > 0) {
           toast.warning(`⚠️ ${transformedSuccessfulShipments.length} out of ${expectedLabels} labels created. ${transformedFailedShipments.length} failed.`);
+        } else if (expectedLabels > 0) {
+           toast.error(`❌ All ${expectedLabels} label creations failed. Check details.`);
         }
 
-        if (data.batchResult) {
-          toast.success('✅ Batch labels and manifest generated successfully!');
-        }
 
+        if (frontendBatchResult) {
+          toast.success('✅ Batch outputs (PDF, ZPL, EPL, Manifest) generated successfully!');
+        }
         if (transformedFailedShipments.length > 0) {
-          toast.error(`${transformedFailedShipments.length} labels failed to create. Check details below.`);
+          toast.error(`${transformedFailedShipments.length} labels failed to create. Check details in the table if shown.`);
         }
+
       } else {
-        console.error('Invalid response format or no labels:', data);
-        throw new Error('No labels were created or invalid response format');
+        console.error('Invalid response format or no labels created by backend:', data);
+        throw new Error(data?.error || 'No labels were created or invalid response format from backend.');
       }
 
     } catch (error) {
@@ -326,7 +295,6 @@ export const useBulkUpload = () => {
     }
   };
 
-  // Modified handleUpload to include pickup address
   const handleFileUpload = async (file: File) => {
     console.log('handleFileUpload called with:', { file: file.name, pickupAddress });
     
@@ -345,33 +313,30 @@ export const useBulkUpload = () => {
     return originalHandleUpload(file, pickupAddress);
   };
 
+  const handleOpenBatchPrintPreview = () => {
+    if (results?.batchResult) {
+      setBatchPrintPreviewModalOpen(true);
+    } else {
+      toast.error("No batch results available to preview. Please generate labels first.");
+    }
+  };
+
   return {
-    // File upload states and handlers
     file,
     isUploading,
     uploadStatus,
     results,
     progress,
-    
-    // Rate fetching states and handlers
     isFetchingRates,
-    
-    // Payment and label states and handlers
     isPaying,
     isCreatingLabels,
-    
-    // Filtering states and handlers
     searchTerm,
     sortField,
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
-
-    // Pickup address
     pickupAddress,
     setPickupAddress,
-    
-    // Handlers from all hooks
     handleFileChange,
     handleUpload: handleFileUpload,
     handleSelectRate,
@@ -379,8 +344,10 @@ export const useBulkUpload = () => {
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
-    handleCreateLabels, // This now goes directly to label creation without modal
-    handleDownloadAllLabels,
+    handleCreateLabels,
+    handleOpenBatchPrintPreview,
+    batchPrintPreviewModalOpen,
+    setBatchPrintPreviewModalOpen,
     handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
     handleEmailLabels,
