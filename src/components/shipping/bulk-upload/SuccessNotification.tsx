@@ -52,7 +52,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     return hasLabel;
   });
 
-  const failedShipments = allShipments.filter(shipment => shipment.status === 'failed');
+  const failedShipments = allShipments.filter(shipment => shipment.status === 'failed' || shipment.status === 'error');
   
   console.log('SuccessNotification Debug:', {
     totalShipments: allShipments.length,
@@ -252,11 +252,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           shipments={allShipments}
           onDownloadLabel={(shipmentId: string, url: string, format?: string) => {
             if (url && url.trim() !== '') {
-              const timestamp = Date.now();
-              const filename = `shipping_label_${shipmentId}_${timestamp}.${format || 'png'}`;
-              // downloadFile(url, filename); // Assuming downloadFile is defined or passed in
-              // For now, let's use onDownloadSingleLabel which should handle the download
-               onDownloadSingleLabel(shipmentId, url, format);
+              onDownloadSingleLabel(shipmentId, url, format);
             } else {
               toast.error('Invalid label URL - cannot download');
             }
