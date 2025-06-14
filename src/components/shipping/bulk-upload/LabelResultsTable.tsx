@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -205,7 +206,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                     
                     {/* PrintPreview for individual label */}
                     <PrintPreview
-                      labelUrl={shipment.label_urls?.png || shipment.label_url || ''}
+                      labelUrl={shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url || ''}
                       trackingCode={shipment.tracking_code || shipment.tracking_number}
                       labelUrls={shipment.label_urls} // Pass all available URLs
                       shipmentDetails={{

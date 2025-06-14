@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -66,7 +67,7 @@ export const useBulkUpload = () => {
     handleCreateLabels: originalHandleCreateLabels,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat, 
-    handleDownloadSingleLabel: originalHandleDownloadSingleLabel,
+    handleDownloadSingleLabel: downloadSingleLabelFile, // Aliased to avoid name conflict
     handleEmailLabels
   } = useShipmentManagement(results, updateResults);
 
@@ -311,7 +312,7 @@ export const useBulkUpload = () => {
     }
   };
   
-  const handleDownloadSingleLabel = (shipment: BulkShipment) => {
+  const handlePreviewSingleLabel = (shipment: BulkShipment) => { // This was handleDownloadSingleLabel, now it's for previews
     if (shipment.label_urls?.pdf) {
       setSingleLabelToPreview(shipment);
     } else {
@@ -348,7 +349,8 @@ export const useBulkUpload = () => {
     setBatchPrintPreviewModalOpen,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat, 
-    handleDownloadSingleLabel,
+    handleDownloadSingleLabel: downloadSingleLabelFile, // Pass through the file downloader
+    handlePreviewSingleLabel, // Pass through the preview modal handler
     handleEmailLabels,
     handleDownloadTemplate,
     setSearchTerm,
