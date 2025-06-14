@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -110,7 +109,7 @@ const BulkUpload: React.FC = () => {
     }
     
     // Navigate to label creation page with the current state
-    navigate('/label-creation', { 
+    navigate('/create-label', { 
       state: { 
         shipments: results.processedShipments,
         pickupAddress,

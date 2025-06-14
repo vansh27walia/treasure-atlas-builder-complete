@@ -52,31 +52,16 @@ const LabelCreationPage: React.FC = () => {
     setCurrentStep('Starting label creation...');
 
     try {
-      // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        setProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return prev + 10;
-        });
-      }, 500);
-
-      setCurrentStep('Creating enhanced labels with multiple formats...');
-
       const { data, error } = await supabase.functions.invoke('create-enhanced-bulk-labels', {
         body: {
           shipments: state.shipments,
           pickupAddress: state.pickupAddress,
           labelOptions: {
-            formats: ['PNG', 'ZPL'],
+            formats: ['PNG', 'ZPL'], // Only request PNG and ZPL
             generateConsolidatedPdf: true
           }
         }
       });
-
-      clearInterval(progressInterval);
 
       if (error) {
         throw new Error(error.message);

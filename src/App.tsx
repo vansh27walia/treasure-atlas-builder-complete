@@ -39,7 +39,8 @@ function App() {
             <OnboardingProvider>
               <Toaster />
               <BrowserRouter>
-                <SidebarNavigation>
+                <div className="min-h-screen bg-background">
+                  <SidebarNavigation />
                   <Routes>
                     <Route path="/" element={<Index />} />
                     <Route path="/auth" element={<AuthPage />} />
@@ -61,7 +62,7 @@ function App() {
                     <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
-                </SidebarNavigation>
+                </div>
               </BrowserRouter>
             </OnboardingProvider>
           </AuthProvider>
