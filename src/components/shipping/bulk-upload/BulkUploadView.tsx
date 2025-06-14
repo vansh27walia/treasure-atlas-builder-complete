@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -60,6 +61,10 @@ const BulkUploadView: React.FC = () => {
 
   const handlePickupAddressSelect = (address: any) => {
     setPickupAddress(address);
+  };
+
+  const onDownloadLabelHandler = (url: string) => {
+    handleDownloadSingleLabel(url);
   };
 
   return (
@@ -162,7 +167,7 @@ const BulkUploadView: React.FC = () => {
           {results.processedShipments && results.processedShipments.length > 0 && (
             <LabelResultsTable
               shipments={results.processedShipments || []}
-              onDownloadLabel={handleDownloadSingleLabel}
+              onDownloadLabel={onDownloadLabelHandler}
             />
           )}
         </div>
