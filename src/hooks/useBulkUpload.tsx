@@ -179,6 +179,7 @@ export const useBulkUpload = () => {
     await handleCreateLabels();
   };
 
+  // Direct label creation without modal - goes straight to label creation
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -377,7 +378,7 @@ export const useBulkUpload = () => {
     handleFileChange,
     handleUpload,
     handleProceedToPayment,
-    handleCreateLabels,
+    handleCreateLabels, // Now goes directly to label creation
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,

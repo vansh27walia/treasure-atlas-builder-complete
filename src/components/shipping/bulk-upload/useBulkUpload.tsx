@@ -56,8 +56,6 @@ export const useBulkUpload = () => {
   const {
     isPaying,
     isCreatingLabels,
-    showLabelOptions,
-    downloadFormat,
     handleRemoveShipment,
     handleEditShipment,
     handleProceedToPayment,
@@ -65,9 +63,7 @@ export const useBulkUpload = () => {
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
-    handleEmailLabels,
-    setShowLabelOptions,
-    setDownloadFormat
+    handleEmailLabels
   } = useShipmentManagement(results, updateResults);
 
   const {
@@ -109,7 +105,7 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // Enhanced handleCreateLabels with progress tracking
+  // Enhanced handleCreateLabels with progress tracking - this now goes directly to label creation
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -363,8 +359,6 @@ export const useBulkUpload = () => {
     // Payment and label states and handlers
     isPaying,
     isCreatingLabels,
-    showLabelOptions,
-    downloadFormat,
     
     // Filtering states and handlers
     searchTerm,
@@ -385,14 +379,12 @@ export const useBulkUpload = () => {
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
-    handleCreateLabels,
+    handleCreateLabels, // This now goes directly to label creation without modal
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,
-    setShowLabelOptions,
-    setDownloadFormat,
     setSearchTerm,
     setSortField,
     setSortDirection,
