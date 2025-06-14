@@ -1,10 +1,11 @@
-import { useState, useCallback, useEffect, useMemo, Dispatch, SetStateAction } from 'react';
-import { useToast } from '@/components/ui/use-toast'; // Assuming this is shadcn/ui toast
-import { supabase } from '@/integrations/supabase/client';
-import { BulkShipment, BulkUploadResult, LabelFormat, ShippingOption as UIShippingRate, AddressDetails, SavedAddress, ShipmentDetails, Rate, BulkShipmentStatus } from '@/types/shipping';
+
+import { useState, useCallback, useMemo } from 'react';
+import { useToast } from '@/components/ui/use-toast';
 import Papa from 'papaparse';
 import { processCsvData } from '@/utils/bulkUploadUtils';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
+import { BulkShipment, BulkUploadResult, LabelFormat, ShippingOption, AddressDetails, SavedAddress, ShipmentDetails, Rate, BulkShipmentStatus } from '@/types/shipping';
+import type { BulkShipmentFilterField } from './BulkShipmentFilters';
 
 export interface LabelGenerationProgressState {
   isGenerating: boolean;
@@ -17,13 +18,9 @@ export interface LabelGenerationProgressState {
   estimatedTimeRemaining?: number;
 }
 
-// Define the sort field type, narrowing it down as per component constraints
-export type BulkSortField = 'recipient' | 'carrier' | 'rate' | 'status' | 'id' | 'service';
-
 export const useBulkUpload = () => {
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
-  // shipments state now holds raw parsed data, results.processedShipments is for UI display and operations
   const [rawParsedShipments, setRawParsedShipments] = useState<BulkShipment[]>([]); 
   const [isUploading, setIsUploading] = useState(false); 
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'processing' | 'editing' | 'completed' | 'error'>('idle');
@@ -35,7 +32,6 @@ export const useBulkUpload = () => {
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
 
   const [isFetchingRates, setIsFetchingRates] = useState(false);
-  const [isCreatingLabels, setIsCreatingLabels] = useState(false); // This specific state might be redundant if labelGenerationProgress.isGenerating is primary
   
   const [labelGenerationProgress, setLabelGenerationProgress] = useState<LabelGenerationProgressState>({
     isGenerating: false,
@@ -48,13 +44,12 @@ export const useBulkUpload = () => {
   });
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<BulkSortField>('recipient'); // Updated type
+  const [sortField, setSortField] = useState<BulkShipmentFilterField>('recipient');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedCarrierFilter, setSelectedCarrierFilter] = useState('');
   const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
 
   const shipmentManagement = useShipmentManagement({});
-
 
   const updateLabelGenerationProgress = useCallback((progressUpdate: Partial<LabelGenerationProgressState>) => {
     setLabelGenerationProgress(prev => ({ ...prev, ...progressUpdate }));
@@ -86,7 +81,7 @@ export const useBulkUpload = () => {
           step: (rowResult, parser) => {
             // Can update progress here
           },
-          complete: (papaResults) => { // Renamed internal variable
+          complete: (papaResults) => {
             setProgress(100);
             if (papaResults.errors.length > 0) {
               console.error("CSV parsing errors:", papaResults.errors);
@@ -105,7 +100,7 @@ export const useBulkUpload = () => {
 
       setResults({
         total: processedShipmentsFromCsv.length,
-        successful: 0, // Initially 0 successful until rates/labels
+        successful: 0,
         failed: 0,
         processedShipments: processedShipmentsFromCsv.map(s => ({
           ...s,
@@ -113,7 +108,7 @@ export const useBulkUpload = () => {
           carrier: '', 
           service: '',
           rate: 0, 
-          status: 'parsed' as BulkShipmentStatus, // Use 'parsed' status
+          status: 'parsed' as BulkShipmentStatus,
           availableRates: [],
           selectedRateId: undefined,
         })),
@@ -133,7 +128,6 @@ export const useBulkUpload = () => {
     }
   };
   
-  // ... keep existing code (handleFetchRatesForAllShipments)
   const handleFetchRatesForAllShipments = useCallback(async () => {
     if (!results?.processedShipments?.length || !pickupAddress) {
       toast({ title: "Missing Data", description: "No shipments or pickup address to fetch rates for.", variant: "destructive" });
@@ -141,29 +135,21 @@ export const useBulkUpload = () => {
     }
     setIsFetchingRates(true);
     setError(null);
-    updateLabelGenerationProgress({ // Use this for general progress/status updates as well if needed
-      isGenerating: true, // Or a specific 'isFetchingRates' field if preferred
+    updateLabelGenerationProgress({
+      isGenerating: true,
       currentStep: `Fetching rates for ${results.processedShipments.length} shipments...`,
-      progress: 0, // Reset or manage appropriately
+      progress: 0,
       totalShipments: results.processedShipments.length,
-      processedShipments:0 // Reset or manage appropriately
+      processedShipments:0
     });
 
     try {
-      // Placeholder for Supabase function call
-      // const { data, error } = await supabase.functions.invoke('get-bulk-shipping-rates', { 
-      //   body: { shipments: results.processedShipments, from_address: pickupAddress } 
-      // });
-      // if (error) throw error;
-
-      // Mocking the API call and rate processing
       await new Promise(resolve => setTimeout(resolve, 1500 + results.processedShipments.length * 50)); 
 
       const updatedProcessedShipments = results.processedShipments.map((ship, index) => {
-        // Simulate fetching rates for each shipment
         const mockRates: Rate[] = [
-          { id: `${ship.id}-rate1`, carrier: 'MockCarrierA', service: 'Standard', rate: parseFloat((Math.random() * 10 + 5).toFixed(2)), shipment_id: ship.id },
-          { id: `${ship.id}-rate2`, carrier: 'MockCarrierB', service: 'Express', rate: parseFloat((Math.random() * 20 + 10).toFixed(2)), shipment_id: ship.id },
+          { id: `${ship.id}-rate1`, carrier: 'MockCarrierA', service: 'Standard', rate: parseFloat((Math.random() * 10 + 5).toFixed(2)), currency: 'USD', shipment_id: ship.id },
+          { id: `${ship.id}-rate2`, carrier: 'MockCarrierB', service: 'Express', rate: parseFloat((Math.random() * 20 + 10).toFixed(2)), currency: 'USD', shipment_id: ship.id },
         ];
         updateLabelGenerationProgress({
             processedShipments: index + 1,
@@ -173,7 +159,7 @@ export const useBulkUpload = () => {
         return {
           ...ship,
           availableRates: mockRates,
-          selectedRateId: mockRates[0]?.id, // Auto-select first rate as an example
+          selectedRateId: mockRates[0]?.id,
           carrier: mockRates[0]?.carrier || ship.carrier,
           service: mockRates[0]?.service || ship.service,
           rate: mockRates[0]?.rate || ship.rate,
@@ -187,11 +173,11 @@ export const useBulkUpload = () => {
           ...prev, 
           processedShipments: updatedProcessedShipments, 
           totalCost,
-          uploadStatus: 'editing' // ensure it stays in editing or moves to rate_selection
+          uploadStatus: 'editing'
         }) : null);
       
       updateLabelGenerationProgress({
-        isGenerating: false, // Or specific fetching flag
+        isGenerating: false,
         currentStep: "Rate fetching complete.",
         estimatedTimeRemaining: 0
       });
@@ -201,7 +187,7 @@ export const useBulkUpload = () => {
       updateLabelGenerationProgress({ isGenerating: false, currentStep: `Error fetching rates: ${e.message}` });
       toast({ title: "Rate Fetching Error", description: e.message, variant: "destructive" });
     } finally {
-      setIsFetchingRates(false); // Also ensure this is managed
+      setIsFetchingRates(false);
     }
   }, [results, pickupAddress, toast, updateLabelGenerationProgress]);
 
@@ -211,7 +197,7 @@ export const useBulkUpload = () => {
       toast({ title: "No Shipments Ready", description: "No shipments with selected rates to create labels for.", variant: "default" });
       return;
     }
-    // setIsCreatingLabels(true); // Controlled by labelGenerationProgress.isGenerating
+    
     updateLabelGenerationProgress({
       isGenerating: true,
       currentStep: `Starting label generation for ${shipmentsToProcess.length} shipments...`,
@@ -229,11 +215,9 @@ export const useBulkUpload = () => {
 
       const processedShipmentsPromises = shipmentsToProcess.map(async (shipment, index) => {
         try {
-          // Simulate individual label creation
-          await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500)); // Simulate API call per shipment
+          await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500));
           
-          // Mock success/failure for individual shipment
-          const isSuccess = Math.random() > 0.1; // 90% success rate for mock
+          const isSuccess = Math.random() > 0.1;
           
           let updatedShipment = { ...shipment };
           if (isSuccess) {
@@ -255,7 +239,7 @@ export const useBulkUpload = () => {
           }
           
           updateLabelGenerationProgress({
-            processedShipments: index + 1, // This should be atomic or handled carefully for concurrent updates
+            processedShipments: index + 1,
             successfulShipments: newSuccessfulShipments,
             failedShipments: newFailedShipments,
             progress: ((index + 1) / shipmentsToProcess.length) * 100,
@@ -284,9 +268,9 @@ export const useBulkUpload = () => {
       setResults(prev => prev ? ({
         ...prev, 
         processedShipments: finalProcessedShipments, 
-        successful: (prev.successful || 0) + newSuccessfulShipments, // Adjust overall successful count
-        failed: (prev.failed || 0) + newFailedShipments, // Adjust overall failed count
-        uploadStatus: (prev.failed || 0) + newFailedShipments > 0 ? 'editing' : 'completed' // Determine final status
+        successful: (prev.successful || 0) + newSuccessfulShipments,
+        failed: (prev.failed || 0) + newFailedShipments,
+        uploadStatus: (prev.failed || 0) + newFailedShipments > 0 ? 'editing' : 'completed'
       }) : null);
       
       updateLabelGenerationProgress({
@@ -299,7 +283,7 @@ export const useBulkUpload = () => {
       if (newFailedShipments === 0 && newSuccessfulShipments > 0) {
         setUploadStatus('completed');
       } else {
-        setUploadStatus('editing'); // Stay in editing if some failed, to allow fixes or retry
+        setUploadStatus('editing');
       }
 
     } catch (e: any) {
@@ -307,13 +291,10 @@ export const useBulkUpload = () => {
       updateLabelGenerationProgress({ isGenerating: false, currentStep: `Error: ${e.message}`, failedShipments: shipmentsToProcess.length, estimatedTimeRemaining: 0 });
       toast({ title: "Label Creation Error", description: e.message, variant: "destructive" });
       setUploadStatus('error');
-    } finally {
-      // setIsCreatingLabels(false); // Controlled by labelGenerationProgress.isGenerating
     }
   }, [results, toast, shipmentManagement, updateLabelGenerationProgress]);
 
   const handlePreviewLabel = (shipmentId: string, labelUrl?: string) => {
-    // ... keep existing code
     const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
     if (shipment && (labelUrl || shipment.label_url)) {
       window.open(labelUrl || shipment.label_url!, '_blank');
@@ -324,17 +305,14 @@ export const useBulkUpload = () => {
   };
   
   const handleDownloadAllLabels = async (documentType: "batch" | "pickup_manifest" | "archive" = "archive", format: LabelFormat = 'pdf') => {
-    // ... keep existing code
     toast({ title: "Download All (Mock)", description: `Preparing to download all labels as ${documentType} in ${format} format.`});
-    // Actual implementation would involve zipping files or generating a batch PDF.
     const labelsToDownload = results?.processedShipments?.filter(s => s.label_url);
     if (!labelsToDownload || labelsToDownload.length === 0) {
       toast({ title: "No Labels", description: "No labels available for download.", variant: "default" });
       return;
     }
-    // Example: download one by one
     labelsToDownload.forEach(shipment => {
-      if (shipment.label_url) { // Ensure URL exists
+      if (shipment.label_url) {
          handleDownloadSingleLabel(shipment.label_url, format, shipment.id);
       }
     });
@@ -342,13 +320,11 @@ export const useBulkUpload = () => {
 
   const isPaying = false; 
 
-  const handleRemoveShipment = (shipmentId: string) => { 
-    // ... keep existing code
+  const handleRemoveShipment = (shipmentId: string) => {
     if (!results || !results.processedShipments) return;
     const updatedProcessedShipments = results.processedShipments.filter(s => s.id !== shipmentId);
     const totalCost = updatedProcessedShipments.reduce((sum, s) => sum + (s.rate || 0), 0);
     
-    // Update rawParsedShipments as well
     const updatedRawParsedShipments = rawParsedShipments.filter(s => s.id !== shipmentId);
     setRawParsedShipments(updatedRawParsedShipments);
 
@@ -356,7 +332,6 @@ export const useBulkUpload = () => {
       ...prev,
       processedShipments: updatedProcessedShipments,
       total: updatedProcessedShipments.length,
-      // Adjust successful count based on your definition (e.g., has selected rate or is completed)
       successful: updatedProcessedShipments.filter(s => s.status === 'completed' || (s.selectedRateId && s.status !== 'failed' && s.status !== 'error')).length,
       totalCost,
     }) : null);
@@ -364,7 +339,6 @@ export const useBulkUpload = () => {
   };
 
   const handleEditShipment = (shipmentId: string, newDetails: Partial<ShipmentDetails>) => {
-    // ... keep existing code
     console.log("Attempting to edit shipment:", shipmentId, newDetails);
     let foundInProcessed = false;
     if (results && results.processedShipments) {
@@ -380,9 +354,7 @@ export const useBulkUpload = () => {
           return { 
             ...s, 
             details: updatedShipmentDetails,
-            // Update recipient field if name changed
             recipient: newDetails.to_address?.name || s.details.to_address.name,
-            // Reset status to allow re-fetching rates if critical details changed
             status: 'parsed' as BulkShipmentStatus, 
             availableRates: [],
             selectedRateId: undefined,
@@ -401,7 +373,6 @@ export const useBulkUpload = () => {
       }
     }
     
-    // Update rawParsedShipments as well
     setRawParsedShipments(prevRaw => prevRaw.map(s => {
         if (s.id === shipmentId) {
            const updatedShipmentDetails: ShipmentDetails = {
@@ -416,14 +387,12 @@ export const useBulkUpload = () => {
       }));
   };
   
-  const handleDownloadLabelsWithFormat = (format: LabelFormat, batchId?: string) => { 
-    // ... keep existing code
+  const handleDownloadLabelsWithFormat = (format: LabelFormat, batchId?: string) => {
     toast({ title: "Download Format (Mock)", description: `Format ${format} selected for batch ${batchId || 'all available'}.`});
-    handleDownloadAllLabels("archive", format); // Simplified to call handleDownloadAllLabels
+    handleDownloadAllLabels("archive", format);
   };
 
-  const handleDownloadSingleLabel = async (url: string, format: LabelFormat, shipmentId?: string ) => { 
-    // ... keep existing code
+  const handleDownloadSingleLabel = async (url: string, format: LabelFormat, shipmentId?: string ) => {
     if (!url) {
       toast({ title: "Download Error", description: "No label URL provided.", variant: "destructive"});
       return;
@@ -437,8 +406,7 @@ export const useBulkUpload = () => {
     toast({ title: "Label Downloaded", description: `Label for ${shipmentId || 'shipment'} downloaded as ${format}.` });
   };
   
-  const handleEmailLabels = (email: string) => { 
-    // ... keep existing code
+  const handleEmailLabels = (email: string) => {
     toast({ title: "Email Labels (Mock)", description: `Would email to ${email}.`});
   };
 
@@ -465,10 +433,7 @@ export const useBulkUpload = () => {
         let bValue: string | number = '';
         switch (sortField) {
             case 'recipient': aValue = a.recipient || ''; bValue = b.recipient || ''; break;
-            case 'status': aValue = a.status || ''; bValue = b.status || ''; break;
             case 'carrier': aValue = a.carrier || ''; bValue = b.carrier || ''; break;
-            case 'service': aValue = a.service || ''; bValue = b.service || ''; break;
-            case 'id': aValue = a.id || ''; bValue = b.id || ''; break;
             case 'rate': 
                 aValue = typeof a.rate === 'string' ? parseFloat(a.rate) : (a.rate || 0);
                 bValue = typeof b.rate === 'string' ? parseFloat(b.rate) : (b.rate || 0); 
@@ -481,7 +446,6 @@ export const useBulkUpload = () => {
         if (typeof aValue === 'string' && typeof bValue === 'string') {
             return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
         }
-        // Handle mixed types or other cases if necessary
         if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
         return 0;
@@ -489,12 +453,10 @@ export const useBulkUpload = () => {
   }, [results?.processedShipments, searchTerm, selectedCarrierFilter, sortField, sortDirection]);
 
   const handleUpload = async () => {
-    // ... keep existing code
     toast({ title: "Upload Action", description: "This action would send parsed data to the backend. File parsing is now client-side."});
   };
 
   const handleDownloadTemplate = () => {
-    // ... keep existing code
     const csvHeader = "recipient_name,recipient_company,recipient_street1,recipient_street2,recipient_city,recipient_state,recipient_zip,recipient_country,recipient_phone,recipient_email,parcel_length,parcel_width,parcel_height,parcel_weight\n";
     const exampleRow = "John Doe,Doe Corp,123 Main St,,Anytown,CA,90210,US,555-1234,john.doe@example.com,10,8,6,2\n";
     const csvContent = csvHeader + exampleRow;
@@ -510,7 +472,7 @@ export const useBulkUpload = () => {
     toast({ title: "Template Downloaded", description: "CSV template has been downloaded." });
   };
 
-  const handleSelectRate = (shipmentId: string, rateId: string) => { // Now expects 2 arguments
+  const handleSelectRate = (shipmentId: string, rateId: string) => {
     if (!results || !results.processedShipments) return;
 
     const shipmentToUpdate = results.processedShipments.find(s => s.id === shipmentId);
@@ -552,7 +514,6 @@ export const useBulkUpload = () => {
   };
 
   const handleRefreshRates = async (shipmentId: string) => {
-    // ... keep existing code
     toast({ title: "Refresh Rates (Mock)", description: `Refreshing rates for shipment ${shipmentId}.`});
     if (!results || !pickupAddress) {
         toast({title: "Cannot Refresh", description: "Shipment data or pickup address missing.", variant: "destructive"});
@@ -564,13 +525,12 @@ export const useBulkUpload = () => {
         return;
     }
     
-    // Example: Simulate API call for single shipment rate refresh
-    setIsFetchingRates(true); // Could use a specific flag for single refresh
+    setIsFetchingRates(true);
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     const mockRates: Rate[] = [
-        { id: `${shipmentId}-newrate1`, carrier: 'MockCarrierC', service: 'Refreshed Standard', rate: parseFloat((Math.random() * 12 + 6).toFixed(2)), shipment_id: shipmentId },
-        { id: `${shipmentId}-newrate2`, carrier: 'MockCarrierD', service: 'Refreshed Express', rate: parseFloat((Math.random() * 22 + 12).toFixed(2)), shipment_id: shipmentId },
+        { id: `${shipmentId}-newrate1`, carrier: 'MockCarrierC', service: 'Refreshed Standard', rate: parseFloat((Math.random() * 12 + 6).toFixed(2)), currency: 'USD', shipment_id: shipmentId },
+        { id: `${shipmentId}-newrate2`, carrier: 'MockCarrierD', service: 'Refreshed Express', rate: parseFloat((Math.random() * 22 + 12).toFixed(2)), currency: 'USD', shipment_id: shipmentId },
     ];
 
     const updatedProcessedShipments = results.processedShipments.map(s => {
@@ -578,126 +538,88 @@ export const useBulkUpload = () => {
             return {
                 ...s,
                 availableRates: mockRates,
-                selectedRateId: mockRates[0]?.id,
-                carrier: mockRates[0]?.carrier || '',
-                service: mockRates[0]?.service || '',
-                rate: mockRates[0]?.rate || 0,
+                selectedRateId: undefined,
+                carrier: '',
+                service: '',
+                rate: 0,
                 status: 'rates_fetched' as const,
             };
         }
         return s;
     });
-     const totalCost = updatedProcessedShipments.reduce((sum, s) => sum + (s.rate && s.selectedRateId ? Number(s.rate) : 0), 0);
 
-    setResults(prev => prev ? ({...prev, processedShipments: updatedProcessedShipments, totalCost}) : null);
+    setResults(prev => prev ? ({ ...prev, processedShipments: updatedProcessedShipments }) : null);
     setIsFetchingRates(false);
-    toast({ title: "Rates Refreshed", description: `New rates fetched for shipment ${shipmentId}.`});
+    toast({ title: "Rates Refreshed", description: `New rates available for shipment ${shipmentId}.` });
   };
 
-  const handleBulkApplyCarrier = (carrier: string) => {
-     // ... keep existing code
-     if (!results || !results.processedShipments) return;
-    let appliedCount = 0;
-    const updatedProcessedShipments = results.processedShipments.map(shipment => {
-        // Ensure availableRates is an array before calling find
-        const safeAvailableRates = Array.isArray(shipment.availableRates) ? shipment.availableRates : [];
-        const carrierRate = safeAvailableRates.find(rate => rate.carrier === carrier);
-        
+  const handleBulkApplyCarrier = async (carrier: string) => {
+    if (!results?.processedShipments?.length) {
+        toast({ title: "No Shipments", description: "No shipments available to apply carrier to.", variant: "default" });
+        return;
+    }
+    
+    const updatedProcessedShipments = results.processedShipments.map(s => {
+        const carrierRate = s.availableRates?.find(r => r.carrier === carrier);
         if (carrierRate) {
-            appliedCount++;
             return {
-                ...shipment,
+                ...s,
                 selectedRateId: carrierRate.id,
                 carrier: carrierRate.carrier,
                 service: carrierRate.service,
-                rate: parseFloat(String(carrierRate.rate)),
+                rate: carrierRate.rate,
                 status: 'rate_selected' as const,
             };
         }
-        return shipment;
+        return s;
     });
-    if (appliedCount > 0) {
-        const totalCost = updatedProcessedShipments.reduce((sum, shipment) => {
-            return sum + (shipment.rate && shipment.selectedRateId ? Number(shipment.rate) : 0);
-        }, 0);
-        setResults(prevResults => prevResults ? ({ ...prevResults, processedShipments: updatedProcessedShipments, totalCost }) : null);
-        toast({ title: "Carrier Applied", description: `Applied ${carrier} to ${appliedCount} shipments.` });
-    } else {
-        toast({ title: "No Shipments Updated", description: `No shipments found that could apply ${carrier}. Ensure rates are fetched and match the carrier.` });
-    }
+
+    const totalCost = updatedProcessedShipments.reduce((sum, s) => sum + (s.rate && s.selectedRateId ? Number(s.rate) : 0), 0);
+
+    setResults(prev => prev ? ({ ...prev, processedShipments: updatedProcessedShipments, totalCost }) : null);
+    toast({ title: "Carrier Applied", description: `${carrier} applied to all compatible shipments.` });
   };
-  
+
   const handleOpenBatchPrintPreview = () => {
-    // ... keep existing code
-    if (results?.processedShipments?.some(s => s.label_url || s.label_urls) || results?.batchResult) {
-      setBatchPrintPreviewModalOpen(true);
-    } else {
-      toast({title: "No Labels", description: "No labels available for batch preview.", variant: "default"});
-    }
+    setBatchPrintPreviewModalOpen(true);
   };
 
   return {
     file,
-    shipments: results?.processedShipments || [], 
-    rawParsedShipments, // Expose raw parsed data if needed by parent
-    setShipments: (newShipments: BulkShipment[]) => { 
-        if(results) setResults({...results, processedShipments: newShipments});
-        else setResults({ 
-            processedShipments: newShipments, 
-            total: newShipments.length, 
-            successful:0, // Recalculate or set appropriately
-            failed:0, // Recalculate or set appropriately
-            failedShipments: [], 
-            totalCost:newShipments.reduce((sum, s) => sum + (s.rate || 0), 0)
-        });
-        // Also update rawParsedShipments if this setter is meant to override everything
-        setRawParsedShipments(newShipments); 
-    },
-    isUploading, 
+    isUploading,
     uploadStatus,
-    setUploadStatus, // Expose if needed
-    results, 
-    setResults, 
-    progress, 
-    error,
-    setError, 
-    handleFileChange,
-    pickupAddress, 
-    setPickupAddress, 
-
-    isFetchingRates, 
-    // isCreatingLabels, // Derived from labelGenerationProgress.isGenerating
-    labelGenerationProgress, 
-    updateLabelGenerationProgress,
-    handleFetchRatesForAllShipments, 
-    handleCreateLabels, 
-
-    handlePreviewLabel,
-    handleDownloadAllLabels,
-
-    isPaying, 
-    handleRemoveShipment, 
-    handleEditShipment, 
-    handleDownloadLabelsWithFormat, 
-    handleDownloadSingleLabel, 
-    handleEmailLabels,
-    
+    results,
+    progress,
+    isFetchingRates,
     searchTerm,
-    setSearchTerm,
     sortField,
-    setSortField,
     sortDirection,
-    setSortDirection,
     selectedCarrierFilter,
-    setSelectedCarrierFilter,
-    filteredShipments, 
+    filteredShipments,
+    pickupAddress,
+    labelGenerationProgress,
     batchPrintPreviewModalOpen,
     setBatchPrintPreviewModalOpen,
-    handleUpload, 
-    handleDownloadTemplate, 
-    handleSelectRate, 
-    handleRefreshRates, 
-    handleBulkApplyCarrier, 
-    handleOpenBatchPrintPreview, 
+    handleFileChange,
+    handleSelectRate,
+    handleRemoveShipment,
+    handleEditShipment,
+    handleRefreshRates,
+    handleBulkApplyCarrier,
+    handleCreateLabels,
+    handleOpenBatchPrintPreview,
+    handleDownloadLabelsWithFormat,
+    handleDownloadSingleLabel,
+    handleEmailLabels,
+    handleDownloadTemplate,
+    setSearchTerm,
+    setSortField,
+    setSortDirection,
+    setSelectedCarrierFilter,
+    setPickupAddress,
+    updateLabelGenerationProgress,
+    handleFetchRatesForAllShipments,
+    error,
+    isPaying,
   };
 };

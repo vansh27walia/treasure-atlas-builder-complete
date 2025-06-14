@@ -1,6 +1,7 @@
+
 import React, { useEffect, useRef, useState, Dispatch, SetStateAction } from 'react';
 import { Card } from '@/components/ui/card';
-import { useBulkUpload, BulkSortField } from './bulk-upload/useBulkUpload'; // Import BulkSortField
+import { useBulkUpload } from './bulk-upload/useBulkUpload';
 import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
 import BulkUploadForm from './bulk-upload/BulkUploadForm';
 import SuccessNotification from './bulk-upload/SuccessNotification';
@@ -14,10 +15,10 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { FileText, UploadCloud, AlertCircle, Download, Printer, XCircleIcon } from 'lucide-react';
-import { SavedAddress, BulkUploadResult, LabelFormat, BulkShipment, BatchResult, ShipmentDetails, ShippingOption as UIShippingRate } from '@/types/shipping'; // Added UIShippingRate
-import { toast as sonnerToast } from '@/components/ui/sonner'; // Use sonner for direct calls if needed, or stick to hook's toast
+import { SavedAddress, BulkUploadResult, LabelFormat, BulkShipment, BatchResult, ShipmentDetails, ShippingOption } from '@/types/shipping';
+import { toast as sonnerToast } from '@/components/ui/sonner';
+import type { BulkShipmentFilterField } from './bulk-upload/BulkShipmentFilters';
 
-// Define a type for the address that might come from AddressService
 type PotentiallyNumericIdAddress = Omit<SavedAddress, 'id'> & { id: string | number };
 
 const BulkUpload: React.FC = () => {
@@ -26,15 +27,14 @@ const BulkUpload: React.FC = () => {
   const [shipmentToPreview, setShipmentToPreview] = useState<BulkShipment | null>(null);
   const [singlePreviewModalOpen, setSinglePreviewModalOpen] = useState(false);
 
-  const hookApi = useBulkUpload(); // Get all return values in an object
+  const hookApi = useBulkUpload();
   const {
     file,
     isUploading,
-    isPaying, // from hook
     uploadStatus,
     results,
     progress,
-    isFetchingRates, // from hook
+    isFetchingRates,
     searchTerm,
     sortField,
     sortDirection,
@@ -44,8 +44,6 @@ const BulkUpload: React.FC = () => {
     labelGenerationProgress,
     batchPrintPreviewModalOpen,
     setPickupAddress,
-    // handleUpload, // Already using hookApi.handleUpload
-    // handleCreateLabels, // Already using hookApi.handleCreateLabels
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
     handleDownloadTemplate,
@@ -61,6 +59,8 @@ const BulkUpload: React.FC = () => {
     setSortDirection,
     setSelectedCarrierFilter,
     updateLabelGenerationProgress,
+    isPaying,
+    error,
   } = hookApi;
 
   const isCreatingLabels = labelGenerationProgress.isGenerating;
@@ -78,7 +78,6 @@ const BulkUpload: React.FC = () => {
         
         const now = Date.now();
         if (now - lastToastRef.current > 2000) {
-          // Use sonnerToast directly or hook's toast if it's configured for success
           sonnerToast.success(`Selected pickup address: ${addressWithStringId.name || addressWithStringId.street1}`);
           lastToastRef.current = now;
         }
@@ -90,12 +89,10 @@ const BulkUpload: React.FC = () => {
   
   const handleUploadSuccess = (uploadResults: BulkUploadResult) => {
     console.log("Upload success in BulkUpload component:", uploadResults);
-    // This might be called by BulkUploadForm, ensure it aligns with hook's state changes
   };
 
   const handleUploadFail = (error: string) => {
     console.error("Upload failed in BulkUpload component:", error);
-     // This might be called by BulkUploadForm
   };
 
   const handleEditShipmentWrapper = (shipmentId: string, details: Partial<ShipmentDetails>) => {
@@ -103,18 +100,12 @@ const BulkUpload: React.FC = () => {
   };
 
   const resetUpload = () => {
-    hookApi.handleFileChange(null); // Use hook's method to reset relevant states
-    // window.location.reload(); // Avoid reload if possible by resetting state via hook
+    hookApi.handleFileChange(null);
   };
 
   const selectNewFile = () => {
-    // This function is for triggering the file input. BulkUploadForm should handle its own input.
-    // If this is for a separate button, ensure it correctly triggers the input in BulkUploadForm.
-    // For now, let's assume BulkUploadForm's internal "Select File" button works.
-    // If a separate "Upload Another File" button needs this, it should target BulkUploadForm's input.
-    resetUpload(); // Resetting state is a good first step for uploading another file.
-    // To programmatically click the input in BulkUploadForm, BulkUploadForm would need to expose a ref or a method.
-    const fileInput = document.getElementById('file-upload') as HTMLInputElement; // Assuming ID from BulkUploadForm
+    resetUpload();
+    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
     if (fileInput) {
       fileInput.value = ''; 
       fileInput.click();
@@ -149,8 +140,6 @@ const BulkUpload: React.FC = () => {
 
   const handlePaymentSuccess = () => {
     sonnerToast.success('Payment successful! Labels are now available for download.');
-    // Potentially trigger label download or enable download buttons
-    // This might involve setting some state that SuccessNotification can react to
   };
 
   return (
@@ -160,26 +149,15 @@ const BulkUpload: React.FC = () => {
         
         {uploadStatus === 'idle' && (
           <BulkUploadForm 
-            onUploadSuccess={handleUploadSuccess} // This prop might be redundant if hook handles all
-            onUploadFail={handleUploadFail}       // This prop might be redundant
+            onUploadSuccess={handleUploadSuccess}
+            onUploadFail={handleUploadFail}       
             onPickupAddressSelect={handlePickupAddressSelect} 
             isUploading={isUploading}
             progress={progress}
-            // handleUpload is now directly managed by useBulkUpload via handleFileChange
-            // If BulkUploadForm has its own upload button that needs to trigger hook's logic,
-            // it should call hookApi.handleUpload() or similar.
-            // For now, assume file selection triggers parsing via handleFileChange in the hook.
-            // The 'handleUpload' prop here was likely for the old useShipmentUpload.
-            // Let's pass hookApi.handleFileChange if BulkUploadForm is to use it for file input.
-            // Or BulkUploadForm calls hookApi.handleFileChange internally.
-            // Let's assume BulkUploadForm takes a standard onChange for its file input,
-            // and that onChange is wired to hookApi.handleFileChange if appropriate.
-            // The original BulkUploadForm might have called handleUpload from the hook.
-            // The current hook's primary entry point is handleFileChange.
           />
         )}
         
-        {isUploading && (uploadStatus === 'uploading' || uploadStatus === 'processing') && ( // Combined uploading/processing
+        {isUploading && (uploadStatus === 'uploading' || uploadStatus === 'processing') && (
           <div className="my-6">
             <h3 className="font-medium mb-2">Processing your shipments</h3>
             <Progress value={progress} className="h-2" />
@@ -191,9 +169,8 @@ const BulkUpload: React.FC = () => {
           </div>
         )}
         
-        {labelGenerationProgress.isGenerating && ( // Simplified check
+        {labelGenerationProgress.isGenerating && (
             <div className="my-6 p-4 border rounded-lg bg-blue-50">
-                {/* ... keep existing code for label generation progress display ... */}
                 <h3 className="font-semibold text-lg text-blue-700 mb-2">
                     {labelGenerationProgress.currentStep || "Generating Labels..."}
                 </h3>
@@ -215,7 +192,6 @@ const BulkUpload: React.FC = () => {
         {uploadStatus === 'editing' && results && (
           <div className="mt-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
-              {/* ... keep existing code for header section ... */}
               <h2 className="text-xl font-semibold flex items-center">
                 <FileText className="mr-2 h-5 w-5 text-blue-600" />
                 Bulk Shipment Options
@@ -240,7 +216,6 @@ const BulkUpload: React.FC = () => {
             </div>
             
             <Alert className="mb-6">
-              {/* ... keep existing code for Alert ... */}
                <AlertCircle className="h-4 w-4" />
               <AlertTitle>Important</AlertTitle>
               <AlertDescription>
@@ -252,10 +227,10 @@ const BulkUpload: React.FC = () => {
             <BulkShipmentFilters
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
-              sortField={sortField as BulkSortField} // Cast to ensure compatibility if BulkShipmentFilters is more restrictive internally
+              sortField={sortField as BulkShipmentFilterField}
               sortDirection={sortDirection}
               onSortChange={(field, direction) => {
-                setSortField(field as BulkSortField); 
+                setSortField(field as BulkShipmentFilterField); 
                 setSortDirection(direction);
               }}
               selectedCarrier={selectedCarrierFilter}
@@ -267,13 +242,12 @@ const BulkUpload: React.FC = () => {
               shipments={filteredShipments}
               isFetchingRates={isFetchingRates}
               isCreatingLabels={labelGenerationProgress.isGenerating} 
-              onSelectRate={handleSelectRate as (shipmentId: string, rateId: string, selectedRateDetails: UIShippingRate) => void} // Cast if necessary
+              onSelectRate={(shipmentId: string, rateId: string) => handleSelectRate(shipmentId, rateId)}
               onRemoveShipment={handleRemoveShipment}
               onEditShipment={handleEditShipmentWrapper}
               onRefreshRates={handleRefreshRates}
             />
             
-            {/* ... keep existing code for order summary and buttons ... */}
             {filteredShipments.length > 0 && (
               <div className="mt-8 p-4 border rounded-lg bg-gray-50">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
@@ -291,7 +265,7 @@ const BulkUpload: React.FC = () => {
                   
                   <div className="flex gap-3 mt-4 lg:mt-0">
                     <Button 
-                      onClick={hookApi.handleFetchRatesForAllShipments} // Example: Button to fetch all rates
+                      onClick={hookApi.handleFetchRatesForAllShipments}
                       disabled={isFetchingRates || labelGenerationProgress.isGenerating || !results?.processedShipments?.length || !pickupAddress}
                       variant="outline"
                     >
@@ -323,12 +297,12 @@ const BulkUpload: React.FC = () => {
           </div>
         )}
         
-        {uploadStatus === 'completed' && results && ( // Changed from 'success'
+        {uploadStatus === 'completed' && results && (
           <SuccessNotification
             results={results}
             onDownloadSingleLabel={(shipmentId, url, format) => handleDownloadSingleLabel(url, format as LabelFormat, shipmentId)}
             onCreateLabels={hookApi.handleCreateLabels} 
-            isPaying={isPaying} // from hook
+            isPaying={isPaying}
             isCreatingLabels={labelGenerationProgress.isGenerating} 
             onDownloadLabelsWithFormat={(format) => handleDownloadLabelsWithFormat(format as LabelFormat, results?.batchResult?.batchId)} 
             onOpenBatchPrintPreview={handleOpenBatchPrintPreview}
@@ -337,18 +311,16 @@ const BulkUpload: React.FC = () => {
         )}
         
         {uploadStatus === 'error' && (
-          // ... keep existing code for UploadError component ...
            <UploadError 
             onRetry={resetUpload}
             onSelectNewFile={selectNewFile} 
-            errorMessage={hookApi.error || results?.failedShipments?.[0]?.error || "Upload failed. Please check your file format and try again."}
+            errorMessage={error || results?.failedShipments?.[0]?.error || "Upload failed. Please check your file format and try again."}
           />
         )}
       </Card>
 
       <LabelCreationOverlay
         isVisible={labelGenerationProgress.isGenerating}
-        // ... keep existing code for LabelCreationOverlay props ...
         progress={labelGenerationProgress.totalShipments > 0 ? (labelGenerationProgress.processedShipments / labelGenerationProgress.totalShipments * 100) : 0}
         currentStep={labelGenerationProgress.currentStep || "Processing labels..."}
         totalLabels={labelGenerationProgress.totalShipments}
@@ -358,11 +330,10 @@ const BulkUpload: React.FC = () => {
         onClose={() => updateLabelGenerationProgress({ isGenerating: false, currentStep: "Closed by user" })}
       />
       
-      {results && pickupAddress && (results.batchResult || (uploadStatus === 'completed' && results.processedShipments?.some(s => s.label_url || s.label_urls))) && ( // Changed from 'success'
+      {results && pickupAddress && (results.batchResult || (uploadStatus === 'completed' && results.processedShipments?.some(s => s.label_url || s.label_urls))) && (
         <PrintPreview
           isOpenProp={batchPrintPreviewModalOpen}
           onOpenChangeProp={setBatchPrintPreviewModalOpen}
-          // ... keep existing code for PrintPreview props ...
           batchResult={results.batchResult}
           processedShipments={results.processedShipments || []}
           isBatchPreview={true}
@@ -371,7 +342,6 @@ const BulkUpload: React.FC = () => {
         />
       )}
       
-      {/* ... keep existing code for single shipment PrintPreview and StripePaymentModal ... */}
       {shipmentToPreview && pickupAddress && (
          <PrintPreview
           isOpenProp={singlePreviewModalOpen}
@@ -388,7 +358,7 @@ const BulkUpload: React.FC = () => {
             customer_name: shipmentToPreview.customer_name,
           }}
           isBatchPreview={false}
-          onDownloadFormat={(format, shipmentId) => handleDownloadLabelsWithFormat(format as LabelFormat, shipmentId)} // Pass correct download handler
+          onDownloadFormat={(format, shipmentId) => handleDownloadLabelsWithFormat(format as LabelFormat, shipmentId)}
           pickupAddress={pickupAddress}
         />
       )}

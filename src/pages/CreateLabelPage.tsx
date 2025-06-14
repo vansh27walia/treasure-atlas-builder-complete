@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -26,7 +27,7 @@ const addressSchema = z.object({
   country: z.string().min(2, { message: "Country code must be 2 characters."}),
   phone: z.string().optional(),
   email: z.string().email({ message: "Invalid email address." }).optional(),
-  is_residential: z.boolean().optional(), // Added to schema if it's part of the form
+  is_residential: z.boolean().optional(),
 });
 
 const packageSchema = z.object({
@@ -75,11 +76,9 @@ const CreateLabelPage = () => {
       try {
         const addrFromService = await addressService.getDefaultFromAddress();
         if (addrFromService) {
-          // Ensure addrFromService conforms to SavedAddress structure, especially id as string
           const adaptedAddr: SavedAddress = {
             ...addrFromService,
-            id: String(addrFromService.id), // Ensure id is string
-            // Map other fields explicitly if names differ or types need coercion
+            id: String(addrFromService.id),
             name: addrFromService.name || '',
             company: addrFromService.company || '',
             street1: addrFromService.street1 || '',
@@ -88,9 +87,9 @@ const CreateLabelPage = () => {
             zip: addrFromService.zip || '',
             country: addrFromService.country || 'US',
             phone: addrFromService.phone,
-            email: addrFromService.email, // Now valid
-            is_residential: addrFromService.is_residential, // Now valid
-            updated_at: addrFromService.updated_at, // Now valid
+            email: addrFromService.email || '',
+            is_residential: addrFromService.is_residential || false,
+            updated_at: addrFromService.updated_at || '',
           };
           form.setValue("fromAddress", {
             name: adaptedAddr.name || '',
@@ -132,14 +131,42 @@ const CreateLabelPage = () => {
     setShipmentDataForPreview(null);
 
     try {
-      // Ensure AddressDetails structure is met
-      const to_address_payload: AddressDetails = { ...data.toAddress, is_residential: data.toAddress.is_residential ?? false };
-      const from_address_payload: AddressDetails = { ...data.fromAddress, is_residential: data.fromAddress.is_residential ?? false };
+      const to_address_payload: AddressDetails = { 
+        name: data.toAddress.name,
+        company: data.toAddress.company,
+        street1: data.toAddress.street1,
+        street2: data.toAddress.street2,
+        city: data.toAddress.city,
+        state: data.toAddress.state,
+        zip: data.toAddress.zip,
+        country: data.toAddress.country,
+        phone: data.toAddress.phone,
+        email: data.toAddress.email,
+        is_residential: data.toAddress.is_residential ?? false 
+      };
+      const from_address_payload: AddressDetails = { 
+        name: data.fromAddress.name,
+        company: data.fromAddress.company,
+        street1: data.fromAddress.street1,
+        street2: data.fromAddress.street2,
+        city: data.fromAddress.city,
+        state: data.fromAddress.state,
+        zip: data.fromAddress.zip,
+        country: data.fromAddress.country,
+        phone: data.fromAddress.phone,
+        email: data.fromAddress.email,
+        is_residential: data.fromAddress.is_residential ?? false 
+      };
 
       const shipmentDetailsPayload = {
         to_address: to_address_payload,
         from_address: from_address_payload,
-        parcel: data.parcel,
+        parcel: {
+          length: data.parcel.length,
+          width: data.parcel.width,
+          height: data.parcel.height,
+          weight: data.parcel.weight,
+        },
       };
       
       console.log("Fetching rates with payload:", shipmentDetailsPayload);
@@ -181,24 +208,24 @@ const CreateLabelPage = () => {
       const { data: labelData, error: labelError } = await supabase.functions.invoke('create-label', {
         body: { 
           shipmentId: currentShipmentId, 
-          rateId: rate.id, // Ensure rate.id is the correct EasyPost rate ID string
+          rateId: rate.id,
           options: labelOptions
         }
       });
 
       if (labelError) throw labelError;
-      if (!labelData || (!labelData.labelUrl && !labelData.label_urls)) { // Check new label_urls structure
+      if (!labelData || (!labelData.labelUrl && !labelData.label_urls)) {
         throw new Error("Label data not returned from server.");
       }
       
       console.log("Label purchase result:", labelData);
 
-      const primaryLabelUrl = labelData.label_urls?.png || labelData.labelUrl || labelData.label_urls?.pdf; // Prefer PNG
+      const primaryLabelUrl = labelData.label_urls?.png || labelData.labelUrl || labelData.label_urls?.pdf;
       setGeneratedLabelUrl(primaryLabelUrl);
-      setTrackingCode(labelData.trackingCode); // Ensure this matches actual response field
+      setTrackingCode(labelData.trackingCode);
       
       const formDataValues = form.getValues();
-      const toAddressDetails: AddressDetails = { // Construct AddressDetails for preview
+      const toAddressDetails: AddressDetails = {
         name: formDataValues.toAddress.name || '',
         company: formDataValues.toAddress.company,
         street1: formDataValues.toAddress.street1 || '',
@@ -214,17 +241,22 @@ const CreateLabelPage = () => {
 
       const previewData: SingleShipmentDataForPreview = {
         id: currentShipmentId,
-        label_url: primaryLabelUrl, // Primary URL for direct display
-        label_urls: labelData.label_urls || { png: primaryLabelUrl }, // Full map of URLs
+        label_url: primaryLabelUrl,
+        label_urls: labelData.label_urls || { png: primaryLabelUrl },
         tracking_code: labelData.trackingCode,
-        tracking_number: labelData.tracking_number || labelData.trackingCode, // Add tracking_number
+        tracking_number: labelData.tracking_number || labelData.trackingCode,
         carrier: rate.carrier,
         service: rate.service,
-        details: { // Parcel and to_address are part of ShipmentDetails
-          to_address: toAddressDetails, // This is correct
-          parcel: formDataValues.parcel, // Add parcel details
+        details: {
+          to_address: toAddressDetails,
+          parcel: {
+            length: formDataValues.parcel.length,
+            width: formDataValues.parcel.width,
+            height: formDataValues.parcel.height,
+            weight: formDataValues.parcel.weight,
+          },
         },
-        customer_name: formDataValues.toAddress.name, // Add customer_name
+        customer_name: formDataValues.toAddress.name,
       };
       setShipmentDataForPreview(previewData);
       setShowPrintPreview(true);
@@ -310,7 +342,7 @@ const CreateLabelPage = () => {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <AddressForm fieldName="toAddress" title="To Address" />
               <AddressForm fieldName="fromAddress" title="From Address" />
-              <PackageForm /> {/* Assuming PackageForm uses useFormContext */}
+              <PackageForm form={form} />
               <Button type="submit" disabled={isLoadingRates || isLoading}>
                 {isLoadingRates ? 'Getting Rates...' : 'Get Rates'}
               </Button>
@@ -322,10 +354,11 @@ const CreateLabelPage = () => {
       {rates.length > 0 && defaultFromAddress && (
         <div className="mt-6">
           <ShippingRates
-            rates={rates}
+            rates={rates.map(rate => ({ ...rate, currency: rate.currency || 'USD' }) as ShippingOption)}
             isLoadingRates={isLoadingRates}
             onRateSelected={handleRateSelectedForPurchase}
-            fromAddress={{ // Construct AddressDetails for ShippingRates
+            fromAddress={{
+                id: defaultFromAddress.id,
                 name: defaultFromAddress.name || "",
                 company: defaultFromAddress.company || "",
                 street1: defaultFromAddress.street1 || "",
@@ -336,9 +369,10 @@ const CreateLabelPage = () => {
                 country: defaultFromAddress.country || "US",
                 phone: defaultFromAddress.phone || "",
                 email: defaultFromAddress.email || "",
-                is_residential: defaultFromAddress.is_residential || false, 
+                is_residential: defaultFromAddress.is_residential || false,
+                ...defaultFromAddress
             }}
-            toAddress={{ // Construct AddressDetails for ShippingRates
+            toAddress={{
                 name: form.getValues("toAddress.name") || "",
                 company: form.getValues("toAddress.company") || "",
                 street1: form.getValues("toAddress.street1") || "",
@@ -351,7 +385,7 @@ const CreateLabelPage = () => {
                 email: form.getValues("toAddress.email") || "",
                 is_residential: form.getValues("toAddress.is_residential") || false,
             }}
-            parcel={{ // ParcelDetails for ShippingRates
+            parcel={{
                 length: form.getValues("parcel.length") || 1,
                 width: form.getValues("parcel.width") || 1,
                 height: form.getValues("parcel.height") || 1,
@@ -368,7 +402,8 @@ const CreateLabelPage = () => {
           singleShipmentPreview={shipmentDataForPreview}
           isBatchPreview={false}
           onDownloadFormat={handlePreviewDownloadFormat}
-          pickupAddress={{ // Construct AddressDetails for PrintPreview
+          pickupAddress={{
+            id: defaultFromAddress.id,
             name: defaultFromAddress.name || "",
             company: defaultFromAddress.company || "",
             street1: defaultFromAddress.street1 || "",
@@ -380,6 +415,7 @@ const CreateLabelPage = () => {
             phone: defaultFromAddress.phone || "",
             email: defaultFromAddress.email || "",
             is_residential: defaultFromAddress.is_residential || false,
+            ...defaultFromAddress
           }}
         />
       )}

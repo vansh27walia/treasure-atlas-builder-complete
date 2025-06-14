@@ -99,6 +99,7 @@ export interface Rate {
   carrier: string;
   service: string;
   rate: number;
+  currency?: string; // Added to make Rate compatible with ShippingOption
   formattedRate?: string;
   delivery_days?: number | null;
   est_delivery_days?: number | null;
@@ -140,13 +141,13 @@ export interface SavedAddress {
   zip: string;
   country: string; 
   phone?: string | null;
-  email?: string | null; // Added
+  email?: string | null;
   is_default_from?: boolean;
   is_default_to?: boolean;
   created_at?: string;
-  updated_at?: string; // Added
+  updated_at?: string;
   address_type?: 'residential' | 'commercial' | string | null;
-  is_residential?: boolean; // Added
+  is_residential?: boolean;
   validate_address?: boolean;
 }
 
@@ -156,7 +157,7 @@ export type ServiceLevel = 'standard' | 'express' | 'overnight';
 
 export type BulkShipmentStatus =
   | 'pending_upload' 
-  | 'parsed' // Added this status
+  | 'parsed'
   | 'pending_rates'
   | 'rates_fetched'
   | 'rate_selected'
