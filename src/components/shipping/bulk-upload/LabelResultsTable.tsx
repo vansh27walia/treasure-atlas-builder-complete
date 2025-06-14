@@ -9,7 +9,7 @@ import PrintPreview from '@/components/shipping/PrintPreview';
 
 interface LabelResultsTableProps {
   shipments: any[];
-  onDownloadLabel: (url: string, format: string) => void;
+  onDownloadLabel: (url: string) => void;
 }
 
 const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
@@ -30,7 +30,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
       console.error('URL not found for download:', { format, shipment });
       return;
     }
-    onDownloadLabel(url, format);
+    onDownloadLabel(url);
   };
 
   const formatDate = (dateString: string) => {

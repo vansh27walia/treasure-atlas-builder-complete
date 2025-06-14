@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -320,8 +319,8 @@ export const useBulkUpload = () => {
     }
   };
 
-  const handleDownloadSingleLabel = (url: string, format: string) => {
-    console.log(`Downloading label with url: ${url} and format: ${format}`);
+  const handleDownloadSingleLabel = (url: string) => {
+    console.log(`Downloading label with url: ${url}`);
     if (url) {
       downloadSingleLabelFile(url);
     } else {
