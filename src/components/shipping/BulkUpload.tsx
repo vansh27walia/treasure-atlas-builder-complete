@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -14,8 +13,10 @@ import { Progress } from '@/components/ui/progress';
 import { FileText, UploadCloud, ChevronRight, AlertCircle } from 'lucide-react';
 import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
+import { useNavigate } from 'react-router-dom';
 
 const BulkUpload: React.FC = () => {
+  const navigate = useNavigate();
   const lastToastRef = useRef<number>(0);
   
   const {
@@ -100,6 +101,22 @@ const BulkUpload: React.FC = () => {
 
   // Safely get processed shipments count
   const processedShipmentsCount = results?.processedShipments?.length || 0;
+
+  const handleCreateLabelsClick = () => {
+    if (!results || !pickupAddress) {
+      toast.error('Missing shipments or pickup address');
+      return;
+    }
+    
+    // Navigate to label creation page with the current state
+    navigate('/create-label', { 
+      state: { 
+        shipments: results.processedShipments,
+        pickupAddress,
+        totalCost: results.totalCost 
+      } 
+    });
+  };
 
   return (
     <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
@@ -211,11 +228,11 @@ const BulkUpload: React.FC = () => {
                   </Button>
                   
                   <Button
-                    onClick={handleCreateLabels}
+                    onClick={handleCreateLabelsClick}
                     disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress}
                     className="px-6 bg-green-600 hover:bg-green-700"
                   >
-                    {isPaying || isCreatingLabels ? 'Processing...' : 'Create Labels'} 
+                    Create Labels
                     <ChevronRight className="ml-1 h-4 w-4" />
                   </Button>
                 </div>
