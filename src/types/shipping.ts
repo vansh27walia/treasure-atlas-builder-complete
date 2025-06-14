@@ -1,4 +1,3 @@
-
 // Removed import { Address } from "@/services/AddressService"; 
 // It was causing an error and SavedAddress is more specific here.
 
@@ -45,6 +44,7 @@ export interface ShipmentDetails { // Basic details for creating a shipment
   carrier?: string; // Populated after rate selection or if pre-defined
   service?: string; // Populated after rate selection or if pre-defined
   rate?: number; // Cost of selected rate
+  rate_amount?: number; // Alternative for rate if it's stored as number directly
   selectedRateId?: string | null; // ID of the selected rate object
   
   reference?: string; 
@@ -55,9 +55,12 @@ export interface Rate {
   id: string;
   carrier: string;
   service: string;
-  rate: string; 
+  rate: string; // This is often a string from APIs like "23.45"
+  rate_float?: number; // Optional: numeric rate for calculations
   delivery_days?: number;
   currency: string;
+  shipment_id?: string; // Easypost specific field
+  carrier_account_id?: string; // Easypost specific
 }
 
 export interface BulkShipment extends ShipmentDetails {
@@ -78,6 +81,7 @@ export interface BulkShipment extends ShipmentDetails {
   isFetchingRates?: boolean; 
   details?: any; 
   customer_address?: string; // Concatenated address for display
+  scan_form_url?: string | null; // For individual shipment scan forms
 }
 
 
@@ -109,13 +113,14 @@ export interface BulkUploadResult {
   uploadStatus?: UploadStatus; 
   pickupAddress?: SavedAddress; 
   isFetchingRates?: boolean; // Indicates if rates are being fetched for the whole batch
+  errorMessage?: string; // Top-level error message for the batch
 }
 
 export type UploadStatus =
   | 'idle'
-  | 'uploading' 
-  | 'processing' 
-  | 'editing' 
+  | 'uploading' // Parsing file
+  | 'processing' // Fetching rates, API calls
+  | 'editing' // User is reviewing/editing shipments
   | 'creating-labels' 
   | 'success' 
   | 'error'; 
@@ -149,13 +154,13 @@ export const CARRIER_OPTIONS: { label: string; value: string }[] = [
   { label: 'UPS', value: 'UPS' },
   { label: 'FedEx', value: 'FedEx' },
   { label: 'DHL Express', value: 'DHLExpress' },
+  // Add other carriers as needed
 ];
 
-export type ShippingStep = 'address' | 'parcel' | 'rates' | 'payment' | 'label';
+export type ShippingStepId = 'address' | 'parcel' | 'rates' | 'payment' | 'label'; // Renamed from ShippingStep
 
 export interface ShippingWorkflowStep {
-  id: ShippingStep;
-  name: string; // Changed from label to name
+  id: ShippingStepId;
+  name: string; 
   status: 'current' | 'upcoming' | 'complete' | 'error';
 }
-

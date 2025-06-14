@@ -3,9 +3,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { ListFilter, ArrowUpDown, Search } from 'lucide-react';
-import { CARRIER_OPTIONS } from '@/types/shipping'; // Assuming CARRIER_OPTIONS is in types/shipping
+import { CARRIER_OPTIONS } from '@/types/shipping';
 
-type SortField = 'recipient' | 'carrier' | 'rate' | 'status'; // Added 'status'
+type SortField = 'recipient' | 'carrier' | 'rate' | 'status';
 type SortDirection = 'asc' | 'desc';
 
 interface BulkShipmentFiltersProps {
@@ -88,20 +88,6 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
             </SelectContent>
           </Select>
         </div>
-
-        {/* Apply Carrier to All (Optional - could be moved elsewhere if too cluttered) */}
-        {/* 
-        <div className="md:col-span-2 lg:col-span-1">
-          <Button 
-            onClick={() => selectedCarrier && onApplyCarrierToAll(selectedCarrier)} 
-            disabled={!selectedCarrier}
-            variant="outline"
-            className="w-full"
-          >
-            Apply {selectedCarrier || 'Selected Carrier'} to All Ready
-          </Button>
-        </div>
-        */}
       </div>
     </div>
   );

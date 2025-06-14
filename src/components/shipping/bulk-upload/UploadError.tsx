@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,6 +30,7 @@ const UploadError: React.FC<UploadErrorProps> = ({ errorMessage, onRetry, onSele
                   {item.row && `Row ${item.row}: `}
                   {item.error}
                   {item.details && typeof item.details === 'string' && ` (${item.details})`}
+                  {item.details && typeof item.details === 'object' && ` (${JSON.stringify(item.details)})`}
                 </li>
               ))}
             </ul>
@@ -50,4 +50,3 @@ const UploadError: React.FC<UploadErrorProps> = ({ errorMessage, onRetry, onSele
 };
 
 export default UploadError;
-

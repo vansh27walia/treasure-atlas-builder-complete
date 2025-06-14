@@ -55,6 +55,11 @@ const AddressForm: React.FC<AddressFormProps> = ({
 
   const { control, handleSubmit, formState: { errors } } = form;
 
+  // Construct the field name for the default toggle if it's prefixed in the schema
+  // For AddressForm, schema fields are top-level, so defaultToggleField is fine as is.
+  // If AddressFormData includes is_default_from/to directly, this is correct.
+  const toggleFieldName = defaultToggleField;
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <AddressFormFields 
@@ -62,7 +67,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
         errors={errors} 
         showDefaultToggle={showDefaultToggle}
         defaultToggleLabel={defaultToggleLabel}
-        defaultToggleField={defaultToggleField}
+        defaultToggleField={toggleFieldName}
       />
       <Button type="submit" disabled={isLoading} className="w-full">
         {isLoading ? 'Saving...' : submitButtonText}

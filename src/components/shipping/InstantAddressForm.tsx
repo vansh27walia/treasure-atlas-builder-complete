@@ -31,7 +31,7 @@ interface InstantAddressFormProps {
   addressType: 'from' | 'to';
   onAddressSubmit: (address: SavedAddress) => void;
   onCancel?: () => void;
-  initialData?: Partial<SavedAddress>;
+  initialData?: Partial<Omit<SavedAddress, 'id' | 'created_at' | 'updated_at' | 'user_id' | 'is_default_from' | 'is_default_to'>>;
   isLoading?: boolean;
 }
 
@@ -54,31 +54,41 @@ const InstantAddressForm: React.FC<InstantAddressFormProps> = ({
   });
 
   const processSubmit = async (data: AddressFormData) => {
-    const addressPayload: Omit<SavedAddress, 'id' | 'created_at' | 'updated_at' | 'user_id'> = {
-      ...data,
-      is_default_from: addressType === 'from' && saveAddress ? true : undefined,
-      is_default_to: addressType === 'to' && saveAddress ? true : undefined,
+    // Ensure data for addAddress matches Omit<SavedAddress, 'id' | 'created_at' | 'updated_at' | 'user_id'>
+    const addressToSave: Omit<SavedAddress, 'id' | 'created_at' | 'updated_at' | 'user_id'> = {
+        ...data, // data is AddressFormData
+        // is_default_from and is_default_to are not in AddressFormData here, so they are handled if saveAddress is true
     };
 
-    try {
-      if (saveAddress) {
-        const savedAddress = await addressService.addAddress(addressPayload);
+    if (saveAddress) {
+       const payloadForService = {
+         ...addressToSave,
+         is_default_from: addressType === 'from' ? true : undefined, // Set default based on type
+         is_default_to: addressType === 'to' ? true : undefined,
+       };
+      try {
+        const savedAddress = await addressService.addAddress(payloadForService); // Corrected method
         toast.success(`${addressType === 'from' ? 'Sender' : 'Recipient'} address saved and selected.`);
         onAddressSubmit(savedAddress);
-      } else {
-        const temporaryAddress: SavedAddress = {
-          id: `temp-${Date.now()}`,
-          ...addressPayload,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        toast.info(`${addressType === 'from' ? 'Sender' : 'Recipient'} address used for this shipment only.`);
-        onAddressSubmit(temporaryAddress);
+        reset(); 
+      } catch (error: any) {
+        toast.error(`Error saving address: ${error.message}`);
+        console.error("Address submission error (save):", error);
       }
+    } else {
+      // Create a temporary SavedAddress-like object without calling the service
+      const temporaryAddress: SavedAddress = {
+        id: `temp-${Date.now()}`, // Temporary ID
+        ...addressToSave, // Spread the form data
+        // Defaults for fields not in AddressFormData for temporary address
+        is_default_from: undefined,
+        is_default_to: undefined,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      toast.info(`${addressType === 'from' ? 'Sender' : 'Recipient'} address used for this shipment only.`);
+      onAddressSubmit(temporaryAddress);
       reset();
-    } catch (error: any) {
-      toast.error(`Error saving address: ${error.message}`);
-      console.error("Address submission error:", error);
     }
   };
   

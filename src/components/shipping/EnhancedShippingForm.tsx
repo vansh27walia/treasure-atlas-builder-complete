@@ -7,15 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { AlertCircle, Package, User, Truck } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import AddressSelector from './AddressSelector';
-import { SavedAddress } from '@/types/shipping'; // Changed import
+import { SavedAddress } from '@/types/shipping';
 import { toast } from '@/components/ui/sonner';
 import { addressService } from '@/services/AddressService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import AddressFormFields from './AddressFormFields'; // Re-using AddressFormFields
+import AddressFormFields from './AddressFormFields';
 
 const packageSchema = z.object({
   length: z.preprocess(val => Number(val), z.number().min(0.1, "Length is required")),
@@ -49,8 +48,8 @@ const shippingFormSchema = z.object({
   toAddress: addressSchema,
   selectedToAddressId: z.string().optional(),
   packageDetails: packageSchema,
-  saveFromAddress: z.boolean().optional(),
-  saveToAddress: z.boolean().optional(),
+  saveFromAddress: z.boolean().optional().default(false),
+  saveToAddress: z.boolean().optional().default(false),
 });
 
 type ShippingFormData = z.infer<typeof shippingFormSchema>;
@@ -71,6 +70,8 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onSubmit, i
       fromAddress: { country: 'US', is_residential: true },
       toAddress: { country: 'US', is_residential: true },
       packageDetails: { length: 0, width: 0, height: 0, weight: 0 },
+      saveFromAddress: true,
+      saveToAddress: true,
       ...initialData,
     },
   });
@@ -82,24 +83,29 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onSubmit, i
 
   useEffect(() => {
     if (initialData) {
-      // Custom logic to set initial values if needed, e.g., for selected IDs
       if (initialData.selectedFromAddressId) setValue('selectedFromAddressId', initialData.selectedFromAddressId);
+      if (initialData.fromAddress) setValue('fromAddress', initialData.fromAddress);
       if (initialData.selectedToAddressId) setValue('selectedToAddressId', initialData.selectedToAddressId);
-      // ... reset other fields if necessary
+      if (initialData.toAddress) setValue('toAddress', initialData.toAddress);
+      if (initialData.packageDetails) setValue('packageDetails', initialData.packageDetails);
+      if (typeof initialData.saveFromAddress === 'boolean') setValue('saveFromAddress', initialData.saveFromAddress);
+      if (typeof initialData.saveToAddress === 'boolean') setValue('saveToAddress', initialData.saveToAddress);
     }
   }, [initialData, setValue]);
   
   const handleFromAddressSelect = (address: SavedAddress | null) => {
     setValue('selectedFromAddressId', address?.id || '');
     if (address) {
-      setValue('fromAddress', address);
+      const { id, user_id, created_at, updated_at, is_default_from, is_default_to, address_type, instructions, ...formData } = address;
+      setValue('fromAddress', formData);
     }
   };
 
   const handleToAddressSelect = (address: SavedAddress | null) => {
     setValue('selectedToAddressId', address?.id || '');
     if (address) {
-      setValue('toAddress', address);
+      const { id, user_id, created_at, updated_at, is_default_from, is_default_to, address_type, instructions, ...formData } = address;
+      setValue('toAddress', formData);
     }
   };
 
@@ -147,7 +153,10 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onSubmit, i
             name="fromAddressMode"
             control={control}
             render={({ field }) => (
-              <Tabs value={field.value} onValueChange={field.onChange} className="w-full">
+              <Tabs value={field.value} onValueChange={(value) => {
+                field.onChange(value);
+                if (value === 'new') setValue('saveFromAddress', true);
+              }} className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="select">Use Saved Address</TabsTrigger>
                   <TabsTrigger value="new">Enter New Address</TabsTrigger>
@@ -189,7 +198,10 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onSubmit, i
             name="toAddressMode"
             control={control}
             render={({ field }) => (
-              <Tabs value={field.value} onValueChange={field.onChange} className="w-full">
+              <Tabs value={field.value} onValueChange={(value) => {
+                field.onChange(value);
+                if (value === 'new') setValue('saveToAddress', true);
+              }} className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="select">Use Saved Address</TabsTrigger>
                   <TabsTrigger value="new">Enter New Address</TabsTrigger>
@@ -230,27 +242,27 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onSubmit, i
           {/* ... package fields ... */}
           <div>
             <Label htmlFor="packageDetails.length">Length (in)</Label>
-            <Controller name="packageDetails.length" control={control} render={({ field }) => <Input id="packageDetails.length" type="number" step="0.1" {...field} />} />
+            <Controller name="packageDetails.length" control={control} render={({ field }) => <Input id="packageDetails.length" type="number" step="0.1" {...field} onChange={e => field.onChange(parseFloat(e.target.value))} />} />
             {errors.packageDetails?.length && <p className="text-red-500 text-xs mt-1">{errors.packageDetails.length.message}</p>}
           </div>
           <div>
             <Label htmlFor="packageDetails.width">Width (in)</Label>
-            <Controller name="packageDetails.width" control={control} render={({ field }) => <Input id="packageDetails.width" type="number" step="0.1" {...field} />} />
+            <Controller name="packageDetails.width" control={control} render={({ field }) => <Input id="packageDetails.width" type="number" step="0.1" {...field} onChange={e => field.onChange(parseFloat(e.target.value))}/>} />
             {errors.packageDetails?.width && <p className="text-red-500 text-xs mt-1">{errors.packageDetails.width.message}</p>}
           </div>
           <div>
             <Label htmlFor="packageDetails.height">Height (in)</Label>
-            <Controller name="packageDetails.height" control={control} render={({ field }) => <Input id="packageDetails.height" type="number" step="0.1" {...field} />} />
+            <Controller name="packageDetails.height" control={control} render={({ field }) => <Input id="packageDetails.height" type="number" step="0.1" {...field} onChange={e => field.onChange(parseFloat(e.target.value))}/>} />
             {errors.packageDetails?.height && <p className="text-red-500 text-xs mt-1">{errors.packageDetails.height.message}</p>}
           </div>
           <div>
             <Label htmlFor="packageDetails.weight">Weight (oz)</Label>
-            <Controller name="packageDetails.weight" control={control} render={({ field }) => <Input id="packageDetails.weight" type="number" step="0.1" {...field} />} />
+            <Controller name="packageDetails.weight" control={control} render={({ field }) => <Input id="packageDetails.weight" type="number" step="0.1" {...field} onChange={e => field.onChange(parseFloat(e.target.value))}/>} />
             {errors.packageDetails?.weight && <p className="text-red-500 text-xs mt-1">{errors.packageDetails.weight.message}</p>}
           </div>
           <div className="md:col-span-2">
             <Label htmlFor="packageDetails.value">Declared Value ($)</Label>
-            <Controller name="packageDetails.value" control={control} render={({ field }) => <Input id="packageDetails.value" type="number" step="0.01" {...field} />} />
+            <Controller name="packageDetails.value" control={control} render={({ field }) => <Input id="packageDetails.value" type="number" step="0.01" {...field} onChange={e => field.onChange(parseFloat(e.target.value))}/>} />
           </div>
            <div className="md:col-span-2">
             <Label htmlFor="packageDetails.description">Package Contents Description</Label>
