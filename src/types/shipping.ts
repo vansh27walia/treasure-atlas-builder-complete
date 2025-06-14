@@ -127,46 +127,10 @@ export interface CustomsInfo {
   customs_items: CustomsItem[];
 }
 
-export interface SavedAddress {
-  id: string;
-  user_id?: string;
-  name?: string | null;
-  company?: string | null;
-  street1: string;
-  street2?: string | null;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  phone?: string | null;
-  email?: string | null;
-  is_default_from?: boolean;
-  is_default_to?: boolean;
-  created_at?: string;
-  updated_at?: string;
-  // Adding address_type for better context if needed
-  address_type?: 'residential' | 'commercial' | string | null;
-  validate_address?: boolean; // Easypost specific
-}
-
-export type LabelFormat = 'pdf' | 'png' | 'zpl' | 'epl' | 'zip'; // Added 'zip'
-
-export type ServiceLevel = 'standard' | 'express' | 'overnight';
-
-export type BulkShipmentStatus =
-  | 'pending_upload' // Added for initial status from CSV before any processing
-  | 'pending_rates'
-  | 'rates_fetched'
-  | 'rate_selected'
-  | 'label_purchased' // Represents payment success and label intent/purchase
-  | 'completed' // Label generated and available
-  | 'error' // General error in processing this shipment
-  | 'failed'; // Specifically failed to get label/rate after attempts
-
 export interface BulkShipment {
-  id: string; // Unique identifier for the shipment
-  temp_id?: string; // Temporary ID from CSV row if needed before DB ID
-  row_number?: number; // Original row number in the CSV
+  id: string; // Unique ID for this row/entry in the bulk upload
+  row?: number; // Original row number from CSV
+  easypost_id?: string; // EasyPost shipment ID, populated after rate fetching
   recipient?: string; // For display
   customer_name?: string;
   customer_address?: string;
@@ -176,16 +140,15 @@ export interface BulkShipment {
   details: ShipmentDetails;
   availableRates?: Rate[];
   selectedRateId?: string | null;
-  status: BulkShipmentStatus;
+  status: 'pending_rates' | 'rates_fetched' | 'rate_selected' | 'label_purchased' | 'error' | 'completed' | 'failed';
   error?: string | null;
   tracking_code?: string;
   tracking_number?: string;
-  label_url?: string | null; // URL for the generated label (e.g. PNG)
-  label_urls?: { // For multiple formats if available
-    pdf?: string;
+  label_url?: string; // Primary PNG URL
+  label_urls?: { // All available individual label URLs
     png?: string;
+    pdf?: string;
     zpl?: string;
-    epl?: string;
   };
   rate?: number; // Populated after rate selection
   carrier?: string; // Populated after rate selection
@@ -194,11 +157,12 @@ export interface BulkShipment {
 }
 
 export interface ConsolidatedLabelUrls {
-  pdf?: string;
-  png?: string; 
-  zpl?: string;
-  epl?: string;
-  zip?: string; // Added zip
+  pdf?: string;       // Direct URL to consolidated PDF
+  zpl?: string;       // Direct URL to consolidated ZPL
+  epl?: string;       // Direct URL to consolidated EPL
+  pdfZip?: string;    // URL to ZIP of PDFs (legacy or alternative)
+  zplZip?: string;    // URL to ZIP of ZPLs (legacy or alternative)
+  eplZip?: string;    // URL to ZIP of EPLs (new)
 }
 
 export interface BatchResult {
@@ -221,9 +185,13 @@ export interface BulkUploadResult {
   failed: number;
   totalCost?: number;
   processedShipments: BulkShipment[];
-  failedShipments?: Array<{ row?: number; shipmentDetails?: any; error?: string; details?: string }>;
-  batchResult?: BatchResult | null; 
-  uploadStatus?: string; // Broader status: 'idle', 'uploading', 'editing', 'rates_fetching', 'rate_selection', 'paying', 'creating-labels', 'success', 'error'
+  failedShipments?: FailedShipmentInfo[]; // More structured info for failed ones
+  uploadStatus?: 'idle' | 'uploading' | 'editing' | 'rates_fetching' | 'rate_selection' | 'paying' | 'creating-labels' | 'success' | 'error';
+  pickupAddress?: any; // Consider using SavedAddress type
+  batchResult?: BatchResult | null;
+  // Deprecated fields, prefer them inside batchResult or processedShipments
+  bulk_label_png_url?: string | null;
+  bulk_label_pdf_url?: string | null; 
 }
 
 export const CARRIER_OPTIONS = [

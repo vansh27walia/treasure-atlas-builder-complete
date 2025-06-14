@@ -5,9 +5,9 @@ import { Upload, FileText, Package, Download, PrinterIcon } from 'lucide-react';
 import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
+import LabelGenerationProgress from './LabelGenerationProgress';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import { useBulkUpload } from './useBulkUpload';
-import { BulkUploadResult } from '@/types/shipping';
 
 const BulkUploadView: React.FC = () => {
   const {
@@ -47,12 +47,12 @@ const BulkUploadView: React.FC = () => {
     setPickupAddress
   } = useBulkUpload();
 
-  const handleUploadSuccess = (uploadResults: BulkUploadResult) => {
-    console.log('Upload successful in BulkUploadView:', uploadResults);
+  const handleUploadSuccess = (uploadResults: any) => {
+    console.log('Upload successful:', uploadResults);
   };
 
   const handleUploadFail = (error: string) => {
-    console.error('Upload failed in BulkUploadView:', error);
+    console.error('Upload failed:', error);
   };
 
   const handlePickupAddressSelect = (address: any) => {
@@ -89,7 +89,8 @@ const BulkUploadView: React.FC = () => {
         </div>
       </div>
 
-      {uploadStatus === 'idle' && !isUploading && (
+      {/* File Upload Section */}
+      {uploadStatus === 'idle' && (
         <Card className="p-6">
           <BulkUploadForm
             onUploadSuccess={handleUploadSuccess}
@@ -102,13 +103,12 @@ const BulkUploadView: React.FC = () => {
         </Card>
       )}
 
-      {(isUploading || (uploadStatus === 'uploading' && progress < 100)) && (
+      {/* Progress Section */}
+      {(uploadStatus === 'uploading' || uploadStatus === 'editing' && !results?.processedShipments?.length) && (
         <Card className="p-6">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <h3 className="text-lg font-semibold mb-2">
-              {uploadStatus === 'uploading' ? 'Uploading & Processing File...' : 'Processing Your Upload'}
-            </h3>
+            <h3 className="text-lg font-semibold mb-2">Processing Your Upload</h3>
             <p className="text-gray-600">Please wait while we process your shipment data...</p>
             {progress > 0 && progress < 100 && (
               <div className="mt-4">
@@ -121,61 +121,58 @@ const BulkUploadView: React.FC = () => {
                 <p className="text-sm text-gray-500 mt-2">{progress}% complete</p>
               </div>
             )}
-             {progress === 100 && uploadStatus === 'uploading' && (
-                <p className="text-sm text-green-600 mt-2">File processed, preparing shipments...</p>
-            )}
           </div>
         </Card>
       )}
 
+      {/* Label Generation Progress */}
+      <LabelGenerationProgress
+        isGenerating={labelGenerationProgress.isGenerating}
+        totalShipments={labelGenerationProgress.totalShipments}
+        processedShipments={labelGenerationProgress.processedShipments}
+        successfulShipments={labelGenerationProgress.successfulShipments}
+        failedShipments={labelGenerationProgress.failedShipments}
+        currentStep={labelGenerationProgress.currentStep}
+        estimatedTimeRemaining={labelGenerationProgress.estimatedTimeRemaining}
+      />
+
+      {/* Shipment Rates Section */}
       {uploadStatus === 'editing' && results && results.processedShipments && results.processedShipments.length > 0 && (
         <BulkShipmentsList
           shipments={filteredShipments}
           isFetchingRates={isFetchingRates}
-          isCreatingLabels={isCreatingLabels}
           onSelectRate={handleSelectRate}
           onRemoveShipment={handleRemoveShipment}
           onEditShipment={(shipmentId: string, details: any) => {
-            handleEditShipment(shipmentId, details);
+            console.log('Edit shipment:', shipmentId, details);
           }}
           onRefreshRates={handleRefreshRates}
         />
       )}
 
+      {/* Results Section */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="space-y-6">
+          {/* BulkLabelDownloadOptions is now replaced by the modal */}
           {results.processedShipments && results.processedShipments.length > 0 && (
-            <Card className="p-4">
-              <h3 className="text-lg font-semibold mb-3">Processed Shipments & Labels</h3>
-              <LabelResultsTable
-                shipments={results.processedShipments || []}
-                onDownloadLabel={(shipmentId, url, format) => handleDownloadSingleLabel(shipmentId, url, format)}
-              />
-            </Card>
+            <LabelResultsTable
+              shipments={results.processedShipments || []}
+              onDownloadLabel={handleDownloadSingleLabel}
+            />
           )}
         </div>
       )}
 
-      {uploadStatus === 'error' && !isUploading && (
-        <Card className="p-6 bg-red-50 border-red-200">
-          <div className="text-center text-red-700">
-            <XCircle className="h-12 w-12 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Upload Failed</h3>
-            <p>There was an error processing your file. Please check the file and try again, or download the template for guidance.</p>
-            {/* Add retry/new upload buttons if appropriate for this view's scope */}
-          </div>
-        </Card>
-      )}
-
+      {/* Batch Print Preview Modal */}
       {results?.batchResult && (
         <PrintPreview
           isOpenProp={batchPrintPreviewModalOpen}
           onOpenChangeProp={setBatchPrintPreviewModalOpen}
+          labelUrl="" // Not relevant for batch preview trigger, content comes from batchResult
+          trackingCode={null} // Batch ID will be shown in modal title
           batchResult={results.batchResult}
-          shipments={results.processedShipments || []}
           isBatchPreview={true}
-          onDownloadFormat={handleDownloadLabelsWithFormat}
-          pickupAddress={pickupAddress}
+          // No triggerButton prop here, it's controlled by isOpenProp
         />
       )}
     </div>
