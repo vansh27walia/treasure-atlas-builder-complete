@@ -1,160 +1,259 @@
 
-import React, { useState } from 'react';
+import React from 'react';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle, Download, Printer, Eye, Mail, ChevronDown, ChevronUp, FileText } from 'lucide-react';
-import { BulkUploadResult, BulkShipment } from '@/types/shipping';
+import { CheckCircle, Download, FileText, File } from 'lucide-react';
+import { BulkUploadResult } from '@/types/shipping';
 import LabelResultsTable from './LabelResultsTable';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import BulkLabelDownloadOptions from './BulkLabelDownloadOptions';
 import { toast } from '@/components/ui/sonner';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
-  onDownloadAllLabels?: () => void;
-  onDownloadSingleLabel: (shipmentId: string, format?: 'pdf' | 'png' | 'zpl' | 'epl') => void;
+  onDownloadAllLabels: () => void;
+  onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
+  onCreateLabels: () => void;
   isPaying: boolean;
   isCreatingLabels: boolean;
-  onOpenBatchPrintPreview?: () => void;
-  onDownloadLabelsWithFormat: (format: 'pdf' | 'zpl' | 'epl' | 'pdfZip' | 'zplZip' | 'eplZip') => Promise<void>;
-  onEmailLabels: (email: string) => Promise<void>;
 }
 
 const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   results,
   onDownloadAllLabels,
   onDownloadSingleLabel,
+  onCreateLabels,
   isPaying,
-  isCreatingLabels,
-  onOpenBatchPrintPreview,
-  onDownloadLabelsWithFormat,
-  onEmailLabels,
+  isCreatingLabels
 }) => {
-  const [showDetails, setShowDetails] = useState(false);
-  const [showEmailInput, setShowEmailInput] = useState(false);
-  const [email, setEmail] = useState('');
+  console.log('SuccessNotification received results:', results);
 
-  const { successful, failed, totalCost, processedShipments, batchResult } = results;
-  const successfulShipments = processedShipments?.filter(s => s.status === 'completed') || [];
-  const scanFormUrl = batchResult?.scanFormUrl;
+  // Safely get shipments array
+  let allShipments = [];
+  if (Array.isArray(results.processedShipments)) {
+    allShipments = results.processedShipments;
+  } else if (results.processedShipments && typeof results.processedShipments === 'object') {
+    const shipmentValues = Object.values(results.processedShipments);
+    allShipments = shipmentValues.filter(item => 
+      item && 
+      typeof item === 'object' && 
+      'id' in item
+    );
+  }
+  
+  console.log(`SuccessNotification - All shipments: ${allShipments.length}`, allShipments);
+  
+  // Count shipments with labels
+  const shipmentsWithLabels = allShipments.filter(shipment => {
+    const hasLabel = !!(
+      (shipment.label_url && shipment.label_url.trim() !== '') ||
+      (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '') ||
+      shipment.status === 'completed'
+    );
+    return hasLabel;
+  });
 
-  const handleEmailSubmit = async () => {
-    if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      toast.error("Please enter a valid email address.");
-      return;
-    }
+  // Count failed shipments
+  const failedShipments = allShipments.filter(shipment => shipment.status === 'failed');
+  
+  console.log('SuccessNotification Debug:', {
+    totalShipments: allShipments.length,
+    shipmentsWithLabels: shipmentsWithLabels.length,
+    failedShipments: failedShipments.length
+  });
+
+  const hasLabels = shipmentsWithLabels.length > 0;
+  const totalProcessed = allShipments.length;
+
+  // Show notification if we have shipments or results
+  const shouldShowNotification = totalProcessed > 0 || results.total > 0 || results.successful > 0;
+
+  const downloadFile = async (url: string, filename: string) => {
     try {
-      await onEmailLabels(email);
-      setShowEmailInput(false);
+      console.log('Downloading file from URL:', url);
+      
+      if (!url || url.trim() === '') {
+        toast.error('Invalid label URL - cannot download');
+        return;
+      }
+
+      // Direct download approach
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.target = '_blank';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`Downloaded ${filename}`);
     } catch (error) {
-      // Error already toasted by hook
+      console.error('Download error:', error);
+      toast.error(`Failed to download ${filename}`);
     }
   };
 
+  const handleDownloadAllIndividualLabels = async () => {
+    console.log('Downloading all individual labels, count:', shipmentsWithLabels.length);
+    
+    if (shipmentsWithLabels.length === 0) {
+      toast.error('No labels available for download');
+      return;
+    }
+
+    toast.loading('Starting downloads...');
+    
+    let successCount = 0;
+    
+    for (let i = 0; i < shipmentsWithLabels.length; i++) {
+      const shipment = shipmentsWithLabels[i];
+      const labelUrl = shipment.label_urls?.png || shipment.label_url;
+      if (labelUrl && labelUrl.trim() !== '') {
+        try {
+          setTimeout(async () => {
+            const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
+            await downloadFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.png`);
+            successCount++;
+          }, i * 500);
+        } catch (error) {
+          console.error('Error downloading label for shipment:', shipment.id, error);
+        }
+      }
+    }
+    
+    toast.dismiss();
+    setTimeout(() => {
+      toast.success(`Started download of ${shipmentsWithLabels.length} labels`);
+    }, 1000);
+  };
+
+  // Don't show if no data
+  if (!shouldShowNotification) {
+    return null;
+  }
+
+  const displayTotal = totalProcessed || results.total || 0;
+  const displaySuccessful = shipmentsWithLabels.length || results.successful || 0;
+  const displayFailed = failedShipments.length || results.failed || 0;
+
   return (
-    <Card className="w-full max-w-3xl mx-auto mt-8 border-green-500 bg-green-50 shadow-lg">
-      <CardHeader className="text-center">
-        <CheckCircle className="mx-auto h-16 w-16 text-green-600 mb-4" />
-        <CardTitle className="text-2xl font-bold text-green-700">Bulk Upload Successful!</CardTitle>
-        <CardDescription className="text-green-600">
-          {successful} of {results.total} shipments processed successfully.
-          {failed > 0 && ` ${failed} shipment(s) failed.`}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="p-4 bg-white rounded-md shadow">
-          <h3 className="text-lg font-semibold mb-2">Summary</h3>
-          <p>Total Shipments Processed: {results.total}</p>
-          <p>Successfully Created Labels: {successful}</p>
-          {failed > 0 && <p className="text-red-600">Failed Shipments: {failed}</p>}
-          {totalCost !== undefined && <p>Total Cost: ${totalCost.toFixed(2)}</p>}
-          {batchResult?.batchId && <p>Batch ID: {batchResult.batchId}</p>}
+    <div className="space-y-6">
+      <Card className="p-6 border-green-200 bg-green-50">
+        <div className="flex items-center space-x-3 mb-4">
+          <CheckCircle className="h-6 w-6 text-green-600" />
+          <div>
+            <h3 className="text-lg font-semibold text-green-800">
+              {hasLabels ? 'Labels Processing Complete!' : 'Shipments Processed Successfully!'}
+            </h3>
+            <p className="text-green-700">
+              {hasLabels
+                ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created and are ready for download.`
+                : `${displayTotal} shipments have been processed and are ready for label creation.`
+              }
+              {displayFailed > 0 && ` ${displayFailed} shipments failed.`}
+            </p>
+          </div>
         </div>
 
-        {scanFormUrl && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between">
-            <div className="flex items-center">
-              <FileText className="h-5 w-5 text-blue-600 mr-2" />
-              <span className="text-sm font-medium text-blue-700">Scan Form Available</span>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => window.open(scanFormUrl, '_blank')}>
-              View Scan Form
-            </Button>
+        {displayFailed > 0 && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-yellow-800 text-sm">
+              <strong>Note:</strong> {displayFailed} shipments failed to process. Please check the error details below.
+            </p>
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4">
-          {onOpenBatchPrintPreview && batchResult && (
-            <Button onClick={onOpenBatchPrintPreview} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700">
-              <Eye className="mr-2 h-4 w-4" /> View/Print Batch Labels
-            </Button>
-          )}
-          {!onOpenBatchPrintPreview && onDownloadAllLabels && batchResult && (
-             <Button onClick={onDownloadAllLabels} className="w-full sm:w-auto">
-                <Download className="mr-2 h-4 w-4" /> Download All Labels (PDF)
-            </Button>
-          )}
-        </div>
-         <BulkLabelDownloadOptions 
-            onDownloadLabelsWithFormat={onDownloadLabelsWithFormat} 
-            disabled={isCreatingLabels || !batchResult}
-            consolidatedUrls={batchResult?.consolidatedLabelUrls}
-          />
-
-        <div className="pt-2">
-            <Button variant="outline" onClick={() => setShowEmailInput(!showEmailInput)} className="w-full sm:w-auto">
-                <Mail className="mr-2 h-4 w-4" /> Email Labels
-                {showEmailInput ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}
-            </Button>
-            {showEmailInput && (
-                <div className="mt-3 p-4 bg-white rounded-md shadow space-y-2">
-                    <input 
-                        type="email" 
-                        value={email} 
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Enter email address"
-                        className="w-full p-2 border rounded-md"
-                    />
-                    <Button onClick={handleEmailSubmit} className="w-full sm:w-auto" size="sm">Send Email</Button>
-                </div>
-            )}
+        {/* Summary Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-lg border border-green-200">
+            <div className="text-2xl font-bold text-green-600">{displayTotal}</div>
+            <div className="text-sm text-gray-600">Total Processed</div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg border border-green-200">
+            <div className="text-2xl font-bold text-green-600">{displaySuccessful}</div>
+            <div className="text-sm text-gray-600">Labels Created</div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg border border-red-200">
+            <div className="text-2xl font-bold text-red-600">{displayFailed}</div>
+            <div className="text-sm text-gray-600">Failed</div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg border border-green-200">
+            <div className="text-2xl font-bold text-green-600">${results.totalCost?.toFixed(2) || '0.00'}</div>
+            <div className="text-sm text-gray-600">Total Shipping Cost</div>
+          </div>
         </div>
 
-        <Collapsible open={showDetails} onOpenChange={setShowDetails}>
-          <CollapsibleTrigger asChild>
-            <Button variant="link" className="text-blue-600 hover:text-blue-800">
-              {showDetails ? 'Hide' : 'Show'} Detailed Results
-              {showDetails ? <ChevronUp className="ml-1 h-4 w-4" /> : <ChevronDown className="ml-1 h-4 w-4" />}
+        {/* Download Buttons Section */}
+        {hasLabels && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Labels</h4>
+            
+            <div className="flex flex-col gap-3">
+              <Button 
+                onClick={handleDownloadAllIndividualLabels}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download All Labels ({shipmentsWithLabels.length} PNG files)
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Create Labels Button */}
+        {!hasLabels && displayTotal > 0 && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h4 className="font-semibold text-lg text-yellow-800 mb-3">Create Shipping Labels</h4>
+            <p className="text-yellow-700 mb-3">
+              Your shipments have been processed. Click below to create and download shipping labels.
+            </p>
+            <Button 
+              onClick={onCreateLabels}
+              disabled={isCreatingLabels}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              size="lg"
+            >
+              {isCreatingLabels ? 'Creating Labels...' : 'Create All Labels Now'}
             </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            {successfulShipments.length > 0 && (
-              <div className="mt-4">
-                <h4 className="font-semibold text-md mb-2">Successful Shipments:</h4>
-                <LabelResultsTable shipments={successfulShipments} onDownloadLabel={onDownloadSingleLabel} />
+          </div>
+        )}
+      </Card>
+
+      {/* New Clean Table Display */}
+      {allShipments.length > 0 && (
+        <LabelResultsTable
+          shipments={allShipments}
+          onDownloadLabel={(url: string, format?: string) => {
+            if (url && url.trim() !== '') {
+              const timestamp = Date.now();
+              const filename = `shipping_label_${timestamp}.${format || 'png'}`;
+              downloadFile(url, filename);
+            } else {
+              toast.error('Invalid label URL - cannot download');
+            }
+          }}
+        />
+      )}
+
+      {/* Failed Shipments Details */}
+      {results.failedShipments && results.failedShipments.length > 0 && (
+        <Card className="p-6">
+          <h4 className="font-medium text-red-800 mb-3">Failed Shipments Details</h4>
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 max-h-60 overflow-y-auto">
+            {results.failedShipments.map((failed, index) => (
+              <div key={index} className="mb-2 last:mb-0 p-2 bg-white rounded border-l-4 border-red-400">
+                <span className="font-medium text-red-700">
+                  Shipment {failed.row ? `#${failed.row}` : index + 1}:
+                </span>
+                <span className="text-red-600 ml-2 block text-sm">{failed.details || failed.error}</span>
               </div>
-            )}
-            {results.failedShipments && results.failedShipments.length > 0 && (
-              <div className="mt-6">
-                <h4 className="font-semibold text-md mb-2 text-red-600">Failed Shipments:</h4>
-                <ul className="list-disc list-inside text-sm text-red-700 bg-red-50 p-3 rounded-md">
-                  {results.failedShipments.map((fail, index) => (
-                    <li key={index}>
-                      Row {fail.row || 'N/A'}: {fail.error} {fail.details ? `(${JSON.stringify(fail.details)})` : ''}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
-      </CardContent>
-      <CardFooter className="flex justify-center">
-         <Button onClick={() => window.location.reload()} variant="outline">
-            Upload Another File
-        </Button>
-      </CardFooter>
-    </Card>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
   );
 };
 

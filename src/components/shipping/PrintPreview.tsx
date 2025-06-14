@@ -1,276 +1,418 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Printer, Download, X, FileText, Link as LinkIcon, CheckCircle, AlertTriangle, Loader2, Info } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Printer, Download, File, FileArchive, X, FileImage, FileText, Eye, Package } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
-import { BatchResult, ConsolidatedLabelUrls, BulkShipment, SavedAddress } from '@/types/shipping';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-interface PrintPreviewShipmentDetails {
-  fromAddress?: SavedAddress | string; // Can be full address object or string
-  toAddress: SavedAddress | string;   // Can be full address object or string
-  weight?: string;
-  dimensions?: string;
-  service?: string;
-  carrier?: string;
-}
-export interface PrintPreviewProps { // Exporting for use elsewhere if needed
-  isOpenProp: boolean;
-  onOpenChangeProp: (isOpen: boolean) => void;
-  labelUrl?: string; 
-  labelUrls?: BulkShipment['label_urls']; 
-  trackingCode?: string | null;
-  shipmentId?: string; 
-  batchResult?: BatchResult | null; 
-  isBatchPreview?: boolean;
-  shipmentDetails?: PrintPreviewShipmentDetails; // Added prop
-  scanFormUrl?: string | null; // Added for individual shipment scan forms if applicable
+const labelFormats = [
+  { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
+  { value: '8.5x11-left', label: '8.5x11" - 1 Label per Page - Left Side', description: 'One 4x6" label on the left side of a letter-sized page' },
+  { value: '8.5x11-right', label: '8.5x11" - 1 Label per Page - Right Side', description: 'One 4x6" label on the right side of a letter-sized page' },
+  { value: '8.5x11-2up', label: '8.5x11" - 2 Labels per Page', description: 'Two 4x6" labels per letter-sized page' }
+];
+
+interface PrintPreviewProps {
+  labelUrl: string;
+  trackingCode: string | null;
+  shipmentDetails?: {
+    fromAddress: string;
+    toAddress: string;
+    weight: string;
+    dimensions?: string;
+    service: string;
+    carrier: string;
+  };
+  onFormatChange?: (format: string) => Promise<void>;
+  shipmentId?: string;
+  labelUrls?: {
+    png?: string;
+    pdf?: string;
+    zpl?: string;
+  };
+  batchResult?: {
+    batchId: string;
+    consolidatedLabelUrls: Record<string, string>;
+    scanFormUrl: string | null;
+  };
 }
 
-const PrintPreview: React.FC<PrintPreviewProps> = ({
-  isOpenProp,
-  onOpenChangeProp,
-  labelUrl: initialLabelUrl,
-  labelUrls,
-  trackingCode,
+const PrintPreview: React.FC<PrintPreviewProps> = ({ 
+  labelUrl, 
+  trackingCode, 
+  shipmentDetails,
+  onFormatChange,
   shipmentId,
-  batchResult,
-  isBatchPreview = false,
-  shipmentDetails, 
-  scanFormUrl: individualScanFormUrl, // Renamed to avoid conflict with batchResult.scanFormUrl
+  labelUrls,
+  batchResult
 }) => {
-  const printRef = useRef<HTMLDivElement>(null);
-  const [currentLabelUrl, setCurrentLabelUrl] = useState<string | null>(null);
-  const [currentLabelType, setCurrentLabelType] = useState<'pdf' | 'png' | 'zpl' | 'epl' | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [iframeError, setIframeError] = useState(false);
-
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState('4x6');
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
+  const [currentLabelUrl, setCurrentLabelUrl] = useState(labelUrl);
+  
   useEffect(() => {
-    if (isOpenProp) {
-      setIsLoading(true);
-      setIframeError(false);
-      let defaultUrl: string | undefined = undefined;
-      let defaultType: 'pdf' | 'png' | 'zpl' | 'epl' | null = null;
-
-      if (isBatchPreview && batchResult?.consolidatedLabelUrls) {
-        if (batchResult.consolidatedLabelUrls.pdf) {
-          defaultUrl = batchResult.consolidatedLabelUrls.pdf;
-          defaultType = 'pdf';
-        } else if (batchResult.consolidatedLabelUrls.zpl) {
-          defaultUrl = batchResult.consolidatedLabelUrls.zpl;
-          defaultType = 'zpl';
-        } else if (batchResult.consolidatedLabelUrls.epl) {
-          defaultUrl = batchResult.consolidatedLabelUrls.epl;
-          defaultType = 'epl';
-        }
-      } else if (!isBatchPreview) {
-        if (labelUrls?.pdf) {
-          defaultUrl = labelUrls.pdf;
-          defaultType = 'pdf';
-        } else if (labelUrls?.png) {
-          defaultUrl = labelUrls.png;
-          defaultType = 'png';
-        } else if (labelUrls?.zpl) {
-          defaultUrl = labelUrls.zpl;
-          defaultType = 'zpl';
-        } else if (labelUrls?.epl) {
-          defaultUrl = labelUrls.epl;
-          defaultType = 'epl';
-        } else if (initialLabelUrl) {
-           defaultUrl = initialLabelUrl;
-           const extension = initialLabelUrl.split('.').pop()?.toLowerCase().split('?')[0];
-           if (extension === 'pdf') defaultType = 'pdf';
-           else if (extension === 'png') defaultType = 'png';
-           else if (extension === 'zpl') defaultType = 'zpl';
-           else if (extension === 'epl') defaultType = 'epl';
-        }
-      }
-      
-      setCurrentLabelUrl(defaultUrl || null);
-      setCurrentLabelType(defaultType);
-      // Add a small delay for iframe to potentially load, reducing flicker
-      setTimeout(() => setIsLoading(false), currentLabelType === 'pdf' ? 500: 100);
-    } else {
-      // Reset state when dialog closes
-      setCurrentLabelUrl(null);
-      setCurrentLabelType(null);
-      setIsLoading(false);
-      setIframeError(false);
-    }
-  }, [isOpenProp, isBatchPreview, batchResult, initialLabelUrl, labelUrls]);
-
+    setCurrentLabelUrl(labelUrl);
+  }, [labelUrl]);
+  
   const handlePrint = useReactToPrint({
-    content: () => printRef.current,
-    documentTitle: isBatchPreview ? `Batch-${batchResult?.batchId || 'labels'}` : `Label-${trackingCode || shipmentId || 'details'}`,
-    onBeforeGetContent: () => setIsLoading(true),
-    onAfterPrint: () => setIsLoading(false),
-    onPrintError: (_error) => { setIsLoading(false); toast.error("Printing failed."); }
+    documentTitle: `Shipping_Label_${trackingCode || 'Print'}`,
+    onAfterPrint: () => setIsOpen(false),
+    content: () => contentRef.current,
   });
 
-  const handleDownload = (urlToDownload?: string, typeToDownload?: string) => {
-    const finalUrl = urlToDownload || currentLabelUrl;
-    const finalType = typeToDownload || currentLabelType;
+  const handleFormatChange = async (format: string) => {
+    setSelectedFormat(format);
+    
+    if (onFormatChange) {
+      try {
+        setIsRegeneratingLabel(true);
+        await onFormatChange(format);
+        setIsRegeneratingLabel(false);
+        toast.success(`Label format changed to ${format}`);
+      } catch (error) {
+        console.error("Error changing label format:", error);
+        setIsRegeneratingLabel(false);
+        toast.error("Failed to change label format");
+      }
+    }
+  };
 
-    if (!finalUrl) {
-      toast.error("No label URL available for download.");
+  const handleDownloadFormat = (format: 'png' | 'pdf' | 'zpl') => {
+    console.log('Download attempt for format:', format);
+    console.log('Available labelUrls:', labelUrls);
+    
+    let url = labelUrls?.[format];
+    
+    if (!url && format === 'png') {
+      url = labelUrl;
+    }
+    
+    console.log('Final URL for download:', url);
+    
+    if (!url || url.trim() === '') {
+      console.error(`No URL available for ${format} format`);
+      toast.error(`${format.toUpperCase()} format not available for this label`);
       return;
     }
-    const link = document.createElement('a');
-    link.href = finalUrl;
-    // Ensure file extension is derived correctly, even with query params
-    const fileExtension = finalType || finalUrl.split('.').pop()?.split('?')[0] || 'unknown';
-    const fileNameBase = isBatchPreview ? `batch_${batchResult?.batchId || 'labels'}` : `label_${trackingCode || shipmentId || 'file'}`;
-    link.download = `${fileNameBase}.${fileExtension}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Label downloaded as ${fileExtension.toUpperCase()}`);
-  };
-  
-  const selectLabelFormat = (format: 'pdf' | 'png' | 'zpl' | 'epl', url?: string) => {
-    if (url) {
-      setIsLoading(true);
-      setIframeError(false);
-      setCurrentLabelUrl(url);
-      setCurrentLabelType(format);
-      setTimeout(() => setIsLoading(false), format === 'pdf' ? 500 : 100); 
-      toast.info(`Previewing ${format.toUpperCase()} format.`);
-    } else {
-      toast.error(`${format.toUpperCase()} format not available for this label.`);
-      // Do not reset currentLabelUrl/Type here if a valid one was already selected
-      // setCurrentLabelUrl(null);
-      // setCurrentLabelType(null);
-      setIsLoading(false);
+
+    try {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `shipping_label_${trackingCode || Date.now()}.${format}`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      console.log(`Successfully initiated download for ${format}`);
+      toast.success(`Downloading ${format.toUpperCase()} label`);
+    } catch (error) {
+      console.error("Error downloading label:", error);
+      toast.error("Failed to download label");
     }
   };
 
-  const renderLabelContent = () => {
-    if (isLoading && !iframeError) {
-      return <div className="flex flex-col justify-center items-center h-full min-h-[300px]"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /> <span className="ml-2 mt-2">Loading preview...</span></div>;
+  const handleDownloadBatchFormat = (format: string) => {
+    if (!batchResult?.consolidatedLabelUrls?.[format]) {
+      toast.error(`${format.toUpperCase()} batch label not available`);
+      return;
     }
-    if (iframeError && currentLabelType === 'pdf') {
-        return (
-            <div className="text-center py-10 text-gray-600 bg-yellow-50 p-4 rounded-md min-h-[300px]">
-                <AlertTriangle className="h-10 w-10 mx-auto text-yellow-500 mb-3" />
-                <p className="font-semibold">Could not load PDF preview.</p>
-                <p className="text-sm mb-3">This might be due to browser settings or network issues.</p>
-                <Button onClick={() => handleDownload()} variant="outline" size="sm">
-                    <Download className="mr-2 h-4 w-4" /> Download PDF
-                </Button>
-            </div>
-        );
+
+    const url = batchResult.consolidatedLabelUrls[format];
+    
+    try {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `batch_labels_${batchResult.batchId}.${format}`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success(`Downloading batch ${format.toUpperCase()} labels`);
+    } catch (error) {
+      console.error("Error downloading batch label:", error);
+      toast.error("Failed to download batch label");
     }
-    if (!currentLabelUrl) {
-      return <div className="text-center py-10 text-gray-500 min-h-[300px]">No label to preview. Select a format or check data.</div>;
-    }
-    if (currentLabelType === 'pdf') {
-      return <iframe 
-                src={currentLabelUrl} 
-                className="w-full h-[calc(100vh-280px)] min-h-[400px] border-0" 
-                title="Label Preview" 
-                onLoad={() => { setIsLoading(false); setIframeError(false); }}
-                onError={() => { setIsLoading(false); setIframeError(true); }}
-             />;
-    }
-    if (currentLabelType === 'png') {
-      return <div ref={printRef}><img src={currentLabelUrl} alt="Shipping Label" className="max-w-full max-h-[calc(100vh-280px)] mx-auto object-contain" onLoad={() => setIsLoading(false)} onError={() => {setIsLoading(false); toast.error("Failed to load image preview.");setCurrentLabelUrl(null);}}/></div>;
-    }
-    // For ZPL/EPL or other raw text formats
-    return (
-      <div className="p-4 bg-gray-100 rounded-md h-auto min-h-[300px] max-h-[calc(100vh-280px)] overflow-auto">
-        <h3 className="font-semibold text-lg mb-2">Raw {currentLabelType?.toUpperCase()} Label Content</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          This is a direct link to the {currentLabelType?.toUpperCase()} file. Actual printing requires a compatible {currentLabelType?.toUpperCase()} printer or software.
-        </p>
-         <Button onClick={() => handleDownload()} variant="outline" size="sm" className="mt-4">
-            <Download className="mr-2 h-4 w-4" /> Download {currentLabelType?.toUpperCase()}
-          </Button>
-          <pre className="mt-4 whitespace-pre-wrap break-all bg-white p-3 rounded text-xs border">
-            {`URL: ${currentLabelUrl}`}
-        </pre>
-      </div>
-    );
   };
 
-  const getFormatUrl = (formatKey: keyof ConsolidatedLabelUrls | keyof NonNullable<BulkShipment['label_urls']>, source?: ConsolidatedLabelUrls | BulkShipment['label_urls']) => source?.[formatKey as any];
+  const handleDownloadManifest = () => {
+    if (!batchResult?.scanFormUrl) {
+      toast.error('Manifest not available');
+      return;
+    }
 
-  const title = isBatchPreview ? `Batch Label Preview (ID: ${batchResult?.batchId || 'N/A'})` : `Label Preview (Tracking: ${trackingCode || shipmentId || 'N/A'})`;
-  const finalScanFormUrl = isBatchPreview ? batchResult?.scanFormUrl : individualScanFormUrl;
-  
-  let resolvedLabelSource: BulkShipment['label_urls'] | ConsolidatedLabelUrls | undefined;
-  if (isBatchPreview) {
-    resolvedLabelSource = batchResult?.consolidatedLabelUrls;
-  } else {
-    resolvedLabelSource = labelUrls;
-  }
+    try {
+      const link = document.createElement('a');
+      link.href = batchResult.scanFormUrl;
+      link.download = `manifest_${batchResult.batchId}.pdf`;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast.success('Downloading manifest');
+    } catch (error) {
+      console.error("Error downloading manifest:", error);
+      toast.error("Failed to download manifest");
+    }
+  };
+
+  const hasDownloadFormats = labelUrls && (labelUrls.png || labelUrls.pdf || labelUrls.zpl) || labelUrl;
+  const hasBatchLabels = batchResult?.consolidatedLabelUrls && Object.keys(batchResult.consolidatedLabelUrls).length > 0;
 
   return (
-      <Dialog open={isOpenProp} onOpenChange={onOpenChangeProp}>
-        <DialogContent className="max-w-4xl w-[90vw] p-0 overflow-hidden flex flex-col h-[90vh]">
-          <DialogHeader className="p-4 pb-2 border-b">
-            <DialogTitle className="text-lg flex items-center">
-              <FileText className="mr-2 h-5 w-5 text-blue-600" />
-              {title}
-            </DialogTitle>
-            {isBatchPreview && batchResult?.status && (
-                 <DialogDescription className="text-xs">Status: <span className="font-medium capitalize">{batchResult.status}</span></DialogDescription>
-            )}
-             {!isBatchPreview && shipmentDetails && (
-              <DialogDescription className="text-xs mt-1">
-                {typeof shipmentDetails.fromAddress === 'string' ? shipmentDetails.fromAddress : `${shipmentDetails.fromAddress?.street1}, ${shipmentDetails.fromAddress?.city}`}
-                {' -> '}
-                {typeof shipmentDetails.toAddress === 'string' ? shipmentDetails.toAddress : `${shipmentDetails.toAddress?.street1}, ${shipmentDetails.toAddress?.city}`}
-                {shipmentDetails.service && ` | ${shipmentDetails.service}`}
-              </DialogDescription>
-            )}
-          </DialogHeader>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="border-purple-200 hover:bg-purple-50">
+          <Eye className="h-3 w-3 mr-1" />
+          Print Preview
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-5xl bg-white">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <span>Shipping Label Preview</span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setIsOpen(false)}
+              disabled={isRegeneratingLabel}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </DialogTitle>
+        </DialogHeader>
+
+        <Tabs defaultValue="preview" className="w-full">
+          <TabsList className="grid grid-cols-4 mb-4">
+            <TabsTrigger value="preview">Preview</TabsTrigger>
+            <TabsTrigger value="individual">Individual Formats</TabsTrigger>
+            <TabsTrigger value="batch">Batch Labels</TabsTrigger>
+            <TabsTrigger value="print">Print Settings</TabsTrigger>
+          </TabsList>
           
-          <div className="p-4 flex-shrink-0 border-b">
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-sm font-medium mr-2">Formats:</span>
-                {resolvedLabelSource?.pdf && <Button onClick={() => selectLabelFormat('pdf', getFormatUrl('pdf', resolvedLabelSource))} variant={currentLabelType === 'pdf' ? "default" : "outline"} size="sm">PDF</Button>}
-                {!isBatchPreview && (resolvedLabelSource as BulkShipment['label_urls'])?.png && <Button onClick={() => selectLabelFormat('png', getFormatUrl('png', resolvedLabelSource))} variant={currentLabelType === 'png' ? "default" : "outline"} size="sm">PNG</Button>}
-                {resolvedLabelSource?.zpl && <Button onClick={() => selectLabelFormat('zpl', getFormatUrl('zpl', resolvedLabelSource))} variant={currentLabelType === 'zpl' ? "default" : "outline"} size="sm">ZPL</Button>}
-                {resolvedLabelSource?.epl && <Button onClick={() => selectLabelFormat('epl', getFormatUrl('epl', resolvedLabelSource))} variant={currentLabelType === 'epl' ? "default" : "outline"} size="sm">EPL</Button>}
-                
-                {isBatchPreview && (resolvedLabelSource as ConsolidatedLabelUrls)?.pdfZip && <Button onClick={() => handleDownload((resolvedLabelSource as ConsolidatedLabelUrls).pdfZip, 'zip')} variant="outline" size="sm"><Download className="mr-1 h-3 w-3" /> PDFs (.zip)</Button>}
-                {isBatchPreview && (resolvedLabelSource as ConsolidatedLabelUrls)?.zplZip && <Button onClick={() => handleDownload((resolvedLabelSource as ConsolidatedLabelUrls).zplZip, 'zip')} variant="outline" size="sm"><Download className="mr-1 h-3 w-3" /> ZPLs (.zip)</Button>}
-                {isBatchPreview && (resolvedLabelSource as ConsolidatedLabelUrls)?.eplZip && <Button onClick={() => handleDownload((resolvedLabelSource as ConsolidatedLabelUrls).eplZip, 'zip')} variant="outline" size="sm"><Download className="mr-1 h-3 w-3" /> EPLs (.zip)</Button>}
-
-                {(!resolvedLabelSource?.pdf && !((!isBatchPreview && (resolvedLabelSource as BulkShipment['label_urls'])?.png)) && !resolvedLabelSource?.zpl && !resolvedLabelSource?.epl) && initialLabelUrl && <span className="text-xs text-gray-500">Previewing default label. Other formats may not be available.</span>}
-                {(!resolvedLabelSource?.pdf && !((!isBatchPreview && (resolvedLabelSource as BulkShipment['label_urls'])?.png)) && !resolvedLabelSource?.zpl && !resolvedLabelSource?.epl && !initialLabelUrl) && <span className="text-xs text-gray-500">No specific formats available.</span>}
-            </div>
-             {finalScanFormUrl && (
-              <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded-md">
-                <div className="flex items-center justify-between"> <div className="flex items-center"> <CheckCircle className="h-4 w-4 text-green-600 mr-2" /> <span className="text-xs font-medium text-green-700">Scan Form / Manifest Ready</span> </div> <Button onClick={() => window.open(finalScanFormUrl, '_blank')} variant="outline" size="sm"> <LinkIcon className="mr-1 h-3 w-3" /> View Scan Form </Button> </div>
-              </div>
-            )}
-             {!finalScanFormUrl && (isBatchPreview || (!isBatchPreview && shipmentId)) && ( // Show if batch or individual shipment context where scan form might be expected
-                <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded-md"> <div className="flex items-center"> <Info className="h-4 w-4 text-yellow-600 mr-2" /> <span className="text-xs font-medium text-yellow-700">Scan Form not available for this {isBatchPreview ? 'batch' : 'shipment'}.</span> </div> </div>
-            )}
-          </div>
-
-          <div className="flex-grow overflow-auto p-4 bg-gray-50">
-            {currentLabelType === 'pdf' ? renderLabelContent() : <div ref={printRef}>{renderLabelContent()}</div>}
-          </div>
-
-          <DialogFooter className="p-4 border-t flex-shrink-0 sm:justify-between items-center">
-            <DialogClose asChild>
-              <Button variant="ghost" size="sm"><X className="mr-1 h-4 w-4" />Close</Button>
-            </DialogClose>
-            <div className="flex space-x-2">
-              <Button onClick={() => handleDownload()} variant="outline" size="sm" disabled={!currentLabelUrl || isLoading}>
-                <Download className="mr-1 h-4 w-4" />Download Current
+          <TabsContent value="preview">
+            <div className="flex justify-between items-center mb-4">
+              <Select
+                value={selectedFormat}
+                onValueChange={handleFormatChange}
+                disabled={isRegeneratingLabel}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select Format" />
+                </SelectTrigger>
+                <SelectContent>
+                  {labelFormats.map(format => (
+                    <SelectItem key={format.value} value={format.value}>
+                      {format.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handlePrint}
+                className="border-purple-200 hover:bg-purple-50"
+                disabled={isRegeneratingLabel}
+              >
+                <Printer className="h-4 w-4 mr-2" /> Print
               </Button>
-              {(currentLabelType === 'pdf' || currentLabelType === 'png') && (
-                <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700" size="sm" disabled={isLoading || !currentLabelUrl || (currentLabelType === 'pdf' && iframeError)}>
-                  <Printer className="mr-1 h-4 w-4" />Print
-                </Button>
+            </div>
+
+            <div ref={contentRef} className="p-6 bg-white">
+              <div className="mb-6">
+                <div className="mb-3 text-sm text-gray-500">
+                  {isRegeneratingLabel ? (
+                    <div className="flex items-center">
+                      <span className="mr-2">Regenerating label with {selectedFormat} format...</span>
+                      <div className="w-4 h-4 border-2 border-t-transparent border-blue-500 rounded-full animate-spin"></div>
+                    </div>
+                  ) : (
+                    labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'
+                  )}
+                </div>
+                <div className={`mx-auto ${selectedFormat === '4x6' ? 'max-w-md' : 'max-w-2xl'}`}>
+                  {isRegeneratingLabel ? (
+                    <div className="border border-gray-300 h-64 flex items-center justify-center">
+                      <div className="flex flex-col items-center">
+                        <div className="w-8 h-8 border-4 border-t-transparent border-purple-600 rounded-full animate-spin mb-4"></div>
+                        <p className="text-purple-800">Regenerating label...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <img 
+                      src={currentLabelUrl} 
+                      alt="Shipping Label" 
+                      className="max-w-full h-auto border border-gray-300"
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="individual">
+            <div className="space-y-6 p-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Download Individual Label Formats</h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  Choose from different label formats for various printer types and requirements.
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="border rounded-lg p-4 text-center hover:border-green-300 transition-colors">
+                  <FileImage className="h-12 w-12 mx-auto mb-3 text-green-600" />
+                  <h4 className="font-medium mb-2">PNG Format</h4>
+                  <p className="text-xs text-gray-500 mb-4">
+                    High-quality image format. Perfect for most standard printers and email attachments.
+                  </p>
+                  <Button 
+                    onClick={() => handleDownloadFormat('png')}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    disabled={!hasDownloadFormats}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download PNG
+                  </Button>
+                </div>
+
+                <div className="border rounded-lg p-4 text-center hover:border-blue-300 transition-colors">
+                  <File className="h-12 w-12 mx-auto mb-3 text-blue-600" />
+                  <h4 className="font-medium mb-2">PDF Format</h4>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Professional document format. Ideal for printing and archiving shipment records.
+                  </p>
+                  <Button 
+                    onClick={() => handleDownloadFormat('pdf')}
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    disabled={!labelUrls?.pdf}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download PDF
+                  </Button>
+                </div>
+
+                <div className="border rounded-lg p-4 text-center hover:border-purple-300 transition-colors">
+                  <FileText className="h-12 w-12 mx-auto mb-3 text-purple-600" />
+                  <h4 className="font-medium mb-2">ZPL Format</h4>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Zebra Programming Language. Optimized for thermal label printers and industrial use.
+                  </p>
+                  <Button 
+                    onClick={() => handleDownloadFormat('zpl')}
+                    className="w-full bg-purple-600 hover:bg-purple-700"
+                    disabled={!labelUrls?.zpl}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download ZPL
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                <h4 className="font-medium text-blue-800 mb-2">Format Recommendations:</h4>
+                <ul className="text-sm text-blue-700 space-y-1">
+                  <li>• <strong>PNG:</strong> Best for standard office printers and sharing via email</li>
+                  <li>• <strong>PDF:</strong> Professional format for documentation and multi-page printing</li>
+                  <li>• <strong>ZPL:</strong> Required for Zebra thermal printers and warehouse operations</li>
+                </ul>
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="batch">
+            <div className="space-y-6 p-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Batch/Consolidated Labels & Manifest</h3>
+                <p className="text-sm text-gray-600 mb-6">
+                  Download consolidated labels for all shipments and the manifest pick-up form.
+                </p>
+              </div>
+
+              {hasBatchLabels ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {Object.entries(batchResult.consolidatedLabelUrls).map(([format, url]) => (
+                      <div key={format} className="border rounded-lg p-4 text-center hover:border-indigo-300 transition-colors">
+                        <Package className="h-10 w-10 mx-auto mb-2 text-indigo-600" />
+                        <h4 className="font-medium mb-2">Batch {format.toUpperCase()}</h4>
+                        <p className="text-xs text-gray-500 mb-3">
+                          Consolidated {format.toUpperCase()} file with all labels
+                        </p>
+                        <Button 
+                          onClick={() => handleDownloadBatchFormat(format)}
+                          className="w-full bg-indigo-600 hover:bg-indigo-700"
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Download Batch {format.toUpperCase()}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {batchResult.scanFormUrl && (
+                    <div className="border-2 border-orange-200 rounded-lg p-6 text-center bg-orange-50">
+                      <FileArchive className="h-12 w-12 mx-auto mb-3 text-orange-600" />
+                      <h4 className="font-medium mb-2 text-orange-800">Manifest Pick-Up Form</h4>
+                      <p className="text-sm text-orange-700 mb-4">
+                        Official scan form for carrier pickup. Required for batch shipment pickup scheduling.
+                      </p>
+                      <Button 
+                        onClick={handleDownloadManifest}
+                        className="bg-orange-600 hover:bg-orange-700"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Download Manifest
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <Package className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+                  <h4 className="font-medium text-gray-600 mb-2">No Batch Labels Available</h4>
+                  <p className="text-sm text-gray-500">
+                    Batch labels and manifest will be available after generating batch shipments.
+                  </p>
+                </div>
               )}
             </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </TabsContent>
+
+          <TabsContent value="print">
+            <div className="space-y-4 p-4">
+              <h3 className="text-lg font-semibold">Print Settings</h3>
+              <p className="text-sm text-gray-600">
+                Configure your print settings for optimal label output.
+              </p>
+              
+              <Button 
+                onClick={handlePrint} 
+                className="w-full h-12 bg-purple-600 hover:bg-purple-700"
+                disabled={isRegeneratingLabel}
+              >
+                <Printer className="mr-2 h-5 w-5" />
+                Print Label Now
+              </Button>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
   );
 };
 

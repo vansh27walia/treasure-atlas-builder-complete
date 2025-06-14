@@ -1,135 +1,22 @@
-// Removed import { Address } from "@/services/AddressService"; 
-// It was causing an error and SavedAddress is more specific here.
 
-export type ShipmentStatus =
-  | 'pending_rates' // Initial status, waiting for rates
-  | 'rates_fetched' // Rates have been fetched
-  | 'rate_selected' // User has selected a rate
-  | 'label_purchased' // Label has been purchased (but not necessarily batch-processed yet)
-  | 'error' // An error occurred with this shipment
-  | 'failed' // Label creation failed for this shipment
-  | 'completed'; // Label successfully created and included in results (e.g., part of a batch)
+import { z } from "zod";
 
-export interface PackageDetails {
-  length: number;
-  width: number;
-  height: number;
-  weight: number; // Consider units, e.g. ounces or grams
-  value?: number;
-  currency?: string; // e.g. "USD"
+export type ShippingAddressType = "from" | "to";
+
+export type ShippingStep = 'address' | 'package' | 'rates' | 'label' | 'complete';
+
+export type ShippingWorkflowStep = {
+  id: ShippingStep;
+  label: string;
+  status: 'completed' | 'active' | 'upcoming';
+};
+
+export interface GoogleApiKeyResponse {
+  apiKey: string;
 }
 
-export interface ShipmentDetails { // Basic details for creating a shipment
-  id: string; 
-  recipient: string; 
-  customer_name?: string;
-  street1: string;
-  street2?: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  phone?: string;
-  email?: string; 
-  is_residential?: boolean; 
-
-  // Package Details (can be directly on shipment or as separate PackageDetails object)
-  weight: number; 
-  length: number;
-  width: number;
-  height: number;
-  value?: number; // Package value
-  currency?: string; // Currency for package value
-
-  carrier?: string; // Populated after rate selection or if pre-defined
-  service?: string; // Populated after rate selection or if pre-defined
-  rate?: number; // Cost of selected rate
-  rate_amount?: number; // Alternative for rate if it's stored as number directly
-  selectedRateId?: string | null; // ID of the selected rate object
-  
-  reference?: string; 
-  notes?: string;
-}
-
-export interface Rate {
-  id: string;
-  carrier: string;
-  service: string;
-  rate: string; // This is often a string from APIs like "23.45"
-  rate_float?: number; // Optional: numeric rate for calculations
-  delivery_days?: number;
-  currency: string;
-  shipment_id?: string; // Easypost specific field
-  carrier_account_id?: string; // Easypost specific
-}
-
-export interface BulkShipment extends ShipmentDetails {
-  row?: number; 
-  status?: ShipmentStatus;
-  availableRates?: Rate[];
-  easypost_id?: string; 
-  // selectedRateId is already in ShipmentDetails
-  label_url?: string; 
-  label_urls?: { 
-    png?: string;
-    pdf?: string;
-    zpl?: string;
-    epl?: string; 
-  };
-  tracking_code?: string;
-  tracking_number?: string; 
-  isFetchingRates?: boolean; 
-  details?: any; 
-  customer_address?: string; // Concatenated address for display
-  scan_form_url?: string | null; // For individual shipment scan forms
-}
-
-
-export interface ConsolidatedLabelUrls {
-  pdf?: string;
-  zpl?: string;
-  epl?: string;
-  pdfZip?: string; 
-  zplZip?: string; 
-  eplZip?: string; 
-}
-
-export interface BatchResult {
-  batchId: string;
-  consolidatedLabelUrls: ConsolidatedLabelUrls;
-  scanFormUrl?: string | null; // scanFormUrl is optional
-  status?: string; 
-  labelCount?: number;
-}
-
-export interface BulkUploadResult {
-  total: number; 
-  successful: number; 
-  failed: number; 
-  totalCost?: number; 
-  processedShipments: BulkShipment[];
-  failedShipments?: Array<{ shipmentId?: string; error: string; row?: number; details?: any }>;
-  batchResult?: BatchResult | null; 
-  uploadStatus?: UploadStatus; 
-  pickupAddress?: SavedAddress; 
-  isFetchingRates?: boolean; // Indicates if rates are being fetched for the whole batch
-  errorMessage?: string; // Top-level error message for the batch
-}
-
-export type UploadStatus =
-  | 'idle'
-  | 'uploading' // Parsing file
-  | 'processing' // Fetching rates, API calls
-  | 'editing' // User is reviewing/editing shipments
-  | 'creating-labels' 
-  | 'success' 
-  | 'error'; 
-
-
-export interface SavedAddress {
-  id: string; // Keep as string for frontend consistency
-  user_id?: string; 
-  name?: string;
+export interface ShippingAddress {
+  name: string;
   company?: string;
   street1: string;
   street2?: string;
@@ -138,29 +25,185 @@ export interface SavedAddress {
   zip: string;
   country: string;
   phone?: string;
-  email?: string; 
-  is_residential?: boolean; 
-  is_default_from?: boolean;
-  is_default_to?: boolean;
-  created_at?: string;
-  updated_at?: string;
-  address_type?: 'residential' | 'business'; 
-  instructions?: string; 
+  email?: string;
+  residential?: boolean;
+  addressType?: ShippingAddressType;
 }
 
-export const CARRIER_OPTIONS: { label: string; value: string }[] = [
-  { label: 'All Carriers', value: '' },
-  { label: 'USPS', value: 'USPS' },
-  { label: 'UPS', value: 'UPS' },
-  { label: 'FedEx', value: 'FedEx' },
-  { label: 'DHL Express', value: 'DHLExpress' },
-  // Add other carriers as needed
+export interface Parcel {
+  length: number;
+  width: number;
+  height: number;
+  weight: number;
+  predefinedPackage?: string;
+}
+
+export interface ShippingOption {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: number;
+  currency: string;
+  delivery_days: number;
+  estimated_delivery_date?: string;
+  listRate?: number;
+  retailRate?: number;
+}
+
+export interface ShippingLabelFormat {
+  format: 'pdf' | 'png' | 'zpl';
+  size: '4x6' | '8.5x11';
+}
+
+export interface AddressValidationResult {
+  original: ShippingAddress;
+  normalized: ShippingAddress;
+  status: 'valid' | 'invalid' | 'warning';
+  messages: string[];
+}
+
+export interface BulkShipment {
+  id: string;
+  row: number;
+  recipient: string;
+  carrier: string;
+  service: string;
+  rate: number;
+  tracking_code?: string;
+  trackingCode?: string;
+  tracking_number?: string; // Added for backend compatibility
+  label_url?: string;
+  label_urls?: { // Added for backend compatibility
+    png: string | null;
+    pdf?: string | null;
+    zpl?: string | null;
+  };
+  status: 'pending' | 'processing' | 'error' | 'completed' | 'failed';
+  error?: string;
+  easypost_id?: string;
+  shipment_id?: string; // Added for backend compatibility
+  recipient_name?: string; // Added for backend compatibility
+  details: {
+    // EasyPost CSV format fields (to_address fields)
+    to_name: string;
+    to_company?: string;
+    to_street1: string;
+    to_street2?: string;
+    to_city: string;
+    to_state: string;
+    to_zip: string;
+    to_country: string;
+    to_phone?: string;
+    to_email?: string;
+    // Package dimensions and weight
+    weight: number;
+    length: number;
+    width: number;
+    height: number;
+    reference?: string;
+    // Legacy fields for backward compatibility
+    name?: string;
+    company?: string;
+    street1?: string;
+    street2?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    country?: string;
+    phone?: string;
+    email?: string;
+    parcel_length?: number;
+    parcel_width?: number;
+    parcel_height?: number;
+    parcel_weight?: number;
+    carrier_logo?: string;
+    carrier_colors?: {
+      primary: string;
+      secondary: string;
+    };
+    carrier_formats?: string[];
+  };
+  availableRates?: ShippingOption[];
+  selectedRateId?: string;
+  // Customer details for display
+  customer_name?: string;
+  customer_address?: string;
+  customer_phone?: string;
+  customer_email?: string;
+  customer_company?: string;
+}
+
+export interface BulkShipmentError {
+  row: number;
+  error: string;
+  details: string;
+}
+
+export interface BulkUploadResult {
+  total: number;
+  successful: number;
+  failed: number;
+  totalCost: number;
+  processedShipments: BulkShipment[];
+  failedShipments?: Array<{
+    row: number;
+    error: string;
+    details: string;
+    shipmentId?: string;
+  }>;
+  bulk_label_png_url?: string | null;
+  bulk_label_pdf_url?: string | null;
+  batchResult?: {
+    batchId: string;
+    consolidatedLabelUrls: Record<string, string>;
+    scanFormUrl: string | null;
+  } | null;
+  uploadStatus: 'idle' | 'uploading' | 'editing' | 'success' | 'error' | 'creating-labels';
+  pickupAddress?: any;
+}
+
+export const CARRIER_OPTIONS = [
+  {
+    id: 'usps',
+    name: 'USPS',
+    logo: '/carriers/usps.svg',
+    services: [
+      { id: 'priority', name: 'Priority' },
+      { id: 'priority_express', name: 'Priority Express' },
+      { id: 'first_class', name: 'First Class' },
+      { id: 'ground', name: 'Ground' }
+    ]
+  },
+  {
+    id: 'ups',
+    name: 'UPS',
+    logo: '/carriers/ups.svg',
+    services: [
+      { id: 'ground', name: 'Ground' },
+      { id: '3day_select', name: '3-Day Select' },
+      { id: '2day_air', name: '2nd Day Air' },
+      { id: 'next_day_air', name: 'Next Day Air' }
+    ]
+  },
+  {
+    id: 'fedex',
+    name: 'FedEx',
+    logo: '/carriers/fedex.svg',
+    services: [
+      { id: 'ground', name: 'Ground' },
+      { id: 'express_saver', name: 'Express Saver' },
+      { id: '2day', name: '2Day' },
+      { id: 'overnight', name: 'Overnight' }
+    ]
+  },
+  {
+    id: 'dhl',
+    name: 'DHL',
+    logo: '/carriers/dhl.svg',
+    services: [
+      { id: 'express', name: 'Express' },
+      { id: 'express_worldwide', name: 'Express Worldwide' },
+      { id: 'express_economy', name: 'Express Economy' }
+    ]
+  }
 ];
-
-export type ShippingStepId = 'address' | 'parcel' | 'rates' | 'payment' | 'label'; // Renamed from ShippingStep
-
-export interface ShippingWorkflowStep {
-  id: ShippingStepId;
-  name: string; 
-  status: 'current' | 'upcoming' | 'complete' | 'error';
-}
