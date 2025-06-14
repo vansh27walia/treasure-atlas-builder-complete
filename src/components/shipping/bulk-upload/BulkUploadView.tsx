@@ -131,13 +131,26 @@ const BulkUploadView: React.FC = () => {
       {uploadStatus === 'editing' && results && (
         <BulkShipmentsList
           shipments={filteredShipments}
-          isFetchingRates={isFetchingRates}
+          isLoading={isFetchingRates}
+          searchTerm={searchTerm}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          selectedCarrierFilter={selectedCarrierFilter}
+          onSearchChange={setSearchTerm}
+          onSortChange={(field, direction) => {
+            setSortField(field);
+            setSortDirection(direction);
+          }}
+          onCarrierFilterChange={setSelectedCarrierFilter}
           onSelectRate={handleSelectRate}
           onRemoveShipment={handleRemoveShipment}
           onEditShipment={(shipmentId: string, details: any) => {
             console.log('Edit shipment:', shipmentId, details);
           }}
           onRefreshRates={handleRefreshRates}
+          onBulkApplyCarrier={handleBulkApplyCarrier}
+          onCreateLabels={handleCreateLabels}
+          isCreatingLabels={isCreatingLabels || labelGenerationProgress.isGenerating}
         />
       )}
 
