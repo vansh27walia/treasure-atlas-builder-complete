@@ -1,173 +1,219 @@
-import React, { useState, useCallback, useEffect } from 'react';
+
+import React from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { UploadCloud, FileSpreadsheet, AlertCircle, CheckCircle, X } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import AddressSelector from '../AddressSelector';
-import { SavedAddress, BulkUploadResult } from '@/types/shipping';
-import { toast } from '@/components/ui/sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Upload, FileSpreadsheet, MapPin, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from '@/components/ui/sonner';
+import AddressSelector from '@/components/shipping/AddressSelector';
+import { SavedAddress } from '@/types/shipping';
 
 interface BulkUploadFormProps {
-  onUploadSuccess: (results: BulkUploadResult) => void; 
+  onUploadSuccess: (results: any) => void;
   onUploadFail: (error: string) => void;
-  onPickupAddressSelect: (address: SavedAddress | null) => void;
-  isUploading: boolean; // This represents the overall state from useBulkUpload hook
-  progress: number; // This is overall progress from useBulkUpload hook, if applicable to UI here
-  handleUpload: (file: File) => Promise<void>; // The main upload function from the hook
-  currentPickupAddress?: SavedAddress | null; // Added prop
+  onPickupAddressSelect: (address: SavedAddress) => void;
+  isUploading: boolean;
+  progress: number;
+  handleUpload: (file: File) => Promise<void>;
 }
 
 const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
-  onUploadSuccess, // Not directly used in this component's submit logic, handleUpload encapsulates it
-  onUploadFail,    // Not directly used
+  onUploadSuccess,
+  onUploadFail,
   onPickupAddressSelect,
-  isUploading, // True if parsing file or fetching rates
-  progress,    // Parsing progress %
-  handleUpload,  // Hook's function to start the entire upload and processing flow
-  currentPickupAddress,
+  isUploading,
+  progress,
+  handleUpload,
 }) => {
-  const [file, setFile] = useState<File | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  // This local state might be redundant if currentPickupAddress is managed by parent via onPickupAddressSelect
-  const [selectedPickupAddress, setSelectedPickupAddress] = useState<SavedAddress | null>(currentPickupAddress || null);
-
-  useEffect(() => {
-    setSelectedPickupAddress(currentPickupAddress || null);
-  }, [currentPickupAddress]);
-
-
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles && acceptedFiles.length > 0) {
-      const currentFile = acceptedFiles[0];
-      // Basic CSV/Excel type check (can be expanded)
-      if (currentFile.type === 'text/csv' || 
-          currentFile.type === 'application/vnd.ms-excel' || 
-          currentFile.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
-        setFile(currentFile);
-        setUploadError(null);
-      } else {
-        setUploadError("Invalid file type. Please upload a CSV or Excel file.");
-        setFile(null);
-      }
-    }
-  }, []);
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const [selectedPickupAddressId, setSelectedPickupAddressId] = React.useState<string>('');
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
     accept: {
       'text/csv': ['.csv'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
+      'application/vnd.ms-excel': ['.csv'],
     },
-    multiple: false
+    onDrop: (acceptedFiles) => {
+      if (acceptedFiles.length > 0) {
+        setSelectedFile(acceptedFiles[0]);
+        toast.success(`File "${acceptedFiles[0].name}" selected`);
+      }
+    },
+    multiple: false,
   });
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!file) {
-      setUploadError("Please select a file to upload.");
-      return;
-    }
-    if (!selectedPickupAddress) {
-      // It's better to use toast for this kind of feedback
-      toast.error("Please select a pickup address.");
-      // setUploadError("Please select a pickup address."); 
-      return;
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    setUploadError(null);
-    // The handleUpload function from the hook now manages the entire process
-    // including calling onUploadSuccess/onUploadFail internally via its own state updates.
-    await handleUpload(file); 
-  };
+    if (!selectedFile) {
+      toast.error("Please select a CSV file to upload.");
+      return;
+    }
 
-  const handleLocalPickupAddressSelect = (address: SavedAddress | null) => {
-    setSelectedPickupAddress(address);
-    onPickupAddressSelect(address); // Notify parent
-  };
-  
-  const clearFile = () => {
-    setFile(null);
-    setUploadError(null);
-    // Also reset the hidden file input's value
-    const fileInput = document.getElementById('file-upload-input') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = '';
+    if (!selectedPickupAddressId) {
+      toast.error("Please select a pickup address.");
+      return;
+    }
+
+    try {
+      await handleUpload(selectedFile);
+    } catch (error) {
+      console.error('Upload error:', error);
+      onUploadFail(error instanceof Error ? error.message : 'Upload failed');
     }
   };
 
+  const downloadTemplate = () => {
+    const headers = [
+      'recipient_name',
+      'company',
+      'street1', 
+      'street2',
+      'city',
+      'state',
+      'zip',
+      'country',
+      'phone',
+      'email',
+      'weight',
+      'length',
+      'width', 
+      'height',
+      'value',
+      'reference'
+    ];
+    
+    const csvContent = [
+      headers.join(','),
+      'John Doe,Acme Corp,123 Main St,Apt 1,Anytown,CA,12345,US,555-1234,john@example.com,2.5,10,8,6,25.00,ORDER-001'
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'bulk_shipping_template.csv';
+    a.click();
+    window.URL.revokeObjectURL(url);
+    
+    toast.success('Template downloaded successfully!');
+  };
 
   return (
-    <Card className="mt-6">
-      <CardHeader>
-        <CardTitle>Upload Your Shipments</CardTitle>
-        <CardDescription>
-          Select your sender address and upload a CSV/Excel file with shipment details.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="pickup-address" className="block text-sm font-medium text-gray-700 mb-1">
-              Sender / Pickup Address
-            </label>
-            <AddressSelector
-              selectedAddressId={selectedPickupAddress?.id || null}
-              onAddressSelect={handleLocalPickupAddressSelect}
-              addressType="from"
-              showAddNewOption={true}
-            />
-            {!selectedPickupAddress && (
-                 <p className="text-xs text-red-500 mt-1">Pickup address is required.</p>
-            )}
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Pickup Address Selection */}
+      <div className="space-y-4">
+        <div className="flex items-center space-x-2">
+          <MapPin className="h-5 w-5 text-blue-600" />
+          <h3 className="text-lg font-semibold">Select Pickup Address</h3>
+        </div>
+        <AddressSelector
+          selectedAddressId={selectedPickupAddressId}
+          onAddressSelect={onPickupAddressSelect}
+          addressType="from"
+        />
+      </div>
 
-          <div
-            {...getRootProps()}
-            className={`p-8 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors
-              ${isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-gray-400'}
-              ${uploadError ? 'border-red-500 bg-red-50' : ''}
-              ${file ? 'border-green-500 bg-green-50' : ''}
-            `}
+      {/* File Upload */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+            <h3 className="text-lg font-semibold">Upload CSV File</h3>
+          </div>
+          <Button 
+            type="button"
+            variant="outline" 
+            onClick={downloadTemplate}
+            className="flex items-center space-x-2"
           >
-            <input {...getInputProps()} id="file-upload-input" />
-            <UploadCloud className={`mx-auto h-12 w-12 mb-3 ${file ? 'text-green-600' : 'text-gray-400'}`} />
-            {file ? (
-              <>
-                <p className="text-sm font-medium text-green-700">
-                  <CheckCircle className="inline-block h-5 w-5 mr-1" /> {file.name} selected
-                </p>
-                <p className="text-xs text-gray-500">({(file.size / 1024).toFixed(2)} KB)</p>
-                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); clearFile(); }} className="mt-2 text-xs text-red-600 hover:text-red-800">
-                  <X className="h-3 w-3 mr-1" /> Clear file
-                </Button>
-              </>
-            ) : isDragActive ? (
-              <p className="text-sm text-blue-600">Drop the file here ...</p>
-            ) : (
-              <p className="text-sm text-gray-500">Drag 'n' drop a CSV/Excel file here, or click to select file</p>
-            )}
-          </div>
-          
-          {uploadError && (
-            <Alert variant="destructive" className="mt-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Upload Error</AlertTitle>
-              <AlertDescription>{uploadError}</AlertDescription>
-            </Alert>
-          )}
-          
-          {/* The progress bar and uploading status are now better handled in the parent BulkUpload component */}
-          {/* We can remove isUploading and progress display from here if parent shows global status */}
-
-          <Button type="submit" className="w-full" disabled={isUploading || !file || !selectedPickupAddress}>
-            {isUploading ? 'Processing...' : 'Upload and Process File'}
+            <FileSpreadsheet className="h-4 w-4" />
+            <span>Download Template</span>
           </Button>
-        </form>
-      </CardContent>
-    </Card>
+        </div>
+
+        <div
+          {...getRootProps()}
+          className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+            isDragActive 
+              ? 'border-blue-500 bg-blue-50' 
+              : 'border-gray-300 hover:border-gray-400'
+          }`}
+        >
+          <input {...getInputProps()} />
+          <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          {selectedFile ? (
+            <div>
+              <p className="text-lg font-medium text-green-600">
+                Selected: {selectedFile.name}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                Size: {(selectedFile.size / 1024).toFixed(1)} KB
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-lg font-medium text-gray-600">
+                {isDragActive 
+                  ? "Drop the CSV file here..." 
+                  : "Drag & drop a CSV file here, or click to select"
+                }
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                Supported format: CSV files only
+              </p>
+            </div>
+          )}
+        </div>
+
+        {selectedFile && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Ready to upload <strong>{selectedFile.name}</strong>. 
+              Make sure your CSV follows our template format for best results.
+            </AlertDescription>
+          </Alert>
+        )}
+      </div>
+
+      {/* Upload Progress */}
+      {isUploading && progress > 0 && (
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>Uploading...</span>
+            <span>{progress}%</span>
+          </div>
+          <div className="bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+        </div>
+      )}
+
+      {/* Submit Button */}
+      <Button 
+        type="submit" 
+        disabled={!selectedFile || !selectedPickupAddressId || isUploading}
+        size="lg"
+        className="w-full"
+      >
+        {isUploading ? (
+          <>
+            <Upload className="mr-2 h-4 w-4 animate-spin" />
+            Processing...
+          </>
+        ) : (
+          <>
+            <Upload className="mr-2 h-4 w-4" />
+            Upload and Process
+          </>
+        )}
+      </Button>
+    </form>
   );
 };
 

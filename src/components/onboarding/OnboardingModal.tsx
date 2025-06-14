@@ -1,10 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,7 +36,6 @@ interface OnboardingModalProps {
 }
 
 const OnboardingModal: React.FC<OnboardingModalProps> = ({ user, isOpen, onClose, onOnboardingComplete }) => {
-  const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [defaultAddress, setDefaultAddress] = useState<Partial<SavedAddress>>({ country: 'US', is_residential: true });
 
@@ -84,7 +80,7 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ user, isOpen, onClose
         .from('user_profiles')
         .update({ 
             onboarding_completed: true,
-            default_pickup_address_id: newAddress.id
+            default_pickup_address_id: Number(newAddress.id)
          })
         .eq('id', user.id);
 
@@ -101,14 +97,6 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ user, isOpen, onClose
     } finally {
       setLoading(false);
     }
-  };
-
-  const renderStepContent = () => {
-    return (
-      <div>
-        <AddressFormFields control={control} errors={errors} />
-      </div>
-    );
   };
 
   return (

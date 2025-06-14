@@ -191,7 +191,6 @@ const ShippingRates: React.FC = () => {
                 trackingCode={trackingCode} 
                 shipmentId={shipmentId}
                 shipmentDetails={shipmentDetails}
-                onFormatChange={handleLabelFormatChange}
               />
             </div>
           )}

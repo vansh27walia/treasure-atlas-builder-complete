@@ -29,19 +29,19 @@ const mapDbAddressToSavedAddress = (dbAddress: DbAddress | null): SavedAddress |
   return {
     id: String(dbAddress.id),
     user_id: dbAddress.user_id,
-    name: dbAddress.name ?? undefined,
-    company: dbAddress.company ?? undefined,
+    name: dbAddress.name ?? '',
+    company: dbAddress.company ?? '',
     street1: dbAddress.street1,
-    street2: dbAddress.street2 ?? undefined,
+    street2: dbAddress.street2 ?? '',
     city: dbAddress.city,
     state: dbAddress.state,
     zip: dbAddress.zip,
     country: dbAddress.country,
-    phone: dbAddress.phone ?? undefined,
-    email: dbAddress.email ?? undefined,
-    is_residential: dbAddress.is_residential ?? undefined,
-    is_default_from: dbAddress.is_default_from ?? undefined,
-    is_default_to: dbAddress.is_default_to ?? undefined,
+    phone: dbAddress.phone ?? '',
+    email: dbAddress.email ?? '',
+    is_residential: dbAddress.is_residential ?? true,
+    is_default_from: dbAddress.is_default_from ?? false,
+    is_default_to: dbAddress.is_default_to ?? false,
     created_at: dbAddress.created_at ?? undefined,
     updated_at: dbAddress.updated_at ?? undefined,
     address_type: dbAddress.address_type ?? undefined,
@@ -79,11 +79,26 @@ export const addressService = {
     }
     const userId = sessionData.session.user.id;
     
-    const { id, ...addressToInsert } = { ...address, user_id: userId };
+    const addressToInsert = {
+      user_id: userId,
+      name: address.name || '',
+      company: address.company || '',
+      street1: address.street1,
+      street2: address.street2 || '',
+      city: address.city,
+      state: address.state,
+      zip: address.zip,
+      country: address.country,
+      phone: address.phone || '',
+      email: address.email || '',
+      is_residential: address.is_residential ?? true,
+      is_default_from: address.is_default_from ?? false,
+      is_default_to: address.is_default_to ?? false,
+    };
 
     const { data, error } = await supabase
       .from('addresses')
-      .insert(addressToInsert as Omit<DbAddress, 'id' | 'created_at' | 'updated_at'>)
+      .insert(addressToInsert)
       .select()
       .single();
 
@@ -134,7 +149,7 @@ export const addressService = {
       .eq('user_id', userId)
       .eq('is_default_from', true)
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (error && error.code !== 'PGRST116') { 
       console.error('Error fetching default from address:', error);
@@ -148,15 +163,27 @@ export const addressService = {
     if (sessionError || !sessionData.session) throw new Error('User not authenticated');
     const userId = sessionData.session.user.id;
 
-    // Ensure DB functions exist or handle this logic in JS if preferred
-    await supabase.rpc('transaction_set_default_from_address' as any, {
-        p_user_id: userId,
-        p_address_id: Number(addressId) 
-    });
+    // Clear existing defaults first
+    await supabase
+      .from('addresses')
+      .update({ is_default_from: false })
+      .eq('user_id', userId);
+
+    // Set new default
+    const { data, error } = await supabase
+      .from('addresses')
+      .update({ is_default_from: true })
+      .eq('id', Number(addressId))
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error setting default from address:', error);
+      throw error;
+    }
     
-    const updatedAddress = await addressService.getAddressById(addressId);
-    if (!updatedAddress) throw new Error("Failed to retrieve updated default address");
-    return updatedAddress;
+    return mapDbAddressToSavedAddress(data as DbAddress) as SavedAddress;
   },
 
   getDefaultToAddress: async (): Promise<SavedAddress | null> => {
@@ -170,7 +197,7 @@ export const addressService = {
       .eq('user_id', userId)
       .eq('is_default_to', true)
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (error && error.code !== 'PGRST116') {
       console.error('Error fetching default to address:', error);
@@ -184,23 +211,35 @@ export const addressService = {
     if (sessionError || !sessionData.session) throw new Error('User not authenticated');
     const userId = sessionData.session.user.id;
 
-    await supabase.rpc('transaction_set_default_to_address' as any, {
-        p_user_id: userId,
-        p_address_id: Number(addressId)
-    });
+    // Clear existing defaults first
+    await supabase
+      .from('addresses')
+      .update({ is_default_to: false })
+      .eq('user_id', userId);
+
+    // Set new default
+    const { data, error } = await supabase
+      .from('addresses')
+      .update({ is_default_to: true })
+      .eq('id', Number(addressId))
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error setting default to address:', error);
+      throw error;
+    }
     
-    const updatedAddress = await addressService.getAddressById(addressId);
-    if (!updatedAddress) throw new Error("Failed to retrieve updated default address");
-    return updatedAddress;
+    return mapDbAddressToSavedAddress(data as DbAddress) as SavedAddress;
   },
 
-  // Helper function to get a single address by ID (string)
   getAddressById: async (addressId: string): Promise<SavedAddress | null> => {
     const { data, error } = await supabase
       .from('addresses')
       .select('*')
       .eq('id', Number(addressId))
-      .single();
+      .maybeSingle();
 
     if (error && error.code !== 'PGRST116') {
       console.error(`Error fetching address by id ${addressId}:`, error);
@@ -209,3 +248,6 @@ export const addressService = {
     return mapDbAddressToSavedAddress(data as DbAddress);
   },
 };
+
+// Export the SavedAddress type for external use
+export type { SavedAddress };
