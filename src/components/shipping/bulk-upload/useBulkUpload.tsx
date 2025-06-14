@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BulkUploadResult, BulkShipment, BatchResult, Rate, SavedAddress, LabelFormat, ShipmentDetails } from '@/types/shipping';
 import { useShipmentUpload, UploadStatus as BaseUploadStatus } from '@/hooks/useShipmentUpload';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
@@ -40,16 +40,17 @@ export const useBulkUpload = () => {
     setResults(baseResults);
   }, [baseResults]);
 
-  const updateResults = (newResultsData: Partial<BulkUploadResult> | ((prevResults: BulkUploadResult | null) => BulkUploadResult | null)) => {
+  const updateLabelGenerationProgress = useCallback((progressUpdate: Partial<typeof labelGenerationProgress>) => {
+    setLabelGenerationProgress(prev => ({ ...prev, ...progressUpdate }));
+  }, []);
+
+  const updateResults = useCallback((newResultsData: Partial<BulkUploadResult> | ((prevResults: BulkUploadResult | null) => BulkUploadResult | null)) => {
     let finalNewResults: BulkUploadResult | null = null;
     
     setResults(prev => {
       const updated = typeof newResultsData === 'function' ? newResultsData(prev) : { ...(prev || {} as BulkUploadResult), ...newResultsData };
-      finalNewResults = updated as BulkUploadResult; // Cast here for properties check
+      finalNewResults = updated as BulkUploadResult;
       
-      // Also update the base hook's results if it's a full replacement
-      // This might be tricky if newResultsData is partial.
-      // For simplicity, assume updateResults always provides a "fuller" picture.
       if (typeof newResultsData !== 'function') {
           setBaseResults(finalNewResults);
       }
@@ -61,12 +62,13 @@ export const useBulkUpload = () => {
       if (validBaseUploadStatuses.includes(finalNewResults.uploadStatus as BaseUploadStatus)) {
         setBaseHookUploadStatus(finalNewResults.uploadStatus as BaseUploadStatus);
       } else if (['rates_fetching', 'rate_selection', 'paying'].includes(finalNewResults.uploadStatus)) {
-        if (baseHookUploadStatus !== 'editing' && baseHookUploadStatus !== 'uploading' && baseHookUploadStatus !== 'creating-labels') {
-          setBaseHookUploadStatus('editing');
+        // Ensure base hook status is compatible or 'editing'
+        if (!['editing', 'uploading', 'creating-labels'].includes(baseHookUploadStatus)) {
+             setBaseHookUploadStatus('editing');
         }
       }
     }
-  };
+  }, [baseHookUploadStatus, setBaseResults, setBaseHookUploadStatus]);
 
   const {
     isFetchingRates,
@@ -127,7 +129,7 @@ export const useBulkUpload = () => {
   }, []);
 
   const handleFileUpload = async (fileToUpload: File) => {
-    console.log('handleFileUpload in components/useBulkUpload called with:', { file: fileToUpload.name, currentPickupAddress: pickupAddress });
+    console.log('handleFileUpload in useBulkUpload called with:', { file: fileToUpload.name, currentPickupAddress: pickupAddress });
     
     if (!pickupAddress) {
       const errorMsg = 'Pickup address is required. Please select or add a pickup address first.';
@@ -136,54 +138,45 @@ export const useBulkUpload = () => {
         action: {
           label: 'Go to Settings',
           onClick: () => {
-            // Assuming you have a router or a way to navigate
-            // This might need to be adapted to your specific routing setup
             window.location.href = '/settings'; 
           }
         }
       });
-      // To prevent upload from proceeding, we need to stop here.
-      // originalHandleUpload expects a Promise.
-      // We can throw an error or return a rejected promise.
-      setBaseHookUploadStatus('idle'); // Reset status
+      setBaseHookUploadStatus('idle');
       throw new Error(errorMsg); 
     }
     
     if (results && (results.processedShipments?.length > 0 || results.batchResult)) {
         updateResults({ total:0, successful:0, failed:0, processedShipments: [], batchResult: null, uploadStatus: 'idle' });
-        // Reset other relevant states
     }
     
     try {
       await originalHandleUpload(fileToUpload, pickupAddress);
-      // results will be updated via baseResults -> useEffect sync
     } catch (error) {
-      // Error is already toasted in originalHandleUpload.
-      // Ensure uploadStatus is 'error' or 'idle'.
-      // baseHookUploadStatus should already be 'error' from originalHandleUpload.
       console.error("Error during originalHandleUpload:", error);
-      // updateResults might not be necessary if baseHook already set status to error
-      // and results to null or an error state.
     }
   };
 
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments data or pickup address.');
+      updateLabelGenerationProgress({ isGenerating: false, currentStep: 'Error: Missing data' });
       return;
     }
-    // Any pre-checks specific to this high-level hook
-    // Then call the management hook's function
-    setLabelGenerationProgress(prev => ({...prev, isGenerating: true, currentStep: 'Initiating...'}));
+    updateLabelGenerationProgress({ 
+      isGenerating: true, 
+      currentStep: 'Initiating label creation...',
+      totalShipments: results.processedShipments.filter(s => s.selectedRateId).length,
+      processedShipments: 0,
+      successfulShipments: 0,
+      failedShipments: 0,
+    });
     try {
-      await managementCreateLabels(); // This will update results and its own progress via updateResults
+      await managementCreateLabels(); 
     } catch (error: any) {
        toast.error(error.message || "Failed to create labels in main hook");
-       setLabelGenerationProgress(prev => ({...prev, isGenerating: false, currentStep: 'Error'}));
-    } finally {
-       // The managementCreateLabels should set isGenerating to false eventually
-       // or updateResults will set the overall status.
-    }
+       updateLabelGenerationProgress({isGenerating: false, currentStep: 'Error during creation'});
+    } 
   };
 
   const handleOpenBatchPrintPreview = () => {
@@ -204,6 +197,7 @@ export const useBulkUpload = () => {
     progress,
     isFetchingRates,
     isPaying,
+    isCreatingLabels: managementIsCreatingLabels,
     searchTerm,
     sortField,
     sortDirection,
@@ -230,6 +224,7 @@ export const useBulkUpload = () => {
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
-    labelGenerationProgress
+    labelGenerationProgress,
+    updateLabelGenerationProgress
   };
 };

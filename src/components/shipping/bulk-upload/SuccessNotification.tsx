@@ -2,18 +2,18 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Download, FileText, PackageSearch, Printer } from 'lucide-react';
-import { BulkUploadResult, LabelFormat } from '@/types/shipping';
+import { BulkUploadResult, LabelFormat, BulkShipment } from '@/types/shipping';
 import LabelResultsTable from './LabelResultsTable';
 import { toast } from '@/components/ui/sonner';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
-  onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
-  onCreateLabels: () => void; // Retained if needed for a retry/re-create scenario
-  isPaying: boolean; // Retained for context
-  isCreatingLabels: boolean; // Retained for context
-  onDownloadLabelsWithFormat?: (format: LabelFormat) => void; // Changed from onDownloadAllLabels
-  onOpenBatchPrintPreview?: () => void; // Added for the new print preview functionality
+  onDownloadSingleLabel: (shipmentId: string, labelUrl: string, format?: string) => void;
+  onCreateLabels: () => void;
+  isPaying: boolean;
+  isCreatingLabels: boolean;
+  onDownloadLabelsWithFormat?: (format: LabelFormat, type: 'batch' | 'pickup_manifest', content?: any) => void;
+  onOpenBatchPrintPreview?: () => void;
 }
 
 const SuccessNotification: React.FC<SuccessNotificationProps> = ({
@@ -27,13 +27,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 }) => {
   console.log('SuccessNotification received results:', results);
 
-  // Safely get shipments array
-  let allShipments = [];
+  let allShipments: BulkShipment[] = [];
   if (Array.isArray(results.processedShipments)) {
     allShipments = results.processedShipments;
   } else if (results.processedShipments && typeof results.processedShipments === 'object') {
     const shipmentValues = Object.values(results.processedShipments);
-    allShipments = shipmentValues.filter(item => 
+    allShipments = shipmentValues.filter((item): item is BulkShipment => 
       item && 
       typeof item === 'object' && 
       'id' in item
@@ -42,7 +41,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   
   console.log(`SuccessNotification - All shipments: ${allShipments.length}`, allShipments);
   
-  // Count shipments with labels
   const shipmentsWithLabels = allShipments.filter(shipment => {
     const hasLabel = !!(
       (shipment.label_url && shipment.label_url.trim() !== '') ||
@@ -52,7 +50,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     return hasLabel;
   });
 
-  // Count failed shipments
   const failedShipments = allShipments.filter(shipment => shipment.status === 'failed');
   
   console.log('SuccessNotification Debug:', {
@@ -63,8 +60,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
   const hasLabels = shipmentsWithLabels.length > 0;
   const totalProcessed = allShipments.length;
-
-  // Show notification if we have shipments or results
   const shouldShowNotification = totalProcessed > 0 || results.total > 0 || results.successful > 0;
 
   const downloadFile = async (url: string, filename: string) => {
@@ -76,7 +71,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         return;
       }
 
-      // Direct download approach
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
@@ -92,9 +86,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       toast.error(`Failed to download ${filename}`);
     }
   };
-
-  // This internal function can stay if it's used for a specific "download all individual PNGs" button
-  // If not, it might be removed or repurposed.
+  
   const handleDownloadAllIndividualPngs = async () => {
     console.log('Downloading all individual PNG labels, count:', shipmentsWithLabels.length);
     
@@ -112,9 +104,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       const labelUrl = shipment.label_urls?.png || shipment.label_url;
       if (labelUrl && labelUrl.trim() !== '') {
         try {
-          // Stagger downloads
           await new Promise(resolve => setTimeout(resolve, i * 300));
-          const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode || `shipment_${shipment.id || i + 1}`;
+          const trackingCode = shipment.tracking_code || `shipment_${shipment.id || i + 1}`;
           await downloadFile(labelUrl, `label_${trackingCode}.png`);
           successCount++;
         } catch (error) {
@@ -123,7 +114,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       }
     }
     
-    toast.dismiss(); // Dismiss loading toast
+    toast.dismiss(); 
     if (successCount > 0) {
       toast.success(`Started download of ${successCount} individual PNG labels.`);
     } else if (shipmentsWithLabels.length > 0) {
@@ -131,7 +122,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     }
   };
 
-  // Don't show if no data
   if (!shouldShowNotification) {
     return null;
   }
@@ -168,7 +158,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </div>
         )}
 
-        {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white p-4 rounded-lg border border-green-200">
             <div className="text-2xl font-bold text-green-600">{displayTotal}</div>
@@ -191,7 +180,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </div>
         </div>
 
-        {/* Download Buttons Section */}
         {(results.batchResult || hasLabels) && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <h4 className="font-semibold text-lg text-blue-800 mb-4">Label Outputs</h4>
@@ -208,7 +196,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
               )}
               {onDownloadLabelsWithFormat && results.batchResult?.consolidatedLabelUrls?.zip && (
                 <Button 
-                  onClick={() => onDownloadLabelsWithFormat('zip')} // Assuming 'zip' is for batch zip
+                  onClick={() => onDownloadLabelsWithFormat('zip', 'batch', results.batchResult?.consolidatedLabelUrls?.zip)} 
                   className="bg-green-600 hover:bg-green-700 text-white flex-1"
                 >
                   <Download className="mr-2 h-4 w-4" />
@@ -226,7 +214,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 </Button>
               )}
             </div>
-             {/* Optional: Button to download individual PNGs if still desired */}
             {shipmentsWithLabels.length > 0 && !results.batchResult?.consolidatedLabelUrls?.zip && (
               <Button 
                 onClick={handleDownloadAllIndividualPngs}
@@ -240,7 +227,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </div>
         )}
 
-        {/* Create Labels Button - if processing was successful but no labels/batch yet */}
         {!results.batchResult && !hasLabels && displayTotal > 0 && displaySuccessful === 0 && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <h4 className="font-semibold text-lg text-yellow-800 mb-3">Create Shipping Labels</h4>
@@ -259,14 +245,13 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         )}
       </Card>
 
-      {/* New Clean Table Display */}
       {allShipments.length > 0 && (
         <LabelResultsTable
           shipments={allShipments}
-          onDownloadLabel={(url: string, format?: string) => {
+          onDownloadLabel={(shipmentId: string, url: string, format?: string) => {
             if (url && url.trim() !== '') {
               const timestamp = Date.now();
-              const filename = `shipping_label_${timestamp}.${format || 'png'}`;
+              const filename = `shipping_label_${shipmentId}_${timestamp}.${format || 'png'}`;
               downloadFile(url, filename);
             } else {
               toast.error('Invalid label URL - cannot download');
@@ -275,7 +260,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         />
       )}
 
-      {/* Failed Shipments Details */}
       {results.failedShipments && results.failedShipments.length > 0 && (
         <Card className="p-6">
           <h4 className="font-medium text-red-800 mb-3">Failed Shipments Details</h4>

@@ -1,24 +1,24 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
-import { BulkShipment, BulkUploadResult, SavedAddress } from '@/types/shipping';
+import { BulkShipment, BulkUploadResult, SavedAddress, BulkShipmentStatus } from '@/types/shipping';
 
 // Helper function to validate and normalize status values
-const normalizeStatus = (status: string): BulkShipment['status'] => {
-  // Ensure this aligns with BulkShipmentStatus + 'pending_upload'
-  const validStatuses: BulkShipment['status'][] = [
+const normalizeStatus = (status: string): BulkShipmentStatus => {
+  // Ensure this aligns with BulkShipmentStatus
+  const validStatuses: BulkShipmentStatus[] = [
     'pending_upload', 'pending_rates', 'rates_fetched', 'rate_selected', 
     'label_purchased', 'completed', 'failed', 'error'
   ];
-  if (validStatuses.includes(status as BulkShipment['status'])) {
-    return status as BulkShipment['status'];
+  if (validStatuses.includes(status as BulkShipmentStatus)) {
+    return status as BulkShipmentStatus;
   }
   // Legacy mapping
-  if (status === 'pending' || status === 'created') return 'pending_rates'; // Or pending_upload if more appropriate
-  if (status === 'processing') return 'pending_rates'; // Or a more specific status
+  if (status === 'pending' || status === 'created') return 'pending_rates';
+  if (status === 'processing') return 'pending_rates';
   if (status === 'success') return 'completed';
-  if (status === 'failed') return 'error';
-  return 'pending_rates'; // Default fallback
+  if (status === 'failed') return 'error'; // 'failed' is now a valid status, but this handles legacy 'failed'
+  return 'pending_upload'; // Default fallback, ensuring it's a valid BulkShipmentStatus
 };
 
 export type UploadStatus = 'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels';
@@ -115,7 +115,7 @@ export const useShipmentUpload = () => {
         ...shipment,
         id: shipment.id || `temp_id_${Math.random().toString(36).substr(2, 9)}`, // Ensure ID
         availableRates: shipment.availableRates || [],
-        status: normalizeStatus(shipment.status || 'pending_rates'), // Ensure status is valid
+        status: normalizeStatus(shipment.status || 'pending_upload'), // Ensure status is valid
         // Fallbacks for customer details from shipment root if details object is missing/incomplete
         customer_name: shipment.details?.to_name || shipment.customer_name || shipment.recipient || 'N/A',
         customer_address: `${shipment.details?.to_street1 || shipment.to_street1 || ''}, ${shipment.details?.to_city || shipment.to_city || ''}, ${shipment.details?.to_state || shipment.to_state || ''} ${shipment.details?.to_zip || shipment.to_zip || ''}`.trim(),
@@ -126,10 +126,11 @@ export const useShipmentUpload = () => {
         details: {
           ...(shipment.details || {}),
           parcel: {
-            weight: shipment.details?.parcel?.weight || shipment.weight || 0,
-            length: shipment.details?.parcel?.length || shipment.length || 0,
-            width: shipment.details?.parcel?.width || shipment.width || 0,
-            height: shipment.details?.parcel?.height || shipment.height || 0,
+            weight: Number(shipment.details?.parcel?.weight || shipment.weight || 0),
+            length: Number(shipment.details?.parcel?.length || shipment.length || 0),
+            width: Number(shipment.details?.parcel?.width || shipment.width || 0),
+            height: Number(shipment.details?.parcel?.height || shipment.height || 0),
+            predefined_package: shipment.details?.parcel?.predefined_package || shipment.predefined_package || null,
             ...(shipment.details?.parcel || {}),
           }
         }
