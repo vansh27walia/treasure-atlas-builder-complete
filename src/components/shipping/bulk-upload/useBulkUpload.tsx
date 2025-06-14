@@ -320,7 +320,7 @@ export const useBulkUpload = () => {
     }
   };
 
-  const handleDownloadSingleLabel = (url: string, format?: string) => {
+  const handleDownloadSingleLabel = (url: string, format: string) => {
     console.log(`Downloading label with url: ${url} and format: ${format}`);
     if (url) {
       downloadSingleLabelFile(url);
