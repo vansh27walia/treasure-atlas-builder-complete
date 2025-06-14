@@ -130,8 +130,9 @@ export interface CustomsInfo {
   customs_items: CustomsItem[];
 }
 
+// Updated SavedAddress interface to match database schema and usage
 export interface SavedAddress {
-  id: string; 
+  id: string; // Changed to string to match usage throughout the app
   user_id?: string;
   name?: string | null;
   company?: string | null;
@@ -142,13 +143,13 @@ export interface SavedAddress {
   zip: string;
   country: string; 
   phone?: string | null;
-  email?: string | null;
+  email?: string | null; // Added email field
   is_default_from?: boolean;
   is_default_to?: boolean;
   created_at?: string;
   updated_at?: string;
   address_type?: 'residential' | 'commercial' | string | null;
-  is_residential?: boolean;
+  is_residential?: boolean; // Added is_residential field
   validate_address?: boolean;
 }
 

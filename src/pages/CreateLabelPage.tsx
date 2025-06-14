@@ -10,7 +10,7 @@ import { ShippingAddress, Parcel, ShippingOption } from '@/types/shipping';
 import { SavedAddress } from '@/services/AddressService';
 import AddressForm from '@/components/shipping/AddressForm';
 import PackageForm from '@/components/shipping/PackageForm';
-import { ShippingRateCard } from '@/components/shipping/ShippingRateCard';
+import ShippingRateCard from '@/components/shipping/ShippingRateCard';
 import { addressService } from '@/services/AddressService';
 
 const CreateLabelPage = () => {
@@ -239,9 +239,21 @@ const CreateLabelPage = () => {
                   {availableRates.map((rate) => (
                     <ShippingRateCard
                       key={rate.id}
-                      rate={rate}
+                      rate={{
+                        ...rate,
+                        rate: rate.rate.toString(),
+                        delivery_days: rate.delivery_days,
+                        delivery_date: null,
+                        list_rate: undefined,
+                        retail_rate: undefined,
+                        est_delivery_days: rate.delivery_days,
+                        isPremium: false,
+                        original_rate: undefined
+                      }}
                       isSelected={selectedRate?.id === rate.id}
                       onSelect={() => setSelectedRate(rate)}
+                      isBestValue={false}
+                      isFastest={false}
                     />
                   ))}
                 </div>
