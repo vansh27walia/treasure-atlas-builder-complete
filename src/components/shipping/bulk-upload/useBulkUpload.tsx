@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -40,7 +41,11 @@ export const useBulkUpload = () => {
     setResults(newResults);
     
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
-      setUploadStatus(newResults.uploadStatus);
+      // Only update status if it's one of the types compatible with useShipmentUpload's state
+      const compatibleStatuses = ['idle', 'uploading', 'success', 'error', 'editing', 'creating-labels'];
+      if (compatibleStatuses.includes(newResults.uploadStatus)) {
+        setUploadStatus(newResults.uploadStatus as 'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels');
+      }
     }
   };
 
@@ -348,6 +353,7 @@ export const useBulkUpload = () => {
     handleOpenBatchPrintPreview,
     batchPrintPreviewModalOpen,
     setBatchPrintPreviewModalOpen,
+    handleDownloadAllLabels,
     handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
     handleEmailLabels,

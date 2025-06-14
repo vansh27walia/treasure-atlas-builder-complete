@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { BulkShipment } from '@/types/shipping';
 import { Button } from '@/components/ui/button';
@@ -111,14 +110,15 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     </div>
                   </TableCell>
                   <TableCell>
-                    {shipment.status === 'completed' ? (
+                    {shipment.status !== 'failed' && shipment.status !== 'error' ? (
                       <div>
                         <Select 
                           value={shipment.selectedRateId}
                           onValueChange={(value) => onSelectRate(shipment.id, value)}
+                          disabled={shipment.status === 'pending_rates'}
                         >
                           <SelectTrigger className="min-w-[180px]">
-                            <SelectValue placeholder="Select a carrier" />
+                            <SelectValue placeholder={shipment.status === 'pending_rates' ? "Fetching rates..." : "Select a carrier"} />
                           </SelectTrigger>
                           <SelectContent>
                             {(shipment.availableRates || []).map((rate) => (
@@ -137,10 +137,6 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                           </SelectContent>
                         </Select>
                       </div>
-                    ) : shipment.status === 'processing' ? (
-                      <div className="flex items-center">
-                        <Skeleton className="h-8 w-[180px]" />
-                      </div>
                     ) : (
                       <Badge variant="outline" className="bg-red-50 text-red-700">
                         {shipment.error || 'Error loading rates'}
@@ -148,23 +144,23 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     )}
                   </TableCell>
                   <TableCell>
-                    {shipment.status === 'completed' && shipment.selectedRateId ? (
+                    {shipment.status !== 'pending_rates' && shipment.selectedRateId ? (
                       <div className="font-semibold">
                         ${formatRate(shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate)}
                       </div>
-                    ) : shipment.status === 'processing' ? (
+                    ) : shipment.status === 'pending_rates' ? (
                       <Skeleton className="h-6 w-16" />
                     ) : (
                       <span className="text-gray-500">-</span>
                     )}
                   </TableCell>
                   <TableCell>
-                    {shipment.status === 'completed' ? (
+                    {['completed', 'rate_selected', 'rates_fetched', 'label_purchased'].includes(shipment.status) ? (
                       <Badge className="bg-green-100 text-green-700 border-green-200">
                         <PackageCheck className="mr-1 h-3 w-3" />
                         Ready
                       </Badge>
-                    ) : shipment.status === 'processing' ? (
+                    ) : shipment.status === 'pending_rates' ? (
                       <Badge className="bg-blue-100 text-blue-700 border-blue-200">
                         <Package className="mr-1 h-3 w-3 animate-pulse" />
                         Processing
@@ -210,9 +206,9 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         variant="outline" 
                         size="sm"
                         onClick={() => onRefreshRates(shipment.id)}
-                        disabled={shipment.status === 'processing'}
+                        disabled={shipment.status === 'pending_rates'}
                       >
-                        <RefreshCcw className={`h-4 w-4 mr-1 ${shipment.status === 'processing' ? 'animate-spin' : ''}`} />
+                        <RefreshCcw className={`h-4 w-4 mr-1 ${shipment.status === 'pending_rates' ? 'animate-spin' : ''}`} />
                         Rates
                       </Button>
 
