@@ -152,7 +152,7 @@ export const usePickupAddresses = () => {
       // Try first with encryption
       try {
         console.log("Trying to update with encryption method first");
-        const updatedAddress = await addressService.updateAddress(parseInt(addressId), finalAddressData, true);
+        const updatedAddress = await addressService.updateAddress(addressId, finalAddressData, true);
         console.log("Address updated with encryption method:", updatedAddress);
         
         if (updatedAddress) {
@@ -179,7 +179,7 @@ export const usePickupAddresses = () => {
         
         // If that fails, try without encryption
         try {
-          const updatedAddress = await addressService.updateAddress(parseInt(addressId), finalAddressData, false);
+          const updatedAddress = await addressService.updateAddress(addressId, finalAddressData, false);
           console.log("Address updated with standard method:", updatedAddress);
           
           if (updatedAddress) {
@@ -221,7 +221,7 @@ export const usePickupAddresses = () => {
   const deleteAddress = async (addressId: string) => {
     setIsUpdating(true);
     try {
-      const success = await addressService.deleteAddress(parseInt(addressId));
+      const success = await addressService.deleteAddress(addressId);
       
       if (!success) {
         throw new Error('Failed to delete address');
@@ -251,7 +251,7 @@ export const usePickupAddresses = () => {
   const setAsDefaultFrom = async (addressId: string) => {
     setIsUpdating(true);
     try {
-      const success = await addressService.setDefaultFromAddress(parseInt(addressId));
+      const success = await addressService.setDefaultFromAddress(addressId);
       
       if (!success) {
         throw new Error('Failed to set default address');

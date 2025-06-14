@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabase';
+
+import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
   id: string; 
@@ -234,7 +235,7 @@ export class AddressService {
   /**
    * Update an existing address
    */
-  public async updateAddress(addressId: number, address: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'>, useEncryption: boolean = false): Promise<SavedAddress | null> {
+  public async updateAddress(addressId: string, address: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'>, useEncryption: boolean = false): Promise<SavedAddress | null> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.user) {
@@ -301,7 +302,7 @@ export class AddressService {
   /**
    * Delete a saved address
    */
-  public async deleteAddress(addressId: number): Promise<boolean> {
+  public async deleteAddress(addressId: string): Promise<boolean> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.user) {
@@ -329,7 +330,7 @@ export class AddressService {
   /**
    * Set an address as the default shipping from address
    */
-  public async setDefaultFromAddress(addressId: number): Promise<boolean> {
+  public async setDefaultFromAddress(addressId: string): Promise<boolean> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
@@ -368,7 +369,7 @@ export class AddressService {
   /**
    * Set an address as the default shipping to address
    */
-  public async setDefaultToAddress(addressId: number): Promise<boolean> {
+  public async setDefaultToAddress(addressId: string): Promise<boolean> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {

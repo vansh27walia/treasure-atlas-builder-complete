@@ -1,13 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { toast } from '@/components/ui/use-toast';
-import { useMutation, useQuery } from '@tanstack/react-query';
 import { addressService } from '@/services/AddressService';
 import AddressForm from '@/components/shipping/AddressForm';
 import PackageForm from '@/components/shipping/PackageForm';
@@ -90,7 +84,7 @@ const ShipToPage = () => {
         if (address) {
           setPickupAddress({
             ...address,
-            id: String(address.id), // Convert number to string
+            id: String(address.id), // Convert to string for consistency
             email: address.email || '',
             is_residential: address.is_residential || false
           });
@@ -115,29 +109,17 @@ const ShipToPage = () => {
 
   const validateFormData = (): boolean => {
     if (!fromName || !fromStreet1 || !fromCity || !fromState || !fromZip || !fromCountry) {
-      toast({
-        title: 'Error',
-        description: 'Please fill in all required fields for the "Ship From" address.',
-        variant: 'destructive',
-      });
+      console.error('Missing required "Ship From" fields');
       return false;
     }
 
     if (!toName || !toStreet1 || !toCity || !toState || !toZip || !toCountry) {
-      toast({
-        title: 'Error',
-        description: 'Please fill in all required fields for the "Ship To" address.',
-        variant: 'destructive',
-      });
+      console.error('Missing required "Ship To" fields');
       return false;
     }
 
     if (!length || !width || !height || !weight) {
-      toast({
-        title: 'Error',
-        description: 'Please fill in all required fields for the package information.',
-        variant: 'destructive',
-      });
+      console.error('Missing required package fields');
       return false;
     }
 
@@ -150,36 +132,11 @@ const ShipToPage = () => {
     }
 
     if (!selectedRate) {
-      toast({
-        title: 'Error',
-        description: 'Please select a rate before creating a label.',
-        variant: 'destructive',
-      });
+      console.error('No rate selected');
       return;
     }
 
-    toast({
-      title: 'Success',
-      description: 'Label creation logic will be implemented here.',
-    });
-  };
-
-  const getAddressFromForm = (addressType: 'from' | 'to') => {
-    const baseAddress = {
-      name: addressType === 'from' ? fromName : toName,
-      company: addressType === 'from' ? fromCompany : toCompany,
-      street1: addressType === 'from' ? fromStreet1 : toStreet1,
-      street2: addressType === 'from' ? fromStreet2 : toStreet2,
-      city: addressType === 'from' ? fromCity : toCity,
-      state: addressType === 'from' ? fromState : toState,
-      zip: addressType === 'from' ? fromZip : toZip,
-      country: addressType === 'from' ? fromCountry : toCountry,
-      phone: addressType === 'from' ? fromPhone : toPhone,
-      email: addressType === 'from' ? fromEmail || '' : toEmail || '',
-      is_residential: addressType === 'from' ? fromIsResidential : toIsResidential,
-    };
-
-    return baseAddress;
+    console.log('Creating label...');
   };
 
   const handleGetRates = async () => {
@@ -202,30 +159,14 @@ const ShipToPage = () => {
         <CardContent>
           {pickupAddress ? (
             <div>
-              <p>
-                <strong>Name:</strong> {pickupAddress.name}
-              </p>
-              <p>
-                <strong>Company:</strong> {pickupAddress.company}
-              </p>
-              <p>
-                <strong>Street 1:</strong> {pickupAddress.street1}
-              </p>
-              <p>
-                <strong>Street 2:</strong> {pickupAddress.street2}
-              </p>
-              <p>
-                <strong>City:</strong> {pickupAddress.city}
-              </p>
-              <p>
-                <strong>State:</strong> {pickupAddress.state}
-              </p>
-              <p>
-                <strong>Zip:</strong> {pickupAddress.zip}
-              </p>
-              <p>
-                <strong>Country:</strong> {pickupAddress.country}
-              </p>
+              <p><strong>Name:</strong> {pickupAddress.name}</p>
+              <p><strong>Company:</strong> {pickupAddress.company}</p>
+              <p><strong>Street 1:</strong> {pickupAddress.street1}</p>
+              <p><strong>Street 2:</strong> {pickupAddress.street2}</p>
+              <p><strong>City:</strong> {pickupAddress.city}</p>
+              <p><strong>State:</strong> {pickupAddress.state}</p>
+              <p><strong>Zip:</strong> {pickupAddress.zip}</p>
+              <p><strong>Country:</strong> {pickupAddress.country}</p>
             </div>
           ) : (
             <p>No default pickup address set. Please set one in your settings.</p>
@@ -242,7 +183,7 @@ const ShipToPage = () => {
             <div>
               <h3 className="text-lg font-medium mb-4">Ship From</h3>
               <AddressForm 
-                onAddressChange={(address) => {
+                onSubmit={(address) => {
                   setFromName(address.name || '');
                   setFromCompany(address.company || '');
                   setFromStreet1(address.street1 || '');
@@ -260,7 +201,7 @@ const ShipToPage = () => {
             <div>
               <h3 className="text-lg font-medium mb-4">Ship To</h3>
               <AddressForm 
-                onAddressChange={(address) => {
+                onSubmit={(address) => {
                   setToName(address.name || '');
                   setToCompany(address.company || '');
                   setToStreet1(address.street1 || '');
@@ -314,15 +255,9 @@ const ShipToPage = () => {
                   }`}
                   onClick={() => setSelectedRate(rate)}
                 >
-                  <p>
-                    <strong>Carrier:</strong> {rate.carrier}
-                  </p>
-                  <p>
-                    <strong>Service:</strong> {rate.service}
-                  </p>
-                  <p>
-                    <strong>Rate:</strong> {rate.rate} {rate.currency}
-                  </p>
+                  <p><strong>Carrier:</strong> {rate.carrier}</p>
+                  <p><strong>Service:</strong> {rate.service}</p>
+                  <p><strong>Rate:</strong> {rate.rate} {rate.currency}</p>
                 </div>
               ))}
             </div>
