@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -70,9 +69,9 @@ const BulkUpload: React.FC = () => {
     setSortDirection(direction);
   };
 
-  const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
-    console.log('Edit shipment:', shipmentId, details);
-    handleEditShipment(shipmentId, details);
+  const handleEditShipmentWrapper = (shipmentId: string) => {
+    console.log('Edit shipment:', shipmentId);
+    handleEditShipment(shipmentId);
   };
 
   return (
