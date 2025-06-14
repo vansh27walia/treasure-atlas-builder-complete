@@ -47,7 +47,7 @@ export const useBulkUpload = () => {
       if (validStatuses.includes(statusToSet)) {
         setOverallUploadStatus(statusToSet);
       } else {
-        console.warn(`Received non-standard uploadStatus: ${statusToSet}. Global status remains ${overallUploadStatus}.`);
+        console.error(`Received non-standard uploadStatus: ${statusToSet}. Global status remains ${overallUploadStatus}.`);
       }
     }
   }, [overallUploadStatus]);

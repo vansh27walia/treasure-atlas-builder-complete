@@ -46,133 +46,134 @@ function App() {
             <div className="min-h-screen bg-gray-50">
               <Header />
               <div className="flex">
-                <SidebarNavigation />
-                <main className="flex-1">
-                  <Routes>
-                    <Route path="/auth" element={<AuthPage />} />
-                    <Route
-                      path="/"
-                      element={
-                        <ProtectedRoute>
-                          <Dashboard />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/create-label"
-                      element={
-                        <ProtectedRoute>
-                          <CreateLabelPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/tracking"
-                      element={
-                        <ProtectedRoute>
-                          <TrackingPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/settings"
-                      element={
-                        <ProtectedRoute>
-                          <SettingsPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/bulk-upload"
-                      element={
-                        <ProtectedRoute>
-                          <BulkUploadPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/payment"
-                      element={
-                        <ProtectedRoute>
-                          <PaymentPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/label-success"
-                      element={
-                        <ProtectedRoute>
-                          <LabelSuccessPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/unified-shipping"
-                      element={
-                        <ProtectedRoute>
-                          <UnifiedShippingPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/ship-to"
-                      element={
-                        <ProtectedRoute>
-                          <ShipToPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/pickup"
-                      element={
-                        <ProtectedRoute>
-                          <PickupPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/international"
-                      element={
-                        <ProtectedRoute>
-                          <InternationalShippingPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/instant-delivery"
-                      element={
-                        <ProtectedRoute>
-                          <InstantDeliveryPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/ltl-shipping"
-                      element={
-                        <ProtectedRoute>
-                          <LtlShippingPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/ftl-shipping"
-                      element={
-                        <ProtectedRoute>
-                          <FtlShippingPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route
-                      path="/freight-forwarding"
-                      element={
-                        <ProtectedRoute>
-                          <FreightForwardingPage />
-                        </ProtectedRoute>
-                      }
-                    />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </main>
+                <SidebarNavigation>
+                  <main className="flex-1">
+                    <Routes>
+                      <Route path="/auth" element={<AuthPage />} />
+                      <Route
+                        path="/"
+                        element={
+                          <ProtectedRoute>
+                            <Dashboard />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/create-label"
+                        element={
+                          <ProtectedRoute>
+                            <CreateLabelPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/tracking"
+                        element={
+                          <ProtectedRoute>
+                            <TrackingPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/settings"
+                        element={
+                          <ProtectedRoute>
+                            <SettingsPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/bulk-upload"
+                        element={
+                          <ProtectedRoute>
+                            <BulkUploadPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/payment"
+                        element={
+                          <ProtectedRoute>
+                            <PaymentPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/label-success"
+                        element={
+                          <ProtectedRoute>
+                            <LabelSuccessPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/unified-shipping"
+                        element={
+                          <ProtectedRoute>
+                            <UnifiedShippingPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/ship-to"
+                        element={
+                          <ProtectedRoute>
+                            <ShipToPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/pickup"
+                        element={
+                          <ProtectedRoute>
+                            <PickupPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/international"
+                        element={
+                          <ProtectedRoute>
+                            <InternationalShippingPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/instant-delivery"
+                        element={
+                          <ProtectedRoute>
+                            <InstantDeliveryPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/ltl-shipping"
+                        element={
+                          <ProtectedRoute>
+                            <LtlShippingPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/ftl-shipping"
+                        element={
+                          <ProtectedRoute>
+                            <FtlShippingPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/freight-forwarding"
+                        element={
+                          <ProtectedRoute>
+                            <FreightForwardingPage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </main>
+                </SidebarNavigation>
               </div>
               <Toaster />
             </div>
