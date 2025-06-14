@@ -14,14 +14,13 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { FileText, UploadCloud, AlertCircle, Download, Printer, XCircleIcon } from 'lucide-react';
-import { SavedAddress, BulkUploadResult, LabelFormat, BulkShipment, BatchResult } from '@/types/shipping';
+import { SavedAddress, BulkUploadResult, LabelFormat, BulkShipment, BatchResult, ShipmentDetails } from '@/types/shipping';
 import { toast } from '@/components/ui/sonner';
 
 // Define a type for the address that might come from AddressService
 type PotentiallyNumericIdAddress = Omit<SavedAddress, 'id'> & { id: string | number };
 
 const BulkUpload: React.FC = () => {
-  _s(); // From previous RefreshRuntime
   const lastToastRef = useRef<number>(0);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [shipmentToPreview, setShipmentToPreview] = useState<BulkShipment | null>(null);
@@ -31,29 +30,27 @@ const BulkUpload: React.FC = () => {
     file,
     isUploading,
     isPaying,
-    // isCreatingLabels, // This specific one might come from labelGenerationProgress.isGenerating
     uploadStatus,
     results,
     progress,
-    isFetchingRates, // Added from destructuring
+    isFetchingRates,
     searchTerm,
     sortField,
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
-    pickupAddress, // This is SavedAddress | null (with string id) from useBulkUpload
+    pickupAddress,
     labelGenerationProgress,
     batchPrintPreviewModalOpen,
-    setPickupAddress, // This is (address: SavedAddress | null) => void from useBulkUpload
-    handleUpload, // This is (file: File) => Promise<void> from useBulkUpload
+    setPickupAddress,
+    handleUpload,
     handleCreateLabels,
-    handleDownloadLabelsWithFormat, // This is (format: LabelFormat, shipmentId?: string) => Promise<void>
-    handleDownloadSingleLabel, // This is (labelUrl: string, format: LabelFormat) => Promise<void>
-    handleEmailLabels,
+    handleDownloadLabelsWithFormat,
+    handleDownloadSingleLabel,
     handleDownloadTemplate,
     handleSelectRate,
     handleRemoveShipment,
-    handleEditShipment, // This is (shipmentId: string, updatedDetails: Partial<ShipmentDetails>)
+    handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
     handleOpenBatchPrintPreview,
@@ -62,7 +59,7 @@ const BulkUpload: React.FC = () => {
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
-    updateLabelGenerationProgress, // Added from destructuring
+    updateLabelGenerationProgress,
   } = useBulkUpload();
 
   const isCreatingLabels = labelGenerationProgress.isGenerating;
@@ -99,8 +96,7 @@ const BulkUpload: React.FC = () => {
     console.error("Upload failed in BulkUpload component:", error);
   };
 
-  const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
-    // handleEditShipment from hook expects (shipmentId: string, updatedDetails: Partial<ShipmentDetails>)
+  const handleEditShipmentWrapper = (shipmentId: string, details: Partial<ShipmentDetails>) => {
     handleEditShipment(shipmentId, details); 
   };
 
@@ -147,6 +143,8 @@ const BulkUpload: React.FC = () => {
   };
   
   const handlePreviewSingleShipment = (shipment: BulkShipment) => {
+    // This function is passed to SuccessNotification -> LabelResultsTable
+    // and also used by BulkUploadView's LabelResultsTable
     setShipmentToPreview(shipment);
     setSinglePreviewModalOpen(true);
   };
@@ -307,13 +305,13 @@ const BulkUpload: React.FC = () => {
         {uploadStatus === 'success' && results && (
           <SuccessNotification
             results={results}
-            onDownloadSingleLabel={(shipmentId, url, format) => handleDownloadSingleLabel(url, format as LabelFormat)}
-            onCreateLabels={handleCreateLabels} // This is () => Promise<void>
+            onDownloadSingleLabel={(shipmentId, url, format) => handleDownloadSingleLabel(url, format as LabelFormat, shipmentId)}
+            onCreateLabels={handleCreateLabels} 
             isPaying={isPaying}
-            isCreatingLabels={isCreatingLabels} // This is labelGenerationProgress.isGenerating
-            onDownloadLabelsWithFormat={(format) => handleDownloadLabelsWithFormat(format as LabelFormat)} // This is (format: LabelFormat) => Promise<void>
-            onOpenBatchPrintPreview={handleOpenBatchPrintPreview} // This is () => void
-            onPreviewLabel={handlePreviewSingleShipment} // Added prop
+            isCreatingLabels={isCreatingLabels} 
+            onDownloadLabelsWithFormat={(format) => handleDownloadLabelsWithFormat(format as LabelFormat, results?.batchResult?.batchId)} 
+            onOpenBatchPrintPreview={handleOpenBatchPrintPreview}
+            onPreviewLabel={handlePreviewSingleShipment} // Pass the handler here
           />
         )}
         
@@ -329,14 +327,14 @@ const BulkUpload: React.FC = () => {
       <LabelCreationOverlay
         isVisible={labelGenerationProgress.isGenerating}
         progress={labelGenerationProgress.totalShipments > 0 ? (labelGenerationProgress.processedShipments / labelGenerationProgress.totalShipments * 100) : 0}
-        currentStep={labelGenerationProgress.currentStep}
+        currentStep={labelGenerationProgress.currentStep || "Processing labels..."}
         totalLabels={labelGenerationProgress.totalShipments}
         completedLabels={labelGenerationProgress.successfulShipments}
         failedLabels={labelGenerationProgress.failedShipments}
-        onClose={() => updateLabelGenerationProgress({ isGenerating: false })} // Use updateLabelGenerationProgress from hook
+        estimatedTimeRemaining={labelGenerationProgress.estimatedTimeRemaining}
+        onClose={() => updateLabelGenerationProgress({ isGenerating: false, currentStep: "Closed by user" })}
       />
-
-      {/* Batch Print Preview - Handled by BulkUploadView now */}
+      
       {results && pickupAddress && (results.batchResult || (uploadStatus === 'success' && results.processedShipments?.some(s => s.label_url || s.label_urls))) && (
         <PrintPreview
           isOpenProp={batchPrintPreviewModalOpen}
@@ -344,33 +342,40 @@ const BulkUpload: React.FC = () => {
           batchResult={results.batchResult}
           processedShipments={results.processedShipments || []}
           isBatchPreview={true}
-          onDownloadFormat={handleDownloadLabelsWithFormat}
+          onDownloadFormat={(format, shipmentId) => handleDownloadLabelsWithFormat(format as LabelFormat, shipmentId)}
           pickupAddress={pickupAddress}
         />
       )}
       
-      {/* Single Shipment Print Preview - Handled by BulkUploadView now */}
       {shipmentToPreview && pickupAddress && (
          <PrintPreview
           isOpenProp={singlePreviewModalOpen}
           onOpenChangeProp={setSinglePreviewModalOpen}
-          singleShipmentPreview={shipmentToPreview}
+          singleShipmentPreview={{ // Construct the SingleShipmentDataForPreview object
+            id: shipmentToPreview.id,
+            label_url: shipmentToPreview.label_url,
+            label_urls: shipmentToPreview.label_urls,
+            tracking_code: shipmentToPreview.tracking_code,
+            tracking_number: shipmentToPreview.tracking_number,
+            carrier: shipmentToPreview.carrier,
+            service: shipmentToPreview.service,
+            details: shipmentToPreview.details,
+            customer_name: shipmentToPreview.customer_name,
+          }}
           isBatchPreview={false}
-          onDownloadFormat={handleDownloadLabelsWithFormat} // Use the general one, it can take shipmentId
+          onDownloadFormat={(format, shipmentId) => handleDownloadLabelsWithFormat(format as LabelFormat, shipmentId)}
           pickupAddress={pickupAddress}
         />
       )}
-
 
       <StripePaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         totalAmount={results?.totalCost || 0}
-        shipmentCount={processedShipmentsCount} // Use filtered/selected count
+        shipmentCount={processedShipmentsCount}
         onPaymentSuccess={handlePaymentSuccess}
       />
     </>
   );
 };
-var _s = $RefreshSig$(); // From previous RefreshRuntime
 export default BulkUpload;

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,30 +9,51 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-// Label component is not used, can be removed if not added back
-// import { Label } from "@/components/ui/label"; 
 import { Download, Printer } from 'lucide-react';
-import { BulkShipment, BatchResult, LabelFormat, SavedAddress, ConsolidatedLabelUrls } from '@/types/shipping';
+import { BulkShipment, BatchResult, LabelFormat, SavedAddress, ConsolidatedLabelUrls, AddressDetails, ParcelDetails } from '@/types/shipping';
 import { useToast } from "@/components/ui/use-toast";
 import { useReactToPrint } from 'react-to-print';
-// import { getLabelImage } from '@/lib/utils'; // Removed as getLabelImage is not used/exported
+
+// This interface defines what the PrintPreview expects for a single shipment.
+// It's a subset of BulkShipment or can be constructed as needed.
+export interface SingleShipmentDataForPreview {
+  id: string;
+  label_url?: string | null; // Primary PNG URL
+  label_urls?: { // Other formats
+    pdf?: string;
+    png?: string;
+    zpl?: string;
+    epl?: string;
+  };
+  tracking_code?: string | null;
+  tracking_number?: string | null;
+  carrier?: string | null;
+  service?: string | null;
+  details: {
+    to_address: AddressDetails;
+    // from_address could be added if needed for display
+    parcel?: ParcelDetails; // Optional, for display
+  };
+  customer_name?: string; // Fallback if not in to_address.name
+}
+
 
 interface PrintPreviewProps {
   isOpenProp: boolean;
   onOpenChangeProp: (open: boolean) => void;
-  batchResult?: BatchResult | null; // For batch mode
-  processedShipments?: BulkShipment[]; // For batch mode or list display
-  singleShipmentPreview?: BulkShipment | null; // For single shipment preview
-  isBatchPreview: boolean; // Determines mode
-  onDownloadFormat: (format: LabelFormat, shipmentId?: string) => Promise<void>; // shipmentId is optional, for single download
-  pickupAddress: SavedAddress | null; // Can be null if not always available
+  batchResult?: BatchResult | null;
+  processedShipments?: BulkShipment[]; // Used in batch mode
+  singleShipmentPreview?: SingleShipmentDataForPreview | null; // For single shipment preview
+  isBatchPreview: boolean;
+  onDownloadFormat: (format: LabelFormat, shipmentId?: string) => Promise<void> | void; // shipmentId for single download
+  pickupAddress: SavedAddress | null;
 }
 
 const PrintPreview: React.FC<PrintPreviewProps> = ({
   isOpenProp,
   onOpenChangeProp,
   batchResult,
-  processedShipments = [], // Default to empty array
+  processedShipments = [],
   singleShipmentPreview,
   isBatchPreview,
   onDownloadFormat,
@@ -44,10 +65,23 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const componentRef = useRef(null);
 
   const shipmentsToDisplay = useMemo(() => {
-    if (isBatchPreview) {
-      return processedShipments;
+    if (isBatchPreview && processedShipments) {
+      // In batch mode, map BulkShipment to SingleShipmentDataForPreview if needed,
+      // or ensure processedShipments already fit the display structure.
+      // For now, assuming processedShipments (which are BulkShipment[]) can be directly used if their structure matches display needs.
+      return processedShipments.map(s => ({
+        id: s.id,
+        label_url: s.label_url,
+        label_urls: s.label_urls,
+        tracking_code: s.tracking_code,
+        tracking_number: s.tracking_number,
+        carrier: s.carrier,
+        service: s.service,
+        details: s.details,
+        customer_name: s.customer_name,
+      }));
     }
-    if (singleShipmentPreview) {
+    if (!isBatchPreview && singleShipmentPreview) {
       return [singleShipmentPreview];
     }
     return [];
@@ -79,7 +113,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   useEffect(() => {
     if (isOpenProp && shipmentsToDisplay.length > 0) {
       const newManifest = shipmentsToDisplay.map((shipment, index) => {
-        const toAddress = shipment.details.to_address;
+        // Ensure shipment.details and shipment.details.to_address exist
+        const toAddress = shipment.details?.to_address;
+        if (!toAddress) return `${index + 1}. Address details missing`;
+  
         return `${index + 1}. ${toAddress.name || shipment.customer_name || 'N/A'}, ${toAddress.street1}, ${toAddress.city}, ${toAddress.state} ${toAddress.zip}, ${toAddress.country} - Tracking: ${shipment.tracking_code || shipment.tracking_number || 'N/A'}`;
       }).join('\n');
       setManifest(newManifest);
@@ -94,13 +131,16 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
         title: "Manifest Copied!",
         description: "The shipping manifest has been copied to your clipboard.",
       });
+      // Reset copied status after a delay
+      setTimeout(() => setIsManifestCopied(false), 2000);
     }
   };
 
   const handleDownload = (format: LabelFormat) => {
     if (isBatchPreview) {
+      // For batch, onDownloadFormat might not need shipmentId if it downloads a consolidated file
       onDownloadFormat(format);
-    } else if (singleShipmentPreview) {
+    } else if (singleShipmentPreview && singleShipmentPreview.id) {
       onDownloadFormat(format, singleShipmentPreview.id);
     } else {
       toast({ title: "Error", description: "No shipment selected for download.", variant: "destructive" });
@@ -118,9 +158,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div ref={componentRef} className="space-y-4 p-1"> {/* Added p-1 for print padding */}
+        <div ref={componentRef} className="space-y-4 p-1">
           {pickupAddress && (
-            <div className="p-4 border rounded-md bg-gray-50">
+            <div className="p-4 border rounded-md bg-gray-50 print-friendly-address">
               <h4 className="font-semibold mb-1">Pickup Address</h4>
               <p className="text-sm">
                 {pickupAddress.name && <>{pickupAddress.name}<br /></>}
@@ -138,6 +178,15 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             <div className="p-4 border rounded-md">
               <h4 className="font-semibold mb-2">Batch Summary</h4>
               <p>Batch ID: {batchResult.batchId}</p>
+              <p>Total Shipments in Batch: {processedShipments.length}</p>
+              {batchResult.scanFormUrl && (
+                 <Button 
+                    onClick={() => window.open(batchResult.scanFormUrl!, '_blank')} 
+                    variant="outline" 
+                    className="mt-2">
+                   <Download className="mr-2 h-4 w-4" /> Download Scan Form (PDF)
+                 </Button>
+              )}
               <div className="flex flex-wrap gap-2 mt-4">
                 {batchResult.consolidatedLabelUrls?.pdf && (
                   <Button onClick={() => handleDownload('pdf')} variant="outline">
@@ -154,7 +203,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     <Download className="mr-2 h-4 w-4" /> Download All EPL
                   </Button>
                 )}
-                 {batchResult.consolidatedLabelUrls?.zip && ( // Assuming this is ZIP of PNGs
+                 {batchResult.consolidatedLabelUrls?.zip && (
                   <Button onClick={() => handleDownload('zip')} variant="outline">
                     <Download className="mr-2 h-4 w-4" /> Download All as ZIP
                   </Button>
@@ -167,11 +216,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
             <div className="p-4 border rounded-md">
               <h4 className="font-semibold mb-2">Shipping Manifest</h4>
               <Input
-                type="text" // Changed to text to make it selectable, textarea could also work
+                type="text"
                 readOnly
                 value={manifest}
-                className="bg-gray-100 text-sm font-mono h-auto py-2" // Removed fixed height
-                onClick={(e) => (e.target as HTMLInputElement).select()} // Cast to HTMLInputElement
+                className="bg-gray-100 text-sm font-mono h-auto py-2"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
               />
               <div className="flex justify-end mt-2">
                 <Button onClick={copyToClipboard} disabled={isManifestCopied} size="sm">
@@ -182,15 +231,15 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           )}
 
           {shipmentsToDisplay.length > 0 && (
-            <div className={`grid grid-cols-1 ${isBatchPreview && shipmentsToDisplay.length > 1 ? "md:grid-cols-2 lg:grid-cols-3" : ""} gap-4`}>
+             <div className={`grid grid-cols-1 ${isBatchPreview && shipmentsToDisplay.length > 1 ? "md:grid-cols-2 lg:grid-cols-3" : ""} gap-4 print-labels-grid`}>
               {shipmentsToDisplay.map((shipment) => (
-                <div key={shipment.id} className="border rounded-md p-4">
-                  <h5 className="font-semibold mb-2">To: {shipment.details.to_address.name || shipment.customer_name || 'N/A'}</h5>
-                  <p className="text-sm">{shipment.details.to_address.street1}</p>
-                  {shipment.details.to_address.street2 && <p className="text-sm">{shipment.details.to_address.street2}</p>}
-                  <p className="text-sm">{shipment.details.to_address.city}, {shipment.details.to_address.state} {shipment.details.to_address.zip}</p>
+                <div key={shipment.id} className="border rounded-md p-4 print-label-item">
+                  <h5 className="font-semibold mb-2">To: {shipment.details?.to_address?.name || shipment.customer_name || 'N/A'}</h5>
+                  <p className="text-sm">{shipment.details?.to_address?.street1}</p>
+                  {shipment.details?.to_address?.street2 && <p className="text-sm">{shipment.details.to_address.street2}</p>}
+                  <p className="text-sm">{shipment.details?.to_address?.city}, {shipment.details?.to_address?.state} {shipment.details?.to_address?.zip}</p>
                   
-                  {shipment.label_url ? ( // Primary label for display
+                  {shipment.label_url ? (
                     <img 
                         src={shipment.label_url} 
                         alt={`Shipping Label for ${shipment.id}`} 
@@ -202,7 +251,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   <p className="text-sm">Tracking: {shipment.tracking_code || shipment.tracking_number || 'N/A'}</p>
                   <p className="text-sm">Carrier: {shipment.carrier || 'N/A'}, Service: {shipment.service || 'N/A'}</p>
 
-                  {!isBatchPreview && singleShipmentPreview && (
+                  {!isBatchPreview && singleShipmentPreview && singleShipmentPreview.id === shipment.id && (
                     <div className="flex flex-wrap gap-2 mt-3">
                        {(singleShipmentPreview.label_urls?.png || singleShipmentPreview.label_url) && (
                         <Button size="sm" variant="outline" onClick={() => handleDownload('png')}>
@@ -217,6 +266,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       {singleShipmentPreview.label_urls?.zpl && (
                         <Button size="sm" variant="outline" onClick={() => handleDownload('zpl')}>
                           <Download className="mr-1 h-3 w-3" /> ZPL
+                        </Button>
+                      )}
+                       {singleShipmentPreview.label_urls?.epl && (
+                        <Button size="sm" variant="outline" onClick={() => handleDownload('epl')}>
+                          <Download className="mr-1 h-3 w-3" /> EPL
                         </Button>
                       )}
                     </div>

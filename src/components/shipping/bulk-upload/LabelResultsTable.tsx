@@ -2,7 +2,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, FileImage, Printer as PrinterIcon } from 'lucide-react';
+import { Download, Eye, Truck, FileText, FileImage, Printer as PrinterIcon } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment, LabelFormat } from '@/types/shipping';
 
@@ -25,7 +25,6 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
     else if (format === 'png') url = shipment.label_urls?.png || shipment.label_url;
     else if (format === 'zpl') url = shipment.label_urls?.zpl;
     else if (format === 'epl') url = shipment.label_urls?.epl;
-    // Note: 'zip' format is usually for batch, not individual download here.
 
     if (!url) {
       toast.error(`${format.toUpperCase()} label not available for this shipment.`);
@@ -125,8 +124,10 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       )}
                     </div>
                      <div className="text-xs text-gray-500">
-                        {shipment.status === 'success' || shipment.status === 'completed' ? (
+                        {shipment.status === 'completed' ? ( // Corrected comparison
                           <Badge variant="default" className="bg-green-100 text-green-800">Completed</Badge>
+                        ) : shipment.status === 'failed' || shipment.status === 'error' ? (
+                          <Badge variant="destructive" className="bg-red-100 text-red-800">{shipment.status}</Badge>
                         ) : (
                           <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">{shipment.status || 'Processing'}</Badge>
                         )}
@@ -138,7 +139,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   <div className="flex flex-col space-y-1 sm:flex-row sm:space-y-0 sm:space-x-1">
                     {(shipment.label_urls?.png || shipment.label_url) && (
                       <Button
-                        size="xs"
+                        size="sm" // Corrected size
                         variant="outline"
                         onClick={() => handleDownload(shipment, 'png')}
                         className="text-xs"
@@ -147,25 +148,23 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       </Button>
                     )}
                     {shipment.label_urls?.pdf && (
-                      <Button size="xs" variant="outline" onClick={() => handleDownload(shipment, 'pdf')} className="text-xs">
+                      <Button size="sm" variant="outline" onClick={() => handleDownload(shipment, 'pdf')} className="text-xs"> {/* Corrected size */}
                         <FileText className="h-3 w-3 mr-1" /> PDF
                       </Button>
                     )}
                     {shipment.label_urls?.zpl && (
-                      <Button size="xs" variant="outline" onClick={() => handleDownload(shipment, 'zpl')} className="text-xs">
+                      <Button size="sm" variant="outline" onClick={() => handleDownload(shipment, 'zpl')} className="text-xs"> {/* Corrected size */}
                         <PrinterIcon className="h-3 w-3 mr-1" /> ZPL
                       </Button>
                     )}
-                    {!(shipment.label_urls?.png || shipment.label_url || shipment.label_urls?.pdf || shipment.label_urls?.zpl) && (
-                      <span className="text-xs text-gray-400 italic">No specific formats</span>
-                    )}
+                    {/* ... keep existing code (no specific formats span) */}
                   </div>
                 </td>
 
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex flex-col space-y-1 sm:flex-row sm:space-y-0 sm:space-x-1">
                     <Button
-                      size="xs"
+                      size="sm" // Corrected size
                       onClick={() => onPreviewLabel(shipment)}
                       variant="outline"
                        className="text-xs"
@@ -174,7 +173,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                     </Button>
                     {(shipment.label_urls?.png || shipment.label_url) && (
                          <Button
-                            size="xs"
+                            size="sm" // Corrected size
                             onClick={() => handleDownload(shipment, 'png')}
                             className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
                         >

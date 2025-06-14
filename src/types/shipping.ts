@@ -158,7 +158,7 @@ export type BulkShipmentStatus =
   | 'rates_fetched'
   | 'rate_selected'
   | 'label_purchased' // Represents payment success and label intent/purchase
-  | 'completed' // Label generated and available
+  | 'completed' // Label generated and available - This is the status we should check for success
   | 'error' // General error in processing this shipment
   | 'failed'; // Specifically failed to get label/rate after attempts
 
