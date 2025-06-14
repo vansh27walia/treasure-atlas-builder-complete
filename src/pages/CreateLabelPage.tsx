@@ -1,18 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/components/ui/use-toast'; // Corrected import path
-import AddressForm from '@/components/shipping/AddressForm'; // Default import
-import PackageForm from '@/components/shipping/PackageForm'; // Placeholder import
-import ShippingRates from '@/components/shipping/ShippingRates'; // Corrected component
+import { useToast } from '@/components/ui/use-toast';
+import AddressForm from '@/components/shipping/AddressForm';
+import PackageForm from '@/components/shipping/PackageForm';
+import ShippingRates from '@/components/ShippingRates'; // Corrected import path
 import PrintPreview, { SingleShipmentDataForPreview } from '@/components/shipping/PrintPreview';
 import { AddressDetails, ParcelDetails, SavedAddress, ShippingOption, LabelFormat } from '@/types/shipping';
 import { addressService } from '@/services/AddressService';
-import { useForm } from 'react-hook-form';
+import { useForm, FormProvider } from 'react-hook-form'; // Added FormProvider
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
-import { ToastAction } from "@/components/ui/toast"; // Corrected import for ToastAction
+import { ToastAction } from "@/components/ui/toast";
 
 const addressSchema = z.object({
   name: z.string().min(3, { message: "Name must be at least 3 characters." }),
@@ -22,7 +22,7 @@ const addressSchema = z.object({
   city: z.string().min(2, { message: "City must be at least 2 characters." }),
   state: z.string().min(2, { message: "State must be at least 2 characters." }),
   zip: z.string().regex(/^\d{5}(-\d{4})?$/, { message: "Invalid ZIP code." }),
-  country: z.string(),
+  country: z.string().min(2, { message: "Country code must be 2 characters."}), // Ensure country is also validated
   phone: z.string().optional(),
   email: z.string().email({ message: "Invalid email address." }).optional(),
 });
@@ -67,22 +67,33 @@ const CreateLabelPage: React.FC = () => {
   useEffect(() => {
     const fetchDefault = async () => {
       try {
-        const addr = await addressService.getDefaultFromAddress();
-        if (addr) {
-          setDefaultFromAddress(addr);
+        const addrFromService = await addressService.getDefaultFromAddress();
+        if (addrFromService) {
+          const adaptedAddr: SavedAddress = {
+            ...addrFromService,
+            id: String(addrFromService.id), // Map id to string
+            // Ensure all AddressDetails fields are present if SavedAddress extends it
+            name: addrFromService.name || '',
+            street1: addrFromService.street1,
+            city: addrFromService.city,
+            state: addrFromService.state,
+            zip: addrFromService.zip,
+            country: addrFromService.country,
+          };
+          setDefaultFromAddress(adaptedAddr);
           form.reset({ 
             ...form.getValues(), 
             fromAddress: {
-              name: addr.name || '',
-              company: addr.company || '',
-              street1: addr.street1,
-              street2: addr.street2 || '',
-              city: addr.city,
-              state: addr.state,
-              zip: addr.zip,
-              country: addr.country,
-              phone: addr.phone || '',
-              email: addr.email || '',
+              name: adaptedAddr.name || '',
+              company: adaptedAddr.company || '',
+              street1: adaptedAddr.street1,
+              street2: adaptedAddr.street2 || '',
+              city: adaptedAddr.city,
+              state: adaptedAddr.state,
+              zip: adaptedAddr.zip,
+              country: adaptedAddr.country,
+              phone: adaptedAddr.phone || '',
+              email: adaptedAddr.email || '',
             }
           });
         }
@@ -135,7 +146,21 @@ const CreateLabelPage: React.FC = () => {
       if (labelGenError) throw labelGenError;
       
       const primaryUrl = labelGenData.label_urls?.png || labelGenData.labelUrl || labelGenData.label_urls?.pdf;
-      const formData = form.getValues();
+      const formDataValues = form.getValues();
+
+      // Ensure formDataValues.toAddress conforms to AddressDetails
+      const toAddressDetails: AddressDetails = {
+        name: formDataValues.toAddress.name || '',
+        company: formDataValues.toAddress.company,
+        street1: formDataValues.toAddress.street1 || '',
+        street2: formDataValues.toAddress.street2,
+        city: formDataValues.toAddress.city || '',
+        state: formDataValues.toAddress.state || '',
+        zip: formDataValues.toAddress.zip || '',
+        country: formDataValues.toAddress.country || 'US',
+        phone: formDataValues.toAddress.phone,
+        email: formDataValues.toAddress.email,
+      };
 
       const previewData: SingleShipmentDataForPreview = {
         id: currentShipmentIdForLabel,
@@ -144,7 +169,7 @@ const CreateLabelPage: React.FC = () => {
         tracking_code: labelGenData.trackingCode,
         carrier: rate.carrier,
         service: rate.service,
-        details: { to_address: formData.toAddress },
+        details: { to_address: toAddressDetails },
       };
       setShipmentDataForPreview(previewData);
       setShowPrintPreview(true);
@@ -204,22 +229,23 @@ const CreateLabelPage: React.FC = () => {
     }
   };
 
-
   return (
     <div className="container mx-auto p-6">
-      <Card className="max-w-2xl mx-auto">
-        <CardHeader><CardTitle>Create Shipping Label</CardTitle></CardHeader>
-        <CardContent>
-          <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-6">
-            <AddressForm form={form} addressType="fromAddress" title="From Address" />
-            <AddressForm form={form} addressType="toAddress" title="To Address" />
-            <PackageForm form={form} />
-            <Button type="submit" disabled={isLoadingRates || isLoading}>
-              {isLoadingRates ? 'Getting Rates...' : 'Get Shipping Rates'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <FormProvider {...form}> {/* Added FormProvider */}
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader><CardTitle>Create Shipping Label</CardTitle></CardHeader>
+          <CardContent>
+            <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-6">
+              <AddressForm addressType="fromAddress" title="From Address" />
+              <AddressForm addressType="toAddress" title="To Address" />
+              <PackageForm form={form} /> {/* PackageForm might need FormProvider too, or pass form explicitly */}
+              <Button type="submit" disabled={isLoadingRates || isLoading}>
+                {isLoadingRates ? 'Getting Rates...' : 'Get Shipping Rates'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </FormProvider>
 
       {rates.length > 0 && (
         <div className="mt-8">
@@ -228,8 +254,10 @@ const CreateLabelPage: React.FC = () => {
             isLoadingRates={isLoadingRates}
             onRateSelected={handleRateSelectedAndPurchase}
             fromAddress={defaultFromAddress}
-            toAddress={form.getValues("toAddress")} // Provide context for ShippingRates if needed
-            parcel={form.getValues("parcel")} // Provide context for ShippingRates if needed
+            // Ensure toAddress and parcel are correctly typed if passed
+            // For example, ensure they meet AddressDetails and ParcelDetails from shipping.ts
+            toAddress={form.getValues("toAddress")} 
+            parcel={form.getValues("parcel")}
           />
         </div>
       )}
@@ -241,7 +269,7 @@ const CreateLabelPage: React.FC = () => {
             singleShipmentPreview={shipmentDataForPreview}
             isBatchPreview={false}
             onDownloadFormat={handlePreviewDownloadFormat}
-            pickupAddress={defaultFromAddress}
+            pickupAddress={defaultFromAddress} // Ensure this matches expected type in PrintPreview
           />
       )}
     </div>

@@ -22,7 +22,7 @@ export interface ShippingAddress {
   city: string;
   state: string;
   zip: string;
-  country: string;
+  country: string; // Assuming ISO 2-letter country code e.g., 'US'
   phone?: string;
   email?: string;
   residential?: boolean;
@@ -70,17 +70,18 @@ export interface ParcelDetails {
 }
 
 export interface AddressDetails {
-  name?: string;
+  name: string;
   company?: string;
   street1: string;
   street2?: string;
   city: string;
   state: string;
   zip: string;
-  country: string;
+  country: string; // Assuming ISO 2-letter country code e.g., 'US'
   phone?: string;
   email?: string;
   is_residential?: boolean;
+  validate?: boolean; // Added, for address validation flags
 }
 
 export interface ShipmentDetails {
@@ -128,7 +129,7 @@ export interface CustomsInfo {
 }
 
 export interface SavedAddress {
-  id: string; // Ensure ID is string
+  id: string; // Ensure ID is string for consistency with other IDs like rate IDs.
   user_id?: string;
   name?: string | null;
   company?: string | null;
@@ -137,7 +138,7 @@ export interface SavedAddress {
   city: string;
   state: string;
   zip: string;
-  country: string;
+  country: string; // Assuming ISO 2-letter country code e.g., 'US'
   phone?: string | null;
   email?: string | null;
   is_default_from?: boolean;

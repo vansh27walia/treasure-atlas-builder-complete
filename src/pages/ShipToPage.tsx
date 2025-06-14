@@ -1,22 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom'; // Changed from next/router
-import { useForm } from 'react-hook-form';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useForm, FormProvider } from 'react-hook-form'; // Added FormProvider
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input'; // Keep if used directly, or remove
-import { Label } from '@/components/ui/label'; // Keep if used directly, or remove
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from "@/components/ui/use-toast"; // Corrected path for useToast
-import { ToastAction } from "@/components/ui/toast"; // Corrected import for ToastAction
-import AddressForm from '@/components/shipping/AddressForm'; // Changed to default import
-import PackageForm from '@/components/shipping/PackageForm'; // Uses the new placeholder
-import ShippingRates from '@/components/shipping/ShippingRates'; // Path should be okay
+import { useToast } from "@/components/ui/use-toast";
+import { ToastAction } from "@/components/ui/toast"; // Corrected import from ui/toast
+import AddressForm from '@/components/shipping/AddressForm';
+import PackageForm from '@/components/shipping/PackageForm';
+import ShippingRates from '@/components/ShippingRates'; // Corrected import path
 import { AddressDetails, ParcelDetails, SavedAddress, LabelFormat, ShippingOption } from '@/types/shipping';
 import { addressService } from '@/services/AddressService';
-// import { useSession } from 'next-auth/react'; // Removed next-auth as it's not standard React
 import PrintPreview, { SingleShipmentDataForPreview } from '@/components/shipping/PrintPreview';
-import { supabase } from '@/integrations/supabase/client'; // For calling Supabase functions
+import { supabase } from '@/integrations/supabase/client';
 
 // ... keep existing code (schemas: addressSchema, packageSchema, combinedSchema, FormData type)
 const addressSchema = z.object({
@@ -27,7 +24,7 @@ const addressSchema = z.object({
   city: z.string().min(2, { message: "City must be at least 2 characters." }),
   state: z.string().min(2, { message: "State must be at least 2 characters." }),
   zip: z.string().regex(/^\d{5}(-\d{4})?$/, { message: "Invalid ZIP code." }),
-  country: z.string(),
+  country: z.string().min(2, { message: "Country code must be 2 characters."}),
   phone: z.string().optional(),
   email: z.string().email({ message: "Invalid email address." }).optional(),
 });
@@ -48,59 +45,27 @@ const combinedSchema = z.object({
 type FormData = z.infer<typeof combinedSchema>;
 
 const ShipToPage = () => {
-  const navigate = useNavigate(); // Changed from useRouter
+  const navigate = useNavigate();
   const { toast } = useToast();
-  // const { data: session } = useSession(); // Removed
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingRates, setIsLoadingRates] = useState(false);
-  const [rates, setRates] = useState<ShippingOption[]>([]); // Store fetched rates
+  const [rates, setRates] = useState<ShippingOption[]>([]);
   const [selectedRate, setSelectedRate] = useState<ShippingOption | null>(null);
   
-  // Label related state
   const [generatedLabelUrl, setGeneratedLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [currentShipmentId, setCurrentShipmentId] = useState<string | null>(null);
-  // const [labelUrls, setLabelUrls] = useState<{ pdf?: string; png?: string; zpl?: string; epl?: string }>({}); // replaced by shipmentDataForPreview.label_urls
   
   const [defaultFromAddress, setDefaultFromAddress] = useState<SavedAddress | null>(null);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [shipmentDataForPreview, setShipmentDataForPreview] = useState<SingleShipmentDataForPreview | null>(null);
-  // const [selectedLabelFormatForPreview, setSelectedLabelFormatForPreview] = useState<LabelFormat>('png'); // Managed by PrintPreview or not needed here
 
   const form = useForm<FormData>({
-        // ... keep existing code (form defaultValues)
     resolver: zodResolver(combinedSchema),
     defaultValues: {
-      toAddress: {
-        name: '',
-        company: '',
-        street1: '',
-        street2: '',
-        city: '',
-        state: '',
-        zip: '',
-        country: 'US',
-        phone: '',
-        email: '',
-      },
-      fromAddress: {
-        name: '',
-        company: '',
-        street1: '',
-        street2: '',
-        city: '',
-        state: '',
-        zip: '',
-        country: 'US',
-        phone: '',
-        email: '',
-      },
-      parcel: {
-        length: 6,
-        width: 6,
-        height: 4,
-        weight: 1,
-      },
+      toAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US', phone: '', email: '' },
+      fromAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US', phone: '', email: '' },
+      parcel: { length: 6, width: 6, height: 4, weight: 1 },
     },
   });
 
@@ -108,21 +73,31 @@ const ShipToPage = () => {
     const fetchDefaultFromAddress = async () => {
       setIsLoading(true);
       try {
-        const address = await addressService.getDefaultFromAddress();
-        if (address) {
+        const addrFromService = await addressService.getDefaultFromAddress();
+        if (addrFromService) {
+          const adaptedAddr: SavedAddress = {
+            ...addrFromService,
+            id: String(addrFromService.id), // Map id to string
+            name: addrFromService.name || '', // Ensure required fields are present
+            street1: addrFromService.street1,
+            city: addrFromService.city,
+            state: addrFromService.state,
+            zip: addrFromService.zip,
+            country: addrFromService.country,
+          };
           form.setValue("fromAddress", {
-            name: address.name || '',
-            company: address.company || '',
-            street1: address.street1,
-            street2: address.street2 || '',
-            city: address.city,
-            state: address.state,
-            zip: address.zip,
-            country: address.country,
-            phone: address.phone || '',
-            email: address.email || '',
+            name: adaptedAddr.name || '',
+            company: adaptedAddr.company || '',
+            street1: adaptedAddr.street1,
+            street2: adaptedAddr.street2 || '',
+            city: adaptedAddr.city,
+            state: adaptedAddr.state,
+            zip: adaptedAddr.zip,
+            country: adaptedAddr.country,
+            phone: adaptedAddr.phone || '',
+            email: adaptedAddr.email || '',
           });
-          setDefaultFromAddress(address);
+          setDefaultFromAddress(adaptedAddr);
         }
       } catch (error) {
         console.error("Error fetching default 'from' address:", error);
@@ -186,11 +161,10 @@ const ShipToPage = () => {
       return;
     }
     setSelectedRate(rate);
-    setIsLoading(true); // General loading for purchase
+    setIsLoading(true);
 
     try {
       console.log("Purchasing label for rate:", rate.id, "shipmentId:", currentShipmentId);
-      // Default to PDF, 4x6 for single label purchase if not specified
       const labelOptions = { label_format: "PNG", label_size: "4x6" }; 
 
       const { data: labelData, error: labelError } = await supabase.functions.invoke('create-label', {
@@ -202,7 +176,7 @@ const ShipToPage = () => {
       });
 
       if (labelError) throw labelError;
-      if (!labelData || (!labelData.labelUrl && !labelData.label_urls)) { // Check for label_urls too
+      if (!labelData || (!labelData.labelUrl && !labelData.label_urls)) {
         throw new Error("Label data not returned from server.");
       }
       
@@ -211,19 +185,31 @@ const ShipToPage = () => {
       const primaryLabelUrl = labelData.label_urls?.png || labelData.labelUrl || labelData.label_urls?.pdf;
       setGeneratedLabelUrl(primaryLabelUrl);
       setTrackingCode(labelData.trackingCode);
-      // setCurrentShipmentId is already set from rate fetching
       
-      const formData = form.getValues();
+      const formDataValues = form.getValues();
+      // Ensure formDataValues.toAddress conforms to AddressDetails
+      const toAddressDetails: AddressDetails = {
+        name: formDataValues.toAddress.name || '',
+        company: formDataValues.toAddress.company,
+        street1: formDataValues.toAddress.street1 || '',
+        street2: formDataValues.toAddress.street2,
+        city: formDataValues.toAddress.city || '',
+        state: formDataValues.toAddress.state || '',
+        zip: formDataValues.toAddress.zip || '',
+        country: formDataValues.toAddress.country || 'US',
+        phone: formDataValues.toAddress.phone,
+        email: formDataValues.toAddress.email,
+      };
+
       const previewData: SingleShipmentDataForPreview = {
         id: currentShipmentId,
-        label_url: primaryLabelUrl, // Primary URL for quick preview
-        label_urls: labelData.label_urls || { png: primaryLabelUrl }, // All available formats
+        label_url: primaryLabelUrl,
+        label_urls: labelData.label_urls || { png: primaryLabelUrl },
         tracking_code: labelData.trackingCode,
         carrier: rate.carrier,
         service: rate.service,
         details: {
-          to_address: formData.toAddress,
-          // from_address: formData.fromAddress, // Can be added if needed by PrintPreview
+          to_address: toAddressDetails,
         },
       };
       setShipmentDataForPreview(previewData);
@@ -251,10 +237,7 @@ const ShipToPage = () => {
     }
   };
   
-  // handleLabelGenerated is effectively replaced by logic within handleRateSelectedForPurchase
-
   const downloadLabel = async (url: string, filename: string) => {
-    // ... keep existing code (downloadLabel)
     try {
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Failed to fetch label: ${response.statusText}`);
@@ -275,10 +258,7 @@ const ShipToPage = () => {
     }
   };
 
-  // handleFormatChange removed, label format decided at purchase or managed by PrintPreview if re-fetching
-  
   const handlePreviewDownloadFormat = async (format: LabelFormat, shipmentId?: string) => {
-    // ... keep existing code (handlePreviewDownloadFormat)
     if (!shipmentId || !shipmentDataForPreview) {
         toast({ title: "Error", description: "Shipment data not available for download.", variant: "destructive" });
         return;
@@ -301,37 +281,37 @@ const ShipToPage = () => {
     }
   };
 
-  if (isLoading && !isLoadingRates) { // General loading, not for rates specifically
+  if (isLoading && !isLoadingRates) { 
     return <div>Purchasing Label...</div>;
   }
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
-      <Card>
-        <CardHeader>
-          <CardTitle>Create Single Shipment</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <AddressForm form={form} addressType="toAddress" title="To Address" />
-            <AddressForm form={form} addressType="fromAddress" title="From Address" />
-            <PackageForm form={form} />
-            <Button type="submit" disabled={isLoadingRates || isLoading}>
-              {isLoadingRates ? 'Getting Rates...' : 'Get Rates'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <FormProvider {...form}> {/* Added FormProvider */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Create Single Shipment</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <AddressForm addressType="toAddress" title="To Address" />
+              <AddressForm addressType="fromAddress" title="From Address" />
+              <PackageForm form={form} /> {/* PackageForm might need FormProvider too, or pass form explicitly */}
+              <Button type="submit" disabled={isLoadingRates || isLoading}>
+                {isLoadingRates ? 'Getting Rates...' : 'Get Rates'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </FormProvider>
 
       {rates.length > 0 && (
         <div className="mt-6">
           <ShippingRates
-            // shipmentDetails is no longer needed as rates are passed directly
             rates={rates}
             isLoadingRates={isLoadingRates}
             onRateSelected={handleRateSelectedForPurchase}
-            fromAddress={defaultFromAddress} // For PrintPreview context
-            // Pass toAddress and parcel if ShippingRates needs them for display purposes
+            fromAddress={defaultFromAddress}
             toAddress={form.getValues("toAddress")}
             parcel={form.getValues("parcel")}
           />
@@ -345,7 +325,7 @@ const ShipToPage = () => {
           singleShipmentPreview={shipmentDataForPreview}
           isBatchPreview={false}
           onDownloadFormat={handlePreviewDownloadFormat}
-          pickupAddress={defaultFromAddress}
+          pickupAddress={defaultFromAddress} // Ensure this matches expected type in PrintPreview
         />
       )}
     </div>

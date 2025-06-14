@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { UseFormReturn } from 'react-hook-form';
+import { UseFormReturn, FieldErrors, DeepRequired, FieldErrorsImpl } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,16 +14,21 @@ const packageSchema = z.object({
   weight: z.number().min(0.1, "Min 0.1"),
 });
 
-type PackageFormData = z.infer<typeof packageSchema>;
+export type PackageFormData = z.infer<typeof packageSchema>;
 
 interface PackageFormProps {
-  form: UseFormReturn<any>; // UseFormReturn<YourMainFormDataShape>
-  // parcelFieldName?: string; // If nested e.g. 'parcel' or 'packageDetails.parcel'
+  form: UseFormReturn<any>; // Keep <any> for now if full FormData type is complex to pass down
+                           // Or make PackageFormProps generic: PackageFormProps<T extends FieldValues>
 }
 
 const PackageForm: React.FC<PackageFormProps> = ({ form }) => {
-  // Assuming parcel details are at the root of the form or under a 'parcel' field
   const parcelPath = (field: keyof PackageFormData) => `parcel.${field}`;
+  
+  // Helper to get nested errors more safely typed
+  const getParcelError = (fieldName: keyof PackageFormData) => {
+    const errors = form.formState.errors.parcel as FieldErrorsImpl<DeepRequired<PackageFormData>> | undefined;
+    return errors?.[fieldName]?.message;
+  };
 
   return (
     <Card>
@@ -39,8 +44,8 @@ const PackageForm: React.FC<PackageFormProps> = ({ form }) => {
             step="0.1"
             {...form.register(parcelPath('length'), { valueAsNumber: true })}
           />
-          {form.formState.errors?.parcel?.length && (
-            <p className="text-red-500 text-xs mt-1">{String(form.formState.errors.parcel.length.message)}</p>
+          {getParcelError('length') && (
+            <p className="text-red-500 text-xs mt-1">{getParcelError('length')}</p>
           )}
         </div>
         <div>
@@ -51,8 +56,8 @@ const PackageForm: React.FC<PackageFormProps> = ({ form }) => {
             step="0.1"
             {...form.register(parcelPath('width'), { valueAsNumber: true })}
           />
-          {form.formState.errors?.parcel?.width && (
-            <p className="text-red-500 text-xs mt-1">{String(form.formState.errors.parcel.width.message)}</p>
+          {getParcelError('width') && (
+            <p className="text-red-500 text-xs mt-1">{getParcelError('width')}</p>
           )}
         </div>
         <div>
@@ -63,8 +68,8 @@ const PackageForm: React.FC<PackageFormProps> = ({ form }) => {
             step="0.1"
             {...form.register(parcelPath('height'), { valueAsNumber: true })}
           />
-          {form.formState.errors?.parcel?.height && (
-            <p className="text-red-500 text-xs mt-1">{String(form.formState.errors.parcel.height.message)}</p>
+          {getParcelError('height') && (
+            <p className="text-red-500 text-xs mt-1">{getParcelError('height')}</p>
           )}
         </div>
         <div>
@@ -75,8 +80,8 @@ const PackageForm: React.FC<PackageFormProps> = ({ form }) => {
             step="0.1"
             {...form.register(parcelPath('weight'), { valueAsNumber: true })}
           />
-          {form.formState.errors?.parcel?.weight && (
-            <p className="text-red-500 text-xs mt-1">{String(form.formState.errors.parcel.weight.message)}</p>
+          {getParcelError('weight') && (
+            <p className="text-red-500 text-xs mt-1">{getParcelError('weight')}</p>
           )}
         </div>
       </CardContent>
@@ -85,4 +90,3 @@ const PackageForm: React.FC<PackageFormProps> = ({ form }) => {
 };
 
 export default PackageForm;
-
