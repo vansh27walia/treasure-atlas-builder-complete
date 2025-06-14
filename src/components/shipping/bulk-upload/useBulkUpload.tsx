@@ -320,6 +320,15 @@ export const useBulkUpload = () => {
     }
   };
 
+  const handleDownloadSingleLabel = (url: string, format?: string) => {
+    console.log(`Downloading label with url: ${url} and format: ${format}`);
+    if (url) {
+      downloadSingleLabelFile(url);
+    } else {
+      toast.error("Download URL not available.");
+    }
+  };
+
   return {
     file,
     isUploading,
@@ -349,7 +358,7 @@ export const useBulkUpload = () => {
     setBatchPrintPreviewModalOpen,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat, 
-    handleDownloadSingleLabel: downloadSingleLabelFile, // Pass through the file downloader
+    handleDownloadSingleLabel,
     handlePreviewSingleLabel, // Pass through the preview modal handler
     handleEmailLabels,
     handleDownloadTemplate,
