@@ -1,74 +1,84 @@
 
 import { useState, useMemo } from 'react';
-import { BulkShipment, BulkUploadResult } from '@/types/shipping';
+import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 
-export const useShipmentFiltering = (
-  results: BulkUploadResult | null
-) => {
+export const useShipmentFiltering = (results: BulkUploadResult | null) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<'recipient' | 'rate' | 'carrier'>('recipient');
+  const [sortField, setSortField] = useState<'recipient' | 'carrier' | 'rate' | 'status'>('recipient');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [selectedCarrierFilter, setSelectedCarrierFilter] = useState<string | null>(null);
+  const [selectedCarrierFilter, setSelectedCarrierFilter] = useState<string>('');
 
-  // Filter and sort shipments
   const filteredShipments = useMemo(() => {
-    if (!results || !results.processedShipments) return [];
-    
+    if (!results?.processedShipments) return [];
+
     return results.processedShipments
       .filter(shipment => {
-        // Filter by search term
-        const searchFields = [
-          shipment.recipient,
-          shipment.details?.name || '',
-          shipment.details?.company || '',
-          shipment.details?.street1 || '',
-          shipment.details?.city || '',
-          shipment.details?.state || '',
-          shipment.details?.zip || '',
-          shipment.carrier,
-          shipment.service
-        ].join(' ').toLowerCase();
+        const searchTermLower = searchTerm.toLowerCase();
+        const recipientMatch = shipment.recipient?.toLowerCase().includes(searchTermLower);
+        const carrierMatch = shipment.carrier?.toLowerCase().includes(searchTermLower);
+        const statusMatch = shipment.status?.toLowerCase().includes(searchTermLower);
+        const addressMatch = `${shipment.street1 || ''} ${shipment.city || ''} ${shipment.zip || ''}`.toLowerCase().includes(searchTermLower);
+
+        const matchesSearch = !searchTerm || recipientMatch || carrierMatch || statusMatch || addressMatch;
+        const matchesCarrier = !selectedCarrierFilter || shipment.carrier === selectedCarrierFilter;
         
-        const matchesSearch = !searchTerm || searchFields.includes(searchTerm.toLowerCase());
-        
-        // Filter by carrier
-        const matchesCarrier = !selectedCarrierFilter || 
-          (shipment.availableRates?.some(rate => 
-            rate.carrier.toLowerCase() === selectedCarrierFilter.toLowerCase()
-          ));
-          
         return matchesSearch && matchesCarrier;
       })
       .sort((a, b) => {
-        if (sortField === 'recipient') {
-          return sortDirection === 'asc' 
-            ? a.recipient.localeCompare(b.recipient)
-            : b.recipient.localeCompare(a.recipient);
+        let aValue: string | number | undefined | null;
+        let bValue: string | number | undefined | null;
+
+        switch (sortField) {
+          case 'recipient':
+            aValue = a.recipient?.toLowerCase();
+            bValue = b.recipient?.toLowerCase();
+            break;
+          case 'carrier':
+            aValue = a.carrier?.toLowerCase();
+            bValue = b.carrier?.toLowerCase();
+            break;
+          case 'rate':
+            aValue = a.rate; 
+            bValue = b.rate;
+            break;
+          case 'status':
+            aValue = a.status?.toLowerCase();
+            bValue = b.status?.toLowerCase();
+            break;
+          default:
+            return 0;
         }
         
-        if (sortField === 'carrier') {
-          return sortDirection === 'asc' 
-            ? a.carrier.localeCompare(b.carrier)
-            : b.carrier.localeCompare(a.carrier);
+        const valAIsNull = aValue === undefined || aValue === null;
+        const valBIsNull = bValue === undefined || bValue === null;
+
+        if (valAIsNull && valBIsNull) return 0;
+        if (valAIsNull) return sortDirection === 'asc' ? 1 : -1; // nulls/undefined last in asc, first in desc
+        if (valBIsNull) return sortDirection === 'asc' ? -1 : 1; // nulls/undefined last in asc, first in desc
+
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+        }
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
         }
         
-        // Sort by rate
-        const rateA = a.availableRates?.find(rate => rate.id === a.selectedRateId)?.rate || 0;
-        const rateB = b.availableRates?.find(rate => rate.id === b.selectedRateId)?.rate || 0;
-        
-        return sortDirection === 'asc' ? rateA - rateB : rateB - rateA;
+        // Fallback for mixed types (should ideally not happen with consistent data)
+        const aStr = String(aValue);
+        const bStr = String(bValue);
+        return sortDirection === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
       });
   }, [results, searchTerm, sortField, sortDirection, selectedCarrierFilter]);
 
   return {
     searchTerm,
-    sortField,
-    sortDirection,
-    selectedCarrierFilter,
-    filteredShipments,
     setSearchTerm,
-    setSortField,
+    sortField,
+    setSortField: setSortField as React.Dispatch<React.SetStateAction<'recipient' | 'carrier' | 'rate' | 'status'>>,
+    sortDirection,
     setSortDirection,
-    setSelectedCarrierFilter
+    selectedCarrierFilter,
+    setSelectedCarrierFilter,
+    filteredShipments,
   };
 };

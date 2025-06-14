@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { BulkUploadResult, BulkShipment, BatchResult, UploadStatus, SavedAddress } from '@/types/shipping';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { BulkUploadResult, BulkShipment, BatchResult, UploadStatus, SavedAddress, Rate } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
@@ -23,51 +24,82 @@ export const useBulkUpload = () => {
   
   const {
     file,
-    isUploading,
-    uploadStatus,
-    results,
-    progress,
-    setResults,
-    setUploadStatus,
+    isUploading: isParsingFile, 
+    uploadStatus: parsingStatus,
+    results: initialParsedResults, 
+    progress: parsingProgress,
+    setResults: setInitialParsedResults, // Allow useShipmentUpload to update its internal results
     handleFileChange,
-    handleUpload: originalHandleUpload,
-    handleDownloadTemplate
+    handleUpload: originalHandleUpload, 
+    handleDownloadTemplate 
   } = useShipmentUpload();
 
-  const updateResults = (newResults: BulkUploadResult) => {
-    console.log('Updating results in useBulkUpload:', newResults);
-    setResults(newResults);
+  const [currentResults, setCurrentResults] = useState<BulkUploadResult | null>(null);
+  const [overallUploadStatus, setOverallUploadStatus] = useState<UploadStatus>('idle');
+
+  const updateCurrentResultsAndStatus = useCallback((newResults: BulkUploadResult, newStatus?: UploadStatus) => {
+    console.log('Updating currentResults in useBulkUpload:', newResults, 'New status:', newStatus);
+    setCurrentResults(prev => ({ ...prev, ...newResults })); // Merge to preserve parts of results not updated
     
-    if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
-      const validStatuses: UploadStatus[] = ['idle', 'uploading', 'editing', 'success', 'error', 'creating-labels'];
-      if (validStatuses.includes(newResults.uploadStatus)) {
-        setUploadStatus(newResults.uploadStatus as UploadStatus);
+    const statusToSet = newStatus || newResults.uploadStatus || overallUploadStatus;
+    if (statusToSet !== overallUploadStatus) {
+      const validStatuses: UploadStatus[] = ['idle', 'uploading', 'processing', 'editing', 'success', 'error', 'creating-labels'];
+      if (validStatuses.includes(statusToSet)) {
+        setOverallUploadStatus(statusToSet);
       } else {
-        console.warn(`Received non-standard uploadStatus in updateResults: ${newResults.uploadStatus}. Global status remains ${uploadStatus}.`);
+        console.warn(`Received non-standard uploadStatus: ${statusToSet}. Global status remains ${overallUploadStatus}.`);
       }
     }
-  };
+  }, [overallUploadStatus]);
+
 
   const {
     isFetchingRates,
     fetchAllShipmentRates,
-    handleSelectRate,
-    handleRefreshRates,
-    handleBulkApplyCarrier
-  } = useShipmentRates(results, updateResults);
+    handleSelectRate: managedSelectRate,
+    handleRefreshRates: managedRefreshRates,
+    handleBulkApplyCarrier: managedBulkApplyCarrier
+  } = useShipmentRates(currentResults, updateCurrentResultsAndStatus);
+  
+  // Effect to handle results from initial file parsing (useShipmentUpload)
+  useEffect(() => {
+    if (parsingStatus === 'success' && initialParsedResults) {
+      console.log("File parsing successful, initial results:", initialParsedResults);
+      // Update main results and status
+      updateCurrentResultsAndStatus({
+        ...initialParsedResults, // Spread parsed results
+        batchResult: null, // Ensure batchResult is reset
+        uploadStatus: 'processing', // Transition to server-side processing (fetching rates)
+        isFetchingRates: true, // Indicate rate fetching is starting
+      }, 'processing');
+
+      if (initialParsedResults.processedShipments && initialParsedResults.processedShipments.length > 0 && pickupAddress) {
+        fetchAllShipmentRates(initialParsedResults.processedShipments, pickupAddress);
+      } else if (!pickupAddress) {
+          toast.error("Pickup address not set. Cannot fetch rates.");
+          updateCurrentResultsAndStatus({ ...initialParsedResults, uploadStatus: 'error', isFetchingRates: false }, 'error');
+      }
+      // Reset parsing status to avoid re-triggering
+      // setParsingStatus('idle'); // Or let useShipmentUpload manage its own cycle
+    } else if (parsingStatus === 'error') {
+        updateCurrentResultsAndStatus({
+            total:0, successful:0, failed:0, processedShipments:[], 
+            failedShipments: [{error: "File parsing failed."}],
+            uploadStatus: 'error', isFetchingRates: false
+        }, 'error');
+    }
+  }, [parsingStatus, initialParsedResults, pickupAddress, fetchAllShipmentRates, updateCurrentResultsAndStatus]);
+
 
   const {
     isPaying,
-    isCreatingLabels,
-    handleRemoveShipment,
-    handleEditShipment,
-    handleProceedToPayment,
-    handleCreateLabels: originalHandleCreateLabels,
-    handleDownloadAllLabels,
+    handleRemoveShipment: managedRemoveShipment,
+    handleEditShipment: managedEditShipment,
+    handleDownloadAllLabels, 
     handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
     handleEmailLabels
-  } = useShipmentManagement(results, updateResults);
+  } = useShipmentManagement(currentResults, updateCurrentResultsAndStatus);
 
   const {
     searchTerm,
@@ -79,303 +111,179 @@ export const useBulkUpload = () => {
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter
-  } = useShipmentFiltering(results);
+  } = useShipmentFiltering(currentResults);
 
   useEffect(() => {
     const loadDefaultPickupAddress = async () => {
       try {
-        console.log('Loading default pickup address...');
         const defaultAddress = await addressService.getDefaultFromAddress();
-        console.log("Loaded default pickup address:", defaultAddress);
         if (defaultAddress) {
           setPickupAddress(defaultAddress);
         } else {
           const addresses = await addressService.getSavedAddresses();
           if (addresses.length > 0) {
-            const firstAddress = addresses[0];
-            setPickupAddress(firstAddress);
-            console.log("Using first available address:", firstAddress);
+            setPickupAddress(addresses[0]);
+          } else {
+            toast.warn("No saved pickup addresses found. Please add one in settings for bulk uploads.");
           }
         }
       } catch (error) {
         console.error('Error loading default pickup address:', error);
-        toast.error('Error loading pickup addresses. Please check your settings.');
       }
     };
-    
     loadDefaultPickupAddress();
   }, []);
 
+  const handleFullUploadProcess = async (fileToUpload: File) => {
+    if (!pickupAddress) {
+      toast.error('Pickup address is required. Please select or add a pickup address first.', {
+         action: { label: 'Go to Settings', onClick: () => window.location.href = '/settings' }
+      });
+      setOverallUploadStatus('idle');
+      return;
+    }
+    // Reset states for a new upload
+    setCurrentResults(null); 
+    setLabelGenerationProgress(p => ({...p, isGenerating:false, totalShipments:0, currentStep: ''}));
+    setOverallUploadStatus('uploading'); // Client-side parsing starts
+
+    // originalHandleUpload from useShipmentUpload parses the file
+    // and updates `initialParsedResults` and `parsingStatus`
+    // The useEffect listening to `parsingStatus` will then trigger rate fetching.
+    await originalHandleUpload(fileToUpload, pickupAddress); 
+  };
+
   const handleCreateLabels = async () => {
-    if (!results || !pickupAddress) {
+    if (!currentResults || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
       return;
     }
-    
-    let shipmentsArray: BulkShipment[] = [];
-    if (Array.isArray(results.processedShipments)) {
-      shipmentsArray = results.processedShipments;
-    } else if (results.processedShipments && typeof results.processedShipments === 'object') {
-      shipmentsArray = Object.values(results.processedShipments).filter(Boolean) as BulkShipment[];
-    }
-    
-    const shipmentsToProcess = shipmentsArray.filter(s => s.selectedRateId && s.easypost_id) || [];
-    
+    const shipmentsToProcess = (currentResults.processedShipments || []).filter(s => s.selectedRateId && s.easypost_id);
     if (shipmentsToProcess.length === 0) {
-      toast.error('No shipments with selected rates found');
+      toast.error('No shipments ready for label creation (missing selected rate or EasyPost ID).');
       return;
+    }
+    if (shipmentsToProcess.length !== currentResults.processedShipments.length) {
+        toast.warn(`Only ${shipmentsToProcess.length} out of ${currentResults.processedShipments.length} shipments are ready for label creation.`);
     }
 
-    const totalShipments = shipmentsArray.length;
-    const shipmentsWithRates = shipmentsToProcess.length;
-    
-    if (shipmentsWithRates !== totalShipments) {
-      const missingRates = totalShipments - shipmentsWithRates;
-      toast.error(`${missingRates} shipment(s) are missing rate selections. ALL shipments must have rates selected before creating labels.`);
-      console.error(`Rate validation failed: ${shipmentsWithRates}/${totalShipments} shipments have rates selected`);
-      return;
-    }
-    
-    console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with rates selected`);
-    
     setLabelGenerationProgress({
-      isGenerating: true,
-      totalShipments: shipmentsToProcess.length,
-      processedShipments: 0,
-      successfulShipments: 0,
-      failedShipments: 0,
-      currentStep: 'Starting label generation...',
-      estimatedTimeRemaining: shipmentsToProcess.length * 8 
+      isGenerating: true, totalShipments: shipmentsToProcess.length, processedShipments: 0,
+      successfulShipments: 0, failedShipments: 0, currentStep: 'Starting label generation...',
+      estimatedTimeRemaining: shipmentsToProcess.length * 5 // Rough estimate
     });
+    updateCurrentResultsAndStatus({ ...currentResults, uploadStatus: 'creating-labels' }, 'creating-labels');
     
     try {
-      setUploadStatus('creating-labels');
-      
-      const progressInterval = setInterval(() => {
-        setLabelGenerationProgress(prev => ({
-          ...prev,
-          estimatedTimeRemaining: Math.max(0, prev.estimatedTimeRemaining - 1)
-        }));
-      }, 1000);
-
+      const timer = setInterval(() => setLabelGenerationProgress(p => ({...p, estimatedTimeRemaining: Math.max(0,p.estimatedTimeRemaining-1)})), 1000);
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
-        body: {
-          shipments: shipmentsToProcess, 
-          pickupAddress,
-          labelOptions: { 
-            generateBatch: true,
-            generateManifest: true, // Request Scan Form generation
-            // Optional: specify desired individual/batch formats if backend supports it
-            // individualLabelFormats: ['png', 'pdf'], 
-            // batchLabelFormats: ['pdf', 'zpl', 'epl'] 
-          }
-        }
+        body: { shipments: shipmentsToProcess, pickupAddress, labelOptions: { generateBatch: true, generateManifest: true } }
       });
+      clearInterval(timer);
 
-      clearInterval(progressInterval);
+      if (error) throw new Error(error.message || 'Label generation function failed.');
+      if (!data || !Array.isArray(data.processedLabels)) throw new Error('Invalid response from label generation function.');
 
-      if (error) {
-        console.error('Label creation error from Supabase function:', error);
-        throw new Error(error.message || 'Unknown error from label generation function.');
-      }
+      const successfulLabelData = data.processedLabels.filter((l: any) => l.status === 'completed' || l.status?.includes('success'));
+      const failedLabelData = data.failedLabels || data.processedLabels.filter((l: any) => l.status === 'failed' || l.status?.includes('error'));
 
-      console.log('Raw label creation response from create-bulk-labels:', data);
-
-      if (data && data.processedLabels && Array.isArray(data.processedLabels)) {
-        const expectedLabels = shipmentsToProcess.length;
-        const actualLabels = data.processedLabels.length;
-        
-        setLabelGenerationProgress({
-          isGenerating: false,
-          totalShipments: expectedLabels,
-          processedShipments: expectedLabels, // Assuming all attempts are "processed"
-          successfulShipments: actualLabels,
-          failedShipments: data.failedLabels?.length || (expectedLabels - actualLabels),
-          currentStep: 'Label generation complete!',
-          estimatedTimeRemaining: 0
-        });
-
-        const transformedSuccessfulShipments = data.processedLabels.map((labelData: any) => {
-          const originalShipment = shipmentsToProcess.find(s => 
-            s.easypost_id === labelData.id || s.id === labelData.original_shipment_id || s.id === labelData.id
-          );
-          return {
-            id: labelData.id || originalShipment?.id || `ship_${Date.now()}`,
-            shipment_id: labelData.id, // EasyPost shipment ID
-            easypost_id: labelData.id,
-            original_shipment_id: labelData.original_shipment_id || originalShipment?.id,
-            row: originalShipment?.row || 0,
-            recipient: labelData.customer_name || originalShipment?.recipient || 'Unknown Recipient',
-            customer_name: labelData.customer_name || originalShipment?.customer_name,
-            customer_address: labelData.customer_address || originalShipment?.customer_address,
-            carrier: labelData.carrier || originalShipment?.carrier,
-            service: labelData.service || originalShipment?.service,
-            rate: parseFloat(labelData.rate) || originalShipment?.rate || 0,
-            tracking_code: labelData.tracking_code,
-            tracking_number: labelData.tracking_code,
-            label_url: labelData.label_urls?.png || labelData.label_url, // Prioritize PNG from label_urls
-            label_urls: labelData.label_urls || { png: labelData.label_url, pdf: labelData.label_urls?.pdf }, // Ensure label_urls object exists and includes PDF
-            status: 'completed' as const,
-            details: originalShipment?.details || {},
-            availableRates: originalShipment?.availableRates || [],
-            selectedRateId: originalShipment?.selectedRateId,
-            isFetchingRates: false, // Ensure this is set
-          };
-        });
-        
-        const transformedFailedShipments = (data.failedLabels || []).map((failed: any) => {
-            const originalFailedShipment = shipmentsToProcess.find(s => s.id === failed.shipmentId || s.easypost_id === failed.shipmentId);
-            return {
-                ...(originalFailedShipment || { id: failed.shipmentId, details: {}, recipient: 'Unknown' }),
-                status: 'failed' as const,
-                error: failed.error || 'Label creation failed',
-                isFetchingRates: false, // Ensure this is set
-            };
-        });
-
-
-        const allTransformedShipments: BulkShipment[] = [...transformedSuccessfulShipments, ...transformedFailedShipments];
-        
-        let frontendBatchResult: BatchResult | null = null;
-        if (data.batchResult && data.batchResult.batchId) {
-            frontendBatchResult = {
-                batchId: data.batchResult.batchId,
-                consolidatedLabelUrls: { // Ensure this mapping is comprehensive
-                    pdf: data.batchResult.batchLabelUrls?.pdfUrl,
-                    zpl: data.batchResult.batchLabelUrls?.zplUrl,
-                    epl: data.batchResult.batchLabelUrls?.eplUrl,
-                    pdfZip: data.batchResult.batchLabelUrls?.pdfZipUrl,
-                    zplZip: data.batchResult.batchLabelUrls?.zplZipUrl,
-                    eplZip: data.batchResult.batchLabelUrls?.eplZipUrl,
-                },
-                scanFormUrl: data.batchResult.scanFormUrl || null, // Get scan form URL
-            };
-        }
-
-        const updatedResults: BulkUploadResult = {
-          total: data.total || shipmentsToProcess.length,
-          successful: data.successful || transformedSuccessfulShipments.length,
-          failed: data.failed || transformedFailedShipments.length,
-          totalCost: transformedSuccessfulShipments.reduce((sum, s) => sum + (s.rate || 0), 0),
-          processedShipments: allTransformedShipments,
-          failedShipments: (data.failedLabels || []).map((f:any) => ({ shipmentId: f.shipmentId, error: f.error, row: shipmentsToProcess.find(s => s.id === f.shipmentId)?.row })),
-          batchResult: frontendBatchResult,
-          uploadStatus: 'success' as const,
-          pickupAddress
-        };
-        console.log(`✅ Label creation complete: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
-        updateResults(updatedResults);
-        
-        if (updatedResults.successful === expectedLabels && expectedLabels > 0) {
-          toast.success(`🎉 ALL ${transformedSuccessfulShipments.length} shipping labels generated!`);
-        } else if (transformedSuccessfulShipments.length > 0) {
-          toast.warning(`⚠️ ${transformedSuccessfulShipments.length} out of ${expectedLabels} labels created. ${transformedFailedShipments.length} failed.`);
-        } else if (expectedLabels > 0) {
-           toast.error(`❌ All ${expectedLabels} label creations failed. Check details.`);
-        }
-
-
-        if (frontendBatchResult) {
-          toast.success('✅ Batch outputs (PDF, ZPL, EPL, Manifest) generated successfully!');
-          if (frontendBatchResult.scanFormUrl) {
-            toast.success('✅ Scan Form (Manifest) is available!');
-          }
-        }
-        if (transformedFailedShipments.length > 0) {
-          toast.error(`${transformedFailedShipments.length} labels failed to create. Check details in the table if shown.`);
-        }
-      } else {
-        console.error('Invalid response format or no labels created by backend:', data);
-        throw new Error(data?.error || 'No labels were created or invalid response format from backend.');
-      }
-
-    } catch (error) {
-      console.error('Error creating labels:', error);
       setLabelGenerationProgress(prev => ({
-        ...prev,
-        isGenerating: false,
-        currentStep: 'Label generation failed'
+        ...prev, isGenerating: false, processedShipments: shipmentsToProcess.length,
+        successfulShipments: successfulLabelData.length, failedShipments: failedLabelData.length,
+        currentStep: 'Label generation complete!'
       }));
-      toast.error(error instanceof Error ? error.message : 'Failed to create labels');
-      setUploadStatus('error');
-    }
-  };
 
-  const handleFileUpload = async (fileParam: File) => {
-    console.log('handleFileUpload called with:', { file: fileParam.name, pickupAddress });
-    
-    if (!pickupAddress) {
-      const errorMsg = 'Pickup address is required. Please add a pickup address in Settings first.';
-      toast.error(errorMsg, {
-        description: 'Go to Settings > Pickup Address to add your shipping address.',
-        action: {
-          label: 'Go to Settings',
-          onClick: () => window.location.href = '/settings'
+      const updatedShipments = (currentResults.processedShipments || []).map(origShip => {
+        const successfulMatch = successfulLabelData.find((s: any) => s.original_shipment_id === origShip.id || s.id === origShip.easypost_id);
+        if (successfulMatch) {
+          return {
+            ...origShip,
+            easypost_id: successfulMatch.id || origShip.easypost_id,
+            tracking_code: successfulMatch.tracking_code,
+            tracking_number: successfulMatch.tracking_code,
+            label_url: successfulMatch.label_urls?.png || successfulMatch.label_url,
+            label_urls: successfulMatch.label_urls || { png: successfulMatch.label_url, pdf: successfulMatch.label_urls?.pdf },
+            status: 'completed' as const,
+            rate: parseFloat(successfulMatch.rate) || origShip.rate,
+          };
         }
+        const failedMatch = failedLabelData.find((f: any) => f.shipmentId === origShip.id || f.shipmentId === origShip.easypost_id);
+        if (failedMatch) {
+          return { ...origShip, status: 'failed' as const, details: failedMatch.error };
+        }
+        return origShip;
       });
-      throw new Error(errorMsg);
+      
+      const newBatchResult: BatchResult | null = data.batchResult?.batchId ? {
+        batchId: data.batchResult.batchId,
+        consolidatedLabelUrls: data.batchResult.batchLabelUrls || {},
+        scanFormUrl: data.batchResult.scanFormUrl || null,
+        status: data.batchResult.status,
+        labelCount: data.batchResult.num_shipments,
+      } : null;
+
+      updateCurrentResultsAndStatus({
+        ...currentResults,
+        processedShipments: updatedShipments,
+        successful: successfulLabelData.length,
+        failed: failedLabelData.length,
+        totalCost: updatedShipments.filter(s=>s.status==='completed').reduce((sum, s) => sum + (s.rate || 0), 0),
+        batchResult: newBatchResult,
+        uploadStatus: 'success',
+        isFetchingRates: false,
+      }, 'success');
+
+      if (successfulLabelData.length > 0) toast.success(`🎉 ${successfulLabelData.length} labels generated!`);
+      if (failedLabelData.length > 0) toast.error(`⚠️ ${failedLabelData.length} labels failed.`);
+      if (newBatchResult?.scanFormUrl) toast.success('✅ Scan Form (Manifest) available!');
+
+    } catch (err) {
+      console.error('Error creating labels:', err);
+      setLabelGenerationProgress(p => ({ ...p, isGenerating: false, currentStep: 'Label generation failed' }));
+      toast.error(err instanceof Error ? err.message : 'Failed to create labels');
+      updateCurrentResultsAndStatus({ ...currentResults, uploadStatus: 'error' }, 'error');
     }
-    
-    return originalHandleUpload(fileParam, pickupAddress);
   };
 
   const handleOpenBatchPrintPreview = () => {
-    if (results?.batchResult) {
-      setBatchPrintPreviewModalOpen(true);
-    } else {
-      toast.error("No batch results available to preview. Please generate labels first.");
-    }
+    if (currentResults?.batchResult) setBatchPrintPreviewModalOpen(true);
+    else toast.error("No batch results to preview.");
   };
 
   const downloadBatchPdf = () => {
-    if (results?.batchResult?.consolidatedLabelUrls?.pdf) {
+    const pdfUrl = currentResults?.batchResult?.consolidatedLabelUrls?.pdf;
+    if (pdfUrl) {
       const link = document.createElement('a');
-      link.href = results.batchResult.consolidatedLabelUrls.pdf;
-      link.download = `batch_labels_${results.batchResult.batchId || Date.now()}.pdf`;
-      document.body.appendChild(link);
+      link.href = pdfUrl;
+      link.download = `batch_labels_${currentResults.batchResult?.batchId || Date.now()}.pdf`;
       link.click();
-      document.body.removeChild(link);
       toast.success('Batch PDF download started.');
-    } else {
-      toast.error('Batch PDF not available for download.');
-    }
+    } else toast.error('Batch PDF not available.');
   };
 
   return {
-    file,
-    isUploading,
-    uploadStatus,
-    results,
-    progress,
-    isFetchingRates,
-    isPaying,
+    file, 
+    isUploading: isParsingFile || isFetchingRates || labelGenerationProgress.isGenerating,
+    uploadStatus: overallUploadStatus, 
+    results: currentResults,
+    progress: parsingProgress, 
+    isFetchingRates, 
+    isPaying, 
     isCreatingLabels: labelGenerationProgress.isGenerating,
-    searchTerm,
-    sortField,
-    sortDirection,
-    selectedCarrierFilter,
-    filteredShipments,
-    pickupAddress,
-    setPickupAddress,
-    handleFileChange,
-    handleUpload: handleFileUpload,
-    handleSelectRate,
-    handleRemoveShipment,
-    handleEditShipment,
-    handleRefreshRates,
-    handleBulkApplyCarrier,
+    searchTerm, sortField, sortDirection, selectedCarrierFilter, filteredShipments,
+    pickupAddress, setPickupAddress,
+    handleFileChange, 
+    handleUpload: handleFullUploadProcess, 
+    handleSelectRate: managedSelectRate,
+    handleRemoveShipment: managedRemoveShipment,
+    handleEditShipment: managedEditShipment,
+    handleRefreshRates: managedRefreshRates,
+    handleBulkApplyCarrier: managedBulkApplyCarrier,
     handleCreateLabels,
-    handleOpenBatchPrintPreview,
-    batchPrintPreviewModalOpen,
-    setBatchPrintPreviewModalOpen,
-    handleDownloadLabelsWithFormat, 
-    handleDownloadSingleLabel,
-    handleEmailLabels,
-    handleDownloadTemplate,
-    setSearchTerm,
-    setSortField,
-    setSortDirection,
-    setSelectedCarrierFilter,
+    handleOpenBatchPrintPreview, batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen,
+    handleDownloadLabelsWithFormat, handleDownloadSingleLabel, handleEmailLabels,
+    handleDownloadTemplate, 
+    setSearchTerm, setSortField, setSortDirection, setSelectedCarrierFilter,
     labelGenerationProgress,
     downloadBatchPdf
   };
