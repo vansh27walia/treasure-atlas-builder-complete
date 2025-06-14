@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -53,12 +52,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   const [selectedFormat, setSelectedFormat] = useState('4x6');
   const contentRef = useRef<HTMLDivElement>(null);
   const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
-  const [currentLabelUrl, setCurrentLabelUrl] = useState(labelUrls?.pdf || labelUrl);
+  const [currentLabelUrl, setCurrentLabelUrl] = useState(labelUrl);
   
   useEffect(() => {
-    // Prioritize PDF for print preview, fallback to PNG if PDF not available
-    setCurrentLabelUrl(labelUrls?.pdf || labelUrl);
-  }, [labelUrls, labelUrl]);
+    setCurrentLabelUrl(labelUrl);
+  }, [labelUrl]);
   
   const handlePrint = useReactToPrint({
     documentTitle: `Shipping_Label_${trackingCode || 'Print'}`,
@@ -198,7 +196,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
         <Tabs defaultValue="preview" className="w-full">
           <TabsList className="grid grid-cols-4 mb-4">
-            <TabsTrigger value="preview">PDF Preview</TabsTrigger>
+            <TabsTrigger value="preview">Preview</TabsTrigger>
             <TabsTrigger value="individual">Individual Formats</TabsTrigger>
             <TabsTrigger value="batch">Batch Labels</TabsTrigger>
             <TabsTrigger value="print">Print Settings</TabsTrigger>
@@ -243,7 +241,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       <div className="w-4 h-4 border-2 border-t-transparent border-blue-500 rounded-full animate-spin"></div>
                     </div>
                   ) : (
-                    `PDF Preview - ${labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'}`
+                    labelFormats.find(f => f.value === selectedFormat)?.description || 'Label Preview'
                   )}
                 </div>
                 <div className={`mx-auto ${selectedFormat === '4x6' ? 'max-w-md' : 'max-w-2xl'}`}>
@@ -255,19 +253,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                       </div>
                     </div>
                   ) : (
-                    currentLabelUrl && currentLabelUrl.endsWith('.pdf') ? (
-                      <embed 
-                        src={currentLabelUrl} 
-                        type="application/pdf"
-                        className="w-full h-96 border border-gray-300"
-                      />
-                    ) : (
-                      <img 
-                        src={currentLabelUrl} 
-                        alt="Shipping Label" 
-                        className="max-w-full h-auto border border-gray-300"
-                      />
-                    )
+                    <img 
+                      src={currentLabelUrl} 
+                      alt="Shipping Label" 
+                      className="max-w-full h-auto border border-gray-300"
+                    />
                   )}
                 </div>
               </div>
