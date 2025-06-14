@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
+import { BulkUploadResult, BulkShipment, BatchResult, UploadStatus, SavedAddress } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
 import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
-import { SavedAddress } from '@/services/AddressService';
 import { addressService } from '@/services/AddressService';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
@@ -40,7 +39,12 @@ export const useBulkUpload = () => {
     setResults(newResults);
     
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
-      setUploadStatus(newResults.uploadStatus);
+      const validStatuses: UploadStatus[] = ['idle', 'uploading', 'editing', 'success', 'error', 'creating-labels'];
+      if (validStatuses.includes(newResults.uploadStatus)) {
+        setUploadStatus(newResults.uploadStatus as UploadStatus);
+      } else {
+        console.warn(`Received non-standard uploadStatus in updateResults: ${newResults.uploadStatus}. Global status remains ${uploadStatus}.`);
+      }
     }
   };
 
@@ -108,11 +112,11 @@ export const useBulkUpload = () => {
       return;
     }
     
-    let shipmentsArray = [];
+    let shipmentsArray: BulkShipment[] = [];
     if (Array.isArray(results.processedShipments)) {
       shipmentsArray = results.processedShipments;
     } else if (results.processedShipments && typeof results.processedShipments === 'object') {
-      shipmentsArray = Object.values(results.processedShipments).filter(Boolean);
+      shipmentsArray = Object.values(results.processedShipments).filter(Boolean) as BulkShipment[];
     }
     
     const shipmentsToProcess = shipmentsArray.filter(s => s.selectedRateId && s.easypost_id) || [];
@@ -156,13 +160,14 @@ export const useBulkUpload = () => {
 
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
-          shipments: shipmentsToProcess, // these should be EasyPost shipment objects or IDs
+          shipments: shipmentsToProcess, 
           pickupAddress,
-          labelOptions: { // These options might be specific to how 'create-bulk-labels' is implemented
-            // format: 'PDF', // Example, may not be used if backend generates all
-            // size: '4x6',
-            generateBatch: true, // Instruct backend to create an EasyPost Batch
-            generateManifest: true // Instruct backend to attempt Scan Form generation
+          labelOptions: { 
+            generateBatch: true,
+            generateManifest: true, // Request Scan Form generation
+            // Optional: specify desired individual/batch formats if backend supports it
+            // individualLabelFormats: ['png', 'pdf'], 
+            // batchLabelFormats: ['pdf', 'zpl', 'epl'] 
           }
         }
       });
@@ -209,11 +214,12 @@ export const useBulkUpload = () => {
             tracking_code: labelData.tracking_code,
             tracking_number: labelData.tracking_code,
             label_url: labelData.label_urls?.png || labelData.label_url, // Prioritize PNG from label_urls
-            label_urls: labelData.label_urls || { png: labelData.label_url }, // Ensure label_urls object exists
+            label_urls: labelData.label_urls || { png: labelData.label_url, pdf: labelData.label_urls?.pdf }, // Ensure label_urls object exists and includes PDF
             status: 'completed' as const,
             details: originalShipment?.details || {},
             availableRates: originalShipment?.availableRates || [],
             selectedRateId: originalShipment?.selectedRateId,
+            isFetchingRates: false, // Ensure this is set
           };
         });
         
@@ -223,27 +229,26 @@ export const useBulkUpload = () => {
                 ...(originalFailedShipment || { id: failed.shipmentId, details: {}, recipient: 'Unknown' }),
                 status: 'failed' as const,
                 error: failed.error || 'Label creation failed',
+                isFetchingRates: false, // Ensure this is set
             };
         });
 
 
-        const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
+        const allTransformedShipments: BulkShipment[] = [...transformedSuccessfulShipments, ...transformedFailedShipments];
         
-        // Map backend batchResult (e.g., data.batchDetails) to the BatchResult type used by PrintPreview
         let frontendBatchResult: BatchResult | null = null;
         if (data.batchResult && data.batchResult.batchId) {
             frontendBatchResult = {
                 batchId: data.batchResult.batchId,
-                consolidatedLabelUrls: {
+                consolidatedLabelUrls: { // Ensure this mapping is comprehensive
                     pdf: data.batchResult.batchLabelUrls?.pdfUrl,
                     zpl: data.batchResult.batchLabelUrls?.zplUrl,
                     epl: data.batchResult.batchLabelUrls?.eplUrl,
-                    // If backend provides zips too, map them here:
-                    // pdfZip: data.batchResult.batchLabelUrls?.pdfZipUrl, 
-                    // zplZip: data.batchResult.batchLabelUrls?.zplZipUrl,
-                    // eplZip: data.batchResult.batchLabelUrls?.eplZipUrl,
+                    pdfZip: data.batchResult.batchLabelUrls?.pdfZipUrl,
+                    zplZip: data.batchResult.batchLabelUrls?.zplZipUrl,
+                    eplZip: data.batchResult.batchLabelUrls?.eplZipUrl,
                 },
-                scanFormUrl: data.batchResult.scanFormUrl || null,
+                scanFormUrl: data.batchResult.scanFormUrl || null, // Get scan form URL
             };
         }
 
@@ -258,7 +263,6 @@ export const useBulkUpload = () => {
           uploadStatus: 'success' as const,
           pickupAddress
         };
-
         console.log(`✅ Label creation complete: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
         updateResults(updatedResults);
         
@@ -273,11 +277,13 @@ export const useBulkUpload = () => {
 
         if (frontendBatchResult) {
           toast.success('✅ Batch outputs (PDF, ZPL, EPL, Manifest) generated successfully!');
+          if (frontendBatchResult.scanFormUrl) {
+            toast.success('✅ Scan Form (Manifest) is available!');
+          }
         }
         if (transformedFailedShipments.length > 0) {
           toast.error(`${transformedFailedShipments.length} labels failed to create. Check details in the table if shown.`);
         }
-
       } else {
         console.error('Invalid response format or no labels created by backend:', data);
         throw new Error(data?.error || 'No labels were created or invalid response format from backend.');
@@ -295,8 +301,8 @@ export const useBulkUpload = () => {
     }
   };
 
-  const handleFileUpload = async (file: File) => {
-    console.log('handleFileUpload called with:', { file: file.name, pickupAddress });
+  const handleFileUpload = async (fileParam: File) => {
+    console.log('handleFileUpload called with:', { file: fileParam.name, pickupAddress });
     
     if (!pickupAddress) {
       const errorMsg = 'Pickup address is required. Please add a pickup address in Settings first.';
@@ -310,7 +316,7 @@ export const useBulkUpload = () => {
       throw new Error(errorMsg);
     }
     
-    return originalHandleUpload(file, pickupAddress);
+    return originalHandleUpload(fileParam, pickupAddress);
   };
 
   const handleOpenBatchPrintPreview = () => {
@@ -318,6 +324,20 @@ export const useBulkUpload = () => {
       setBatchPrintPreviewModalOpen(true);
     } else {
       toast.error("No batch results available to preview. Please generate labels first.");
+    }
+  };
+
+  const downloadBatchPdf = () => {
+    if (results?.batchResult?.consolidatedLabelUrls?.pdf) {
+      const link = document.createElement('a');
+      link.href = results.batchResult.consolidatedLabelUrls.pdf;
+      link.download = `batch_labels_${results.batchResult.batchId || Date.now()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Batch PDF download started.');
+    } else {
+      toast.error('Batch PDF not available for download.');
     }
   };
 
@@ -329,7 +349,7 @@ export const useBulkUpload = () => {
     progress,
     isFetchingRates,
     isPaying,
-    isCreatingLabels,
+    isCreatingLabels: labelGenerationProgress.isGenerating,
     searchTerm,
     sortField,
     sortDirection,
@@ -356,6 +376,7 @@ export const useBulkUpload = () => {
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
-    labelGenerationProgress
+    labelGenerationProgress,
+    downloadBatchPdf
   };
 };

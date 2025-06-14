@@ -12,9 +12,10 @@ import StripePaymentModal from './StripePaymentModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { FileText, UploadCloud, ChevronRight, AlertCircle, Download, CreditCard } from 'lucide-react';
-import { SavedAddress } from '@/services/AddressService';
+import { FileText, UploadCloud, ChevronRight, AlertCircle, Download, CreditCard, Eye } from 'lucide-react';
+import { SavedAddress, BulkShipment } from '@/types/shipping';
 import { toast } from '@/components/ui/sonner';
+import PrintPreview from '@/components/shipping/PrintPreview';
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
@@ -26,13 +27,13 @@ const BulkUpload: React.FC = () => {
     completed: 0,
     failed: 0
   });
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [currentShipmentForPreview, setCurrentShipmentForPreview] = useState<BulkShipment | null>(null);
   
   const {
     file,
     isUploading,
     isPaying,
-    isCreatingLabels,
-    isFetchingRates,
     uploadStatus,
     results,
     progress,
@@ -42,14 +43,11 @@ const BulkUpload: React.FC = () => {
     selectedCarrierFilter,
     filteredShipments,
     pickupAddress,
+    labelGenerationProgress,
     setPickupAddress,
     handleUpload,
     handleCreateLabels,
-    handleDownloadAllLabels,
-    handleDownloadLabelsWithFormat,
-    handleDownloadSingleLabel,
-    handleEmailLabels,
-    handleDownloadTemplate,
+    downloadBatchPdf,
     handleSelectRate,
     handleRemoveShipment,
     handleEditShipment,
@@ -58,20 +56,23 @@ const BulkUpload: React.FC = () => {
     setSearchTerm,
     setSortField,
     setSortDirection,
-    setSelectedCarrierFilter
+    setSelectedCarrierFilter,
+    handleOpenBatchPrintPreview,
+    batchPrintPreviewModalOpen,
+    setBatchPrintPreviewModalOpen,
   } = useBulkUpload();
 
-  // Log pickup address on mount and when it changes (less frequently)
+  const isCreatingLabels = labelGenerationProgress.isGenerating;
+
   useEffect(() => {
     console.log("Current pickup address in BulkUpload:", pickupAddress);
-  }, [pickupAddress?.id]); // Only log when ID changes
+  }, [pickupAddress?.id]);
 
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
     if (address && address.id !== pickupAddress?.id) {
       console.log("Selected pickup address in BulkUpload:", address);
       setPickupAddress(address);
       
-      // Prevent duplicate toasts
       const now = Date.now();
       if (now - lastToastRef.current > 2000) {
         toast.success(`Selected pickup address: ${address.name || address.street1}`);
@@ -88,7 +89,6 @@ const BulkUpload: React.FC = () => {
     console.error("Upload failed in BulkUpload component:", error);
   };
 
-  // Wrapper function to match expected signature
   const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
     const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
     if (shipment) {
@@ -107,7 +107,6 @@ const BulkUpload: React.FC = () => {
     }
   };
 
-  // Safely get processed shipments count
   const processedShipmentsCount = results?.processedShipments?.length || 0;
 
   const handleDownloadLabelsClick = async () => {
@@ -127,58 +126,45 @@ const BulkUpload: React.FC = () => {
     try {
       const totalShipments = results.processedShipments.length;
       
-      // Simulate progress updates
-      const updateProgress = (step: string, progress: number, completed: number, failed: number = 0) => {
+      const updateProgress = (step: string, progressVal: number, completed: number, failed: number = 0) => {
         setLabelProgress({
           isCreating: true,
-          progress,
+          progress: progressVal,
           currentStep: step,
           completed,
           failed
         });
       };
 
-      updateProgress('Creating shipments...', 20, 0);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      updateProgress('Generating labels...', 40, 0);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      updateProgress('Converting to PDF...', 60, Math.floor(totalShipments * 0.6));
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      updateProgress('Creating batch files...', 80, Math.floor(totalShipments * 0.8));
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      updateProgress('Finalizing downloads...', 95, totalShipments - 1);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Call the actual label creation
+      updateProgress('Requesting label generation...', 10, 0);
       await handleCreateLabels();
       
-      updateProgress('Download complete!', 100, totalShipments, 0);
+      updateProgress('Processing complete!', 100, totalShipments, 0);
       
-      // Auto-close after 2 seconds
       setTimeout(() => {
         setLabelProgress(prev => ({ ...prev, isCreating: false }));
         toast.success('All labels downloaded successfully!');
       }, 2000);
       
     } catch (error) {
-      console.error('Error creating labels:', error);
+      console.error('Error during label creation trigger:', error);
       setLabelProgress(prev => ({ 
         ...prev, 
         isCreating: false, 
-        currentStep: 'Error occurred during label creation',
-        failed: prev.failed + 1
+        currentStep: 'Error occurred during label creation trigger',
+        failed: prev.failed + (results?.processedShipments.length || 0) 
       }));
-      toast.error('Failed to create labels');
+      toast.error('Failed to initiate label creation');
     }
   };
 
   const handlePaymentSuccess = () => {
     toast.success('Payment successful! Labels are now available for download.');
-    // You can trigger automatic label download here if needed
+  };
+
+  const handlePreviewIndividualLabel = (shipment: BulkShipment) => {
+    setCurrentShipmentForPreview(shipment);
+    setShowPrintPreview(true);
   };
 
   return (
@@ -218,13 +204,13 @@ const BulkUpload: React.FC = () => {
           </div>
         )}
         
-        {uploadStatus === 'editing' && results && (
+        {uploadStatus === 'editing' && results && !labelGenerationProgress.isGenerating && (
           <div className="mt-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
               <h2 className="text-xl font-semibold flex items-center">
                 <FileText className="mr-2 h-5 w-5 text-blue-600" />
                 Bulk Shipment Options
-                {isFetchingRates && (
+                {results.isFetchingRates && (
                   <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full animate-pulse">
                     Fetching rates...
                   </span>
@@ -268,16 +254,14 @@ const BulkUpload: React.FC = () => {
             
             <BulkShipmentsList
               shipments={filteredShipments}
-              isFetchingRates={isFetchingRates}
+              isFetchingRates={results.isFetchingRates || false}
               onSelectRate={handleSelectRate}
               onRemoveShipment={handleRemoveShipment}
               onEditShipment={(shipmentId: string, details: any) => {
-                const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
-                if (shipment) {
-                  handleEditShipment(shipment);
-                }
+                handleEditShipment(details as BulkShipment);
               }}
               onRefreshRates={handleRefreshRates}
+              onPreviewLabel={handlePreviewIndividualLabel}
             />
             
             {processedShipmentsCount > 0 && (
@@ -296,18 +280,29 @@ const BulkUpload: React.FC = () => {
                   </div>
                   
                   <div className="flex gap-3 mt-4 lg:mt-0">
-                    <Button 
-                      onClick={handleDownloadLabelsClick}
-                      disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress}
-                      className="px-6 bg-green-600 hover:bg-green-700"
-                    >
-                      <Download className="mr-1 h-4 w-4" />
-                      {isCreatingLabels ? 'Creating...' : 'Download Labels'}
-                    </Button>
+                    {results.batchResult ? (
+                       <Button 
+                        onClick={handleOpenBatchPrintPreview}
+                        disabled={isPaying || isCreatingLabels}
+                        className="px-6 bg-purple-600 hover:bg-purple-700"
+                       >
+                        <Eye className="mr-1 h-4 w-4" />
+                        Batch Print/Download
+                       </Button>
+                    ) : (
+                       <Button 
+                        onClick={handleDownloadLabelsClick}
+                        disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress || !results.processedShipments.every(s => s.selectedRateId)}
+                        className="px-6 bg-green-600 hover:bg-green-700"
+                       >
+                        <Download className="mr-1 h-4 w-4" />
+                        {isCreatingLabels ? 'Creating Labels...' : 'Create & Download Labels'}
+                       </Button>
+                    )}
                     
                     <Button
                       onClick={() => setShowPaymentModal(true)}
-                      disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress}
+                      disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress || isCreatingLabels}
                       className="px-6 bg-blue-600 hover:bg-blue-700"
                     >
                       <CreditCard className="mr-1 h-4 w-4" />
@@ -320,10 +315,17 @@ const BulkUpload: React.FC = () => {
           </div>
         )}
         
-        {uploadStatus === 'success' && results && (
+        {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
           <SuccessNotification
             results={results}
-            onDownloadAllLabels={handleDownloadAllLabels}
+            onDownloadAllLabels={() => {
+              if (results.batchResult?.consolidatedLabelUrls?.pdf) {
+                downloadBatchPdf();
+              } else {
+                toast.info('Batch PDF not available. Open Batch Print/Download for other options.');
+                if (handleOpenBatchPrintPreview) handleOpenBatchPrintPreview();
+              }
+            }}
             onDownloadSingleLabel={handleDownloadSingleLabel}
             onCreateLabels={handleCreateLabels}
             isPaying={isPaying}
@@ -345,9 +347,9 @@ const BulkUpload: React.FC = () => {
         )}
       </Card>
 
-      {/* Label Creation Overlay */}
+      {/* Label Creation Overlay (local progress for initial trigger) */}
       <LabelCreationOverlay
-        isVisible={labelProgress.isCreating}
+        isVisible={labelProgress.isCreating && !labelGenerationProgress.isGenerating}
         progress={labelProgress.progress}
         currentStep={labelProgress.currentStep}
         totalLabels={processedShipmentsCount}
@@ -364,6 +366,31 @@ const BulkUpload: React.FC = () => {
         shipmentCount={processedShipmentsCount}
         onPaymentSuccess={handlePaymentSuccess}
       />
+
+      {/* Main Batch Print Preview Modal */}
+      {results?.batchResult && (
+        <PrintPreview
+          isOpenProp={batchPrintPreviewModalOpen}
+          onOpenChangeProp={setBatchPrintPreviewModalOpen}
+          labelUrl=""
+          trackingCode={null}
+          batchResult={results.batchResult}
+          isBatchPreview={true}
+        />
+      )}
+
+      {/* Individual Print Preview Modal */}
+      {currentShipmentForPreview && (
+        <PrintPreview
+          isOpenProp={showPrintPreview}
+          onOpenChangeProp={setShowPrintPreview}
+          labelUrl={currentShipmentForPreview.label_urls?.png || currentShipmentForPreview.label_url || ''}
+          labelUrls={currentShipmentForPreview.label_urls}
+          trackingCode={currentShipmentForPreview.tracking_code || currentShipmentForPreview.id}
+          shipmentId={currentShipmentForPreview.id}
+          isBatchPreview={false}
+        />
+      )}
     </>
   );
 };
