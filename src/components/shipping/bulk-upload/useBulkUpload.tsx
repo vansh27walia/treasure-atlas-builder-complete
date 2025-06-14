@@ -7,7 +7,7 @@ import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
 import { SavedAddress } from '@/services/AddressService';
 import { addressService } from '@/services/AddressService';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 
 export const useBulkUpload = () => {
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
@@ -160,7 +160,7 @@ export const useBulkUpload = () => {
         }));
       }, 1000);
 
-      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
+      const { data, error } = await supabase.functions.invoke('create-enhanced-bulk-labels', {
         body: {
           shipments: shipmentsToProcess,
           pickupAddress,
@@ -224,11 +224,11 @@ export const useBulkUpload = () => {
             tracking_code: labelData.tracking_code,
             tracking_number: labelData.tracking_code,
             trackingCode: labelData.tracking_code,
-            label_url: labelData.label_url,
+            label_url: labelData.label_urls?.png || labelData.label_url,
             label_urls: labelData.label_urls || {
               png: labelData.label_url,
-              pdf: labelData.label_url,
-              zpl: labelData.label_url
+              pdf: null,
+              zpl: null
             },
             status: 'completed' as const,
             details: originalShipment?.details || {
@@ -326,6 +326,25 @@ export const useBulkUpload = () => {
     }
   };
 
+  const handleDownloadAllCombined = () => {
+    if (results?.batchResult?.consolidatedLabelUrls?.pdf) {
+        const url = results.batchResult.consolidatedLabelUrls.pdf;
+        window.open(url, '_blank');
+        toast.success("Combined PDF opened for download and printing.");
+    } else {
+        toast.error("No combined PDF available to download.");
+    }
+  };
+
+  const handleDownloadManifest = () => {
+      if (results?.batchResult?.scanFormUrl) {
+          window.open(results.batchResult.scanFormUrl, '_blank');
+          toast.success("Pickup manifest opened for download.");
+      } else {
+          toast.error("No pickup manifest available.");
+      }
+  };
+
   // Modified handleUpload to include pickup address
   const handleFileUpload = async (file: File) => {
     console.log('handleFileUpload called with:', { file: file.name, pickupAddress });
@@ -385,6 +404,8 @@ export const useBulkUpload = () => {
     handleDownloadSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,
+    handleDownloadAllCombined,
+    handleDownloadManifest,
     setSearchTerm,
     setSortField,
     setSortDirection,

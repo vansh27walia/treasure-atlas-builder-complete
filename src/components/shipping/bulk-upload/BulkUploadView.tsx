@@ -37,6 +37,8 @@ const BulkUploadView: React.FC = () => {
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
+    handleDownloadAllCombined,
+    handleDownloadManifest,
     handleEmailLabels,
     handleDownloadTemplate,
     setSearchTerm,
@@ -140,14 +142,28 @@ const BulkUploadView: React.FC = () => {
       {/* Results Section */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="space-y-6">
-          {/* Bulk Download Options */}
-          {results.batchResult && (
-            <BulkLabelDownloadOptions
-              batchResult={results.batchResult}
-              onDownloadBatch={handleDownloadLabelsWithFormat}
-              onDownloadManifest={(url) => window.open(url, '_blank')}
-            />
-          )}
+          <Card className="p-4 bg-gray-50">
+            <div className="flex flex-wrap gap-4 items-center">
+                <h3 className="text-lg font-semibold text-gray-800">Batch Actions</h3>
+                <Button
+                    onClick={handleDownloadAllCombined}
+                    disabled={!results.batchResult?.consolidatedLabelUrls?.pdf}
+                    className="flex items-center"
+                >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download All Labels (PDF)
+                </Button>
+                <Button
+                    onClick={handleDownloadManifest}
+                    variant="outline"
+                    disabled={!results.batchResult?.scanFormUrl}
+                    className="flex items-center"
+                >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Generate Pickup Manifest
+                </Button>
+            </div>
+          </Card>
 
           {/* Individual Labels */}
           <LabelResultsTable

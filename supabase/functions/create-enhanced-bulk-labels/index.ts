@@ -1,6 +1,6 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { PDFDocument } from "https://esm.sh/pdf-lib@1.17.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +47,7 @@ serve(async (req) => {
 
     const processedLabels = [];
     const failedLabels = [];
+    const easypostShipments = [];
 
     logStep(`Processing ${shipments.length} shipments`);
 
@@ -127,6 +128,7 @@ serve(async (req) => {
         }
 
         const purchaseData = await buyResponse.json();
+        easypostShipments.push(purchaseData);
         logStep(`Rate purchased`, { trackingCode: purchaseData.tracking_code });
 
         // Get label URLs in different formats
@@ -138,29 +140,26 @@ serve(async (req) => {
 
         // Request PDF format
         try {
-          const pdfResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentData.id}/label`, {
+          const pdfResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentData.id}/label?file_format=pdf`, {
             method: "GET",
             headers: {
               "Authorization": `Bearer ${easypostApiKey}`,
-              "Accept": "application/pdf"
             }
           });
           if (pdfResponse.ok) {
             const pdfData = await pdfResponse.json();
-            labelUrls.pdf = pdfData.label_url || labelUrls.png;
+            labelUrls.pdf = pdfData.label_url;
           }
         } catch (error) {
           logStep(`PDF label request failed`, { error: error.message });
-          labelUrls.pdf = labelUrls.png; // Fallback to PNG
         }
 
         // Request ZPL format
         try {
-          const zplResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentData.id}/label`, {
+          const zplResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentData.id}/label?file_format=zpl`, {
             method: "GET",
             headers: {
               "Authorization": `Bearer ${easypostApiKey}`,
-              "Accept": "application/zpl"
             }
           });
           if (zplResponse.ok) {
@@ -208,19 +207,45 @@ serve(async (req) => {
       }
     }
 
+    // Create Scan Form (Manifest)
+    let scanFormUrl = null;
+    if (easypostShipments.length > 0) {
+        try {
+            const scanFormResponse = await fetch("https://api.easypost.com/v2/scan_forms", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${easypostApiKey}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ shipments: easypostShipments })
+            });
+
+            if (!scanFormResponse.ok) {
+                const errorData = await scanFormResponse.text();
+                throw new Error(`EasyPost scan form creation failed: ${errorData}`);
+            }
+
+            const scanFormData = await scanFormResponse.json();
+            scanFormUrl = scanFormData.form_url;
+            logStep(`Scan form created`, { url: scanFormUrl });
+        } catch (error) {
+            logStep(`Scan form creation failed`, { error: error.message });
+        }
+    }
+
     const response = {
       total: shipments.length,
       successful: processedLabels.length,
       failed: failedLabels.length,
       processedLabels,
       failedLabels,
-      consolidatedPdfUrl,
-      batchResult: consolidatedPdfUrl ? {
+      consolidatedPdfUrl, // for backward compatibility if something expects it directly
+      batchResult: (consolidatedPdfUrl || scanFormUrl) ? {
         batchId: `batch_${Date.now()}`,
         consolidatedLabelUrls: {
           pdf: consolidatedPdfUrl
         },
-        scanFormUrl: null
+        scanFormUrl: scanFormUrl
       } : null
     };
 
@@ -275,15 +300,14 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
       }
     }
 
-    // Store PDF (convert from PNG if needed)
-    if (labelUrls.pdf || labelUrls.png) {
-      const pdfUrl = labelUrls.pdf || labelUrls.png;
-      const pdfResponse = await fetch(pdfUrl);
+    // Store PDF
+    if (labelUrls.pdf) {
+      const pdfResponse = await fetch(labelUrls.pdf);
       if (pdfResponse.ok) {
         const pdfBlob = await pdfResponse.blob();
         const pdfPath = `labels/${shipmentId}_label.pdf`;
         
-        const { data: pdfData, error: pdfError } = await supabaseClient.storage
+        const { error: pdfError } = await supabaseClient.storage
           .from('shipping-labels')
           .upload(pdfPath, pdfBlob, {
             contentType: 'application/pdf',
@@ -291,10 +315,10 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
           });
 
         if (!pdfError) {
-          const { data: pdfUrl } = supabaseClient.storage
+          const { data: pdfUrlData } = supabaseClient.storage
             .from('shipping-labels')
             .getPublicUrl(pdfPath);
-          storedUrls.pdf = pdfUrl.publicUrl;
+          storedUrls.pdf = pdfUrlData.publicUrl;
         }
       }
     }
@@ -331,32 +355,44 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
 
 async function createConsolidatedPdf(supabaseClient: any, processedLabels: any[]) {
   try {
-    // For now, return the first PDF URL as consolidated
-    // In a real implementation, you would merge all PDFs into one
-    const firstLabel = processedLabels.find(label => label.label_urls?.pdf);
-    if (firstLabel) {
-      const consolidatedPath = `batches/batch_label_consolidated_label_${Date.now()}.pdf`;
-      
-      // Copy the first PDF as consolidated (placeholder implementation)
-      const pdfResponse = await fetch(firstLabel.label_urls.pdf);
-      if (pdfResponse.ok) {
-        const pdfBlob = await pdfResponse.blob();
-        
-        const { data, error } = await supabaseClient.storage
-          .from('shipping-labels')
-          .upload(consolidatedPath, pdfBlob, {
-            contentType: 'application/pdf',
-            upsert: true
-          });
+    const pdfDoc = await PDFDocument.create();
+    const pdfUrls = processedLabels
+      .map(label => label.label_urls?.pdf)
+      .filter(Boolean);
 
-        if (!error) {
-          const { data: urlData } = supabaseClient.storage
-            .from('shipping-labels')
-            .getPublicUrl(consolidatedPath);
-          return urlData.publicUrl;
-        }
-      }
+    if (pdfUrls.length === 0) {
+      logStep("No PDF labels found to consolidate");
+      return null;
     }
+
+    for (const url of pdfUrls) {
+      const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer());
+      const existingPdfDoc = await PDFDocument.load(existingPdfBytes);
+      const copiedPages = await pdfDoc.copyPages(existingPdfDoc, existingPdfDoc.getPageIndices());
+      copiedPages.forEach((page) => pdfDoc.addPage(page));
+    }
+    
+    const pdfBytes = await pdfDoc.save();
+    const consolidatedPath = `batches/batch_consolidated_label_${Date.now()}.pdf`;
+
+    const { error } = await supabaseClient.storage
+      .from('shipping-labels')
+      .upload(consolidatedPath, pdfBytes, {
+        contentType: 'application/pdf',
+        upsert: true,
+      });
+
+    if (error) {
+      logStep('Consolidated PDF upload error', { error: error.message });
+      throw error;
+    }
+
+    const { data: urlData } = supabaseClient.storage
+      .from('shipping-labels')
+      .getPublicUrl(consolidatedPath);
+      
+    return urlData.publicUrl;
+
   } catch (error) {
     logStep(`Consolidated PDF creation failed`, { error: error.message });
   }
