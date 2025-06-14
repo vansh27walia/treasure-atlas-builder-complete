@@ -1,22 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/router';
+import { useNavigate } from 'react-router-dom'; // Changed from next/router
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input'; // Keep if used directly, or remove
+import { Label } from '@/components/ui/label'; // Keep if used directly, or remove
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { toast, useToast, ToastAction } from "@/components/ui/use-toast";
-import { AddressForm } from '@/components/shipping/AddressForm';
-import { PackageForm } from '@/components/shipping/PackageForm';
-import ShippingRates from '@/components/shipping/ShippingRates';
-import { AddressDetails, ParcelDetails, SavedAddress, LabelFormat } from '@/types/shipping';
+import { useToast } from "@/components/ui/use-toast"; // Corrected path for useToast
+import { ToastAction } from "@/components/ui/toast"; // Corrected import for ToastAction
+import AddressForm from '@/components/shipping/AddressForm'; // Changed to default import
+import PackageForm from '@/components/shipping/PackageForm'; // Uses the new placeholder
+import ShippingRates from '@/components/shipping/ShippingRates'; // Path should be okay
+import { AddressDetails, ParcelDetails, SavedAddress, LabelFormat, ShippingOption } from '@/types/shipping';
 import { addressService } from '@/services/AddressService';
-import { useSession } from 'next-auth/react';
+// import { useSession } from 'next-auth/react'; // Removed next-auth as it's not standard React
 import PrintPreview, { SingleShipmentDataForPreview } from '@/components/shipping/PrintPreview';
-// import { getLabelImage } from '@/lib/utils'; // Removed as getLabelImage is not used/exported
+import { supabase } from '@/integrations/supabase/client'; // For calling Supabase functions
 
+// ... keep existing code (schemas: addressSchema, packageSchema, combinedSchema, FormData type)
 const addressSchema = z.object({
   name: z.string().min(3, { message: "Name must be at least 3 characters." }),
   company: z.string().optional(),
@@ -46,24 +48,27 @@ const combinedSchema = z.object({
 type FormData = z.infer<typeof combinedSchema>;
 
 const ShipToPage = () => {
-  const router = useRouter();
+  const navigate = useNavigate(); // Changed from useRouter
   const { toast } = useToast();
-  const { data: session } = useSession();
+  // const { data: session } = useSession(); // Removed
   const [isLoading, setIsLoading] = useState(false);
-  const [rates, setRates] = useState(null);
-  const [selectedRate, setSelectedRate] = useState(null);
+  const [isLoadingRates, setIsLoadingRates] = useState(false);
+  const [rates, setRates] = useState<ShippingOption[]>([]); // Store fetched rates
+  const [selectedRate, setSelectedRate] = useState<ShippingOption | null>(null);
+  
+  // Label related state
   const [generatedLabelUrl, setGeneratedLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [currentShipmentId, setCurrentShipmentId] = useState<string | null>(null);
-  const [labelUrls, setLabelUrls] = useState<{ pdf?: string; png?: string; zpl?: string; epl?: string }>({});
-  const [availableLabelUrls, setAvailableLabelUrls] = useState<{ pdf?: string; png?: string; zpl?: string; epl?: string }>({});
+  // const [labelUrls, setLabelUrls] = useState<{ pdf?: string; png?: string; zpl?: string; epl?: string }>({}); // replaced by shipmentDataForPreview.label_urls
+  
   const [defaultFromAddress, setDefaultFromAddress] = useState<SavedAddress | null>(null);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [shipmentDataForPreview, setShipmentDataForPreview] = useState<SingleShipmentDataForPreview | null>(null);
-  const [selectedLabelFormatForPreview, setSelectedLabelFormatForPreview] = useState<LabelFormat>('png');
-
+  // const [selectedLabelFormatForPreview, setSelectedLabelFormatForPreview] = useState<LabelFormat>('png'); // Managed by PrintPreview or not needed here
 
   const form = useForm<FormData>({
+        // ... keep existing code (form defaultValues)
     resolver: zodResolver(combinedSchema),
     defaultValues: {
       toAddress: {
@@ -132,109 +137,127 @@ const ShipToPage = () => {
     };
 
     fetchDefaultFromAddress();
-  }, [form, session, toast]);
+  }, [form, toast]);
 
   const onSubmit = async (data: FormData) => {
-    setIsLoading(true);
-    setRates(null);
+    // This function will now fetch rates
+    setIsLoadingRates(true);
+    setRates([]); // Clear previous rates
     setSelectedRate(null);
     setGeneratedLabelUrl(null);
     setTrackingCode(null);
+    setCurrentShipmentId(null);
+    setShipmentDataForPreview(null);
 
     try {
-      const toAddress: AddressDetails = {
-        name: data.toAddress.name,
-        company: data.toAddress.company,
-        street1: data.toAddress.street1,
-        street2: data.toAddress.street2,
-        city: data.toAddress.city,
-        state: data.toAddress.state,
-        zip: data.toAddress.zip,
-        country: data.toAddress.country,
-        phone: data.toAddress.phone,
-        email: data.toAddress.email,
+      const shipmentDetailsPayload = {
+        to_address: data.toAddress,
+        from_address: data.fromAddress,
+        parcel: data.parcel,
       };
+      
+      console.log("Fetching rates with payload:", shipmentDetailsPayload);
+      const { data: ratesData, error: ratesError } = await supabase.functions.invoke('get-shipping-rates', {
+        body: shipmentDetailsPayload
+      });
 
-      const fromAddress: AddressDetails = {
-        name: data.fromAddress.name,
-        company: data.fromAddress.company,
-        street1: data.fromAddress.street1,
-        street2: data.fromAddress.street2,
-        city: data.fromAddress.city,
-        state: data.fromAddress.state,
-        zip: data.fromAddress.zip,
-        country: data.fromAddress.country,
-        phone: data.fromAddress.phone,
-        email: data.fromAddress.email,
-      };
+      if (ratesError) throw ratesError;
+      if (!ratesData || !ratesData.rates) throw new Error("No rates returned from function.");
 
-      const parcel: ParcelDetails = {
-        length: data.parcel.length,
-        width: data.parcel.width,
-        height: data.parcel.height,
-        weight: data.parcel.weight,
-      };
+      console.log("Rates received:", ratesData.rates);
+      setRates(ratesData.rates as ShippingOption[]);
+      setCurrentShipmentId(ratesData.shipmentId || null); // Store shipment ID from rates response
 
-      const shipmentDetails = {
-        to_address: toAddress,
-        from_address: fromAddress,
-        parcel: parcel,
-      };
-
-      setRates(shipmentDetails);
-    } catch (error) {
-      console.error("Error submitting form:", error);
+    } catch (error: any) {
+      console.error("Error fetching rates:", error);
       toast({
-        title: "Error",
-        description: "Failed to submit form.",
+        title: "Error Fetching Rates",
+        description: error.message || "Failed to fetch shipping rates.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingRates(false);
+    }
+  };
+
+  const handleRateSelectedForPurchase = async (rate: ShippingOption) => {
+    if (!currentShipmentId) {
+      toast({ title: "Error", description: "Shipment ID not found. Cannot purchase label.", variant: "destructive" });
+      return;
+    }
+    setSelectedRate(rate);
+    setIsLoading(true); // General loading for purchase
+
+    try {
+      console.log("Purchasing label for rate:", rate.id, "shipmentId:", currentShipmentId);
+      // Default to PDF, 4x6 for single label purchase if not specified
+      const labelOptions = { label_format: "PNG", label_size: "4x6" }; 
+
+      const { data: labelData, error: labelError } = await supabase.functions.invoke('create-label', {
+        body: { 
+          shipmentId: currentShipmentId, 
+          rateId: rate.id,
+          options: labelOptions
+        }
+      });
+
+      if (labelError) throw labelError;
+      if (!labelData || (!labelData.labelUrl && !labelData.label_urls)) { // Check for label_urls too
+        throw new Error("Label data not returned from server.");
+      }
+      
+      console.log("Label purchase result:", labelData);
+
+      const primaryLabelUrl = labelData.label_urls?.png || labelData.labelUrl || labelData.label_urls?.pdf;
+      setGeneratedLabelUrl(primaryLabelUrl);
+      setTrackingCode(labelData.trackingCode);
+      // setCurrentShipmentId is already set from rate fetching
+      
+      const formData = form.getValues();
+      const previewData: SingleShipmentDataForPreview = {
+        id: currentShipmentId,
+        label_url: primaryLabelUrl, // Primary URL for quick preview
+        label_urls: labelData.label_urls || { png: primaryLabelUrl }, // All available formats
+        tracking_code: labelData.trackingCode,
+        carrier: rate.carrier,
+        service: rate.service,
+        details: {
+          to_address: formData.toAddress,
+          // from_address: formData.fromAddress, // Can be added if needed by PrintPreview
+        },
+      };
+      setShipmentDataForPreview(previewData);
+      setShowPrintPreview(true);
+
+      toast({
+        title: "Label Generated Successfully!",
+        description: `Tracking Code: ${labelData.trackingCode}`,
+        action: primaryLabelUrl ? (
+          <ToastAction altText="Download Label" onClick={() => downloadLabel(primaryLabelUrl, `label_${labelData.trackingCode}.png`)}>
+            Download
+          </ToastAction>
+        ) : undefined,
+      });
+
+    } catch (error: any) {
+      console.error("Error purchasing label:", error);
+      toast({
+        title: "Label Purchase Error",
+        description: error.message || "Failed to purchase shipping label.",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
-
-  const handleRateSelected = (rate: any) => {
-    setSelectedRate(rate);
-  };
-
-  const handleLabelGenerated = async (labelUrl: string, trackingCode: string, shipmentDetails: any, shipmentId: string, labelUrls?: { pdf?: string; png?: string; zpl?: string; epl?: string }) => {
-    console.log("Label generated in ShipToPage:", { labelUrl, trackingCode, shipmentId, labelUrls });
-    setGeneratedLabelUrl(labelUrl);
-    setTrackingCode(trackingCode);
-    setCurrentShipmentId(shipmentId); // Store shipmentId
-    setLabelUrls(labelUrls || { png: labelUrl });
-
-
-    const previewData: SingleShipmentDataForPreview = {
-      id: shipmentId,
-      label_url: labelUrls?.png || labelUrl,
-      label_urls: labelUrls,
-      tracking_code: trackingCode,
-      carrier: shipmentDetails?.carrier,
-      service: shipmentDetails?.service,
-      details: {
-        to_address: formData.toAddress || shipmentDetails.to_address, // Assuming formData.toAddress is AddressDetails
-        // from_address: formData.fromAddress, // Assuming formData.fromAddress is AddressDetails
-      },
-    };
-    setShipmentDataForPreview(previewData);
-    setShowPrintPreview(true);
-
-    toast({
-      title: "Label Generated Successfully!",
-      description: `Tracking Code: ${trackingCode}`,
-      action: (
-        <ToastAction altText="Download Label" onClick={() => downloadLabel(labelUrl, `label_${trackingCode}.png`)}>
-          Download
-        </ToastAction>
-      ),
-    });
-  };
+  
+  // handleLabelGenerated is effectively replaced by logic within handleRateSelectedForPurchase
 
   const downloadLabel = async (url: string, filename: string) => {
+    // ... keep existing code (downloadLabel)
     try {
       const response = await fetch(url);
+      if (!response.ok) throw new Error(`Failed to fetch label: ${response.statusText}`);
       const blob = await response.blob();
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -242,21 +265,20 @@ const ShipToPage = () => {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error downloading label:", error);
       toast({
         title: "Error",
-        description: "Failed to download label.",
+        description: `Failed to download label: ${error.message}`,
         variant: "destructive",
       });
     }
   };
 
-  const handleFormatChange = async (format: string) => {
-    setSelectedLabelFormatForPreview(format as LabelFormat);
-  };
+  // handleFormatChange removed, label format decided at purchase or managed by PrintPreview if re-fetching
   
   const handlePreviewDownloadFormat = async (format: LabelFormat, shipmentId?: string) => {
+    // ... keep existing code (handlePreviewDownloadFormat)
     if (!shipmentId || !shipmentDataForPreview) {
         toast({ title: "Error", description: "Shipment data not available for download.", variant: "destructive" });
         return;
@@ -279,36 +301,41 @@ const ShipToPage = () => {
     }
   };
 
-
-  if (isLoading) {
-    return <div>Loading...</div>;
+  if (isLoading && !isLoadingRates) { // General loading, not for rates specifically
+    return <div>Purchasing Label...</div>;
   }
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
       <Card>
         <CardHeader>
-          <CardTitle>Ship To</CardTitle>
+          <CardTitle>Create Single Shipment</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <AddressForm form={form} addressType="toAddress" title="To Address" />
             <AddressForm form={form} addressType="fromAddress" title="From Address" />
             <PackageForm form={form} />
-            <Button type="submit" disabled={isLoading}>
-              Get Rates
+            <Button type="submit" disabled={isLoadingRates || isLoading}>
+              {isLoadingRates ? 'Getting Rates...' : 'Get Rates'}
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      {rates && (
-        <ShippingRates
-          shipmentDetails={rates}
-          onRateSelected={handleRateSelected}
-          onLabelGenerated={handleLabelGenerated}
-          fromAddress={defaultFromAddress}
-        />
+      {rates.length > 0 && (
+        <div className="mt-6">
+          <ShippingRates
+            // shipmentDetails is no longer needed as rates are passed directly
+            rates={rates}
+            isLoadingRates={isLoadingRates}
+            onRateSelected={handleRateSelectedForPurchase}
+            fromAddress={defaultFromAddress} // For PrintPreview context
+            // Pass toAddress and parcel if ShippingRates needs them for display purposes
+            toAddress={form.getValues("toAddress")}
+            parcel={form.getValues("parcel")}
+          />
+        </div>
       )}
 
       {showPrintPreview && shipmentDataForPreview && defaultFromAddress && (
@@ -318,7 +345,7 @@ const ShipToPage = () => {
           singleShipmentPreview={shipmentDataForPreview}
           isBatchPreview={false}
           onDownloadFormat={handlePreviewDownloadFormat}
-          pickupAddress={defaultFromAddress} // Assuming defaultFromAddress is SavedAddress
+          pickupAddress={defaultFromAddress}
         />
       )}
     </div>

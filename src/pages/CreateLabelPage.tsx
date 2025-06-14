@@ -1,194 +1,249 @@
-
-import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import ShippingRates from '@/components/ShippingRates';
-import RateCalculator from '@/components/shipping/RateCalculator';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Card } from '@/components/ui/card';
-import { Package, Globe, Upload, Truck, Calculator } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
-import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/components/ui/use-toast'; // Corrected import path
+import AddressForm from '@/components/shipping/AddressForm'; // Default import
+import PackageForm from '@/components/shipping/PackageForm'; // Placeholder import
+import ShippingRates from '@/components/shipping/ShippingRates'; // Corrected component
+import PrintPreview, { SingleShipmentDataForPreview } from '@/components/shipping/PrintPreview';
+import { AddressDetails, ParcelDetails, SavedAddress, ShippingOption, LabelFormat } from '@/types/shipping';
+import { addressService } from '@/services/AddressService';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
+import { ToastAction } from "@/components/ui/toast"; // Corrected import for ToastAction
+
+const addressSchema = z.object({
+  name: z.string().min(3, { message: "Name must be at least 3 characters." }),
+  company: z.string().optional(),
+  street1: z.string().min(5, { message: "Street address must be at least 5 characters." }),
+  street2: z.string().optional(),
+  city: z.string().min(2, { message: "City must be at least 2 characters." }),
+  state: z.string().min(2, { message: "State must be at least 2 characters." }),
+  zip: z.string().regex(/^\d{5}(-\d{4})?$/, { message: "Invalid ZIP code." }),
+  country: z.string(),
+  phone: z.string().optional(),
+  email: z.string().email({ message: "Invalid email address." }).optional(),
+});
+
+const packageSchema = z.object({
+  length: z.number().min(1, { message: "Length must be at least 1 inch." }),
+  width: z.number().min(1, { message: "Width must be at least 1 inch." }),
+  height: z.number().min(1, { message: "Height must be at least 1 inch." }),
+  weight: z.number().min(0.1, { message: "Weight must be at least 0.1 lbs." }),
+});
+
+const combinedSchema = z.object({
+  toAddress: addressSchema,
+  fromAddress: addressSchema,
+  parcel: packageSchema,
+});
+
+type FormData = z.infer<typeof combinedSchema>;
+
 
 const CreateLabelPage: React.FC = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const queryParams = new URLSearchParams(location.search);
-  const tabFromQuery = queryParams.get('tab');
-  const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
-  const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
-
-  useEffect(() => {
-    if (activeTab) {
-      queryParams.set('tab', activeTab);
-      navigate(`${location.pathname}?${queryParams.toString()}`, { replace: true });
-    }
-  }, [activeTab, location.pathname, navigate]);
-
-  useEffect(() => {
-    if (tabFromQuery && tabFromQuery !== activeTab) {
-      setActiveTab(tabFromQuery);
-    }
-  }, [tabFromQuery]);
+  const { toast } = useToast();
+  const [defaultFromAddress, setDefaultFromAddress] = useState<SavedAddress | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingRates, setIsLoadingRates] = useState(false);
+  const [rates, setRates] = useState<ShippingOption[]>([]);
+  const [selectedRate, setSelectedRate] = useState<ShippingOption | null>(null);
+  const [currentShipmentIdForLabel, setCurrentShipmentIdForLabel] = useState<string | null>(null);
   
+  const [shipmentDataForPreview, setShipmentDataForPreview] = useState<SingleShipmentDataForPreview | null>(null);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(combinedSchema),
+    defaultValues: {
+      toAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US', phone: '', email: '' },
+      fromAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US', phone: '', email: '' },
+      parcel: { length: 6, width: 4, height: 2, weight: 1 },
+    },
+  });
+
   useEffect(() => {
-    const handleStepChange = (event: CustomEvent<{step: 'address' | 'package' | 'rates' | 'label' | 'complete'}>) => {
-      if (event.detail && event.detail.step) {
-        setCurrentStep(event.detail.step);
+    const fetchDefault = async () => {
+      try {
+        const addr = await addressService.getDefaultFromAddress();
+        if (addr) {
+          setDefaultFromAddress(addr);
+          form.reset({ 
+            ...form.getValues(), 
+            fromAddress: {
+              name: addr.name || '',
+              company: addr.company || '',
+              street1: addr.street1,
+              street2: addr.street2 || '',
+              city: addr.city,
+              state: addr.state,
+              zip: addr.zip,
+              country: addr.country,
+              phone: addr.phone || '',
+              email: addr.email || '',
+            }
+          });
+        }
+      } catch (error) {
+        toast({ title: "Error", description: "Could not load default from address.", variant: "destructive" });
       }
     };
-    
-    document.addEventListener('shipping-step-change', handleStepChange as EventListener);
-    
-    const handleFormCompleted = () => {
-      setCurrentStep('rates');
-    };
-    
-    document.addEventListener('shipping-form-completed', handleFormCompleted);
-    
-    const handleRateSelected = () => {
-      setCurrentStep('label');
-    };
-    
-    document.addEventListener('rate-selected', handleRateSelected);
-    
-    return () => {
-      document.removeEventListener('shipping-step-change', handleStepChange as EventListener);
-      document.removeEventListener('shipping-form-completed', handleFormCompleted);
-      document.removeEventListener('rate-selected', handleRateSelected);
-    };
-  }, []);
+    fetchDefault();
+  }, [form, toast]);
+
+  const handleGetRates = async (formDataValues: FormData) => {
+    setIsLoadingRates(true);
+    setRates([]);
+    setSelectedRate(null);
+    setCurrentShipmentIdForLabel(null);
+    setShipmentDataForPreview(null);
+    try {
+      const payload = {
+        to_address: formDataValues.toAddress,
+        from_address: formDataValues.fromAddress,
+        parcel: formDataValues.parcel,
+      };
+      const { data, error } = await supabase.functions.invoke('get-shipping-rates', { body: payload });
+      if (error) throw error;
+      setRates(data.rates as ShippingOption[]);
+      setCurrentShipmentIdForLabel(data.shipmentId || null);
+    } catch (error: any) {
+      toast({ title: "Error fetching rates", description: error.message, variant: "destructive" });
+    } finally {
+      setIsLoadingRates(false);
+    }
+  };
+
+  const handleRateSelectedAndPurchase = async (rate: ShippingOption) => {
+    if (!currentShipmentIdForLabel) {
+      toast({ title: "Error", description: "Shipment ID missing.", variant: "destructive" });
+      return;
+    }
+    setSelectedRate(rate);
+    setIsLoading(true);
+    try {
+      const labelOptions = { label_format: "PNG", label_size: "4x6" };
+      const { data: labelGenData, error: labelGenError } = await supabase.functions.invoke('create-label', {
+        body: {
+          shipmentId: currentShipmentIdForLabel,
+          rateId: rate.id,
+          options: labelOptions,
+        },
+      });
+      if (labelGenError) throw labelGenError;
+      
+      const primaryUrl = labelGenData.label_urls?.png || labelGenData.labelUrl || labelGenData.label_urls?.pdf;
+      const formData = form.getValues();
+
+      const previewData: SingleShipmentDataForPreview = {
+        id: currentShipmentIdForLabel,
+        label_url: primaryUrl,
+        label_urls: labelGenData.label_urls || { png: primaryUrl },
+        tracking_code: labelGenData.trackingCode,
+        carrier: rate.carrier,
+        service: rate.service,
+        details: { to_address: formData.toAddress },
+      };
+      setShipmentDataForPreview(previewData);
+      setShowPrintPreview(true);
+
+      toast({ title: "Label Generated", description: `Tracking: ${labelGenData.trackingCode}`, 
+        action: primaryUrl ? <ToastAction altText="Download" onClick={() => downloadLabel(primaryUrl, `label_${labelGenData.trackingCode}.png`)}>Download</ToastAction> : undefined
+      });
+
+    } catch (error: any) {
+      toast({ title: "Error purchasing label", description: error.message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const downloadLabel = async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`Failed to fetch label: ${response.statusText}`);
+      const blob = await response.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (error: any) {
+      console.error("Error downloading label:", error);
+      toast({
+        title: "Error",
+        description: `Failed to download label: ${error.message}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePreviewDownloadFormat = async (format: LabelFormat, shipmentId?: string) => {
+    if (!shipmentId || !shipmentDataForPreview) {
+        toast({ title: "Error", description: "Shipment data not available for download.", variant: "destructive" });
+        return;
+    }
+    let urlToDownload: string | undefined;
+    switch (format) {
+        case 'pdf': urlToDownload = shipmentDataForPreview.label_urls?.pdf; break;
+        case 'png': urlToDownload = shipmentDataForPreview.label_urls?.png || shipmentDataForPreview.label_url; break;
+        case 'zpl': urlToDownload = shipmentDataForPreview.label_urls?.zpl; break;
+        case 'epl': urlToDownload = shipmentDataForPreview.label_urls?.epl; break;
+        default:
+            toast({ title: "Unsupported Format", description: `Format ${format} is not available for download.`, variant: "destructive" });
+            return;
+    }
+
+    if (urlToDownload) {
+        await downloadLabel(urlToDownload, `label_${shipmentDataForPreview.tracking_code || shipmentId}.${format}`);
+    } else {
+        toast({ title: "Label Not Found", description: `${format.toUpperCase()} label not available for this shipment.`, variant: "destructive" });
+    }
+  };
+
 
   return (
-    <div className="min-h-screen bg-gray-50 py-4 px-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-blue-800 flex items-center">
-            <Package className="mr-3 h-7 w-7 text-blue-600" />
-            Create a Shipping Label
-          </h1>
-        </div>
-      
-        <div className="sticky top-0 z-20 bg-white py-3 shadow-sm rounded-lg mb-4">
-          <div className="max-w-7xl mx-auto px-4">
-            <ShippingWorkflow currentStep={currentStep} />
-          </div>
-        </div>
-        
-        <Card className="border border-gray-200 shadow-lg bg-white mb-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-4 bg-blue-50 p-1">
-              <TabsTrigger 
-                value="domestic" 
-                className="flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
-                onClick={() => setCurrentStep('address')}
-              >
-                <Package className="h-4 w-4" />
-                Domestic
-              </TabsTrigger>
-              <TabsTrigger 
-                value="international" 
-                className="flex items-center gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white"
-              >
-                <Globe className="h-4 w-4" />
-                International
-              </TabsTrigger>
-              <TabsTrigger 
-                value="calculator" 
-                className="flex items-center gap-2 data-[state=active]:bg-green-600 data-[state=active]:text-white"
-              >
-                <Calculator className="h-4 w-4" />
-                Rate Calculator
-              </TabsTrigger>
-              <TabsTrigger 
-                value="bulk" 
-                className="flex items-center gap-2 data-[state=active]:bg-amber-600 data-[state=active]:text-white"
-              >
-                <Upload className="h-4 w-4" />
-                Bulk Shipping
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="domestic" className="p-4">
-              <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-4 border border-blue-100">
-                <h2 className="text-lg font-semibold text-blue-800 flex items-center mb-2">
-                  <Truck className="h-5 w-5 mr-2 text-blue-600" />
-                  Domestic Shipping
-                </h2>
-                <p className="text-blue-700 text-sm">Ship packages within the country with our various carrier options.</p>
-              </div>
-              <EnhancedShippingForm />
-            </TabsContent>
-            
-            <TabsContent value="international" className="p-4">
-              <div className="p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg mb-4 border border-indigo-100">
-                <h2 className="text-lg font-semibold text-indigo-800 flex items-center mb-2">
-                  <Globe className="h-5 w-5 mr-2 text-indigo-600" />
-                  International Shipping
-                </h2>
-                <p className="text-indigo-700 text-sm">Send packages worldwide with customs forms automatically generated.</p>
-              </div>
-              
-              <div className="flex justify-center items-center py-8">
-                <div className="text-center max-w-md">
-                  <Globe className="h-12 w-12 mx-auto text-indigo-500 mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">International Shipping</h3>
-                  <p className="text-gray-600 mb-6 text-sm">
-                    Ship to over 200+ countries with our international shipping service, including automated customs documentation.
-                  </p>
-                  <Link to="/international">
-                    <Button className="bg-indigo-600 hover:bg-indigo-700">
-                      Go to International Shipping
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="calculator" className="p-4">
-              <div className="p-3 bg-gradient-to-r from-green-50 to-teal-50 rounded-lg mb-4 border border-green-100">
-                <h2 className="text-lg font-semibold text-green-800 flex items-center mb-2">
-                  <Calculator className="h-5 w-5 mr-2 text-green-600" />
-                  Shipping Rate Calculator
-                </h2>
-                <p className="text-green-700 text-sm">Calculate shipping rates for different carriers without creating a shipment.</p>
-              </div>
-              
-              <RateCalculator />
-            </TabsContent>
-            
-            <TabsContent value="bulk" className="p-4">
-              <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg mb-4 border border-amber-100">
-                <h2 className="text-lg font-semibold text-amber-800 flex items-center mb-2">
-                  <Upload className="h-5 w-5 mr-2 text-amber-600" />
-                  Bulk Shipping
-                </h2>
-                <p className="text-amber-700 text-sm">Upload CSV files to process multiple shipments at once.</p>
-              </div>
-              
-              <div className="flex justify-center items-center py-8">
-                <div className="text-center max-w-md">
-                  <Upload className="h-12 w-12 mx-auto text-amber-500 mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Bulk Upload Shipping</h3>
-                  <p className="text-gray-600 mb-6 text-sm">
-                    Process multiple shipments at once by uploading a CSV file with all your shipping details.
-                  </p>
-                  <Link to="/bulk-upload">
-                    <Button className="bg-amber-600 hover:bg-amber-700">
-                      Go to Bulk Upload
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </Card>
+    <div className="container mx-auto p-6">
+      <Card className="max-w-2xl mx-auto">
+        <CardHeader><CardTitle>Create Shipping Label</CardTitle></CardHeader>
+        <CardContent>
+          <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-6">
+            <AddressForm form={form} addressType="fromAddress" title="From Address" />
+            <AddressForm form={form} addressType="toAddress" title="To Address" />
+            <PackageForm form={form} />
+            <Button type="submit" disabled={isLoadingRates || isLoading}>
+              {isLoadingRates ? 'Getting Rates...' : 'Get Shipping Rates'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
-        {(activeTab === 'domestic' || activeTab === 'calculator') && (
-          <ShippingRates />
-        )}
-      </div>
+      {rates.length > 0 && (
+        <div className="mt-8">
+          <ShippingRates
+            rates={rates}
+            isLoadingRates={isLoadingRates}
+            onRateSelected={handleRateSelectedAndPurchase}
+            fromAddress={defaultFromAddress}
+            toAddress={form.getValues("toAddress")} // Provide context for ShippingRates if needed
+            parcel={form.getValues("parcel")} // Provide context for ShippingRates if needed
+          />
+        </div>
+      )}
+
+      {showPrintPreview && shipmentDataForPreview && defaultFromAddress && (
+         <PrintPreview
+            isOpenProp={showPrintPreview}
+            onOpenChangeProp={setShowPrintPreview}
+            singleShipmentPreview={shipmentDataForPreview}
+            isBatchPreview={false}
+            onDownloadFormat={handlePreviewDownloadFormat}
+            pickupAddress={defaultFromAddress}
+          />
+      )}
     </div>
   );
 };

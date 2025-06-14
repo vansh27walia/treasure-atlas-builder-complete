@@ -1,12 +1,10 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { BulkUploadResult, BulkShipment, BatchResult, Rate, SavedAddress, LabelFormat, ShipmentDetails } from '@/types/shipping';
-import { useShipmentUpload, UploadStatus as HookUploadStatus } from '@/hooks/useShipmentUpload'; // Renamed to avoid conflict if any
-import { useShipmentRates } from '@/hooks/useShipmentRates';
-import { useShipmentManagement } from '@/hooks/useShipmentManagement';
+import { useShipmentUpload, UploadStatus as HookUploadStatus } from '@/hooks/useShipmentUpload';
+import { useShippingRates } from '@/hooks/useShippingRates';
+import { useShipmentManagement, UseShipmentManagementProps } from '@/hooks/useShipmentManagement';
 import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
 import { addressService } from '@/services/AddressService';
-// import { supabase } from '@/integrations/supabase/client'; // Not used directly here
 import { toast } from '@/components/ui/sonner';
 
 export const useBulkUpload = () => {
@@ -26,12 +24,12 @@ export const useBulkUpload = () => {
     file,
     isUploading,
     uploadStatus: baseHookUploadStatus, 
-    results: baseResults,
+    results: baseResults, 
     progress,
     setResults: setBaseResults,
     setUploadStatus: setBaseHookUploadStatus,
     handleFileChange,
-    handleUpload: originalHandleUpload, // This is (file, pickupAddress) from useShipmentUpload
+    handleUpload: originalHandleUpload,
     handleDownloadTemplate
   } = useShipmentUpload();
 
@@ -45,49 +43,90 @@ export const useBulkUpload = () => {
     setLabelGenerationProgress(prev => ({ ...prev, ...progressUpdate }));
   }, []);
 
-  const updateResults = useCallback((newResultsData: Partial<BulkUploadResult> | ((prevResults: BulkUploadResult | null) => BulkUploadResult | null)) => {
+  const updateResultsCallback = useCallback((newResultsData: Partial<BulkUploadResult> | ((prevResults: BulkUploadResult | null) => BulkUploadResult | null)) => {
     let finalNewResults: BulkUploadResult | null = null;
     
-    setResults(prev => {
-      const updated = typeof newResultsData === 'function' ? newResultsData(prev) : { ...(prev || {} as BulkUploadResult), ...newResultsData };
-      finalNewResults = updated as BulkUploadResult;
+    setResults(prevLocalResults => {
+      const updatedLocal = typeof newResultsData === 'function' ? newResultsData(prevLocalResults) : { ...(prevLocalResults || {} as BulkUploadResult), ...newResultsData };
+      finalNewResults = updatedLocal as BulkUploadResult;
       
-      if (typeof newResultsData !== 'function') {
-          setBaseResults(finalNewResults);
-      }
+      // Also update the base results in useShipmentUpload if the source of update is not from there
+      // This needs careful handling to avoid loops. For now, only local `results` are updated by this callback.
+      // If `useShipmentUpload` needs to be aware, it should have its own setter exposed or this needs rethinking.
+      // setBaseResults(finalNewResults); // Potentially problematic if baseResults change triggers useEffect above
+      
       return finalNewResults;
     });
     
+    // Sync uploadStatus with useShipmentUpload's status
     if (finalNewResults && finalNewResults.uploadStatus && finalNewResults.uploadStatus !== baseHookUploadStatus) {
       const validBaseUploadStatuses: HookUploadStatus[] = ['idle', 'uploading', 'editing', 'creating-labels', 'success', 'error'];
       if (validBaseUploadStatuses.includes(finalNewResults.uploadStatus as HookUploadStatus)) {
         setBaseHookUploadStatus(finalNewResults.uploadStatus as HookUploadStatus);
       } else if (['rates_fetching', 'rate_selection', 'paying'].includes(finalNewResults.uploadStatus)) {
+        // Map other statuses to a general 'editing' or similar state if appropriate
         if (!['editing', 'uploading', 'creating-labels'].includes(baseHookUploadStatus)) {
-             setBaseHookUploadStatus('editing');
+             setBaseHookUploadStatus('editing'); // Or another suitable base status
         }
       }
     }
-  }, [baseHookUploadStatus, setBaseResults, setBaseHookUploadStatus]);
+  }, [baseHookUploadStatus, setBaseHookUploadStatus /* setBaseResults removed to prevent loops for now */]);
 
   const {
     isFetchingRates,
-    fetchAllShipmentRates,
-    handleSelectRate: originalSelectRate,
+    handleSelectRate: ratesHookSelectRate,
     handleRefreshRates: originalRefreshRates,
     handleBulkApplyCarrier: originalBulkApplyCarrier
-  } = useShipmentRates(results, updateResults, pickupAddress); // Pass pickupAddress
+  } = useShippingRates();
+
+  const shipmentManagementProps: UseShipmentManagementProps = {
+    initialShipments: results?.processedShipments,
+    onUploadComplete: (uploadResultData) => updateResultsCallback({ ...uploadResultData }),
+    onRateSelected: (shipmentId, rate) => {
+        updateResultsCallback(prev => {
+            if (!prev || !prev.processedShipments) return prev;
+            return {
+                ...prev,
+                processedShipments: prev.processedShipments.map(s => 
+                    s.id === shipmentId ? { ...s, selectedRateId: rate.id, status: 'rate_selected', rate: rate.rate, carrier: rate.carrier, service: rate.service } : s
+                )
+            };
+        });
+    },
+    defaultPickupAddress: pickupAddress
+  };
 
   const {
-    isPaying,
-    isCreatingLabels: managementIsCreatingLabels,
-    handleRemoveShipment: originalRemoveShipment,
-    handleEditShipment: originalEditShipment,
-    handleCreateLabels: managementCreateLabels,
-    handleDownloadLabelsWithFormat: originalDownloadFormat,
-    handleDownloadSingleLabel: originalDownloadSingle,
-    handleEmailLabels: originalEmailLabels
-  } = useShipmentManagement(results, updateResults, pickupAddress);
+    shipments: managedShipments,
+    setShipments: setManagedShipments,
+    isLoading: managementIsCreatingLabels,
+    error: managementError,
+    uploadResult: managementUploadResult,
+    processParsedShipments,
+    updateShipmentStatus,
+    handleRateSelection: managementHandleRateSelection,
+    createLabelsForShipments,
+    downloadLabel: managementDownloadSingleLabel,
+    setCurrentPickupAddress
+  } = useShipmentManagement(shipmentManagementProps);
+
+  useEffect(() => {
+    if (managedShipments && results?.processedShipments !== managedShipments) {
+      updateResultsCallback(prev => ({ ...prev, processedShipments: managedShipments }));
+    }
+  }, [managedShipments, results?.processedShipments, updateResultsCallback]);
+  
+  useEffect(() => {
+    if (managementError && results?.uploadStatus !== 'error') {
+      updateResultsCallback({ uploadStatus: 'error', failed: results?.total || 0, failedShipments: results?.processedShipments?.map(s => ({row: s.row_number, shipmentDetails: s.details, error: managementError})) || [] });
+    }
+  }, [managementError, results?.total, results?.processedShipments, results?.uploadStatus, updateResultsCallback]);
+
+  useEffect(() => {
+    if (managementUploadResult && managementUploadResult !== results) {
+      updateResultsCallback(prev => ({...prev, ...managementUploadResult}));
+    }
+  }, [managementUploadResult, results, updateResultsCallback]);
 
   const {
     searchTerm,
@@ -107,13 +146,11 @@ export const useBulkUpload = () => {
         console.log('Loading default pickup address...');
         const defaultAddressFromService = await addressService.getDefaultFromAddress();
         if (defaultAddressFromService) {
-          // TS2345: Ensure id is string
           setPickupAddress({ ...defaultAddressFromService, id: String(defaultAddressFromService.id) });
         } else {
           const addressesFromService = await addressService.getSavedAddresses();
           if (addressesFromService.length > 0) {
             const firstAddress = addressesFromService[0];
-            // TS2345: Ensure id is string
             setPickupAddress({ ...firstAddress, id: String(firstAddress.id) });
             console.log("Using first available address:", firstAddress);
           } else {
@@ -128,64 +165,69 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // This function is what's EXPORTED as `handleUpload`
-  const handleFileUpload = async (fileToUpload: File) => { // Takes 1 argument: File
+  const handleFileUpload = async (fileToUpload: File) => {
     console.log('handleFileUpload in useBulkUpload called with:', { file: fileToUpload.name, currentPickupAddress: pickupAddress });
     
     if (!pickupAddress) {
       const errorMsg = 'Pickup address is required. Please select or add a pickup address first.';
-      toast.error(errorMsg, { /* ... */ });
+      toast.error(errorMsg);
       setBaseHookUploadStatus('idle');
       throw new Error(errorMsg); 
     }
     
     if (results && (results.processedShipments?.length > 0 || results.batchResult)) {
-        updateResults({ total:0, successful:0, failed:0, processedShipments: [], batchResult: null, uploadStatus: 'idle' });
+        updateResultsCallback({ total:0, successful:0, failed:0, processedShipments: [], batchResult: null, uploadStatus: 'idle' });
     }
     
     try {
-      // TS2554: Expected 2 arguments, but got 3. (This error was on this line)
-      // originalHandleUpload takes (file, pickupAddress). The call is correct with 2 args.
-      // The error might be due to type inference on originalHandleUpload itself.
-      // Let's ensure originalHandleUpload is correctly typed from useShipmentUpload.
       await originalHandleUpload(fileToUpload, pickupAddress);
     } catch (error) {
       console.error("Error during originalHandleUpload:", error);
-      // Error handling
     }
   };
 
   const handleCreateLabels = async () => {
-    // ... (implementation as before) ...
-    if (!results || !pickupAddress) {
+    if (!results || !results.processedShipments || !pickupAddress) {
       toast.error('Missing shipments data or pickup address.');
       updateLabelGenerationProgress({ isGenerating: false, currentStep: 'Error: Missing data' });
       return;
     }
+    const shipmentsToLabel = results.processedShipments.filter(s => s.selectedRateId && s.status === 'rate_selected');
+    if (shipmentsToLabel.length === 0) {
+        toast.info("No shipments ready for label creation (rates not selected or already processed).");
+        updateLabelGenerationProgress({ isGenerating: false });
+        return;
+    }
+
     updateLabelGenerationProgress({ 
       isGenerating: true, 
       currentStep: 'Initiating label creation...',
-      totalShipments: results.processedShipments.filter(s => s.selectedRateId).length,
+      totalShipments: shipmentsToLabel.length,
       processedShipments: 0,
       successfulShipments: 0,
       failedShipments: 0,
     });
     try {
-      await managementCreateLabels(); 
+      await createLabelsForShipments(shipmentsToLabel, { format: 'pdf' });
     } catch (error: any) {
        toast.error(error.message || "Failed to create labels in main hook");
        updateLabelGenerationProgress({isGenerating: false, currentStep: 'Error during creation'});
+    } finally {
+        updateLabelGenerationProgress({ isGenerating: false });
     }
   };
 
   const handleOpenBatchPrintPreview = () => {
-    // ... (implementation as before) ...
-     if (results?.batchResult && results.batchResult.batchId) {
+    if (results?.batchResult && results.batchResult.batchId) {
       console.log('Opening batch print preview for batch:', results.batchResult.batchId);
       setBatchPrintPreviewModalOpen(true);
-    } else {
-      toast.error("No batch results available to preview. Please generate labels first.");
-      console.warn("Attempted to open batch print preview without batch results:", results);
+    } else if (results?.processedShipments?.some(s => s.label_url || s.label_urls)) {
+       console.log('Opening batch print preview for individual labels.');
+       setBatchPrintPreviewModalOpen(true);
+    }
+     else {
+      toast.error("No batch results or individual labels available to preview. Please generate labels first.");
+      console.warn("Attempted to open batch print preview without batch results or labels:", results);
     }
   };
   
@@ -197,6 +239,26 @@ export const useBulkUpload = () => {
     }
   };
 
+  const handleRemoveShipment = (shipmentId: string) => {
+    console.warn("handleRemoveShipment not implemented with current useShipmentManagement");
+    toast.info("Removing shipments is not currently supported here.");
+  };
+  const handleEditShipment = (shipmentId: string, details: Partial<ShipmentDetails>) => {
+     console.warn("handleEditShipment not implemented with current useShipmentManagement");
+     toast.info("Editing shipments is not currently supported here.");
+  };
+  const handleDownloadLabelsWithFormat = (format: LabelFormat, type: 'batch' | 'pickup_manifest', contentUrl?: string) => {
+    console.warn("handleDownloadLabelsWithFormat not implemented with current useShipmentManagement");
+    if (type === 'batch' && contentUrl) {
+        managementDownloadSingleLabel(contentUrl, `${type}_labels.${format}`);
+    } else {
+        toast.info(`Downloading all ${type} labels in ${format} not fully supported yet.`);
+    }
+  };
+  const handleEmailLabels = (shipmentIds: string[], email: string) => {
+    console.warn("handleEmailLabels not implemented");
+    toast.info("Emailing labels is not currently supported.");
+  };
 
   return {
     file,
@@ -205,7 +267,6 @@ export const useBulkUpload = () => {
     results,
     progress,
     isFetchingRates,
-    isPaying,
     isCreatingLabels: managementIsCreatingLabels,
     searchTerm,
     sortField,
@@ -213,21 +274,21 @@ export const useBulkUpload = () => {
     selectedCarrierFilter,
     filteredShipments,
     pickupAddress,
-    setPickupAddress: setPickupAddressWithStringId, // Use wrapper to ensure string ID
+    setPickupAddress: setPickupAddressWithStringId,
     handleFileChange,
-    handleUpload: handleFileUpload, // Export the 1-arg version
-    handleSelectRate: originalSelectRate,
-    handleRemoveShipment: originalRemoveShipment,
-    handleEditShipment: originalEditShipment, // This is (shipmentId, details) from useShipmentManagement
+    handleUpload: handleFileUpload,
+    handleSelectRate: ratesHookSelectRate,
+    handleRemoveShipment,
+    handleEditShipment,
     handleRefreshRates: originalRefreshRates,
     handleBulkApplyCarrier: originalBulkApplyCarrier,
     handleCreateLabels,
     handleOpenBatchPrintPreview,
     batchPrintPreviewModalOpen,
     setBatchPrintPreviewModalOpen,
-    handleDownloadLabelsWithFormat: originalDownloadFormat,
-    handleDownloadSingleLabel: originalDownloadSingle,
-    handleEmailLabels: originalEmailLabels,
+    handleDownloadLabelsWithFormat,
+    handleDownloadSingleLabel: managementDownloadSingleLabel,
+    handleEmailLabels,
     handleDownloadTemplate,
     setSearchTerm,
     setSortField,
