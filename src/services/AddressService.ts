@@ -1,25 +1,20 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
-  id: string;
-  user_id?: string;
-  name?: string | null;
-  company?: string | null;
+  id: number;
+  user_id: string;
+  name: string;
+  company?: string;
   street1: string;
-  street2?: string | null;
+  street2?: string;
   city: string;
   state: string;
   zip: string;
-  country: string; 
-  phone?: string | null;
-  email?: string | null;
-  is_default_from?: boolean;
-  is_default_to?: boolean;
+  country: string;
+  phone?: string;
+  is_default_from: boolean;
+  is_default_to: boolean;
   created_at?: string;
-  updated_at?: string;
-  address_type?: 'residential' | 'commercial' | string | null;
-  is_residential?: boolean;
-  validate_address?: boolean;
 }
 
 export class AddressService {
@@ -144,13 +139,7 @@ export class AddressService {
       }
       
       console.log('Fetched addresses:', data);
-      // Convert database records to SavedAddress format
-      return (data || []).map(addr => ({
-        ...addr,
-        id: String(addr.id),
-        email: addr.email || null,
-        is_residential: addr.is_residential || false
-      })) as SavedAddress[];
+      return data as SavedAddress[] || [];
     } catch (error) {
       console.error('Error fetching saved addresses:', error);
       return [];
@@ -173,20 +162,10 @@ export class AddressService {
       console.log('Creating address with user ID:', userId);
       console.log('Address data:', address);
       
-      // Ensure required fields are never undefined and remove fields not in database
+      // Ensure phone is never undefined
       const addressData = {
-        name: address.name || '',
-        company: address.company || '',
-        street1: address.street1,
-        street2: address.street2 || '',
-        city: address.city,
-        state: address.state,
-        zip: address.zip,
-        country: address.country,
-        phone: address.phone || '',
-        is_default_from: address.is_default_from || false,
-        is_default_to: address.is_default_to || false,
-        // Note: email and is_residential are not in the database schema, so we skip them
+        ...address,
+        phone: address.phone || ''
       };
       
       // Before proceeding, try to ensure the user exists in the users table
@@ -220,12 +199,7 @@ export class AddressService {
         }
         
         console.log('Address created via edge function:', data.data);
-        return {
-          ...data.data,
-          id: String(data.data.id),
-          email: address.email || null,
-          is_residential: address.is_residential || false
-        } as SavedAddress;
+        return data.data as SavedAddress;
       } else {
         // Use standard approach without encryption
         console.log('Creating address using standard approach');
@@ -244,12 +218,7 @@ export class AddressService {
         }
         
         console.log('Address created via direct insertion:', data);
-        return {
-          ...data[0],
-          id: String(data[0].id),
-          email: address.email || null,
-          is_residential: address.is_residential || false
-        } as SavedAddress;
+        return data[0] as SavedAddress;
       }
     } catch (error) {
       console.error('Error creating saved address:', error);
@@ -260,39 +229,24 @@ export class AddressService {
   /**
    * Update an existing address
    */
-  public async updateAddress(addressId: string, address: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'>, useEncryption: boolean = false): Promise<SavedAddress | null> {
+  public async updateAddress(addressId: number, address: Omit<SavedAddress, 'id' | 'user_id' | 'created_at'>, useEncryption: boolean = false): Promise<SavedAddress | null> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.user) {
         throw new Error('User is not authenticated');
       }
       
-      const numericId = parseInt(addressId);
-      if (isNaN(numericId)) {
-        throw new Error('Invalid address ID');
-      }
-      
-      // Ensure required fields are never undefined and remove fields not in database
+      // Ensure phone is never undefined
       const addressData = {
-        name: address.name || '',
-        company: address.company || '',
-        street1: address.street1,
-        street2: address.street2 || '',
-        city: address.city,
-        state: address.state,
-        zip: address.zip,
-        country: address.country,
-        phone: address.phone || '',
-        is_default_from: address.is_default_from || false,
-        is_default_to: address.is_default_to || false,
-        // Note: email and is_residential are not in the database schema, so we skip them
+        ...address,
+        phone: address.phone || ''
       };
       
       // First verify that the address belongs to the user
       const { data: existingAddress, error: fetchError } = await supabase
         .from('addresses')
         .select('*')
-        .eq('id', numericId)
+        .eq('id', addressId)
         .eq('user_id', session.session.user.id)
         .single();
       
@@ -305,7 +259,7 @@ export class AddressService {
         const { data, error } = await supabase.functions.invoke('update-address-encryption', {
           body: {
             action: 'update',
-            addressId: numericId,
+            addressId,
             addressData: addressData
           }
         });
@@ -314,33 +268,24 @@ export class AddressService {
           throw error;
         }
         
-        return {
-          ...data.data,
-          id: String(data.data.id),
-          email: address.email || null,
-          is_residential: address.is_residential || false
-        } as SavedAddress;
+        return data.data as SavedAddress;
       } else {
         // Standard address update
         const { data, error } = await supabase
           .from('addresses')
           .update({
             ...addressData,
+            // Ensure user_id remains unchanged
             user_id: session.session.user.id
           })
-          .eq('id', numericId)
+          .eq('id', addressId)
           .select();
         
         if (error) {
           throw error;
         }
         
-        return {
-          ...data[0],
-          id: String(data[0].id),
-          email: address.email || null,
-          is_residential: address.is_residential || false
-        } as SavedAddress;
+        return data[0] as SavedAddress;
       }
     } catch (error) {
       console.error('Error updating saved address:', error);
@@ -351,22 +296,18 @@ export class AddressService {
   /**
    * Delete a saved address
    */
-  public async deleteAddress(addressId: string): Promise<boolean> {
+  public async deleteAddress(addressId: number): Promise<boolean> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.user) {
         throw new Error('User is not authenticated');
       }
       
-      const numericId = parseInt(addressId);
-      if (isNaN(numericId)) {
-        throw new Error('Invalid address ID');
-      }
-      
+      // Delete the address
       const { error } = await supabase
         .from('addresses')
         .delete()
-        .eq('id', numericId)
+        .eq('id', addressId)
         .eq('user_id', session.session.user.id);
       
       if (error) {
@@ -383,16 +324,11 @@ export class AddressService {
   /**
    * Set an address as the default shipping from address
    */
-  public async setDefaultFromAddress(addressId: string): Promise<boolean> {
+  public async setDefaultFromAddress(addressId: number): Promise<boolean> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
         throw new Error('User is not authenticated');
-      }
-      
-      const numericId = parseInt(addressId);
-      if (isNaN(numericId)) {
-        throw new Error('Invalid address ID');
       }
       
       // First, unset any existing default
@@ -410,7 +346,7 @@ export class AddressService {
       const { error } = await supabase
         .from('addresses')
         .update({ is_default_from: true })
-        .eq('id', numericId)
+        .eq('id', addressId)
         .eq('user_id', session.session.user.id);
       
       if (error) {
@@ -427,16 +363,11 @@ export class AddressService {
   /**
    * Set an address as the default shipping to address
    */
-  public async setDefaultToAddress(addressId: string): Promise<boolean> {
+  public async setDefaultToAddress(addressId: number): Promise<boolean> {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.user) {
         throw new Error('User is not authenticated');
-      }
-      
-      const numericId = parseInt(addressId);
-      if (isNaN(numericId)) {
-        throw new Error('Invalid address ID');
       }
       
       // First, unset any existing default
@@ -450,7 +381,7 @@ export class AddressService {
       const { error } = await supabase
         .from('addresses')
         .update({ is_default_to: true })
-        .eq('id', numericId)
+        .eq('id', addressId)
         .eq('user_id', session.session.user.id);
       
       if (error) {
@@ -485,14 +416,7 @@ export class AddressService {
         throw error;
       }
       
-      if (!data) return null;
-      
-      return {
-        ...data,
-        id: String(data.id),
-        email: data.email || null,
-        is_residential: data.is_residential || false
-      } as SavedAddress;
+      return data as SavedAddress | null;
     } catch (error) {
       console.error('Error fetching default from address:', error);
       return null;
@@ -520,14 +444,7 @@ export class AddressService {
         throw error;
       }
       
-      if (!data) return null;
-      
-      return {
-        ...data,
-        id: String(data.id),
-        email: data.email || null,
-        is_residential: data.is_residential || false
-      } as SavedAddress;
+      return data as SavedAddress | null;
     } catch (error) {
       console.error('Error fetching default to address:', error);
       return null;

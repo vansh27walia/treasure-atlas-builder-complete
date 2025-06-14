@@ -11,7 +11,6 @@ interface LabelCreationOverlayProps {
   totalLabels: number;
   completedLabels: number;
   failedLabels: number;
-  estimatedTimeRemaining?: number; // Made optional
   onClose: () => void;
 }
 
@@ -22,7 +21,6 @@ const LabelCreationOverlay: React.FC<LabelCreationOverlayProps> = ({
   totalLabels,
   completedLabels,
   failedLabels,
-  // estimatedTimeRemaining, // Not used in the component body
   onClose
 }) => {
   if (!isVisible) return null;
@@ -63,18 +61,13 @@ const LabelCreationOverlay: React.FC<LabelCreationOverlayProps> = ({
             </div>
           </div>
           
-          {/* Optional: Display estimatedTimeRemaining if provided and relevant */}
-          {/* {estimatedTimeRemaining && progress < 100 && (
-            <p className="text-xs text-gray-400 mt-1">Est. time remaining: {estimatedTimeRemaining}s</p>
-          )} */}
-
           {progress === 100 && (
             <div className="mt-4">
               <button
                 onClick={onClose}
                 className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
               >
-                View Results {/* Changed button text */}
+                Download Complete
               </button>
             </div>
           )}
@@ -85,4 +78,3 @@ const LabelCreationOverlay: React.FC<LabelCreationOverlayProps> = ({
 };
 
 export default LabelCreationOverlay;
-

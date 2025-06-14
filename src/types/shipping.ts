@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -23,7 +22,7 @@ export interface ShippingAddress {
   city: string;
   state: string;
   zip: string;
-  country: string; // Assuming ISO 2-letter country code e.g., 'US'
+  country: string;
   phone?: string;
   email?: string;
   residential?: boolean;
@@ -71,18 +70,17 @@ export interface ParcelDetails {
 }
 
 export interface AddressDetails {
-  name: string;
+  name?: string;
   company?: string;
   street1: string;
   street2?: string;
   city: string;
   state: string;
   zip: string;
-  country: string; // Assuming ISO 2-letter country code e.g., 'US'
+  country: string;
   phone?: string;
   email?: string;
   is_residential?: boolean;
-  validate?: boolean; // Added, for address validation flags
 }
 
 export interface ShipmentDetails {
@@ -100,7 +98,6 @@ export interface Rate {
   carrier: string;
   service: string;
   rate: number;
-  currency?: string; // Added to make Rate compatible with ShippingOption
   formattedRate?: string;
   delivery_days?: number | null;
   est_delivery_days?: number | null;
@@ -130,9 +127,8 @@ export interface CustomsInfo {
   customs_items: CustomsItem[];
 }
 
-// Updated SavedAddress interface to match database schema and usage
 export interface SavedAddress {
-  id: string; // Changed to string to match usage throughout the app
+  id: string; // Ensure ID is string
   user_id?: string;
   name?: string | null;
   company?: string | null;
@@ -141,34 +137,30 @@ export interface SavedAddress {
   city: string;
   state: string;
   zip: string;
-  country: string; 
+  country: string;
   phone?: string | null;
-  email?: string | null; // Added email field
+  email?: string | null;
   is_default_from?: boolean;
   is_default_to?: boolean;
   created_at?: string;
   updated_at?: string;
   address_type?: 'residential' | 'commercial' | string | null;
-  is_residential?: boolean; // Added is_residential field
   validate_address?: boolean;
 }
 
-export type LabelFormat = 'pdf' | 'png' | 'zpl' | 'epl' | 'zip'; 
+export type LabelFormat = 'pdf' | 'png' | 'zpl' | 'epl' | 'zip'; // Added 'zip'
 
 export type ServiceLevel = 'standard' | 'express' | 'overnight';
 
 export type BulkShipmentStatus =
-  | 'pending_upload' 
-  | 'parsed'
+  | 'pending_upload' // Added for initial status from CSV before any processing
   | 'pending_rates'
   | 'rates_fetched'
   | 'rate_selected'
-  | 'label_purchased' 
-  | 'completed' 
-  | 'error' 
-  | 'failed'; 
-
-export type BulkSortField = 'recipient' | 'carrier' | 'rate' | 'id';
+  | 'label_purchased' // Represents payment success and label intent/purchase
+  | 'completed' // Label generated and available
+  | 'error' // General error in processing this shipment
+  | 'failed'; // Specifically failed to get label/rate after attempts
 
 export interface BulkShipment {
   id: string; // Unique identifier for the shipment
@@ -230,9 +222,7 @@ export interface BulkUploadResult {
   processedShipments: BulkShipment[];
   failedShipments?: Array<{ row?: number; shipmentDetails?: any; error?: string; details?: string }>;
   batchResult?: BatchResult | null; 
-  uploadStatus?: 'idle' | 'uploading' | 'processing' | 'editing' | 'rates_fetching' | 'rate_selection' | 'paying' | 'creating-labels' | 'completed' | 'error'; // Updated this based on useBulkUpload
-  bulk_label_png_url?: string; 
-  bulk_label_pdf_url?: string; 
+  uploadStatus?: string; // Broader status: 'idle', 'uploading', 'editing', 'rates_fetching', 'rate_selection', 'paying', 'creating-labels', 'success', 'error'
 }
 
 export const CARRIER_OPTIONS = [

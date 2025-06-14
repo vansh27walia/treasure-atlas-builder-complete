@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Download, FileText, PackageSearch, Printer } from 'lucide-react';
 import { BulkUploadResult, LabelFormat, BulkShipment } from '@/types/shipping';
-import LabelResultsTable, { LabelResultsTableProps } from './LabelResultsTable';
+import LabelResultsTable from './LabelResultsTable';
 import { toast } from '@/components/ui/sonner';
 
 interface SuccessNotificationProps {
@@ -14,7 +14,6 @@ interface SuccessNotificationProps {
   isCreatingLabels: boolean;
   onDownloadLabelsWithFormat?: (format: LabelFormat, type: 'batch' | 'pickup_manifest', content?: any) => void;
   onOpenBatchPrintPreview?: () => void;
-  onPreviewLabel: (shipment: BulkShipment) => void;
 }
 
 const SuccessNotification: React.FC<SuccessNotificationProps> = ({
@@ -25,7 +24,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isCreatingLabels,
   onDownloadLabelsWithFormat,
   onOpenBatchPrintPreview,
-  onPreviewLabel,
 }) => {
   console.log('SuccessNotification received results:', results);
 
@@ -52,7 +50,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     return hasLabel;
   });
 
-  const failedShipments = allShipments.filter(shipment => shipment.status === 'failed' || shipment.status === 'error');
+  const failedShipments = allShipments.filter(shipment => shipment.status === 'failed');
   
   console.log('SuccessNotification Debug:', {
     totalShipments: allShipments.length,
@@ -252,12 +250,13 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           shipments={allShipments}
           onDownloadLabel={(shipmentId: string, url: string, format?: string) => {
             if (url && url.trim() !== '') {
-              onDownloadSingleLabel(shipmentId, url, format);
+              const timestamp = Date.now();
+              const filename = `shipping_label_${shipmentId}_${timestamp}.${format || 'png'}`;
+              downloadFile(url, filename);
             } else {
               toast.error('Invalid label URL - cannot download');
             }
           }}
-          onPreviewLabel={onPreviewLabel}
         />
       )}
 

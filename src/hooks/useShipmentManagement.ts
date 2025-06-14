@@ -1,233 +1,235 @@
-import { useState, useCallback, useEffect } from 'react';
-import { BulkShipment, BulkUploadResult, LabelFormat, Rate, SavedAddress, AddressDetails, ParcelDetails, CustomsInfo } from '@/types/shipping';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
-import { saveAs } from 'file-saver';
+import { BulkUploadResult, BulkShipment, LabelFormat, SavedAddress, ShipmentDetails } from '@/types/shipping';
+import { saveAs } from 'file-saver'; // Assuming file-saver is or can be installed
 
-export interface LabelOptions {
-  format: LabelFormat;
-  // Add other label options as needed
-}
+export const useShipmentManagement = (
+  results: BulkUploadResult | null,
+  updateResults: (
+    newResultsData: Partial<BulkUploadResult> | ((prevResults: BulkUploadResult | null) => BulkUploadResult | null)
+  ) => void,
+  pickupAddress: SavedAddress | null // pickupAddress is a direct argument
+) => {
+  const [isPaying, setIsPaying] = useState(false);
+  const [isCreatingLabels, setIsCreatingLabels] = useState(false);
 
-export interface UseShipmentManagementProps {
-  initialShipments?: BulkShipment[];
-  onUploadComplete?: (result: BulkUploadResult) => void;
-  onRateSelected?: (shipmentId: string, rate: Rate) => void;
-  defaultPickupAddress?: SavedAddress | null;
-}
-
-export const useShipmentManagement = ({
-  initialShipments = [],
-  onUploadComplete,
-  onRateSelected,
-  defaultPickupAddress,
-}: UseShipmentManagementProps) => {
-  const [shipments, setShipments] = useState<BulkShipment[]>(initialShipments);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [uploadResult, setUploadResult] = useState<BulkUploadResult | null>(null);
-  const [currentPickupAddress, setCurrentPickupAddress] = useState<SavedAddress | null>(defaultPickupAddress || null);
-
-  useEffect(() => {
-    if (defaultPickupAddress) {
-      setCurrentPickupAddress(defaultPickupAddress);
-    }
-  }, [defaultPickupAddress]);
-
-
-  const processParsedShipments = useCallback(async (parsedShipments: BulkShipment[], pickupAddressOverride?: SavedAddress | null) => {
-    setIsLoading(true);
-    setError(null);
-    const effectivePickupAddress = pickupAddressOverride || currentPickupAddress;
-
-    if (!effectivePickupAddress && !parsedShipments.every(s => s.details.from_address)) {
-        toast.error("Default pickup address is not set. Please set it in settings or ensure all CSV rows have a 'from' address.");
-        setIsLoading(false);
-        setError("Missing pickup address.");
-        return;
-    }
+  const handleRemoveShipment = useCallback((shipmentId: string) => {
+    if (!results) return;
     
-    console.log('Processing parsed shipments with pickup address:', effectivePickupAddress);
-
-    // Enhance shipments with default pickup address if not provided
-    const shipmentsToProcess = parsedShipments.map(shipment => ({
-      ...shipment,
-      details: {
-        ...shipment.details,
-        from_address: shipment.details.from_address || effectivePickupAddress as AddressDetails,
-      }
-    }));
-    
-    setShipments(shipmentsToProcess); // Update state with potentially modified shipments
-
-    try {
-      console.log('Invoking process-bulk-upload with shipments:', shipmentsToProcess);
-      const { data, error: funcError } = await supabase.functions.invoke('process-bulk-upload', {
-        body: { shipments: shipmentsToProcess }
-      });
-
-      if (funcError) throw funcError;
-      
-      console.log('process-bulk-upload result:', data);
-      setUploadResult(data as BulkUploadResult);
-      if (onUploadComplete) onUploadComplete(data as BulkUploadResult);
-      
-      // Update local shipments state with results (e.g., fetched rates)
-      if (data && data.processedShipments) {
-        setShipments(data.processedShipments);
-      }
-      toast.success('Shipments processed, rates fetched.');
-
-    } catch (e: any) {
-      console.error('Error processing shipments:', e);
-      setError(e.message || 'Failed to process shipments.');
-      toast.error(`Error: ${e.message || 'Failed to process shipments.'}`);
-      setUploadResult(prev => ({
-        ...prev,
-        total: parsedShipments.length,
-        successful: 0,
-        failed: parsedShipments.length,
-        failedShipments: parsedShipments.map(s => ({ 
-            row: s.row_number, 
-            shipmentDetails: s.details, 
-            error: e.message || 'Processing error' 
-        })),
-        uploadStatus: 'error',
-      } as BulkUploadResult));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentPickupAddress, onUploadComplete]);
-
-  const updateShipmentStatus = (shipmentId: string, status: BulkShipment['status'], errorMsg?: string) => {
-    setShipments(prev =>
-      prev.map(s => (s.id === shipmentId ? { ...s, status, error: errorMsg } : s))
+    const updatedShipments = results.processedShipments.filter(
+      shipment => shipment.id !== shipmentId
     );
-  };
-
-  const handleRateSelection = (shipmentId: string, rate: Rate) => {
-    setShipments(prevShipments =>
-      prevShipments.map(shipment =>
-        shipment.id === shipmentId
-          ? { ...shipment, selectedRateId: rate.id, status: 'rate_selected', rate: rate.rate, carrier: rate.carrier, service: rate.service }
-          : shipment
-      )
-    );
-    if (onRateSelected) {
-      onRateSelected(shipmentId, rate);
-    }
-    toast.info(`Rate selected for shipment ${shipmentId}.`);
-  };
-
-
-  const createLabelsForShipments = useCallback(async (
-    shipmentsToLabel: BulkShipment[],
-    labelOptions: LabelOptions = { format: 'pdf' }
-  ) => {
-    setIsLoading(true);
-    setError(null);
-    toast.loading('Creating labels...');
-
-    const validShipments = shipmentsToLabel.filter(s => s.selectedRateId && s.status === 'rate_selected');
-
-    if (validShipments.length === 0) {
-      toast.error('No shipments ready for label creation (rate not selected).');
-      setIsLoading(false);
-      return null;
-    }
     
-    console.log('Creating labels for shipments:', validShipments, 'with options:', labelOptions);
+    const totalCost = updatedShipments.reduce((sum, shipment) => {
+      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
+      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
+    }, 0);
+    
+    updateResults({
+      processedShipments: updatedShipments,
+      successful: updatedShipments.length,
+      totalCost
+    });
+    
+    toast.success('Shipment removed from list');
+  }, [updateResults, results]);
 
-    try {
-      const { data, error: funcError } = await supabase.functions.invoke('create-bulk-labels', {
-        body: { // Corrected: payload wrapped in body
-          shipments: validShipments.map(s => ({ // Ensure only necessary data is sent
-            id: s.id,
-            selectedRateId: s.selectedRateId,
-            details: s.details, // Full details might be needed by the backend
-            // any other specific fields the backend expects for label creation
-          })), 
-          labelOptions 
-        }
-      });
+  const handleEditShipment = useCallback((shipmentId: string, updatedDetails: Partial<ShipmentDetails>) => {
+    if (!results) return;
 
-      if (funcError) throw funcError;
-
-      console.log('create-bulk-labels result:', data);
-      toast.dismiss();
-      toast.success(`${data.successful || 0} labels created successfully. ${data.failed || 0} failed.`);
-      
-      setUploadResult(prev => ({
-        ...prev,
-        ...data, // Merge new results, like batchResult, consolidatedLabelUrls
-        uploadStatus: data.failed > 0 && data.successful === 0 ? 'error' : 'success',
-      } as BulkUploadResult));
-
-      // Update local shipments state with label URLs and tracking codes
-      if (data && data.processedShipments) {
-         setShipments(prevLocalShipments => {
-          const updatedShipments = prevLocalShipments.map(localShipment => {
-            const processedVersion = data.processedShipments.find((ps: BulkShipment) => ps.id === localShipment.id);
-            return processedVersion ? { ...localShipment, ...processedVersion, status: processedVersion.status || 'completed' } : localShipment;
-          });
-          return updatedShipments;
-        });
+    const updatedShipments = results.processedShipments.map(shipment => {
+      if (shipment.id === shipmentId) {
+        return {
+          ...shipment,
+          details: {
+            ...shipment.details,
+            ...updatedDetails,
+          },
+        };
       }
-      
-      if (onUploadComplete && data) onUploadComplete(data as BulkUploadResult);
-      return data as BulkUploadResult;
+      return shipment;
+    });
 
-    } catch (e: any) {
-      console.error('Error creating labels:', e);
-      toast.dismiss();
-      setError(e.message || 'Failed to create labels.');
-      toast.error(`Label Creation Error: ${e.message || 'Unknown error'}`);
-      setUploadResult(prev => ({
-        ...prev,
-        successful: 0, // Reset successful count if the whole batch call failed
-        failed: prev?.failed ? prev.failed + validShipments.length : validShipments.length, // Or adjust based on partial success if possible
-        uploadStatus: 'error',
-        // Potentially add to failedShipments if context is available
-      } as BulkUploadResult));
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, [onUploadComplete]);
-  
-  const downloadLabel = useCallback(async (url: string, filename: string) => {
-    if (!url) {
-      toast.error("Label URL is missing, cannot download.");
+    updateResults({ processedShipments: updatedShipments });
+    toast.success('Shipment details updated');
+  }, [updateResults, results]);
+
+  const handleCreateLabels = useCallback(async () => {
+    if (!results || !pickupAddress) {
+      toast.error('Missing shipments or pickup address');
       return;
     }
+
+    setIsCreatingLabels(true);
+    const shipmentsToProcess = results.processedShipments.filter(s => s.selectedRateId);
+
+    if (shipmentsToProcess.length === 0) {
+      toast.error('No shipments selected for label creation');
+      setIsCreatingLabels(false);
+      return;
+    }
+
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch label: ${response.statusText}`);
+      console.log('Creating labels for shipments:', shipmentsToProcess);
+
+      const params = {
+        body: {
+          shipments: shipmentsToProcess,
+          pickupAddress: pickupAddress, // Corrected: use argument
+          labelOptions: { format: 'PNG', size: '4x6' },
+        },
+      };
+
+      const { data, error } = await supabase.functions.invoke('create-bulk-labels', params);
+
+      if (error) {
+        throw new Error(error.message);
       }
-      const blob = await response.blob();
-      saveAs(blob, filename);
-      toast.success(`Downloaded ${filename}`);
-    } catch (error: any) {
-      console.error("Error downloading label:", error);
-      toast.error(`Download failed: ${error.message}`);
+
+      console.log('Label creation response:', data);
+
+      if (data.labels && data.labels.length > 0) {
+        // Process the response and update shipments with label URLs
+        const updatedShipments = results.processedShipments.map(shipment => {
+          const labelData = data.labels.find((label: any) => 
+            label.shipment_id === shipment.id && 
+            (label.status === 'success_individual_png_saved' || label.status.includes('success'))
+          );
+          
+          if (labelData && labelData.label_urls?.png) {
+            return {
+              ...shipment,
+              label_url: labelData.label_urls.png,
+              tracking_code: labelData.tracking_number,
+              status: 'completed' as const,
+              customer_name: labelData.recipient_name || shipment.customer_name,
+              customer_address: labelData.drop_off_address || shipment.customer_address
+            };
+          }
+          return shipment;
+        });
+
+        // Count successful labels
+        const successfulLabels = data.labels.filter((label: any) => 
+          label.status === 'success_individual_png_saved' || 
+          label.status.includes('success')
+        ).length;
+
+        updateResults({
+          processedShipments: updatedShipments,
+          bulk_label_png_url: data.bulk_label_png_url,
+          bulk_label_pdf_url: data.bulk_label_pdf_url
+        });
+
+        toast.success(`Successfully created ${successfulLabels} shipping labels`);
+
+        // Show any failed labels
+        const failedLabels = data.labels.filter((label: any) => 
+          label.status.includes('error') || label.status.includes('fail')
+        );
+        
+        if (failedLabels.length > 0) {
+          console.error('Failed labels:', failedLabels);
+          toast.error(`${failedLabels.length} labels failed to create. Check console for details.`);
+        }
+      } else {
+        throw new Error('No labels were created');
+      }
+
+    } catch (error) {
+      console.error('Error creating labels:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create labels');
+    } finally {
+      setIsCreatingLabels(false);
+    }
+  }, [results, updateResults, pickupAddress]);
+
+  const handleDownloadLabelsWithFormat = useCallback(async (format: LabelFormat = 'png') => {
+    if (!results) return;
+    
+    const labelsToDownload = results.processedShipments.filter(s => s.selectedRateId);
+    
+    if (labelsToDownload.length === 0) {
+      toast.error('No shipments selected for label download');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
+        body: {
+          shipments: labelsToDownload,
+          pickupAddress: pickupAddress, // Corrected: use argument
+          labelOptions: { format: format.toUpperCase(), size: '4x6', generateBatch: true },
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data.bulk_label_pdf_url) {
+        // Download the bulk PDF
+        const link = document.createElement('a');
+        link.href = data.bulk_label_pdf_url;
+        link.download = `shipping_labels_${Date.now()}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('Downloaded bulk PDF label');
+      } else {
+        throw new Error('No bulk PDF label URL received');
+      }
+    } catch (error) {
+      console.error('Error creating bulk label:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create bulk label');
+    }
+  }, [results, pickupAddress]);
+
+  const handleDownloadSingleLabel = useCallback(async (labelUrl: string, format: LabelFormat = 'png') => {
+    try {
+      const link = document.createElement('a');
+      link.href = labelUrl;
+      link.download = `shipping_label_${Date.now()}.${format}`;
+      link.target = '_blank';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download label');
     }
   }, []);
 
+  const handleEmailLabels = useCallback(async (email: string) => {
+    if (!results) return;
+    
+    const shipmentsToEmail = results.processedShipments.filter(s => s.selectedRateId);
+    
+    if (shipmentsToEmail.length === 0) {
+      toast.error('No shipments selected to email');
+      return;
+    }
+
+    toast.success('Email functionality will be implemented soon');
+    // Use the pickupAddress argument if needed for context in email.
+    // const { data, error } = await supabase.functions.invoke('email-bulk-labels', {
+    //   body: { shipmentsToEmail, email, pickupAddress: pickupAddress }, // Corrected
+    // });
+    // ...
+  }, [results, pickupAddress]);
+  
 
   return {
-    shipments,
-    setShipments,
-    isLoading,
-    error,
-    uploadResult,
-    setUploadResult,
-    processParsedShipments,
-    updateShipmentStatus,
-    handleRateSelection,
-    createLabelsForShipments,
-    downloadLabel,
-    currentPickupAddress,
-    setCurrentPickupAddress,
+    isPaying: false, // Placeholder, assuming not implemented yet or elsewhere
+    isCreatingLabels: isCreatingLabels, // Placeholder, real state might be more complex
+    handleRemoveShipment,
+    handleEditShipment,
+    handleCreateLabels,
+    handleDownloadLabelsWithFormat,
+    handleDownloadSingleLabel,
+    handleEmailLabels,
   };
 };

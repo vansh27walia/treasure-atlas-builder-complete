@@ -1,275 +1,715 @@
-
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { 
+  Globe, AlertCircle, Package, CheckCircle, 
+  Info, Truck, Download, CreditCard
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { addressService } from '@/services/AddressService';
-import AddressForm from '@/components/shipping/AddressForm';
-import PackageForm from '@/components/shipping/PackageForm';
-import { Rate } from '@/types/shipping';
-import { useRates } from '@/hooks/useRates';
+import { toast } from '@/components/ui/sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useShippingRates } from '@/hooks/useShippingRates';
+import { AddressData, ParcelData, ShippingRequestData, carrierService } from '@/services/CarrierService';
+import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
+import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
+import PrintPreview from '@/components/shipping/PrintPreview';
+import ShippingRateCard from '@/components/shipping/ShippingRateCard';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const ShipToPage = () => {
-  const [fromName, setFromName] = useState('');
-  const [fromCompany, setFromCompany] = useState('');
-  const [fromStreet1, setFromStreet1] = useState('');
-  const [fromStreet2, setFromStreet2] = useState('');
-  const [fromCity, setFromCity] = useState('');
-  const [fromState, setFromState] = useState('');
-  const [fromZip, setFromZip] = useState('');
-  const [fromCountry, setFromCountry] = useState('US');
-  const [fromPhone, setFromPhone] = useState('');
-  const [fromEmail, setFromEmail] = useState('');
-  const [fromIsResidential, setFromIsResidential] = useState(false);
+interface FormValues {
+  fromName: string;
+  fromCompany: string;
+  fromAddress1: string;
+  fromAddress2: string;
+  fromCity: string;
+  fromState: string;
+  fromZip: string;
+  fromCountry: string;
+  toName: string;
+  toCompany: string;
+  toAddress1: string;
+  toAddress2: string;
+  toCity: string;
+  toState: string;
+  toZip: string;
+  toCountry: string;
+  packageType: string;
+  weightLb: number;
+  weightOz: number;
+  packageValue: number;
+  length: number;
+  width: number;
+  height: number;
+  carrier: string;
+  description: string;
+  contents: string;
+  phone: string;
+  toPhone: string;
+}
 
-  const [toName, setToName] = useState('');
-  const [toCompany, setToCompany] = useState('');
-  const [toStreet1, setToStreet1] = useState('');
-  const [toStreet2, setToStreet2] = useState('');
-  const [toCity, setToCity] = useState('');
-  const [toState, setToState] = useState('');
-  const [toZip, setToZip] = useState('');
-  const [toCountry, setToCountry] = useState('US');
-  const [toPhone, setToPhone] = useState('');
-  const [toEmail, setToEmail] = useState('');
-  const [toIsResidential, setToIsResidential] = useState(false);
+const carriers = [
+  { value: 'usps', label: 'USPS' },
+  { value: 'ups', label: 'UPS' },
+  { value: 'fedex', label: 'FedEx' },
+  { value: 'dhl', label: 'DHL' },
+  { value: 'all', label: 'Compare All Carriers' },
+];
 
-  const [length, setLength] = useState(0);
-  const [width, setWidth] = useState(0);
-  const [height, setHeight] = useState(0);
-  const [weight, setWeight] = useState(0);
+const countries = [
+  { value: 'US', label: 'United States' },
+  { value: 'CA', label: 'Canada' },
+  { value: 'MX', label: 'Mexico' },
+  { value: 'GB', label: 'United Kingdom' },
+  { value: 'AU', label: 'Australia' },
+  { value: 'DE', label: 'Germany' },
+  { value: 'FR', label: 'France' },
+  { value: 'JP', label: 'Japan' },
+  { value: 'CN', label: 'China' },
+  { value: 'IN', label: 'India' },
+  { value: 'BR', label: 'Brazil' },
+];
 
-  const [selectedRate, setSelectedRate] = useState<Rate | null>(null);
+const labelFormats = [
+  { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
+  { value: '8.5x11-left', label: '8.5x11" - 1 Label per Page - Left Side', description: 'One 4x6" label on the left side of a letter-sized page' },
+  { value: '8.5x11-right', label: '8.5x11" - 1 Label per Page - Right Side', description: 'One 4x6" label on the right side of a letter-sized page' },
+  { value: '8.5x11-2up', label: '8.5x11" - 2 Labels per Page', description: 'Two 4x6" labels per letter-sized page' }
+];
 
-  const { rates, isLoading: isRatesLoading, error: ratesError, fetchRates } = useRates({
-    fromAddress: {
-      name: fromName,
-      company: fromCompany,
-      street1: fromStreet1,
-      street2: fromStreet2,
-      city: fromCity,
-      state: fromState,
-      zip: fromZip,
-      country: fromCountry,
-      phone: fromPhone,
-      email: fromEmail,
-      is_residential: fromIsResidential,
-    },
-    toAddress: {
-      name: toName,
-      company: toCompany,
-      street1: toStreet1,
-      street2: toStreet2,
-      city: toCity,
-      state: toState,
-      zip: toZip,
-      country: toCountry,
-      phone: toPhone,
-      email: toEmail,
-      is_residential: toIsResidential,
-    },
-    parcel: {
-      length,
-      width,
-      height,
-      weight,
-    },
-  });
-
-  const [pickupAddress, setPickupAddress] = useState(null);
-
+const ShipToPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'document' | 'package'>('document');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showRates, setShowRates] = useState(false);
+  const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
+  const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
+  const { 
+    rates, 
+    allRates, 
+    selectedRateId, 
+    handleSelectRate, 
+    bestValueRateId, 
+    fastestRateId,
+    isLoading: ratesLoading,
+    handleCreateLabel: createLabel,
+    labelUrl,
+    trackingCode,
+    shipmentId,
+    uniqueCarriers,
+    activeCarrierFilter,
+    handleFilterByCarrier
+  } = useShippingRates();
+  
+  // Add ref for print functionality
+  const printContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Add this for label-related functionality
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  const [shipmentDetails, setShipmentDetails] = useState<{
+    fromAddress: string;
+    toAddress: string;
+    weight: string;
+    dimensions?: string;
+    service: string;
+    carrier: string;
+  } | undefined>();
+  
+  // Listen for step changes
   useEffect(() => {
-    const loadDefaultAddress = async () => {
-      try {
-        const address = await addressService.getDefaultFromAddress();
-        if (address) {
-          setPickupAddress({
-            ...address,
-            id: String(address.id),
-            email: address.email || '',
-            is_residential: address.is_residential || false
-          });
-          setFromName(address.name || '');
-          setFromCompany(address.company || '');
-          setFromStreet1(address.street1 || '');
-          setFromStreet2(address.street2 || '');
-          setFromCity(address.city || '');
-          setFromState(address.state || '');
-          setFromZip(address.zip || '');
-          setFromCountry(address.country || 'US');
-          setFromPhone(address.phone || '');
-          setFromEmail(address.email || '');
-          setFromIsResidential(address.is_residential || false);
-        }
-      } catch (error) {
-        console.error('Error loading default pickup address:', error);
+    const handleStepChange = (event: CustomEvent<{step: 'address' | 'package' | 'rates' | 'label' | 'complete'}>) => {
+      if (event.detail && event.detail.step) {
+        setCurrentStep(event.detail.step);
       }
     };
-    loadDefaultAddress();
+    
+    document.addEventListener('shipping-step-change', handleStepChange as EventListener);
+    
+    return () => {
+      document.removeEventListener('shipping-step-change', handleStepChange as EventListener);
+    };
   }, []);
-
-  const validateFormData = (): boolean => {
-    if (!fromName || !fromStreet1 || !fromCity || !fromState || !fromZip || !fromCountry) {
-      console.error('Missing required "Ship From" fields');
-      return false;
+  
+  // Force step update when label is created
+  useEffect(() => {
+    if (labelUrl && currentStep !== 'label' && currentStep !== 'complete') {
+      setCurrentStep('label');
     }
-
-    if (!toName || !toStreet1 || !toCity || !toState || !toZip || !toCountry) {
-      console.error('Missing required "Ship To" fields');
-      return false;
+  }, [labelUrl, currentStep]);
+  
+  // Listen for rate selection and automatically update the step
+  useEffect(() => {
+    if (selectedRateId) {
+      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      if (selectedRate && shipmentDetails) {
+        setShipmentDetails({
+          ...shipmentDetails,
+          service: selectedRate.service,
+          carrier: selectedRate.carrier.toUpperCase(),
+        });
+      }
     }
-
-    if (!length || !width || !height || !weight) {
-      console.error('Missing required package fields');
-      return false;
+  }, [selectedRateId, rates, shipmentDetails]);
+  
+  const handleSubmit = async (values: FormValues) => {
+    setIsLoading(true);
+    setShowRates(false);
+    
+    try {
+      // Prepare shipping request data
+      const fromAddress: AddressData = {
+        name: values.fromName,
+        company: values.fromCompany || undefined,
+        street1: values.fromAddress1,
+        street2: values.fromAddress2 || undefined,
+        city: values.fromCity,
+        state: values.fromState,
+        zip: values.fromZip,
+        country: values.fromCountry,
+        phone: values.phone || undefined,
+      };
+      
+      const toAddress: AddressData = {
+        name: values.toName,
+        company: values.toCompany || undefined,
+        street1: values.toAddress1,
+        street2: values.toAddress2 || undefined,
+        city: values.toCity,
+        state: values.toState,
+        zip: values.toZip,
+        country: values.toCountry,
+        phone: values.toPhone || undefined,
+      };
+      
+      // Calculate weight in oz
+      const weightInOz = (values.weightLb || 0) * 16 + (values.weightOz || 0);
+      
+      const parcel: ParcelData = {
+        length: values.length || (activeTab === 'document' ? 10 : 12),
+        width: values.width || (activeTab === 'document' ? 8 : 10),
+        height: values.height || (activeTab === 'document' ? 0.25 : 8),
+        weight: weightInOz || (activeTab === 'document' ? 3 : 16), // Default weight in oz
+      };
+      
+      const requestData: ShippingRequestData = {
+        fromAddress,
+        toAddress,
+        parcel,
+        options: {
+          label_format: "PDF",
+          insurance: values.packageValue > 0 ? values.packageValue : undefined,
+        }
+      };
+      
+      // Save form data for label printing information
+      setShipmentDetails({
+        fromAddress: `${fromAddress.name}${fromAddress.company ? '\n' + fromAddress.company : ''}
+${fromAddress.street1}${fromAddress.street2 ? '\n' + fromAddress.street2 : ''}
+${fromAddress.city}, ${fromAddress.state} ${fromAddress.zip}
+${fromAddress.country}`,
+        toAddress: `${toAddress.name}${toAddress.company ? '\n' + toAddress.company : ''}
+${toAddress.street1}${toAddress.street2 ? '\n' + toAddress.street2 : ''}
+${toAddress.city}, ${toAddress.state} ${toAddress.zip}
+${toAddress.country}`,
+        weight: values.weightLb ? 
+          `${values.weightLb} lb ${values.weightOz ? values.weightOz + ' oz' : ''}` : 
+          `${values.weightOz || 0} oz`,
+        dimensions: values.length ? 
+          `${values.length}" × ${values.width}" × ${values.height}"` : 
+          undefined,
+        service: '',  // Will be populated when a rate is selected
+        carrier: '',  // Will be populated when a rate is selected
+      });
+      
+      // Fetch shipping rates
+      const shippingRates = await carrierService.getShippingRates(requestData);
+      
+      // Store shipment ID for label creation
+      if (shippingRates.length > 0 && shippingRates[0]?.shipment_id) {
+        // setShipmentId(shippingRates[0].shipment_id);
+      }
+      
+      // Dispatch custom event with shipping rates
+      const ratesEvent = new CustomEvent('easypost-rates-received', {
+        detail: {
+          rates: shippingRates,
+          shipmentId: shippingRates[0]?.shipment_id || null,
+        }
+      });
+      
+      document.dispatchEvent(ratesEvent);
+      setShowRates(true);
+      setCurrentStep('rates'); // Move to rates step
+      toast.success("Shipping rates retrieved successfully");
+      
+      // Update service and carrier in shipment details
+      if (shipmentDetails && selectedRateId) {
+        const selectedRate = shippingRates.find(rate => rate.id === selectedRateId);
+        if (selectedRate) {
+          setShipmentDetails(prev => ({
+            ...prev!,
+            service: selectedRate.service,
+            carrier: selectedRate.carrier.toUpperCase(),
+          }));
+        }
+      }
+      
+      // Scroll to the rates section
+      setTimeout(() => {
+        const ratesSection = document.getElementById('shipping-rates-section');
+        if (ratesSection) {
+          ratesSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    } catch (error) {
+      console.error("Error getting shipping rates:", error);
+      toast.error("Failed to get shipping rates. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-
-    return true;
+  };
+  
+  // Saved addresses for quick selection
+  const [savedAddresses, setSavedAddresses] = useState([
+    { id: '1', name: 'Home Office', street: '123 Main St', city: 'Boston', state: 'MA', zip: '02101' },
+    { id: '2', name: 'Warehouse', street: '456 Storage Ave', city: 'Chicago', state: 'IL', zip: '60007' },
+    { id: '3', name: 'Retail Store', street: '789 Market St', city: 'San Francisco', state: 'CA', zip: '94103' },
+  ]);
+  
+  const [selectedFromAddress, setSelectedFromAddress] = useState('');
+  
+  const handleSelectFromAddress = (addressId: string) => {
+    const address = savedAddresses.find(addr => addr.id === addressId);
+    if (address) {
+      // Set address fields in form
+      setSelectedFromAddress(addressId);
+    }
   };
 
+  // Function to verify address using EasyPost API
+  const verifyAddress = async (type: 'from' | 'to') => {
+    try {
+      toast.info("Verifying address...");
+      // In a real implementation, this would call the EasyPost address verification API
+      // For now we'll just simulate success
+      setTimeout(() => {
+        toast.success(`${type === 'from' ? 'Origin' : 'Destination'} address verified successfully`);
+      }, 1000);
+    } catch (error) {
+      toast.error(`Failed to verify ${type === 'from' ? 'origin' : 'destination'} address`);
+    }
+  };
+
+  // Function to create label with proper handling of format changes
   const handleCreateLabel = async () => {
-    if (!validateFormData()) {
+    if (!selectedRateId || !shipmentId) {
+      toast.error("Cannot create label: Missing rate or shipment information");
       return;
     }
-
-    if (!selectedRate) {
-      console.error('No rate selected');
-      return;
+    
+    setIsCreatingLabel(true);
+    console.log("Creating label with rate:", selectedRateId, "and shipment:", shipmentId);
+    console.log("Using label format:", selectedLabelFormat);
+    
+    try {
+      // Get the selected rate to update shipment details before creating label
+      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      if (selectedRate && shipmentDetails) {
+        setShipmentDetails({
+          ...shipmentDetails,
+          service: selectedRate.service,
+          carrier: selectedRate.carrier.toUpperCase(),
+        });
+      }
+      
+      // Call the createLabel function from useShippingRates hook
+      // Pass the selected format
+      const labelData = await createLabel(selectedRateId, shipmentId, {
+        label_format: "PDF",
+        label_size: selectedLabelFormat
+      });
+      
+      if (labelData) {
+        // Force update workflow step
+        setCurrentStep('label');
+        toast.success("Label created successfully!");
+      }
+      
+    } catch (error) {
+      console.error("Label creation error:", error);
+      toast.error("Failed to create label. Please try again.");
+    } finally {
+      setIsCreatingLabel(false);
     }
-
-    console.log('Creating label...');
   };
 
-  const handleGetRates = async () => {
-    if (!validateFormData()) {
-      return;
+  // Function to handle label format changes
+  const handleLabelFormatChange = async (format: string): Promise<void> => {
+    setSelectedLabelFormat(format);
+    
+    // If we already have a label and rate, regenerate the label with the new format
+    if (selectedRateId && shipmentId && labelUrl) {
+      try {
+        console.log("Regenerating label with new format:", format);
+        await createLabel(selectedRateId, shipmentId, {
+          label_format: "PDF",
+          label_size: format
+        });
+      } catch (error) {
+        console.error("Error updating label format:", error);
+        toast.error("Failed to update label format");
+        throw error; // Important: Throw the error to be handled by the PrintPreview component
+      }
     }
-
-    fetchRates();
   };
+
+  const downloadLabel = () => {
+    if (!labelUrl) return;
+    
+    const link = document.createElement('a');
+    link.href = labelUrl;
+    link.setAttribute('download', `shipping_label_${trackingCode || 'download'}.pdf`);
+    link.setAttribute('target', '_blank');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success("Label download started");
+  };
+  
+  // Sort rates by price for display
+  const sortedRates = rates ? [...rates].sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate)) : [];
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-8">
-      <Card>
-        <CardHeader>
-          <CardTitle>Pickup Address</CardTitle>
-          <CardDescription>
-            Select your default pickup address. This will be used as the "Ship From" address.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {pickupAddress ? (
-            <div>
-              <p><strong>Name:</strong> {pickupAddress.name}</p>
-              <p><strong>Company:</strong> {pickupAddress.company}</p>
-              <p><strong>Street 1:</strong> {pickupAddress.street1}</p>
-              <p><strong>Street 2:</strong> {pickupAddress.street2}</p>
-              <p><strong>City:</strong> {pickupAddress.city}</p>
-              <p><strong>State:</strong> {pickupAddress.state}</p>
-              <p><strong>Zip:</strong> {pickupAddress.zip}</p>
-              <p><strong>Country:</strong> {pickupAddress.country}</p>
-            </div>
-          ) : (
-            <p>No default pickup address set. Please set one in your settings.</p>
-          )}
-        </CardContent>
-      </Card>
+    <div className="container mx-auto px-4 py-6">
+      <div className="flex items-center justify-between mb-6 bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-100 shadow-sm">
+        <h1 className="text-2xl font-bold flex items-center text-purple-800">
+          <Globe className="mr-3 h-7 w-7 text-purple-600" /> 
+          Ship To
+        </h1>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Addresses</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-lg font-medium mb-4">Ship From</h3>
-              <AddressForm 
-                onSubmit={(address) => {
-                  setFromName(address.name || '');
-                  setFromCompany(address.company || '');
-                  setFromStreet1(address.street1 || '');
-                  setFromStreet2(address.street2 || '');
-                  setFromCity(address.city || '');
-                  setFromState(address.state || '');
-                  setFromZip(address.zip || '');
-                  setFromCountry(address.country || 'US');
-                  setFromPhone(address.phone || '');
-                  setFromEmail(address.email || '');
-                  setFromIsResidential(address.is_residential || false);
-                }}
-              />
+      {/* Workflow steps */}
+      <div className="mb-6">
+        <ShippingWorkflow currentStep={currentStep} />
+      </div>
+
+      <Alert className="mb-6 bg-purple-50 border border-purple-200">
+        <Info className="h-5 w-5 text-purple-600" />
+        <AlertTitle className="text-purple-800 font-bold">Ship To</AlertTitle>
+        <AlertDescription className="text-purple-700">
+          Ship to addresses within your country or internationally with our reliable shipping services. Complete the form below to get started.
+        </AlertDescription>
+      </Alert>
+
+      {/* Address Form - Only shown in address step */}
+      {currentStep === 'address' && (
+        <Card className="border border-purple-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
+          <div className="p-6">
+            <div className="flex items-center mb-4 gap-2">
+              <Button
+                variant={activeTab === 'document' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('document')}
+                className={activeTab === 'document' ? 'bg-purple-600 hover:bg-purple-700' : 'border-purple-200 hover:bg-purple-50'}
+              >
+                <Package className="mr-2 h-5 w-5" />
+                Ship Documents
+              </Button>
+              <Button
+                variant={activeTab === 'package' ? 'default' : 'outline'}
+                onClick={() => setActiveTab('package')}
+                className={activeTab === 'package' ? 'bg-purple-600 hover:bg-purple-700' : 'border-purple-200 hover:bg-purple-50'}
+              >
+                <Package className="mr-2 h-5 w-5" />
+                Ship Packages
+              </Button>
             </div>
-            <div>
-              <h3 className="text-lg font-medium mb-4">Ship To</h3>
-              <AddressForm 
-                onSubmit={(address) => {
-                  setToName(address.name || '');
-                  setToCompany(address.company || '');
-                  setToStreet1(address.street1 || '');
-                  setToStreet2(address.street2 || '');
-                  setToCity(address.city || '');
-                  setToState(address.state || '');
-                  setToZip(address.zip || '');
-                  setToCountry(address.country || 'US');
-                  setToPhone(address.phone || '');
-                  setToEmail(address.email || '');
-                  setToIsResidential(address.is_residential || false);
+            
+            <EnhancedShippingForm />
+          </div>
+        </Card>
+      )}
+
+      {/* Rates Section - Only shown in rates step */}
+      {currentStep === 'rates' && (
+        <Card className="border border-purple-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
+          <div className="p-6">
+            <h2 className="text-xl font-semibold text-purple-800 flex items-center mb-6" id="shipping-rates-section">
+              <Package className="mr-2 h-6 w-6 text-purple-600" /> 
+              Select Shipping Option
+            </h2>
+            
+            {ratesLoading ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+                <p className="text-purple-800">Loading shipping rates...</p>
+              </div>
+            ) : sortedRates.length > 0 ? (
+              <>
+                {/* Display shipping rates in a vertical list */}
+                <div className="space-y-4">
+                  {sortedRates.map((rate) => (
+                    <ShippingRateCard
+                      key={rate.id}
+                      rate={rate}
+                      isSelected={selectedRateId === rate.id}
+                      onSelect={handleSelectRate}
+                      isBestValue={rate.id === bestValueRateId}
+                      isFastest={rate.id === fastestRateId}
+                      showDiscount={true}
+                    />
+                  ))}
+                </div>
+                
+                <div className="mt-8 flex flex-wrap justify-end gap-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCurrentStep('address')}
+                    className="border-purple-200 hover:bg-purple-50"
+                  >
+                    Back to Address
+                  </Button>
+                  
+                  <div className="flex-1">
+                    <div className="flex flex-col gap-2">
+                      <h3 className="text-sm font-medium text-purple-800">Label Format</h3>
+                      <Select 
+                        value={selectedLabelFormat} 
+                        onValueChange={setSelectedLabelFormat}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select Label Format" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {labelFormats.map(format => (
+                            <SelectItem key={format.value} value={format.value}>
+                              <div>
+                                <div className="font-medium">{format.label}</div>
+                                <div className="text-xs text-gray-500">{format.description}</div>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    type="button"
+                    disabled={!selectedRateId || isCreatingLabel}
+                    onClick={handleCreateLabel}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {isCreatingLabel ? (
+                      <>
+                        <Package className="h-5 w-5 animate-spin mr-2" />
+                        Creating Label...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-5 w-5 mr-2" />
+                        Create & Print Label
+                      </>
+                    )}
+                  </Button>
+                  
+                  <Button
+                    type="button"
+                    className="bg-purple-600 hover:bg-purple-700"
+                    disabled={!selectedRateId}
+                    onClick={() => {
+                      if (selectedRateId) {
+                        const rate = sortedRates.find(r => r.id === selectedRateId);
+                        if (rate && rate.shipment_id) {
+                          navigate(`/payment?amount=${Math.round(parseFloat(rate.rate) * 100)}&shipmentId=${rate.shipment_id}&rateId=${selectedRateId}`);
+                        } else {
+                          toast.error("Missing shipment information");
+                        }
+                      }
+                    }}
+                  >
+                    <CreditCard className="h-5 w-5 mr-2" />
+                    Proceed to Payment
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-10 border rounded-lg bg-gray-50">
+                <Package className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-800 mb-2">No Shipping Rates Available</h3>
+                <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                  We couldn't find any shipping rates for the provided details. Please try adjusting your shipping information.
+                </p>
+                <Button 
+                  onClick={() => setCurrentStep('address')}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  Back to Shipping Details
+                </Button>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Label Section - Only shown in label step */}
+      {currentStep === 'label' && labelUrl && (
+        <Card className="border border-purple-200 shadow-md rounded-xl overflow-hidden w-full mb-6">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-purple-800 flex items-center">
+                <CheckCircle className="mr-2 h-6 w-6 text-green-600" /> 
+                Label Created Successfully
+              </h2>
+              
+              <div className="flex gap-2">
+                <PrintPreview 
+                  labelUrl={labelUrl} 
+                  trackingCode={trackingCode}
+                  shipmentDetails={shipmentDetails}
+                  onFormatChange={handleLabelFormatChange}
+                  shipmentId={shipmentId || undefined}
+                />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6" ref={printContainerRef}>
+              {/* Label Preview */}
+              <div className="p-4 border rounded-md bg-white">
+                <h3 className="font-semibold mb-3">Shipping Label</h3>
+                <div className="flex justify-between items-center mb-3">
+                  <p className="text-sm font-medium text-gray-700">{selectedLabelFormat} Format</p>
+                  
+                  <Select 
+                    value={selectedLabelFormat} 
+                    onValueChange={handleLabelFormatChange}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Select Label Format" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {labelFormats.map(format => (
+                        <SelectItem key={format.value} value={format.value}>
+                          {format.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {isCreatingLabel ? (
+                  <div className="border border-gray-300 h-64 flex items-center justify-center">
+                    <div className="flex flex-col items-center">
+                      <div className="w-8 h-8 border-4 border-t-transparent border-purple-600 rounded-full animate-spin mb-4"></div>
+                      <p className="text-purple-800">Regenerating label...</p>
+                    </div>
+                  </div>
+                ) : (
+                  <img 
+                    src={labelUrl} 
+                    alt="Shipping Label Preview" 
+                    className="max-w-full h-auto border border-gray-300 mb-3"
+                  />
+                )}
+                {trackingCode && (
+                  <div className="bg-purple-50 p-3 rounded-md mt-3">
+                    <p className="text-sm font-medium">Tracking Number:</p>
+                    <p className="font-mono text-sm">{trackingCode}</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Shipment Summary */}
+              <div className="p-4 border rounded-md bg-white">
+                <h3 className="font-semibold mb-3">Shipping Details</h3>
+                
+                {shipmentDetails && (
+                  <div className="space-y-4 text-sm">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="font-medium text-gray-700">From:</p>
+                        <p className="whitespace-pre-line">{shipmentDetails.fromAddress}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">To:</p>
+                        <p className="whitespace-pre-line">{shipmentDetails.toAddress}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="border-t pt-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="font-medium text-gray-700">Service:</p>
+                          <p>{shipmentDetails.carrier} - {shipmentDetails.service}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-700">Weight:</p>
+                          <p>{shipmentDetails.weight}</p>
+                        </div>
+                      </div>
+                      
+                      {shipmentDetails.dimensions && (
+                        <div className="mt-2">
+                          <p className="font-medium text-gray-700">Dimensions:</p>
+                          <p>{shipmentDetails.dimensions}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-4 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCurrentStep('address');
+                  setShowRates(false);
                 }}
-              />
+                className="border-purple-200 hover:bg-purple-50"
+              >
+                Ship Another Package
+              </Button>
+              <Button
+                onClick={() => navigate('/tracking')}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                Track This Shipment
+              </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </Card>
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Package Information</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PackageForm 
-            onPackageChange={(pkg) => {
-              setLength(pkg.length || 0);
-              setWidth(pkg.width || 0);
-              setHeight(pkg.height || 0);
-              setWeight(pkg.weight || 0);
-            }}
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Rates</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Button onClick={handleGetRates} disabled={isRatesLoading} className="mb-4">
-            {isRatesLoading ? 'Loading Rates...' : 'Get Rates'}
-          </Button>
-          {ratesError && <p className="text-red-500">Error: {ratesError.message}</p>}
-          {rates && rates.length > 0 ? (
-            <div className="space-y-2">
-              {rates.map((rate) => (
-                <div
-                  key={rate.id}
-                  className={`border p-4 rounded-md cursor-pointer ${
-                    selectedRate?.id === rate.id ? 'bg-blue-50 border-blue-500' : 'hover:bg-gray-50'
-                  }`}
-                  onClick={() => setSelectedRate(rate)}
-                >
-                  <p><strong>Carrier:</strong> {rate.carrier}</p>
-                  <p><strong>Service:</strong> {rate.service}</p>
-                  <p><strong>Rate:</strong> {rate.rate} {rate.currency}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p>No rates available.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Button onClick={handleCreateLabel} disabled={!selectedRate}>
-        Create Label
-      </Button>
+      {/* Informational cards at the bottom - Only shown in address step */}
+      {currentStep === 'address' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="p-6 border-2 border-purple-100 bg-purple-50">
+            <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
+              <Globe className="mr-2 h-5 w-5 text-purple-600" />
+              Global Coverage
+            </h3>
+            <p className="text-purple-700 mb-2">Ship to over 200 countries worldwide with reliable carriers and competitive rates.</p>
+          </Card>
+          
+          <Card className="p-6 border-2 border-purple-100 bg-purple-50">
+            <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
+              <AlertCircle className="mr-2 h-5 w-5 text-purple-600" />
+              Documentation Help
+            </h3>
+            <p className="text-purple-700 mb-2">We'll automatically generate the customs forms needed for your international shipment.</p>
+          </Card>
+          
+          <Card className="p-6 border-2 border-purple-100 bg-purple-50">
+            <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
+              <Truck className="mr-2 h-5 w-5 text-purple-600" />
+              Multiple Carriers
+            </h3>
+            <p className="text-purple-700 mb-2">Compare rates from USPS, FedEx, UPS, and DHL to find the best shipping option.</p>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

@@ -132,7 +132,7 @@ export const usePickupAddresses = () => {
   };
 
   // Update existing address with improved error handling
-  const updateAddress = async (addressId: string, addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">) => {
+  const updateAddress = async (addressId: number, addressData: Omit<SavedAddress, "id" | "user_id" | "created_at">) => {
     setIsUpdating(true);
     try {
       console.log("Updating address with ID:", addressId, "and data:", addressData);
@@ -218,7 +218,7 @@ export const usePickupAddresses = () => {
   };
   
   // Delete address with improved error handling
-  const deleteAddress = async (addressId: string) => {
+  const deleteAddress = async (addressId: number) => {
     setIsUpdating(true);
     try {
       const success = await addressService.deleteAddress(addressId);
@@ -248,7 +248,7 @@ export const usePickupAddresses = () => {
   };
   
   // Set address as default from
-  const setAsDefaultFrom = async (addressId: string) => {
+  const setAsDefaultFrom = async (addressId: number) => {
     setIsUpdating(true);
     try {
       const success = await addressService.setDefaultFromAddress(addressId);

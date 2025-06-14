@@ -1,160 +1,324 @@
+
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { useToast } from "@/components/ui/use-toast";
-import { ToastAction } from "@/components/ui/toast";
-import { AddressDetails, ParcelDetails, ShippingOption, SavedAddress, LabelFormat } from '@/types/shipping';
-import PrintPreview, { SingleShipmentDataForPreview } from '@/components/shipping/PrintPreview';
+import ShippingRateCard from './shipping/ShippingRateCard';
+import ShippingLabel from './shipping/ShippingLabel';
+import EmptyRatesState from './shipping/EmptyRatesState';
+import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
+import { useShippingRates } from '@/hooks/useShippingRates';
+import useRateCalculator from '@/hooks/useRateCalculator';
+import { toast } from '@/components/ui/sonner';
+import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import PrintPreview from './shipping/PrintPreview';
 
-interface ShippingRatesProps {
-  shipmentDetails?: {
-    to_address: AddressDetails;
-    from_address: AddressDetails;
-    parcel: ParcelDetails;
-    customs_info?: any;
-    options?: any;
-  };
-  rates: ShippingOption[];
-  isLoadingRates: boolean;
-  onRateSelected: (rate: ShippingOption) => void;
-  fromAddress?: SavedAddress | null; 
-  toAddress?: AddressDetails;
-  parcel?: ParcelDetails;
-  customsInfo?: any;
-  options?: any;
-}
-
-
-const ShippingRates: React.FC<ShippingRatesProps> = ({ 
-  rates,
-  isLoadingRates,
-  onRateSelected,
-  fromAddress,
- }) => {
-  const [selectedRate, setSelectedRate] = useState<ShippingOption | null>(null);
-  const [trackingCode, setTrackingCode] = useState<string>('');
-  const [generatedLabelUrl, setGeneratedLabelUrl] = useState<string>('');
-  const [currentShipmentId, setCurrentShipmentId] = useState<string>('');
-  const [availableLabelUrls, setAvailableLabelUrls] = useState<{ pdf?: string; png?: string; zpl?: string; epl?: string }>({});
-  const [isPurchasing, setIsPurchasing] = useState(false);
-  const { toast } = useToast();
-  const [showPrintPreview, setShowPrintPreview] = useState(false);
-  const [shipmentDataForPreview, setShipmentDataForPreview] = useState<SingleShipmentDataForPreview | null>(null);
-
-  const downloadLabel = (labelUrl: string, filename: string) => {
-    const link = document.createElement('a');
-    link.href = labelUrl;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleRateSelectInternal = async (rate: ShippingOption) => {
-    setSelectedRate(rate);
-    setIsPurchasing(true);
-    try {
-      onRateSelected(rate);
-    } catch (error: any) {
-        console.error("Error during onRateSelected callback:", error);
-        toast({
-          title: "Selection Error",
-          description: "Failed to process rate selection.",
-          variant: "destructive",
+const ShippingRates: React.FC = () => {
+  const {
+    rates,
+    allRates,
+    isLoading,
+    isProcessingPayment,
+    selectedRateId,
+    labelUrl,
+    trackingCode,
+    shipmentId,
+    bestValueRateId,
+    fastestRateId,
+    uniqueCarriers,
+    activeCarrierFilter,
+    handleSelectRate,
+    handleCreateLabel,
+    handleProceedToPayment,
+    handleFilterByCarrier
+  } = useShippingRates();
+  
+  const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
+  const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
+  const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
+  const [shipmentDetails, setShipmentDetails] = useState<{ 
+    fromAddress: string; 
+    toAddress: string; 
+    weight: string; 
+    dimensions?: string; 
+    service: string; 
+    carrier: string; 
+  } | undefined>();
+  
+  useEffect(() => {
+    if (selectedRateId && rates.length > 0) {
+      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      if (selectedRate) {
+        setShipmentDetails({
+          fromAddress: "Your shipping address",
+          toAddress: "Recipient address",
+          weight: "Package weight",
+          service: selectedRate.service,
+          carrier: selectedRate.carrier.toUpperCase(),
         });
-    } finally {
-      setIsPurchasing(false); 
+      }
+    }
+  }, [selectedRateId, rates]);
+  
+  const handleLabelFormatChange = async (format: string): Promise<void> => {
+    setSelectedLabelFormat(format);
+    
+    if (selectedRateId && shipmentId && labelUrl) {
+      try {
+        console.log("Regenerating label with new format:", format);
+        await handleCreateLabel(selectedRateId, shipmentId, {
+          label_format: "PDF",
+          label_size: format
+        });
+      } catch (error) {
+        console.error("Error updating label format:", error);
+        toast.error("Failed to update label format");
+        throw error;
+      }
+    }
+  };
+
+  const handleRateSelection = (rateId: string) => {
+    handleSelectRate(rateId);
+    
+    const calculatorData = sessionStorage.getItem('calculatorData');
+    if (calculatorData) {
+      toast.success("Rate selected! Click 'Proceed Forward' to continue with label creation.", {
+        duration: 5000,
+      });
+    }
+  };
+
+  const handleProceedForward = () => {
+    if (selectedRateId) {
+      selectRateAndProceed(selectedRateId);
     }
   };
   
-  const handlePreviewDownloadFormat = async (format: LabelFormat, shipmentId?: string) => {
-    if (!shipmentId || !shipmentDataForPreview) {
-        toast({ title: "Error", description: "Shipment data not available for download.", variant: "destructive" });
-        return;
-    }
-    let urlToDownload: string | undefined;
-    switch (format) {
-        case 'pdf': urlToDownload = shipmentDataForPreview.label_urls?.pdf; break;
-        case 'png': urlToDownload = shipmentDataForPreview.label_urls?.png || shipmentDataForPreview.label_url; break;
-        case 'zpl': urlToDownload = shipmentDataForPreview.label_urls?.zpl; break;
-        case 'epl': urlToDownload = shipmentDataForPreview.label_urls?.epl; break;
-        default:
-            toast({ title: "Unsupported Format", description: `Format ${format} is not available for download.`, variant: "destructive" });
-            return;
-    }
+  if (rates.length === 0) {
+    return (
+      <div className="w-full" id="shipping-rates-section">
+        <EmptyRatesState />
+        <div className="mt-4 flex justify-end">
+          <Link to="/bulk-upload">
+            <Button variant="outline" className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              Bulk Upload
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-    if (urlToDownload) {
-        await downloadLabel(urlToDownload, `label_${shipmentDataForPreview.tracking_code || shipmentId}.${format}`);
+  const sortedRates = [...rates].sort((a, b) => {
+    if (sortOrder === 'price') {
+      return parseFloat(a.rate) - parseFloat(b.rate);
+    } else if (sortOrder === 'speed') {
+      const aDays = a.delivery_days || 999;
+      const bDays = b.delivery_days || 999;
+      return aDays - bDays;
     } else {
-        toast({ title: "Label Not Found", description: `${format.toUpperCase()} label not available for this shipment.`, variant: "destructive" });
+      return a.carrier.localeCompare(b.carrier);
     }
-  };
+  });
+
+  const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
 
   return (
-    <Card className="w-full max-w-2xl mx-auto shadow-lg">
-      <CardHeader>
-        <CardTitle>Available Shipping Rates</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoadingRates ? (
-          <p>Loading shipping rates...</p>
-        ) : rates.length > 0 ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[100px]">Carrier</TableHead>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Rate</TableHead>
-                  <TableHead>Delivery Days</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rates.map((rate) => (
-                  <TableRow key={rate.id}>
-                    <TableCell className="font-medium">{rate.carrier}</TableCell>
-                    <TableCell>{rate.service}</TableCell>
-                    <TableCell>{rate.rate} {rate.currency}</TableCell>
-                    <TableCell>{rate.delivery_days ?? 'N/A'}</TableCell>
-                    <TableCell className="text-right">
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleRateSelectInternal(rate)} 
-                        disabled={isPurchasing || (selectedRate?.id === rate.id && isPurchasing)}
-                      >
-                        {selectedRate?.id === rate.id && isPurchasing ? "Processing..." : "Select Rate"}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+    <div className="w-full pb-6" id="shipping-rates-section">
+      <Card className="border border-gray-200 shadow-lg bg-white">
+        <div className="p-6">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6">
+            <h2 className="text-xl font-bold text-blue-800 flex items-center mb-4 lg:mb-0">
+              <Truck className="mr-2 h-5 w-5 text-blue-600" />
+              Available Shipping Rates
+            </h2>
+            <div className="flex flex-wrap gap-3">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
+                    <Filter className="h-4 w-4" />
+                    {activeCarrierFilter === 'all' ? 'All Carriers' : activeCarrierFilter.toUpperCase()}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999] max-h-60 overflow-y-auto">
+                  <DropdownMenuItem onClick={() => handleFilterByCarrier('all')} className="py-2">
+                    All Carriers
+                  </DropdownMenuItem>
+                  {uniqueCarriers.map((carrier) => (
+                    <DropdownMenuItem 
+                      key={carrier} 
+                      onClick={() => handleFilterByCarrier(carrier)}
+                      className="py-2"
+                    >
+                      {carrier.toUpperCase()}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
+                    Sort by: {
+                      sortOrder === 'price' ? 'Price' : 
+                      sortOrder === 'speed' ? 'Speed' : 
+                      'Carrier'
+                    }
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999]">
+                  <DropdownMenuItem onClick={() => setSortOrder('speed')} className="py-2">
+                    Speed (Fastest First)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder('price')} className="py-2">
+                    Price (Lowest First)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder('carrier')} className="py-2">
+                    Carrier (A-Z)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
-        ) : (
-          <p>No shipping rates available for the given address and parcel details.</p>
-        )}
-      </CardContent>
+          
+          {labelUrl && trackingCode && (
+            <div className="mb-6">
+              <PrintPreview 
+                labelUrl={labelUrl} 
+                trackingCode={trackingCode} 
+                shipmentId={shipmentId}
+                shipmentDetails={shipmentDetails}
+                onFormatChange={handleLabelFormatChange}
+              />
+            </div>
+          )}
+          
+          {!labelUrl ? (
+            <>
+              {(aiRecommendation || isAiLoading) && (
+                <ShippingAIRecommendation 
+                  aiRecommendation={aiRecommendation}
+                  isLoading={isAiLoading}
+                  onSelectRecommendation={handleRateSelection}
+                />
+              )}
+              
+              <div className="space-y-4 mt-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  {sortedRates.map((rate) => (
+                    <ShippingRateCard
+                      key={rate.id}
+                      rate={rate}
+                      isSelected={selectedRateId === rate.id}
+                      onSelect={handleRateSelection}
+                      isBestValue={rate.id === bestValueRateId}
+                      isFastest={rate.id === fastestRateId}
+                      aiRecommendation={aiRecommendation && {
+                        rateId: aiRecommendation.bestOverall || '',
+                        reason: aiRecommendation.analysisText || ''
+                      }}
+                      showDiscount={true}
+                      originalRate={rate.original_rate}
+                      isPremium={false}
+                    />
+                  ))}
+                </div>
 
-      {showPrintPreview && shipmentDataForPreview && fromAddress && (
-        <PrintPreview
-          isOpenProp={showPrintPreview}
-          onOpenChangeProp={setShowPrintPreview}
-          singleShipmentPreview={shipmentDataForPreview}
-          isBatchPreview={false}
-          onDownloadFormat={handlePreviewDownloadFormat}
-          pickupAddress={fromAddress}
-        />
-      )}
-    </Card>
+                {sortedRates.length === 0 && (
+                  <div className="p-6 text-center bg-gray-50 rounded-lg">
+                    <p className="text-base text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleFilterByCarrier('all')} 
+                      className="mt-4 h-9 px-4 text-sm"
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                )}
+              </div>
+              
+              <div className="mt-6 flex flex-wrap justify-end gap-3">
+                {fromCalculator && selectedRateId && (
+                  <Button 
+                    onClick={handleProceedForward}
+                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md shadow-md"
+                  >
+                    <Download className="h-4 w-4" />
+                    Proceed Forward
+                  </Button>
+                )}
+                
+                <Button 
+                  onClick={() => {
+                    const labelOptions = {
+                      label_format: "PDF",
+                      label_size: selectedLabelFormat
+                    };
+                    handleCreateLabel(undefined, undefined, labelOptions);
+                  }}
+                  disabled={!selectedRateId || isLoading}
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md shadow-md"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader className="h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" />
+                      Buy & Print Label
+                    </>
+                  )}
+                </Button>
+
+                <Button 
+                  onClick={handleProceedToPayment}
+                  disabled={!selectedRateId || isProcessingPayment}
+                  variant="outline"
+                  className="border border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md"
+                >
+                  {isProcessingPayment ? (
+                    <>
+                      <Loader className="h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="h-4 w-4" />
+                      Proceed to Payment
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="mt-6 flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  sessionStorage.removeItem('calculatorData');
+                  sessionStorage.removeItem('transferToShipping');
+                  document.dispatchEvent(new Event('shipping-form-completed'));
+                }}
+                className="border border-blue-200 hover:bg-blue-50 h-9 px-4 text-sm"
+              >
+                Ship Another Package
+              </Button>
+            </div>
+          )}
+          
+          <div className="mt-4 text-center text-xs text-gray-500">
+            <p>* All rates include handling fees and applicable taxes</p>
+          </div>
+        </div>
+      </Card>
+    </div>
   );
 };
 
