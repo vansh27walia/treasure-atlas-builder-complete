@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -29,6 +30,8 @@ const addressSchema = z.object({
   zip: z.string().min(1, 'ZIP code is required'),
   country: z.string().min(1, 'Country is required'),
   phone: z.string().optional(),
+  email: z.string().optional(),
+  is_residential: z.boolean().default(false),
   is_default_from: z.boolean().default(false),
   is_default_to: z.boolean().default(false),
 });
@@ -66,6 +69,8 @@ const AddressForm: React.FC<AddressFormProps> = ({
       zip: '',
       country: 'US',
       phone: '',
+      email: '',
+      is_residential: false,
       is_default_from: false,
       is_default_to: false,
       ...defaultValues,
@@ -322,6 +327,43 @@ const AddressForm: React.FC<AddressFormProps> = ({
                 <Input placeholder="Phone number" {...field} value={field.value || ''} />
               </FormControl>
               <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email (Optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="Email address" type="email" {...field} value={field.value || ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="is_residential"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+              <div className="space-y-1 leading-none">
+                <FormLabel>
+                  Residential address
+                </FormLabel>
+                <FormDescription>
+                  Check this if this is a residential address (affects shipping rates)
+                </FormDescription>
+              </div>
             </FormItem>
           )}
         />

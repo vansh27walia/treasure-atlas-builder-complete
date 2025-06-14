@@ -84,7 +84,7 @@ const ShipToPage = () => {
         if (address) {
           setPickupAddress({
             ...address,
-            id: String(address.id), // Convert to string for consistency
+            id: String(address.id),
             email: address.email || '',
             is_residential: address.is_residential || false
           });

@@ -1,8 +1,7 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
-  id: string; // Changed to string for consistency
+  id: string;
   user_id?: string;
   name?: string | null;
   company?: string | null;
@@ -13,13 +12,13 @@ export interface SavedAddress {
   zip: string;
   country: string; 
   phone?: string | null;
-  email?: string | null; // Added email field
+  email?: string | null;
   is_default_from?: boolean;
   is_default_to?: boolean;
   created_at?: string;
   updated_at?: string;
   address_type?: 'residential' | 'commercial' | string | null;
-  is_residential?: boolean; // Added is_residential field
+  is_residential?: boolean;
   validate_address?: boolean;
 }
 
@@ -148,7 +147,7 @@ export class AddressService {
       // Convert database records to SavedAddress format
       return (data || []).map(addr => ({
         ...addr,
-        id: String(addr.id), // Convert id to string
+        id: String(addr.id),
         email: addr.email || null,
         is_residential: addr.is_residential || false
       })) as SavedAddress[];
@@ -174,12 +173,20 @@ export class AddressService {
       console.log('Creating address with user ID:', userId);
       console.log('Address data:', address);
       
-      // Ensure required fields are never undefined
+      // Ensure required fields are never undefined and remove fields not in database
       const addressData = {
-        ...address,
+        name: address.name || '',
+        company: address.company || '',
+        street1: address.street1,
+        street2: address.street2 || '',
+        city: address.city,
+        state: address.state,
+        zip: address.zip,
+        country: address.country,
         phone: address.phone || '',
-        email: address.email || '',
-        is_residential: address.is_residential || false
+        is_default_from: address.is_default_from || false,
+        is_default_to: address.is_default_to || false,
+        // Note: email and is_residential are not in the database schema, so we skip them
       };
       
       // Before proceeding, try to ensure the user exists in the users table
@@ -215,9 +222,9 @@ export class AddressService {
         console.log('Address created via edge function:', data.data);
         return {
           ...data.data,
-          id: String(data.data.id), // Ensure id is string
-          email: data.data.email || null,
-          is_residential: data.data.is_residential || false
+          id: String(data.data.id),
+          email: address.email || null,
+          is_residential: address.is_residential || false
         } as SavedAddress;
       } else {
         // Use standard approach without encryption
@@ -239,9 +246,9 @@ export class AddressService {
         console.log('Address created via direct insertion:', data);
         return {
           ...data[0],
-          id: String(data[0].id), // Convert id to string
-          email: data[0].email || null,
-          is_residential: data[0].is_residential || false
+          id: String(data[0].id),
+          email: address.email || null,
+          is_residential: address.is_residential || false
         } as SavedAddress;
       }
     } catch (error) {
@@ -260,19 +267,32 @@ export class AddressService {
         throw new Error('User is not authenticated');
       }
       
-      // Ensure required fields are never undefined
+      const numericId = parseInt(addressId);
+      if (isNaN(numericId)) {
+        throw new Error('Invalid address ID');
+      }
+      
+      // Ensure required fields are never undefined and remove fields not in database
       const addressData = {
-        ...address,
+        name: address.name || '',
+        company: address.company || '',
+        street1: address.street1,
+        street2: address.street2 || '',
+        city: address.city,
+        state: address.state,
+        zip: address.zip,
+        country: address.country,
         phone: address.phone || '',
-        email: address.email || '',
-        is_residential: address.is_residential || false
+        is_default_from: address.is_default_from || false,
+        is_default_to: address.is_default_to || false,
+        // Note: email and is_residential are not in the database schema, so we skip them
       };
       
       // First verify that the address belongs to the user
       const { data: existingAddress, error: fetchError } = await supabase
         .from('addresses')
         .select('*')
-        .eq('id', parseInt(addressId)) // Convert string id back to number for database query
+        .eq('id', numericId)
         .eq('user_id', session.session.user.id)
         .single();
       
@@ -285,7 +305,7 @@ export class AddressService {
         const { data, error } = await supabase.functions.invoke('update-address-encryption', {
           body: {
             action: 'update',
-            addressId: parseInt(addressId),
+            addressId: numericId,
             addressData: addressData
           }
         });
@@ -296,9 +316,9 @@ export class AddressService {
         
         return {
           ...data.data,
-          id: String(data.data.id), // Ensure id is string
-          email: data.data.email || null,
-          is_residential: data.data.is_residential || false
+          id: String(data.data.id),
+          email: address.email || null,
+          is_residential: address.is_residential || false
         } as SavedAddress;
       } else {
         // Standard address update
@@ -306,10 +326,9 @@ export class AddressService {
           .from('addresses')
           .update({
             ...addressData,
-            // Ensure user_id remains unchanged
             user_id: session.session.user.id
           })
-          .eq('id', parseInt(addressId)) // Convert string id back to number for database query
+          .eq('id', numericId)
           .select();
         
         if (error) {
@@ -318,9 +337,9 @@ export class AddressService {
         
         return {
           ...data[0],
-          id: String(data[0].id), // Convert id to string
-          email: data[0].email || null,
-          is_residential: data[0].is_residential || false
+          id: String(data[0].id),
+          email: address.email || null,
+          is_residential: address.is_residential || false
         } as SavedAddress;
       }
     } catch (error) {
@@ -339,11 +358,15 @@ export class AddressService {
         throw new Error('User is not authenticated');
       }
       
-      // Delete the address
+      const numericId = parseInt(addressId);
+      if (isNaN(numericId)) {
+        throw new Error('Invalid address ID');
+      }
+      
       const { error } = await supabase
         .from('addresses')
         .delete()
-        .eq('id', parseInt(addressId)) // Convert string id back to number for database query
+        .eq('id', numericId)
         .eq('user_id', session.session.user.id);
       
       if (error) {
@@ -367,6 +390,11 @@ export class AddressService {
         throw new Error('User is not authenticated');
       }
       
+      const numericId = parseInt(addressId);
+      if (isNaN(numericId)) {
+        throw new Error('Invalid address ID');
+      }
+      
       // First, unset any existing default
       const { error: updateError } = await supabase
         .from('addresses')
@@ -382,7 +410,7 @@ export class AddressService {
       const { error } = await supabase
         .from('addresses')
         .update({ is_default_from: true })
-        .eq('id', parseInt(addressId)) // Convert string id back to number for database query
+        .eq('id', numericId)
         .eq('user_id', session.session.user.id);
       
       if (error) {
@@ -406,6 +434,11 @@ export class AddressService {
         throw new Error('User is not authenticated');
       }
       
+      const numericId = parseInt(addressId);
+      if (isNaN(numericId)) {
+        throw new Error('Invalid address ID');
+      }
+      
       // First, unset any existing default
       await supabase
         .from('addresses')
@@ -417,7 +450,7 @@ export class AddressService {
       const { error } = await supabase
         .from('addresses')
         .update({ is_default_to: true })
-        .eq('id', parseInt(addressId)) // Convert string id back to number for database query
+        .eq('id', numericId)
         .eq('user_id', session.session.user.id);
       
       if (error) {
@@ -456,7 +489,7 @@ export class AddressService {
       
       return {
         ...data,
-        id: String(data.id), // Convert id to string
+        id: String(data.id),
         email: data.email || null,
         is_residential: data.is_residential || false
       } as SavedAddress;
@@ -491,7 +524,7 @@ export class AddressService {
       
       return {
         ...data,
-        id: String(data.id), // Convert id to string
+        id: String(data.id),
         email: data.email || null,
         is_residential: data.is_residential || false
       } as SavedAddress;
