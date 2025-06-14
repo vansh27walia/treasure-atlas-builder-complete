@@ -1,21 +1,22 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, Download, Printer, Eye, Mail, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { BulkUploadResult, BulkShipment } from '@/types/shipping';
-import { LabelResultsTable } from './LabelResultsTable'; // Assuming this is the correct import path
+import LabelResultsTable from './LabelResultsTable';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import BulkLabelDownloadOptions from './BulkLabelDownloadOptions'; // Assuming path
+import BulkLabelDownloadOptions from './BulkLabelDownloadOptions';
 import { toast } from '@/components/ui/sonner';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
-  onDownloadAllLabels?: () => void; // Kept for legacy if used, but PrintPreview is preferred
-  onDownloadSingleLabel: (shipmentId: string, format?: 'pdf' | 'png' | 'zpl' | 'epl') => void; // More specific
-  isPaying: boolean; // Prop for payment status
-  isCreatingLabels: boolean; // Prop for label creation status
-  onOpenBatchPrintPreview?: () => void; // Added prop
-  onDownloadLabelsWithFormat: (format: 'pdf' | 'zpl' | 'epl' | 'pdfZip' | 'zplZip' | 'eplZip') => Promise<void>; // For batch downloads
+  onDownloadAllLabels?: () => void;
+  onDownloadSingleLabel: (shipmentId: string, format?: 'pdf' | 'png' | 'zpl' | 'epl') => void;
+  isPaying: boolean;
+  isCreatingLabels: boolean;
+  onOpenBatchPrintPreview?: () => void;
+  onDownloadLabelsWithFormat: (format: 'pdf' | 'zpl' | 'epl' | 'pdfZip' | 'zplZip' | 'eplZip') => Promise<void>;
   onEmailLabels: (email: string) => Promise<void>;
 }
 
@@ -44,7 +45,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     }
     try {
       await onEmailLabels(email);
-      // Toast for success/error is handled within onEmailLabels in the hook
       setShowEmailInput(false);
     } catch (error) {
       // Error already toasted by hook
@@ -89,7 +89,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
               <Eye className="mr-2 h-4 w-4" /> View/Print Batch Labels
             </Button>
           )}
-           {/* Fallback if onOpenBatchPrintPreview is not available but onDownloadAllLabels is (legacy) */}
           {!onOpenBatchPrintPreview && onDownloadAllLabels && batchResult && (
              <Button onClick={onDownloadAllLabels} className="w-full sm:w-auto">
                 <Download className="mr-2 h-4 w-4" /> Download All Labels (PDF)
@@ -97,7 +96,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           )}
         </div>
          <BulkLabelDownloadOptions 
-            onDownload={onDownloadLabelsWithFormat} 
+            onDownloadLabelsWithFormat={onDownloadLabelsWithFormat} 
             disabled={isCreatingLabels || !batchResult}
             consolidatedUrls={batchResult?.consolidatedLabelUrls}
           />
@@ -121,7 +120,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             )}
         </div>
 
-
         <Collapsible open={showDetails} onOpenChange={setShowDetails}>
           <CollapsibleTrigger asChild>
             <Button variant="link" className="text-blue-600 hover:text-blue-800">
@@ -136,7 +134,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 <LabelResultsTable shipments={successfulShipments} onDownloadLabel={onDownloadSingleLabel} />
               </div>
             )}
-            {/* Optionally, show failed shipments if any and if results.failedShipments exists */}
             {results.failedShipments && results.failedShipments.length > 0 && (
               <div className="mt-6">
                 <h4 className="font-semibold text-md mb-2 text-red-600">Failed Shipments:</h4>

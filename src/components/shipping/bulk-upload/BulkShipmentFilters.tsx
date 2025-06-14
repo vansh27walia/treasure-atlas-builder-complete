@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -5,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ListFilter, ArrowUpDown, Search } from 'lucide-react';
 import { CARRIER_OPTIONS } from '@/types/shipping';
 
-type SortField = 'recipient' | 'carrier' | 'rate' | 'status';
+export type SortField = 'recipient' | 'carrier' | 'rate' | 'status';
 type SortDirection = 'asc' | 'desc';
 
 interface BulkShipmentFiltersProps {

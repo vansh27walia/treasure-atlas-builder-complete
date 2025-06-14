@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { addressService } from '@/services/AddressService';
-import { SavedAddress } from '@/types/shipping'; // Changed import
+import { SavedAddress } from '@/types/shipping';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -12,7 +13,7 @@ import { toast } from '@/components/ui/sonner';
 interface AddressSelectorProps {
   selectedAddressId?: string | null;
   onAddressSelect: (address: SavedAddress | null) => void;
-  addressType?: 'from' | 'to'; // To customize labels and default toggles
+  addressType?: 'from' | 'to';
   disabled?: boolean;
 }
 
@@ -24,7 +25,6 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
 }) => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-
 
   const { data: addresses = [], isLoading: isLoadingAddresses, refetch } = useQuery<SavedAddress[], Error>({
     queryKey: ['savedAddresses'],
@@ -42,14 +42,25 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
 
   const handleAddNewAddress = async (data: AddressFormData) => {
     try {
-      const newAddress = await addressService.addAddress({
-        ...data,
-        // Set default based on addressType if specified in form
+      const addressData = {
+        name: data.name || '',
+        company: data.company,
+        street1: data.street1 || '',
+        street2: data.street2,
+        city: data.city || '',
+        state: data.state || '',
+        zip: data.zip || '',
+        country: data.country || 'US',
+        phone: data.phone,
+        email: data.email,
+        is_residential: data.is_residential,
         is_default_from: addressType === 'from' ? data.is_default_from : undefined,
         is_default_to: addressType === 'to' ? data.is_default_to : undefined,
-      });
-      await refetch(); // Refetch addresses to include the new one
-      onAddressSelect(newAddress); // Select the newly added address
+      };
+
+      const newAddress = await addressService.addAddress(addressData);
+      await refetch();
+      onAddressSelect(newAddress);
       setIsAddDialogOpen(false);
       toast.success("Address added and selected!");
     } catch (error: any) {
@@ -108,16 +119,6 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
             </DialogContent>
         </Dialog>
       </div>
-       {/* Search input if needed */}
-       {/* addresses.length > 5 && (
-        <Input 
-          type="text"
-          placeholder="Search addresses..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="mt-1"
-        />
-      )*/}
     </div>
   );
 };

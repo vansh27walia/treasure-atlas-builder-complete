@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from '@/components/ui/checkbox';
-import { countryOptions } from '@/lib/countries'; // Assuming countryOptions is exported from here
+import { countryOptions } from '@/lib/countries';
 
 export interface AddressFormFieldsProps {
   control: Control<any>;
@@ -13,7 +13,7 @@ export interface AddressFormFieldsProps {
   fieldPrefix?: string;
   showDefaultToggle?: boolean;
   defaultToggleLabel?: string;
-  defaultToggleField?: string; // e.g., 'is_default_from' or 'is_default_to' or a prefixed version
+  defaultToggleField?: string;
 }
 
 const getNestedError = (errors: FieldErrors<any>, path: string): FieldError | undefined => {
@@ -43,7 +43,7 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
     <>
       <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <Label htmlFor={getFieldName("name")}>Full Name</Label>
+          <Label htmlFor={getFieldName("name")}>Full Name *</Label>
           <Controller
             name={getFieldName("name")}
             control={control}
@@ -62,7 +62,7 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
         </div>
 
         <div className="sm:col-span-2">
-          <Label htmlFor={getFieldName("street1")}>Street Address</Label>
+          <Label htmlFor={getFieldName("street1")}>Street Address *</Label>
           <Controller
             name={getFieldName("street1")}
             control={control}
@@ -81,7 +81,7 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
         </div>
 
         <div>
-          <Label htmlFor={getFieldName("city")}>City</Label>
+          <Label htmlFor={getFieldName("city")}>City *</Label>
           <Controller
             name={getFieldName("city")}
             control={control}
@@ -91,7 +91,7 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
         </div>
 
         <div>
-          <Label htmlFor={getFieldName("state")}>State / Province</Label>
+          <Label htmlFor={getFieldName("state")}>State / Province *</Label>
           <Controller
             name={getFieldName("state")}
             control={control}
@@ -101,7 +101,7 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
         </div>
 
         <div>
-          <Label htmlFor={getFieldName("zip")}>ZIP / Postal Code</Label>
+          <Label htmlFor={getFieldName("zip")}>ZIP / Postal Code *</Label>
           <Controller
             name={getFieldName("zip")}
             control={control}
@@ -111,7 +111,7 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
         </div>
 
         <div>
-          <Label htmlFor={getFieldName("country")}>Country</Label>
+          <Label htmlFor={getFieldName("country")}>Country *</Label>
           <Controller
             name={getFieldName("country")}
             control={control}
@@ -173,9 +173,9 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
       </div>
 
       {showDefaultToggle && defaultToggleField && (
-        <div className="mt-6"> {/* Increased margin-top for better spacing */}
+        <div className="mt-6">
           <Controller
-            name={defaultToggleField} // Assuming defaultToggleField is already prefixed if needed
+            name={defaultToggleField}
             control={control}
             render={({ field }) => (
               <div className="flex items-center space-x-2">
@@ -197,4 +197,3 @@ const AddressFormFields: React.FC<AddressFormFieldsProps> = ({
 };
 
 export default AddressFormFields;
-
