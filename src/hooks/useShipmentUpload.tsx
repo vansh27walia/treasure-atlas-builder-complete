@@ -1,24 +1,32 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
-import { BulkShipment, BulkUploadResult } from '@/types/shipping';
+import { BulkShipment, BulkUploadResult, SavedAddress } from '@/types/shipping';
 
 // Helper function to validate and normalize status values
-const normalizeStatus = (status: string): 'pending' | 'processing' | 'error' | 'completed' => {
-  if (status === 'pending' || status === 'processing' || status === 'error' || status === 'completed') {
-    return status;
+const normalizeStatus = (status: string): BulkShipment['status'] => {
+  // Ensure this aligns with BulkShipmentStatus + 'pending_upload'
+  const validStatuses: BulkShipment['status'][] = [
+    'pending_upload', 'pending_rates', 'rates_fetched', 'rate_selected', 
+    'label_purchased', 'completed', 'failed', 'error'
+  ];
+  if (validStatuses.includes(status as BulkShipment['status'])) {
+    return status as BulkShipment['status'];
   }
-  if (status === 'created') return 'pending';
+  // Legacy mapping
+  if (status === 'pending' || status === 'created') return 'pending_rates'; // Or pending_upload if more appropriate
+  if (status === 'processing') return 'pending_rates'; // Or a more specific status
   if (status === 'success') return 'completed';
   if (status === 'failed') return 'error';
-  return 'pending';
+  return 'pending_rates'; // Default fallback
 };
+
+export type UploadStatus = 'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels';
 
 export const useShipmentUpload = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels'>('idle');
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
   const [results, setResults] = useState<BulkUploadResult | null>(null);
   const [progress, setProgress] = useState(0);
 
@@ -38,15 +46,16 @@ export const useShipmentUpload = () => {
     }
   };
 
-  const handleUpload = async (file: File, pickupAddress?: any): Promise<void> => {
-    if (!file) {
+  const handleUpload = async (fileParam: File, pickupAddressParam: SavedAddress | null | undefined): Promise<void> => {
+    if (!fileParam) {
       toast.error('Please select a file to upload');
       return;
     }
 
-    if (!pickupAddress) {
+    if (!pickupAddressParam) {
       toast.error('Pickup address is required. Please set one in your settings.');
-      return;
+      setUploadStatus('idle'); // Or 'error'
+      throw new Error('Pickup address is required.');
     }
 
     setIsUploading(true);
@@ -55,13 +64,11 @@ export const useShipmentUpload = () => {
 
     try {
       console.log('Starting EasyPost bulk upload process');
-      console.log('File details:', { name: file.name, size: file.size, type: file.type });
-      console.log('Pickup address:', pickupAddress);
+      console.log('File details:', { name: fileParam.name, size: fileParam.size, type: fileParam.type });
+      console.log('Pickup address:', pickupAddressParam);
 
       // Read the file as text
-      const text = await file.text();
-      console.log('File read successfully, length:', text.length);
-      
+      const text = await fileParam.text();
       setProgress(20);
       
       // Validate CSV structure for EasyPost format
@@ -87,7 +94,7 @@ export const useShipmentUpload = () => {
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
         body: { 
           csvContent: text,
-          pickupAddress: pickupAddress
+          pickupAddress: pickupAddressParam
         }
       });
 
@@ -104,35 +111,48 @@ export const useShipmentUpload = () => {
       setProgress(90);
       
       // Initialize the shipments with properly typed status and customer details
-      const processedShipments: BulkShipment[] = data.processedShipments.map((shipment: any) => ({
+      const processedShipments: BulkShipment[] = (data.processedShipments || []).map((shipment: any) => ({
         ...shipment,
+        id: shipment.id || `temp_id_${Math.random().toString(36).substr(2, 9)}`, // Ensure ID
         availableRates: shipment.availableRates || [],
-        status: normalizeStatus(shipment.status || 'pending'),
-        customer_name: shipment.customer_name || shipment.details?.to_name || shipment.recipient,
-        customer_address: shipment.customer_address || `${shipment.details?.to_street1}, ${shipment.details?.to_city}, ${shipment.details?.to_state} ${shipment.details?.to_zip}`,
-        customer_phone: shipment.customer_phone || shipment.details?.to_phone,
-        customer_email: shipment.customer_email || shipment.details?.to_email,
-        customer_company: shipment.customer_company || shipment.details?.to_company,
+        status: normalizeStatus(shipment.status || 'pending_rates'), // Ensure status is valid
+        // Fallbacks for customer details from shipment root if details object is missing/incomplete
+        customer_name: shipment.details?.to_name || shipment.customer_name || shipment.recipient || 'N/A',
+        customer_address: `${shipment.details?.to_street1 || shipment.to_street1 || ''}, ${shipment.details?.to_city || shipment.to_city || ''}, ${shipment.details?.to_state || shipment.to_state || ''} ${shipment.details?.to_zip || shipment.to_zip || ''}`.trim(),
+        customer_phone: shipment.details?.to_phone || shipment.customer_phone,
+        customer_email: shipment.details?.to_email || shipment.customer_email,
+        customer_company: shipment.details?.to_company || shipment.customer_company,
+        // Ensure details object exists and has parcel, even if empty
+        details: {
+          ...(shipment.details || {}),
+          parcel: {
+            weight: shipment.details?.parcel?.weight || shipment.weight || 0,
+            length: shipment.details?.parcel?.length || shipment.length || 0,
+            width: shipment.details?.parcel?.width || shipment.width || 0,
+            height: shipment.details?.parcel?.height || shipment.height || 0,
+            ...(shipment.details?.parcel || {}),
+          }
+        }
       }));
 
       const resultData: BulkUploadResult = {
-        total: data.total,
-        successful: data.successful,
-        failed: data.failed,
-        totalCost: data.totalCost,
+        total: data.total || 0,
+        successful: data.successful || 0,
+        failed: data.failed || 0,
+        totalCost: data.totalCost || 0,
         processedShipments,
         failedShipments: data.failedShipments || [],
-        uploadStatus: 'editing'
+        uploadStatus: 'editing' // This is the internal status for the result object
       };
       
       setResults(resultData);
-      setUploadStatus('editing');
+      setUploadStatus('editing'); // This is the hook's overall status
       setProgress(100);
       
-      toast.success(`Successfully processed ${data.successful} out of ${data.total} shipments using live EasyPost API with full carrier details.`);
+      toast.success(`Successfully processed ${resultData.successful} out of ${resultData.total} shipments using live EasyPost API with full carrier details.`);
       
-      if (data.failedShipments && data.failedShipments.length > 0) {
-        toast.error(`${data.failedShipments.length} shipments failed to process. Check the error details.`);
+      if (resultData.failedShipments && resultData.failedShipments.length > 0) {
+        toast.error(`${resultData.failedShipments.length} shipments failed to process. Check the error details.`);
       }
       
     } catch (error) {
@@ -146,7 +166,7 @@ export const useShipmentUpload = () => {
       }
       
       toast.error(errorMessage);
-      throw error;
+      throw error; 
     } finally {
       setIsUploading(false);
     }
@@ -179,8 +199,8 @@ export const useShipmentUpload = () => {
     uploadStatus,
     results,
     progress,
-    setResults,
-    setUploadStatus,
+    setResults, // Expose setResults if needed by the consuming hook
+    setUploadStatus, // Expose setUploadStatus
     handleFileChange,
     handleUpload,
     handleDownloadTemplate

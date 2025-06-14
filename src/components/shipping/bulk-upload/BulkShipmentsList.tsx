@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { BulkShipment } from '@/types/shipping';
+import { BulkShipment, ShipmentDetails } from '@/types/shipping'; // Import ShipmentDetails
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Package, PackageCheck, Edit, RefreshCcw, X, FileText, Truck, ArrowUp, ArrowDown, Check } from 'lucide-react';
+import { Package, PackageCheck, Edit, RefreshCcw, X, Truck, Check, Info } from 'lucide-react'; // Removed unused icons
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
@@ -15,15 +15,17 @@ import { useForm } from 'react-hook-form';
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
   isFetchingRates: boolean;
+  isCreatingLabels: boolean; // Added to disable actions during label creation
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRemoveShipment: (shipmentId: string) => void;
-  onEditShipment: (shipmentId: string, details: BulkShipment['details']) => void;
+  onEditShipment: (shipmentId: string, details: ShipmentDetails) => void; // Use ShipmentDetails type
   onRefreshRates: (shipmentId: string) => void;
 }
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   shipments,
   isFetchingRates,
+  isCreatingLabels,
   onSelectRate,
   onRemoveShipment,
   onEditShipment,
@@ -102,12 +104,12 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     </div>
                   </TableCell>
                   <TableCell>
-                    {shipment.status === 'rates_fetched' || shipment.status === 'rate_selected' || shipment.status === 'completed' ? (
+                    {shipment.status === 'rates_fetched' || shipment.status === 'rate_selected' || shipment.status === 'completed' || shipment.status === 'label_purchased' ? (
                       <div>
                         <Select 
                           value={shipment.selectedRateId || undefined}
                           onValueChange={(value) => onSelectRate(shipment.id, value)}
-                          disabled={!shipment.availableRates || shipment.availableRates.length === 0}
+                          disabled={(!shipment.availableRates || shipment.availableRates.length === 0) || isCreatingLabels}
                         >
                           <SelectTrigger className="min-w-[180px]">
                             <SelectValue placeholder="Select a carrier" />
@@ -126,28 +128,28 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 </span>
                               </SelectItem>
                             ))}
-                             {(!shipment.availableRates || shipment.availableRates.length === 0) && shipment.status !== 'pending_rates' && (
+                             {(!shipment.availableRates || shipment.availableRates.length === 0) && ( 
                                 <SelectItem value="no-rates" disabled>No rates available</SelectItem>
                              )}
                           </SelectContent>
                         </Select>
                       </div>
-                    ) : shipment.status === 'pending_rates' || isFetchingRates ? (
+                    ) : shipment.status === 'pending_rates' || (isFetchingRates && !shipment.availableRates?.length) ? ( // Clarified condition for skeleton
                       <div className="flex items-center">
                         <Skeleton className="h-8 w-[180px]" />
                       </div>
                     ) : (
-                      <Badge variant="outline" className="bg-red-50 text-red-700">
-                        {shipment.error || 'Error/No Rates'}
+                      <Badge variant="destructive" className="text-xs">
+                         <Info size={12} className="mr-1" /> {shipment.error || 'No Rates/Error'}
                       </Badge>
                     )}
                   </TableCell>
                   <TableCell>
-                    {(shipment.status === 'rates_fetched' || shipment.status === 'rate_selected' || shipment.status === 'completed') && shipment.selectedRateId ? (
+                    {(shipment.status === 'rates_fetched' || shipment.status === 'rate_selected' || shipment.status === 'completed' || shipment.status === 'label_purchased') && shipment.selectedRateId ? (
                       <div className="font-semibold">
                         ${formatRate(shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate)}
                       </div>
-                    ) : shipment.status === 'pending_rates' || isFetchingRates ? (
+                    ) : shipment.status === 'pending_rates' || (isFetchingRates && !shipment.availableRates?.length) ? (
                       <Skeleton className="h-6 w-16" />
                     ) : (
                       <span className="text-gray-500">-</span>
@@ -157,9 +159,9 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     {shipment.status === 'completed' || shipment.status === 'label_purchased' ? (
                       <Badge className="bg-green-100 text-green-700 border-green-200">
                         <PackageCheck className="mr-1 h-3 w-3" />
-                        Ready
+                        Label Ready
                       </Badge>
-                    ) : shipment.status === 'pending_rates' || isFetchingRates ? (
+                    ) : shipment.status === 'pending_rates' || (isFetchingRates && !shipment.availableRates?.length) ? (
                       <Badge className="bg-blue-100 text-blue-700 border-blue-200">
                         <Package className="mr-1 h-3 w-3 animate-pulse" />
                         Fetching Rates
@@ -169,11 +171,13 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         <Package className="mr-1 h-3 w-3" />
                         Select Rate
                       </Badge>
-                    ): (
+                    ): shipment.status === 'failed' || shipment.status === 'error' ? (
                       <Badge className="bg-red-100 text-red-700 border-red-200">
                         <X className="mr-1 h-3 w-3" />
-                        {shipment.error ? 'Error' : 'Unknown'}
+                        {shipment.error ? 'Error' : 'Failed'}
                       </Badge>
+                    ) : (
+                       <Badge variant="outline">Needs Attention</Badge>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
@@ -185,6 +189,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                           <Button 
                             variant="outline" 
                             size="sm"
+                            disabled={isCreatingLabels || shipment.status === 'completed' || shipment.status === 'label_purchased'}
                           >
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
@@ -209,9 +214,9 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         variant="outline" 
                         size="sm"
                         onClick={() => onRefreshRates(shipment.id)}
-                        disabled={shipment.status === 'pending_rates' || isFetchingRates}
+                        disabled={isCreatingLabels || shipment.status === 'pending_rates' || (isFetchingRates && !shipment.availableRates?.length) || shipment.status === 'completed' || shipment.status === 'label_purchased'}
                       >
-                        <RefreshCcw className={`h-4 w-4 mr-1 ${ (shipment.status === 'pending_rates' || (isFetchingRates && !shipment.availableRates)) ? 'animate-spin' : ''}`} />
+                        <RefreshCcw className={`h-4 w-4 mr-1 ${ (shipment.status === 'pending_rates' || (isFetchingRates && !shipment.availableRates?.length)) ? 'animate-spin' : ''}`} />
                         Rates
                       </Button>
 
@@ -219,6 +224,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         variant="destructive" 
                         size="sm"
                         onClick={() => onRemoveShipment(shipment.id)}
+                        disabled={isCreatingLabels}
                       >
                         <X className="h-4 w-4 mr-1" />
                         Remove
@@ -237,45 +243,45 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
 interface ShipmentEditFormProps {
   shipment: BulkShipment;
-  onSubmit: (data: BulkShipment['details']) => void;
+  onSubmit: (data: ShipmentDetails) => void; // Use ShipmentDetails type
   onCancel: () => void;
 }
 
 const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit, onCancel }) => {
-  const defaultDetails = shipment.details || {};
-  const form = useForm({
+  const sDetails = shipment.details; // Can be undefined
+
+  const form = useForm<ShipmentDetails>({ // Provide type to useForm
     defaultValues: {
-      to_name: defaultDetails.to_name || shipment.customer_name || '',
-      to_company: defaultDetails.to_company || shipment.customer_company || '',
-      to_street1: defaultDetails.to_street1 || '',
-      to_street2: defaultDetails.to_street2 || '',
-      to_city: defaultDetails.to_city || '',
-      to_state: defaultDetails.to_state || '',
-      to_zip: defaultDetails.to_zip || '',
-      to_country: defaultDetails.to_country || 'US',
-      to_phone: defaultDetails.to_phone || shipment.customer_phone || '',
-      to_email: defaultDetails.to_email || shipment.customer_email || '',
-      weight: defaultDetails.parcel?.weight || defaultDetails.weight || 1,
-      length: defaultDetails.parcel?.length || defaultDetails.length || 12,
-      width: defaultDetails.parcel?.width || defaultDetails.width || 8,
-      height: defaultDetails.parcel?.height || defaultDetails.height || 4,
-      reference: defaultDetails.reference || ''
+      to_name: sDetails?.to_name || shipment.customer_name || '',
+      to_company: sDetails?.to_company || shipment.customer_company || '',
+      to_street1: sDetails?.to_street1 || '',
+      to_street2: sDetails?.to_street2 || '',
+      to_city: sDetails?.to_city || '',
+      to_state: sDetails?.to_state || '',
+      to_zip: sDetails?.to_zip || '',
+      to_country: sDetails?.to_country || 'US',
+      to_phone: sDetails?.to_phone || shipment.customer_phone || '',
+      to_email: sDetails?.to_email || shipment.customer_email || '',
+      parcel: { // Ensure parcel is always an object in form state
+        weight: sDetails?.parcel?.weight || sDetails?.weight || 1,
+        length: sDetails?.parcel?.length || sDetails?.length || 12,
+        width: sDetails?.parcel?.width || sDetails?.width || 8,
+        height: sDetails?.parcel?.height || sDetails?.height || 4,
+      },
+      reference: sDetails?.reference || ''
     }
   });
 
-  const handleFormSubmit = (data: any) => {
-    const { weight, length, width, height, ...addressData } = data;
-    const parcelData = { weight, length, width, height };
-    // Construct the details object to match BulkShipment['details'] structure
-    const updatedDetails: BulkShipment['details'] = {
-      ...addressData, // Spread all address fields
-      parcel: parcelData, // Nest parcel dimensions and weight
-      // Ensure other potentially existing fields on shipment.details are preserved if not edited
-      ...(shipment.details || {}), 
-      ...addressData, // Re-spread to ensure form values take precedence
-      parcel: { // Re-spread parcel to ensure form values take precedence
+  const handleFormSubmit = (data: ShipmentDetails) => { // data is now typed as ShipmentDetails
+    // The data from react-hook-form will have the parcel nested correctly if form is setup for it
+    // or flat if not. Based on defaultValues, 'parcel' is a nested object.
+    
+    const updatedDetails: ShipmentDetails = {
+      ...(shipment.details || {}), // Start with original details (if any)
+      ...data, // Override with all form data (includes to_name, parcel object, etc.)
+      parcel: { // Specifically merge parcel to ensure all original parcel fields are kept if not in form
         ...(shipment.details?.parcel || {}),
-        ...parcelData
+        ...(data.parcel || {}) // data.parcel from form should override
       }
     };
     onSubmit(updatedDetails);
@@ -336,7 +342,7 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit,
 
       <div className="space-y-2">
         <Label htmlFor="to_country">Country *</Label>
-        <Input id="to_country" {...form.register('to_country')} defaultValue="US" required />
+        <Input id="to_country" {...form.register('to_country')} required />
       </div>
 
       <div className="space-y-2">
@@ -347,45 +353,45 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit,
       <h3 className="text-md font-semibold pt-2">Package Details</h3>
       <div className="grid grid-cols-4 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="weight">Weight (oz) *</Label>
+          <Label htmlFor="parcel.weight">Weight (oz) *</Label>
           <Input 
-            id="weight" 
+            id="parcel.weight" 
             type="number" 
             step="0.1"
-            {...form.register('weight', { valueAsNumber: true, min: 0.1 })} 
+            {...form.register('parcel.weight', { valueAsNumber: true, min: 0.1 })} 
             required
           />
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="length">Length (in) *</Label>
+          <Label htmlFor="parcel.length">Length (in) *</Label>
           <Input 
-            id="length" 
+            id="parcel.length" 
             type="number" 
             step="0.1"
-            {...form.register('length', { valueAsNumber: true, min: 0.1 })} 
+            {...form.register('parcel.length', { valueAsNumber: true, min: 0.1 })} 
             required
           />
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="width">Width (in) *</Label>
+          <Label htmlFor="parcel.width">Width (in) *</Label>
           <Input 
-            id="width"
+            id="parcel.width"
             type="number" 
             step="0.1"
-            {...form.register('width', { valueAsNumber: true, min: 0.1 })} 
+            {...form.register('parcel.width', { valueAsNumber: true, min: 0.1 })} 
             required
           />
         </div>
         
         <div className="space-y-2">
-          <Label htmlFor="height">Height (in) *</Label>
+          <Label htmlFor="parcel.height">Height (in) *</Label>
           <Input 
-            id="height"
+            id="parcel.height"
             type="number"
             step="0.1"
-            {...form.register('height', { valueAsNumber: true, min: 0.1 })} 
+            {...form.register('parcel.height', { valueAsNumber: true, min: 0.1 })} 
             required
           />
         </div>

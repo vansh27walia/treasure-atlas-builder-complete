@@ -1,28 +1,29 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, File } from 'lucide-react';
-import { BulkUploadResult } from '@/types/shipping';
+import { CheckCircle, Download, FileText, PackageSearch, Printer } from 'lucide-react';
+import { BulkUploadResult, LabelFormat } from '@/types/shipping';
 import LabelResultsTable from './LabelResultsTable';
 import { toast } from '@/components/ui/sonner';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
-  onDownloadAllLabels: () => void;
   onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
-  onCreateLabels: () => void;
-  isPaying: boolean;
-  isCreatingLabels: boolean;
+  onCreateLabels: () => void; // Retained if needed for a retry/re-create scenario
+  isPaying: boolean; // Retained for context
+  isCreatingLabels: boolean; // Retained for context
+  onDownloadLabelsWithFormat?: (format: LabelFormat) => void; // Changed from onDownloadAllLabels
+  onOpenBatchPrintPreview?: () => void; // Added for the new print preview functionality
 }
 
 const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   results,
-  onDownloadAllLabels,
   onDownloadSingleLabel,
   onCreateLabels,
   isPaying,
-  isCreatingLabels
+  isCreatingLabels,
+  onDownloadLabelsWithFormat,
+  onOpenBatchPrintPreview,
 }) => {
   console.log('SuccessNotification received results:', results);
 
@@ -92,15 +93,17 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     }
   };
 
-  const handleDownloadAllIndividualLabels = async () => {
-    console.log('Downloading all individual labels, count:', shipmentsWithLabels.length);
+  // This internal function can stay if it's used for a specific "download all individual PNGs" button
+  // If not, it might be removed or repurposed.
+  const handleDownloadAllIndividualPngs = async () => {
+    console.log('Downloading all individual PNG labels, count:', shipmentsWithLabels.length);
     
     if (shipmentsWithLabels.length === 0) {
-      toast.error('No labels available for download');
+      toast.error('No individual labels available for download');
       return;
     }
 
-    toast.loading('Starting downloads...');
+    toast.loading('Starting individual PNG downloads...');
     
     let successCount = 0;
     
@@ -109,21 +112,23 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       const labelUrl = shipment.label_urls?.png || shipment.label_url;
       if (labelUrl && labelUrl.trim() !== '') {
         try {
-          setTimeout(async () => {
-            const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
-            await downloadFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.png`);
-            successCount++;
-          }, i * 500);
+          // Stagger downloads
+          await new Promise(resolve => setTimeout(resolve, i * 300));
+          const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode || `shipment_${shipment.id || i + 1}`;
+          await downloadFile(labelUrl, `label_${trackingCode}.png`);
+          successCount++;
         } catch (error) {
           console.error('Error downloading label for shipment:', shipment.id, error);
         }
       }
     }
     
-    toast.dismiss();
-    setTimeout(() => {
-      toast.success(`Started download of ${shipmentsWithLabels.length} labels`);
-    }, 1000);
+    toast.dismiss(); // Dismiss loading toast
+    if (successCount > 0) {
+      toast.success(`Started download of ${successCount} individual PNG labels.`);
+    } else if (shipmentsWithLabels.length > 0) {
+      toast.warning('Could not download individual PNG labels.');
+    }
   };
 
   // Don't show if no data
@@ -142,14 +147,15 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <CheckCircle className="h-6 w-6 text-green-600" />
           <div>
             <h3 className="text-lg font-semibold text-green-800">
-              {hasLabels ? 'Labels Processing Complete!' : 'Shipments Processed Successfully!'}
+              {results.batchResult || hasLabels ? 'Labels Processing Complete!' : 'Shipments Processed Successfully!'}
             </h3>
             <p className="text-green-700">
-              {hasLabels
-                ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created and are ready for download.`
+              {results.batchResult || hasLabels
+                ? `${displaySuccessful} out of ${displayTotal} shipping labels have been created.`
                 : `${displayTotal} shipments have been processed and are ready for label creation.`
               }
               {displayFailed > 0 && ` ${displayFailed} shipments failed.`}
+              {results.batchResult?.scanFormUrl && " Scan form generated."}
             </p>
           </div>
         </div>
@@ -186,24 +192,56 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
 
         {/* Download Buttons Section */}
-        {hasLabels && (
+        {(results.batchResult || hasLabels) && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Labels</h4>
+            <h4 className="font-semibold text-lg text-blue-800 mb-4">Label Outputs</h4>
             
-            <div className="flex flex-col gap-3">
-              <Button 
-                onClick={handleDownloadAllIndividualLabels}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download All Labels ({shipmentsWithLabels.length} PNG files)
-              </Button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              {onOpenBatchPrintPreview && (results.batchResult?.batchId || shipmentsWithLabels.length > 0) && (
+                <Button 
+                  onClick={onOpenBatchPrintPreview}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white flex-1"
+                >
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print/View Batch Output
+                </Button>
+              )}
+              {onDownloadLabelsWithFormat && results.batchResult?.consolidatedLabelUrls?.zip && (
+                <Button 
+                  onClick={() => onDownloadLabelsWithFormat('zip')} // Assuming 'zip' is for batch zip
+                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download All (ZIP)
+                </Button>
+              )}
+              {results.batchResult?.scanFormUrl && (
+                 <Button 
+                  onClick={() => downloadFile(results.batchResult!.scanFormUrl!, `scanform_${results.batchResult!.batchId}.pdf`)}
+                  variant="outline"
+                  className="border-blue-600 text-blue-600 hover:bg-blue-50 flex-1"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Download Scan Form (PDF)
+                </Button>
+              )}
             </div>
+             {/* Optional: Button to download individual PNGs if still desired */}
+            {shipmentsWithLabels.length > 0 && !results.batchResult?.consolidatedLabelUrls?.zip && (
+              <Button 
+                onClick={handleDownloadAllIndividualPngs}
+                variant="ghost"
+                className="text-blue-600 hover:text-blue-700 mt-3 w-full justify-start"
+              >
+                <PackageSearch className="mr-2 h-4 w-4" />
+                Download Individual PNGs ({shipmentsWithLabels.length})
+              </Button>
+            )}
           </div>
         )}
 
-        {/* Create Labels Button */}
-        {!hasLabels && displayTotal > 0 && (
+        {/* Create Labels Button - if processing was successful but no labels/batch yet */}
+        {!results.batchResult && !hasLabels && displayTotal > 0 && displaySuccessful === 0 && (
           <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <h4 className="font-semibold text-lg text-yellow-800 mb-3">Create Shipping Labels</h4>
             <p className="text-yellow-700 mb-3">
