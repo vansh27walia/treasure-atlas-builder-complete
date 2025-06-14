@@ -10,7 +10,7 @@ import { ToastAction } from "@/components/ui/toast"; // Corrected import from ui
 import AddressForm from '@/components/shipping/AddressForm';
 import PackageForm from '@/components/shipping/PackageForm';
 import ShippingRates from '@/components/ShippingRates'; // Corrected import path
-import { AddressDetails, ParcelDetails, SavedAddress, LabelFormat, ShippingOption } from '@/types/shipping';
+import { AddressDetails, ParcelDetails, SavedAddress, LabelFormat, ShippingOption, Rate } from '@/types/shipping';
 import { addressService } from '@/services/AddressService';
 import PrintPreview, { SingleShipmentDataForPreview } from '@/components/shipping/PrintPreview';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +27,7 @@ const addressSchema = z.object({
   country: z.string().min(2, { message: "Country code must be 2 characters."}),
   phone: z.string().optional(),
   email: z.string().email({ message: "Invalid email address." }).optional(),
+  is_residential: z.boolean().optional(), // Added to schema
 });
 
 const packageSchema = z.object({
@@ -49,8 +50,8 @@ const ShipToPage = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingRates, setIsLoadingRates] = useState(false);
-  const [rates, setRates] = useState<ShippingOption[]>([]);
-  const [selectedRate, setSelectedRate] = useState<ShippingOption | null>(null);
+  const [rates, setRates] = useState<Rate[]>([]); // Changed to Rate[]
+  const [selectedRate, setSelectedRate] = useState<Rate | null>(null); // Changed to Rate
   
   const [generatedLabelUrl, setGeneratedLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
@@ -63,8 +64,8 @@ const ShipToPage = () => {
   const form = useForm<FormData>({
     resolver: zodResolver(combinedSchema),
     defaultValues: {
-      toAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US', phone: '', email: '' },
-      fromAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US', phone: '', email: '' },
+      toAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US', phone: '', email: '', is_residential: false },
+      fromAddress: { name: '', company: '', street1: '', street2: '', city: '', state: '', zip: '', country: 'US', phone: '', email: '', is_residential: false },
       parcel: { length: 6, width: 6, height: 4, weight: 1 },
     },
   });
@@ -76,22 +77,19 @@ const ShipToPage = () => {
         const addrFromService = await addressService.getDefaultFromAddress();
         if (addrFromService) {
           const adaptedAddr: SavedAddress = {
-            id: String(addrFromService.id), 
-            name: addrFromService.name || '', 
+            ...addrFromService,
+            id: String(addrFromService.id),
+            name: addrFromService.name || '',
             company: addrFromService.company || '',
             street1: addrFromService.street1 || '',
-            street2: addrFromService.street2 || '',
             city: addrFromService.city || '',
             state: addrFromService.state || '',
             zip: addrFromService.zip || '',
             country: addrFromService.country || 'US',
-            phone: addrFromService.phone || '',
-            email: addrFromService.email || '',
-            is_default_from: addrFromService.is_default_from,
-            is_default_to: addrFromService.is_default_to,
-            user_id: addrFromService.user_id,
-            created_at: addrFromService.created_at,
-            updated_at: addrFromService.updated_at,
+            phone: addrFromService.phone,
+            email: addrFromService.email, // Now valid
+            is_residential: addrFromService.is_residential, // Now valid
+            updated_at: addrFromService.updated_at, // Now valid
           };
           form.setValue("fromAddress", {
             name: adaptedAddr.name || '',
@@ -104,6 +102,7 @@ const ShipToPage = () => {
             country: adaptedAddr.country,
             phone: adaptedAddr.phone || '',
             email: adaptedAddr.email || '',
+            is_residential: adaptedAddr.is_residential || false,
           });
           setDefaultFromAddress(adaptedAddr);
         }
@@ -133,33 +132,12 @@ const ShipToPage = () => {
     setShipmentDataForPreview(null);
 
     try {
+      const to_address_payload: AddressDetails = { ...data.toAddress, is_residential: data.toAddress.is_residential ?? false };
+      const from_address_payload: AddressDetails = { ...data.fromAddress, is_residential: data.fromAddress.is_residential ?? false };
+      
       const shipmentDetailsPayload = {
-        to_address: {
-          name: data.toAddress.name || "",
-          company: data.toAddress.company || "",
-          street1: data.toAddress.street1 || "",
-          street2: data.toAddress.street2 || "",
-          city: data.toAddress.city || "",
-          state: data.toAddress.state || "",
-          zip: data.toAddress.zip || "",
-          country: data.toAddress.country || "US",
-          phone: data.toAddress.phone || "",
-          email: data.toAddress.email || "",
-          is_residential: false,
-        },
-        from_address: {
-          name: data.fromAddress.name || "",
-          company: data.fromAddress.company || "",
-          street1: data.fromAddress.street1 || "",
-          street2: data.fromAddress.street2 || "",
-          city: data.fromAddress.city || "",
-          state: data.fromAddress.state || "",
-          zip: data.fromAddress.zip || "",
-          country: data.fromAddress.country || "US",
-          phone: data.fromAddress.phone || "",
-          email: data.fromAddress.email || "",
-          is_residential: false,
-        },
+        to_address: to_address_payload,
+        from_address: from_address_payload,
         parcel: {
           length: data.parcel.length || 1,
           width: data.parcel.width || 1,
@@ -177,8 +155,8 @@ const ShipToPage = () => {
       if (!ratesData || !ratesData.rates) throw new Error("No rates returned from function.");
 
       console.log("Rates received:", ratesData.rates);
-      setRates(ratesData.rates as ShippingOption[]);
-      setCurrentShipmentId(ratesData.shipmentId || null); // Store shipment ID from rates response
+      setRates(ratesData.rates as Rate[]); // Changed to Rate[]
+      setCurrentShipmentId(ratesData.shipmentId || null); 
 
     } catch (error: any) {
       console.error("Error fetching rates:", error);
@@ -192,7 +170,7 @@ const ShipToPage = () => {
     }
   };
 
-  const handleRateSelectedForPurchase = async (rate: ShippingOption) => {
+  const handleRateSelectedForPurchase = async (rate: Rate) => { // Changed to Rate
     if (!currentShipmentId) {
       toast({ title: "Error", description: "Shipment ID not found. Cannot purchase label.", variant: "destructive" });
       return;
@@ -207,7 +185,7 @@ const ShipToPage = () => {
       const { data: labelData, error: labelError } = await supabase.functions.invoke('create-label', {
         body: { 
           shipmentId: currentShipmentId, 
-          rateId: rate.id,
+          rateId: rate.id, // Ensure rate.id is correct EasyPost rate ID
           options: labelOptions
         }
       });
@@ -224,7 +202,6 @@ const ShipToPage = () => {
       setTrackingCode(labelData.trackingCode);
       
       const formDataValues = form.getValues();
-      // Ensure formDataValues.toAddress conforms to AddressDetails
       const toAddressDetails: AddressDetails = {
         name: formDataValues.toAddress.name || '',
         company: formDataValues.toAddress.company,
@@ -236,7 +213,7 @@ const ShipToPage = () => {
         country: formDataValues.toAddress.country || 'US',
         phone: formDataValues.toAddress.phone,
         email: formDataValues.toAddress.email,
-        is_residential: false, 
+        is_residential: formDataValues.toAddress.is_residential || false, 
       };
 
       const previewData: SingleShipmentDataForPreview = {
@@ -244,11 +221,14 @@ const ShipToPage = () => {
         label_url: primaryLabelUrl,
         label_urls: labelData.label_urls || { png: primaryLabelUrl },
         tracking_code: labelData.trackingCode,
+        tracking_number: labelData.tracking_number || labelData.trackingCode,
         carrier: rate.carrier,
         service: rate.service,
         details: {
           to_address: toAddressDetails,
+          parcel: formDataValues.parcel, // Add parcel
         },
+        customer_name: formDataValues.toAddress.name, // Add customer name
       };
       setShipmentDataForPreview(previewData);
       setShowPrintPreview(true);
@@ -333,9 +313,9 @@ const ShipToPage = () => {
           <CardContent>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               {/* Assuming AddressForm uses useFormContext and its props are 'addressType' and 'title' */}
-              <AddressForm addressType="toAddress" title="To Address" />
-              <AddressForm addressType="fromAddress" title="From Address" />
-              <PackageForm form={form} /> {/* PackageForm might need FormProvider too, or pass form explicitly */}
+              <AddressForm fieldName="toAddress" title="To Address" />
+              <AddressForm fieldName="fromAddress" title="From Address" />
+              <PackageForm /> {/* PackageForm might need FormProvider too, or pass form explicitly */}
               <Button type="submit" disabled={isLoadingRates || isLoading}>
                 {isLoadingRates ? 'Getting Rates...' : 'Get Rates'}
               </Button>
@@ -344,13 +324,13 @@ const ShipToPage = () => {
         </Card>
       </FormProvider>
 
-      {rates.length > 0 && (
+      {rates.length > 0 && defaultFromAddress && ( // Ensure defaultFromAddress is available
         <div className="mt-6">
           <ShippingRates
             rates={rates}
             isLoadingRates={isLoadingRates}
             onRateSelected={handleRateSelectedForPurchase}
-             fromAddress={defaultFromAddress ? {
+             fromAddress={{
               name: defaultFromAddress.name || "",
               company: defaultFromAddress.company || "",
               street1: defaultFromAddress.street1 || "",
@@ -361,8 +341,8 @@ const ShipToPage = () => {
               country: defaultFromAddress.country || "US",
               phone: defaultFromAddress.phone || "",
               email: defaultFromAddress.email || "",
-              is_residential: false, 
-            } : undefined}
+              is_residential: defaultFromAddress.is_residential || false, 
+            }}
             toAddress={{
               name: form.getValues("toAddress.name") || "",
               company: form.getValues("toAddress.company") || "",
@@ -374,7 +354,7 @@ const ShipToPage = () => {
               country: form.getValues("toAddress.country") || "US",
               phone: form.getValues("toAddress.phone") || "",
               email: form.getValues("toAddress.email") || "",
-              is_residential: false,
+              is_residential: form.getValues("toAddress.is_residential") || false,
             }}
             parcel={{
               length: form.getValues("parcel.length") || 1,
@@ -393,7 +373,7 @@ const ShipToPage = () => {
           singleShipmentPreview={shipmentDataForPreview}
           isBatchPreview={false}
           onDownloadFormat={handlePreviewDownloadFormat}
-          pickupAddress={{ // Construct AddressDetails for pickupAddress
+          pickupAddress={{ 
             name: defaultFromAddress.name || "",
             company: defaultFromAddress.company || "",
             street1: defaultFromAddress.street1 || "",
@@ -404,7 +384,7 @@ const ShipToPage = () => {
             country: defaultFromAddress.country || "US",
             phone: defaultFromAddress.phone || "",
             email: defaultFromAddress.email || "",
-            is_residential: false,
+            is_residential: defaultFromAddress.is_residential || false,
           }}
         />
       )}

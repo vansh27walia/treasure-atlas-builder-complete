@@ -129,7 +129,7 @@ export interface CustomsInfo {
 }
 
 export interface SavedAddress {
-  id: string; // Ensure ID is string for consistency with other IDs like rate IDs.
+  id: string; 
   user_id?: string;
   name?: string | null;
   company?: string | null;
@@ -138,30 +138,32 @@ export interface SavedAddress {
   city: string;
   state: string;
   zip: string;
-  country: string; // Assuming ISO 2-letter country code e.g., 'US'
+  country: string; 
   phone?: string | null;
-  email?: string | null;
+  email?: string | null; // Added
   is_default_from?: boolean;
   is_default_to?: boolean;
   created_at?: string;
-  updated_at?: string;
+  updated_at?: string; // Added
   address_type?: 'residential' | 'commercial' | string | null;
+  is_residential?: boolean; // Added
   validate_address?: boolean;
 }
 
-export type LabelFormat = 'pdf' | 'png' | 'zpl' | 'epl' | 'zip'; // Added 'zip'
+export type LabelFormat = 'pdf' | 'png' | 'zpl' | 'epl' | 'zip'; 
 
 export type ServiceLevel = 'standard' | 'express' | 'overnight';
 
 export type BulkShipmentStatus =
-  | 'pending_upload' // Added for initial status from CSV before any processing
+  | 'pending_upload' 
+  | 'parsed' // Added this status
   | 'pending_rates'
   | 'rates_fetched'
   | 'rate_selected'
-  | 'label_purchased' // Represents payment success and label intent/purchase
-  | 'completed' // Label generated and available - This is the status we should check for success
-  | 'error' // General error in processing this shipment
-  | 'failed'; // Specifically failed to get label/rate after attempts
+  | 'label_purchased' 
+  | 'completed' 
+  | 'error' 
+  | 'failed'; 
 
 export interface BulkShipment {
   id: string; // Unique identifier for the shipment
@@ -223,9 +225,9 @@ export interface BulkUploadResult {
   processedShipments: BulkShipment[];
   failedShipments?: Array<{ row?: number; shipmentDetails?: any; error?: string; details?: string }>;
   batchResult?: BatchResult | null; 
-  uploadStatus?: string; // Broader status: 'idle', 'uploading', 'editing', 'rates_fetching', 'rate_selection', 'paying', 'creating-labels', 'success', 'error'
-  bulk_label_png_url?: string; // Added for bulk PNG URL
-  bulk_label_pdf_url?: string; // Added for bulk PDF URL
+  uploadStatus?: 'idle' | 'uploading' | 'processing' | 'editing' | 'rates_fetching' | 'rate_selection' | 'paying' | 'creating-labels' | 'completed' | 'error'; // Updated this based on useBulkUpload
+  bulk_label_png_url?: string; 
+  bulk_label_pdf_url?: string; 
 }
 
 export const CARRIER_OPTIONS = [
