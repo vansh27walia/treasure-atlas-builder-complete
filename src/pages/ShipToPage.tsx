@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -87,7 +88,12 @@ const ShipToPage = () => {
       try {
         const address = await addressService.getDefaultFromAddress();
         if (address) {
-          setPickupAddress(address);
+          setPickupAddress({
+            ...address,
+            id: String(address.id), // Convert number to string
+            email: address.email || '',
+            is_residential: address.is_residential || false
+          });
           setFromName(address.name || '');
           setFromCompany(address.company || '');
           setFromStreet1(address.street1 || '');
@@ -234,7 +240,6 @@ const ShipToPage = () => {
         <CardContent className="space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
             <AddressForm 
-              title="Ship From Address"
               onAddressChange={(address) => {
                 setFromName(address.name || '');
                 setFromCompany(address.company || '');
@@ -250,7 +255,6 @@ const ShipToPage = () => {
               }}
             />
             <AddressForm 
-              title="Ship To Address" 
               onAddressChange={(address) => {
                 setToName(address.name || '');
                 setToCompany(address.company || '');
@@ -275,7 +279,6 @@ const ShipToPage = () => {
         </CardHeader>
         <CardContent>
           <PackageForm 
-            form={undefined}
             onPackageChange={(pkg) => {
               setLength(pkg.length || 0);
               setWidth(pkg.width || 0);
