@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Truck, Clock, DollarSign, Package } from 'lucide-react';
 import { Rate } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
-import { CarrierLogo } from '@/components/shipping/CarrierLogo';
+import CarrierLogo from '@/components/shipping/CarrierLogo';
 
 interface ShippingRatesProps {
   rates: Rate[];
@@ -125,10 +126,10 @@ const ShippingRates: React.FC<ShippingRatesProps> = ({
                   </div>
                 </div>
                 
-                {rate.delivery_date && (
+                {rate.delivery_days && (
                   <div className="mt-2 flex items-center text-sm text-gray-600">
                     <Package className="h-3 w-3 mr-1" />
-                    Estimated delivery: {new Date(rate.delivery_date).toLocaleDateString()}
+                    Estimated delivery: {rate.delivery_days} business days
                   </div>
                 )}
                 
