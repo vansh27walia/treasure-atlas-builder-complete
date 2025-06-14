@@ -10,6 +10,7 @@ import LabelGenerationProgress from './LabelGenerationProgress';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import { useBulkUpload } from './useBulkUpload';
 import { BulkShipment } from '@/types/shipping';
+import { toast } from '@/components/ui/sonner';
 
 const BulkUploadView: React.FC = () => {
   const {
@@ -63,7 +64,18 @@ const BulkUploadView: React.FC = () => {
     setPickupAddress(address);
   };
 
-  const onDownloadLabelHandler = (url: string) => {
+  const onDownloadLabelHandler = (shipment: any, format: string) => {
+    let url = shipment.label_urls?.[format];
+    // Fallback for primary label_url if specific format not in label_urls (e.g. older data or only PNG was generated)
+    if (!url && format === 'png') {
+      url = shipment.label_url;
+    }
+
+    if (!url) {
+      toast.error(`${format.toUpperCase()} label not available for this shipment.`);
+      console.error('URL not found for download:', { format, shipment });
+      return;
+    }
     handleDownloadSingleLabel(url);
   };
 
