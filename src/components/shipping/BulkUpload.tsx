@@ -45,7 +45,6 @@ const BulkUpload: React.FC = () => {
     setPickupAddress,
     handleUpload,
     handleCreateLabels,
-    handleDownloadAllLabels,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
     handleEmailLabels,
@@ -128,10 +127,10 @@ const BulkUpload: React.FC = () => {
       const totalShipments = results.processedShipments.length;
       
       // Simulate progress updates
-      const updateProgress = (step: string, progress: number, completed: number, failed: number = 0) => {
+      const updateProgress = (step: string, progressValue: number, completed: number, failed: number = 0) => {
         setLabelProgress({
           isCreating: true,
-          progress,
+          progress: progressValue,
           currentStep: step,
           completed,
           failed
@@ -170,7 +169,7 @@ const BulkUpload: React.FC = () => {
         ...prev, 
         isCreating: false, 
         currentStep: 'Error occurred during label creation',
-        failed: prev.failed + 1
+        failed: prev.failed + (results?.processedShipments?.length || 0) - prev.completed // Update failed count more accurately
       }));
       toast.error('Failed to create labels');
     }
@@ -272,9 +271,9 @@ const BulkUpload: React.FC = () => {
               onSelectRate={handleSelectRate}
               onRemoveShipment={handleRemoveShipment}
               onEditShipment={(shipmentId: string, details: any) => {
-                const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
-                if (shipment) {
-                  handleEditShipment(shipment);
+                const shipmentToEdit = results?.processedShipments?.find(s => s.id === shipmentId);
+                if (shipmentToEdit) {
+                  handleEditShipment(shipmentToEdit); // Pass the full shipment object if that's what useBulkUpload expects
                 }
               }}
               onRefreshRates={handleRefreshRates}
@@ -323,7 +322,6 @@ const BulkUpload: React.FC = () => {
         {uploadStatus === 'success' && results && (
           <SuccessNotification
             results={results}
-            onDownloadAllLabels={handleDownloadAllLabels}
             onDownloadSingleLabel={handleDownloadSingleLabel}
             onCreateLabels={handleCreateLabels}
             isPaying={isPaying}
