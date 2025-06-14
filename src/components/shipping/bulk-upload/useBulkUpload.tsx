@@ -28,7 +28,7 @@ export const useBulkUpload = () => {
     uploadStatus: parsingStatus,
     results: initialParsedResults, 
     progress: parsingProgress,
-    setResults: setInitialParsedResults, // Allow useShipmentUpload to update its internal results
+    setResults: setInitialParsedResults,
     handleFileChange,
     handleUpload: originalHandleUpload, 
     handleDownloadTemplate 
@@ -39,7 +39,7 @@ export const useBulkUpload = () => {
 
   const updateCurrentResultsAndStatus = useCallback((newResults: BulkUploadResult, newStatus?: UploadStatus) => {
     console.log('Updating currentResults in useBulkUpload:', newResults, 'New status:', newStatus);
-    setCurrentResults(prev => ({ ...prev, ...newResults })); // Merge to preserve parts of results not updated
+    setCurrentResults(prev => ({ ...prev, ...newResults }));
     
     const statusToSet = newStatus || newResults.uploadStatus || overallUploadStatus;
     if (statusToSet !== overallUploadStatus) {
@@ -52,7 +52,6 @@ export const useBulkUpload = () => {
     }
   }, [overallUploadStatus]);
 
-
   const {
     isFetchingRates,
     fetchAllShipmentRates,
@@ -61,16 +60,14 @@ export const useBulkUpload = () => {
     handleBulkApplyCarrier: managedBulkApplyCarrier
   } = useShipmentRates(currentResults, updateCurrentResultsAndStatus);
   
-  // Effect to handle results from initial file parsing (useShipmentUpload)
   useEffect(() => {
     if (parsingStatus === 'success' && initialParsedResults) {
       console.log("File parsing successful, initial results:", initialParsedResults);
-      // Update main results and status
       updateCurrentResultsAndStatus({
-        ...initialParsedResults, // Spread parsed results
-        batchResult: null, // Ensure batchResult is reset
-        uploadStatus: 'processing', // Transition to server-side processing (fetching rates)
-        isFetchingRates: true, // Indicate rate fetching is starting
+        ...initialParsedResults,
+        batchResult: null,
+        uploadStatus: 'processing',
+        isFetchingRates: true,
       }, 'processing');
 
       if (initialParsedResults.processedShipments && initialParsedResults.processedShipments.length > 0 && pickupAddress) {
@@ -79,8 +76,6 @@ export const useBulkUpload = () => {
           toast.error("Pickup address not set. Cannot fetch rates.");
           updateCurrentResultsAndStatus({ ...initialParsedResults, uploadStatus: 'error', isFetchingRates: false }, 'error');
       }
-      // Reset parsing status to avoid re-triggering
-      // setParsingStatus('idle'); // Or let useShipmentUpload manage its own cycle
     } else if (parsingStatus === 'error') {
         updateCurrentResultsAndStatus({
             total:0, successful:0, failed:0, processedShipments:[], 
@@ -89,7 +84,6 @@ export const useBulkUpload = () => {
         }, 'error');
     }
   }, [parsingStatus, initialParsedResults, pickupAddress, fetchAllShipmentRates, updateCurrentResultsAndStatus]);
-
 
   const {
     isPaying,
@@ -124,7 +118,7 @@ export const useBulkUpload = () => {
           if (addresses.length > 0) {
             setPickupAddress(addresses[0]);
           } else {
-            toast.warn("No saved pickup addresses found. Please add one in settings for bulk uploads.");
+            toast.error("No saved pickup addresses found. Please add one in settings for bulk uploads.");
           }
         }
       } catch (error) {
@@ -142,15 +136,11 @@ export const useBulkUpload = () => {
       setOverallUploadStatus('idle');
       return;
     }
-    // Reset states for a new upload
     setCurrentResults(null); 
     setLabelGenerationProgress(p => ({...p, isGenerating:false, totalShipments:0, currentStep: ''}));
-    setOverallUploadStatus('uploading'); // Client-side parsing starts
+    setOverallUploadStatus('uploading');
 
-    // originalHandleUpload from useShipmentUpload parses the file
-    // and updates `initialParsedResults` and `parsingStatus`
-    // The useEffect listening to `parsingStatus` will then trigger rate fetching.
-    await originalHandleUpload(fileToUpload, pickupAddress); 
+    await originalHandleUpload(fileToUpload);
   };
 
   const handleCreateLabels = async () => {
@@ -164,13 +154,13 @@ export const useBulkUpload = () => {
       return;
     }
     if (shipmentsToProcess.length !== currentResults.processedShipments.length) {
-        toast.warn(`Only ${shipmentsToProcess.length} out of ${currentResults.processedShipments.length} shipments are ready for label creation.`);
+        toast.error(`Only ${shipmentsToProcess.length} out of ${currentResults.processedShipments.length} shipments are ready for label creation.`);
     }
 
     setLabelGenerationProgress({
       isGenerating: true, totalShipments: shipmentsToProcess.length, processedShipments: 0,
       successfulShipments: 0, failedShipments: 0, currentStep: 'Starting label generation...',
-      estimatedTimeRemaining: shipmentsToProcess.length * 5 // Rough estimate
+      estimatedTimeRemaining: shipmentsToProcess.length * 5
     });
     updateCurrentResultsAndStatus({ ...currentResults, uploadStatus: 'creating-labels' }, 'creating-labels');
     

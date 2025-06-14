@@ -12,3 +12,17 @@ export const countryOptions = [
   { label: 'India', value: 'IN' },
   { label: 'China', value: 'CN' },
 ];
+
+export const countries = [
+  { name: 'United States', code: 'US', flag: '🇺🇸' },
+  { name: 'Canada', code: 'CA', flag: '🇨🇦' },
+  { name: 'United Kingdom', code: 'GB', flag: '🇬🇧' },
+  { name: 'Australia', code: 'AU', flag: '🇦🇺' },
+  { name: 'Germany', code: 'DE', flag: '🇩🇪' },
+  { name: 'France', code: 'FR', flag: '🇫🇷' },
+  { name: 'Japan', code: 'JP', flag: '🇯🇵' },
+  { name: 'Mexico', code: 'MX', flag: '🇲🇽' },
+  { name: 'Brazil', code: 'BR', flag: '🇧🇷' },
+  { name: 'India', code: 'IN', flag: '🇮🇳' },
+  { name: 'China', code: 'CN', flag: '🇨🇳' },
+];

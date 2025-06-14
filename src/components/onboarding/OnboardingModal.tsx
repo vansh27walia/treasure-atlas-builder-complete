@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,7 @@ import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { addressService } from '@/services/AddressService';
-import { SavedAddress } from '@/types/shipping'; // Changed import
+import { SavedAddress } from '@/types/shipping';
 import { toast } from '@/components/ui/sonner';
 import AddressFormFields from '@/components/shipping/AddressFormFields';
 
@@ -71,19 +72,19 @@ const OnboardingModal: React.FC<OnboardingModalProps> = ({ user, isOpen, onClose
         zip: data.zip,
         country: data.country,
         phone: data.phone || '',
-        email: data.email || '', // Ensure email is included
-        is_residential: data.is_residential ?? true, // Ensure is_residential is included
-        is_default_from: true, // Set as default from address
+        email: data.email || '',
+        is_residential: data.is_residential ?? true,
+        is_default_from: true,
       };
 
-      const newAddress = await addressService.addAddress(addressToSave); // Changed from createAddress
+      const newAddress = await addressService.addAddress(addressToSave);
       
       // Update user_profiles table
       const { error: profileError } = await supabase
         .from('user_profiles')
         .update({ 
             onboarding_completed: true,
-            default_pickup_address_id: newAddress.id // Use string ID
+            default_pickup_address_id: newAddress.id
          })
         .eq('id', user.id);
 

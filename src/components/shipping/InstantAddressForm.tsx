@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -56,18 +57,27 @@ const InstantAddressForm: React.FC<InstantAddressFormProps> = ({
   const processSubmit = async (data: AddressFormData) => {
     // Ensure data for addAddress matches Omit<SavedAddress, 'id' | 'created_at' | 'updated_at' | 'user_id'>
     const addressToSave: Omit<SavedAddress, 'id' | 'created_at' | 'updated_at' | 'user_id'> = {
-        ...data, // data is AddressFormData
-        // is_default_from and is_default_to are not in AddressFormData here, so they are handled if saveAddress is true
+        name: data.name,
+        company: data.company || '',
+        street1: data.street1,
+        street2: data.street2 || '',
+        city: data.city,
+        state: data.state,
+        zip: data.zip,
+        country: data.country,
+        phone: data.phone || '',
+        email: data.email || '',
+        is_residential: data.is_residential ?? true,
     };
 
     if (saveAddress) {
        const payloadForService = {
          ...addressToSave,
-         is_default_from: addressType === 'from' ? true : undefined, // Set default based on type
+         is_default_from: addressType === 'from' ? true : undefined,
          is_default_to: addressType === 'to' ? true : undefined,
        };
       try {
-        const savedAddress = await addressService.addAddress(payloadForService); // Corrected method
+        const savedAddress = await addressService.addAddress(payloadForService);
         toast.success(`${addressType === 'from' ? 'Sender' : 'Recipient'} address saved and selected.`);
         onAddressSubmit(savedAddress);
         reset(); 
@@ -78,15 +88,14 @@ const InstantAddressForm: React.FC<InstantAddressFormProps> = ({
     } else {
       // Create a temporary SavedAddress-like object without calling the service
       const temporaryAddress: SavedAddress = {
-        id: `temp-${Date.now()}`, // Temporary ID
-        ...addressToSave, // Spread the form data
-        // Defaults for fields not in AddressFormData for temporary address
+        id: `temp-${Date.now()}`,
+        ...addressToSave,
         is_default_from: undefined,
         is_default_to: undefined,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      toast.info(`${addressType === 'from' ? 'Sender' : 'Recipient'} address used for this shipment only.`);
+      toast.success(`${addressType === 'from' ? 'Sender' : 'Recipient'} address used for this shipment only.`);
       onAddressSubmit(temporaryAddress);
       reset();
     }

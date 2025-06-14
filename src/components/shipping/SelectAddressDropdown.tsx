@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { addressService } from '@/services/AddressService';
-import { SavedAddress } from '@/types/shipping'; // Changed import
-import { supabase } from '@/integrations/supabase/client'; // Import supabase client
+import { SavedAddress } from '@/types/shipping';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Select,
   SelectContent,
@@ -17,9 +18,9 @@ import AddressForm, { AddressFormData } from './AddressForm';
 import { toast } from '@/components/ui/sonner';
 
 interface SelectAddressDropdownProps {
-  value?: string; // Address ID
+  value?: string;
   onChange: (addressId: string | undefined) => void;
-  onAddressHydrate?: (address: SavedAddress | null) => void; // Callback with full address object
+  onAddressHydrate?: (address: SavedAddress | null) => void;
   addressType: 'from' | 'to';
   disabled?: boolean;
 }
@@ -36,16 +37,27 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
   const queryClient = useQueryClient();
 
   const { data: addresses = [], isLoading: isLoadingAddresses, refetch } = useQuery<SavedAddress[], Error>({
-    queryKey: ['savedAddresses', addressType], // Query key can be more specific if needed
+    queryKey: ['savedAddresses', addressType],
     queryFn: async () => {
-      // No need to get session here, addressService handles it
       return addressService.getSavedAddresses();
     }
   });
   
   const addAddressMutation = useMutation({
     mutationFn: (data: AddressFormData) => {
-        const payload: Omit<SavedAddress, 'id' | 'user_id' | 'created_at' | 'updated_at'> = { ...data };
+        const payload: Omit<SavedAddress, 'id' | 'user_id' | 'created_at' | 'updated_at'> = { 
+            name: data.name || '',
+            company: data.company || '',
+            street1: data.street1 || '',
+            street2: data.street2 || '',
+            city: data.city || '',
+            state: data.state || '',
+            zip: data.zip || '',
+            country: data.country || 'US',
+            phone: data.phone || '',
+            email: data.email || '',
+            is_residential: data.is_residential ?? true,
+        };
         if (addressType === 'from') payload.is_default_from = data.is_default_from;
         if (addressType === 'to') payload.is_default_to = data.is_default_to;
         return addressService.addAddress(payload);
@@ -65,8 +77,19 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
 
   const updateAddressMutation = useMutation({
     mutationFn: ({id, data}: {id: string, data: AddressFormData}) => {
-        const payload: Partial<SavedAddress> = { ...data };
-        // Retain original default status if not explicitly changed by this form
+        const payload: Partial<SavedAddress> = { 
+            name: data.name || '',
+            company: data.company || '',
+            street1: data.street1 || '',
+            street2: data.street2 || '',
+            city: data.city || '',
+            state: data.state || '',
+            zip: data.zip || '',
+            country: data.country || 'US',
+            phone: data.phone || '',
+            email: data.email || '',
+            is_residential: data.is_residential ?? true,
+        };
         if (addressType === 'from' && data.is_default_from !== undefined) payload.is_default_from = data.is_default_from;
         else if (addressType === 'from') delete payload.is_default_from;
 
@@ -88,10 +111,9 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     }
   });
 
-
   const handleSelectChange = (selectedValue: string) => {
     if (selectedValue === 'add_new') {
-      setEditingAddress(null); // Clear editing state for new address
+      setEditingAddress(null);
       setIsFormOpen(true);
     } else {
       onChange(selectedValue);
