@@ -128,7 +128,7 @@ export interface CustomsInfo {
 }
 
 export interface SavedAddress {
-  id: string; // Ensure ID is string
+  id: string;
   user_id?: string;
   name?: string | null;
   company?: string | null;
@@ -144,8 +144,9 @@ export interface SavedAddress {
   is_default_to?: boolean;
   created_at?: string;
   updated_at?: string;
+  // Adding address_type for better context if needed
   address_type?: 'residential' | 'commercial' | string | null;
-  validate_address?: boolean;
+  validate_address?: boolean; // Easypost specific
 }
 
 export type LabelFormat = 'pdf' | 'png' | 'zpl' | 'epl' | 'zip'; // Added 'zip'
@@ -194,10 +195,10 @@ export interface BulkShipment {
 
 export interface ConsolidatedLabelUrls {
   pdf?: string;
-  png?: string;
+  png?: string; 
   zpl?: string;
   epl?: string;
-  zip?: string; // Combined ZIP of labels (likely PNGs)
+  zip?: string; // Added zip
 }
 
 export interface BatchResult {

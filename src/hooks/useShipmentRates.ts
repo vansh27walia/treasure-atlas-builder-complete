@@ -1,110 +1,112 @@
-import { useState, useCallback } from 'react';
+
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
-import { BulkUploadResult, BulkShipment, Rate, SavedAddress } from '@/types/shipping';
+import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 
 export const useShipmentRates = (
-  results: BulkUploadResult | null,
-  updateResults: (
-    newResultsData: Partial<BulkUploadResult> | ((prevResults: BulkUploadResult | null) => BulkUploadResult | null)
-  ) => void,
-  pickupAddressProp?: SavedAddress | null
+  results: BulkUploadResult | null, 
+  updateResults: (newResults: BulkUploadResult) => void
 ) => {
   const [isFetchingRates, setIsFetchingRates] = useState(false);
 
-  const fetchAllShipmentRates = useCallback(async (shipmentsToFetchRatesFor?: BulkShipment[], localPickupAddress?: SavedAddress | null) => {
-    const currentPickupAddress = localPickupAddress || pickupAddressProp;
-
-    if (!results || (!shipmentsToFetchRatesFor && !results.processedShipments) || !currentPickupAddress) {
-      toast.error('Cannot fetch rates: missing shipment data or pickup address.');
-      return;
-    }
-
-    const shipmentsForApi = (shipmentsToFetchRatesFor || results.processedShipments)
-      .filter(s => s.status === 'pending_rates' || !s.availableRates || s.availableRates.length === 0)
-      .map(s => ({
-        shipment_id_internal: s.id,
-        to_address: s.details.to_address,
-        parcel: s.details.parcel,
-        options: s.details.options,
-        customs_info: s.details.customs_info,
-        from_address: s.details.from_address || currentPickupAddress
-          ? {
-              name: currentPickupAddress?.name || '',
-              company: currentPickupAddress?.company || '',
-              street1: currentPickupAddress?.street1 || '',
-              street2: currentPickupAddress?.street2 || '',
-              city: currentPickupAddress?.city || '',
-              state: currentPickupAddress?.state || '',
-              zip: currentPickupAddress?.zip || '',
-              country: currentPickupAddress?.country || 'US',
-              phone: currentPickupAddress?.phone || '',
-              email: currentPickupAddress?.email || '',
-            }
-          : undefined,
-      }));
-
-
-    if (shipmentsForApi.length === 0) {
-      toast.info('All shipments already have rates or are not pending rates.');
-      return;
-    }
+  const fetchAllShipmentRates = async (shipments: BulkShipment[]) => {
+    if (!results) return;
     
     setIsFetchingRates(true);
+    
     try {
-      const { data, error } = await supabase.functions.invoke('get-bulk-shipment-rates', {
-        body: { 
-          shipments: shipmentsForApi,
-        },
-      });
-
-      if (error) {
-        console.error('Error fetching rates:', error);
-        toast.error(`Failed to fetch rates: ${error.message}`);
-        return;
-      }
-
-      if (!data || !data.shipments) {
-        console.error('No shipments data received from rate fetching');
-        toast.error('No shipment rate data received.');
-        return;
-      }
-
-      const updatedShipments = results.processedShipments.map(shipment => {
-        const apiShipment = data.shipments.find((s: any) => s.shipment_id_internal === shipment.id);
-        if (apiShipment && apiShipment.rates) {
-          const rates: Rate[] = apiShipment.rates.map((rate: any) => ({
-            id: rate.id,
-            easypost_rate_id: rate.id,
-            carrier: rate.carrier,
-            service: rate.service,
-            rate: parseFloat(rate.rate),
-            formattedRate: rate.rate,
-            delivery_days: rate.delivery_days,
-            est_delivery_days: rate.est_delivery_days,
-            shipment_id: rate.shipment_id,
-            carrier_account_id: rate.carrier_account_id,
-            retail_rate: rate.retail_rate,
-            list_rate: rate.list_rate,
-          }));
-          return { ...shipment, availableRates: rates, status: 'rates_fetched' as const };
+      console.log('Fetching live rates for shipments...');
+      
+      const updatedShipments = [...shipments];
+      
+      // Process shipments in batches to avoid overwhelming the API
+      const batchSize = 5;
+      for (let i = 0; i < updatedShipments.length; i += batchSize) {
+        const batch = updatedShipments.slice(i, i + batchSize);
+        
+        await Promise.all(batch.map(async (shipment, index) => {
+          try {
+            // If rates already exist, skip
+            if (shipment.availableRates && shipment.availableRates.length > 0) {
+              return;
+            }
+            
+            // Fetch rates via edge function
+            const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
+              body: {
+                fromAddress: results.pickupAddress,
+                toAddress: {
+                  name: shipment.details?.name,
+                  company: shipment.details?.company,
+                  street1: shipment.details?.street1,
+                  street2: shipment.details?.street2,
+                  city: shipment.details?.city,
+                  state: shipment.details?.state,
+                  zip: shipment.details?.zip,
+                  country: shipment.details?.country,
+                  phone: shipment.details?.phone,
+                },
+                parcel: {
+                  length: shipment.details?.parcel_length || 8,
+                  width: shipment.details?.parcel_width || 6,
+                  height: shipment.details?.parcel_height || 4,
+                  weight: shipment.details?.parcel_weight || 16,
+                }
+              }
+            });
+            
+            if (error) {
+              console.error('Error fetching rates for shipment:', error);
+              return;
+            }
+            
+            if (data && data.rates) {
+              const actualIndex = i + index;
+              updatedShipments[actualIndex] = {
+                ...shipment,
+                availableRates: data.rates,
+                selectedRateId: data.rates[0]?.id,
+                carrier: data.rates[0]?.carrier || shipment.carrier,
+                service: data.rates[0]?.service || shipment.service,
+                rate: parseFloat(data.rates[0]?.rate) || shipment.rate,
+              };
+            }
+            
+          } catch (error) {
+            console.error('Error processing shipment rates:', error);
+          }
+        }));
+        
+        // Small delay between batches
+        if (i + batchSize < updatedShipments.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
-        return shipment;
-      });
-
+      }
+      
+      // Calculate new total cost
+      const newTotalCost = updatedShipments.reduce((total, shipment) => {
+        return total + (shipment.rate || 0);
+      }, 0);
+      
       updateResults({
+        ...results,
         processedShipments: updatedShipments,
+        totalCost: newTotalCost,
       });
-
-    } catch (e: any) {
-      console.error('Error during bulk shipment rate fetching:', e);
-      toast.error(`Rate fetching failed: ${e.message}`);
+      
+      console.log('Live rates fetched successfully');
+      toast.success('Live shipping rates updated');
+      
+    } catch (error) {
+      console.error('Error fetching shipment rates:', error);
+      toast.error('Failed to fetch live rates');
     } finally {
       setIsFetchingRates(false);
     }
-  }, [results, updateResults, pickupAddressProp]);
+  };
 
-  const handleSelectRate = useCallback((shipmentId: string, rateId: string) => {
+  const handleSelectRate = (shipmentId: string, rateId: string) => {
     if (!results) return;
     
     const updatedShipments = results.processedShipments.map(shipment => {
@@ -116,119 +118,132 @@ export const useShipmentRates = (
             selectedRateId: rateId,
             carrier: selectedRate.carrier,
             service: selectedRate.service,
-            rate: parseFloat(selectedRate.rate)
+            rate: parseFloat(selectedRate.rate.toString()),
           };
         }
       }
       return shipment;
     });
     
-    const totalCost = updatedShipments.reduce((sum, shipment) => {
-      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
+    // Calculate new total cost
+    const newTotalCost = updatedShipments.reduce((total, shipment) => {
+      return total + (shipment.rate || 0);
     }, 0);
     
     updateResults({
+      ...results,
       processedShipments: updatedShipments,
-      totalCost
+      totalCost: newTotalCost,
     });
-  }, [updateResults, results]);
+  };
 
-  const handleRefreshRates = useCallback(async (shipmentId: string, localPickupAddress?: SavedAddress | null) => {
-    const currentPickupAddress = localPickupAddress || pickupAddressProp;
-    if (!results || !currentPickupAddress) {
-      toast.error('Missing shipment data or pickup address.');
-      return;
-    }
-
-    const shipment = results.processedShipments.find(s => s.id === shipmentId);
-    if (!shipment) {
-      toast.error('Shipment not found.');
-      return;
-    }
-
-    if (!shipment.details) {
-      toast.error('Shipment details are missing.');
-      return;
-    }
-
+  const handleRefreshRates = async (shipmentId: string) => {
+    if (!results) return;
+    
     setIsFetchingRates(true);
+    
     try {
-      const { data, error } = await supabase.functions.invoke('get-shipment-rates', {
-        body: { 
-          shipmentDetails: shipment.details, 
-          pickupAddress: currentPickupAddress 
-        },
+      const shipment = results.processedShipments.find(s => s.id === shipmentId);
+      if (!shipment) {
+        throw new Error('Shipment not found');
+      }
+      
+      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
+        body: {
+          fromAddress: results.pickupAddress,
+          toAddress: {
+            name: shipment.details?.name,
+            company: shipment.details?.company,
+            street1: shipment.details?.street1,
+            street2: shipment.details?.street2,
+            city: shipment.details?.city,
+            state: shipment.details?.state,
+            zip: shipment.details?.zip,
+            country: shipment.details?.country,
+            phone: shipment.details?.phone,
+          },
+          parcel: {
+            length: shipment.details?.parcel_length || 8,
+            width: shipment.details?.parcel_width || 6,
+            height: shipment.details?.parcel_height || 4,
+            weight: shipment.details?.parcel_weight || 16,
+          }
+        }
       });
-
+      
       if (error) {
-        console.error('Error refreshing rates:', error);
-        toast.error(`Failed to refresh rates: ${error.message}`);
-        return;
+        throw error;
       }
-
-      if (!data || !data.rates) {
-        console.error('No rates data received from rate refreshing');
-        toast.error('No rates data received.');
-        return;
+      
+      if (data && data.rates) {
+        const updatedShipments = results.processedShipments.map(s => {
+          if (s.id === shipmentId) {
+            return {
+              ...s,
+              availableRates: data.rates,
+              selectedRateId: data.rates[0]?.id,
+              carrier: data.rates[0]?.carrier || s.carrier,
+              service: data.rates[0]?.service || s.service,
+              rate: parseFloat(data.rates[0]?.rate.toString()) || s.rate,
+            };
+          }
+          return s;
+        });
+        
+        const newTotalCost = updatedShipments.reduce((total, s) => {
+          return total + (s.rate || 0);
+        }, 0);
+        
+        updateResults({
+          ...results,
+          processedShipments: updatedShipments,
+          totalCost: newTotalCost,
+        });
+        
+        toast.success('Rates refreshed successfully');
       }
-
-      const rates: Rate[] = data.rates.map((rate: any) => ({
-        id: rate.id,
-        easypost_rate_id: rate.id,
-        carrier: rate.carrier,
-        service: rate.service,
-        rate: parseFloat(rate.rate),
-        formattedRate: rate.rate,
-        delivery_days: rate.delivery_days,
-        est_delivery_days: rate.est_delivery_days,
-        shipment_id: rate.shipment_id,
-        carrier_account_id: rate.carrier_account_id,
-        retail_rate: rate.retail_rate,
-        list_rate: rate.list_rate,
-      }));
-
-      const updatedShipments = results.processedShipments.map(s =>
-        s.id === shipmentId ? { ...s, availableRates: rates, status: 'rates_fetched' as const } : s
-      );
-
-      updateResults({ processedShipments: updatedShipments });
-
-    } catch (e: any) {
-      console.error('Error during shipment rate refreshing:', e);
-      toast.error(`Rate refresh failed: ${e.message}`);
+      
+    } catch (error) {
+      console.error('Error refreshing rates:', error);
+      toast.error('Failed to refresh rates');
     } finally {
       setIsFetchingRates(false);
     }
-  }, [results, updateResults, pickupAddressProp]);
+  };
 
-  const handleBulkApplyCarrier = useCallback((carrierId: string) => {
+  const handleBulkApplyCarrier = (carrierName: string) => {
     if (!results) return;
     
     const updatedShipments = results.processedShipments.map(shipment => {
-      const carrierRate = shipment.availableRates?.find(rate => rate.carrier === carrierId);
+      const carrierRate = shipment.availableRates?.find(rate => 
+        rate.carrier.toLowerCase() === carrierName.toLowerCase()
+      );
+      
       if (carrierRate) {
         return {
           ...shipment,
           selectedRateId: carrierRate.id,
           carrier: carrierRate.carrier,
           service: carrierRate.service,
-          rate: parseFloat(carrierRate.rate)
+          rate: parseFloat(carrierRate.rate.toString()),
         };
       }
+      
       return shipment;
     });
     
-    const totalCost = updatedShipments.reduce((sum, shipment) => {
-      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
+    const newTotalCost = updatedShipments.reduce((total, shipment) => {
+      return total + (shipment.rate || 0);
     }, 0);
     
     updateResults({
+      ...results,
       processedShipments: updatedShipments,
-      totalCost
+      totalCost: newTotalCost,
     });
-  }, [results, updateResults]);
+    
+    toast.success(`Applied ${carrierName} to all eligible shipments`);
+  };
 
   return {
     isFetchingRates,

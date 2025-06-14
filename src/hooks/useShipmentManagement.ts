@@ -1,235 +1,245 @@
-import { useState, useCallback } from 'react';
+
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
-import { BulkUploadResult, BulkShipment, LabelFormat, SavedAddress, ShipmentDetails } from '@/types/shipping';
-import { saveAs } from 'file-saver'; // Assuming file-saver is or can be installed
+import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 
 export const useShipmentManagement = (
   results: BulkUploadResult | null,
-  updateResults: (
-    newResultsData: Partial<BulkUploadResult> | ((prevResults: BulkUploadResult | null) => BulkUploadResult | null)
-  ) => void,
-  pickupAddress: SavedAddress | null // pickupAddress is a direct argument
+  updateResults: (newResults: BulkUploadResult) => void
 ) => {
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
+  const [downloadFormat, setDownloadFormat] = useState('PDF');
 
-  const handleRemoveShipment = useCallback((shipmentId: string) => {
+  const handleRemoveShipment = (shipmentId: string) => {
     if (!results) return;
     
     const updatedShipments = results.processedShipments.filter(
       shipment => shipment.id !== shipmentId
     );
     
-    const totalCost = updatedShipments.reduce((sum, shipment) => {
-      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
+    const newTotalCost = updatedShipments.reduce((total, shipment) => {
+      return total + (shipment.rate || 0);
     }, 0);
     
     updateResults({
+      ...results,
       processedShipments: updatedShipments,
-      successful: updatedShipments.length,
-      totalCost
+      totalCost: newTotalCost,
     });
     
-    toast.success('Shipment removed from list');
-  }, [updateResults, results]);
+    toast.success('Shipment removed');
+  };
 
-  const handleEditShipment = useCallback((shipmentId: string, updatedDetails: Partial<ShipmentDetails>) => {
+  const handleEditShipment = (shipment: BulkShipment) => {
     if (!results) return;
-
-    const updatedShipments = results.processedShipments.map(shipment => {
-      if (shipment.id === shipmentId) {
-        return {
-          ...shipment,
-          details: {
-            ...shipment.details,
-            ...updatedDetails,
-          },
-        };
-      }
-      return shipment;
+    
+    const updatedShipments = results.processedShipments.map(s => {
+      return s.id === shipment.id ? shipment : s;
     });
+    
+    const newTotalCost = updatedShipments.reduce((total, s) => {
+      return total + (s.rate || 0);
+    }, 0);
+    
+    updateResults({
+      ...results,
+      processedShipments: updatedShipments,
+      totalCost: newTotalCost,
+    });
+    
+    toast.success('Shipment updated');
+  };
 
-    updateResults({ processedShipments: updatedShipments });
-    toast.success('Shipment details updated');
-  }, [updateResults, results]);
-
-  const handleCreateLabels = useCallback(async () => {
-    if (!results || !pickupAddress) {
-      toast.error('Missing shipments or pickup address');
+  const handleProceedToPayment = async () => {
+    if (!results || results.processedShipments.length === 0) {
+      toast.error('No shipments to process');
       return;
     }
-
-    setIsCreatingLabels(true);
-    const shipmentsToProcess = results.processedShipments.filter(s => s.selectedRateId);
-
-    if (shipmentsToProcess.length === 0) {
-      toast.error('No shipments selected for label creation');
-      setIsCreatingLabels(false);
-      return;
-    }
-
+    
+    setIsPaying(true);
+    
     try {
-      console.log('Creating labels for shipments:', shipmentsToProcess);
-
-      const params = {
-        body: {
-          shipments: shipmentsToProcess,
-          pickupAddress: pickupAddress, // Corrected: use argument
-          labelOptions: { format: 'PNG', size: '4x6' },
-        },
-      };
-
-      const { data, error } = await supabase.functions.invoke('create-bulk-labels', params);
-
-      if (error) {
-        throw new Error(error.message);
+      // Check if all shipments have selected rates
+      const missingRates = results.processedShipments.filter(s => !s.selectedRateId);
+      
+      if (missingRates.length > 0) {
+        throw new Error(`${missingRates.length} shipments are missing selected rates`);
       }
-
-      console.log('Label creation response:', data);
-
-      if (data.labels && data.labels.length > 0) {
-        // Process the response and update shipments with label URLs
-        const updatedShipments = results.processedShipments.map(shipment => {
-          const labelData = data.labels.find((label: any) => 
-            label.shipment_id === shipment.id && 
-            (label.status === 'success_individual_png_saved' || label.status.includes('success'))
-          );
-          
-          if (labelData && labelData.label_urls?.png) {
-            return {
-              ...shipment,
-              label_url: labelData.label_urls.png,
-              tracking_code: labelData.tracking_number,
-              status: 'completed' as const,
-              customer_name: labelData.recipient_name || shipment.customer_name,
-              customer_address: labelData.drop_off_address || shipment.customer_address
-            };
-          }
-          return shipment;
-        });
-
-        // Count successful labels
-        const successfulLabels = data.labels.filter((label: any) => 
-          label.status === 'success_individual_png_saved' || 
-          label.status.includes('success')
-        ).length;
-
-        updateResults({
-          processedShipments: updatedShipments,
-          bulk_label_png_url: data.bulk_label_png_url,
-          bulk_label_pdf_url: data.bulk_label_pdf_url
-        });
-
-        toast.success(`Successfully created ${successfulLabels} shipping labels`);
-
-        // Show any failed labels
-        const failedLabels = data.labels.filter((label: any) => 
-          label.status.includes('error') || label.status.includes('fail')
-        );
-        
-        if (failedLabels.length > 0) {
-          console.error('Failed labels:', failedLabels);
-          toast.error(`${failedLabels.length} labels failed to create. Check console for details.`);
+      
+      // Process payment via Edge Function (similar to international shipping)
+      const { data, error } = await supabase.functions.invoke('create-bulk-checkout', {
+        body: { 
+          shipments: results.processedShipments,
+          pickupAddress: results.pickupAddress,
+          paymentMethod: 'bulk_processing'
         }
-      } else {
-        throw new Error('No labels were created');
+      });
+      
+      if (error) {
+        throw error;
       }
-
+      
+      // Update state with result
+      updateResults({
+        ...results,
+        ...data,
+        uploadStatus: 'success'
+      });
+      
+      toast.success('Payment processed successfully');
     } catch (error) {
-      console.error('Error creating labels:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create labels');
+      console.error('Payment error:', error);
+      toast.error('Payment failed: ' + (error as Error).message);
+    } finally {
+      setIsPaying(false);
+    }
+  };
+
+  const handleCreateLabels = async (labelOptions?: { format?: string; size?: string }) => {
+    if (!results || results.processedShipments.length === 0) {
+      toast.error('No shipments to process');
+      return;
+    }
+    
+    setIsCreatingLabels(true);
+    
+    try {
+      // Create labels using the same format as international shipping
+      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
+        body: { 
+          shipments: results.processedShipments,
+          pickupAddress: results.pickupAddress,
+          labelOptions: labelOptions || { format: 'PDF', size: '4x6' }
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Update state with generated labels
+      updateResults({
+        ...results,
+        processedShipments: data.processedLabels,
+        uploadStatus: 'success'
+      });
+      
+      toast.success(`Generated ${data.successful} labels successfully`);
+      
+      if (data.failed > 0) {
+        toast.warning(`${data.failed} labels failed to generate`);
+      }
+      
+    } catch (error) {
+      console.error('Label generation error:', error);
+      toast.error('Failed to generate labels: ' + (error as Error).message);
     } finally {
       setIsCreatingLabels(false);
     }
-  }, [results, updateResults, pickupAddress]);
+  };
 
-  const handleDownloadLabelsWithFormat = useCallback(async (format: LabelFormat = 'png') => {
-    if (!results) return;
-    
-    const labelsToDownload = results.processedShipments.filter(s => s.selectedRateId);
-    
-    if (labelsToDownload.length === 0) {
-      toast.error('No shipments selected for label download');
+  const handleDownloadAllLabels = () => {
+    if (!results || !results.processedShipments.some(s => s.label_url)) {
+      setShowLabelOptions(true);
       return;
     }
+    
+    // Download all existing labels (same as international shipping)
+    results.processedShipments.forEach(shipment => {
+      if (shipment.label_url) {
+        window.open(shipment.label_url, '_blank');
+      }
+    });
+  };
 
+  const handleDownloadLabelsWithFormat = async (format: string) => {
+    setIsCreatingLabels(true);
+    
     try {
-      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
-        body: {
-          shipments: labelsToDownload,
-          pickupAddress: pickupAddress, // Corrected: use argument
-          labelOptions: { format: format.toUpperCase(), size: '4x6', generateBatch: true },
-        },
+      await handleCreateLabels({ format, size: '4x6' });
+      setShowLabelOptions(false);
+      
+      // Download the generated labels
+      setTimeout(() => {
+        if (results) {
+          results.processedShipments.forEach(shipment => {
+            if (shipment.label_url) {
+              window.open(shipment.label_url, '_blank');
+            }
+          });
+        }
+      }, 1000);
+      
+      toast.success(`Labels downloaded in ${format.toUpperCase()} format`);
+    } catch (error) {
+      console.error('Label download error:', error);
+      toast.error('Failed to download labels');
+    } finally {
+      setIsCreatingLabels(false);
+    }
+  };
+
+  const handleDownloadSingleLabel = (shipmentId: string) => {
+    if (!results) return;
+    
+    const shipment = results.processedShipments.find(s => s.id === shipmentId);
+    
+    if (shipment && shipment.label_url) {
+      window.open(shipment.label_url, '_blank');
+    } else {
+      toast.error('Label not available for this shipment');
+    }
+  };
+
+  const handleEmailLabels = async (email: string) => {
+    if (!results || results.processedShipments.length === 0) {
+      toast.error('No shipments to email');
+      return;
+    }
+    
+    setIsCreatingLabels(true);
+    
+    try {
+      // Send email via Edge Function (same as international shipping)
+      const { data, error } = await supabase.functions.invoke('email-labels', {
+        body: { 
+          shipments: results.processedShipments,
+          email,
+          type: 'bulk_domestic'
+        }
       });
-
+      
       if (error) {
-        throw new Error(error.message);
+        throw error;
       }
-
-      if (data.bulk_label_pdf_url) {
-        // Download the bulk PDF
-        const link = document.createElement('a');
-        link.href = data.bulk_label_pdf_url;
-        link.download = `shipping_labels_${Date.now()}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.success('Downloaded bulk PDF label');
-      } else {
-        throw new Error('No bulk PDF label URL received');
-      }
-    } catch (error) {
-      console.error('Error creating bulk label:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create bulk label');
-    }
-  }, [results, pickupAddress]);
-
-  const handleDownloadSingleLabel = useCallback(async (labelUrl: string, format: LabelFormat = 'png') => {
-    try {
-      const link = document.createElement('a');
-      link.href = labelUrl;
-      link.download = `shipping_label_${Date.now()}.${format}`;
-      link.target = '_blank';
       
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
+      setShowLabelOptions(false);
+      toast.success(`Labels emailed to ${email}`);
     } catch (error) {
-      console.error('Download error:', error);
-      toast.error('Failed to download label');
+      console.error('Email error:', error);
+      toast.error('Failed to email labels');
+    } finally {
+      setIsCreatingLabels(false);
     }
-  }, []);
-
-  const handleEmailLabels = useCallback(async (email: string) => {
-    if (!results) return;
-    
-    const shipmentsToEmail = results.processedShipments.filter(s => s.selectedRateId);
-    
-    if (shipmentsToEmail.length === 0) {
-      toast.error('No shipments selected to email');
-      return;
-    }
-
-    toast.success('Email functionality will be implemented soon');
-    // Use the pickupAddress argument if needed for context in email.
-    // const { data, error } = await supabase.functions.invoke('email-bulk-labels', {
-    //   body: { shipmentsToEmail, email, pickupAddress: pickupAddress }, // Corrected
-    // });
-    // ...
-  }, [results, pickupAddress]);
-  
+  };
 
   return {
-    isPaying: false, // Placeholder, assuming not implemented yet or elsewhere
-    isCreatingLabels: isCreatingLabels, // Placeholder, real state might be more complex
+    isPaying,
+    isCreatingLabels,
+    showLabelOptions,
+    downloadFormat,
     handleRemoveShipment,
     handleEditShipment,
+    handleProceedToPayment,
     handleCreateLabels,
+    handleDownloadAllLabels,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
     handleEmailLabels,
+    setShowLabelOptions,
+    setDownloadFormat,
   };
 };

@@ -9,24 +9,31 @@ import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
 import LabelCreationOverlay from './LabelCreationOverlay';
 import StripePaymentModal from './StripePaymentModal';
-import PrintPreview from '@/components/shipping/PrintPreview';
+import PrintPreview from '@/components/shipping/PrintPreview'; // Corrected import
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { FileText, UploadCloud, AlertCircle, Download, Printer } from 'lucide-react';
-import { SavedAddress, BulkUploadResult, LabelFormat, BulkShipment, BatchResult } from '@/types/shipping';
+import { FileText, UploadCloud, AlertCircle, Download, Printer, CreditCard } from 'lucide-react';
+import { SavedAddress, BulkUploadResult, LabelFormat } from '@/types/shipping'; // LabelFormat import
 import { toast } from '@/components/ui/sonner';
-import { Dispatch, SetStateAction } from 'react';
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [labelProgress, setLabelProgress] = useState({
+    isCreating: false,
+    progress: 0,
+    currentStep: '',
+    completed: 0,
+    failed: 0
+  });
 
   const {
     file,
     isUploading,
     isPaying,
-    isFetchingRates,
+    isCreatingLabels, // This is from useBulkUpload (aliased managementIsCreatingLabels)
+    isFetchingRates, // Added this
     uploadStatus,
     results,
     progress,
@@ -59,29 +66,24 @@ const BulkUpload: React.FC = () => {
     updateLabelGenerationProgress
   } = useBulkUpload();
 
-  const isCreatingLabels = labelGenerationProgress.isGenerating;
+  // const isCreatingLabels = labelGenerationProgress.isGenerating; // This can also be used if more granular control is needed from labelGenerationProgress
 
+  // Log pickup address on mount and when it changes (less frequently)
   useEffect(() => {
     console.log("Current pickup address in BulkUpload:", pickupAddress);
-  }, [pickupAddress?.id]);
+  }, [pickupAddress?.id]); // Only log when ID changes
 
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
-    let addrToSet = null;
-    if (address) {
-      addrToSet = typeof address.id === 'number' ? { ...address, id: String(address.id) } : address;
-    }
-    
-    if (addrToSet && addrToSet.id !== pickupAddress?.id) {
-      console.log("Selected pickup address in BulkUpload:", addrToSet);
-      setPickupAddress(addrToSet);
+    if (address && address.id !== pickupAddress?.id) {
+      console.log("Selected pickup address in BulkUpload:", address);
+      setPickupAddress(address);
       
+      // Prevent duplicate toasts
       const now = Date.now();
       if (now - lastToastRef.current > 2000) {
-        toast.success(`Selected pickup address: ${addrToSet.name || addrToSet.street1}`);
+        toast.success(`Selected pickup address: ${address.name || address.street1}`);
         lastToastRef.current = now;
       }
-    } else if (!address && pickupAddress) { // Handle de-selecting
-      setPickupAddress(null);
     }
   };
 
@@ -93,8 +95,14 @@ const BulkUpload: React.FC = () => {
     console.error("Upload failed in BulkUpload component:", error);
   };
 
+  // Wrapper function to match expected signature
   const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
-    handleEditShipment(shipmentId, details);
+    const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+    if (shipment) {
+      // Ensure 'details' passed to handleEditShipment matches expected type
+      // The 'details' here comes from BulkShipmentsList's onEditShipment which passes ShipmentDetails
+      handleEditShipment(shipment.id, details); 
+    }
   };
 
   const resetUpload = () => {
@@ -108,9 +116,10 @@ const BulkUpload: React.FC = () => {
     }
   };
   
+  // Safely get processed shipments count
   const processedShipmentsCount = results?.processedShipments?.length || 0;
 
-  const handleDownloadAndCreateLabelsClick = async () => {
+  const handleDownloadAndCreateLabelsClick = async () => { // Renamed to reflect its primary action
     if (!results?.processedShipments?.length) {
       toast.error('No shipments available for label creation');
       return;
@@ -120,19 +129,44 @@ const BulkUpload: React.FC = () => {
       return;
     }
 
-    updateLabelGenerationProgress({ 
-      isGenerating: true,
+    // Update local UI progress; labelGenerationProgress from hook will reflect actual progress.
+    setLabelProgress({ 
+      isCreating: true,
+      progress: 0,
       currentStep: 'Initializing label creation...',
-      // totalShipments, processedShipments, etc., will be updated by the hook itself.
+      completed: 0,
+      failed: 0
     });
+    // updateLabelGenerationProgress can also be used here if preferred.
 
     try {
       await handleCreateLabels(); 
-      // Progress is now managed by labelGenerationProgress within the hook.
-      // Toasts for success/failure are typically handled within useBulkUpload or its sub-hooks.
+      // After handleCreateLabels, labelGenerationProgress in the hook will be updated.
+      // The local setLabelProgress can be removed if LabelCreationOverlay directly uses hook's progress.
+      // For now, update local progress as a final step.
+      setLabelProgress(prev => ({ 
+        ...prev, 
+        isCreating: true, // Keep it true until timeout if needed
+        progress: 100,
+        currentStep: 'Label creation process finished by hook.',
+        // Use results from the hook after it completes
+        completed: results?.successful || labelGenerationProgress.successfulShipments, 
+        failed: results?.failed || labelGenerationProgress.failedShipments
+      }));
+      
+      setTimeout(() => {
+        setLabelProgress(prev => ({ ...prev, isCreating: false }));
+        // Toasts for success/failure are typically handled within useBulkUpload or its sub-hooks.
+      }, 2000);
+      
     } catch (error) {
       console.error('Error in UI layer calling handleCreateLabels:', error);
-      updateLabelGenerationProgress({isGenerating: false, currentStep: 'Error in UI call'});
+      setLabelProgress(prev => ({ 
+        ...prev, 
+        isCreating: false, 
+        currentStep: 'Error occurred during label creation call',
+      }));
+      updateLabelGenerationProgress({isCreating: false, currentStep: 'Error in UI call'});
       toast.error('Failed to initiate label creation process.');
     }
   };
@@ -153,11 +187,11 @@ const BulkUpload: React.FC = () => {
             onPickupAddressSelect={handlePickupAddressSelect}
             isUploading={isUploading}
             progress={progress}
-            handleUpload={handleUpload} 
+            handleUpload={handleUpload} // This handleUpload is from useBulkUpload, expects 1 arg (file)
           />
         )}
         
-        {isUploading && uploadStatus === 'uploading' && (
+        {isUploading && uploadStatus === 'uploading' && ( // More specific condition for this progress bar
           <div className="my-6">
             <h3 className="font-medium mb-2">Processing your shipments</h3>
             <Progress value={progress} className="h-2" />
@@ -169,6 +203,7 @@ const BulkUpload: React.FC = () => {
           </div>
         )}
         
+        {/* Label Generation Progress (uses labelGenerationProgress from hook) */}
         {(isCreatingLabels || labelGenerationProgress.isGenerating) && (
             <div className="my-6 p-4 border rounded-lg bg-blue-50">
                 <h3 className="font-semibold text-lg text-blue-700 mb-2">
@@ -195,7 +230,7 @@ const BulkUpload: React.FC = () => {
               <h2 className="text-xl font-semibold flex items-center">
                 <FileText className="mr-2 h-5 w-5 text-blue-600" />
                 Bulk Shipment Options
-                {(isFetchingRates || isCreatingLabels) && (
+                {(isFetchingRates || isCreatingLabels) && ( // Use isCreatingLabels from hook
                   <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full animate-pulse">
                     {isFetchingRates ? 'Fetching rates...' : (labelGenerationProgress.currentStep || 'Processing labels...')}
                   </span>
@@ -240,7 +275,7 @@ const BulkUpload: React.FC = () => {
             <BulkShipmentsList
               shipments={filteredShipments}
               isFetchingRates={isFetchingRates}
-              isCreatingLabels={isCreatingLabels}
+              isCreatingLabels={isCreatingLabels} // Pass isCreatingLabels
               onSelectRate={handleSelectRate}
               onRemoveShipment={handleRemoveShipment}
               onEditShipment={handleEditShipmentWrapper}
@@ -272,6 +307,14 @@ const BulkUpload: React.FC = () => {
                       {isCreatingLabels ? (labelGenerationProgress.currentStep || 'Creating...') : 'Create & Get Labels'}
                     </Button>
                     
+                    {/* Optional Pay Labels Button */}
+                    {/* <Button
+                      onClick={() => setShowPaymentModal(true)}
+                      // ... (disabled conditions)
+                    >
+                      <CreditCard className="mr-1 h-4 w-4" /> Pay Labels
+                    </Button> */}
+
                     {results.batchResult && results.batchResult.batchId && (
                         <Button
                             onClick={handleOpenBatchPrintPreview}
@@ -295,7 +338,7 @@ const BulkUpload: React.FC = () => {
             onDownloadSingleLabel={handleDownloadSingleLabel}
             onCreateLabels={handleCreateLabels}
             isPaying={isPaying}
-            isCreatingLabels={isCreatingLabels}
+            isCreatingLabels={isCreatingLabels} // Pass this
             onDownloadLabelsWithFormat={handleDownloadLabelsWithFormat}
             onOpenBatchPrintPreview={handleOpenBatchPrintPreview}
           />
@@ -303,13 +346,14 @@ const BulkUpload: React.FC = () => {
         
         {uploadStatus === 'error' && (
           <UploadError 
-            onRetry={resetUpload}
-            onSelectNewFile={selectNewFile}
+            onRetry={resetUpload} // Corrected
+            onSelectNewFile={selectNewFile} // Corrected
             errorMessage="Upload failed. Please check your file format and try again."
           />
         )}
       </Card>
 
+      {/* Label Creation Overlay: Now primarily driven by labelGenerationProgress from the hook */}
       <LabelCreationOverlay
         isVisible={labelGenerationProgress.isGenerating}
         progress={labelGenerationProgress.totalShipments > 0 ? (labelGenerationProgress.processedShipments / labelGenerationProgress.totalShipments * 100) : 0}
@@ -317,16 +361,17 @@ const BulkUpload: React.FC = () => {
         totalLabels={labelGenerationProgress.totalShipments}
         completedLabels={labelGenerationProgress.successfulShipments}
         failedLabels={labelGenerationProgress.failedShipments}
-        onClose={() => updateLabelGenerationProgress({ isGenerating: false })}
+        onClose={() => updateLabelGenerationProgress({ isGenerating: false })} // Use updater from hook
       />
 
+      {/* Batch Print Preview Modal - using PrintPreview component */}
       {results && (results.batchResult || (uploadStatus === 'success' && results.processedShipments?.some(s => s.label_url || s.label_urls))) && (
         <PrintPreview
           isOpenProp={batchPrintPreviewModalOpen}
           onOpenChangeProp={setBatchPrintPreviewModalOpen}
-          batchResult={results.batchResult}
-          processedShipments={results.processedShipments || []}
-          isBatchPreview={true}
+          batchResult={results.batchResult} // Pass batchResult
+          shipments={results.processedShipments || []} // Pass shipments for manifest/list
+          isBatchPreview={true} // Indicate it's for batch
           onDownloadFormat={handleDownloadLabelsWithFormat}
           pickupAddress={pickupAddress}
         />
