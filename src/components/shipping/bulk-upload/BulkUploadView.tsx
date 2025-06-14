@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Package, Download, PrinterIcon } from 'lucide-react';
+import { Upload, FileText, Package, Download, PrinterIcon, XCircle } from 'lucide-react';
 import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
@@ -56,7 +56,12 @@ const BulkUploadView: React.FC = () => {
   };
 
   const handlePickupAddressSelect = (address: any) => {
-    setPickupAddress(address);
+    // Ensure address.id is string if needed by setPickupAddress
+    if (address && typeof address.id === 'number') {
+      setPickupAddress({ ...address, id: String(address.id) });
+    } else {
+      setPickupAddress(address);
+    }
   };
 
   return (
@@ -149,7 +154,7 @@ const BulkUploadView: React.FC = () => {
               <h3 className="text-lg font-semibold mb-3">Processed Shipments & Labels</h3>
               <LabelResultsTable
                 shipments={results.processedShipments || []}
-                onDownloadLabel={(shipmentId, url, format) => handleDownloadSingleLabel(shipmentId, url, format)}
+                onDownloadLabel={(_shipmentId, url, format) => handleDownloadSingleLabel(url, format)}
               />
             </Card>
           )}
@@ -162,7 +167,6 @@ const BulkUploadView: React.FC = () => {
             <XCircle className="h-12 w-12 mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Upload Failed</h3>
             <p>There was an error processing your file. Please check the file and try again, or download the template for guidance.</p>
-            {/* Add retry/new upload buttons if appropriate for this view's scope */}
           </div>
         </Card>
       )}
@@ -172,7 +176,7 @@ const BulkUploadView: React.FC = () => {
           isOpenProp={batchPrintPreviewModalOpen}
           onOpenChangeProp={setBatchPrintPreviewModalOpen}
           batchResult={results.batchResult}
-          shipments={results.processedShipments || []}
+          processedShipments={results.processedShipments || []}
           isBatchPreview={true}
           onDownloadFormat={handleDownloadLabelsWithFormat}
           pickupAddress={pickupAddress}

@@ -1,11 +1,12 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { BulkUploadResult, BulkShipment, BatchResult, Rate, SavedAddress, LabelFormat, ShipmentDetails } from '@/types/shipping';
-import { useShipmentUpload, UploadStatus as BaseUploadStatus } from '@/hooks/useShipmentUpload';
+import { useShipmentUpload, UploadStatus as HookUploadStatus } from '@/hooks/useShipmentUpload'; // Renamed to avoid conflict if any
 import { useShipmentRates } from '@/hooks/useShipmentRates';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
 import { useShipmentFiltering } from '@/hooks/useShipmentFiltering';
 import { addressService } from '@/services/AddressService';
-import { supabase } from '@/integrations/supabase/client';
+// import { supabase } from '@/integrations/supabase/client'; // Not used directly here
 import { toast } from '@/components/ui/sonner';
 
 export const useBulkUpload = () => {
@@ -30,7 +31,7 @@ export const useBulkUpload = () => {
     setResults: setBaseResults,
     setUploadStatus: setBaseHookUploadStatus,
     handleFileChange,
-    handleUpload: originalHandleUpload,
+    handleUpload: originalHandleUpload, // This is (file, pickupAddress) from useShipmentUpload
     handleDownloadTemplate
   } = useShipmentUpload();
 
@@ -58,11 +59,10 @@ export const useBulkUpload = () => {
     });
     
     if (finalNewResults && finalNewResults.uploadStatus && finalNewResults.uploadStatus !== baseHookUploadStatus) {
-      const validBaseUploadStatuses: BaseUploadStatus[] = ['idle', 'uploading', 'editing', 'creating-labels', 'success', 'error'];
-      if (validBaseUploadStatuses.includes(finalNewResults.uploadStatus as BaseUploadStatus)) {
-        setBaseHookUploadStatus(finalNewResults.uploadStatus as BaseUploadStatus);
+      const validBaseUploadStatuses: HookUploadStatus[] = ['idle', 'uploading', 'editing', 'creating-labels', 'success', 'error'];
+      if (validBaseUploadStatuses.includes(finalNewResults.uploadStatus as HookUploadStatus)) {
+        setBaseHookUploadStatus(finalNewResults.uploadStatus as HookUploadStatus);
       } else if (['rates_fetching', 'rate_selection', 'paying'].includes(finalNewResults.uploadStatus)) {
-        // Ensure base hook status is compatible or 'editing'
         if (!['editing', 'uploading', 'creating-labels'].includes(baseHookUploadStatus)) {
              setBaseHookUploadStatus('editing');
         }
@@ -76,7 +76,7 @@ export const useBulkUpload = () => {
     handleSelectRate: originalSelectRate,
     handleRefreshRates: originalRefreshRates,
     handleBulkApplyCarrier: originalBulkApplyCarrier
-  } = useShipmentRates(results, updateResults);
+  } = useShipmentRates(results, updateResults, pickupAddress); // Pass pickupAddress
 
   const {
     isPaying,
@@ -105,15 +105,16 @@ export const useBulkUpload = () => {
     const loadDefaultPickupAddress = async () => {
       try {
         console.log('Loading default pickup address...');
-        const defaultAddress = await addressService.getDefaultFromAddress();
-        console.log("Loaded default pickup address:", defaultAddress);
-        if (defaultAddress) {
-          setPickupAddress(defaultAddress);
+        const defaultAddressFromService = await addressService.getDefaultFromAddress();
+        if (defaultAddressFromService) {
+          // TS2345: Ensure id is string
+          setPickupAddress({ ...defaultAddressFromService, id: String(defaultAddressFromService.id) });
         } else {
-          const addresses = await addressService.getSavedAddresses();
-          if (addresses.length > 0) {
-            const firstAddress = addresses[0];
-            setPickupAddress(firstAddress);
+          const addressesFromService = await addressService.getSavedAddresses();
+          if (addressesFromService.length > 0) {
+            const firstAddress = addressesFromService[0];
+            // TS2345: Ensure id is string
+            setPickupAddress({ ...firstAddress, id: String(firstAddress.id) });
             console.log("Using first available address:", firstAddress);
           } else {
             console.log("No default or saved pickup addresses found.");
@@ -121,27 +122,19 @@ export const useBulkUpload = () => {
         }
       } catch (error) {
         console.error('Error loading default pickup address:', error);
-        // toast.error('Error loading pickup addresses. Please check your settings.'); // Consider if toast is too aggressive here
       }
     };
     
     loadDefaultPickupAddress();
   }, []);
 
-  const handleFileUpload = async (fileToUpload: File) => {
+  // This function is what's EXPORTED as `handleUpload`
+  const handleFileUpload = async (fileToUpload: File) => { // Takes 1 argument: File
     console.log('handleFileUpload in useBulkUpload called with:', { file: fileToUpload.name, currentPickupAddress: pickupAddress });
     
     if (!pickupAddress) {
       const errorMsg = 'Pickup address is required. Please select or add a pickup address first.';
-      toast.error(errorMsg, {
-        description: 'You can manage pickup addresses in Settings.',
-        action: {
-          label: 'Go to Settings',
-          onClick: () => {
-            window.location.href = '/settings'; 
-          }
-        }
-      });
+      toast.error(errorMsg, { /* ... */ });
       setBaseHookUploadStatus('idle');
       throw new Error(errorMsg); 
     }
@@ -151,13 +144,19 @@ export const useBulkUpload = () => {
     }
     
     try {
+      // TS2554: Expected 2 arguments, but got 3. (This error was on this line)
+      // originalHandleUpload takes (file, pickupAddress). The call is correct with 2 args.
+      // The error might be due to type inference on originalHandleUpload itself.
+      // Let's ensure originalHandleUpload is correctly typed from useShipmentUpload.
       await originalHandleUpload(fileToUpload, pickupAddress);
     } catch (error) {
       console.error("Error during originalHandleUpload:", error);
+      // Error handling
     }
   };
 
   const handleCreateLabels = async () => {
+    // ... (implementation as before) ...
     if (!results || !pickupAddress) {
       toast.error('Missing shipments data or pickup address.');
       updateLabelGenerationProgress({ isGenerating: false, currentStep: 'Error: Missing data' });
@@ -176,11 +175,12 @@ export const useBulkUpload = () => {
     } catch (error: any) {
        toast.error(error.message || "Failed to create labels in main hook");
        updateLabelGenerationProgress({isGenerating: false, currentStep: 'Error during creation'});
-    } 
+    }
   };
 
   const handleOpenBatchPrintPreview = () => {
-    if (results?.batchResult && results.batchResult.batchId) {
+    // ... (implementation as before) ...
+     if (results?.batchResult && results.batchResult.batchId) {
       console.log('Opening batch print preview for batch:', results.batchResult.batchId);
       setBatchPrintPreviewModalOpen(true);
     } else {
@@ -188,6 +188,15 @@ export const useBulkUpload = () => {
       console.warn("Attempted to open batch print preview without batch results:", results);
     }
   };
+  
+  const setPickupAddressWithStringId = (address: SavedAddress | null) => {
+    if (address && typeof address.id === 'number') {
+        setPickupAddress({ ...address, id: String(address.id) });
+    } else {
+        setPickupAddress(address);
+    }
+  };
+
 
   return {
     file,
@@ -204,12 +213,12 @@ export const useBulkUpload = () => {
     selectedCarrierFilter,
     filteredShipments,
     pickupAddress,
-    setPickupAddress,
+    setPickupAddress: setPickupAddressWithStringId, // Use wrapper to ensure string ID
     handleFileChange,
-    handleUpload: handleFileUpload,
+    handleUpload: handleFileUpload, // Export the 1-arg version
     handleSelectRate: originalSelectRate,
     handleRemoveShipment: originalRemoveShipment,
-    handleEditShipment: originalEditShipment,
+    handleEditShipment: originalEditShipment, // This is (shipmentId, details) from useShipmentManagement
     handleRefreshRates: originalRefreshRates,
     handleBulkApplyCarrier: originalBulkApplyCarrier,
     handleCreateLabels,

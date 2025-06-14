@@ -46,6 +46,7 @@ export const useShipmentUpload = () => {
     }
   };
 
+  // This is the function that will be aliased as originalHandleUpload
   const handleUpload = async (fileParam: File, pickupAddressParam: SavedAddress | null | undefined): Promise<void> => {
     if (!fileParam) {
       toast.error('Please select a file to upload');
@@ -203,7 +204,7 @@ export const useShipmentUpload = () => {
     setResults, // Expose setResults if needed by the consuming hook
     setUploadStatus, // Expose setUploadStatus
     handleFileChange,
-    handleUpload,
+    handleUpload, // Exported as a 2-argument function
     handleDownloadTemplate
   };
 };
