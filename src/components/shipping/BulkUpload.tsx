@@ -71,7 +71,11 @@ const BulkUpload: React.FC = () => {
 
   const handleEditShipmentWrapper = (shipmentId: string) => {
     console.log('Edit shipment:', shipmentId);
-    handleEditShipment(shipmentId);
+    // Find the shipment by ID and pass the full shipment object
+    const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+    if (shipment) {
+      handleEditShipment(shipment);
+    }
   };
 
   return (
