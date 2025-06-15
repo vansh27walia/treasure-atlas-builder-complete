@@ -6,6 +6,7 @@ import { toast } from '@/components/ui/sonner';
 import SelectAddressDropdown from '../SelectAddressDropdown';
 import AddressForm from '../AddressForm';
 import { addressService, SavedAddress } from '@/services/AddressService';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface BulkUploadFormProps {
   onUploadSuccess: (results: any) => void;
@@ -121,49 +122,35 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     }
 
     try {
+      console.log('Starting AI file conversion for:', selectedFile.name);
+      
       const formData = new FormData();
       formData.append("file", selectedFile);
 
-      const aiRes = await fetch("/functions/v1/ai-convert-upload", {
-        method: "POST",
+      // Use Supabase client to invoke the edge function
+      const { data, error } = await supabase.functions.invoke('ai-convert-upload', {
         body: formData,
       });
 
-      const responseText = await aiRes.text();
-
-      if (!aiRes.ok) {
-        let errorMsg = `AI file conversion failed (status: ${aiRes.status})`;
-        try {
-            const errorJson = JSON.parse(responseText);
-            errorMsg = "AI file conversion failed: " + (errorJson.error || responseText);
-        } catch(e) {
-            if(responseText) {
-                errorMsg = `AI file conversion failed: ${responseText}`;
-            }
-        }
+      if (error) {
+        console.error('Supabase function error:', error);
+        const errorMsg = `AI file conversion failed: ${error.message}`;
         toast.error(errorMsg);
         onUploadFail(errorMsg);
         return;
       }
 
-      if (!responseText) {
-        const errorMsg = "AI conversion returned an empty response.";
-        toast.error(errorMsg);
-        onUploadFail(errorMsg);
-        return;
-      }
+      console.log('AI conversion response:', data);
 
-      const aiJson = JSON.parse(responseText);
-      const convertedCsv = aiJson.convertedCsv;
-
-      if (!convertedCsv) {
-        const errorMsg = "No converted CSV returned from AI. " + (aiJson.error || "");
+      if (!data || !data.convertedCsv) {
+        const errorMsg = "No converted CSV returned from AI conversion.";
         toast.error(errorMsg);
         onUploadFail(errorMsg);
         return;
       }
       
-      const csvFile = new File([convertedCsv], "converted_upload.csv", { type: "text/csv" });
+      // Create a CSV file from the converted content
+      const csvFile = new File([data.convertedCsv], "converted_upload.csv", { type: "text/csv" });
 
       if (handleUpload) {
         await handleUpload(csvFile);
@@ -172,6 +159,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         onUploadFail("Upload handler not available");
       }
     } catch (error) {
+      console.error('Upload error:', error);
       let errorMessage = "Upload failed";
       if (error instanceof Error) {
         errorMessage += `: ${error.message}`;
