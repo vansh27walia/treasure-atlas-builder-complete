@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -90,7 +91,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {shipments.map((shipment, index) => {
-              // Only use PDF URL for print preview - do not fallback to PNG
+              // Only use PDF URL for print preview - ensure PDF is prioritized
               const pdfUrl = shipment.label_urls?.pdf;
               
               console.log('Individual shipment PDF URL check:', {
@@ -170,12 +171,12 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         Download Label (PDF)
                       </Button>
                       
-                      {/* Print Preview Button - ONLY show if PDF URL exists */}
+                      {/* Print Preview Button - ONLY show if PDF URL exists and pass only PDF URL */}
                       {pdfUrl && (
                         <PrintPreview
                           labelUrl={pdfUrl}
                           trackingCode={shipment.tracking_code || shipment.tracking_number || ''}
-                          labelUrls={shipment.label_urls}
+                          labelUrls={{ pdf: pdfUrl }}
                           shipmentDetails={{
                             fromAddress: 'Your Saved Pickup Address',
                             toAddress: shipment.customer_address || '',
