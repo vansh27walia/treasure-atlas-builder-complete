@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -370,7 +369,6 @@ const BulkUpload: React.FC = () => {
             
             <SuccessNotification
               results={results}
-              onDownloadAllLabels={handleDownloadAllLabels}
               onDownloadSingleLabel={handleDownloadSingleLabel}
               onCreateLabels={handleCreateLabels}
               isPaying={isPaying}

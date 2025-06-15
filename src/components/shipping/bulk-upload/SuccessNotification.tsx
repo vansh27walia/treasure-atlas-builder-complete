@@ -1,36 +1,23 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Download, FileText, File } from 'lucide-react';
-import { BulkUploadResult } from '@/types/shipping'; // Assuming BulkUploadResult is defined here
-import { toast } from '@/components/ui/sonner'; // Assuming toast for notifications
+import { BulkUploadResult, BulkShipment } from '@/types/shipping';
+import { toast } from '@/components/ui/sonner';
 
 // Define the structure for a single shipment, including potential PDF URLs
-interface Shipment {
-  id: string;
-  label_url?: string; // Legacy field, might be PNG or PDF
+interface Shipment extends BulkShipment {
   label_urls?: {
     png?: string;
-    pdf?: string; // New field for PDF label URL
+    pdf?: string;
   };
-  status: string;
-  tracking_number?: string;
-  tracking_code?: string;
-  trackingCode?: string;
-  errors?: { details: string; error: string; }[]; // To capture specific errors for failed shipments
-  // Add other properties as needed based on your actual data structure
-}
-
-// Extend BulkUploadResult to ensure processedShipments can hold Shipment objects
-interface BulkUploadResultExtended extends BulkUploadResult {
-  processedShipments?: Shipment[] | Record<string, Shipment>;
-  failedShipments?: { row?: number; details?: string; error?: string; }[]; // Ensure this matches the existing usage
+  errors?: { details: string; error: string; }[];
 }
 
 interface SuccessNotificationProps {
-  results: BulkUploadResultExtended;
-  // onDownloadAllLabels: () => void; // This prop is handled internally for individual label downloads
-  onDownloadSingleLabel: (labelUrl: string, format?: string) => void; // This prop is no longer directly used by this component's internal logic for single label downloads, but kept for interface consistency if needed elsewhere.
+  results: BulkUploadResult;
+  onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
   onCreateLabels: () => void;
   isPaying: boolean;
   isCreatingLabels: boolean;
@@ -40,9 +27,10 @@ interface SuccessNotificationProps {
 interface LabelResultsTableProps {
   shipments: Shipment[];
   onDownloadLabel: (shipment: Shipment) => void;
+  getLabelDownloadInfo: (shipment: Shipment) => { url: string; format: string; type: string } | null;
 }
 
-const LabelResultsTable: React.FC<LabelResultsTableProps> = ({ shipments, onDownloadLabel }) => {
+const LabelResultsTable: React.FC<LabelResultsTableProps> = ({ shipments, onDownloadLabel, getLabelDownloadInfo }) => {
   return (
     <Card className="p-6 rounded-lg shadow-sm">
       <h4 className="font-semibold text-lg text-gray-800 mb-4">Shipment Details</h4>
@@ -66,7 +54,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({ shipments, onDown
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {shipments.map((shipment) => {
-              const labelInfo = getLabelDownloadInfo(shipment); // Use the helper from parent context (assuming it's accessible or passed down)
+              const labelInfo = getLabelDownloadInfo(shipment);
               return (
                 <tr key={shipment.id}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{shipment.id}</td>
@@ -93,6 +81,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({ shipments, onDown
                       <Button
                         onClick={() => onDownloadLabel(shipment)}
                         className="text-blue-600 hover:text-blue-900 bg-blue-100 hover:bg-blue-200 px-3 py-1 rounded-md text-xs"
+                        size="sm"
                       >
                         <Download className="mr-1 h-3 w-3" /> Download {labelInfo.type}
                       </Button>
@@ -108,7 +97,6 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({ shipments, onDown
   );
 };
 
-
 const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   results,
   onCreateLabels,
@@ -118,21 +106,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
   let allShipments: Shipment[] = [];
   if (Array.isArray(results.processedShipments)) {
-    allShipments = results.processedShipments;
-  } else if (results.processedShipments && typeof results.processedShipments === 'object') {
-    // Convert object of shipments to an array, ensuring they are valid Shipment objects
-    const shipmentValues = Object.values(results.processedShipments);
-    allShipments = shipmentValues.filter((item): item is Shipment =>
-      item &&
-      typeof item === 'object' &&
-      'id' in item // A simple check to ensure it's a shipment-like object
-    );
+    allShipments = results.processedShipments as Shipment[];
   }
 
   console.log(`SuccessNotification - All shipments: ${allShipments.length}`, allShipments);
 
   // Helper to determine the best label URL and its format (PDF preferred)
-  // Moved this function here to be accessible by LabelResultsTable
   const getLabelDownloadInfo = (shipment: Shipment) => {
     // Prioritize PDF if available
     if (shipment.label_urls?.pdf && shipment.label_urls.pdf.trim() !== '') {
@@ -148,9 +127,9 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       if (urlLower.endsWith('.pdf')) {
         return { url: shipment.label_url, format: 'pdf', type: 'PDF' };
       }
-      return { url: shipment.label_url, format: 'png', type: 'PNG' }; // Default to PNG if no clear extension
+      return { url: shipment.label_url, format: 'png', type: 'PNG' };
     }
-    return null; // No label URL found
+    return null;
   };
 
   // Filter shipments that have any label URL (PNG or PDF)
@@ -186,12 +165,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
       const link = document.createElement('a');
       link.href = url;
-      link.download = filename; // This attribute forces a download and suggests a filename
-      link.target = '_blank'; // Opens in a new tab/window before download, good for PDFs
+      link.download = filename;
+      link.target = '_blank';
 
       document.body.appendChild(link);
-      link.click(); // Programmatically click the link to trigger download
-      document.body.removeChild(link); // Clean up the temporary link element
+      link.click();
+      document.body.removeChild(link);
 
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
@@ -223,14 +202,14 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           // Construct a meaningful filename including tracking code and correct extension
           const filename = `label_${trackingCode || `shipment_${shipment.id || i + 1}`}.${format}`;
           await downloadFile(url, filename);
-        }, i * 500); // 500ms delay between each download
+        }, i * 500);
       }
     }
 
-    toast.dismiss(); // Dismiss the loading toast
+    toast.dismiss();
     setTimeout(() => {
       toast.success(`Started download of ${shipmentsWithLabels.length} labels (PDFs preferred)`);
-    }, 1000 + (shipmentsWithLabels.length * 500)); // Give time for all downloads to potentially initiate
+    }, 1000 + (shipmentsWithLabels.length * 500));
   };
 
   // Don't show the notification component if no relevant data is present
@@ -244,7 +223,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   const displayFailed = failedShipments.length || results.failed || 0;
 
   return (
-    <div className="space-y-6 font-sans"> {/* Added font-sans for Inter font */}
+    <div className="space-y-6 font-sans">
       <Card className="p-6 border-green-200 bg-green-50 rounded-lg shadow-sm">
         <div className="flex items-center space-x-3 mb-4">
           <CheckCircle className="h-6 w-6 text-green-600" />
@@ -342,6 +321,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
               toast.error('No label URL available for this shipment.');
             }
           }}
+          getLabelDownloadInfo={getLabelDownloadInfo}
         />
       )}
 
@@ -366,4 +346,3 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 };
 
 export default SuccessNotification;
-
