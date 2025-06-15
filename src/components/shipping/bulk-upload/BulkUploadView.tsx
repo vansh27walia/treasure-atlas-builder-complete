@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,6 +60,26 @@ const BulkUploadView: React.FC = () => {
     setPickupAddress(address);
   };
 
+  // Get the best batch label URL for print preview
+  const getBatchLabelUrl = () => {
+    console.log('Getting batch label URL from results:', results);
+    
+    if (results?.batchResult?.consolidatedLabelUrls?.pdf) {
+      console.log('Using consolidated PDF URL:', results.batchResult.consolidatedLabelUrls.pdf);
+      return results.batchResult.consolidatedLabelUrls.pdf;
+    }
+    
+    if (results?.bulk_label_pdf_url) {
+      console.log('Using bulk PDF URL:', results.bulk_label_pdf_url);
+      return results.bulk_label_pdf_url;
+    }
+    
+    console.log('No batch label URL found');
+    return null;
+  };
+
+  const batchLabelUrl = getBatchLabelUrl();
+
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -68,9 +89,9 @@ const BulkUploadView: React.FC = () => {
         </h1>
         
         <div className="flex gap-2 flex-wrap justify-center sm:justify-end">
-          {uploadStatus === 'success' && results?.batchResult?.consolidatedLabelUrls?.pdf && !labelGenerationProgress.isGenerating && (
+          {uploadStatus === 'success' && batchLabelUrl && !labelGenerationProgress.isGenerating && (
             <Button
-              onClick={() => handleDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
+              onClick={() => handleDownloadSingleLabel(batchLabelUrl)}
               variant="default"
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
@@ -78,14 +99,14 @@ const BulkUploadView: React.FC = () => {
               Download Batch PDF
             </Button>
           )}
-          {uploadStatus === 'success' && results?.batchResult && !labelGenerationProgress.isGenerating && (
+          {uploadStatus === 'success' && batchLabelUrl && !labelGenerationProgress.isGenerating && (
             <Button
               onClick={handleOpenBatchPrintPreview}
               variant="default"
               className="bg-purple-600 hover:bg-purple-700 text-white"
             >
               <PrinterIcon className="mr-2 h-4 w-4" />
-              Print/Download Batch Output
+              Print Preview All Labels
             </Button>
           )}
           <Button
@@ -163,7 +184,6 @@ const BulkUploadView: React.FC = () => {
       {/* Results Section */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="space-y-6">
-          {/* BulkLabelDownloadOptions is now replaced by the modal */}
           {results.processedShipments && results.processedShipments.length > 0 && (
             <LabelResultsTable
               shipments={results.processedShipments || []}
@@ -174,15 +194,14 @@ const BulkUploadView: React.FC = () => {
       )}
 
       {/* Batch Print Preview Modal */}
-      {results?.batchResult && (
+      {batchLabelUrl && (
         <PrintPreview
           isOpenProp={batchPrintPreviewModalOpen}
           onOpenChangeProp={setBatchPrintPreviewModalOpen}
-          labelUrl="" // Not relevant for batch preview trigger, content comes from batchResult
-          trackingCode={null} // Batch ID will be shown in modal title
-          batchResult={results.batchResult}
+          labelUrl={batchLabelUrl}
+          trackingCode={null}
+          batchResult={results?.batchResult}
           isBatchPreview={true}
-          // No triggerButton prop here, it's controlled by isOpenProp
         />
       )}
     </div>

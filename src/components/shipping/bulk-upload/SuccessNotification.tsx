@@ -2,14 +2,14 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, File } from 'lucide-react';
+import { CheckCircle, Download, FileText, File, PrinterIcon } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import LabelResultsTable from './LabelResultsTable';
+import PrintPreview from '@/components/shipping/PrintPreview';
 import { toast } from '@/components/ui/sonner';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
-  onDownloadAllLabels: () => void;
   onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
   onCreateLabels: () => void;
   isPaying: boolean;
@@ -18,7 +18,6 @@ interface SuccessNotificationProps {
 
 const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   results,
-  onDownloadAllLabels,
   onDownloadSingleLabel,
   onCreateLabels,
   isPaying,
@@ -46,6 +45,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     const hasLabel = !!(
       (shipment.label_url && shipment.label_url.trim() !== '') ||
       (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '') ||
+      (shipment.label_urls?.pdf && shipment.label_urls.pdf.trim() !== '') ||
       shipment.status === 'completed'
     );
     return hasLabel;
@@ -126,6 +126,19 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     }, 1000);
   };
 
+  // Get batch label URL for print preview
+  const getBatchLabelUrl = () => {
+    if (results.batchResult?.consolidatedLabelUrls?.pdf) {
+      return results.batchResult.consolidatedLabelUrls.pdf;
+    }
+    if (results.bulk_label_pdf_url) {
+      return results.bulk_label_pdf_url;
+    }
+    return null;
+  };
+
+  const batchLabelUrl = getBatchLabelUrl();
+
   // Don't show if no data
   if (!shouldShowNotification) {
     return null;
@@ -191,13 +204,40 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Labels</h4>
             
             <div className="flex flex-col gap-3">
-              <Button 
-                onClick={handleDownloadAllIndividualLabels}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Download All Labels ({shipmentsWithLabels.length} PNG files)
-              </Button>
+              <div className="flex flex-wrap gap-3">
+                <Button 
+                  onClick={handleDownloadAllIndividualLabels}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download All Labels ({shipmentsWithLabels.length} PNG files)
+                </Button>
+                
+                {batchLabelUrl && (
+                  <>
+                    <Button 
+                      onClick={() => onDownloadSingleLabel(batchLabelUrl)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Download Batch PDF
+                    </Button>
+                    
+                    <PrintPreview
+                      labelUrl={batchLabelUrl}
+                      trackingCode={null}
+                      batchResult={results.batchResult}
+                      isBatchPreview={true}
+                      triggerButton={
+                        <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                          <PrinterIcon className="mr-2 h-4 w-4" />
+                          Print Preview All Labels
+                        </Button>
+                      }
+                    />
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}

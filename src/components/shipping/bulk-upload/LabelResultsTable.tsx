@@ -20,7 +20,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
     console.log('Attempting download for:', { format, shipmentId: shipment.id, labelUrls: shipment.label_urls });
     
     let url = shipment.label_urls?.[format];
-    // Fallback for primary label_url if specific format not in label_urls (e.g. older data or only PNG was generated)
+    // Fallback for primary label_url if specific format not in label_urls
     if (!url && format === 'png') {
       url = shipment.label_url;
     }
@@ -88,14 +88,16 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {shipments.map((shipment, index) => {
-              // Only use PDF URL for print preview - do not fallback to PNG
-              const pdfUrl = shipment.label_urls?.pdf;
+              // Get the best available label URL for print preview - prioritize PDF, then PNG
+              const printPreviewUrl = shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url;
               
-              console.log('Individual shipment PDF URL check:', {
+              console.log('PrintPreview URL check for shipment:', {
                 shipmentId: shipment.id,
-                pdfUrl: pdfUrl,
-                hasPDF: !!pdfUrl,
-                willShowPrintPreview: !!pdfUrl
+                pdfUrl: shipment.label_urls?.pdf,
+                pngUrl: shipment.label_urls?.png,
+                labelUrl: shipment.label_url,
+                finalUrl: printPreviewUrl,
+                willShowPrintPreview: !!printPreviewUrl
               });
 
               return (
@@ -207,7 +209,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                     <div className="flex space-x-2">
                       <Button
                         size="sm"
-                        onClick={() => handleDownload(shipment, 'pdf')} // Default download is PDF
+                        onClick={() => handleDownload(shipment, 'pdf')}
                         className="bg-green-600 hover:bg-green-700 text-white"
                         disabled={!shipment.label_urls?.pdf}
                       >
@@ -215,10 +217,10 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         Download
                       </Button>
                       
-                      {/* PrintPreview for individual label - ONLY show if PDF URL exists */}
-                      {pdfUrl && (
+                      {/* PrintPreview for individual label - show if any label URL exists */}
+                      {printPreviewUrl && (
                         <PrintPreview
-                          labelUrl={pdfUrl}
+                          labelUrl={printPreviewUrl}
                           trackingCode={shipment.tracking_code || shipment.tracking_number || ''}
                           labelUrls={shipment.label_urls}
                           shipmentDetails={{
@@ -231,6 +233,16 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                             carrier: shipment.carrier || 'N/A'
                           }}
                           shipmentId={shipment.id || shipment.original_shipment_id}
+                          triggerButton={
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              Preview
+                            </Button>
+                          }
                         />
                       )}
                     </div>
