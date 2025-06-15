@@ -122,6 +122,23 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     }
 
     try {
+      console.log('Processing file:', selectedFile.name);
+      
+      const ext = "." + (selectedFile.name.trim().split(".").pop()?.toLowerCase() ?? "");
+      
+      // If it's already a CSV file, skip AI conversion
+      if (ext === ".csv") {
+        console.log('CSV file detected, skipping AI conversion');
+        if (handleUpload) {
+          await handleUpload(selectedFile);
+          onUploadSuccess({});
+        } else {
+          onUploadFail("Upload handler not available");
+        }
+        return;
+      }
+
+      // For non-CSV files, try AI conversion
       console.log('Starting AI file conversion for:', selectedFile.name);
       
       const formData = new FormData();
@@ -134,16 +151,24 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
       if (error) {
         console.error('Supabase function error:', error);
-        const errorMsg = `AI file conversion failed: ${error.message}`;
-        toast.error(errorMsg);
-        onUploadFail(errorMsg);
+        
+        // Check if it's an OpenAI quota issue
+        if (error.message && error.message.includes('quota')) {
+          toast.error('AI conversion service is temporarily unavailable (quota exceeded). Please upload a CSV file directly or try again later.');
+          onUploadFail('AI conversion quota exceeded - please upload CSV format directly');
+          return;
+        }
+        
+        // For other errors, suggest CSV upload
+        toast.error(`AI file conversion failed: ${error.message}. Please convert your file to CSV format and upload again.`);
+        onUploadFail(`AI conversion failed: ${error.message}`);
         return;
       }
 
       console.log('AI conversion response:', data);
 
       if (!data || !data.convertedCsv) {
-        const errorMsg = "No converted CSV returned from AI conversion.";
+        const errorMsg = "No converted CSV returned from AI conversion. Please convert your file to CSV format manually and upload again.";
         toast.error(errorMsg);
         onUploadFail(errorMsg);
         return;
@@ -166,8 +191,10 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       } else {
         errorMessage += `: ${String(error)}`;
       }
+      
+      // Add helpful message for users
+      toast.error(`${errorMessage}. For best results, please upload files in CSV format.`);
       onUploadFail(errorMessage);
-      toast.error(errorMessage);
     }
   };
 
@@ -289,8 +316,11 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                 : 'Drag & drop your file here or click to browse'
               }
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 mb-2">
               Supported formats: CSV, Excel, Word, TXT, JSON, XML (up to 10MB)
+            </p>
+            <p className="text-xs text-blue-600 font-medium">
+              💡 For best results and fastest processing, upload CSV files directly
             </p>
             {selectedFile && (
               <p className="text-xs text-green-600 mt-2">

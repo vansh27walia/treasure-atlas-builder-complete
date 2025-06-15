@@ -116,8 +116,11 @@ serve(async (req) => {
     if (!OPENAI_API_KEY) {
       console.error("OpenAI API key not found");
       return new Response(
-        JSON.stringify({ error: "OpenAI API key not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ 
+          error: "AI conversion service is temporarily unavailable. Please upload your file in CSV format instead.",
+          details: "OpenAI API key not configured"
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -148,7 +151,7 @@ serve(async (req) => {
 
     if (!SUPPORTED_EXTENSIONS.includes(ext)) {
       return new Response(
-        JSON.stringify({ error: "File type not supported." }),
+        JSON.stringify({ error: "File type not supported. Please upload a CSV file instead." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -160,14 +163,14 @@ serve(async (req) => {
     } catch (e) {
       console.error("File extraction error:", e);
       return new Response(
-        JSON.stringify({ error: "Could not read file: " + e.message }),
+        JSON.stringify({ error: "Could not read file. Please convert to CSV format and try again." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     if (!fileContent.trim() || fileContent.trim().length < 10) {
       return new Response(
-        JSON.stringify({ error: "File has no readable or useful content." }),
+        JSON.stringify({ error: "File has no readable content. Please upload a valid file or convert to CSV format." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -197,11 +200,22 @@ serve(async (req) => {
     if (!openaiRes.ok) {
       const errText = await openaiRes.text();
       console.error("OpenAI API error:", errText);
+      
+      // Check for quota exceeded error
+      if (errText.includes("quota") || errText.includes("insufficient_quota")) {
+        return new Response(JSON.stringify({
+            error: "AI conversion service is temporarily unavailable due to quota limits. Please upload your file in CSV format instead.",
+            details: "OpenAI quota exceeded"
+          }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
       return new Response(JSON.stringify({
-          error: "OpenAI response error",
+          error: "AI conversion service is temporarily unavailable. Please convert your file to CSV format and upload again.",
           details: errText
         }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     
@@ -211,7 +225,7 @@ serve(async (req) => {
     
     if (!content.trim()) {
       return new Response(
-        JSON.stringify({ error: "AI did not produce any content." }),
+        JSON.stringify({ error: "AI conversion failed to produce content. Please convert your file to CSV format manually." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -220,7 +234,10 @@ serve(async (req) => {
     if (!validateCsvHeaders(content, CSV_HEADERS)) {
       console.warn("CSV validation failed, content:", content.substring(0, 200));
       return new Response(
-        JSON.stringify({ error: "AI CSV output does not match required header format.", content: content.substring(0, 500) }),
+        JSON.stringify({ 
+          error: "AI conversion produced invalid format. Please convert your file to CSV format with the correct headers.",
+          details: "CSV header validation failed"
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -236,7 +253,10 @@ serve(async (req) => {
   } catch (error) {
     console.error("ai-convert-upload error:", error);
     return new Response(
-      JSON.stringify({ error: error?.message || "Unknown server error", details: error }),
+      JSON.stringify({ 
+        error: "AI conversion service encountered an error. Please upload your file in CSV format instead.",
+        details: error?.message || "Unknown server error"
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
