@@ -380,14 +380,14 @@ const BulkUpload: React.FC = () => {
       />
 
       {/* Batch Print Preview Modal */}
-      {results?.bulk_label_pdf_url && (
+      {results?.bulk_label_pdf_url && results.batchResult && (
         <PrintPreview
           isOpenProp={showPrintPreview}
           onOpenChangeProp={setShowPrintPreview}
           labelUrl={results.bulk_label_pdf_url}
           trackingCode={null}
           isBatchPreview={true}
-          batchResult={{ consolidatedLabelUrls: { pdf: results.bulk_label_pdf_url }}}
+          batchResult={results.batchResult}
         />
       )}
     </>

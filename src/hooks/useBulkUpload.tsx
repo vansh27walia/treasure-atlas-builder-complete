@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useShipmentUpload } from './useShipmentUpload';
 import { useShipmentManagement } from './useShipmentManagement';
@@ -212,6 +213,7 @@ export const useBulkUpload = () => {
         setResults({
           ...results,
           processedShipments: data.processedLabels,
+          batchResult: data.batchResult,
           bulk_label_pdf_url: data.batchResult?.consolidatedLabelUrls?.pdf,
           bulk_label_png_url: data.batchResult?.consolidatedLabelUrls?.png, // Store png just in case
         });
