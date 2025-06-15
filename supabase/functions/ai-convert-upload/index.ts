@@ -150,7 +150,7 @@ serve(async (req) => {
     }
 
     // Use Gemini to convert
-    const geminiEndpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+    const geminiEndpoint = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     const userPrompt = GEMINI_PROMPT + "\n" + fileContent + "\n----- END OF FILE -----";
 
     // Gemini expects { contents: [{ parts: [{ text: ... }] }] }
