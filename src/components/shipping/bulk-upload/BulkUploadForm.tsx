@@ -79,6 +79,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
     // Always convert with AI
     try {
+      toast.info("Attempting to convert your file with AI...", { duration: 2000 });
       const formData = new FormData();
       formData.append("file", file);
       // Use ai-convert-upload edge function for all file types
@@ -86,9 +87,25 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         body: formData,
       });
 
-      if (error || !data || !data.convertedCsv) {
-        onUploadFail(`AI conversion failed: ${error?.message || 'No content returned'}`);
-        toast.error('Failed to convert your file with AI. Please check your file format.');
+      if (error || (data && data.error) || !data?.convertedCsv) {
+        let mainError = "AI conversion failed. Please try again.";
+        let errorDetails = "The server returned an unexpected response.";
+
+        if (error) { // This is a FunctionError from Supabase client
+            console.error("Supabase Function Error:", error);
+            mainError = typeof error.context?.error === 'string' ? error.context.error : "AI conversion service failed";
+            errorDetails = typeof error.context?.details === 'string' ? error.context.details : error.message;
+        } else if (data && data.error) { // This is a handled error from the function's logic
+            console.error("Function-returned error:", data.error);
+            mainError = data.error;
+            errorDetails = data.details || 'No additional details provided.';
+        }
+        
+        onUploadFail(`${mainError}: ${errorDetails}`);
+        toast.error(mainError, {
+            description: errorDetails,
+            duration: 10000, // Show for 10 seconds
+        });
         return;
       }
       // Validate and parse CSV

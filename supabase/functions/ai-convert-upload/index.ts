@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -176,10 +175,11 @@ serve(async (req) => {
 
     if (!aiRes.ok) {
       const errorText = await aiRes.text();
+      console.error("Gemini API Error:", errorText);
       if (errorText.includes("API key not valid") || errorText.includes("API_KEY_INVALID")) {
         return new Response(JSON.stringify({
-          error: "Gemini API key invalid. Please check your Gemini API key.",
-          details: errorText
+          error: "Your Gemini API key is invalid or not configured correctly.",
+          details: "Please check your Gemini API key in the Supabase secrets. Ensure it has the correct permissions and is not expired."
         }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       if (errorText.includes("quota")) {
@@ -189,8 +189,8 @@ serve(async (req) => {
         }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       return new Response(JSON.stringify({
-        error: "Gemini AI conversion failed. Please check your API key or usage.",
-        details: errorText
+        error: "Gemini AI conversion failed.",
+        details: `The AI service returned an error. Please check your API key or usage. Details: ${errorText}`
       }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const geminiResult = await aiRes.json();
