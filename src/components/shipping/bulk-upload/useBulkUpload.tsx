@@ -260,6 +260,7 @@ export const useBulkUpload = () => {
           processedShipments: allTransformedShipments,
           failedShipments: (data.failedLabels || []).map((f:any) => ({ shipmentId: f.shipmentId, error: f.error, row: shipmentsToProcess.find(s => s.id === f.shipmentId)?.row })),
           batchResult: frontendBatchResult,
+          bulk_label_pdf_url: frontendBatchResult?.consolidatedLabelUrls?.pdf || null,
           uploadStatus: 'success' as const,
           pickupAddress
         };

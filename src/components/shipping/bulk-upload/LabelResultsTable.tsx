@@ -204,9 +204,9 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       Download
                     </Button>
                     
-                    {/* PrintPreview for individual label - Now prioritizes PDF over PNG */}
+                    {/* PrintPreview for individual label - Now prioritizes PDF */}
                     <PrintPreview
-                      labelUrl={shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url || ''}
+                      labelUrl={shipment.label_urls?.pdf || ''}
                       trackingCode={shipment.tracking_code || shipment.tracking_number}
                       labelUrls={shipment.label_urls} // Pass all available URLs
                       shipmentDetails={{
