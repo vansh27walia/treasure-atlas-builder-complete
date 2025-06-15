@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -135,7 +136,7 @@ const convertPngToPdf = async (shipmentId: string) => {
   }
 
   try {
-    console.log(`Converting PNG to PDF for shipment ${shipmentId}`);
+    console.log(`🔄 Converting PNG to PDF for shipment ${shipmentId}`);
     
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/label`, {
       method: 'POST',
@@ -169,7 +170,7 @@ const convertPngToPdf = async (shipmentId: string) => {
 };
 
 const generateAllFormatsForShipment = async (shipment: any) => {
-  console.log(`Generating all formats for shipment ${shipment.easypost_id}`);
+  console.log(`🚀 Generating all formats for shipment ${shipment.easypost_id}`);
   
   // Purchase the label first to get the PNG
   const labelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId);
@@ -416,25 +417,25 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing ${shipments.length} shipments for label creation with PDF conversion`);
+    console.log(`🔥 Processing ${shipments.length} shipments for bulk label creation with mandatory PDF conversion`);
     
     const processedLabels = [];
     const failedLabels = [];
     let batchResult = null;
 
-    // Process individual labels with all formats (PNG + PDF conversion)
+    // Process individual labels with MANDATORY PDF conversion
     for (let i = 0; i < shipments.length; i++) {
       const shipment = shipments[i];
       const shipmentIndex = i + 1;
       
       try {
-        console.log(`Processing shipment ${shipmentIndex}/${shipments.length}: ${shipment.id}`);
+        console.log(`📦 Processing shipment ${shipmentIndex}/${shipments.length}: ${shipment.id}`);
         
         if (!shipment.selectedRateId || !shipment.easypost_id) {
           throw new Error('Missing EasyPost shipment ID or rate ID for label generation');
         }
 
-        // Generate individual labels in PNG and PDF formats
+        // Generate individual labels with MANDATORY PNG to PDF conversion
         const labelData = await generateAllFormatsForShipment(shipment);
 
         const processedLabel = {
@@ -469,7 +470,7 @@ serve(async (req) => {
     // Generate batch/consolidated labels if requested and we have successful labels
     if (labelOptions.generateBatch && processedLabels.length > 0) {
       try {
-        console.log('Generating batch/consolidated labels and manifest');
+        console.log('🎯 Generating batch/consolidated labels and manifest');
         const easyPostIds = processedLabels.map(label => label.id);
         batchResult = await processEasyPostBatch(easyPostIds);
         console.log('✅ Successfully generated batch labels and manifest');
@@ -478,7 +479,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`✅ Processing complete: ${processedLabels.length} successful, ${failedLabels.length} failed out of ${shipments.length} total`);
+    console.log(`🎉 Processing complete: ${processedLabels.length} successful, ${failedLabels.length} failed out of ${shipments.length} total`);
 
     return new Response(
       JSON.stringify({
@@ -489,7 +490,7 @@ serve(async (req) => {
         total: shipments.length,
         successful: processedLabels.length,
         failed: failedLabels.length,
-        message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with PDF conversion`,
+        message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with mandatory PDF conversion`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );

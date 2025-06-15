@@ -17,13 +17,16 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   onDownloadLabel
 }) => {
   const handleDownload = (shipment: any, format: string = 'pdf') => {
-    console.log('Attempting download for:', { format, shipmentId: shipment.id, labelUrls: shipment.label_urls });
+    console.log('📥 Downloading label:', { format, shipmentId: shipment.id, labelUrls: shipment.label_urls });
     
     let url = shipment.label_urls?.[format];
     
-    // Fallback chain: PDF first, then PNG, then original label_url
+    // PRIORITY: PDF first, then PNG fallback
     if (!url && format === 'pdf') {
       url = shipment.label_urls?.png || shipment.label_url;
+      if (url && !url.includes('.pdf')) {
+        toast.warning(`PDF not available for this shipment. Downloading PNG instead.`);
+      }
     } else if (!url && format === 'png') {
       url = shipment.label_url;
     }
@@ -33,7 +36,23 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
       console.error('URL not found for download:', { format, shipment });
       return;
     }
+    
+    // Trigger download
     onDownloadLabel(url);
+    toast.success(`📥 Downloading ${format.toUpperCase()} label...`);
+  };
+
+  const handleBatchDownload = (format: string = 'pdf') => {
+    console.log('📦 Batch download requested for format:', format);
+    
+    // Download all individual labels in the specified format
+    shipments.forEach((shipment, index) => {
+      setTimeout(() => {
+        handleDownload(shipment, format);
+      }, index * 500); // Stagger downloads by 500ms
+    });
+    
+    toast.success(`📦 Downloading all ${shipments.length} labels in ${format.toUpperCase()} format...`);
   };
 
   const formatDate = (dateString: string) => {
@@ -62,10 +81,35 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   return (
     <Card className="overflow-hidden">
       <div className="px-6 py-4 border-b bg-gray-50">
-        <h3 className="text-lg font-semibold text-gray-900">Generated Shipping Labels</h3>
-        <p className="text-sm text-gray-600 mt-1">
-          {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download in PDF and PNG formats
-        </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Generated Shipping Labels</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download in PDF and PNG formats
+            </p>
+          </div>
+          
+          {/* Batch Download Options */}
+          <div className="flex gap-2">
+            <Button
+              onClick={() => handleBatchDownload('pdf')}
+              className="bg-red-600 hover:bg-red-700 text-white"
+              size="sm"
+            >
+              <File className="h-4 w-4 mr-2" />
+              Download All PDFs
+            </Button>
+            <Button
+              onClick={() => handleBatchDownload('png')}
+              variant="outline"
+              size="sm"
+              className="border-green-300 text-green-700 hover:bg-green-50"
+            >
+              <FileImage className="h-4 w-4 mr-2" />
+              Download All PNGs
+            </Button>
+          </div>
+        </div>
       </div>
       
       <div className="overflow-x-auto">
@@ -146,7 +190,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   </div>
                 </td>
 
-                {/* Label Formats - PRIORITIZE PDF */}
+                {/* Label Formats */}
                 <td className="px-6 py-4">
                   <div className="flex flex-wrap gap-2">
                     {/* PDF Format - PRIORITY */}
@@ -155,7 +199,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         size="sm"
                         variant="outline"
                         onClick={() => handleDownload(shipment, 'pdf')}
-                        className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50 font-medium"
+                        className="text-xs border-red-300 text-red-700 hover:bg-red-50 font-medium"
                       >
                         <File className="h-3 w-3 mr-1" />
                         PDF
@@ -200,7 +244,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                     <Button
                       size="sm"
                       onClick={() => handleDownload(shipment, 'pdf')} // DEFAULT TO PDF
-                      className="bg-green-600 hover:bg-green-700 text-white"
+                      className="bg-red-600 hover:bg-red-700 text-white"
                       disabled={!shipment.label_urls?.pdf && !shipment.label_urls?.png && !shipment.label_url}
                     >
                       <Download className="h-3 w-3 mr-1" />
