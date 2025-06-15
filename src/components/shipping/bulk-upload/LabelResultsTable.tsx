@@ -209,30 +209,22 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                     <div className="flex space-x-2">
                       <Button
                         size="sm"
-                        onClick={() => handleDownload(shipment, 'pdf')}
+                        onClick={() => handleDownload(shipment, shipment.label_urls?.pdf ? 'pdf' : 'png')}
                         className="bg-green-600 hover:bg-green-700 text-white"
-                        disabled={!shipment.label_urls?.pdf}
+                        disabled={!printPreviewUrl}
                       >
                         <Download className="h-3 w-3 mr-1" />
                         Download
                       </Button>
                       
-                      {/* PrintPreview for individual label - show if any label URL exists */}
-                      {printPreviewUrl && (
+                      {/* PrintPreview for individual label - only show if label URL exists */}
+                      {printPreviewUrl ? (
                         <PrintPreview
+                          isOpenProp={false}
+                          onOpenChangeProp={() => {}}
                           labelUrl={printPreviewUrl}
                           trackingCode={shipment.tracking_code || shipment.tracking_number || ''}
-                          labelUrls={shipment.label_urls}
-                          shipmentDetails={{
-                            fromAddress: 'Your Saved Pickup Address',
-                            toAddress: shipment.customer_address || '',
-                            weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : 'N/A',
-                            dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? 
-                              `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : 'N/A',
-                            service: shipment.service || 'N/A',
-                            carrier: shipment.carrier || 'N/A'
-                          }}
-                          shipmentId={shipment.id || shipment.original_shipment_id}
+                          isBatchPreview={false}
                           triggerButton={
                             <Button
                               size="sm"
@@ -244,6 +236,16 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                             </Button>
                           }
                         />
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled
+                          className="opacity-50 cursor-not-allowed"
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          No Preview
+                        </Button>
                       )}
                     </div>
                   </td>

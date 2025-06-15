@@ -224,6 +224,8 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                     </Button>
                     
                     <PrintPreview
+                      isOpenProp={false}
+                      onOpenChangeProp={() => {}}
                       labelUrl={batchLabelUrl}
                       trackingCode={null}
                       batchResult={results.batchResult}

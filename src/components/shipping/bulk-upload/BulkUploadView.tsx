@@ -79,6 +79,11 @@ const BulkUploadView: React.FC = () => {
   };
 
   const batchLabelUrl = getBatchLabelUrl();
+  
+  // Check if we have any shipments with labels for batch preview
+  const hasLabelsForBatchPreview = results?.processedShipments?.some(shipment => 
+    shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url
+  ) || batchLabelUrl;
 
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-6">
@@ -99,15 +104,24 @@ const BulkUploadView: React.FC = () => {
               Download Batch PDF
             </Button>
           )}
-          {uploadStatus === 'success' && batchLabelUrl && !labelGenerationProgress.isGenerating && (
-            <Button
-              onClick={handleOpenBatchPrintPreview}
-              variant="default"
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              <PrinterIcon className="mr-2 h-4 w-4" />
-              Print Preview All Labels
-            </Button>
+          {uploadStatus === 'success' && hasLabelsForBatchPreview && !labelGenerationProgress.isGenerating && (
+            <PrintPreview
+              isOpenProp={batchPrintPreviewModalOpen}
+              onOpenChangeProp={setBatchPrintPreviewModalOpen}
+              labelUrl={batchLabelUrl || ''}
+              trackingCode={null}
+              batchResult={results?.batchResult}
+              isBatchPreview={true}
+              triggerButton={
+                <Button
+                  variant="default"
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <PrinterIcon className="mr-2 h-4 w-4" />
+                  Print Preview All Labels
+                </Button>
+              }
+            />
           )}
           <Button
             onClick={handleDownloadTemplate}
@@ -191,18 +205,6 @@ const BulkUploadView: React.FC = () => {
             />
           )}
         </div>
-      )}
-
-      {/* Batch Print Preview Modal */}
-      {batchLabelUrl && (
-        <PrintPreview
-          isOpenProp={batchPrintPreviewModalOpen}
-          onOpenChangeProp={setBatchPrintPreviewModalOpen}
-          labelUrl={batchLabelUrl}
-          trackingCode={null}
-          batchResult={results?.batchResult}
-          isBatchPreview={true}
-        />
       )}
     </div>
   );
