@@ -63,19 +63,19 @@ interface ProcessingError {
   details: string;
 }
 
-// Parse CSV content following EasyPost format - FIXED to handle all rows properly
+// Enhanced CSV parsing with better error handling
 const parseCSV = (csvContent: string): string[][] => {
   const lines = csvContent.split('\n');
   const result: string[][] = [];
   
-  console.log(`Total lines in CSV: ${lines.length}`);
+  console.log(`🔍 CSV Input Analysis: Total lines found: ${lines.length}`);
   
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
     const line = lines[lineIndex].trim();
     
     // Skip completely empty lines
     if (line === '') {
-      console.log(`Skipping empty line at index ${lineIndex}`);
+      console.log(`⏭️ Skipping empty line at index ${lineIndex}`);
       continue;
     }
     
@@ -89,7 +89,7 @@ const parseCSV = (csvContent: string): string[][] => {
       if (char === '"') {
         inQuotes = !inQuotes;
       } else if (char === ',' && !inQuotes) {
-        fields.push(current.trim());
+        fields.push(current.trim().replace(/^"(.*)"$/, '$1')); // Remove quotes
         current = '';
       } else {
         current += char;
@@ -97,20 +97,93 @@ const parseCSV = (csvContent: string): string[][] => {
     }
     
     // Don't forget the last field
-    fields.push(current.trim());
+    fields.push(current.trim().replace(/^"(.*)"$/, '$1'));
     
-    console.log(`Line ${lineIndex}: parsed ${fields.length} fields:`, fields);
+    console.log(`📊 Line ${lineIndex} processed: ${fields.length} fields found`);
+    console.log(`📝 Fields: [${fields.map(f => `"${f}"`).join(', ')}]`);
     result.push(fields);
   }
   
-  console.log(`Parsed CSV into ${result.length} rows total`);
+  console.log(`✅ CSV Parsing Complete: ${result.length} total rows parsed`);
   return result;
+};
+
+// Enhanced address validation with detailed error reporting
+const validateAddressData = (rowData: string[], rowNumber: number, fieldIndexes: any): { isValid: boolean; errors: string[]; toAddress?: any; parcel?: any } => {
+  const errors: string[] = [];
+  
+  const getValue = (index: number, fieldName: string) => {
+    if (index >= 0 && index < rowData.length) {
+      const value = rowData[index]?.trim();
+      return value || '';
+    }
+    return '';
+  };
+
+  // Extract values with proper validation
+  const to_name = getValue(fieldIndexes.to_name, 'to_name');
+  const to_street1 = getValue(fieldIndexes.to_street1, 'to_street1');
+  const to_city = getValue(fieldIndexes.to_city, 'to_city');
+  const to_state = getValue(fieldIndexes.to_state, 'to_state');
+  const to_zip = getValue(fieldIndexes.to_zip, 'to_zip');
+  const to_country = getValue(fieldIndexes.to_country, 'to_country') || 'US';
+  
+  const weightStr = getValue(fieldIndexes.weight, 'weight');
+  const lengthStr = getValue(fieldIndexes.length, 'length');
+  const widthStr = getValue(fieldIndexes.width, 'width');
+  const heightStr = getValue(fieldIndexes.height, 'height');
+
+  // Validate required fields
+  if (!to_name) errors.push('Missing recipient name (to_name)');
+  if (!to_street1) errors.push('Missing street address (to_street1)');
+  if (!to_city) errors.push('Missing city (to_city)');
+  if (!to_state) errors.push('Missing state (to_state)');
+  if (!to_zip) errors.push('Missing ZIP code (to_zip)');
+  
+  // Validate and parse numeric fields
+  const weight = parseFloat(weightStr);
+  const length = parseFloat(lengthStr);
+  const width = parseFloat(widthStr);
+  const height = parseFloat(heightStr);
+  
+  if (!weightStr || isNaN(weight) || weight <= 0) errors.push('Missing or invalid weight');
+  if (!lengthStr || isNaN(length) || length <= 0) errors.push('Missing or invalid length');
+  if (!widthStr || isNaN(width) || width <= 0) errors.push('Missing or invalid width');
+  if (!heightStr || isNaN(height) || height <= 0) errors.push('Missing or invalid height');
+
+  if (errors.length > 0) {
+    console.log(`❌ Row ${rowNumber} validation failed:`, errors);
+    return { isValid: false, errors };
+  }
+
+  const toAddress = {
+    to_name,
+    to_company: getValue(fieldIndexes.to_company, 'to_company'),
+    to_street1,
+    to_street2: getValue(fieldIndexes.to_street2, 'to_street2'),
+    to_city,
+    to_state,
+    to_zip,
+    to_country,
+    to_phone: getValue(fieldIndexes.to_phone, 'to_phone'),
+    to_email: getValue(fieldIndexes.to_email, 'to_email'),
+  };
+
+  const parcel = {
+    weight,
+    length,
+    width,
+    height,
+  };
+
+  console.log(`✅ Row ${rowNumber} validation passed`);
+  return { isValid: true, errors: [], toAddress, parcel };
 };
 
 // Create EasyPost shipment and fetch live rates with enhanced carrier information
 const createShipmentAndFetchRates = async (fromAddress: any, toAddress: any, parcel: any, reference?: string): Promise<{ shipment: any, rates: ShippingRate[] }> => {
   try {
-    console.log('Creating EasyPost shipment for live rate fetching');
+    console.log('🚀 Creating EasyPost shipment for live rate fetching');
     
     const apiKey = Deno.env.get('EASYPOST_API_KEY');
     if (!apiKey) {
@@ -153,7 +226,7 @@ const createShipmentAndFetchRates = async (fromAddress: any, toAddress: any, par
       }
     };
 
-    console.log('Sending shipment request to EasyPost:', JSON.stringify(shipmentData));
+    console.log('📤 Sending shipment request to EasyPost');
 
     const response = await fetch('https://api.easypost.com/v2/shipments', {
       method: 'POST',
@@ -166,13 +239,13 @@ const createShipmentAndFetchRates = async (fromAddress: any, toAddress: any, par
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('EasyPost API error:', response.status, errorText);
+      console.error('❌ EasyPost API error:', response.status, errorText);
       throw new Error(`EasyPost API error: ${response.status} - ${errorText}`);
     }
 
     const shipment = await response.json();
-    console.log('EasyPost shipment created with ID:', shipment.id);
-    console.log('Available live rates count:', shipment.rates?.length || 0);
+    console.log('✅ EasyPost shipment created with ID:', shipment.id);
+    console.log('📦 Available live rates count:', shipment.rates?.length || 0);
     
     if (!shipment.rates || shipment.rates.length === 0) {
       throw new Error('No live rates returned from EasyPost API');
@@ -193,11 +266,11 @@ const createShipmentAndFetchRates = async (fromAddress: any, toAddress: any, par
       retail_rate: rate.retail_rate ? parseFloat(rate.retail_rate).toFixed(2) : undefined,
     }));
 
-    console.log(`Successfully created shipment and fetched ${rates.length} live rates with full carrier details`);
+    console.log(`🎯 Successfully created shipment and fetched ${rates.length} live rates`);
     return { shipment, rates };
 
   } catch (error) {
-    console.error('Error creating shipment and fetching live rates:', error);
+    console.error('💥 Error creating shipment and fetching live rates:', error);
     throw error;
   }
 };
@@ -209,7 +282,7 @@ serve(async (req) => {
 
   try {
     const requestBody = await req.json();
-    console.log('Request body keys:', Object.keys(requestBody));
+    console.log('📥 Request received with keys:', Object.keys(requestBody));
     
     const { csvContent, pickupAddress } = requestBody;
     
@@ -227,8 +300,8 @@ serve(async (req) => {
       );
     }
 
-    console.log("Processing EasyPost bulk upload with pickup address:", pickupAddress.name);
-    console.log("CSV content length:", csvContent.length);
+    console.log("🎯 Processing EasyPost bulk upload with pickup address:", pickupAddress.name);
+    console.log("📄 CSV content length:", csvContent.length);
 
     // Parse the CSV content following EasyPost format
     const rows = parseCSV(csvContent);
@@ -242,7 +315,7 @@ serve(async (req) => {
 
     // Get headers - EasyPost format
     const headers = rows[0].map(h => h.toLowerCase().trim());
-    console.log('CSV headers:', headers);
+    console.log('📋 CSV headers found:', headers);
     
     // Validate required headers for EasyPost format
     const requiredFields = ['to_name', 'to_street1', 'to_city', 'to_state', 'to_zip', 'to_country', 'weight', 'length', 'width', 'height'];
@@ -276,66 +349,57 @@ serve(async (req) => {
       reference: getFieldIndex('reference'),
     };
     
-    console.log('EasyPost field indexes:', fieldIndexes);
+    console.log('🗺️ Field mapping established:', fieldIndexes);
     
-    // FIXED: Process ALL data rows, not missing any
-    const dataRows = rows.slice(1); // Get all rows except header
+    // Process ALL data rows - ensure no data is lost
+    const dataRows = rows.slice(1); // All rows except header
     const total = dataRows.length;
-    console.log(`Processing ${total} data rows (excluding header)`);
+    console.log(`🔄 Processing ${total} data rows (excluding header row)`);
     
     const processedShipments: ShipmentResult[] = [];
     const failedShipments: ProcessingError[] = [];
     
-    // Process each data row following EasyPost workflow
+    // Process each data row with enhanced error handling
     for (let i = 0; i < dataRows.length; i++) {
       const rowData = dataRows[i];
-      const actualRowNumber = i + 1; // For display purposes (row 1, 2, 3...)
+      const actualRowNumber = i + 2; // Row 2, 3, 4... (accounting for header)
       
-      // Skip empty rows
-      if (!rowData || rowData.join('').trim() === '') {
-        console.log(`Skipping empty data row ${actualRowNumber}`);
+      console.log(`\n🔍 Processing data row ${actualRowNumber}:`, rowData);
+      
+      // Skip completely empty rows
+      if (!rowData || rowData.every(cell => !cell || cell.trim() === '')) {
+        console.log(`⏭️ Skipping completely empty data row ${actualRowNumber}`);
+        failedShipments.push({
+          row: actualRowNumber,
+          error: 'Empty Row',
+          details: 'This row contains no data and was skipped'
+        });
         continue;
       }
       
       try {
-        console.log(`Processing EasyPost data row ${actualRowNumber}:`, rowData);
+        // Validate address data first
+        const validation = validateAddressData(rowData, actualRowNumber, fieldIndexes);
         
-        // Extract recipient details safely following EasyPost format
-        const getValue = (index: number) => index >= 0 && index < rowData.length ? rowData[index]?.trim() : '';
-        
-        const toAddress = {
-          to_name: getValue(fieldIndexes.to_name),
-          to_company: getValue(fieldIndexes.to_company),
-          to_street1: getValue(fieldIndexes.to_street1),
-          to_street2: getValue(fieldIndexes.to_street2),
-          to_city: getValue(fieldIndexes.to_city),
-          to_state: getValue(fieldIndexes.to_state),
-          to_zip: getValue(fieldIndexes.to_zip),
-          to_country: getValue(fieldIndexes.to_country) || 'US',
-          to_phone: getValue(fieldIndexes.to_phone),
-          to_email: getValue(fieldIndexes.to_email),
-        };
-
-        const parcel = {
-          weight: parseFloat(getValue(fieldIndexes.weight)) || 1.0,
-          length: parseFloat(getValue(fieldIndexes.length)) || 12,
-          width: parseFloat(getValue(fieldIndexes.width)) || 8,
-          height: parseFloat(getValue(fieldIndexes.height)) || 4,
-        };
-
-        const reference = getValue(fieldIndexes.reference);
-        
-        console.log(`Data row ${actualRowNumber} to_address:`, toAddress);
-        console.log(`Data row ${actualRowNumber} parcel:`, parcel);
-        
-        // Validate required address fields
-        if (!toAddress.to_name || !toAddress.to_street1 || !toAddress.to_city || 
-            !toAddress.to_state || !toAddress.to_zip) {
-          throw new Error(`Missing required fields in data row ${actualRowNumber}: to_name, to_street1, to_city, to_state, to_zip are required`);
+        if (!validation.isValid) {
+          console.log(`❌ Row ${actualRowNumber} failed validation:`, validation.errors);
+          failedShipments.push({
+            row: actualRowNumber,
+            error: 'Data Validation Failed',
+            details: `Missing required data: ${validation.errors.join(', ')}`
+          });
+          continue;
         }
+
+        const { toAddress, parcel } = validation;
+        const reference = fieldIndexes.reference >= 0 ? rowData[fieldIndexes.reference]?.trim() : '';
+        
+        console.log(`✅ Row ${actualRowNumber} - Address validation passed`);
+        console.log(`📍 To Address: ${toAddress.to_name}, ${toAddress.to_street1}, ${toAddress.to_city}, ${toAddress.to_state}`);
+        console.log(`📦 Package: ${parcel.weight}lbs, ${parcel.length}x${parcel.width}x${parcel.height}in`);
         
         // Create EasyPost shipment and fetch live rates
-        console.log(`Creating EasyPost shipment for data row ${actualRowNumber}`);
+        console.log(`🚀 Creating EasyPost shipment for row ${actualRowNumber}`);
         const { shipment, rates } = await createShipmentAndFetchRates(
           pickupAddress,
           toAddress,
@@ -343,16 +407,16 @@ serve(async (req) => {
           reference
         );
         
-        console.log(`Created shipment ${shipment.id} with ${rates.length} live rates for data row ${actualRowNumber}`);
+        console.log(`✅ Created shipment ${shipment.id} with ${rates.length} rates for row ${actualRowNumber}`);
         
         // Select cheapest rate by default
         const selectedRate = rates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate))[0];
         
         if (!selectedRate) {
-          throw new Error(`No shipping rates available for data row ${actualRowNumber}`);
+          throw new Error(`No shipping rates available for row ${actualRowNumber}`);
         }
         
-        // Create shipment result with proper customer details
+        // Create shipment result
         const shipmentResult: ShipmentResult = {
           id: `ship_${crypto.randomUUID().substring(0, 8)}`,
           easypost_id: shipment.id,
@@ -391,13 +455,13 @@ serve(async (req) => {
         };
         
         processedShipments.push(shipmentResult);
-        console.log(`Successfully processed EasyPost data row ${actualRowNumber}`);
+        console.log(`🎉 Successfully processed row ${actualRowNumber}`);
         
       } catch (error) {
-        console.error(`Error processing data row ${actualRowNumber}:`, error);
+        console.error(`💥 Error processing row ${actualRowNumber}:`, error);
         failedShipments.push({
           row: actualRowNumber,
-          error: 'EasyPost Processing Error',
+          error: 'Processing Error',
           details: error instanceof Error ? error.message : 'Unknown error occurred'
         });
       }
@@ -407,8 +471,16 @@ serve(async (req) => {
     const failed = failedShipments.length;
     const totalCost = processedShipments.reduce((sum, shipment) => sum + shipment.rate, 0);
     
-    console.log(`EasyPost processing complete: ${successful} successful, ${failed} failed, total cost: $${totalCost}`);
-    console.log(`VERIFICATION: Expected ${total} rows, processed ${successful + failed} rows`);
+    console.log(`\n🎯 FINAL RESULTS:`);
+    console.log(`📊 Total rows in file: ${total}`);
+    console.log(`✅ Successfully processed: ${successful}`);
+    console.log(`❌ Failed processing: ${failed}`);
+    console.log(`💰 Total estimated cost: $${totalCost.toFixed(2)}`);
+    
+    // Ensure we account for ALL rows
+    if (successful + failed !== total) {
+      console.error(`🚨 DATA LOSS DETECTED! Expected ${total} rows, processed ${successful + failed}`);
+    }
     
     return new Response(
       JSON.stringify({ 
@@ -418,14 +490,14 @@ serve(async (req) => {
         totalCost,
         processedShipments,
         failedShipments,
-        message: `Processed ${successful} out of ${total} shipments using live EasyPost API with full carrier details`,
+        message: `Processed ${successful} out of ${total} shipments using live EasyPost API`,
         pickupAddress: pickupAddress.name
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
     
   } catch (error) {
-    console.error('Error in EasyPost process-bulk-upload function:', error);
+    console.error('💥 Error in EasyPost process-bulk-upload function:', error);
     return new Response(
       JSON.stringify({ 
         error: 'EasyPost Processing Error', 
