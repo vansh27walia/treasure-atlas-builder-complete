@@ -75,7 +75,12 @@ export class BatchProcessingService {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      
+      // Type assertion to ensure processing_status matches our union type
+      return (data || []).map(log => ({
+        ...log,
+        processing_status: log.processing_status as 'pending' | 'processing' | 'completed' | 'failed'
+      }));
     } catch (error) {
       console.error('Error fetching processing logs:', error);
       return [];

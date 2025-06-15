@@ -28,8 +28,8 @@ const ProcessingHistory: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants = {
+  const getStatusBadge = (status: 'pending' | 'processing' | 'completed' | 'failed') => {
+    const variantMap: Record<string, "default" | "destructive" | "outline" | "secondary"> = {
       completed: 'default',
       failed: 'destructive',
       processing: 'secondary',
@@ -37,7 +37,7 @@ const ProcessingHistory: React.FC = () => {
     };
     
     return (
-      <Badge variant={variants[status as keyof typeof variants] || 'outline'}>
+      <Badge variant={variantMap[status] || 'outline'}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );
