@@ -171,27 +171,27 @@ const convertPngToPdf = async (shipmentId: string) => {
 const generateAllFormatsForShipment = async (shipment: any) => {
   console.log(`Generating all formats for shipment ${shipment.easypost_id}`);
   
-  // Purchase the label first
+  // Purchase the label first to get the PNG
   const labelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId);
   
   const labelUrls: Record<string, string> = {};
   
   const postageLabel = labelData.postage_label;
 
-  if (postageLabel) {
+  if (postageLabel && postageLabel.label_url) {
     // Store PNG first
-    if (postageLabel.label_url) {
-      try {
-        const storedPngUrl = await downloadAndStoreLabel(postageLabel.label_url, shipment.easypost_id, 'individual', 'png');
-        labelUrls['png'] = storedPngUrl;
-        console.log(`✅ Successfully stored PNG label for shipment ${shipment.easypost_id}`);
-      } catch (error) {
-        console.error(`Error storing PNG label for ${shipment.easypost_id}:`, error);
-      }
+    try {
+      const storedPngUrl = await downloadAndStoreLabel(postageLabel.label_url, shipment.easypost_id, 'individual', 'png');
+      labelUrls['png'] = storedPngUrl;
+      console.log(`✅ Successfully stored PNG label for shipment ${shipment.easypost_id}`);
+    } catch (error) {
+      console.error(`Error storing PNG label for ${shipment.easypost_id}:`, error);
     }
 
-    // Convert PNG to PDF and store
+    // CRITICAL: Convert PNG to PDF using EasyPost API
+    console.log(`🔄 Converting PNG to PDF for shipment ${shipment.easypost_id}`);
     const pdfUrl = await convertPngToPdf(shipment.easypost_id);
+    
     if (pdfUrl) {
       try {
         const storedPdfUrl = await downloadAndStoreLabel(pdfUrl, shipment.easypost_id, 'individual', 'pdf');
@@ -200,6 +200,8 @@ const generateAllFormatsForShipment = async (shipment: any) => {
       } catch (error) {
         console.error(`Error storing PDF label for ${shipment.easypost_id}:`, error);
       }
+    } else {
+      console.warn(`⚠️ Failed to generate PDF for shipment ${shipment.easypost_id}, only PNG available`);
     }
 
     // Store ZPL if available
@@ -213,18 +215,19 @@ const generateAllFormatsForShipment = async (shipment: any) => {
       }
     }
   } else {
-    console.warn(`No postage_label object found for shipment ${shipment.easypost_id}`);
+    console.warn(`No postage_label or label_url found for shipment ${shipment.easypost_id}`);
   }
 
   // Wait between shipments to avoid rate limiting
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  await new Promise(resolve => setTimeout(resolve, 2000));
 
   return {
     ...labelData,
     label_urls: labelUrls,
     id: labelData.id,
     tracking_code: labelData.tracking_code,
-    label_url: labelUrls['pdf'] || labelUrls['png'] || postageLabel?.label_url, // Prioritize PDF
+    // PRIORITY: PDF first, then PNG as fallback
+    label_url: labelUrls['pdf'] || labelUrls['png'] || postageLabel?.label_url,
     carrier: labelData.selected_rate?.carrier,
     service: labelData.selected_rate?.service,
     rate: labelData.selected_rate?.rate,
@@ -413,13 +416,13 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing ${shipments.length} shipments for label creation`);
+    console.log(`Processing ${shipments.length} shipments for label creation with PDF conversion`);
     
     const processedLabels = [];
     const failedLabels = [];
     let batchResult = null;
 
-    // Process individual labels with all formats
+    // Process individual labels with all formats (PNG + PDF conversion)
     for (let i = 0; i < shipments.length; i++) {
       const shipment = shipments[i];
       const shipmentIndex = i + 1;
@@ -431,7 +434,7 @@ serve(async (req) => {
           throw new Error('Missing EasyPost shipment ID or rate ID for label generation');
         }
 
-        // Generate individual labels in all formats
+        // Generate individual labels in PNG and PDF formats
         const labelData = await generateAllFormatsForShipment(shipment);
 
         const processedLabel = {
@@ -446,11 +449,11 @@ serve(async (req) => {
         };
 
         processedLabels.push(processedLabel);
-        console.log(`✅ Successfully processed shipment ${shipmentIndex}/${shipments.length}: ${shipment.id}`);
+        console.log(`✅ Successfully processed shipment ${shipmentIndex}/${shipments.length}: ${shipment.id} with PDF conversion`);
 
         // Add delay between shipments to avoid rate limiting
         if (i < shipments.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 3000)); // Increased delay
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
 
       } catch (error) {

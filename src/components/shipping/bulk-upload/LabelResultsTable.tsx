@@ -16,12 +16,15 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   shipments,
   onDownloadLabel
 }) => {
-  const handleDownload = (shipment: any, format: string = 'png') => {
+  const handleDownload = (shipment: any, format: string = 'pdf') => {
     console.log('Attempting download for:', { format, shipmentId: shipment.id, labelUrls: shipment.label_urls });
     
     let url = shipment.label_urls?.[format];
-    // Fallback for primary label_url if specific format not in label_urls (e.g. older data or only PNG was generated)
-    if (!url && format === 'png') {
+    
+    // Fallback chain: PDF first, then PNG, then original label_url
+    if (!url && format === 'pdf') {
+      url = shipment.label_urls?.png || shipment.label_url;
+    } else if (!url && format === 'png') {
       url = shipment.label_url;
     }
 
@@ -61,7 +64,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
       <div className="px-6 py-4 border-b bg-gray-50">
         <h3 className="text-lg font-semibold text-gray-900">Generated Shipping Labels</h3>
         <p className="text-sm text-gray-600 mt-1">
-          {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download in multiple formats
+          {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download in PDF and PNG formats
         </p>
       </div>
       
@@ -143,9 +146,22 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   </div>
                 </td>
 
-                {/* Label Formats */}
+                {/* Label Formats - PRIORITIZE PDF */}
                 <td className="px-6 py-4">
                   <div className="flex flex-wrap gap-2">
+                    {/* PDF Format - PRIORITY */}
+                    {shipment.label_urls?.pdf && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownload(shipment, 'pdf')}
+                        className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50 font-medium"
+                      >
+                        <File className="h-3 w-3 mr-1" />
+                        PDF
+                      </Button>
+                    )}
+                    
                     {/* PNG Format */}
                     {(shipment.label_urls?.png || shipment.label_url) && (
                       <Button
@@ -156,19 +172,6 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       >
                         <FileImage className="h-3 w-3 mr-1" />
                         PNG
-                      </Button>
-                    )}
-                    
-                    {/* PDF Format */}
-                    {shipment.label_urls?.pdf && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownload(shipment, 'pdf')}
-                        className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
-                      >
-                        <File className="h-3 w-3 mr-1" />
-                        PDF
                       </Button>
                     )}
                     
@@ -185,32 +188,32 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       </Button>
                     )}
                     
-                    {!(shipment.label_urls?.png || shipment.label_url || shipment.label_urls?.pdf || shipment.label_urls?.zpl) && (
+                    {!(shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url || shipment.label_urls?.zpl) && (
                       <span className="text-xs text-gray-400 italic">No formats available</span>
                     )}
                   </div>
                 </td>
 
-                {/* Actions */}
+                {/* Actions - PDF PRIORITY */}
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex space-x-2">
                     <Button
                       size="sm"
-                      onClick={() => handleDownload(shipment, 'pdf')} // Default download is now PDF
+                      onClick={() => handleDownload(shipment, 'pdf')} // DEFAULT TO PDF
                       className="bg-green-600 hover:bg-green-700 text-white"
-                      disabled={!shipment.label_urls?.pdf}
+                      disabled={!shipment.label_urls?.pdf && !shipment.label_urls?.png && !shipment.label_url}
                     >
                       <Download className="h-3 w-3 mr-1" />
-                      Download
+                      Download PDF
                     </Button>
                     
-                    {/* PrintPreview for individual label - Now prioritizes PDF over PNG */}
+                    {/* PrintPreview - PRIORITIZE PDF */}
                     <PrintPreview
                       labelUrl={shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url || ''}
                       trackingCode={shipment.tracking_code || shipment.tracking_number}
-                      labelUrls={shipment.label_urls} // Pass all available URLs
+                      labelUrls={shipment.label_urls}
                       shipmentDetails={{
-                        fromAddress: 'Your Saved Pickup Address', // Placeholder, consider passing actual if available
+                        fromAddress: 'Your Saved Pickup Address',
                         toAddress: shipment.customer_address || '',
                         weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : 'N/A',
                         dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? 
@@ -218,7 +221,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         service: shipment.service || 'N/A',
                         carrier: shipment.carrier || 'N/A'
                       }}
-                      shipmentId={shipment.id || shipment.original_shipment_id} // Use EasyPost ID or original
+                      shipmentId={shipment.id || shipment.original_shipment_id}
                     />
                   </div>
                 </td>
