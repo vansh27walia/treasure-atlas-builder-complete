@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -68,26 +69,6 @@ const BulkUploadView: React.FC = () => {
         </h1>
         
         <div className="flex gap-2 flex-wrap justify-center sm:justify-end">
-          {uploadStatus === 'success' && results?.batchResult?.consolidatedLabelUrls?.pdf && !labelGenerationProgress.isGenerating && (
-            <Button
-              onClick={() => handleDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
-              variant="default"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download Batch PDF
-            </Button>
-          )}
-          {uploadStatus === 'success' && results?.batchResult && !labelGenerationProgress.isGenerating && (
-            <Button
-              onClick={handleOpenBatchPrintPreview}
-              variant="default"
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              <PrinterIcon className="mr-2 h-4 w-4" />
-              Print/Download Batch Output
-            </Button>
-          )}
           <Button
             onClick={handleDownloadTemplate}
             variant="outline"
@@ -98,6 +79,45 @@ const BulkUploadView: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* Consolidated Print Preview Button - Show after successful label creation */}
+      {uploadStatus === 'success' && results?.processedShipments && results.processedShipments.length > 0 && !labelGenerationProgress.isGenerating && (
+        <Card className="p-4 bg-blue-50 border-blue-200">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+              <h3 className="text-lg font-semibold text-blue-900">Batch Label Actions</h3>
+              <p className="text-sm text-blue-700">
+                Download or preview all {results.processedShipments.length} labels at once
+              </p>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {/* Download Consolidated PDF */}
+              {results.batchResult?.consolidatedLabelUrls?.pdf && (
+                <Button
+                  onClick={() => handleDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
+                  variant="default"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download All (PDF)
+                </Button>
+              )}
+              
+              {/* Print Preview All Labels */}
+              {results.batchResult && (
+                <Button
+                  onClick={handleOpenBatchPrintPreview}
+                  variant="default"
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <PrinterIcon className="mr-2 h-4 w-4" />
+                  Print Preview Labels (All)
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* File Upload Section */}
       {uploadStatus === 'idle' && (
@@ -163,7 +183,6 @@ const BulkUploadView: React.FC = () => {
       {/* Results Section */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="space-y-6">
-          {/* BulkLabelDownloadOptions is now replaced by the modal */}
           {results.processedShipments && results.processedShipments.length > 0 && (
             <LabelResultsTable
               shipments={results.processedShipments || []}
