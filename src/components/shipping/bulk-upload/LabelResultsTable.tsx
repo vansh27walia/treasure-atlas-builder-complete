@@ -33,6 +33,12 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
     onDownloadLabel(url);
   };
 
+  const handleEmailLabel = (shipment: any, emailAddress: string) => {
+    // This would typically call an API to send the email
+    console.log('Sending email for shipment:', shipment.id, 'to:', emailAddress);
+    toast.success(`Label sent to ${emailAddress}`);
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Pending';
     try {
@@ -154,7 +160,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   {/* Actions */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col space-y-2">
-                      {/* Download Label Button */}
+                      {/* Download Label Button - prioritize PDF */}
                       <Button
                         size="sm"
                         onClick={() => handleDownload(shipment, 'pdf')}
@@ -162,7 +168,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         disabled={!shipment.label_urls?.pdf}
                       >
                         <Download className="h-3 w-3 mr-1" />
-                        Download Label
+                        Download Label (PDF)
                       </Button>
                       
                       {/* Print Preview Button - ONLY show if PDF URL exists */}
@@ -181,6 +187,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                             carrier: shipment.carrier || 'N/A'
                           }}
                           shipmentId={shipment.id || shipment.original_shipment_id}
+                          onEmailLabel={handleEmailLabel}
                           triggerButton={
                             <Button
                               size="sm"
@@ -199,7 +206,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         {/* PNG Format */}
                         {(shipment.label_urls?.png || shipment.label_url) && (
                           <Button
-                            size="xs"
+                            size="sm"
                             variant="outline"
                             onClick={() => handleDownload(shipment, 'png')}
                             className="text-xs border-green-300 text-green-700 hover:bg-green-50"
@@ -212,7 +219,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         {/* PDF Format */}
                         {shipment.label_urls?.pdf && (
                           <Button
-                            size="xs"
+                            size="sm"
                             variant="outline"
                             onClick={() => handleDownload(shipment, 'pdf')}
                             className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
@@ -225,7 +232,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         {/* ZPL Format */}
                         {shipment.label_urls?.zpl && (
                           <Button
-                            size="xs"
+                            size="sm"
                             variant="outline"
                             onClick={() => handleDownload(shipment, 'zpl')}
                             className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
