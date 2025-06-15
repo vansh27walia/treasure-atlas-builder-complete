@@ -7,6 +7,9 @@ import SelectAddressDropdown from '../SelectAddressDropdown';
 import AddressForm from '../AddressForm';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { supabase } from '@/integrations/supabase/client';
+import CsvEditAndReview from './CsvEditAndReview';
+import { validateCsvStructure, REQUIRED_HEADERS } from '@/utils/csvValidator';
+import { parseCsvToRows, generateCsvFromRows } from '@/utils/csvValidator';
 
 export interface BulkUploadFormProps {
   onUploadSuccess: (results: any) => void;
@@ -14,7 +17,7 @@ export interface BulkUploadFormProps {
   onPickupAddressSelect: (address: SavedAddress | null) => void;
   isUploading?: boolean;
   progress?: number;
-  handleUpload?: (file: File) => Promise<any>; 
+  handleUpload?: (file: File, pickupAddress: SavedAddress | null) => Promise<any>; 
 }
 
 const SUPPORTED_EXTS = [".csv", ".xls", ".xlsx", ".doc", ".docx", ".txt", ".json", ".xml"];
@@ -31,6 +34,10 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const [showAddNewAddress, setShowAddNewAddress] = useState(false);
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [csvRows, setCsvRows] = useState<any[] | null>(null);
+  const [csvHeaders, setCsvHeaders] = useState<string[] | null>(null);
+  const [missingData, setMissingData] = useState<boolean>(false);
+  const [csvEditMode, setCsvEditMode] = useState<boolean>(false);
 
   // Load saved addresses when component mounts
   useEffect(() => {
@@ -63,46 +70,90 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     loadAddresses();
   }, [onPickupAddressSelect]);
 
+  // File validation and AI conversion, always process via AI function
+  const handleFileInputAndConvert = async (file: File) => {
+    setSelectedFile(file);
+    setCsvRows(null);
+    setMissingData(false);
+    setCsvEditMode(false);
+
+    // Always convert with AI
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      // Use ai-convert-upload edge function for all file types
+      const { data, error } = await supabase.functions.invoke('ai-convert-upload', {
+        body: formData,
+      });
+
+      if (error || !data || !data.convertedCsv) {
+        onUploadFail(`AI conversion failed: ${error?.message || 'No content returned'}`);
+        toast.error('Failed to convert your file with AI. Please check your file format.');
+        return;
+      }
+      // Validate and parse CSV
+      const validation = validateCsvStructure(data.convertedCsv);
+      if (!validation.isValid) {
+        toast.error(`CSV Validation failed: ${validation.error}`);
+        onUploadFail(validation.error || 'Format error');
+        return;
+      }
+      setCsvHeaders(validation.headers || REQUIRED_HEADERS);
+      const rows = parseCsvToRows(data.convertedCsv);
+      setCsvRows(rows);
+
+      // Check for missing data
+      let hasEmpty = false;
+      rows.forEach(row => {
+        REQUIRED_HEADERS.forEach(header => {
+          if (!row[header] || row[header].trim() === "") {
+            hasEmpty = true;
+          }
+        });
+      });
+      if (hasEmpty) {
+        setMissingData(true);
+        setCsvEditMode(true);
+        toast.error('Some required data is missing. Please complete all fields.');
+        return;
+      } else {
+        setMissingData(false);
+        setCsvEditMode(false);
+        // Ready to process
+        toast.success('CSV is valid and ready to process!');
+      }
+    } catch (error) {
+      toast.error(`Could not read/convert file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setSelectedFile(null);
+      setCsvRows(null);
+      setMissingData(false);
+      setCsvEditMode(false);
+    }
+  };
+
+  // Change file handler
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const ext = "." + (file.name.trim().split(".").pop()?.toLowerCase() ?? "");
-    if (!SUPPORTED_EXTS.includes(ext)) {
-      toast.error('File type not supported. Accepts: CSV, Excel, Doc, TXT, JSON, XML.');
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File is too large. Maximum size is 10MB.');
       e.target.value = "";
       return;
     }
-
-    if (file.size > 10 * 1024 * 1024) { // 10MB
-        toast.error('File is too large. Maximum size is 10MB.');
-        e.target.value = "";
-        return;
-    }
-
-    setSelectedFile(file);
-    toast.success(`File "${file.name}" selected and ready for processing!`);
+    handleFileInputAndConvert(file);
   };
 
+  // Drag & drop handler
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    
     if (e.dataTransfer.files.length) {
       const file = e.dataTransfer.files[0];
-      
-      const ext = "." + (file.name.split('.').pop()?.toLowerCase() ?? "");
-      if (!SUPPORTED_EXTS.includes(ext)) {
-        toast.error('File type not supported. Accepts: CSV, Excel, Doc, TXT, JSON, XML.');
-        return;
-      }
-      
       if (file.size > 10 * 1024 * 1024) {
         toast.error('File is too large. Maximum size is 10MB.');
         return;
       }
-      
-      setSelectedFile(file);
+      handleFileInputAndConvert(file);
     }
   };
 
@@ -113,78 +164,43 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile) {
-      toast.error('Please select a file to upload');
+    if (!selectedFile || !csvRows) {
+      toast.error('Please select and review a file before submitting');
       return;
     }
     if (!pickupAddress) {
       toast.error('Please select a pickup address or add one in Settings');
       return;
     }
-
+    // Check for missing
+    let hasMissing = false;
+    csvRows.forEach(row => {
+      REQUIRED_HEADERS.forEach(header => {
+        if (!row[header] || row[header].toString().trim() === "") {
+          hasMissing = true;
+        }
+      });
+    });
+    if (hasMissing) {
+      toast.error("Please fill in all missing fields in your data first.");
+      setCsvEditMode(true);
+      setMissingData(true);
+      return;
+    }
     try {
-      console.log('Processing file:', selectedFile.name);
-      
-      const ext = "." + (selectedFile.name.trim().split(".").pop()?.toLowerCase() ?? "");
-      
-      // Always try AI conversion first for better data mapping
-      if (ext !== ".csv") {
-        console.log('Starting AI file conversion for:', selectedFile.name);
-        
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-
-        // Use Supabase client to invoke the edge function
-        const { data, error } = await supabase.functions.invoke('ai-convert-upload', {
-          body: formData,
-        });
-
-        if (error) {
-          console.error('AI conversion error:', error);
-          toast.error(`File conversion failed. Please try converting your file to CSV format manually.`);
-          onUploadFail(`AI conversion failed: ${error.message}`);
-          return;
-        }
-
-        if (!data || !data.convertedCsv) {
-          const errorMsg = "File conversion did not produce valid results. Please convert your file to CSV format manually.";
-          toast.error(errorMsg);
-          onUploadFail(errorMsg);
-          return;
-        }
-        
-        // Create a CSV file from the converted content
-        const csvFile = new File([data.convertedCsv], "converted_upload.csv", { type: "text/csv" });
-        
-        if (handleUpload) {
-          await handleUpload(csvFile);
-          onUploadSuccess({});
-          toast.success('🎉 File successfully converted and processed!');
-        } else {
-          onUploadFail("Upload handler not available");
-        }
+      // Convert edited rows to CSV string and make file blob for uploading
+      const csvString = generateCsvFromRows(csvRows);
+      const processedCsvFile = new File([csvString], "ready_to_upload.csv", { type: "text/csv" });
+      if (handleUpload) {
+        await handleUpload(processedCsvFile, pickupAddress);
+        onUploadSuccess({});
+        toast.success('🎉 File processed and uploaded successfully!');
       } else {
-        // Handle CSV files directly
-        console.log('CSV file detected, processing directly');
-        if (handleUpload) {
-          await handleUpload(selectedFile);
-          onUploadSuccess({});
-          toast.success('🎉 CSV file successfully processed!');
-        } else {
-          onUploadFail("Upload handler not available");
-        }
+        onUploadFail("Upload handler not available");
       }
     } catch (error) {
-      console.error('Upload error:', error);
-      let errorMessage = "File processing failed";
-      if (error instanceof Error) {
-        errorMessage += `: ${error.message}`;
-      } else {
-        errorMessage += `: ${String(error)}`;
-      }
-      
-      toast.error(`${errorMessage}. Please try converting your file to CSV format.`);
-      onUploadFail(errorMessage);
+      onUploadFail(`Upload failed: ${error instanceof Error ? error.message : String(error)}`);
+      toast.error('Processing failed. Please check your file.');
     }
   };
 
@@ -231,6 +247,13 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     console.log('Pickup address changed in form:', address);
     setPickupAddress(address);
     onPickupAddressSelect(address);
+  };
+
+  const handleCsvEditAndReviewDone = (rows: any[]) => {
+    setCsvRows(rows);
+    setCsvEditMode(false);
+    setMissingData(false);
+    toast.success("All missing data filled—ready to proceed!");
   };
 
   return (
@@ -286,19 +309,17 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         <div
           className="border-2 border-dashed border-gray-300 rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 transition-colors bg-gray-50 hover:bg-blue-50"
           onDrop={handleDrop}
-          onDragOver={handleDragOver}
+          onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
           onClick={() => document.getElementById('file-upload')?.click()}
         >
           <input
             id="file-upload"
             type="file"
-            accept={SUPPORTED_EXTS.join(",")}
+            accept="*"
             className="hidden"
             onChange={handleFileChange}
           />
-          
           <CloudUpload className="h-16 w-16 text-gray-400 mb-4" />
-          
           <div className="text-center">
             <p className="text-lg font-medium mb-2">
               {selectedFile 
@@ -307,19 +328,26 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
               }
             </p>
             <p className="text-sm text-gray-500 mb-2">
-              Supported formats: CSV, Excel, Word, TXT, JSON, XML (up to 10MB)
+              Supported: CSV, Excel, DOC(X), TXT, JSON, XML (up to 10MB)
             </p>
             <p className="text-xs text-blue-600 font-medium">
-              💡 Our AI will automatically convert any format to work with our shipping system
+              💡 AI auto-converts your file to the right shipping format!
             </p>
             {selectedFile && (
               <p className="text-xs text-green-600 mt-2">
-                ✓ File ready for processing and conversion
+                ✓ File converted. Review/edit below if needed.
               </p>
             )}
           </div>
         </div>
-        
+        {csvEditMode && csvRows && csvHeaders && (
+          <CsvEditAndReview 
+            rows={csvRows}
+            headers={csvHeaders}
+            requiredHeaders={REQUIRED_HEADERS}
+            onDone={handleCsvEditAndReviewDone}
+          />
+        )}
         {isUploading && progress > 0 && (
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
@@ -333,7 +361,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       <div className="flex justify-end">
         <Button 
           type="submit" 
-          disabled={!selectedFile || !pickupAddress || isUploading}
+          disabled={!selectedFile || !csvRows || isUploading || missingData}
           className="flex items-center gap-2 px-8 py-2"
         >
           {isUploading ? (
