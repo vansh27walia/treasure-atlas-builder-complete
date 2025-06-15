@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { PDFDocument } from "npm:pdf-lib";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -77,6 +78,99 @@ const downloadAndStoreLabel = async (labelUrl: string, shipmentId: string, label
   }
 };
 
+const storeDirectBinaryLabel = async (labelBuffer: Uint8Array, shipmentId: string, labelType: string, format: string = 'pdf'): Promise<string> => {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    console.log(`Storing ${format.toUpperCase()} label for ${labelType} ${shipmentId}`);
+    
+    const bucketName = await ensureStorageBucket(supabase);
+    
+    const timestamp = Date.now();
+    const fileName = `${labelType}_labels/${labelType}_${shipmentId}_${timestamp}.${format}`;
+    const contentType = format === 'pdf' ? 'application/pdf' : format === 'zpl' ? 'text/plain' : 'image/png';
+    
+    console.log(`Uploading to ${bucketName} bucket at path: ${fileName}`);
+    
+    const { error: uploadError } = await supabase
+      .storage
+      .from(bucketName)
+      .upload(fileName, labelBuffer, {
+        contentType: contentType,
+        cacheControl: '3600',
+        upsert: true
+      });
+      
+    if (uploadError) {
+      console.error(`Failed to upload:`, uploadError);
+      throw new Error(`Upload failed: ${uploadError.message}`);
+    }
+    
+    const { data: urlData } = await supabase
+      .storage
+      .from(bucketName)
+      .getPublicUrl(fileName);
+      
+    console.log(`${format.toUpperCase()} label accessible at: ${urlData.publicUrl}`);
+    return urlData.publicUrl;
+    
+  } catch (error) {
+    console.error('Error storing label:', error);
+    throw error;
+  }
+};
+
+const convertPngToPdfLocally = async (pngBytes: Uint8Array): Promise<Uint8Array> => {
+  try {
+    console.log('Converting PNG to PDF locally using pdf-lib');
+    
+    // Create a new PDF document
+    const pdfDoc = await PDFDocument.create();
+    
+    // Add a page with standard shipping label dimensions (4x6 inches = 288x432 points)
+    const page = pdfDoc.addPage([288, 432]);
+    
+    // Embed the PNG image
+    const pngImage = await pdfDoc.embedPng(pngBytes);
+    
+    // Get the dimensions of the PNG image
+    const pngDims = pngImage.scale(1);
+    
+    // Calculate scaling to fit the page while maintaining aspect ratio
+    const pageWidth = 288;
+    const pageHeight = 432;
+    const scaleX = pageWidth / pngDims.width;
+    const scaleY = pageHeight / pngDims.height;
+    const scale = Math.min(scaleX, scaleY);
+    
+    // Calculate centered position
+    const scaledWidth = pngDims.width * scale;
+    const scaledHeight = pngDims.height * scale;
+    const x = (pageWidth - scaledWidth) / 2;
+    const y = (pageHeight - scaledHeight) / 2;
+    
+    // Draw the PNG image on the page
+    page.drawImage(pngImage, {
+      x: x,
+      y: y,
+      width: scaledWidth,
+      height: scaledHeight,
+    });
+    
+    // Serialize the PDF document to bytes
+    const pdfBytes = await pdfDoc.save();
+    
+    console.log('✅ Successfully converted PNG to PDF locally');
+    return new Uint8Array(pdfBytes);
+    
+  } catch (error) {
+    console.error('Error converting PNG to PDF locally:', error);
+    throw error;
+  }
+};
+
 const purchaseEasyPostLabel = async (shipmentId: string, rateId: string) => {
   const apiKey = Deno.env.get('EASYPOST_API_KEY');
   if (!apiKey) {
@@ -128,46 +222,6 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string) => {
   }
 };
 
-const convertPngToPdf = async (shipmentId: string) => {
-  const apiKey = Deno.env.get('EASYPOST_API_KEY');
-  if (!apiKey) {
-    throw new Error('EasyPost API key not configured');
-  }
-
-  try {
-    console.log(`Converting PNG to PDF for shipment ${shipmentId}`);
-    
-    const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/label`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        file_format: 'pdf'
-      }),
-    });
-
-    if (response.ok) {
-      const labelData = await response.json();
-      const pdfUrl = labelData.label_url;
-      
-      if (pdfUrl) {
-        console.log(`✅ Successfully generated PDF for shipment ${shipmentId}`);
-        return pdfUrl;
-      }
-    } else {
-      const errorData = await response.json();
-      console.warn(`Failed to generate PDF for ${shipmentId}:`, errorData);
-    }
-
-    return null;
-  } catch (error) {
-    console.error(`Error converting PNG to PDF for ${shipmentId}:`, error);
-    return null;
-  }
-};
-
 const generateAllFormatsForShipment = async (shipment: any) => {
   console.log(`Generating all formats for shipment ${shipment.easypost_id}`);
   
@@ -179,26 +233,38 @@ const generateAllFormatsForShipment = async (shipment: any) => {
   const postageLabel = labelData.postage_label;
 
   if (postageLabel) {
-    // Store PNG first
+    // Store PNG first and get PNG bytes for PDF conversion
+    let pngBytes: Uint8Array | null = null;
+    
     if (postageLabel.label_url) {
       try {
-        const storedPngUrl = await downloadAndStoreLabel(postageLabel.label_url, shipment.easypost_id, 'individual', 'png');
-        labelUrls['png'] = storedPngUrl;
-        console.log(`✅ Successfully stored PNG label for shipment ${shipment.easypost_id}`);
+        console.log(`Downloading PNG for shipment ${shipment.easypost_id}`);
+        const pngResponse = await fetch(postageLabel.label_url);
+        if (pngResponse.ok) {
+          const pngBlob = await pngResponse.blob();
+          const pngArrayBuffer = await pngBlob.arrayBuffer();
+          pngBytes = new Uint8Array(pngArrayBuffer);
+          
+          // Store PNG using existing function
+          const storedPngUrl = await storeDirectBinaryLabel(pngBytes, shipment.easypost_id, 'individual', 'png');
+          labelUrls['png'] = storedPngUrl;
+          console.log(`✅ Successfully stored PNG label for shipment ${shipment.easypost_id}`);
+        }
       } catch (error) {
-        console.error(`Error storing PNG label for ${shipment.easypost_id}:`, error);
+        console.error(`Error downloading PNG for ${shipment.easypost_id}:`, error);
       }
     }
 
-    // Convert PNG to PDF and store
-    const pdfUrl = await convertPngToPdf(shipment.easypost_id);
-    if (pdfUrl) {
+    // Convert PNG to PDF locally and store
+    if (pngBytes) {
       try {
-        const storedPdfUrl = await downloadAndStoreLabel(pdfUrl, shipment.easypost_id, 'individual', 'pdf');
+        console.log(`Converting PNG to PDF locally for shipment ${shipment.easypost_id}`);
+        const pdfBytes = await convertPngToPdfLocally(pngBytes);
+        const storedPdfUrl = await storeDirectBinaryLabel(pdfBytes, shipment.easypost_id, 'individual', 'pdf');
         labelUrls['pdf'] = storedPdfUrl;
         console.log(`✅ Successfully converted and stored PDF label for shipment ${shipment.easypost_id}`);
       } catch (error) {
-        console.error(`Error storing PDF label for ${shipment.easypost_id}:`, error);
+        console.error(`Error converting PNG to PDF for ${shipment.easypost_id}:`, error);
       }
     }
 
@@ -486,7 +552,7 @@ serve(async (req) => {
         total: shipments.length,
         successful: processedLabels.length,
         failed: failedLabels.length,
-        message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with PDF conversion`,
+        message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with local PDF conversion`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
