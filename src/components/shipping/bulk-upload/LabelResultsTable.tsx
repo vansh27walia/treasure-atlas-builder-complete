@@ -196,15 +196,15 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   <div className="flex space-x-2">
                     <Button
                       size="sm"
-                      onClick={() => handleDownload(shipment, 'png')} // Default download is PNG
+                      onClick={() => handleDownload(shipment, 'pdf')} // Default download is now PDF
                       className="bg-green-600 hover:bg-green-700 text-white"
-                      disabled={!(shipment.label_urls?.png || shipment.label_url)}
+                      disabled={!shipment.label_urls?.pdf}
                     >
                       <Download className="h-3 w-3 mr-1" />
                       Download
                     </Button>
                     
-                    {/* PrintPreview for individual label - This will now prioritize the PDF URL */}
+                    {/* PrintPreview for individual label - Now prioritizes PDF over PNG */}
                     <PrintPreview
                       labelUrl={shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url || ''}
                       trackingCode={shipment.tracking_code || shipment.tracking_number}

@@ -128,52 +128,44 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string) => {
   }
 };
 
-const generateMultipleFormats = async (shipmentId: string) => {
+const convertPngToPdf = async (shipmentId: string) => {
   const apiKey = Deno.env.get('EASYPOST_API_KEY');
   if (!apiKey) {
     throw new Error('EasyPost API key not configured');
   }
 
-  const formats = ['pdf', 'zpl'];
-  const labelUrls: Record<string, string> = {};
+  try {
+    console.log(`Converting PNG to PDF for shipment ${shipmentId}`);
+    
+    const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/label`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        file_format: 'pdf'
+      }),
+    });
 
-  for (const format of formats) {
-    try {
-      console.log(`Generating ${format.toUpperCase()} format for shipment ${shipmentId}`);
+    if (response.ok) {
+      const labelData = await response.json();
+      const pdfUrl = labelData.label_url;
       
-      const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/label`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          file_format: format
-        }),
-      });
-
-      if (response.ok) {
-        const labelData = await response.json();
-        const labelUrl = labelData.label_url;
-        
-        if (labelUrl) {
-          const storedUrl = await downloadAndStoreLabel(labelUrl, shipmentId, 'individual', format);
-          labelUrls[format] = storedUrl;
-          console.log(`✅ Successfully stored ${format.toUpperCase()} label for shipment ${shipmentId}`);
-        }
-      } else {
-        const errorData = await response.json();
-        console.warn(`Failed to generate ${format.toUpperCase()} label for ${shipmentId}:`, errorData);
+      if (pdfUrl) {
+        console.log(`✅ Successfully generated PDF for shipment ${shipmentId}`);
+        return pdfUrl;
       }
-
-      // Add delay between format requests
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    } catch (error) {
-      console.error(`Error generating ${format.toUpperCase()} format for ${shipmentId}:`, error);
+    } else {
+      const errorData = await response.json();
+      console.warn(`Failed to generate PDF for ${shipmentId}:`, errorData);
     }
-  }
 
-  return labelUrls;
+    return null;
+  } catch (error) {
+    console.error(`Error converting PNG to PDF for ${shipmentId}:`, error);
+    return null;
+  }
 };
 
 const generateAllFormatsForShipment = async (shipment: any) => {
@@ -187,25 +179,39 @@ const generateAllFormatsForShipment = async (shipment: any) => {
   const postageLabel = labelData.postage_label;
 
   if (postageLabel) {
-    const formatMap: { [key: string]: string | undefined } = {
-      png: postageLabel.label_url,
-      pdf: postageLabel.label_pdf_url,
-      zpl: postageLabel.label_zpl_url,
-    };
+    // Store PNG first
+    if (postageLabel.label_url) {
+      try {
+        const storedPngUrl = await downloadAndStoreLabel(postageLabel.label_url, shipment.easypost_id, 'individual', 'png');
+        labelUrls['png'] = storedPngUrl;
+        console.log(`✅ Successfully stored PNG label for shipment ${shipment.easypost_id}`);
+      } catch (error) {
+        console.error(`Error storing PNG label for ${shipment.easypost_id}:`, error);
+      }
+    }
 
-    await Promise.all(
-      Object.entries(formatMap).map(async ([format, url]) => {
-        if (url) {
-          try {
-            const storedUrl = await downloadAndStoreLabel(url, shipment.easypost_id, 'individual', format);
-            labelUrls[format] = storedUrl;
-            console.log(`✅ Successfully stored ${format.toUpperCase()} label for shipment ${shipment.easypost_id}`);
-          } catch (error) {
-            console.error(`Error storing ${format.toUpperCase()} label for ${shipment.easypost_id}:`, error);
-          }
-        }
-      })
-    );
+    // Convert PNG to PDF and store
+    const pdfUrl = await convertPngToPdf(shipment.easypost_id);
+    if (pdfUrl) {
+      try {
+        const storedPdfUrl = await downloadAndStoreLabel(pdfUrl, shipment.easypost_id, 'individual', 'pdf');
+        labelUrls['pdf'] = storedPdfUrl;
+        console.log(`✅ Successfully converted and stored PDF label for shipment ${shipment.easypost_id}`);
+      } catch (error) {
+        console.error(`Error storing PDF label for ${shipment.easypost_id}:`, error);
+      }
+    }
+
+    // Store ZPL if available
+    if (postageLabel.label_zpl_url) {
+      try {
+        const storedZplUrl = await downloadAndStoreLabel(postageLabel.label_zpl_url, shipment.easypost_id, 'individual', 'zpl');
+        labelUrls['zpl'] = storedZplUrl;
+        console.log(`✅ Successfully stored ZPL label for shipment ${shipment.easypost_id}`);
+      } catch (error) {
+        console.error(`Error storing ZPL label for ${shipment.easypost_id}:`, error);
+      }
+    }
   } else {
     console.warn(`No postage_label object found for shipment ${shipment.easypost_id}`);
   }
@@ -218,7 +224,7 @@ const generateAllFormatsForShipment = async (shipment: any) => {
     label_urls: labelUrls,
     id: labelData.id,
     tracking_code: labelData.tracking_code,
-    label_url: labelUrls['png'] || postageLabel?.label_url,
+    label_url: labelUrls['pdf'] || labelUrls['png'] || postageLabel?.label_url, // Prioritize PDF
     carrier: labelData.selected_rate?.carrier,
     service: labelData.selected_rate?.service,
     rate: labelData.selected_rate?.rate,
@@ -480,7 +486,7 @@ serve(async (req) => {
         total: shipments.length,
         successful: processedLabels.length,
         failed: failedLabels.length,
-        message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with multiple formats`,
+        message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with PDF conversion`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
