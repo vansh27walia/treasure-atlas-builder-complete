@@ -2,11 +2,18 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, File, PrinterIcon } from 'lucide-react';
-import { BulkUploadResult } from '@/types/shipping';
-import LabelResultsTable from './LabelResultsTable';
-import PrintPreview from '@/components/shipping/PrintPreview';
+import { CheckCircle, Download, FileText, File } from 'lucide-react';
+import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 import { toast } from '@/components/ui/sonner';
+
+// Define the structure for a single shipment, including potential PDF URLs
+interface Shipment extends BulkShipment {
+  label_urls?: {
+    png?: string;
+    pdf?: string;
+  };
+  errors?: { details: string; error: string; }[];
+}
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
@@ -16,44 +23,124 @@ interface SuccessNotificationProps {
   isCreatingLabels: boolean;
 }
 
+// Placeholder for LabelResultsTable component to resolve import error
+interface LabelResultsTableProps {
+  shipments: Shipment[];
+  onDownloadLabel: (shipment: Shipment) => void;
+  getLabelDownloadInfo: (shipment: Shipment) => { url: string; format: string; type: string } | null;
+}
+
+const LabelResultsTable: React.FC<LabelResultsTableProps> = ({ shipments, onDownloadLabel, getLabelDownloadInfo }) => {
+  return (
+    <Card className="p-6 rounded-lg shadow-sm">
+      <h4 className="font-semibold text-lg text-gray-800 mb-4">Shipment Details</h4>
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                ID
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Tracking Number
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {shipments.map((shipment) => {
+              const labelInfo = getLabelDownloadInfo(shipment);
+              return (
+                <tr key={shipment.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{shipment.id}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {shipment.tracking_number || shipment.tracking_code || shipment.trackingCode || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                      ${shipment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                         shipment.status === 'failed' ? 'bg-red-100 text-red-800' :
+                         'bg-gray-100 text-gray-800'}`}>
+                      {shipment.status}
+                    </span>
+                    {shipment.status === 'failed' && shipment.errors && (
+                      <div className="text-red-500 text-xs mt-1">
+                        {shipment.errors.map((err, idx) => (
+                          <p key={idx}>{err.details || err.error}</p>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    {labelInfo && (
+                      <Button
+                        onClick={() => onDownloadLabel(shipment)}
+                        className="text-blue-600 hover:text-blue-900 bg-blue-100 hover:bg-blue-200 px-3 py-1 rounded-md text-xs"
+                        size="sm"
+                      >
+                        <Download className="mr-1 h-3 w-3" /> Download {labelInfo.type}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+};
+
 const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   results,
-  onDownloadSingleLabel,
   onCreateLabels,
-  isPaying,
   isCreatingLabels
 }) => {
   console.log('SuccessNotification received results:', results);
 
-  // Safely get shipments array
-  let allShipments = [];
+  let allShipments: Shipment[] = [];
   if (Array.isArray(results.processedShipments)) {
-    allShipments = results.processedShipments;
-  } else if (results.processedShipments && typeof results.processedShipments === 'object') {
-    const shipmentValues = Object.values(results.processedShipments);
-    allShipments = shipmentValues.filter(item => 
-      item && 
-      typeof item === 'object' && 
-      'id' in item
-    );
+    allShipments = results.processedShipments as Shipment[];
   }
-  
+
   console.log(`SuccessNotification - All shipments: ${allShipments.length}`, allShipments);
-  
-  // Count shipments with labels
+
+  // Helper to determine the best label URL and its format (PDF preferred)
+  const getLabelDownloadInfo = (shipment: Shipment) => {
+    // Prioritize PDF if available
+    if (shipment.label_urls?.pdf && shipment.label_urls.pdf.trim() !== '') {
+      return { url: shipment.label_urls.pdf, format: 'pdf', type: 'PDF' };
+    }
+    // Fallback to PNG if available
+    if (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '') {
+      return { url: shipment.label_urls.png, format: 'png', type: 'PNG' };
+    }
+    // Fallback to legacy label_url, try to infer format or default to PNG
+    if (shipment.label_url && shipment.label_url.trim() !== '') {
+      const urlLower = shipment.label_url.toLowerCase();
+      if (urlLower.endsWith('.pdf')) {
+        return { url: shipment.label_url, format: 'pdf', type: 'PDF' };
+      }
+      return { url: shipment.label_url, format: 'png', type: 'PNG' };
+    }
+    return null;
+  };
+
+  // Filter shipments that have any label URL (PNG or PDF)
   const shipmentsWithLabels = allShipments.filter(shipment => {
-    const hasLabel = !!(
-      (shipment.label_url && shipment.label_url.trim() !== '') ||
-      (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '') ||
-      (shipment.label_urls?.pdf && shipment.label_urls.pdf.trim() !== '') ||
-      shipment.status === 'completed'
-    );
-    return hasLabel;
+    const info = getLabelDownloadInfo(shipment);
+    return info !== null;
   });
 
   // Count failed shipments
   const failedShipments = allShipments.filter(shipment => shipment.status === 'failed');
-  
+
   console.log('SuccessNotification Debug:', {
     totalShipments: allShipments.length,
     shipmentsWithLabels: shipmentsWithLabels.length,
@@ -66,25 +153,25 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   // Show notification if we have shipments or results
   const shouldShowNotification = totalProcessed > 0 || results.total > 0 || results.successful > 0;
 
+  // Utility function to handle actual file download
   const downloadFile = async (url: string, filename: string) => {
     try {
-      console.log('Downloading file from URL:', url);
-      
+      console.log('Attempting to download file from URL:', url, 'as', filename);
+
       if (!url || url.trim() === '') {
         toast.error('Invalid label URL - cannot download');
         return;
       }
 
-      // Direct download approach
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
       link.target = '_blank';
-      
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       toast.success(`Downloaded ${filename}`);
     } catch (error) {
       console.error('Download error:', error);
@@ -92,65 +179,52 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
     }
   };
 
+  // Handler for downloading all available labels (now preferring PDF)
   const handleDownloadAllIndividualLabels = async () => {
     console.log('Downloading all individual labels, count:', shipmentsWithLabels.length);
-    
+
     if (shipmentsWithLabels.length === 0) {
       toast.error('No labels available for download');
       return;
     }
 
-    toast.loading('Starting downloads...');
-    
-    let successCount = 0;
-    
+    toast.loading('Starting downloads for all labels...');
+
+    // Use a small delay between downloads to prevent browser blocking and allow multiple downloads
     for (let i = 0; i < shipmentsWithLabels.length; i++) {
       const shipment = shipmentsWithLabels[i];
-      const labelUrl = shipment.label_urls?.png || shipment.label_url;
-      if (labelUrl && labelUrl.trim() !== '') {
-        try {
-          setTimeout(async () => {
-            const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
-            await downloadFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.png`);
-            successCount++;
-          }, i * 500);
-        } catch (error) {
-          console.error('Error downloading label for shipment:', shipment.id, error);
-        }
+      const labelInfo = getLabelDownloadInfo(shipment);
+
+      if (labelInfo) {
+        const { url, format } = labelInfo;
+        setTimeout(async () => {
+          const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
+          // Construct a meaningful filename including tracking code and correct extension
+          const filename = `label_${trackingCode || `shipment_${shipment.id || i + 1}`}.${format}`;
+          await downloadFile(url, filename);
+        }, i * 500);
       }
     }
-    
+
     toast.dismiss();
     setTimeout(() => {
-      toast.success(`Started download of ${shipmentsWithLabels.length} labels`);
-    }, 1000);
+      toast.success(`Started download of ${shipmentsWithLabels.length} labels (PDFs preferred)`);
+    }, 1000 + (shipmentsWithLabels.length * 500));
   };
 
-  // Get batch label URL for print preview
-  const getBatchLabelUrl = () => {
-    if (results.batchResult?.consolidatedLabelUrls?.pdf) {
-      return results.batchResult.consolidatedLabelUrls.pdf;
-    }
-    if (results.bulk_label_pdf_url) {
-      return results.bulk_label_pdf_url;
-    }
-    return null;
-  };
-
-  const batchLabelUrl = getBatchLabelUrl();
-
-  // Don't show if no data
+  // Don't show the notification component if no relevant data is present
   if (!shouldShowNotification) {
     return null;
   }
 
+  // Display statistics
   const displayTotal = totalProcessed || results.total || 0;
   const displaySuccessful = shipmentsWithLabels.length || results.successful || 0;
   const displayFailed = failedShipments.length || results.failed || 0;
 
   return (
-    <div className="space-y-6">
-      <Card className="p-6 border-green-200 bg-green-50">
+    <div className="space-y-6 font-sans">
+      <Card className="p-6 border-green-200 bg-green-50 rounded-lg shadow-sm">
         <div className="flex items-center space-x-3 mb-4">
           <CheckCircle className="h-6 w-6 text-green-600" />
           <div>
@@ -168,31 +242,29 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         </div>
 
         {displayFailed > 0 && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p className="text-yellow-800 text-sm">
-              <strong>Note:</strong> {displayFailed} shipments failed to process. Please check the error details below.
-            </p>
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800 text-sm">
+            <strong>Note:</strong> {displayFailed} shipments failed to process. Please check the error details below.
           </div>
         )}
 
-        {/* Summary Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg border border-green-200">
+        {/* Summary Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-lg border border-green-200 shadow-sm">
             <div className="text-2xl font-bold text-green-600">{displayTotal}</div>
             <div className="text-sm text-gray-600">Total Processed</div>
           </div>
-          
-          <div className="bg-white p-4 rounded-lg border border-green-200">
+
+          <div className="bg-white p-4 rounded-lg border border-green-200 shadow-sm">
             <div className="text-2xl font-bold text-green-600">{displaySuccessful}</div>
             <div className="text-sm text-gray-600">Labels Created</div>
           </div>
-          
-          <div className="bg-white p-4 rounded-lg border border-red-200">
+
+          <div className="bg-white p-4 rounded-lg border border-red-200 shadow-sm">
             <div className="text-2xl font-bold text-red-600">{displayFailed}</div>
             <div className="text-sm text-gray-600">Failed</div>
           </div>
-          
-          <div className="bg-white p-4 rounded-lg border border-green-200">
+
+          <div className="bg-white p-4 rounded-lg border border-green-200 shadow-sm">
             <div className="text-2xl font-bold text-green-600">${results.totalCost?.toFixed(2) || '0.00'}</div>
             <div className="text-sm text-gray-600">Total Shipping Cost</div>
           </div>
@@ -200,61 +272,32 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
         {/* Download Buttons Section */}
         {hasLabels && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
             <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Labels</h4>
-            
+
             <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap gap-3">
-                <Button 
-                  onClick={handleDownloadAllIndividualLabels}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download All Labels ({shipmentsWithLabels.length} PNG files)
-                </Button>
-                
-                {batchLabelUrl && (
-                  <>
-                    <Button 
-                      onClick={() => onDownloadSingleLabel(batchLabelUrl)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download Batch PDF
-                    </Button>
-                    
-                    <PrintPreview
-                      isOpenProp={false}
-                      onOpenChangeProp={() => {}}
-                      labelUrl={batchLabelUrl}
-                      trackingCode={null}
-                      batchResult={results.batchResult}
-                      isBatchPreview={true}
-                      triggerButton={
-                        <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                          <PrinterIcon className="mr-2 h-4 w-4" />
-                          Print Preview All Labels
-                        </Button>
-                      }
-                    />
-                  </>
-                )}
-              </div>
+              <Button
+                onClick={handleDownloadAllIndividualLabels}
+                className="bg-green-600 hover:bg-green-700 text-white rounded-md px-4 py-2 transition duration-200 ease-in-out transform hover:scale-105 shadow-md"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Download All Labels ({shipmentsWithLabels.length} {shipmentsWithLabels.length > 0 ? (getLabelDownloadInfo(shipmentsWithLabels[0])?.type || 'Files') : 'Files'})
+              </Button>
             </div>
           </div>
         )}
 
         {/* Create Labels Button */}
         {!hasLabels && displayTotal > 0 && (
-          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg shadow-sm">
             <h4 className="font-semibold text-lg text-yellow-800 mb-3">Create Shipping Labels</h4>
             <p className="text-yellow-700 mb-3">
               Your shipments have been processed. Click below to create and download shipping labels.
             </p>
-            <Button 
+            <Button
               onClick={onCreateLabels}
               disabled={isCreatingLabels}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-md px-6 py-3 transition duration-200 ease-in-out transform hover:scale-105 shadow-md"
               size="lg"
             >
               {isCreatingLabels ? 'Creating Labels...' : 'Create All Labels Now'}
@@ -267,25 +310,28 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       {allShipments.length > 0 && (
         <LabelResultsTable
           shipments={allShipments}
-          onDownloadLabel={(url: string, format?: string) => {
-            if (url && url.trim() !== '') {
+          onDownloadLabel={(shipment: Shipment) => {
+            const labelInfo = getLabelDownloadInfo(shipment);
+            if (labelInfo) {
               const timestamp = Date.now();
-              const filename = `shipping_label_${timestamp}.${format || 'png'}`;
-              downloadFile(url, filename);
+              const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
+              const filename = `shipping_label_${trackingCode || `shipment_${shipment.id || timestamp}`}.${labelInfo.format}`;
+              downloadFile(labelInfo.url, filename);
             } else {
-              toast.error('Invalid label URL - cannot download');
+              toast.error('No label URL available for this shipment.');
             }
           }}
+          getLabelDownloadInfo={getLabelDownloadInfo}
         />
       )}
 
       {/* Failed Shipments Details */}
       {results.failedShipments && results.failedShipments.length > 0 && (
-        <Card className="p-6">
+        <Card className="p-6 border-red-200 bg-red-50 rounded-lg shadow-sm">
           <h4 className="font-medium text-red-800 mb-3">Failed Shipments Details</h4>
-          <div className="bg-red-50 border border-red-200 rounded-md p-4 max-h-60 overflow-y-auto">
+          <div className="bg-red-100 border border-red-200 rounded-md p-4 max-h-60 overflow-y-auto">
             {results.failedShipments.map((failed, index) => (
-              <div key={index} className="mb-2 last:mb-0 p-2 bg-white rounded border-l-4 border-red-400">
+              <div key={index} className="mb-2 last:mb-0 p-2 bg-white rounded border-l-4 border-red-400 shadow-sm">
                 <span className="font-medium text-red-700">
                   Shipment {failed.row ? `#${failed.row}` : index + 1}:
                 </span>
