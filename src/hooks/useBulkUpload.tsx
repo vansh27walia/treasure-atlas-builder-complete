@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useShipmentUpload } from './useShipmentUpload';
 import { useShipmentManagement } from './useShipmentManagement';
@@ -197,7 +196,8 @@ export const useBulkUpload = () => {
           pickupAddress,
           labelOptions: {
             format: 'PDF',
-            size: '4x6'
+            size: '4x6',
+            generateBatch: true
           }
         }
       });
@@ -208,54 +208,23 @@ export const useBulkUpload = () => {
 
       console.log('Label creation response:', data);
 
-      if (data.labels && data.labels.length > 0) {
-        // Process the response and update shipments with label URLs
-        const updatedShipments = results.processedShipments.map(shipment => {
-          const labelData = data.labels.find((label: any) => 
-            label.shipment_id === shipment.id && 
-            (label.status === 'success_individual_png_saved' || label.status.includes('success'))
-          );
-          
-          if (labelData && labelData.label_urls?.png) {
-            return {
-              ...shipment,
-              label_url: labelData.label_urls.png,
-              tracking_code: labelData.tracking_number,
-              status: 'completed' as const,
-              customer_name: labelData.recipient_name || shipment.customer_name,
-              customer_address: labelData.drop_off_address || shipment.customer_address
-            };
-          }
-          return shipment;
-        });
-
-        // Count successful labels
-        const successfulLabels = data.labels.filter((label: any) => 
-          label.status === 'success_individual_png_saved' || 
-          label.status.includes('success')
-        ).length;
-
+      if (data.processedLabels && data.processedLabels.length > 0) {
         setResults({
           ...results,
-          processedShipments: updatedShipments,
-          bulk_label_png_url: data.bulk_label_png_url,
-          bulk_label_pdf_url: data.bulk_label_pdf_url
+          processedShipments: data.processedLabels,
+          bulk_label_pdf_url: data.batchResult?.consolidatedLabelUrls?.pdf,
+          bulk_label_png_url: data.batchResult?.consolidatedLabelUrls?.png, // Store png just in case
         });
 
         setUploadStatus('success');
-        toast.success(`Successfully created ${successfulLabels} shipping labels`);
+        toast.success(`Successfully created ${data.successful} shipping labels`);
 
-        // Show any failed labels
-        const failedLabels = data.labels.filter((label: any) => 
-          label.status.includes('error') || label.status.includes('fail')
-        );
-        
-        if (failedLabels.length > 0) {
-          console.error('Failed labels:', failedLabels);
-          toast.error(`${failedLabels.length} labels failed to create. Check console for details.`);
+        if (data.failedLabels && data.failedLabels.length > 0) {
+          console.error('Failed labels:', data.failedLabels);
+          toast.error(`${data.failedLabels.length} labels failed to create. Check console for details.`);
         }
       } else {
-        throw new Error('No labels were created');
+        throw new Error(data.message || 'No labels were created');
       }
 
     } catch (error) {

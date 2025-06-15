@@ -13,14 +13,16 @@ import StripePaymentModal from './StripePaymentModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { FileText, UploadCloud, ChevronRight, AlertCircle, Download, CreditCard } from 'lucide-react';
+import { FileText, UploadCloud, ChevronRight, AlertCircle, Download, CreditCard, PrinterIcon } from 'lucide-react';
 import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
+import PrintPreview from '@/components/shipping/PrintPreview';
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [labelProgress, setLabelProgress] = useState({
     isCreating: false,
     progress: 0,
@@ -323,14 +325,24 @@ const BulkUpload: React.FC = () => {
         )}
         
         {uploadStatus === 'success' && results && (
-          <SuccessNotification
-            results={results}
-            onDownloadAllLabels={handleDownloadAllLabels}
-            onDownloadSingleLabel={handleDownloadSingleLabel}
-            onCreateLabels={handleCreateLabels}
-            isPaying={isPaying}
-            isCreatingLabels={isCreatingLabels}
-          />
+          <>
+            {results.bulk_label_pdf_url && (
+              <div className="flex justify-end mb-4">
+                <Button onClick={() => setShowPrintPreview(true)}>
+                  <PrinterIcon className="mr-2 h-4 w-4" />
+                  Preview All Labels
+                </Button>
+              </div>
+            )}
+            <SuccessNotification
+              results={results}
+              onDownloadAllLabels={handleDownloadAllLabels}
+              onDownloadSingleLabel={handleDownloadSingleLabel}
+              onCreateLabels={handleCreateLabels}
+              isPaying={isPaying}
+              isCreatingLabels={isCreatingLabels}
+            />
+          </>
         )}
         
         {uploadStatus === 'error' && (
@@ -366,6 +378,18 @@ const BulkUpload: React.FC = () => {
         shipmentCount={processedShipmentsCount}
         onPaymentSuccess={handlePaymentSuccess}
       />
+
+      {/* Batch Print Preview Modal */}
+      {results?.bulk_label_pdf_url && (
+        <PrintPreview
+          isOpenProp={showPrintPreview}
+          onOpenChangeProp={setShowPrintPreview}
+          labelUrl={results.bulk_label_pdf_url}
+          trackingCode={null}
+          isBatchPreview={true}
+          batchResult={{ consolidatedLabelUrls: { pdf: results.bulk_label_pdf_url }}}
+        />
+      )}
     </>
   );
 };
