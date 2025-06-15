@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -79,6 +80,23 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   // New state for PDF blob URL and its loading status
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null); // Stores the 'blob:' URL for PDF iframe
   const [isPdfBlobFetching, setIsPdfBlobFetching] = useState(false); // Indicates if PDF blob is currently being fetched
+
+  // Handle format change with proper async handling
+  const handleFormatChange = async (format: string) => {
+    setSelectedFormat(format);
+    
+    if (onFormatChange) {
+      setIsRegeneratingLabel(true);
+      try {
+        await onFormatChange(format);
+      } catch (error) {
+        console.error('Error changing format:', error);
+        toast.error('Failed to change label format');
+      } finally {
+        setIsRegeneratingLabel(false);
+      }
+    }
+  };
 
   // Effect to handle updating the preview content based on props
   useEffect(() => {
