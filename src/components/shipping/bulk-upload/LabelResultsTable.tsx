@@ -88,17 +88,14 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {shipments.map((shipment, index) => {
-              // For print preview, ALWAYS prioritize PDF first, then fallback to PNG
+              // Only use PDF URL for print preview - do not fallback to PNG
               const pdfUrl = shipment.label_urls?.pdf;
-              const pngUrl = shipment.label_urls?.png || shipment.label_url;
-              const printPreviewUrl = pdfUrl || pngUrl; // PDF takes absolute priority for print preview
               
-              console.log('Individual shipment print preview URL selection:', {
+              console.log('Individual shipment PDF URL check:', {
                 shipmentId: shipment.id,
                 pdfUrl: pdfUrl,
-                pngUrl: pngUrl,
-                selectedForPreview: printPreviewUrl,
-                prioritizedPDF: !!pdfUrl
+                hasPDF: !!pdfUrl,
+                willShowPrintPreview: !!pdfUrl
               });
 
               return (
@@ -218,10 +215,10 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         Download
                       </Button>
                       
-                      {/* PrintPreview for individual label - Only show if we have a PDF URL (prioritize PDF for print preview) */}
-                      {printPreviewUrl && (
+                      {/* PrintPreview for individual label - ONLY show if PDF URL exists */}
+                      {pdfUrl && (
                         <PrintPreview
-                          labelUrl={printPreviewUrl}
+                          labelUrl={pdfUrl}
                           trackingCode={shipment.tracking_code || shipment.tracking_number || ''}
                           labelUrls={shipment.label_urls}
                           shipmentDetails={{
