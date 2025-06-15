@@ -41,50 +41,35 @@ async function extractFileContent(filename: string, buffer: ArrayBuffer): Promis
   throw new Error("Unsupported file type: " + ext);
 }
 
-const CSV_HEADERS = [
-  "Order Number",
-  "Recipient Name", 
-  "Address",
-  "City",
-  "State",
-  "Zip Code",
-  "Country",
-  "Phone Number",
-  "Email",
-  "Product Description",
-  "Quantity",
-  "Weight"
-];
-
 const GEMINI_PROMPT = `
-You are a smart file data converter. A user has uploaded a file with shipping/order data in an unknown format.
+You are an expert data converter for logistics. A user has uploaded a file with shipping data in an unknown format.
+Your task is to intelligently convert this file into a standardized CSV format compatible with the EasyPost API.
 
-I need you to intelligently convert this file into the following standardized CSV format for shipping:
+The required CSV format has these exact columns in this exact order:
+to_name,to_street1,to_street2,to_city,to_state,to_zip,to_country,weight,length,width,height,reference
 
-Required Columns (in this exact order):
-- Order Number (generate if missing: ORD001, ORD002, etc.)
-- Recipient Name (full name of person receiving package)
-- Address (street address including number and street name)
-- City
-- State (2-letter code like CA, NY, TX)
-- Zip Code (postal code)
-- Country (default to "US" if not specified)
-- Phone Number (format: 555-555-5555)
-- Email (recipient email address)
-- Product Description (what is being shipped)
-- Quantity (number of items, default to 1 if not specified)
-- Weight (in pounds, estimate if not provided - typical small package is 1-2 lbs)
+Column-by-Column Instructions:
+- to_name: Recipient's full name.
+- to_street1: Primary street address line (e.g., "123 Main St").
+- to_street2: Secondary address line (e.g., "Apt 4B", "Suite 200"). Leave empty if not found.
+- to_city: City name.
+- to_state: 2-letter state code (e.g., "CA", "NY").
+- to_zip: ZIP or postal code.
+- to_country: 2-letter country code. Default to "US" if not specified.
+- weight: Weight in POUNDS (lbs). MUST be a number. If not provided, estimate a value (e.g., 1.5).
+- length: Package length in INCHES. MUST be a number. If not provided, estimate a value (e.g., 12).
+- width: Package width in INCHES. MUST be a number. If not provided, estimate a value (e.g., 8).
+- height: Package height in INCHES. MUST be a number. If not provided, estimate a value (e.g., 4).
+- reference: An order number or reference ID (e.g., "Order #1234"). If missing, generate a unique one like ORD-001, ORD-002, etc.
 
-Smart Mapping Instructions:
-- Look for ANY data that could represent customer names, addresses, phone numbers, emails, products
-- If the file has different column names, map them intelligently (e.g., "Customer Name" → "Recipient Name")
-- If some fields are missing, use reasonable defaults or leave empty
-- Generate Order Numbers if they don't exist
-- Estimate weight if not provided (1-2 lbs for typical packages)
-- Clean up phone numbers to standard format
-- Ensure addresses are complete and properly formatted
+Smart Mapping Rules:
+- Intelligently map fields from the source file. For example, "Customer" or "Recipient" should map to "to_name".
+- Combine address components if they are separated in the source file.
+- Clean up data: format phone numbers if found (though not a target column), ensure state/country codes are correct.
+- If the source is just a block of text, extract the address and recipient details as best you can.
+- For missing but required numeric fields (weight, length, width, height), YOU MUST provide a reasonable estimate. Do not leave them blank.
 
-Return ONLY the CSV data starting with the header row. Do not include any explanations or additional text.
+IMPORTANT: Your response must be ONLY the raw CSV data, starting with the header row. Do not include any explanations, comments, or "\`\`\`csv" markers.
 
 File content to convert:
 `;
