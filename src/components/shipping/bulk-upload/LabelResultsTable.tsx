@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -87,145 +86,159 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {shipments.map((shipment, index) => (
-              <tr key={shipment.id || shipment.original_shipment_id || index} className="hover:bg-gray-50">
-                {/* Tracking */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <Truck className="h-4 w-4 text-blue-500 mr-2" />
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {shipment.tracking_code || shipment.tracking_number || 'Pending'}
+            {shipments.map((shipment, index) => {
+              // Determine the best PDF URL for this shipment
+              const pdfUrl = shipment.label_urls?.pdf;
+              const pngUrl = shipment.label_urls?.png || shipment.label_url;
+              const previewUrl = pdfUrl || pngUrl; // Prioritize PDF for preview
+              
+              console.log('Individual shipment label URLs:', {
+                shipmentId: shipment.id,
+                pdf: pdfUrl,
+                png: pngUrl,
+                previewUrl
+              });
+
+              return (
+                <tr key={shipment.id || shipment.original_shipment_id || index} className="hover:bg-gray-50">
+                  {/* Tracking */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <Truck className="h-4 w-4 text-blue-500 mr-2" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {shipment.tracking_code || shipment.tracking_number || 'Pending'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {shipment.status === 'success' || shipment.status === 'completed' ? (
+                            <Badge className="bg-green-100 text-green-800">Completed</Badge>
+                          ) : (
+                            <Badge className="bg-yellow-100 text-yellow-800">Processing</Badge>
+                          )}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-500">
-                        {shipment.status === 'success' || shipment.status === 'completed' ? (
-                          <Badge className="bg-green-100 text-green-800">Completed</Badge>
+                    </div>
+                  </td>
+
+                  {/* Carrier & Drop-off Details */}
+                  <td className="px-6 py-4">
+                    <div className="space-y-1">
+                      <div className="text-sm font-medium text-gray-900">
+                        {shipment.carrier || 'Unknown Carrier'}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {shipment.customer_name || shipment.recipient || 'No recipient name'}
+                      </div>
+                      <div className="text-xs text-gray-500 max-w-xs">
+                        {shipment.customer_address || 'No address available'}
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Dimensions & Weight */}
+                  <td className="px-6 py-4">
+                    <div className="space-y-1">
+                      <div className="text-sm text-gray-900">
+                        {shipment.details?.length && shipment.details?.width && shipment.details?.height ? (
+                          <span>{shipment.details.length}"×{shipment.details.width}"×{shipment.details.height}"</span>
                         ) : (
-                          <Badge className="bg-yellow-100 text-yellow-800">Processing</Badge>
+                          <span className="text-gray-400">No dimensions</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {shipment.details?.weight ? (
+                          <span>{shipment.details.weight} lbs</span>
+                        ) : (
+                          <span className="text-gray-400">No weight</span>
                         )}
                       </div>
                     </div>
-                  </div>
-                </td>
+                  </td>
 
-                {/* Carrier & Drop-off Details */}
-                <td className="px-6 py-4">
-                  <div className="space-y-1">
-                    <div className="text-sm font-medium text-gray-900">
-                      {shipment.carrier || 'Unknown Carrier'}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {shipment.customer_name || shipment.recipient || 'No recipient name'}
-                    </div>
-                    <div className="text-xs text-gray-500 max-w-xs">
-                      {shipment.customer_address || 'No address available'}
-                    </div>
-                  </div>
-                </td>
-
-                {/* Dimensions & Weight */}
-                <td className="px-6 py-4">
-                  <div className="space-y-1">
-                    <div className="text-sm text-gray-900">
-                      {shipment.details?.length && shipment.details?.width && shipment.details?.height ? (
-                        <span>{shipment.details.length}"×{shipment.details.width}"×{shipment.details.height}"</span>
-                      ) : (
-                        <span className="text-gray-400">No dimensions</span>
+                  {/* Label Formats */}
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap gap-2">
+                      {/* PNG Format */}
+                      {(shipment.label_urls?.png || shipment.label_url) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownload(shipment, 'png')}
+                          className="text-xs border-green-300 text-green-700 hover:bg-green-50"
+                        >
+                          <FileImage className="h-3 w-3 mr-1" />
+                          PNG
+                        </Button>
+                      )}
+                      
+                      {/* PDF Format */}
+                      {shipment.label_urls?.pdf && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownload(shipment, 'pdf')}
+                          className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
+                        >
+                          <File className="h-3 w-3 mr-1" />
+                          PDF
+                        </Button>
+                      )}
+                      
+                      {/* ZPL Format */}
+                      {shipment.label_urls?.zpl && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownload(shipment, 'zpl')}
+                          className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
+                        >
+                          <FileText className="h-3 w-3 mr-1" />
+                          ZPL
+                        </Button>
+                      )}
+                      
+                      {!(shipment.label_urls?.png || shipment.label_url || shipment.label_urls?.pdf || shipment.label_urls?.zpl) && (
+                        <span className="text-xs text-gray-400 italic">No formats available</span>
                       )}
                     </div>
-                    <div className="text-sm text-gray-600">
-                      {shipment.details?.weight ? (
-                        <span>{shipment.details.weight} lbs</span>
-                      ) : (
-                        <span className="text-gray-400">No weight</span>
+                  </td>
+
+                  {/* Actions */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex space-x-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleDownload(shipment, 'pdf')} // Default download is now PDF
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        disabled={!shipment.label_urls?.pdf}
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        Download
+                      </Button>
+                      
+                      {/* PrintPreview for individual label - Show only if we have a valid preview URL */}
+                      {previewUrl && (
+                        <PrintPreview
+                          labelUrl={previewUrl}
+                          trackingCode={shipment.tracking_code || shipment.tracking_number || ''}
+                          labelUrls={shipment.label_urls}
+                          shipmentDetails={{
+                            fromAddress: 'Your Saved Pickup Address',
+                            toAddress: shipment.customer_address || '',
+                            weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : 'N/A',
+                            dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? 
+                              `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : 'N/A',
+                            service: shipment.service || 'N/A',
+                            carrier: shipment.carrier || 'N/A'
+                          }}
+                          shipmentId={shipment.id || shipment.original_shipment_id}
+                        />
                       )}
                     </div>
-                  </div>
-                </td>
-
-                {/* Label Formats */}
-                <td className="px-6 py-4">
-                  <div className="flex flex-wrap gap-2">
-                    {/* PNG Format */}
-                    {(shipment.label_urls?.png || shipment.label_url) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownload(shipment, 'png')}
-                        className="text-xs border-green-300 text-green-700 hover:bg-green-50"
-                      >
-                        <FileImage className="h-3 w-3 mr-1" />
-                        PNG
-                      </Button>
-                    )}
-                    
-                    {/* PDF Format */}
-                    {shipment.label_urls?.pdf && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownload(shipment, 'pdf')}
-                        className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
-                      >
-                        <File className="h-3 w-3 mr-1" />
-                        PDF
-                      </Button>
-                    )}
-                    
-                    {/* ZPL Format */}
-                    {shipment.label_urls?.zpl && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDownload(shipment, 'zpl')}
-                        className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
-                      >
-                        <FileText className="h-3 w-3 mr-1" />
-                        ZPL
-                      </Button>
-                    )}
-                    
-                    {!(shipment.label_urls?.png || shipment.label_url || shipment.label_urls?.pdf || shipment.label_urls?.zpl) && (
-                      <span className="text-xs text-gray-400 italic">No formats available</span>
-                    )}
-                  </div>
-                </td>
-
-                {/* Actions */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex space-x-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleDownload(shipment, 'pdf')} // Default download is now PDF
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                      disabled={!shipment.label_urls?.pdf}
-                    >
-                      <Download className="h-3 w-3 mr-1" />
-                      Download
-                    </Button>
-                    
-                    {/* PrintPreview for individual label - PDF with fallback to PNG if PDF not available */}
-                    {(shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url) && (
-                      <PrintPreview
-                        labelUrl={shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url || ''}
-                        trackingCode={shipment.tracking_code || shipment.tracking_number}
-                        labelUrls={shipment.label_urls} // Pass all available URLs
-                        shipmentDetails={{
-                          fromAddress: 'Your Saved Pickup Address', // Placeholder, consider passing actual if available
-                          toAddress: shipment.customer_address || '',
-                          weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : 'N/A',
-                          dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? 
-                            `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : 'N/A',
-                          service: shipment.service || 'N/A',
-                          carrier: shipment.carrier || 'N/A'
-                        }}
-                        shipmentId={shipment.id || shipment.original_shipment_id} // Use EasyPost ID or original
-                      />
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
