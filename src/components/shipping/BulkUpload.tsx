@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -61,10 +62,7 @@ const BulkUpload: React.FC = () => {
     setSearchTerm,
     setSortField,
     setSortDirection,
-    setSelectedCarrierFilter,
-    handleOpenBatchPrintPreview,
-    batchPrintPreviewModalOpen,
-    setBatchPrintPreviewModalOpen
+    setSelectedCarrierFilter
   } = useBulkUpload();
 
   // Log pickup address on mount and when it changes (less frequently)
@@ -327,13 +325,24 @@ const BulkUpload: React.FC = () => {
         )}
         
         {uploadStatus === 'success' && results && (
-          <SuccessNotification
-            results={results}
-            onDownloadSingleLabel={handleDownloadSingleLabel}
-            onCreateLabels={handleCreateLabels}
-            isPaying={isPaying}
-            isCreatingLabels={isCreatingLabels}
-          />
+          <>
+            {results.bulk_label_pdf_url && (
+              <div className="flex justify-end mb-4">
+                <Button onClick={() => setShowPrintPreview(true)}>
+                  <PrinterIcon className="mr-2 h-4 w-4" />
+                  Preview All Labels
+                </Button>
+              </div>
+            )}
+            <SuccessNotification
+              results={results}
+              onDownloadAllLabels={handleDownloadAllLabels}
+              onDownloadSingleLabel={handleDownloadSingleLabel}
+              onCreateLabels={handleCreateLabels}
+              isPaying={isPaying}
+              isCreatingLabels={isCreatingLabels}
+            />
+          </>
         )}
         
         {uploadStatus === 'error' && (
@@ -369,6 +378,18 @@ const BulkUpload: React.FC = () => {
         shipmentCount={processedShipmentsCount}
         onPaymentSuccess={handlePaymentSuccess}
       />
+
+      {/* Batch Print Preview Modal */}
+      {results?.bulk_label_pdf_url && results.batchResult && (
+        <PrintPreview
+          isOpenProp={showPrintPreview}
+          onOpenChangeProp={setShowPrintPreview}
+          labelUrl={results.bulk_label_pdf_url}
+          trackingCode={null}
+          isBatchPreview={true}
+          batchResult={results.batchResult}
+        />
+      )}
     </>
   );
 };
