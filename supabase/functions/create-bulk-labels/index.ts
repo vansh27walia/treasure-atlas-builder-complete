@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -183,22 +182,36 @@ const generateAllFormatsForShipment = async (shipment: any) => {
   // Purchase the label first
   const labelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId);
   
-  // Start with PNG from initial purchase
   const labelUrls: Record<string, string> = {};
   
   const postageLabel = labelData.postage_label;
-  if (postageLabel?.label_url) {
-    const storedPngUrl = await downloadAndStoreLabel(postageLabel.label_url, shipment.easypost_id, 'individual', 'png');
-    labelUrls['png'] = storedPngUrl;
-    console.log(`✅ Successfully stored PNG label for shipment ${shipment.easypost_id}`);
+
+  if (postageLabel) {
+    const formatMap: { [key: string]: string | undefined } = {
+      png: postageLabel.label_url,
+      pdf: postageLabel.label_pdf_url,
+      zpl: postageLabel.label_zpl_url,
+    };
+
+    await Promise.all(
+      Object.entries(formatMap).map(async ([format, url]) => {
+        if (url) {
+          try {
+            const storedUrl = await downloadAndStoreLabel(url, shipment.easypost_id, 'individual', format);
+            labelUrls[format] = storedUrl;
+            console.log(`✅ Successfully stored ${format.toUpperCase()} label for shipment ${shipment.easypost_id}`);
+          } catch (error) {
+            console.error(`Error storing ${format.toUpperCase()} label for ${shipment.easypost_id}:`, error);
+          }
+        }
+      })
+    );
+  } else {
+    console.warn(`No postage_label object found for shipment ${shipment.easypost_id}`);
   }
 
-  // Generate additional formats (PDF, ZPL)
-  const additionalFormats = await generateMultipleFormats(shipment.easypost_id);
-  Object.assign(labelUrls, additionalFormats);
-
   // Wait between shipments to avoid rate limiting
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  await new Promise(resolve => setTimeout(resolve, 1000));
 
   return {
     ...labelData,

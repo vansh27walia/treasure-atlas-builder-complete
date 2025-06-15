@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -203,7 +204,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       Download
                     </Button>
                     
-                    {/* PrintPreview for individual label */}
+                    {/* PrintPreview for individual label - This will now prioritize the PDF URL */}
                     <PrintPreview
                       labelUrl={shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url || ''}
                       trackingCode={shipment.tracking_code || shipment.tracking_number}
