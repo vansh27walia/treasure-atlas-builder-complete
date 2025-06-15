@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -71,7 +70,7 @@ const BulkUploadView: React.FC = () => {
         <div className="flex gap-2 flex-wrap justify-center sm:justify-end">
           {uploadStatus === 'success' && results?.batchResult?.consolidatedLabelUrls?.pdf && !labelGenerationProgress.isGenerating && (
             <Button
-              onClick={() => handleDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!, 'pdf')}
+              onClick={() => handleDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
               variant="default"
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
