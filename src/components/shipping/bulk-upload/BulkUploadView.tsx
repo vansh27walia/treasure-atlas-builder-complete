@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -47,6 +46,24 @@ const BulkUploadView: React.FC = () => {
     setSelectedCarrierFilter,
     setPickupAddress
   } = useBulkUpload();
+
+  // Helper to determine the best label URL and its format (PDF preferred)
+  const getLabelDownloadInfo = (shipment: any) => {
+    if (shipment.label_urls?.pdf && shipment.label_urls.pdf.trim() !== '') {
+      return { url: shipment.label_urls.pdf, format: 'pdf', type: 'PDF' };
+    }
+    if (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '') {
+      return { url: shipment.label_urls.png, format: 'png', type: 'PNG' };
+    }
+    if (shipment.label_url && shipment.label_url.trim() !== '') {
+      const urlLower = shipment.label_url.toLowerCase();
+      if (urlLower.endsWith('.pdf')) {
+        return { url: shipment.label_url, format: 'pdf', type: 'PDF' };
+      }
+      return { url: shipment.label_url, format: 'png', type: 'PNG' };
+    }
+    return null;
+  };
 
   const handleUploadSuccess = (uploadResults: any) => {
     console.log('Upload successful:', uploadResults);
@@ -187,6 +204,7 @@ const BulkUploadView: React.FC = () => {
             <LabelResultsTable
               shipments={results.processedShipments || []}
               onDownloadLabel={handleDownloadSingleLabel}
+              getLabelDownloadInfo={getLabelDownloadInfo}
             />
           )}
         </div>
@@ -197,11 +215,10 @@ const BulkUploadView: React.FC = () => {
         <PrintPreview
           isOpenProp={batchPrintPreviewModalOpen}
           onOpenChangeProp={setBatchPrintPreviewModalOpen}
-          labelUrl="" // Not relevant for batch preview trigger, content comes from batchResult
-          trackingCode={null} // Batch ID will be shown in modal title
+          labelUrl=""
+          trackingCode={null}
           batchResult={results.batchResult}
           isBatchPreview={true}
-          // No triggerButton prop here, it's controlled by isOpenProp
         />
       )}
     </div>
