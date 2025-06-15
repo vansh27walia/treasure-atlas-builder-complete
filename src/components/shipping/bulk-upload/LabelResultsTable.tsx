@@ -204,22 +204,24 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       Download
                     </Button>
                     
-                    {/* PrintPreview for individual label - Now prioritizes PDF */}
-                    <PrintPreview
-                      labelUrl={shipment.label_urls?.pdf || ''}
-                      trackingCode={shipment.tracking_code || shipment.tracking_number}
-                      labelUrls={shipment.label_urls} // Pass all available URLs
-                      shipmentDetails={{
-                        fromAddress: 'Your Saved Pickup Address', // Placeholder, consider passing actual if available
-                        toAddress: shipment.customer_address || '',
-                        weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : 'N/A',
-                        dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? 
-                          `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : 'N/A',
-                        service: shipment.service || 'N/A',
-                        carrier: shipment.carrier || 'N/A'
-                      }}
-                      shipmentId={shipment.id || shipment.original_shipment_id} // Use EasyPost ID or original
-                    />
+                    {/* PrintPreview for individual label - PDF with fallback to PNG if PDF not available */}
+                    {(shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url) && (
+                      <PrintPreview
+                        labelUrl={shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url || ''}
+                        trackingCode={shipment.tracking_code || shipment.tracking_number}
+                        labelUrls={shipment.label_urls} // Pass all available URLs
+                        shipmentDetails={{
+                          fromAddress: 'Your Saved Pickup Address', // Placeholder, consider passing actual if available
+                          toAddress: shipment.customer_address || '',
+                          weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : 'N/A',
+                          dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? 
+                            `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : 'N/A',
+                          service: shipment.service || 'N/A',
+                          carrier: shipment.carrier || 'N/A'
+                        }}
+                        shipmentId={shipment.id || shipment.original_shipment_id} // Use EasyPost ID or original
+                      />
+                    )}
                   </div>
                 </td>
               </tr>
