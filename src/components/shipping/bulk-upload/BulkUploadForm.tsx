@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +15,8 @@ export interface BulkUploadFormProps {
   progress?: number;
   handleUpload?: (file: File) => Promise<any>; 
 }
+
+const SUPPORTED_EXTS = [".csv", ".xls", ".xlsx", ".doc", ".docx", ".txt", ".json", ".xml"];
 
 const BulkUploadForm: React.FC<BulkUploadFormProps> = ({ 
   onUploadSuccess, 
@@ -63,26 +64,15 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    
-    if (file) {
-      console.log('File selected:', { name: file.name, size: file.size, type: file.type });
-      
-      // Check if it's a CSV file
-      if (!file.name.toLowerCase().endsWith('.csv')) {
-        toast.error('Please upload a CSV file');
-        e.target.value = '';
-        return;
-      }
-      
-      // Basic size check (10MB limit)
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('File is too large. Maximum size is 10MB.');
-        e.target.value = '';
-        return;
-      }
-      
-      setSelectedFile(file);
+    if (!file) return;
+
+    const ext = file.name.trim().split(".").pop()?.toLowerCase() ?? "";
+    if (!SUPPORTED_EXTS.includes("." + ext)) {
+      toast.error('File type not supported. Accepts: CSV, Excel, Doc, TXT, JSON, XML.');
+      e.target.value = "";
+      return;
     }
+    setSelectedFile(file);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -115,32 +105,50 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log('Form submitted with:', { selectedFile: selectedFile?.name, pickupAddress: pickupAddress?.name });
-    
     if (!selectedFile) {
-      toast.error('Please select a CSV file to upload');
+      toast.error('Please select a file to upload');
       return;
     }
-    
     if (!pickupAddress) {
       toast.error('Please select a pickup address or add one in Settings');
       return;
     }
-    
+
     try {
+      // Send file to edge function for AI conversion
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const aiRes = await fetch("/functions/v1/ai-convert-upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const aiJson = await aiRes.json();
+      if (!aiRes.ok) {
+        toast.error("AI file conversion failed: " + (aiJson.error || "Unknown error"));
+        return;
+      }
+
+      const convertedCsv = aiJson.convertedCsv;
+      if (!convertedCsv) {
+        toast.error("No converted CSV returned from AI.");
+        return;
+      }
+
+      // Create a Blob so it "looks like" a file to the regular pipeline
+      const csvFile = new File([convertedCsv], "converted_upload.csv", { type: "text/csv" });
+
+      // Now invoke the regular upload pipeline (which expects a CSV)
       if (handleUpload) {
-        console.log('Using provided handleUpload function');
-        await handleUpload(selectedFile);
+        await handleUpload(csvFile);
         onUploadSuccess({});
       } else {
-        console.log('No handleUpload function provided');
-        onUploadFail('Upload handler not available');
+        onUploadFail("Upload handler not available");
       }
     } catch (error) {
-      console.error('Upload error in form:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to process file';
-      onUploadFail(errorMessage);
+      onUploadFail(error instanceof Error ? error.message : String(error));
+      toast.error('Upload failed: ' + (error instanceof Error ? error.message : "Unknown error"));
     }
   };
 
