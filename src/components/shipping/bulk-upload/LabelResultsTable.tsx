@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,41 +8,28 @@ import PrintPreview from '@/components/shipping/PrintPreview';
 
 interface LabelResultsTableProps {
   shipments: any[];
-  onDownloadLabel: (shipment: any, format: string) => void;
-  batchResult?: {
-    batchId: string;
-    consolidatedLabelUrls: {
-      pdf?: string;
-      zpl?: string;
-      epl?: string;
-    };
-    scanFormUrl?: string | null;
-  } | null;
+  onDownloadLabel: (url: string, format: string) => void;
 }
 
 const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   shipments,
-  onDownloadLabel,
-  batchResult
+  onDownloadLabel
 }) => {
   const handleDownload = (shipment: any, format: string = 'png') => {
     console.log('Attempting download for:', { format, shipmentId: shipment.id, labelUrls: shipment.label_urls });
-    onDownloadLabel(shipment, format);
-  };
-
-  const handleBatchPdfDownload = () => {
-    if (batchResult?.consolidatedLabelUrls?.pdf) {
-      const link = document.createElement('a');
-      link.href = batchResult.consolidatedLabelUrls.pdf;
-      link.download = `batch_labels_${batchResult.batchId}.pdf`;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success('Batch PDF download started');
-    } else {
-      toast.error('Batch PDF not available');
+    
+    let url = shipment.label_urls?.[format];
+    // Fallback for primary label_url if specific format not in label_urls (e.g. older data or only PNG was generated)
+    if (!url && format === 'png') {
+      url = shipment.label_url;
     }
+
+    if (!url) {
+      toast.error(`${format.toUpperCase()} label not available for this shipment.`);
+      console.error('URL not found for download:', { format, shipment });
+      return;
+    }
+    onDownloadLabel(url, format);
   };
 
   const formatDate = (dateString: string) => {
@@ -72,49 +58,10 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   return (
     <Card className="overflow-hidden">
       <div className="px-6 py-4 border-b bg-gray-50">
-        <div className="flex justify-between items-center">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Generated Shipping Labels</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download in multiple formats
-            </p>
-          </div>
-          
-          {/* Batch PDF Download Button */}
-          {batchResult?.consolidatedLabelUrls?.pdf && (
-            <div className="flex gap-2">
-              <Button
-                onClick={handleBatchPdfDownload}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download All Labels as PDF
-              </Button>
-              
-              <PrintPreview
-                labelUrl={batchResult.consolidatedLabelUrls.pdf}
-                trackingCode={`Batch ${batchResult.batchId}`}
-                labelUrls={batchResult.consolidatedLabelUrls}
-                shipmentDetails={{
-                  fromAddress: 'Batch Labels',
-                  toAddress: `${shipments.length} shipments`,
-                  weight: 'Combined',
-                  dimensions: 'Batch',
-                  service: 'Batch Processing',
-                  carrier: 'Multiple'
-                }}
-                shipmentId={batchResult.batchId}
-                isBatchPreview={true}
-                triggerButton={
-                  <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50">
-                    <Eye className="h-4 w-4 mr-2" />
-                    Preview Batch PDF
-                  </Button>
-                }
-              />
-            </div>
-          )}
-        </div>
+        <h3 className="text-lg font-semibold text-gray-900">Generated Shipping Labels</h3>
+        <p className="text-sm text-gray-600 mt-1">
+          {shipments.length} label{shipments.length !== 1 ? 's' : ''} ready for download in multiple formats
+        </p>
       </div>
       
       <div className="overflow-x-auto">
@@ -256,13 +203,13 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       Download
                     </Button>
                     
-                    {/* PrintPreview for individual label - now uses PDF */}
+                    {/* PrintPreview for individual label */}
                     <PrintPreview
                       labelUrl={shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url || ''}
                       trackingCode={shipment.tracking_code || shipment.tracking_number}
-                      labelUrls={shipment.label_urls}
+                      labelUrls={shipment.label_urls} // Pass all available URLs
                       shipmentDetails={{
-                        fromAddress: 'Your Saved Pickup Address',
+                        fromAddress: 'Your Saved Pickup Address', // Placeholder, consider passing actual if available
                         toAddress: shipment.customer_address || '',
                         weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : 'N/A',
                         dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? 
@@ -270,7 +217,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         service: shipment.service || 'N/A',
                         carrier: shipment.carrier || 'N/A'
                       }}
-                      shipmentId={shipment.id || shipment.original_shipment_id}
+                      shipmentId={shipment.id || shipment.original_shipment_id} // Use EasyPost ID or original
                     />
                   </div>
                 </td>
