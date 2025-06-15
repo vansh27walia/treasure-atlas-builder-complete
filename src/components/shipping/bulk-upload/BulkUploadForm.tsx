@@ -81,6 +81,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     }
 
     setSelectedFile(file);
+    toast.success(`File "${file.name}" selected and ready for processing!`);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -126,74 +127,63 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       
       const ext = "." + (selectedFile.name.trim().split(".").pop()?.toLowerCase() ?? "");
       
-      // If it's already a CSV file, skip AI conversion
-      if (ext === ".csv") {
-        console.log('CSV file detected, skipping AI conversion');
-        if (handleUpload) {
-          await handleUpload(selectedFile);
-          onUploadSuccess({});
-        } else {
-          onUploadFail("Upload handler not available");
-        }
-        return;
-      }
-
-      // For non-CSV files, try AI conversion
-      console.log('Starting AI file conversion for:', selectedFile.name);
-      
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-
-      // Use Supabase client to invoke the edge function
-      const { data, error } = await supabase.functions.invoke('ai-convert-upload', {
-        body: formData,
-      });
-
-      if (error) {
-        console.error('Supabase function error:', error);
+      // Always try AI conversion first for better data mapping
+      if (ext !== ".csv") {
+        console.log('Starting AI file conversion for:', selectedFile.name);
         
-        // Check if it's an OpenAI quota issue
-        if (error.message && error.message.includes('quota')) {
-          toast.error('AI conversion service is temporarily unavailable (quota exceeded). Please upload a CSV file directly or try again later.');
-          onUploadFail('AI conversion quota exceeded - please upload CSV format directly');
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+
+        // Use Supabase client to invoke the edge function
+        const { data, error } = await supabase.functions.invoke('ai-convert-upload', {
+          body: formData,
+        });
+
+        if (error) {
+          console.error('AI conversion error:', error);
+          toast.error(`File conversion failed. Please try converting your file to CSV format manually.`);
+          onUploadFail(`AI conversion failed: ${error.message}`);
+          return;
+        }
+
+        if (!data || !data.convertedCsv) {
+          const errorMsg = "File conversion did not produce valid results. Please convert your file to CSV format manually.";
+          toast.error(errorMsg);
+          onUploadFail(errorMsg);
           return;
         }
         
-        // For other errors, suggest CSV upload
-        toast.error(`AI file conversion failed: ${error.message}. Please convert your file to CSV format and upload again.`);
-        onUploadFail(`AI conversion failed: ${error.message}`);
-        return;
-      }
-
-      console.log('AI conversion response:', data);
-
-      if (!data || !data.convertedCsv) {
-        const errorMsg = "No converted CSV returned from AI conversion. Please convert your file to CSV format manually and upload again.";
-        toast.error(errorMsg);
-        onUploadFail(errorMsg);
-        return;
-      }
-      
-      // Create a CSV file from the converted content
-      const csvFile = new File([data.convertedCsv], "converted_upload.csv", { type: "text/csv" });
-
-      if (handleUpload) {
-        await handleUpload(csvFile);
-        onUploadSuccess({});
+        // Create a CSV file from the converted content
+        const csvFile = new File([data.convertedCsv], "converted_upload.csv", { type: "text/csv" });
+        
+        if (handleUpload) {
+          await handleUpload(csvFile);
+          onUploadSuccess({});
+          toast.success('🎉 File successfully converted and processed!');
+        } else {
+          onUploadFail("Upload handler not available");
+        }
       } else {
-        onUploadFail("Upload handler not available");
+        // Handle CSV files directly
+        console.log('CSV file detected, processing directly');
+        if (handleUpload) {
+          await handleUpload(selectedFile);
+          onUploadSuccess({});
+          toast.success('🎉 CSV file successfully processed!');
+        } else {
+          onUploadFail("Upload handler not available");
+        }
       }
     } catch (error) {
       console.error('Upload error:', error);
-      let errorMessage = "Upload failed";
+      let errorMessage = "File processing failed";
       if (error instanceof Error) {
         errorMessage += `: ${error.message}`;
       } else {
         errorMessage += `: ${String(error)}`;
       }
       
-      // Add helpful message for users
-      toast.error(`${errorMessage}. For best results, please upload files in CSV format.`);
+      toast.error(`${errorMessage}. Please try converting your file to CSV format.`);
       onUploadFail(errorMessage);
     }
   };
@@ -320,11 +310,11 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
               Supported formats: CSV, Excel, Word, TXT, JSON, XML (up to 10MB)
             </p>
             <p className="text-xs text-blue-600 font-medium">
-              💡 For best results and fastest processing, upload CSV files directly
+              💡 Our AI will automatically convert any format to work with our shipping system
             </p>
             {selectedFile && (
               <p className="text-xs text-green-600 mt-2">
-                ✓ File ready for upload
+                ✓ File ready for processing and conversion
               </p>
             )}
           </div>
@@ -351,7 +341,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
           ) : (
             <FileUp className="h-4 w-4" />
           )}
-          {isUploading ? `Uploading... (${progress}%)` : 'Upload and Process'}
+          {isUploading ? `Processing... (${progress}%)` : 'Process File & Get Rates'}
         </Button>
       </div>
     </form>
