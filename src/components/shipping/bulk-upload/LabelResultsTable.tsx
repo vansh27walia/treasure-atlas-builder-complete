@@ -3,7 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, File, FileImage, Printer, Mail } from 'lucide-react';
+import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, File, FileImage, Printer } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import PrintPreview from '@/components/shipping/PrintPreview';
 
@@ -16,7 +16,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   shipments,
   onDownloadLabel
 }) => {
-  const handleDownload = (shipment: any, format: string = 'pdf') => {
+  const handleDownload = (shipment: any, format: string = 'png') => {
     console.log('Attempting download for:', { format, shipmentId: shipment.id, labelUrls: shipment.label_urls });
     
     let url = shipment.label_urls?.[format];
@@ -31,12 +31,6 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
       return;
     }
     onDownloadLabel(url);
-  };
-
-  const handleEmailLabel = (shipment: any, emailAddress: string) => {
-    // This would typically call an API to send the email
-    console.log('Sending email for shipment:', shipment.id, 'to:', emailAddress);
-    toast.success(`Label sent to ${emailAddress}`);
   };
 
   const formatDate = (dateString: string) => {
@@ -85,13 +79,16 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                 Dimensions & Weight
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Label Formats
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {shipments.map((shipment, index) => {
-              // Only use PDF URL for print preview - ensure PDF is prioritized
+              // Only use PDF URL for print preview - do not fallback to PNG
               const pdfUrl = shipment.label_urls?.pdf;
               
               console.log('Individual shipment PDF URL check:', {
@@ -157,26 +154,73 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                     </div>
                   </td>
 
+                  {/* Label Formats */}
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap gap-2">
+                      {/* PNG Format */}
+                      {(shipment.label_urls?.png || shipment.label_url) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownload(shipment, 'png')}
+                          className="text-xs border-green-300 text-green-700 hover:bg-green-50"
+                        >
+                          <FileImage className="h-3 w-3 mr-1" />
+                          PNG
+                        </Button>
+                      )}
+                      
+                      {/* PDF Format */}
+                      {shipment.label_urls?.pdf && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownload(shipment, 'pdf')}
+                          className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
+                        >
+                          <File className="h-3 w-3 mr-1" />
+                          PDF
+                        </Button>
+                      )}
+                      
+                      {/* ZPL Format */}
+                      {shipment.label_urls?.zpl && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownload(shipment, 'zpl')}
+                          className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
+                        >
+                          <FileText className="h-3 w-3 mr-1" />
+                          ZPL
+                        </Button>
+                      )}
+                      
+                      {!(shipment.label_urls?.png || shipment.label_url || shipment.label_urls?.pdf || shipment.label_urls?.zpl) && (
+                        <span className="text-xs text-gray-400 italic">No formats available</span>
+                      )}
+                    </div>
+                  </td>
+
                   {/* Actions */}
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col space-y-2">
-                      {/* Download Label Button - prioritize PDF */}
+                    <div className="flex space-x-2">
                       <Button
                         size="sm"
-                        onClick={() => handleDownload(shipment, 'pdf')}
-                        className="bg-green-600 hover:bg-green-700 text-white w-full"
+                        onClick={() => handleDownload(shipment, 'pdf')} // Default download is PDF
+                        className="bg-green-600 hover:bg-green-700 text-white"
                         disabled={!shipment.label_urls?.pdf}
                       >
                         <Download className="h-3 w-3 mr-1" />
-                        Download Label (PDF)
+                        Download
                       </Button>
                       
-                      {/* Print Preview Button - ONLY show if PDF URL exists and pass only PDF URL */}
+                      {/* PrintPreview for individual label - ONLY show if PDF URL exists */}
                       {pdfUrl && (
                         <PrintPreview
                           labelUrl={pdfUrl}
                           trackingCode={shipment.tracking_code || shipment.tracking_number || ''}
-                          labelUrls={{ pdf: pdfUrl }}
+                          labelUrls={shipment.label_urls}
                           shipmentDetails={{
                             fromAddress: 'Your Saved Pickup Address',
                             toAddress: shipment.customer_address || '',
@@ -187,60 +231,8 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                             carrier: shipment.carrier || 'N/A'
                           }}
                           shipmentId={shipment.id || shipment.original_shipment_id}
-                          triggerButton={
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="w-full border-blue-300 text-blue-700 hover:bg-blue-50"
-                            >
-                              <Eye className="h-3 w-3 mr-1" />
-                              Print Preview
-                            </Button>
-                          }
                         />
                       )}
-
-                      {/* Available Formats Display */}
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {/* PNG Format */}
-                        {(shipment.label_urls?.png || shipment.label_url) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDownload(shipment, 'png')}
-                            className="text-xs border-green-300 text-green-700 hover:bg-green-50"
-                          >
-                            <FileImage className="h-3 w-3 mr-1" />
-                            PNG
-                          </Button>
-                        )}
-                        
-                        {/* PDF Format */}
-                        {shipment.label_urls?.pdf && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDownload(shipment, 'pdf')}
-                            className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
-                          >
-                            <File className="h-3 w-3 mr-1" />
-                            PDF
-                          </Button>
-                        )}
-                        
-                        {/* ZPL Format */}
-                        {shipment.label_urls?.zpl && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDownload(shipment, 'zpl')}
-                            className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
-                          >
-                            <FileText className="h-3 w-3 mr-1" />
-                            ZPL
-                          </Button>
-                        )}
-                      </div>
                     </div>
                   </td>
                 </tr>
