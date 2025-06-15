@@ -2,15 +2,17 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, File } from 'lucide-react';
+import { CheckCircle, Download, FileText, File, PrinterIcon, Eye } from 'lucide-react';
 import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 import { toast } from '@/components/ui/sonner';
+import LabelResultsTable from './LabelResultsTable';
+import PrintPreview from '@/components/shipping/PrintPreview';
 
-// Define the structure for a single shipment, including potential PDF URLs
 interface Shipment extends BulkShipment {
   label_urls?: {
     png?: string;
     pdf?: string;
+    zpl?: string;
   };
   errors?: { details: string; error: string; }[];
 }
@@ -22,80 +24,6 @@ interface SuccessNotificationProps {
   isPaying: boolean;
   isCreatingLabels: boolean;
 }
-
-// Placeholder for LabelResultsTable component to resolve import error
-interface LabelResultsTableProps {
-  shipments: Shipment[];
-  onDownloadLabel: (shipment: Shipment) => void;
-  getLabelDownloadInfo: (shipment: Shipment) => { url: string; format: string; type: string } | null;
-}
-
-const LabelResultsTable: React.FC<LabelResultsTableProps> = ({ shipments, onDownloadLabel, getLabelDownloadInfo }) => {
-  return (
-    <Card className="p-6 rounded-lg shadow-sm">
-      <h4 className="font-semibold text-lg text-gray-800 mb-4">Shipment Details</h4>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                ID
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tracking Number
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {shipments.map((shipment) => {
-              const labelInfo = getLabelDownloadInfo(shipment);
-              return (
-                <tr key={shipment.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{shipment.id}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {shipment.tracking_number || shipment.tracking_code || shipment.trackingCode || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                      ${shipment.status === 'completed' ? 'bg-green-100 text-green-800' :
-                         shipment.status === 'failed' ? 'bg-red-100 text-red-800' :
-                         'bg-gray-100 text-gray-800'}`}>
-                      {shipment.status}
-                    </span>
-                    {shipment.status === 'failed' && shipment.errors && (
-                      <div className="text-red-500 text-xs mt-1">
-                        {shipment.errors.map((err, idx) => (
-                          <p key={idx}>{err.details || err.error}</p>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    {labelInfo && (
-                      <Button
-                        onClick={() => onDownloadLabel(shipment)}
-                        className="text-blue-600 hover:text-blue-900 bg-blue-100 hover:bg-blue-200 px-3 py-1 rounded-md text-xs"
-                        size="sm"
-                      >
-                        <Download className="mr-1 h-3 w-3" /> Download {labelInfo.type}
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </Card>
-  );
-};
 
 const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   results,
@@ -113,15 +41,12 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
   // Helper to determine the best label URL and its format (PDF preferred)
   const getLabelDownloadInfo = (shipment: Shipment) => {
-    // Prioritize PDF if available
     if (shipment.label_urls?.pdf && shipment.label_urls.pdf.trim() !== '') {
       return { url: shipment.label_urls.pdf, format: 'pdf', type: 'PDF' };
     }
-    // Fallback to PNG if available
     if (shipment.label_urls?.png && shipment.label_urls.png.trim() !== '') {
       return { url: shipment.label_urls.png, format: 'png', type: 'PNG' };
     }
-    // Fallback to legacy label_url, try to infer format or default to PNG
     if (shipment.label_url && shipment.label_url.trim() !== '') {
       const urlLower = shipment.label_url.toLowerCase();
       if (urlLower.endsWith('.pdf')) {
@@ -224,6 +149,50 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
 
   return (
     <div className="space-y-6 font-sans">
+      {/* Consolidated Labels Section */}
+      {hasLabels && results.batchResult && (
+        <Card className="p-6 bg-blue-50 border-blue-200 rounded-lg shadow-sm">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-blue-900 mb-2">📑 Consolidated Labels</h2>
+              <p className="text-blue-700">
+                All {displaySuccessful} labels consolidated into a single document for easy printing and sharing.
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              {/* Print Preview All Labels Button */}
+              <PrintPreview
+                labelUrl=""
+                trackingCode={null}
+                batchResult={results.batchResult}
+                isBatchPreview={true}
+                triggerButton={
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3"
+                  >
+                    <Eye className="mr-2 h-5 w-5" />
+                    Print Preview All Labels
+                  </Button>
+                }
+              />
+              
+              {/* Download Consolidated PDF */}
+              {results.batchResult?.consolidatedLabelUrls?.pdf && (
+                <Button
+                  onClick={() => downloadFile(results.batchResult!.consolidatedLabelUrls.pdf!, 'consolidated_labels.pdf')}
+                  className="bg-green-600 hover:bg-green-700 text-white px-6 py-3"
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  Download All (PDF)
+                </Button>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Success Statistics Card */}
       <Card className="p-6 border-green-200 bg-green-50 rounded-lg shadow-sm">
         <div className="flex items-center space-x-3 mb-4">
           <CheckCircle className="h-6 w-6 text-green-600" />
@@ -270,10 +239,10 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </div>
         </div>
 
-        {/* Download Buttons Section */}
+        {/* Quick Download Section */}
         {hasLabels && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
-            <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Labels</h4>
+          <div className="mb-6 p-4 bg-white border border-green-200 rounded-lg shadow-sm">
+            <h4 className="font-semibold text-lg text-green-800 mb-4">Quick Download Actions</h4>
 
             <div className="flex flex-col gap-3">
               <Button
@@ -281,7 +250,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                 className="bg-green-600 hover:bg-green-700 text-white rounded-md px-4 py-2 transition duration-200 ease-in-out transform hover:scale-105 shadow-md"
               >
                 <Download className="mr-2 h-4 w-4" />
-                Download All Labels ({shipmentsWithLabels.length} {shipmentsWithLabels.length > 0 ? (getLabelDownloadInfo(shipmentsWithLabels[0])?.type || 'Files') : 'Files'})
+                Download All Individual Labels ({shipmentsWithLabels.length} Files)
               </Button>
             </div>
           </div>
@@ -306,20 +275,14 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         )}
       </Card>
 
-      {/* New Clean Table Display */}
+      {/* Individual Labels Table */}
       {allShipments.length > 0 && (
         <LabelResultsTable
           shipments={allShipments}
-          onDownloadLabel={(shipment: Shipment) => {
-            const labelInfo = getLabelDownloadInfo(shipment);
-            if (labelInfo) {
-              const timestamp = Date.now();
-              const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
-              const filename = `shipping_label_${trackingCode || `shipment_${shipment.id || timestamp}`}.${labelInfo.format}`;
-              downloadFile(labelInfo.url, filename);
-            } else {
-              toast.error('No label URL available for this shipment.');
-            }
+          onDownloadLabel={(url: string) => {
+            const timestamp = Date.now();
+            const filename = `shipping_label_${timestamp}.pdf`;
+            downloadFile(url, filename);
           }}
           getLabelDownloadInfo={getLabelDownloadInfo}
         />

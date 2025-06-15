@@ -327,54 +327,13 @@ const BulkUpload: React.FC = () => {
         )}
         
         {uploadStatus === 'success' && results && (
-          <>
-            {/* Consolidated Print Preview Section */}
-            {results.processedShipments && results.processedShipments.length > 0 && (
-              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-blue-900">Batch Label Actions</h3>
-                    <p className="text-sm text-blue-700">
-                      Download or preview all {results.processedShipments.length} labels at once
-                    </p>
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    {/* Download Consolidated PDF */}
-                    {results.batchResult?.consolidatedLabelUrls?.pdf && (
-                      <Button
-                        onClick={() => handleDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
-                        variant="default"
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Download All (PDF)
-                      </Button>
-                    )}
-                    
-                    {/* Print Preview All Labels */}
-                    {results.batchResult && (
-                      <Button
-                        onClick={handleOpenBatchPrintPreview}
-                        variant="default"
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        <PrinterIcon className="mr-2 h-4 w-4" />
-                        Print Preview Labels (All)
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <SuccessNotification
-              results={results}
-              onDownloadSingleLabel={handleDownloadSingleLabel}
-              onCreateLabels={handleCreateLabels}
-              isPaying={isPaying}
-              isCreatingLabels={isCreatingLabels}
-            />
-          </>
+          <SuccessNotification
+            results={results}
+            onDownloadSingleLabel={handleDownloadSingleLabel}
+            onCreateLabels={handleCreateLabels}
+            isPaying={isPaying}
+            isCreatingLabels={isCreatingLabels}
+          />
         )}
         
         {uploadStatus === 'error' && (
@@ -410,18 +369,6 @@ const BulkUpload: React.FC = () => {
         shipmentCount={processedShipmentsCount}
         onPaymentSuccess={handlePaymentSuccess}
       />
-
-      {/* Batch Print Preview Modal */}
-      {results?.batchResult && (
-        <PrintPreview
-          isOpenProp={batchPrintPreviewModalOpen}
-          onOpenChangeProp={setBatchPrintPreviewModalOpen}
-          labelUrl=""
-          trackingCode={null}
-          batchResult={results.batchResult}
-          isBatchPreview={true}
-        />
-      )}
     </>
   );
 };
