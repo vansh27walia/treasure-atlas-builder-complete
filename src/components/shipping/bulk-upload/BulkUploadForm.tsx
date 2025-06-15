@@ -66,12 +66,19 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const ext = file.name.trim().split(".").pop()?.toLowerCase() ?? "";
-    if (!SUPPORTED_EXTS.includes("." + ext)) {
+    const ext = "." + (file.name.trim().split(".").pop()?.toLowerCase() ?? "");
+    if (!SUPPORTED_EXTS.includes(ext)) {
       toast.error('File type not supported. Accepts: CSV, Excel, Doc, TXT, JSON, XML.');
       e.target.value = "";
       return;
     }
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB
+        toast.error('File is too large. Maximum size is 10MB.');
+        e.target.value = "";
+        return;
+    }
+
     setSelectedFile(file);
   };
 
@@ -82,13 +89,12 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     if (e.dataTransfer.files.length) {
       const file = e.dataTransfer.files[0];
       
-      // Check if it's a CSV file
-      if (!file.name.toLowerCase().endsWith('.csv')) {
-        toast.error('Please upload a CSV file');
+      const ext = "." + (file.name.split('.').pop()?.toLowerCase() ?? "");
+      if (!SUPPORTED_EXTS.includes(ext)) {
+        toast.error('File type not supported. Accepts: CSV, Excel, Doc, TXT, JSON, XML.');
         return;
       }
       
-      // Basic size check (MB limit)
       if (file.size > 10 * 1024 * 1024) {
         toast.error('File is too large. Maximum size is 10MB.');
         return;
@@ -115,7 +121,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     }
 
     try {
-      // Send file to edge function for AI conversion
       const formData = new FormData();
       formData.append("file", selectedFile);
 
@@ -124,22 +129,42 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         body: formData,
       });
 
-      const aiJson = await aiRes.json();
+      const responseText = await aiRes.text();
+
       if (!aiRes.ok) {
-        toast.error("AI file conversion failed: " + (aiJson.error || "Unknown error"));
+        let errorMsg = `AI file conversion failed (status: ${aiRes.status})`;
+        try {
+            const errorJson = JSON.parse(responseText);
+            errorMsg = "AI file conversion failed: " + (errorJson.error || responseText);
+        } catch(e) {
+            if(responseText) {
+                errorMsg = `AI file conversion failed: ${responseText}`;
+            }
+        }
+        toast.error(errorMsg);
+        onUploadFail(errorMsg);
         return;
       }
 
+      if (!responseText) {
+        const errorMsg = "AI conversion returned an empty response.";
+        toast.error(errorMsg);
+        onUploadFail(errorMsg);
+        return;
+      }
+
+      const aiJson = JSON.parse(responseText);
       const convertedCsv = aiJson.convertedCsv;
+
       if (!convertedCsv) {
-        toast.error("No converted CSV returned from AI.");
+        const errorMsg = "No converted CSV returned from AI. " + (aiJson.error || "");
+        toast.error(errorMsg);
+        onUploadFail(errorMsg);
         return;
       }
-
-      // Create a Blob so it "looks like" a file to the regular pipeline
+      
       const csvFile = new File([convertedCsv], "converted_upload.csv", { type: "text/csv" });
 
-      // Now invoke the regular upload pipeline (which expects a CSV)
       if (handleUpload) {
         await handleUpload(csvFile);
         onUploadSuccess({});
@@ -147,8 +172,14 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         onUploadFail("Upload handler not available");
       }
     } catch (error) {
-      onUploadFail(error instanceof Error ? error.message : String(error));
-      toast.error('Upload failed: ' + (error instanceof Error ? error.message : "Unknown error"));
+      let errorMessage = "Upload failed";
+      if (error instanceof Error) {
+        errorMessage += `: ${error.message}`;
+      } else {
+        errorMessage += `: ${String(error)}`;
+      }
+      onUploadFail(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -236,7 +267,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
             {!pickupAddress && addresses.length === 0 && (
               <div className="p-4 bg-blue-50 rounded-md border border-blue-200">
                 <p className="text-sm text-blue-800">
-                  <strong>No pickup addresses found.</strong> You need to add a pickup address before uploading CSV files. 
+                  <strong>No pickup addresses found.</strong> You need to add a pickup address before uploading files. 
                   Click "Add new address" above or go to Settings to add one.
                 </p>
               </div>
@@ -246,7 +277,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       </div>
       
       <div className="space-y-4">
-        <h3 className="text-lg font-medium">Upload CSV File</h3>
+        <h3 className="text-lg font-medium">Upload File</h3>
         <div
           className="border-2 border-dashed border-gray-300 rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 transition-colors bg-gray-50 hover:bg-blue-50"
           onDrop={handleDrop}
@@ -256,7 +287,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
           <input
             id="file-upload"
             type="file"
-            accept=".csv"
+            accept={SUPPORTED_EXTS.join(",")}
             className="hidden"
             onChange={handleFileChange}
           />
@@ -267,11 +298,11 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
             <p className="text-lg font-medium mb-2">
               {selectedFile 
                 ? `Selected: ${selectedFile.name}` 
-                : 'Drag & drop your CSV file here or click to browse'
+                : 'Drag & drop your file here or click to browse'
               }
             </p>
             <p className="text-sm text-gray-500">
-              Supported format: CSV (up to 10MB)
+              Supported formats: CSV, Excel, Word, TXT, JSON, XML (up to 10MB)
             </p>
             {selectedFile && (
               <p className="text-xs text-green-600 mt-2">
