@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,8 +8,6 @@ import LabelResultsTable from './LabelResultsTable';
 import LabelGenerationProgress from './LabelGenerationProgress';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import { useBulkUpload } from './useBulkUpload';
-import { BulkShipment } from '@/types/shipping';
-import { toast } from '@/components/ui/sonner';
 
 const BulkUploadView: React.FC = () => {
   const {
@@ -30,8 +27,6 @@ const BulkUploadView: React.FC = () => {
     labelGenerationProgress,
     batchPrintPreviewModalOpen,
     setBatchPrintPreviewModalOpen,
-    singleLabelToPreview,
-    setSingleLabelToPreview,
     handleFileChange,
     handleUpload,
     handleSelectRate,
@@ -62,21 +57,6 @@ const BulkUploadView: React.FC = () => {
 
   const handlePickupAddressSelect = (address: any) => {
     setPickupAddress(address);
-  };
-
-  const onDownloadLabelHandler = (shipment: any, format: string) => {
-    let url = shipment.label_urls?.[format];
-    // Fallback for primary label_url if specific format not in label_urls (e.g. older data or only PNG was generated)
-    if (!url && format === 'png') {
-      url = shipment.label_url;
-    }
-
-    if (!url) {
-      toast.error(`${format.toUpperCase()} label not available for this shipment.`);
-      console.error('URL not found for download:', { format, shipment });
-      return;
-    }
-    handleDownloadSingleLabel(url);
   };
 
   return (
@@ -164,11 +144,7 @@ const BulkUploadView: React.FC = () => {
           onSelectRate={handleSelectRate}
           onRemoveShipment={handleRemoveShipment}
           onEditShipment={(shipmentId: string, details: any) => {
-            const originalShipment = results.processedShipments.find(s => s.id === shipmentId);
-            if (originalShipment) {
-               const updatedShipment = { ...originalShipment, ...details };
-               handleEditShipment(updatedShipment);
-            }
+            console.log('Edit shipment:', shipmentId, details);
           }}
           onRefreshRates={handleRefreshRates}
         />
@@ -177,10 +153,11 @@ const BulkUploadView: React.FC = () => {
       {/* Results Section */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="space-y-6">
+          {/* BulkLabelDownloadOptions is now replaced by the modal */}
           {results.processedShipments && results.processedShipments.length > 0 && (
             <LabelResultsTable
               shipments={results.processedShipments || []}
-              onDownloadLabel={onDownloadLabelHandler}
+              onDownloadLabel={handleDownloadSingleLabel}
             />
           )}
         </div>
@@ -191,23 +168,11 @@ const BulkUploadView: React.FC = () => {
         <PrintPreview
           isOpenProp={batchPrintPreviewModalOpen}
           onOpenChangeProp={setBatchPrintPreviewModalOpen}
-          labelUrl="" // Not relevant for batch preview trigger
-          trackingCode={null}
+          labelUrl="" // Not relevant for batch preview trigger, content comes from batchResult
+          trackingCode={null} // Batch ID will be shown in modal title
           batchResult={results.batchResult}
           isBatchPreview={true}
-        />
-      )}
-
-      {/* Single Label Print Preview Modal */}
-      {singleLabelToPreview && (
-        <PrintPreview
-          isOpenProp={!!singleLabelToPreview}
-          onOpenChangeProp={(isOpen) => {
-            if (!isOpen) setSingleLabelToPreview(null);
-          }}
-          labelUrl={singleLabelToPreview.label_urls?.pdf || ''}
-          trackingCode={singleLabelToPreview.tracking_code || null}
-          isBatchPreview={false}
+          // No triggerButton prop here, it's controlled by isOpenProp
         />
       )}
     </div>

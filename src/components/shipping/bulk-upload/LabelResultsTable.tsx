@@ -8,13 +8,30 @@ import PrintPreview from '@/components/shipping/PrintPreview';
 
 interface LabelResultsTableProps {
   shipments: any[];
-  onDownloadLabel: (shipment: any, format: string) => void;
+  onDownloadLabel: (url: string, format: string) => void;
 }
 
 const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   shipments,
   onDownloadLabel
 }) => {
+  const handleDownload = (shipment: any, format: string = 'png') => {
+    console.log('Attempting download for:', { format, shipmentId: shipment.id, labelUrls: shipment.label_urls });
+    
+    let url = shipment.label_urls?.[format];
+    // Fallback for primary label_url if specific format not in label_urls (e.g. older data or only PNG was generated)
+    if (!url && format === 'png') {
+      url = shipment.label_url;
+    }
+
+    if (!url) {
+      toast.error(`${format.toUpperCase()} label not available for this shipment.`);
+      console.error('URL not found for download:', { format, shipment });
+      return;
+    }
+    onDownloadLabel(url, format);
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return 'Pending';
     try {
@@ -133,7 +150,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onDownloadLabel(shipment, 'png')}
+                        onClick={() => handleDownload(shipment, 'png')}
                         className="text-xs border-green-300 text-green-700 hover:bg-green-50"
                       >
                         <FileImage className="h-3 w-3 mr-1" />
@@ -146,7 +163,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onDownloadLabel(shipment, 'pdf')}
+                        onClick={() => handleDownload(shipment, 'pdf')}
                         className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
                       >
                         <File className="h-3 w-3 mr-1" />
@@ -159,7 +176,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => onDownloadLabel(shipment, 'zpl')}
+                        onClick={() => handleDownload(shipment, 'zpl')}
                         className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
                       >
                         <FileText className="h-3 w-3 mr-1" />
@@ -178,7 +195,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   <div className="flex space-x-2">
                     <Button
                       size="sm"
-                      onClick={() => onDownloadLabel(shipment, 'png')} // Default download is PNG
+                      onClick={() => handleDownload(shipment, 'png')} // Default download is PNG
                       className="bg-green-600 hover:bg-green-700 text-white"
                       disabled={!(shipment.label_urls?.png || shipment.label_url)}
                     >
@@ -188,7 +205,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                     
                     {/* PrintPreview for individual label */}
                     <PrintPreview
-                      labelUrl={shipment.label_urls?.pdf || shipment.label_urls?.png || shipment.label_url || ''}
+                      labelUrl={shipment.label_urls?.png || shipment.label_url || ''}
                       trackingCode={shipment.tracking_code || shipment.tracking_number}
                       labelUrls={shipment.label_urls} // Pass all available URLs
                       shipmentDetails={{
