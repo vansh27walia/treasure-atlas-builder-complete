@@ -149,7 +149,7 @@ const generateMultipleFormats = async (shipmentId: string) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          file_format: format.toUpperCase()
+          file_format: format
         }),
       });
 
@@ -297,11 +297,11 @@ const processEasyPostBatch = async (easyPostShipmentIds: string[]) => {
 
   // Generate consolidated labels in different formats
   const consolidatedLabelUrls: Record<string, string> = {};
-  const batchFormats = ['PDF', 'PNG', 'ZPL', 'EPL'];
+  const batchFormats = ['pdf', 'zpl', 'epl'];
   
   for (const format of batchFormats) {
     try {
-      console.log(`Generating consolidated ${format} label for batch ${batchId}`);
+      console.log(`Generating consolidated ${format.toUpperCase()} label for batch ${batchId}`);
       
       const generateLabelResponse = await fetch(`https://api.easypost.com/v2/batches/${batchId}/label`, {
         method: 'POST',
@@ -333,15 +333,15 @@ const processEasyPostBatch = async (easyPostShipmentIds: string[]) => {
         let consolidatedLabelUrl = finalBatch.label_url;
 
         if (consolidatedLabelUrl) {
-          const storedUrl = await downloadAndStoreLabel(consolidatedLabelUrl, batchId, 'batch', format.toLowerCase());
-          consolidatedLabelUrls[format.toLowerCase()] = storedUrl;
-          console.log(`✅ Stored consolidated ${format} label for batch ${batchId}`);
+          const storedUrl = await downloadAndStoreLabel(consolidatedLabelUrl, batchId, 'batch', format);
+          consolidatedLabelUrls[format] = storedUrl;
+          console.log(`✅ Stored consolidated ${format.toUpperCase()} label for batch ${batchId}`);
         }
       }
 
       await new Promise(resolve => setTimeout(resolve, 2000));
     } catch (labelError) {
-      console.error(`Error generating consolidated ${format} label:`, labelError);
+      console.error(`Error generating consolidated ${format.toUpperCase()} label:`, labelError);
     }
   }
 
