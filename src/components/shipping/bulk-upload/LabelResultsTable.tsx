@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -187,7 +186,6 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                             carrier: shipment.carrier || 'N/A'
                           }}
                           shipmentId={shipment.id || shipment.original_shipment_id}
-                          onEmailLabel={handleEmailLabel}
                           triggerButton={
                             <Button
                               size="sm"
