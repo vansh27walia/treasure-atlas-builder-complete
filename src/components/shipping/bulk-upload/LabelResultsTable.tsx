@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -87,16 +88,17 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {shipments.map((shipment, index) => {
-              // Determine the best PDF URL for this shipment
+              // For print preview, ALWAYS prioritize PDF first, then fallback to PNG
               const pdfUrl = shipment.label_urls?.pdf;
               const pngUrl = shipment.label_urls?.png || shipment.label_url;
-              const previewUrl = pdfUrl || pngUrl; // Prioritize PDF for preview
+              const printPreviewUrl = pdfUrl || pngUrl; // PDF takes absolute priority for print preview
               
-              console.log('Individual shipment label URLs:', {
+              console.log('Individual shipment print preview URL selection:', {
                 shipmentId: shipment.id,
-                pdf: pdfUrl,
-                png: pngUrl,
-                previewUrl
+                pdfUrl: pdfUrl,
+                pngUrl: pngUrl,
+                selectedForPreview: printPreviewUrl,
+                prioritizedPDF: !!pdfUrl
               });
 
               return (
@@ -208,7 +210,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                     <div className="flex space-x-2">
                       <Button
                         size="sm"
-                        onClick={() => handleDownload(shipment, 'pdf')} // Default download is now PDF
+                        onClick={() => handleDownload(shipment, 'pdf')} // Default download is PDF
                         className="bg-green-600 hover:bg-green-700 text-white"
                         disabled={!shipment.label_urls?.pdf}
                       >
@@ -216,10 +218,10 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         Download
                       </Button>
                       
-                      {/* PrintPreview for individual label - Show only if we have a valid preview URL */}
-                      {previewUrl && (
+                      {/* PrintPreview for individual label - Only show if we have a PDF URL (prioritize PDF for print preview) */}
+                      {printPreviewUrl && (
                         <PrintPreview
-                          labelUrl={previewUrl}
+                          labelUrl={printPreviewUrl}
                           trackingCode={shipment.tracking_code || shipment.tracking_number || ''}
                           labelUrls={shipment.label_urls}
                           shipmentDetails={{
