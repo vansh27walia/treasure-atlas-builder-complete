@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Upload, CheckCircle, Download, Info, Star, Package } from 'lucide-react';
+import { FileText, Upload, CheckCircle, Download, Info } from 'lucide-react';
 import BulkUpload from '@/components/shipping/BulkUpload';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -10,12 +10,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
 
-  const handleDownloadVvapTemplate = () => {
+  const handleDownloadEasyPostTemplate = () => {
     const csvContent = [
-      'to_name,to_company,to_street1,to_street2,to_city,to_state,to_zip,to_country,to_phone,to_email,weight,length,width,height,reference',
-      'John Doe,VVAP Global Solutions,123 Business Ave,Suite 200,San Francisco,CA,94105,US,555-123-4567,orders@vvapglobal.com,2.5,12,8,4,VVAP-ORDER-001',
-      'Jane Smith,VVAP Enterprises,456 Commerce Blvd,,Los Angeles,CA,90210,US,555-987-6543,shipping@vvapglobal.com,1.8,10,6,3,VVAP-ORDER-002',
-      'Mike Johnson,VVAP Logistics,789 Trade Center Dr,Floor 3,Chicago,IL,60601,US,555-456-7890,logistics@vvapglobal.com,3.2,14,9,5,VVAP-ORDER-003'
+      'to_name,to_street1,to_street2,to_city,to_state,to_zip,to_country,weight,length,width,height,reference',
+      'John Doe,123 Main St,,San Francisco,CA,94105,US,1.5,12,8,4,Order #1234',
+      'Jane Smith,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,2.0,10,6,3,Order #1235',
+      'Bob Johnson,789 Pine St,,New York,NY,10001,US,3.0,15,10,6,Order #1236'
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -23,7 +23,7 @@ const BulkUploadPage = () => {
     const a = document.createElement('a');
     a.setAttribute('hidden', '');
     a.setAttribute('href', url);
-    a.setAttribute('download', 'vvap_global_shipping_template.csv');
+    a.setAttribute('download', 'easypost_bulk_shipping_template.csv');
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -31,21 +31,17 @@ const BulkUploadPage = () => {
   
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center gap-3 mb-6">
-        <Package className="h-8 w-8 text-blue-600" />
-        <h1 className="text-3xl font-bold">VVAP Global Bulk Shipping</h1>
-        <Star className="h-6 w-6 text-yellow-500" />
-      </div>
+      <h1 className="text-3xl font-bold mb-6">EasyPost Bulk Shipping</h1>
       
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-6">
           <TabsTrigger value="upload">
             <Upload className="h-4 w-4 mr-2" />
-            Upload & Process
+            Upload
           </TabsTrigger>
           <TabsTrigger value="template">
             <FileText className="h-4 w-4 mr-2" />
-            VVAP Global Templates & Guide
+            EasyPost Template & Guide
           </TabsTrigger>
         </TabsList>
         
@@ -55,154 +51,105 @@ const BulkUploadPage = () => {
         
         <TabsContent value="template">
           <div className="space-y-8">
-            {/* VVAP Global Integration Notice */}
-            <Alert className="border-blue-200 bg-blue-50">
-              <Package className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800">
-                <strong>VVAP Global Professional Integration:</strong> Our templates are optimized for enterprise-level shipping operations with EasyPost API integration. 
-                Professional order management with automated pickup address selection and real-time rate comparison across all major carriers.
+            {/* EasyPost Integration Notice */}
+            <Alert className="border-green-200 bg-green-50">
+              <Info className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">
+                <strong>EasyPost Integration:</strong> This template follows EasyPost's recommended CSV format for bulk shipping. 
+                Pickup addresses are selected from your saved addresses - only recipient details go in the CSV.
               </AlertDescription>
             </Alert>
 
-            {/* VVAP Global Professional Template */}
-            <Card className="border-2 hover:border-blue-300 transition-colors bg-gradient-to-r from-blue-50 to-indigo-50">
+            {/* EasyPost Template Download */}
+            <Card className="border-2 hover:border-green-300 transition-colors">
               <CardHeader>
-                <CardTitle className="flex items-center text-xl">
-                  <Package className="h-6 w-6 mr-3 text-blue-600" />
-                  <Star className="h-5 w-5 mr-2 text-yellow-500" />
-                  VVAP Global Professional CSV Template
+                <CardTitle className="flex items-center text-lg">
+                  <FileText className="h-5 w-5 mr-2 text-green-600" />
+                  EasyPost CSV Template
                 </CardTitle>
-                <CardDescription className="text-blue-700">
-                  Enterprise-grade template with VVAP Global branding and best practices
+                <CardDescription>
+                  Official EasyPost format for bulk shipping uploads
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div className="bg-white p-4 rounded-lg border border-blue-200">
-                      <h4 className="font-semibold mb-3 text-blue-800">🚀 Professional Features:</h4>
-                      <ul className="text-sm space-y-2">
-                        <li className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span>Complete recipient details (company + personal)</span>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span>Package dimensions (length, width, height)</span>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span>Weight in pounds for accurate pricing</span>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span>Professional reference tracking system</span>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span>Direct EasyPost API compatibility</span>
-                        </li>
-                        <li className="flex items-center gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                          <span>Sample data from VVAP Global entities</span>
-                        </li>
-                      </ul>
-                    </div>
-                    
-                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                      <h5 className="font-medium text-green-800 mb-2">💼 VVAP Global Entities:</h5>
-                      <div className="text-sm text-green-700 space-y-1">
-                        <p>• VVAP Global Solutions (Main Office)</p>
-                        <p>• VVAP Enterprises (West Coast)</p>
-                        <p>• VVAP Logistics (Distribution Hub)</p>
-                      </div>
-                    </div>
+                <div className="space-y-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium mb-2">Includes:</h4>
+                    <ul className="text-sm space-y-1">
+                      <li>• Recipient address (to_address) fields</li>
+                      <li>• Package dimensions (length, width, height)</li>
+                      <li>• Weight in pounds</li>
+                      <li>• Reference field for order tracking</li>
+                      <li>• EasyPost API compatibility</li>
+                    </ul>
                   </div>
-                  
-                  <div className="space-y-4">
-                    <div className="bg-white p-4 rounded-lg border border-blue-200">
-                      <h5 className="font-medium text-blue-800 mb-2">📦 Template Sample Data:</h5>
-                      <div className="text-xs font-mono bg-gray-50 p-3 rounded border overflow-x-auto">
-                        <div className="whitespace-nowrap">
-                          <strong>Company:</strong> VVAP Global Solutions<br/>
-                          <strong>Address:</strong> 123 Business Ave, Suite 200<br/>
-                          <strong>Reference:</strong> VVAP-ORDER-001<br/>
-                          <strong>Contact:</strong> orders@vvapglobal.com
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <Button 
-                      onClick={handleDownloadVvapTemplate} 
-                      className="w-full bg-blue-600 hover:bg-blue-700 h-12"
-                    >
-                      <Download className="h-5 w-5 mr-2" />
-                      Download VVAP Global Template
-                    </Button>
-                  </div>
+                  <Button onClick={handleDownloadEasyPostTemplate} className="w-full bg-green-600 hover:bg-green-700">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download EasyPost Template
+                  </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* VVAP Global Professional Workflow Guide */}
+            {/* EasyPost Workflow Guide */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <CheckCircle className="h-5 w-5 mr-2 text-green-600" />
-                  VVAP Global Professional Shipping Workflow
+                  EasyPost Bulk Shipping Workflow
                 </CardTitle>
                 <CardDescription>
-                  Follow our enterprise-grade process for optimal shipping operations
+                  Follow EasyPost's recommended API workflow for optimal results
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   <div className="flex items-start space-x-4">
-                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">1</div>
+                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">1</div>
                     <div>
-                      <h4 className="font-semibold text-blue-800">Configure VVAP Global Pickup Addresses</h4>
+                      <h4 className="font-medium">Setup Pickup Address</h4>
                       <p className="text-sm text-gray-600 mt-1">
-                        Setup your pickup/from addresses in Settings. Configure multiple VVAP Global locations for optimal shipping efficiency.
+                        Save your pickup/from address in Settings. This will be used for all shipments in the batch.
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-start space-x-4">
-                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">2</div>
+                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">2</div>
                     <div>
-                      <h4 className="font-semibold text-blue-800">Prepare Professional CSV Data</h4>
+                      <h4 className="font-medium">Prepare CSV Data</h4>
                       <p className="text-sm text-gray-600 mt-1">
-                        Use our VVAP Global template or upload any CSV format. Our AI will intelligently map headers to ensure compatibility.
+                        Use our EasyPost template. Include only recipient addresses - pickup address comes from your settings.
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-start space-x-4">
-                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">3</div>
+                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">3</div>
                     <div>
-                      <h4 className="font-semibold text-blue-800">Enterprise Rate Comparison</h4>
+                      <h4 className="font-medium">Create Shipments & Fetch Rates</h4>
                       <p className="text-sm text-gray-600 mt-1">
-                        System fetches live rates from UPS, USPS, FedEx, and DHL through EasyPost API. Compare pricing with professional-grade inflated vs. actual rate display.
+                        System creates EasyPost shipments and fetches live rates from multiple carriers (UPS, USPS, FedEx, DHL).
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-start space-x-4">
-                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">4</div>
+                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">4</div>
                     <div>
-                      <h4 className="font-semibold text-blue-800">Bulk Carrier Management</h4>
+                      <h4 className="font-medium">Select Carriers & Services</h4>
                       <p className="text-sm text-gray-600 mt-1">
-                        Apply carrier preferences across all shipments with professional service-level selections. Filter and sort for optimal decision making.
+                        Review and select preferred carriers/services for each shipment. Change rates dynamically as needed.
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-start space-x-4">
-                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">5</div>
+                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">5</div>
                     <div>
-                      <h4 className="font-semibold text-blue-800">Professional Label Generation</h4>
+                      <h4 className="font-medium">Purchase & Generate Labels</h4>
                       <p className="text-sm text-gray-600 mt-1">
-                        Generate professional shipping labels with VVAP Global branding. Batch download capabilities with multiple format options.
+                        Confirm selections and purchase labels via EasyPost. Download labels individually or as a batch.
                       </p>
                     </div>
                   </div>
@@ -210,34 +157,34 @@ const BulkUploadPage = () => {
               </CardContent>
             </Card>
 
-            {/* VVAP Global CSV Field Requirements */}
+            {/* EasyPost CSV Field Requirements */}
             <Card>
               <CardHeader>
-                <CardTitle>VVAP Global CSV Field Specifications</CardTitle>
+                <CardTitle>EasyPost CSV Field Requirements</CardTitle>
                 <CardDescription>
-                  Professional field requirements for enterprise shipping operations
+                  Required and optional fields following EasyPost's format
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
-                    <h4 className="font-semibold text-red-600 mb-3">Required Enterprise Fields</h4>
+                    <h4 className="font-semibold text-green-600 mb-3">Required Fields</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between border-b pb-1">
                         <span className="font-medium">to_name</span>
-                        <span className="text-gray-600">Recipient full name</span>
+                        <span className="text-gray-600">Recipient name</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
                         <span className="font-medium">to_street1</span>
-                        <span className="text-gray-600">Primary street address</span>
+                        <span className="text-gray-600">Street address</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
                         <span className="font-medium">to_city</span>
-                        <span className="text-gray-600">Destination city</span>
+                        <span className="text-gray-600">City name</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
                         <span className="font-medium">to_state</span>
-                        <span className="text-gray-600">State/Province code</span>
+                        <span className="text-gray-600">State/Province</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
                         <span className="font-medium">to_zip</span>
@@ -245,11 +192,11 @@ const BulkUploadPage = () => {
                       </div>
                       <div className="flex justify-between border-b pb-1">
                         <span className="font-medium">to_country</span>
-                        <span className="text-gray-600">Country code (US)</span>
+                        <span className="text-gray-600">Country (US)</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
                         <span className="font-medium">weight</span>
-                        <span className="text-gray-600">Package weight (lbs)</span>
+                        <span className="text-gray-600">Weight (pounds)</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
                         <span className="font-medium">length</span>
@@ -267,35 +214,23 @@ const BulkUploadPage = () => {
                   </div>
 
                   <div>
-                    <h4 className="font-semibold text-blue-600 mb-3">Professional Optional Fields</h4>
+                    <h4 className="font-semibold text-blue-600 mb-3">Optional Fields</h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">to_company</span>
-                        <span className="text-gray-600">Business name</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
                         <span className="font-medium">to_street2</span>
-                        <span className="text-gray-600">Suite/Apt number</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">to_phone</span>
-                        <span className="text-gray-600">Contact phone</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">to_email</span>
-                        <span className="text-gray-600">Email address</span>
+                        <span className="text-gray-600">Apt/Suite number</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
                         <span className="font-medium">reference</span>
-                        <span className="text-gray-600">Order/Tracking ref</span>
+                        <span className="text-gray-600">Order/Reference #</span>
                       </div>
                     </div>
                     
-                    <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <h5 className="font-medium text-blue-800 mb-2">🏢 VVAP Global Note:</h5>
+                    <div className="mt-6 p-3 bg-blue-50 rounded-lg">
+                      <h5 className="font-medium text-blue-800 mb-2">Note:</h5>
                       <p className="text-sm text-blue-700">
-                        Pickup addresses are managed through your VVAP Global Settings. 
-                        CSV files contain only recipient information for streamlined processing.
+                        Pickup address (from_address) is selected from your saved addresses in Settings. 
+                        Do not include pickup details in the CSV file.
                       </p>
                     </div>
                   </div>

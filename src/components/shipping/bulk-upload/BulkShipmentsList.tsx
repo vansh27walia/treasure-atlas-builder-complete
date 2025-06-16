@@ -1,23 +1,25 @@
-
 import React, { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Trash2, Edit, RefreshCw, Package, MapPin, Loader2 } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Package, PackageCheck, Edit, RefreshCcw, X, FileText, Truck, ArrowUp, ArrowDown, Check } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
-import { toast } from '@/components/ui/sonner';
+import { Form, FormField, FormItem, FormLabel, FormControl } from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
 
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
   isFetchingRates: boolean;
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRemoveShipment: (shipmentId: string) => void;
-  onEditShipment: (shipmentId: string, updates: Partial<BulkShipment>) => void;
-  onRefreshRates: (shipmentId?: string) => void;
+  onEditShipment: (shipmentId: string, details: BulkShipment['details']) => void;
+  onRefreshRates: (shipmentId: string) => void;
 }
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
@@ -28,316 +30,359 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   onEditShipment,
   onRefreshRates
 }) => {
-  const [editingShipment, setEditingShipment] = useState<BulkShipment | null>(null);
-  const [editFormData, setEditFormData] = useState<Partial<BulkShipment>>({});
+  const [openDialogs, setOpenDialogs] = useState<Record<string, boolean>>({});
 
-  const handleEditClick = (shipment: BulkShipment) => {
-    setEditingShipment(shipment);
-    setEditFormData({
-      to_name: shipment.to_name,
-      to_company: shipment.to_company || '',
-      to_street1: shipment.to_street1,
-      to_street2: shipment.to_street2 || '',
-      to_city: shipment.to_city,
-      to_state: shipment.to_state,
-      to_zip: shipment.to_zip,
-      to_country: shipment.to_country || 'US',
-      to_phone: shipment.to_phone || '',
-      to_email: shipment.to_email || '',
-      weight: shipment.weight,
-      length: shipment.length || '12',
-      width: shipment.width || '8',
-      height: shipment.height || '4',
-      reference: shipment.reference || ''
+  const handleOpenEditDialog = (shipmentId: string) => {
+    setOpenDialogs({
+      ...openDialogs,
+      [shipmentId]: true
     });
   };
 
-  const handleSaveEdit = () => {
-    if (!editingShipment) return;
-
-    // Convert weight from ounces to pounds if needed
-    const weightInPounds = editFormData.weight ? 
-      (parseFloat(editFormData.weight.toString()) / 16).toFixed(2) : 
-      editingShipment.weight;
-
-    const updatedShipment = {
-      ...editFormData,
-      weight: weightInPounds
-    };
-
-    onEditShipment(editingShipment.id, updatedShipment);
-    setEditingShipment(null);
-    setEditFormData({});
-    toast.success('Shipment updated successfully');
+  const handleCloseEditDialog = (shipmentId: string) => {
+    setOpenDialogs({
+      ...openDialogs,
+      [shipmentId]: false
+    });
   };
 
-  const formatWeight = (weight: string | number) => {
-    const weightNum = typeof weight === 'string' ? parseFloat(weight) : weight;
-    const pounds = Math.floor(weightNum);
-    const ounces = Math.round((weightNum - pounds) * 16);
-    
-    if (pounds === 0) {
-      return `${ounces} oz`;
-    } else if (ounces === 0) {
-      return `${pounds} lbs`;
-    } else {
-      return `${pounds} lbs ${ounces} oz`;
-    }
-  };
-
-  const formatRate = (rate: any) => {
-    if (!rate) return 'No rate selected';
-    
-    // Show inflated rate (crossed out) and actual rate
-    const actualRate = parseFloat(rate.rate);
-    const inflatedRate = rate.original_rate ? parseFloat(rate.original_rate) : actualRate * 1.85;
-    
-    return (
-      <div className="flex items-center gap-2">
-        <span className="line-through text-gray-500 text-sm">${inflatedRate.toFixed(2)}</span>
-        <span className="font-bold text-green-600">${actualRate.toFixed(2)}</span>
-        <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-          Save ${(inflatedRate - actualRate).toFixed(2)}
-        </Badge>
-      </div>
-    );
+  // Helper function to safely format rate as number
+  const formatRate = (rate: string | number | undefined): string => {
+    if (!rate) return '0.00';
+    const numRate = typeof rate === 'string' ? parseFloat(rate) : rate;
+    return isNaN(numRate) ? '0.00' : numRate.toFixed(2);
   };
 
   return (
     <div className="space-y-4">
-      {shipments.map((shipment, index) => (
-        <Card key={shipment.id} className="border border-gray-200 hover:shadow-md transition-shadow">
-          <CardContent className="p-6">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                  #{index + 1}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">{shipment.to_name}</h3>
-                  {shipment.to_company && (
-                    <p className="text-sm text-gray-600">{shipment.to_company}</p>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex gap-2">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditClick(shipment)}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle>Edit Shipment #{index + 1}</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid grid-cols-2 gap-4 py-4">
-                      <div>
-                        <Label htmlFor="to_name">Recipient Name *</Label>
-                        <Input
-                          id="to_name"
-                          value={editFormData.to_name || ''}
-                          onChange={(e) => setEditFormData(prev => ({ ...prev, to_name: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="to_company">Company</Label>
-                        <Input
-                          id="to_company"
-                          value={editFormData.to_company || ''}
-                          onChange={(e) => setEditFormData(prev => ({ ...prev, to_company: e.target.value }))}
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <Label htmlFor="to_street1">Street Address *</Label>
-                        <Input
-                          id="to_street1"
-                          value={editFormData.to_street1 || ''}
-                          onChange={(e) => setEditFormData(prev => ({ ...prev, to_street1: e.target.value }))}
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <Label htmlFor="to_street2">Apt/Suite</Label>
-                        <Input
-                          id="to_street2"
-                          value={editFormData.to_street2 || ''}
-                          onChange={(e) => setEditFormData(prev => ({ ...prev, to_street2: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="to_city">City *</Label>
-                        <Input
-                          id="to_city"
-                          value={editFormData.to_city || ''}
-                          onChange={(e) => setEditFormData(prev => ({ ...prev, to_city: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="to_state">State *</Label>
-                        <Input
-                          id="to_state"
-                          value={editFormData.to_state || ''}
-                          onChange={(e) => setEditFormData(prev => ({ ...prev, to_state: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="to_zip">ZIP Code *</Label>
-                        <Input
-                          id="to_zip"
-                          value={editFormData.to_zip || ''}
-                          onChange={(e) => setEditFormData(prev => ({ ...prev, to_zip: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="weight">Weight (lbs) *</Label>
-                        <Input
-                          id="weight"
-                          type="number"
-                          step="0.1"
-                          value={editFormData.weight || ''}
-                          onChange={(e) => setEditFormData(prev => ({ ...prev, weight: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="to_phone">Phone</Label>
-                        <Input
-                          id="to_phone"
-                          value={editFormData.to_phone || ''}
-                          onChange={(e) => setEditFormData(prev => ({ ...prev, to_phone: e.target.value }))}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="to_email">Email</Label>
-                        <Input
-                          id="to_email"
-                          type="email"
-                          value={editFormData.to_email || ''}
-                          onChange={(e) => setEditFormData(prev => ({ ...prev, to_email: e.target.value }))}
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setEditingShipment(null)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleSaveEdit}>
-                        Save Changes
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onRefreshRates(shipment.id)}
-                  disabled={isFetchingRates}
-                >
-                  <RefreshCw className={`h-4 w-4 mr-1 ${isFetchingRates ? 'animate-spin' : ''}`} />
-                  Refresh
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onRemoveShipment(shipment.id)}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div className="flex items-start gap-2">
-                <MapPin className="h-4 w-4 text-gray-500 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium">Destination:</p>
-                  <p className="text-gray-600">
-                    {shipment.to_street1}
-                    {shipment.to_street2 && `, ${shipment.to_street2}`}
-                  </p>
-                  <p className="text-gray-600">
-                    {shipment.to_city}, {shipment.to_state} {shipment.to_zip}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-2">
-                <Package className="h-4 w-4 text-gray-500 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium">Package Details:</p>
-                  <p className="text-gray-600">Weight: {formatWeight(shipment.weight)}</p>
-                  <p className="text-gray-600">
-                    Dimensions: {shipment.length || '12'}" × {shipment.width || '8'}" × {shipment.height || '4'}"
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="flex-1">
-                  <Label className="text-sm font-medium text-gray-700">Select Shipping Rate:</Label>
-                  <Select
-                    value={shipment.selectedRateId || ''}
-                    onValueChange={(rateId) => onSelectRate(shipment.id, rateId)}
-                    disabled={!shipment.rates || shipment.rates.length === 0}
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder={
-                        isFetchingRates ? "Fetching rates..." :
-                        !shipment.rates || shipment.rates.length === 0 ? "No rates available" :
-                        "Select a shipping rate"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {shipment.rates?.map((rate) => (
-                        <SelectItem key={rate.id} value={rate.id}>
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex flex-col">
-                              <span className="font-medium">
-                                {rate.carrier.toUpperCase()} - {rate.service}
-                              </span>
-                              <span className="text-xs text-gray-500">
-                                {rate.delivery_days} {rate.delivery_days === 1 ? 'day' : 'days'} delivery
-                              </span>
-                            </div>
-                            <div className="text-right ml-4">
-                              {formatRate(rate)}
-                            </div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {shipment.selectedRateId && (
-                  <div className="lg:w-64 text-right">
-                    <div className="text-sm text-gray-600">Selected Rate:</div>
-                    {formatRate(shipment.rates?.find(r => r.id === shipment.selectedRateId))}
-                  </div>
-                )}
-              </div>
-
-              {isFetchingRates && (
-                <div className="mt-2 flex items-center gap-2 text-sm text-blue-600">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Fetching updated rates...
-                </div>
-              )}
-            </div>
-          </CardContent>
+      {shipments.length === 0 ? (
+        <Card className="p-6 text-center">
+          <p className="text-gray-500">No shipments found.</p>
         </Card>
-      ))}
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-1/12">Row</TableHead>
+                <TableHead className="w-2/12">Customer Details</TableHead>
+                <TableHead className="w-2/12">Shipping Address</TableHead>
+                <TableHead className="w-2/12">Carrier & Service</TableHead>
+                <TableHead className="w-1/12">Rate</TableHead>
+                <TableHead className="w-1/12">Status</TableHead>
+                <TableHead className="w-3/12 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {shipments.map((shipment) => (
+                <TableRow key={shipment.id}>
+                  <TableCell>{shipment.row}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <div className="font-medium">{shipment.details.to_name}</div>
+                      {shipment.details.to_company && (
+                        <div className="text-xs text-gray-500">{shipment.details.to_company}</div>
+                      )}
+                      {shipment.details.to_phone && (
+                        <div className="text-xs text-blue-600">{shipment.details.to_phone}</div>
+                      )}
+                      {shipment.details.to_email && (
+                        <div className="text-xs text-green-600">{shipment.details.to_email}</div>
+                      )}
+                      {shipment.details.reference && (
+                        <div className="text-xs text-gray-500">Ref: {shipment.details.reference}</div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <div className="text-sm">{shipment.details.to_street1}</div>
+                      {shipment.details.to_street2 && (
+                        <div className="text-sm text-gray-500">{shipment.details.to_street2}</div>
+                      )}
+                      <div className="text-sm">
+                        {shipment.details.to_city}, {shipment.details.to_state} {shipment.details.to_zip}
+                      </div>
+                      <div className="text-xs text-gray-500">{shipment.details.to_country}</div>
+                      <div className="text-xs text-purple-600">
+                        {shipment.details.weight}oz • {shipment.details.length}"×{shipment.details.width}"×{shipment.details.height}"
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {shipment.status !== 'failed' && shipment.status !== 'error' ? (
+                      <div>
+                        <Select 
+                          value={shipment.selectedRateId}
+                          onValueChange={(value) => onSelectRate(shipment.id, value)}
+                          disabled={shipment.status === 'pending_rates'}
+                        >
+                          <SelectTrigger className="min-w-[180px]">
+                            <SelectValue placeholder={shipment.status === 'pending_rates' ? "Fetching rates..." : "Select a carrier"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(shipment.availableRates || []).map((rate) => (
+                              <SelectItem key={rate.id} value={rate.id}>
+                                <span className="flex items-center">
+                                  <Truck className="mr-2 h-4 w-4" />
+                                  <span>
+                                    {rate.carrier} - {rate.service}
+                                    <span className="ml-2 text-xs text-gray-500">
+                                      ({rate.delivery_days} days) - ${formatRate(rate.rate)}
+                                    </span>
+                                  </span>
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <Badge variant="outline" className="bg-red-50 text-red-700">
+                        {shipment.error || 'Error loading rates'}
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {shipment.status !== 'pending_rates' && shipment.selectedRateId ? (
+                      <div className="font-semibold">
+                        ${formatRate(shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate)}
+                      </div>
+                    ) : shipment.status === 'pending_rates' ? (
+                      <Skeleton className="h-6 w-16" />
+                    ) : (
+                      <span className="text-gray-500">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {['completed', 'rate_selected', 'rates_fetched', 'label_purchased'].includes(shipment.status) ? (
+                      <Badge className="bg-green-100 text-green-700 border-green-200">
+                        <PackageCheck className="mr-1 h-3 w-3" />
+                        Ready
+                      </Badge>
+                    ) : shipment.status === 'pending_rates' ? (
+                      <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                        <Package className="mr-1 h-3 w-3 animate-pulse" />
+                        Processing
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-red-100 text-red-700 border-red-200">
+                        <X className="mr-1 h-3 w-3" />
+                        Error
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end space-x-2">
+                      <Dialog open={openDialogs[shipment.id]} onOpenChange={(open) => {
+                        if (!open) handleCloseEditDialog(shipment.id);
+                      }}>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleOpenEditDialog(shipment.id)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Edit Customer & Shipment Details</DialogTitle>
+                          </DialogHeader>
+                          <ShipmentEditForm
+                            shipment={shipment}
+                            onSubmit={(data) => {
+                              onEditShipment(shipment.id, data);
+                              handleCloseEditDialog(shipment.id);
+                            }}
+                            onCancel={() => handleCloseEditDialog(shipment.id)}
+                          />
+                        </DialogContent>
+                      </Dialog>
+
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => onRefreshRates(shipment.id)}
+                        disabled={shipment.status === 'pending_rates'}
+                      >
+                        <RefreshCcw className={`h-4 w-4 mr-1 ${shipment.status === 'pending_rates' ? 'animate-spin' : ''}`} />
+                        Rates
+                      </Button>
+
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => onRemoveShipment(shipment.id)}
+                        className="text-red-500 border-red-200 hover:bg-red-50"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
+  );
+};
+
+interface ShipmentEditFormProps {
+  shipment: BulkShipment;
+  onSubmit: (data: BulkShipment['details']) => void;
+  onCancel: () => void;
+}
+
+const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit, onCancel }) => {
+  const form = useForm({
+    defaultValues: {
+      to_name: shipment.details.to_name,
+      to_company: shipment.details.to_company || '',
+      to_street1: shipment.details.to_street1,
+      to_street2: shipment.details.to_street2 || '',
+      to_city: shipment.details.to_city,
+      to_state: shipment.details.to_state,
+      to_zip: shipment.details.to_zip,
+      to_country: shipment.details.to_country,
+      to_phone: shipment.details.to_phone || '',
+      to_email: shipment.details.to_email || '',
+      weight: shipment.details.weight || 1,
+      length: shipment.details.length || 12,
+      width: shipment.details.width || 8,
+      height: shipment.details.height || 4,
+      reference: shipment.details.reference || ''
+    }
+  });
+
+  const handleFormSubmit = (data: any) => {
+    onSubmit(data);
+  };
+
+  return (
+    <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="to_name">Customer Name *</Label>
+          <Input id="to_name" {...form.register('to_name')} required />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="to_company">Company</Label>
+          <Input id="to_company" {...form.register('to_company')} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="to_phone">Phone</Label>
+          <Input id="to_phone" {...form.register('to_phone')} />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="to_email">Email</Label>
+          <Input id="to_email" type="email" {...form.register('to_email')} />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="to_street1">Address Line 1 *</Label>
+        <Input id="to_street1" {...form.register('to_street1')} required />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="to_street2">Address Line 2</Label>
+        <Input id="to_street2" {...form.register('to_street2')} />
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="to_city">City *</Label>
+          <Input id="to_city" {...form.register('to_city')} required />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="to_state">State *</Label>
+          <Input id="to_state" {...form.register('to_state')} required />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="to_zip">ZIP Code *</Label>
+          <Input id="to_zip" {...form.register('to_zip')} required />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="to_country">Country *</Label>
+        <Input id="to_country" {...form.register('to_country')} required />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="reference">Reference/Order #</Label>
+        <Input id="reference" {...form.register('reference')} />
+      </div>
+
+      <div className="grid grid-cols-4 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="weight">Weight (oz) *</Label>
+          <Input 
+            id="weight" 
+            type="number" 
+            step="0.1"
+            {...form.register('weight', { valueAsNumber: true })} 
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="length">Length (in) *</Label>
+          <Input 
+            id="length" 
+            type="number" 
+            step="0.1"
+            {...form.register('length', { valueAsNumber: true })} 
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="width">Width (in) *</Label>
+          <Input 
+            id="width"
+            type="number" 
+            step="0.1"
+            {...form.register('width', { valueAsNumber: true })} 
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="height">Height (in) *</Label>
+          <Input 
+            id="height"
+            type="number"
+            step="0.1"
+            {...form.register('height', { valueAsNumber: true })} 
+            required
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end space-x-2 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit">
+          <Check className="h-4 w-4 mr-1" />
+          Save Customer Details
+        </Button>
+      </div>
+    </form>
   );
 };
 

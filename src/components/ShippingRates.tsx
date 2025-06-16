@@ -95,18 +95,6 @@ const ShippingRates: React.FC = () => {
       selectRateAndProceed(selectedRateId);
     }
   };
-
-  // Format rate to show inflated vs actual price
-  const formatRateDisplay = (rate: any) => {
-    const actualRate = parseFloat(rate.rate);
-    const inflatedRate = rate.original_rate ? parseFloat(rate.original_rate) : actualRate * 1.85;
-    
-    return {
-      actualRate: actualRate.toFixed(2),
-      inflatedRate: inflatedRate.toFixed(2),
-      savings: (inflatedRate - actualRate).toFixed(2)
-    };
-  };
   
   if (rates.length === 0) {
     return (
@@ -221,30 +209,23 @@ const ShippingRates: React.FC = () => {
               <div className="space-y-4 mt-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  {sortedRates.map((rate) => {
-                    const rateDisplay = formatRateDisplay(rate);
-                    return (
-                      <ShippingRateCard
-                        key={rate.id}
-                        rate={{
-                          ...rate,
-                          rate: rateDisplay.actualRate,
-                          original_rate: rateDisplay.inflatedRate
-                        }}
-                        isSelected={selectedRateId === rate.id}
-                        onSelect={handleRateSelection}
-                        isBestValue={rate.id === bestValueRateId}
-                        isFastest={rate.id === fastestRateId}
-                        aiRecommendation={aiRecommendation && {
-                          rateId: aiRecommendation.bestOverall || '',
-                          reason: aiRecommendation.analysisText || ''
-                        }}
-                        showDiscount={true}
-                        originalRate={rateDisplay.inflatedRate}
-                        isPremium={rate.isPremium || false}
-                      />
-                    );
-                  })}
+                  {sortedRates.map((rate) => (
+                    <ShippingRateCard
+                      key={rate.id}
+                      rate={rate}
+                      isSelected={selectedRateId === rate.id}
+                      onSelect={handleRateSelection}
+                      isBestValue={rate.id === bestValueRateId}
+                      isFastest={rate.id === fastestRateId}
+                      aiRecommendation={aiRecommendation && {
+                        rateId: aiRecommendation.bestOverall || '',
+                        reason: aiRecommendation.analysisText || ''
+                      }}
+                      showDiscount={true}
+                      originalRate={rate.original_rate}
+                      isPremium={false}
+                    />
+                  ))}
                 </div>
 
                 {sortedRates.length === 0 && (
