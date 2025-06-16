@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -70,33 +69,37 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     loadAddresses();
   }, [onPickupAddressSelect]);
 
-  // File validation and AI conversion, always process via AI function
+  // Enhanced file validation and AI conversion with better debugging
   const handleFileInputAndConvert = async (file: File) => {
+    console.log('🔍 Starting file conversion for:', file.name);
     setSelectedFile(file);
     setCsvRows(null);
     setMissingData(false);
     setCsvEditMode(false);
 
-    // Always convert with AI
     try {
-      toast.info("Attempting to convert your file with AI...", { duration: 2000 });
+      toast.info("Converting your file with AI...", { duration: 3000 });
+      console.log('📤 Sending file to AI conversion service...');
+      
       const formData = new FormData();
       formData.append("file", file);
-      // Use ai-convert-upload edge function for all file types
+      
       const { data, error } = await supabase.functions.invoke('ai-convert-upload', {
         body: formData,
       });
+
+      console.log('📥 AI Conversion Response:', { data, error });
 
       if (error || (data && data.error) || !data?.convertedCsv) {
         let mainError = "AI conversion failed. Please try again.";
         let errorDetails = "The server returned an unexpected response.";
 
-        if (error) { // This is a FunctionError from Supabase client
-            console.error("Supabase Function Error:", error);
+        if (error) {
+            console.error("❌ Supabase Function Error:", error);
             mainError = typeof error.context?.error === 'string' ? error.context.error : "AI conversion service failed";
             errorDetails = typeof error.context?.details === 'string' ? error.context.details : error.message;
-        } else if (data && data.error) { // This is a handled error from the function's logic
-            console.error("Function-returned error:", data.error);
+        } else if (data && data.error) {
+            console.error("❌ Function-returned error:", data.error);
             mainError = data.error;
             errorDetails = data.details || 'No additional details provided.';
         }
@@ -104,42 +107,60 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         onUploadFail(`${mainError}: ${errorDetails}`);
         toast.error(mainError, {
             description: errorDetails,
-            duration: 10000, // Show for 10 seconds
+            duration: 10000,
         });
         return;
       }
+
+      console.log('✅ AI Conversion successful. CSV length:', data.convertedCsv.length);
+      console.log('📝 First 500 chars of converted CSV:', data.convertedCsv.substring(0, 500));
+      
       // Validate and parse CSV
       const validation = validateCsvStructure(data.convertedCsv);
       if (!validation.isValid) {
+        console.error('❌ CSV Validation failed:', validation.error);
         toast.error(`CSV Validation failed: ${validation.error}`);
         onUploadFail(validation.error || 'Format error');
         return;
       }
+
       setCsvHeaders(validation.headers || REQUIRED_HEADERS);
       const rows = parseCsvToRows(data.convertedCsv);
+      console.log('📊 Parsed CSV rows:', rows.length);
+      console.log('🔍 Sample parsed rows:', rows.slice(0, 3));
+      
       setCsvRows(rows);
 
-      // Check for missing data
+      // Enhanced missing data detection with better feedback
       let hasEmpty = false;
-      rows.forEach(row => {
+      let missingFields: string[] = [];
+      
+      rows.forEach((row, index) => {
         MANDATORY_HEADERS.forEach(header => {
-          if (!(row as any)[header] || (row as any)[header].trim() === "") {
+          const value = (row as any)[header];
+          if (!value || value.toString().trim() === "") {
             hasEmpty = true;
+            missingFields.push(`Row ${index + 2}: ${header}`);
           }
         });
       });
+
       if (hasEmpty) {
+        console.log('⚠️ Missing data detected:', missingFields.slice(0, 10)); // Show first 10
         setMissingData(true);
         setCsvEditMode(true);
-        toast.error('Some required data is missing. Please complete all fields.');
+        toast.warning(`Missing required data in ${missingFields.length} fields. Please complete all required fields before proceeding.`, {
+          description: `First few missing: ${missingFields.slice(0, 3).join(', ')}${missingFields.length > 3 ? '...' : ''}`,
+          duration: 8000
+        });
         return;
       } else {
         setMissingData(false);
         setCsvEditMode(false);
-        // Ready to process
-        toast.success('CSV is valid and ready to process!');
+        toast.success(`✅ File converted successfully! ${rows.length} rows ready to process.`);
       }
     } catch (error) {
+      console.error('💥 File conversion error:', error);
       toast.error(`Could not read/convert file: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setSelectedFile(null);
       setCsvRows(null);
@@ -189,35 +210,48 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       toast.error('Please select a pickup address or add one in Settings');
       return;
     }
-    // Check for missing
+
+    // Enhanced validation before submission
     let hasMissing = false;
+    let missingCount = 0;
     csvRows.forEach(row => {
       MANDATORY_HEADERS.forEach(header => {
         if (!(row as any)[header] || (row as any)[header].toString().trim() === "") {
           hasMissing = true;
+          missingCount++;
         }
       });
     });
+
     if (hasMissing) {
-      toast.error("Please fill in all missing fields in your data first.");
+      toast.error(`Please fill in all ${missingCount} missing required fields in your data first.`, {
+        description: "Use the edit interface below to complete missing information.",
+        duration: 8000
+      });
       setCsvEditMode(true);
       setMissingData(true);
       return;
     }
+
     try {
+      console.log('🚀 Starting upload process with', csvRows.length, 'rows');
       // Convert edited rows to CSV string and make file blob for uploading
       const csvString = generateCsvFromRows(csvRows);
+      console.log('📝 Generated CSV preview:', csvString.substring(0, 300));
+      
       const processedCsvFile = new File([csvString], "ready_to_upload.csv", { type: "text/csv" });
+      
       if (handleUpload) {
         await handleUpload(processedCsvFile, pickupAddress);
         onUploadSuccess({});
-        toast.success('🎉 File processed and uploaded successfully!');
+        toast.success(`🎉 File processed successfully! ${csvRows.length} shipments uploaded.`);
       } else {
         onUploadFail("Upload handler not available");
       }
     } catch (error) {
+      console.error('💥 Upload error:', error);
       onUploadFail(`Upload failed: ${error instanceof Error ? error.message : String(error)}`);
-      toast.error('Processing failed. Please check your file.');
+      toast.error('Processing failed. Please check your file and try again.');
     }
   };
 
@@ -326,7 +360,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         <div
           className="border-2 border-dashed border-gray-300 rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 transition-colors bg-gray-50 hover:bg-blue-50"
           onDrop={handleDrop}
-          onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+          onDragOver={handleDragOver}
           onClick={() => document.getElementById('file-upload')?.click()}
         >
           <input
@@ -350,21 +384,34 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
             <p className="text-xs text-blue-600 font-medium">
               💡 AI auto-converts your file to the right shipping format!
             </p>
-            {selectedFile && (
+            {selectedFile && csvRows && (
               <p className="text-xs text-green-600 mt-2">
-                ✓ File converted. Review/edit below if needed.
+                ✓ File converted successfully. {csvRows.length} rows found.
+              </p>
+            )}
+            {missingData && (
+              <p className="text-xs text-orange-600 mt-2">
+                ⚠️ Some required data is missing. Please complete the fields below.
               </p>
             )}
           </div>
         </div>
+        
         {csvEditMode && csvRows && csvHeaders && (
-          <CsvEditAndReview 
-            rows={csvRows}
-            headers={csvHeaders}
-            requiredHeaders={MANDATORY_HEADERS}
-            onDone={handleCsvEditAndReviewDone}
-          />
+          <div className="mt-4 p-4 border border-orange-200 rounded-lg bg-orange-50">
+            <h4 className="font-medium text-orange-800 mb-2">Complete Missing Information</h4>
+            <p className="text-sm text-orange-700 mb-4">
+              Please fill in the missing required fields below. The system will automatically convert state names (like "California" → "CA") and validate addresses.
+            </p>
+            <CsvEditAndReview 
+              rows={csvRows}
+              headers={csvHeaders}
+              requiredHeaders={MANDATORY_HEADERS}
+              onDone={handleCsvEditAndReviewDone}
+            />
+          </div>
         )}
+        
         {isUploading && progress > 0 && (
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
@@ -386,7 +433,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
           ) : (
             <FileUp className="h-4 w-4" />
           )}
-          {isUploading ? `Processing... (${progress}%)` : 'Process File & Get Rates'}
+          {isUploading ? `Processing... (${progress}%)` : `Process ${csvRows?.length || 0} Shipments & Get Rates`}
         </Button>
       </div>
     </form>
