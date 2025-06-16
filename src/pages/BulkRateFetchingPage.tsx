@@ -173,14 +173,14 @@ const BulkRateFetchingPage: React.FC = () => {
     }
   };
 
-  // Handle edit shipment
+  // Handle edit shipment - fix: only pass the shipment object
   const handleEditClick = (shipment: BulkShipment) => {
     setEditingShipment(shipment);
   };
 
   // Handle edit save with immediate UI update
   const handleEditSave = (updatedShipment: BulkShipment) => {
-    handleEditShipment(updatedShipment.id, updatedShipment);
+    handleEditShipment(updatedShipment);
     setEditingShipment(null);
     toast.success('Shipment updated successfully');
   };
