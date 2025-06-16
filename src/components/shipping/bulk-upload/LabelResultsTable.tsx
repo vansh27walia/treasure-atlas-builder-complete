@@ -22,8 +22,8 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
     if (typeof shipment.customer_address === 'string') {
       return shipment.customer_address;
     }
-    if (shipment.customer_address && typeof shipment.customer_address === 'object') {
-      return shipment.customer_address.street1 || 'No address';
+    if (shipment.customer_address && typeof shipment.customer_address === 'object' && 'street1' in shipment.customer_address) {
+      return (shipment.customer_address as any).street1 || 'No address';
     }
     return 'No address';
   };
