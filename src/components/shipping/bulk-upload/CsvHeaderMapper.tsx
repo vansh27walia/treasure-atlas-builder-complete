@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, CheckCircle, AlertCircle, RefreshCw, ArrowLeft, Download, FileText, Star, Package } from 'lucide-react';
+import { ArrowRight, CheckCircle, AlertCircle, RefreshCw, ArrowLeft, Download, FileText, Star, Package, Upload, Zap } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -191,63 +191,83 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-6">
-      {/* VVAP Global Template Card */}
+      {/* Enhanced Template Explanation Card */}
       <Card className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50">
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-3 text-blue-800">
             <Package className="h-6 w-6" />
-            <Star className="h-5 w-5 text-yellow-500" />
-            VVAP Global Professional Shipping Template
+            Two Ways to Upload Your Shipping Data
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-semibold text-blue-800 mb-3">🚀 Why Use Our Template?</h4>
-              <ul className="space-y-2 text-sm text-blue-700">
+            {/* Method 1: Template */}
+            <div className="bg-white p-5 rounded-lg border-2 border-green-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Download className="h-5 w-5 text-green-600" />
+                <h4 className="font-semibold text-green-800">Method 1: Use Our Template</h4>
+                <Star className="h-4 w-4 text-yellow-500" />
+              </div>
+              <p className="text-sm text-green-700 mb-3">
+                Download our pre-formatted CSV template with correct headers for instant compatibility. No mapping required!
+              </p>
+              <ul className="space-y-1 text-xs text-green-600 mb-4">
                 <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  Pre-formatted for instant compatibility
-                </li>
-                <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <CheckCircle className="h-3 w-3" />
                   Skip header mapping entirely
                 </li>
                 <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  Includes VVAP Global best practices
+                  <CheckCircle className="h-3 w-3" />
+                  Includes sample VVAP Global data
                 </li>
                 <li className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  Professional order reference format
+                  <CheckCircle className="h-3 w-3" />
+                  Professional formatting
                 </li>
               </ul>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="bg-white p-4 rounded-lg border border-blue-200">
-                <h5 className="font-medium text-blue-800 mb-2">📦 Template Includes:</h5>
-                <div className="text-xs space-y-1 text-blue-600">
-                  <p>• Sample data from VVAP Global Solutions</p>
-                  <p>• Complete address formatting</p>
-                  <p>• Package dimensions & weight examples</p>
-                  <p>• Professional reference numbering</p>
-                </div>
-              </div>
-              
               <Button 
                 onClick={downloadVvapTemplate} 
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full bg-green-600 hover:bg-green-700 text-white text-sm"
+                size="sm"
               >
                 <Download className="h-4 w-4 mr-2" />
-                Download VVAP Global Template
+                Download Template
               </Button>
+            </div>
+
+            {/* Method 2: Any CSV */}
+            <div className="bg-white p-5 rounded-lg border-2 border-blue-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Upload className="h-5 w-5 text-blue-600" />
+                <h4 className="font-semibold text-blue-800">Method 2: Upload Any CSV</h4>
+                <Zap className="h-4 w-4 text-yellow-500" />
+              </div>
+              <p className="text-sm text-blue-700 mb-3">
+                Upload your existing CSV file and our AI will intelligently map your headers to our shipping format.
+              </p>
+              <ul className="space-y-1 text-xs text-blue-600 mb-4">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-3 w-3" />
+                  Works with any CSV format
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-3 w-3" />
+                  AI-powered header detection
+                </li>
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="h-3 w-3" />
+                  Smart mapping suggestions
+                </li>
+              </ul>
+              <div className="text-sm font-medium text-blue-800 bg-blue-100 p-2 rounded">
+                This is what you're doing now! ⬇️
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Main Mapping Interface */}
+      {/* Improved Header Mapping Interface */}
       <Card className="border-2 border-green-200">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -278,31 +298,41 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
             </ul>
           </div>
 
-          {/* Vertical Mapping Interface */}
-          <div className="space-y-4">
+          {/* Improved Grid Layout for Header Mapping */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-12 gap-4 items-center p-3 bg-gray-100 rounded-lg font-medium text-sm">
+              <div className="col-span-1 text-center">#</div>
+              <div className="col-span-4">Your CSV Header</div>
+              <div className="col-span-1 text-center">→</div>
+              <div className="col-span-4">Template Field</div>
+              <div className="col-span-2 text-center">Status</div>
+            </div>
+            
             {analysis.detectedHeaders.map((detectedHeader, index) => (
-              <div key={detectedHeader} className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow bg-white">
+              <div key={detectedHeader} className="grid grid-cols-12 gap-4 items-center p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow bg-white">
                 {/* Step Number */}
-                <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-sm">
-                  {index + 1}
+                <div className="col-span-1 flex justify-center">
+                  <div className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-semibold text-xs">
+                    {index + 1}
+                  </div>
                 </div>
                 
                 {/* Your Header */}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-700 mb-1">Your CSV Header:</div>
-                  <div className="text-lg font-mono bg-gray-100 px-3 py-2 rounded border">
+                <div className="col-span-4">
+                  <div className="text-xs text-gray-500 mb-1">Your CSV Header:</div>
+                  <div className="text-sm font-mono bg-gray-100 px-2 py-1 rounded border">
                     "{detectedHeader}"
                   </div>
                 </div>
                 
                 {/* Arrow */}
-                <div className="flex-shrink-0">
-                  <ArrowRight className="h-6 w-6 text-gray-400" />
+                <div className="col-span-1 flex justify-center">
+                  <ArrowRight className="h-4 w-4 text-gray-400" />
                 </div>
                 
                 {/* Template Mapping */}
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-gray-700 mb-1">Maps to Template Field:</div>
+                <div className="col-span-4">
+                  <div className="text-xs text-gray-500 mb-1">Maps to:</div>
                   <Select
                     value={userMappings[detectedHeader] || ''}
                     onValueChange={(value) => {
@@ -316,12 +346,12 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
                       }
                     }}
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="🎯 Select mapping..." />
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Select mapping..." />
                     </SelectTrigger>
                     <SelectContent className="max-h-60">
                       <SelectItem value="unmapped">
-                        <span className="text-gray-500">🚫 Don't map this field</span>
+                        <span className="text-gray-500">🚫 Don't map</span>
                       </SelectItem>
                       
                       {/* Required Headers */}
@@ -332,8 +362,8 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
                           disabled={mappedTemplateHeaders.includes(header) && userMappings[detectedHeader] !== header}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-red-600 text-xs font-bold">🔴 REQUIRED</span>
-                            <span className="font-mono text-sm">{header}</span>
+                            <span className="text-red-600 text-xs font-bold">🔴</span>
+                            <span className="font-mono text-xs">{header}</span>
                           </div>
                         </SelectItem>
                       ))}
@@ -346,8 +376,8 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
                           disabled={mappedTemplateHeaders.includes(header) && userMappings[detectedHeader] !== header}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-blue-600 text-xs font-bold">🔵 OPTIONAL</span>
-                            <span className="font-mono text-sm">{header}</span>
+                            <span className="text-blue-600 text-xs font-bold">🔵</span>
+                            <span className="font-mono text-xs">{header}</span>
                           </div>
                         </SelectItem>
                       ))}
@@ -356,15 +386,15 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
                 </div>
                 
                 {/* Status Indicator */}
-                <div className="flex-shrink-0 w-24">
+                <div className="col-span-2 flex justify-center">
                   {userMappings[detectedHeader] ? (
-                    <div className="flex items-center gap-1 text-green-600 text-xs bg-green-50 p-2 rounded">
-                      <CheckCircle className="h-4 w-4" />
+                    <div className="flex items-center gap-1 text-green-600 text-xs bg-green-50 px-2 py-1 rounded">
+                      <CheckCircle className="h-3 w-3" />
                       <span className="font-medium">Mapped</span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1 text-gray-500 text-xs bg-gray-50 p-2 rounded">
-                      <AlertCircle className="h-4 w-4" />
+                    <div className="flex items-center gap-1 text-gray-500 text-xs bg-gray-50 px-2 py-1 rounded">
+                      <AlertCircle className="h-3 w-3" />
                       <span>Unmapped</span>
                     </div>
                   )}
