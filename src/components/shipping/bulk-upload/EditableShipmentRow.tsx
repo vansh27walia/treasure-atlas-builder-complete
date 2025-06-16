@@ -8,7 +8,6 @@ import { Edit, Save, X, Trash2 } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import RateDisplay from './RateDisplay';
 import InsuranceOptions from './InsuranceOptions';
-import AIRatePicker from './AIRatePicker';
 import { displayWeightInPounds, parseWeightInput } from '@/utils/weightConversion';
 
 interface EditableShipmentRowProps {
@@ -81,7 +80,7 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
         ) : (
           <div>
             <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
-            <div className="text-sm text-gray-500">{shipment.customer_address?.street1}</div>
+            <div className="text-sm text-gray-500">{shipment.details?.to_street1}</div>
           </div>
         )}
       </TableCell>
