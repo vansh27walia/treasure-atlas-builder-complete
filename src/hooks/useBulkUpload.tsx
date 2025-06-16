@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useShipmentUpload } from './useShipmentUpload';
 import { useShipmentManagement } from './useShipmentManagement';
@@ -28,18 +29,6 @@ export const useBulkUpload = () => {
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
-
-  // Add batch print preview modal state
-  const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
-  const [labelGenerationProgress, setLabelGenerationProgress] = useState({
-    isGenerating: false,
-    totalShipments: 0,
-    processedShipments: 0,
-    successfulShipments: 0,
-    failedShipments: 0,
-    currentStep: '',
-    estimatedTimeRemaining: 0
-  });
 
   // Load default pickup address
   useEffect(() => {
@@ -198,15 +187,6 @@ export const useBulkUpload = () => {
     }
     
     setIsCreatingLabels(true);
-    setLabelGenerationProgress({
-      isGenerating: true,
-      totalShipments: results.processedShipments.length,
-      processedShipments: 0,
-      successfulShipments: 0,
-      failedShipments: 0,
-      currentStep: 'Initializing...',
-      estimatedTimeRemaining: 0
-    });
     
     try {
       console.log('Creating labels for shipments:', results.processedShipments);
@@ -230,22 +210,14 @@ export const useBulkUpload = () => {
       console.log('Label creation response:', data);
 
       if (data.processedLabels && data.processedLabels.length > 0) {
-        // Update results with both individual labels and batch information
-        const updatedResults = {
+        setResults({
           ...results,
           processedShipments: data.processedLabels,
           batchResult: data.batchResult,
           bulk_label_pdf_url: data.batchResult?.consolidatedLabelUrls?.pdf,
-          bulk_label_png_url: data.batchResult?.consolidatedLabelUrls?.png,
-        };
-
-        console.log('Updated results with batch info:', {
-          batchResult: updatedResults.batchResult,
-          bulk_label_pdf_url: updatedResults.bulk_label_pdf_url,
-          consolidatedUrls: updatedResults.batchResult?.consolidatedLabelUrls
+          bulk_label_png_url: data.batchResult?.consolidatedLabelUrls?.png, // Store png just in case
         });
 
-        setResults(updatedResults);
         setUploadStatus('success');
         toast.success(`Successfully created ${data.successful} shipping labels`);
 
@@ -262,7 +234,6 @@ export const useBulkUpload = () => {
       toast.error(error instanceof Error ? error.message : 'Failed to create labels');
     } finally {
       setIsCreatingLabels(false);
-      setLabelGenerationProgress(prev => ({ ...prev, isGenerating: false }));
     }
   };
 
@@ -346,16 +317,6 @@ export const useBulkUpload = () => {
     toast.success('Email functionality will be implemented soon');
   };
 
-  // Handle opening batch print preview modal
-  const handleOpenBatchPrintPreview = () => {
-    console.log('Opening batch print preview with:', {
-      hasBatchResult: !!results?.batchResult,
-      consolidatedUrls: results?.batchResult?.consolidatedLabelUrls,
-      bulkPdfUrl: results?.bulk_label_pdf_url
-    });
-    setBatchPrintPreviewModalOpen(true);
-  };
-
   return {
     // Upload state
     file,
@@ -376,11 +337,6 @@ export const useBulkUpload = () => {
     
     // Address
     pickupAddress,
-    
-    // New batch preview state
-    labelGenerationProgress,
-    batchPrintPreviewModalOpen,
-    setBatchPrintPreviewModalOpen,
     
     // Setters
     setPickupAddress,
@@ -403,7 +359,6 @@ export const useBulkUpload = () => {
     handleRemoveShipment,
     handleEditShipment,
     handleRefreshRates,
-    handleBulkApplyCarrier,
-    handleOpenBatchPrintPreview
+    handleBulkApplyCarrier
   };
 };

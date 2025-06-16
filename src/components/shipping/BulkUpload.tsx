@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -7,7 +8,6 @@ import SuccessNotification from './bulk-upload/SuccessNotification';
 import UploadError from './bulk-upload/UploadError';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
-import FailedShipmentsTable from './bulk-upload/FailedShipmentsTable';
 import LabelCreationOverlay from './LabelCreationOverlay';
 import StripePaymentModal from './StripePaymentModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -247,27 +247,6 @@ const BulkUpload: React.FC = () => {
                 </Button>
               </div>
             </div>
-            
-            {/* Show processing summary */}
-            {results.total && (
-              <Alert className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Processing Results</AlertTitle>
-                <AlertDescription>
-                  Successfully processed <strong>{results.successful}</strong> out of <strong>{results.total}</strong> shipments.
-                  {results.failed > 0 && (
-                    <span className="text-red-600 font-medium">
-                      {' '}{results.failed} shipments failed due to missing or invalid data.
-                    </span>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            {/* Show failed shipments if any */}
-            {results.failedShipments && results.failedShipments.length > 0 && (
-              <FailedShipmentsTable shipments={results.failedShipments} />
-            )}
             
             <Alert className="mb-6">
               <AlertCircle className="h-4 w-4" />
