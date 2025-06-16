@@ -63,22 +63,12 @@ interface ProcessingError {
   details: string;
 }
 
-// Parse CSV content following EasyPost format - FIXED to handle all rows properly
+// Parse CSV content following EasyPost format
 const parseCSV = (csvContent: string): string[][] => {
-  const lines = csvContent.split('\n');
+  const lines = csvContent.split('\n').filter(line => line.trim() !== '');
   const result: string[][] = [];
   
-  console.log(`Total lines in CSV: ${lines.length}`);
-  
-  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-    const line = lines[lineIndex].trim();
-    
-    // Skip completely empty lines
-    if (line === '') {
-      console.log(`Skipping empty line at index ${lineIndex}`);
-      continue;
-    }
-    
+  for (const line of lines) {
     const fields: string[] = [];
     let current = '';
     let inQuotes = false;
@@ -96,14 +86,10 @@ const parseCSV = (csvContent: string): string[][] => {
       }
     }
     
-    // Don't forget the last field
     fields.push(current.trim());
-    
-    console.log(`Line ${lineIndex}: parsed ${fields.length} fields:`, fields);
     result.push(fields);
   }
   
-  console.log(`Parsed CSV into ${result.length} rows total`);
   return result;
 };
 
@@ -278,27 +264,22 @@ serve(async (req) => {
     
     console.log('EasyPost field indexes:', fieldIndexes);
     
-    // FIXED: Process ALL data rows, not missing any
-    const dataRows = rows.slice(1); // Get all rows except header
-    const total = dataRows.length;
-    console.log(`Processing ${total} data rows (excluding header)`);
-    
+    const total = rows.length - 1;
     const processedShipments: ShipmentResult[] = [];
     const failedShipments: ProcessingError[] = [];
     
-    // Process each data row following EasyPost workflow
-    for (let i = 0; i < dataRows.length; i++) {
-      const rowData = dataRows[i];
-      const actualRowNumber = i + 1; // For display purposes (row 1, 2, 3...)
+    // Process each row following EasyPost workflow
+    for (let i = 1; i < rows.length; i++) {
+      const rowData = rows[i];
       
       // Skip empty rows
       if (!rowData || rowData.join('').trim() === '') {
-        console.log(`Skipping empty data row ${actualRowNumber}`);
+        console.log(`Skipping empty row ${i}`);
         continue;
       }
       
       try {
-        console.log(`Processing EasyPost data row ${actualRowNumber}:`, rowData);
+        console.log(`Processing EasyPost row ${i}:`, rowData);
         
         // Extract recipient details safely following EasyPost format
         const getValue = (index: number) => index >= 0 && index < rowData.length ? rowData[index]?.trim() : '';
@@ -325,17 +306,17 @@ serve(async (req) => {
 
         const reference = getValue(fieldIndexes.reference);
         
-        console.log(`Data row ${actualRowNumber} to_address:`, toAddress);
-        console.log(`Data row ${actualRowNumber} parcel:`, parcel);
+        console.log(`Row ${i} to_address:`, toAddress);
+        console.log(`Row ${i} parcel:`, parcel);
         
         // Validate required address fields
         if (!toAddress.to_name || !toAddress.to_street1 || !toAddress.to_city || 
             !toAddress.to_state || !toAddress.to_zip) {
-          throw new Error(`Missing required fields in data row ${actualRowNumber}: to_name, to_street1, to_city, to_state, to_zip are required`);
+          throw new Error(`Missing required fields in row ${i}: to_name, to_street1, to_city, to_state, to_zip are required`);
         }
         
         // Create EasyPost shipment and fetch live rates
-        console.log(`Creating EasyPost shipment for data row ${actualRowNumber}`);
+        console.log(`Creating EasyPost shipment for row ${i}`);
         const { shipment, rates } = await createShipmentAndFetchRates(
           pickupAddress,
           toAddress,
@@ -343,13 +324,13 @@ serve(async (req) => {
           reference
         );
         
-        console.log(`Created shipment ${shipment.id} with ${rates.length} live rates for data row ${actualRowNumber}`);
+        console.log(`Created shipment ${shipment.id} with ${rates.length} live rates for row ${i}`);
         
         // Select cheapest rate by default
         const selectedRate = rates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate))[0];
         
         if (!selectedRate) {
-          throw new Error(`No shipping rates available for data row ${actualRowNumber}`);
+          throw new Error(`No shipping rates available for row ${i}`);
         }
         
         // Create shipment result with proper customer details
@@ -359,7 +340,7 @@ serve(async (req) => {
           tracking_code: '',
           label_url: '',
           status: "completed",
-          row: actualRowNumber,
+          row: i,
           recipient: toAddress.to_name,
           carrier: selectedRate.carrier,
           service: selectedRate.service,
@@ -391,12 +372,12 @@ serve(async (req) => {
         };
         
         processedShipments.push(shipmentResult);
-        console.log(`Successfully processed EasyPost data row ${actualRowNumber}`);
+        console.log(`Successfully processed EasyPost row ${i}`);
         
       } catch (error) {
-        console.error(`Error processing data row ${actualRowNumber}:`, error);
+        console.error(`Error processing row ${i}:`, error);
         failedShipments.push({
-          row: actualRowNumber,
+          row: i,
           error: 'EasyPost Processing Error',
           details: error instanceof Error ? error.message : 'Unknown error occurred'
         });
@@ -408,7 +389,6 @@ serve(async (req) => {
     const totalCost = processedShipments.reduce((sum, shipment) => sum + shipment.rate, 0);
     
     console.log(`EasyPost processing complete: ${successful} successful, ${failed} failed, total cost: $${totalCost}`);
-    console.log(`VERIFICATION: Expected ${total} rows, processed ${successful + failed} rows`);
     
     return new Response(
       JSON.stringify({ 

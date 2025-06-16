@@ -1,46 +1,22 @@
 
 export interface CsvRow {
-  'to_name': string;
-  'to_street1': string;
-  'to_street2': string;
-  'to_city': string;
-  'to_state': string;
-  'to_zip': string;
-  'to_country': string;
-  'weight': string;
-  'length': string;
-  'width': string;
-  'height': string;
-  'reference': string;
+  'Tracking Number': string;
+  'Drop-off Address': string;
+  'Name': string;
+  'Carrier': string;
+  'Dimensions': string;
+  'Weight': string;
+  'Estimated Delivery': string;
 }
 
 export const REQUIRED_HEADERS = [
-  'to_name',
-  'to_street1',
-  'to_street2',
-  'to_city',
-  'to_state',
-  'to_zip',
-  'to_country',
-  'weight',
-  'length',
-  'width',
-  'height',
-  'reference'
-];
-
-// These are the fields that must not be empty.
-export const MANDATORY_HEADERS = [
-  'to_name',
-  'to_street1',
-  'to_city',
-  'to_state',
-  'to_zip',
-  'to_country',
-  'weight',
-  'length',
-  'width',
-  'height'
+  'Tracking Number',
+  'Drop-off Address',
+  'Name',
+  'Carrier',
+  'Dimensions',
+  'Weight',
+  'Estimated Delivery'
 ];
 
 export function validateCsvStructure(csvContent: string): {
@@ -98,8 +74,7 @@ export function parseCsvToRows(csvContent: string): CsvRow[] {
   const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
   
   return lines.slice(1).map(line => {
-    // This regex handles commas inside quoted fields
-    const values = (line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || []).map(v => v.trim().replace(/"/g, ''));
+    const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
     const row: any = {};
     
     headers.forEach((header, index) => {
@@ -113,7 +88,7 @@ export function parseCsvToRows(csvContent: string): CsvRow[] {
 export function generateCsvFromRows(rows: CsvRow[]): string {
   const headers = REQUIRED_HEADERS.join(',');
   const dataRows = rows.map(row => 
-    REQUIRED_HEADERS.map(header => `"${(row as any)[header] || ''}"`).join(',')
+    REQUIRED_HEADERS.map(header => `"${row[header] || ''}"`).join(',')
   );
   
   return [headers, ...dataRows].join('\n');

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,7 +8,8 @@ import AddressForm from '../AddressForm';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { supabase } from '@/integrations/supabase/client';
 import CsvEditAndReview from './CsvEditAndReview';
-import { validateCsvStructure, REQUIRED_HEADERS, MANDATORY_HEADERS, parseCsvToRows, generateCsvFromRows } from '@/utils/csvValidator';
+import { validateCsvStructure, REQUIRED_HEADERS } from '@/utils/csvValidator';
+import { parseCsvToRows, generateCsvFromRows } from '@/utils/csvValidator';
 
 export interface BulkUploadFormProps {
   onUploadSuccess: (results: any) => void;
@@ -122,8 +122,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       // Check for missing data
       let hasEmpty = false;
       rows.forEach(row => {
-        MANDATORY_HEADERS.forEach(header => {
-          if (!(row as any)[header] || (row as any)[header].trim() === "") {
+        REQUIRED_HEADERS.forEach(header => {
+          if (!row[header] || row[header].trim() === "") {
             hasEmpty = true;
           }
         });
@@ -192,8 +192,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     // Check for missing
     let hasMissing = false;
     csvRows.forEach(row => {
-      MANDATORY_HEADERS.forEach(header => {
-        if (!(row as any)[header] || (row as any)[header].toString().trim() === "") {
+      REQUIRED_HEADERS.forEach(header => {
+        if (!row[header] || row[header].toString().trim() === "") {
           hasMissing = true;
         }
       });
@@ -361,7 +361,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
           <CsvEditAndReview 
             rows={csvRows}
             headers={csvHeaders}
-            requiredHeaders={MANDATORY_HEADERS}
+            requiredHeaders={REQUIRED_HEADERS}
             onDone={handleCsvEditAndReviewDone}
           />
         )}
