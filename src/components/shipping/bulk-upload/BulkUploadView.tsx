@@ -2,12 +2,13 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Package, Download, PrinterIcon, AlertTriangle, X } from 'lucide-react';
+import { Upload, FileText, Package, Download, PrinterIcon, AlertTriangle, X, Eye } from 'lucide-react';
 import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
 import LabelGenerationProgress from './LabelGenerationProgress';
-import PrintPreview from '@/components/shipping/PrintPreview';
+import ConsolidatedLabelModal from './ConsolidatedLabelModal';
+import IndividualLabelPreview from './IndividualLabelPreview';
 import { useBulkUpload } from './useBulkUpload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -50,6 +51,11 @@ const BulkUploadView: React.FC = () => {
     setPickupAddress
   } = useBulkUpload();
 
+  const [consolidatedModalOpen, setConsolidatedModalOpen] = React.useState(false);
+  const [individualPreviewOpen, setIndividualPreviewOpen] = React.useState(false);
+  const [selectedLabelUrl, setSelectedLabelUrl] = React.useState('');
+  const [selectedTrackingCode, setSelectedTrackingCode] = React.useState<string | null>(null);
+
   const handleUploadSuccess = (uploadResults: any) => {
     console.log('Upload successful:', uploadResults);
   };
@@ -61,6 +67,19 @@ const BulkUploadView: React.FC = () => {
   const handlePickupAddressSelect = (address: any) => {
     setPickupAddress(address);
   };
+
+  const handleOpenConsolidatedPreview = () => {
+    setConsolidatedModalOpen(true);
+  };
+
+  const handleOpenIndividualPreview = (labelUrl: string, trackingCode: string | null) => {
+    setSelectedLabelUrl(labelUrl);
+    setSelectedTrackingCode(trackingCode);
+    setIndividualPreviewOpen(true);
+  };
+
+  // Get customer email from first shipment for email functionality
+  const customerEmail = results?.processedShipments?.[0]?.details?.to_email || '';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -175,9 +194,7 @@ const BulkUploadView: React.FC = () => {
                 isFetchingRates={isFetchingRates}
                 onSelectRate={handleSelectRate}
                 onRemoveShipment={handleRemoveShipment}
-                onEditShipment={(shipmentId: string, details: any) => {
-                  console.log('Edit shipment:', shipmentId, details);
-                }}
+                onEditShipment={handleEditShipment}
                 onRefreshRates={() => {}}
               />
             </div>
@@ -185,25 +202,25 @@ const BulkUploadView: React.FC = () => {
             {/* Create Labels Button */}
             <div className="mt-6 flex justify-between items-center">
               <div className="flex gap-2">
-                {results?.batchResult?.consolidatedLabelUrls?.pdf && !labelGenerationProgress.isGenerating && (
-                  <Button
-                    onClick={() => handleDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
-                    variant="outline"
-                    className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Download Batch PDF
-                  </Button>
-                )}
                 {results?.batchResult && !labelGenerationProgress.isGenerating && (
-                  <Button
-                    onClick={handleOpenBatchPrintPreview}
-                    variant="outline"
-                    className="text-purple-600 border-purple-600 hover:bg-purple-50"
-                  >
-                    <PrinterIcon className="mr-2 h-4 w-4" />
-                    Print Preview
-                  </Button>
+                  <>
+                    <Button
+                      onClick={handleOpenConsolidatedPreview}
+                      variant="outline"
+                      className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      Preview All Labels
+                    </Button>
+                    <Button
+                      onClick={() => handleDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
+                      variant="outline"
+                      className="text-green-600 border-green-600 hover:bg-green-50"
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Download Batch PDF
+                    </Button>
+                  </>
                 )}
               </div>
               
@@ -223,32 +240,49 @@ const BulkUploadView: React.FC = () => {
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="min-h-screen bg-gray-50">
           <div className="max-w-7xl mx-auto p-6">
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Label Creation Complete</h1>
-              <p className="text-gray-600">Your shipping labels have been generated successfully.</p>
+            <div className="mb-6 flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Label Creation Complete</h1>
+                <p className="text-gray-600">Your shipping labels have been generated successfully.</p>
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleOpenConsolidatedPreview}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Eye className="mr-2 h-4 w-4" />
+                  Preview All Labels
+                </Button>
+              </div>
             </div>
             
             {results.processedShipments && results.processedShipments.length > 0 && (
               <LabelResultsTable
                 shipments={results.processedShipments || []}
                 onDownloadLabel={handleDownloadSingleLabel}
+                onPreviewLabel={handleOpenIndividualPreview}
               />
             )}
           </div>
         </div>
       )}
 
-      {/* Batch Print Preview Modal */}
-      {results?.batchResult && (
-        <PrintPreview
-          isOpenProp={batchPrintPreviewModalOpen}
-          onOpenChangeProp={setBatchPrintPreviewModalOpen}
-          labelUrl=""
-          trackingCode={null}
-          batchResult={results.batchResult}
-          isBatchPreview={true}
-        />
-      )}
+      {/* Consolidated Label Preview Modal */}
+      <ConsolidatedLabelModal
+        isOpen={consolidatedModalOpen}
+        onClose={() => setConsolidatedModalOpen(false)}
+        batchResult={results?.batchResult || null}
+        customerEmail={customerEmail}
+      />
+
+      {/* Individual Label Preview Modal */}
+      <IndividualLabelPreview
+        isOpen={individualPreviewOpen}
+        onClose={() => setIndividualPreviewOpen(false)}
+        labelUrl={selectedLabelUrl}
+        trackingCode={selectedTrackingCode}
+      />
     </div>
   );
 };

@@ -81,7 +81,12 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
         ) : (
           <div>
             <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
-            <div className="text-sm text-gray-500">{shipment.customer_address?.street1}</div>
+            <div className="text-sm text-gray-500">
+              {typeof shipment.customer_address === 'string' 
+                ? shipment.customer_address 
+                : shipment.customer_address?.street1 || 'No address'
+              }
+            </div>
           </div>
         )}
       </TableCell>
