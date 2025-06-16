@@ -10,8 +10,6 @@ import ShipToPage from "./pages/ShipToPage";
 import PaymentPage from "./pages/PaymentPage";
 import BulkUpload from "./components/shipping/BulkUpload";
 import BulkRateFetchingPage from "./pages/BulkRateFetchingPage";
-import Settings from "./pages/Settings";
-import RateCalculator from "./pages/RateCalculator";
 
 const queryClient = new QueryClient();
 
@@ -29,8 +27,6 @@ function App() {
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/bulk-upload" element={<BulkUpload />} />
             <Route path="/bulk-rates" element={<BulkRateFetchingPage />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/rate-calculator" element={<RateCalculator />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

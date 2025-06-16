@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,8 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/components/ui/sonner';
-import { ArrowLeft, Info, Sparkles, Edit, Truck, Shield, Calculator } from 'lucide-react';
-import { BulkUploadResult, BulkShipment } from '@/types/shipping';
+import { ArrowLeft, Info, Sparkles, Edit, Truck, Shield } from 'lucide-react';
+import { BulkShipment } from '@/types/shipping';
 import { useBulkUpload } from '@/components/shipping/bulk-upload/useBulkUpload';
 import BulkShipmentEditModal from '@/components/shipping/bulk-upload/BulkShipmentEditModal';
 import CarrierLogo from '@/components/shipping/CarrierLogo';
@@ -47,8 +47,7 @@ const AI_OPTIONS = [
 
 const BulkRateFetchingPage: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { results, updateResults, handleSelectRate, handleEditShipment, handleRemoveShipment } = useBulkUpload();
+  const { results, handleSelectRate, handleEditShipment } = useBulkUpload();
   
   const [insurance, setInsurance] = useState<Record<string, InsuranceData>>({});
   const [editingShipment, setEditingShipment] = useState<BulkShipment | null>(null);
@@ -128,7 +127,7 @@ const BulkRateFetchingPage: React.FC = () => {
       return;
     }
 
-    const updatedShipments = shipments.map(shipment => {
+    shipments.forEach(shipment => {
       // Find matching rate for this carrier/service
       const matchingRate = shipment.availableRates?.find(
         rate => rate.carrier.toLowerCase() === selectedCarrier.toLowerCase() && 
@@ -136,24 +135,9 @@ const BulkRateFetchingPage: React.FC = () => {
       );
 
       if (matchingRate) {
-        return {
-          ...shipment,
-          selectedRateId: matchingRate.id,
-          carrier: matchingRate.carrier,
-          service: matchingRate.service,
-          rate: parseFloat(matchingRate.rate)
-        };
+        handleSelectRate(shipment.id, matchingRate.id);
       }
-
-      return shipment;
     });
-
-    if (results) {
-      updateResults({
-        ...results,
-        processedShipments: updatedShipments
-      });
-    }
 
     toast.success(`Applied ${selectedCarrier} ${selectedService} to all eligible shipments`);
   };
@@ -175,29 +159,9 @@ const BulkRateFetchingPage: React.FC = () => {
 
       if (data?.recommendations) {
         // Apply AI recommendations
-        const updatedShipments = shipments.map(shipment => {
-          const recommendation = data.recommendations.find((r: any) => r.shipmentId === shipment.id);
-          if (recommendation) {
-            const recommendedRate = shipment.availableRates?.find(rate => rate.id === recommendation.rateId);
-            if (recommendedRate) {
-              return {
-                ...shipment,
-                selectedRateId: recommendedRate.id,
-                carrier: recommendedRate.carrier,
-                service: recommendedRate.service,
-                rate: parseFloat(recommendedRate.rate)
-              };
-            }
-          }
-          return shipment;
+        data.recommendations.forEach((recommendation: any) => {
+          handleSelectRate(recommendation.shipmentId, recommendation.rateId);
         });
-
-        if (results) {
-          updateResults({
-            ...results,
-            processedShipments: updatedShipments
-          });
-        }
 
         toast.success(`AI optimized rates for ${data.optimizedCount} shipments`);
       }
@@ -216,17 +180,7 @@ const BulkRateFetchingPage: React.FC = () => {
 
   // Handle edit save with immediate UI update
   const handleEditSave = (updatedShipment: BulkShipment) => {
-    const updatedShipments = shipments.map(s => 
-      s.id === updatedShipment.id ? updatedShipment : s
-    );
-
-    if (results) {
-      updateResults({
-        ...results,
-        processedShipments: updatedShipments
-      });
-    }
-
+    handleEditShipment(updatedShipment.id, updatedShipment);
     setEditingShipment(null);
     toast.success('Shipment updated successfully');
   };
@@ -454,7 +408,7 @@ const BulkRateFetchingPage: React.FC = () => {
                                 <span className="text-xs">Value:</span>
                                 <Input
                                   type="number"
-                                  value={shipmentInsurance.declaredValue}
+                                  value={shipmentInsurance.declaredValue.toString()}
                                   onChange={(e) => updateInsurance(shipment.id, 'declaredValue', Number(e.target.value))}
                                   className="w-20 h-6 text-xs"
                                   min="1"
@@ -514,7 +468,6 @@ const BulkRateFetchingPage: React.FC = () => {
             <Button 
               className="bg-green-600 hover:bg-green-700"
               onClick={() => {
-                // Proceed to label creation with insurance data
                 navigate('/bulk-upload?step=create-labels', { 
                   state: { insuranceData: insurance }
                 });
