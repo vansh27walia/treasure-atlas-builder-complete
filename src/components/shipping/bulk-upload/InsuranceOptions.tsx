@@ -21,7 +21,8 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
   onInsuranceToggle,
   onDeclaredValueChange
 }) => {
-  const insuranceCost = insuranceEnabled ? (declaredValue * 0.02) : 0;
+  // Fixed $2 for up to $100 coverage
+  const insuranceCost = insuranceEnabled && declaredValue <= 100 ? 2.00 : 0;
 
   return (
     <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -37,7 +38,7 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs">
-                  Up to $100 covered by most carriers by default. Additional value insured via EasyPost at 2% of declared amount.
+                  $2.00 covers up to $100 declared value. Additional coverage available at standard rates.
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -63,6 +64,7 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
             disabled={!insuranceEnabled}
             className="mt-1"
             min="0"
+            max="100"
             step="1"
           />
         </div>
@@ -71,6 +73,11 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
           <div className="text-sm font-semibold text-green-600">
             ${insuranceCost.toFixed(2)}
           </div>
+          {declaredValue > 100 && insuranceEnabled && (
+            <div className="text-xs text-orange-600">
+              >$100 requires custom rate
+            </div>
+          )}
         </div>
       </div>
     </div>
