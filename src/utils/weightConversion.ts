@@ -15,27 +15,29 @@ export const convertPoundsToOunces = (pounds: number): number => {
 
 export const formatWeightDisplay = (ounces: number): string => {
   const pounds = convertOuncesToPounds(ounces);
-  if (pounds < 1) {
-    return `${ounces} oz`;
-  }
   return `${pounds} lb`;
 };
 
-export const parseWeightInput = (input: string): number => {
+export const parseWeightInput = (input: string | number): number => {
   // Parse weight input and convert to ounces for backend
-  const value = parseFloat(input);
+  const value = typeof input === 'string' ? parseFloat(input) : input;
   if (isNaN(value)) return 0;
   
-  // If input contains 'lb' or 'pound', convert to ounces
-  if (input.toLowerCase().includes('lb') || input.toLowerCase().includes('pound')) {
+  // If input is string and contains 'lb' or 'pound', convert to ounces
+  if (typeof input === 'string' && (input.toLowerCase().includes('lb') || input.toLowerCase().includes('pound'))) {
     return convertPoundsToOunces(value);
   }
   
-  // If input contains 'oz' or 'ounce', return as is
-  if (input.toLowerCase().includes('oz') || input.toLowerCase().includes('ounce')) {
+  // If input is string and contains 'oz' or 'ounce', return as is
+  if (typeof input === 'string' && (input.toLowerCase().includes('oz') || input.toLowerCase().includes('ounce'))) {
     return value;
   }
   
   // Default to treating as pounds for user-friendly input
   return convertPoundsToOunces(value);
+};
+
+export const displayWeightInPounds = (weightInOunces: number): string => {
+  const pounds = convertOuncesToPounds(weightInOunces);
+  return `${pounds} lb`;
 };

@@ -63,103 +63,64 @@ const BulkUploadView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-4 space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-          <Upload className="mr-3 h-8 w-8 text-blue-600" />
-          Bulk Shipping Upload
-        </h1>
-        
-        <div className="flex gap-2 flex-wrap justify-center sm:justify-end">
-          {uploadStatus === 'success' && results?.batchResult?.consolidatedLabelUrls?.pdf && !labelGenerationProgress.isGenerating && (
-            <Button
-              onClick={() => handleDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
-              variant="default"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Download Batch PDF
-            </Button>
-          )}
-          {uploadStatus === 'success' && results?.batchResult && !labelGenerationProgress.isGenerating && (
-            <Button
-              onClick={handleOpenBatchPrintPreview}
-              variant="default"
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              <PrinterIcon className="mr-2 h-4 w-4" />
-              Print/Download Batch Output
-            </Button>
-          )}
-          <Button
-            onClick={handleDownloadTemplate}
-            variant="outline"
-            className="flex items-center space-x-2"
-          >
-            <FileText className="h-4 w-4" />
-            <span>Download Template</span>
-          </Button>
-        </div>
-      </div>
-
-      {/* Batch Error Alert */}
-      {batchError && (
-        <Alert className="border-red-200 bg-red-50">
-          <AlertTriangle className="h-4 w-4 text-red-600" />
-          <AlertDescription className="flex items-center justify-between">
-            <div>
-              <strong>Batch halted.</strong> Package #{batchError.packageNumber} couldn't be processed with the selected carrier. 
-              Please select a different carrier or fix the label details to proceed.
-              <div className="mt-1 text-sm text-red-700">
-                Error: {batchError.error}
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleClearBatchError}
-              className="text-red-600 hover:text-red-800"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* File Upload Section */}
+    <div className="min-h-screen bg-gray-50">
+      {/* File Upload Section - Only show when idle */}
       {uploadStatus === 'idle' && (
-        <Card className="p-6">
-          <BulkUploadForm
-            onUploadSuccess={handleUploadSuccess}
-            onUploadFail={handleUploadFail}
-            onPickupAddressSelect={handlePickupAddressSelect}
-            isUploading={isUploading}
-            progress={progress}
-            handleUpload={handleUpload}
-          />
-        </Card>
+        <div className="max-w-4xl mx-auto p-6">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center justify-center">
+              <Upload className="mr-3 h-8 w-8 text-blue-600" />
+              Bulk Shipping Upload
+            </h1>
+            <p className="text-gray-600 mt-2">Upload your CSV file to create multiple shipping labels</p>
+          </div>
+          
+          <Card className="p-6">
+            <BulkUploadForm
+              onUploadSuccess={handleUploadSuccess}
+              onUploadFail={handleUploadFail}
+              onPickupAddressSelect={handlePickupAddressSelect}
+              isUploading={isUploading}
+              progress={progress}
+              handleUpload={handleUpload}
+            />
+          </Card>
+          
+          <div className="mt-6 text-center">
+            <Button
+              onClick={handleDownloadTemplate}
+              variant="outline"
+              className="flex items-center space-x-2"
+            >
+              <FileText className="h-4 w-4" />
+              <span>Download Template</span>
+            </Button>
+          </div>
+        </div>
       )}
 
-      {/* Progress Section */}
-      {(uploadStatus === 'uploading' || uploadStatus === 'editing' && !results?.processedShipments?.length) && (
-        <Card className="p-6">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <h3 className="text-lg font-semibold mb-2">Processing Your Upload</h3>
-            <p className="text-gray-600">Please wait while we process your shipment data...</p>
-            {progress > 0 && progress < 100 && (
-              <div className="mt-4">
-                <div className="bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-                    style={{ width: `${progress}%` }}
-                  ></div>
+      {/* Processing Section */}
+      {(uploadStatus === 'uploading' || (uploadStatus === 'editing' && !results?.processedShipments?.length)) && (
+        <div className="min-h-screen flex items-center justify-center">
+          <Card className="p-8 max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <h3 className="text-lg font-semibold mb-2">Processing Your Upload</h3>
+              <p className="text-gray-600">Please wait while we process your shipment data...</p>
+              {progress > 0 && progress < 100 && (
+                <div className="mt-4">
+                  <div className="bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                      style={{ width: `${progress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">{progress}% complete</p>
                 </div>
-                <p className="text-sm text-gray-500 mt-2">{progress}% complete</p>
-              </div>
-            )}
-          </div>
-        </Card>
+              )}
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Label Generation Progress */}
@@ -173,28 +134,79 @@ const BulkUploadView: React.FC = () => {
         estimatedTimeRemaining={labelGenerationProgress.estimatedTimeRemaining}
       />
 
-      {/* Shipment Rates Section - Now shows as full page instead of modal */}
+      {/* Rate Selection Full Screen */}
       {uploadStatus === 'editing' && results && results.processedShipments && results.processedShipments.length > 0 && (
-        <div className="w-full">
-          <Card className="p-6">
+        <div className="min-h-screen bg-white">
+          {/* Batch Error Alert */}
+          {batchError && (
+            <div className="bg-red-50 border-b border-red-200 p-4">
+              <Alert className="border-red-200 bg-red-50 max-w-6xl mx-auto">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="flex items-center justify-between">
+                  <div>
+                    <strong>Batch halted.</strong> Package #{batchError.packageNumber} couldn't be processed with the selected carrier. 
+                    Please select a different carrier or fix the label details to proceed.
+                    <div className="mt-1 text-sm text-red-700">
+                      Error: {batchError.error}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearBatchError}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
+
+          <div className="max-w-7xl mx-auto p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Rate Selection & Label Creation</h2>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Rate Selection & Label Creation</h1>
               <p className="text-gray-600">Review shipping rates, configure insurance, and create your labels with AI assistance.</p>
             </div>
             
-            <BulkShipmentsList
-              shipments={filteredShipments}
-              isFetchingRates={isFetchingRates}
-              onSelectRate={handleSelectRate}
-              onRemoveShipment={handleRemoveShipment}
-              onEditShipment={(shipmentId: string, details: any) => {
-                console.log('Edit shipment:', shipmentId, details);
-              }}
-              onRefreshRates={() => {}}
-            />
+            <div className="bg-white rounded-lg shadow-sm border">
+              <BulkShipmentsList
+                shipments={filteredShipments}
+                isFetchingRates={isFetchingRates}
+                onSelectRate={handleSelectRate}
+                onRemoveShipment={handleRemoveShipment}
+                onEditShipment={(shipmentId: string, details: any) => {
+                  console.log('Edit shipment:', shipmentId, details);
+                }}
+                onRefreshRates={() => {}}
+              />
+            </div>
             
             {/* Create Labels Button */}
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex justify-between items-center">
+              <div className="flex gap-2">
+                {results?.batchResult?.consolidatedLabelUrls?.pdf && !labelGenerationProgress.isGenerating && (
+                  <Button
+                    onClick={() => handleDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
+                    variant="outline"
+                    className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Batch PDF
+                  </Button>
+                )}
+                {results?.batchResult && !labelGenerationProgress.isGenerating && (
+                  <Button
+                    onClick={handleOpenBatchPrintPreview}
+                    variant="outline"
+                    className="text-purple-600 border-purple-600 hover:bg-purple-50"
+                  >
+                    <PrinterIcon className="mr-2 h-4 w-4" />
+                    Print Preview
+                  </Button>
+                )}
+              </div>
+              
               <Button
                 onClick={handleCreateLabels}
                 disabled={isCreatingLabels || !filteredShipments.some(s => s.selectedRateId)}
@@ -203,19 +215,26 @@ const BulkUploadView: React.FC = () => {
                 {isCreatingLabels ? 'Creating Labels...' : 'Create Selected Labels'}
               </Button>
             </div>
-          </Card>
+          </div>
         </div>
       )}
 
       {/* Results Section */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
-        <div className="space-y-6">
-          {results.processedShipments && results.processedShipments.length > 0 && (
-            <LabelResultsTable
-              shipments={results.processedShipments || []}
-              onDownloadLabel={handleDownloadSingleLabel}
-            />
-          )}
+        <div className="min-h-screen bg-gray-50">
+          <div className="max-w-7xl mx-auto p-6">
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Label Creation Complete</h1>
+              <p className="text-gray-600">Your shipping labels have been generated successfully.</p>
+            </div>
+            
+            {results.processedShipments && results.processedShipments.length > 0 && (
+              <LabelResultsTable
+                shipments={results.processedShipments || []}
+                onDownloadLabel={handleDownloadSingleLabel}
+              />
+            )}
+          </div>
         </div>
       )}
 

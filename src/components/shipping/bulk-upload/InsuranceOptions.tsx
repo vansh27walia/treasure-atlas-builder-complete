@@ -24,7 +24,7 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
   const insuranceCost = insuranceEnabled ? (declaredValue * 0.02) : 0;
 
   return (
-    <div className="space-y-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+    <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <Label htmlFor={`insurance-${shipmentId}`} className="text-sm font-medium">
@@ -33,7 +33,7 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
-                <Info className="h-4 w-4 text-blue-500" />
+                <Info className="h-4 w-4 text-gray-500" />
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs">

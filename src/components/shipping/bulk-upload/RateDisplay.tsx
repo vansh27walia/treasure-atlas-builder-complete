@@ -16,7 +16,7 @@ const RateDisplay: React.FC<RateDisplayProps> = ({
   deliveryDays
 }) => {
   const rate = typeof actualRate === 'string' ? parseFloat(actualRate) : actualRate;
-  const inflatedRate = rate * 1.75; // 75% higher
+  const inflatedRate = rate * 4; // 300% higher (showing 75% savings)
   const savings = Math.round(((inflatedRate - rate) / inflatedRate) * 100);
 
   return (
