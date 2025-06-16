@@ -113,7 +113,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
           </Label>
           <AddressSelector
             onAddressSelect={handlePickupAddressChange}
-            selectedAddress={pickupAddress}
+            selectedAddressId={pickupAddress?.id}
             placeholder="Choose pickup address for all shipments"
           />
           {!pickupAddress && (
