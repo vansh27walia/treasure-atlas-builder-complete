@@ -60,6 +60,19 @@ const BulkUploadView: React.FC = () => {
     setPickupAddress(address);
   };
 
+  // Create a wrapper function that handles the CSV content and pickup address
+  const handleUploadWrapper = async (csvContent: string, pickupAddress: any) => {
+    // Convert CSV content to a File object for the existing handleUpload function
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const file = new File([blob], 'upload.csv', { type: 'text/csv' });
+    
+    // Set the pickup address first
+    setPickupAddress(pickupAddress);
+    
+    // Then call the original handleUpload with the file
+    await handleUpload(file);
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
@@ -109,7 +122,7 @@ const BulkUploadView: React.FC = () => {
             onPickupAddressSelect={handlePickupAddressSelect}
             isUploading={isUploading}
             progress={progress}
-            handleUpload={handleUpload}
+            handleUpload={handleUploadWrapper}
           />
         </Card>
       )}
