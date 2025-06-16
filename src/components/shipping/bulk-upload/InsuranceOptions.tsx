@@ -25,10 +25,10 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
   const insuranceCost = insuranceEnabled && declaredValue <= 100 ? 2.00 : 0;
 
   return (
-    <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+    <div className="space-y-3 p-3 bg-white rounded-lg border border-gray-300">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <Label htmlFor={`insurance-${shipmentId}`} className="text-sm font-medium">
+          <Label htmlFor={`insurance-${shipmentId}`} className="text-sm font-medium text-gray-700">
             Insurance
           </Label>
           <TooltipProvider>
@@ -75,7 +75,7 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
           </div>
           {declaredValue > 100 && insuranceEnabled && (
             <div className="text-xs text-orange-600">
-              >$100 requires custom rate
+              {'>'} $100 requires custom rate
             </div>
           )}
         </div>
