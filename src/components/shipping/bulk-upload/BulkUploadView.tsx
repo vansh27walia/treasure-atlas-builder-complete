@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,6 @@ const BulkUploadView: React.FC = () => {
     handleSelectRate,
     handleRemoveShipment,
     handleEditShipment,
-    handleRefreshRates,
     handleBulkApplyCarrier,
     handleCreateLabels,
     handleOpenBatchPrintPreview,
@@ -146,24 +146,43 @@ const BulkUploadView: React.FC = () => {
         estimatedTimeRemaining={labelGenerationProgress.estimatedTimeRemaining}
       />
 
-      {/* Shipment Rates Section */}
+      {/* Shipment Rates Section - Now shows as full page instead of modal */}
       {uploadStatus === 'editing' && results && results.processedShipments && results.processedShipments.length > 0 && (
-        <BulkShipmentsList
-          shipments={filteredShipments}
-          isFetchingRates={isFetchingRates}
-          onSelectRate={handleSelectRate}
-          onRemoveShipment={handleRemoveShipment}
-          onEditShipment={(shipmentId: string, details: any) => {
-            console.log('Edit shipment:', shipmentId, details);
-          }}
-          onRefreshRates={handleRefreshRates}
-        />
+        <div className="w-full">
+          <Card className="p-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Rate Selection & Label Creation</h2>
+              <p className="text-gray-600">Review and select shipping rates for each package, then create your labels.</p>
+            </div>
+            
+            <BulkShipmentsList
+              shipments={filteredShipments}
+              isFetchingRates={isFetchingRates}
+              onSelectRate={handleSelectRate}
+              onRemoveShipment={handleRemoveShipment}
+              onEditShipment={(shipmentId: string, details: any) => {
+                console.log('Edit shipment:', shipmentId, details);
+              }}
+              onRefreshRates={() => {}} // Removed refresh functionality as requested
+            />
+            
+            {/* Create Labels Button */}
+            <div className="mt-6 flex justify-end">
+              <Button
+                onClick={handleCreateLabels}
+                disabled={isCreatingLabels || !filteredShipments.some(s => s.selectedRateId)}
+                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
+              >
+                {isCreatingLabels ? 'Creating Labels...' : 'Create Selected Labels'}
+              </Button>
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Results Section */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="space-y-6">
-          {/* BulkLabelDownloadOptions is now replaced by the modal */}
           {results.processedShipments && results.processedShipments.length > 0 && (
             <LabelResultsTable
               shipments={results.processedShipments || []}
@@ -178,11 +197,10 @@ const BulkUploadView: React.FC = () => {
         <PrintPreview
           isOpenProp={batchPrintPreviewModalOpen}
           onOpenChangeProp={setBatchPrintPreviewModalOpen}
-          labelUrl="" // Not relevant for batch preview trigger, content comes from batchResult
-          trackingCode={null} // Batch ID will be shown in modal title
+          labelUrl=""
+          trackingCode={null}
           batchResult={results.batchResult}
           isBatchPreview={true}
-          // No triggerButton prop here, it's controlled by isOpenProp
         />
       )}
     </div>
