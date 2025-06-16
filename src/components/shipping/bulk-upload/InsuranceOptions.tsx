@@ -21,14 +21,13 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
   onInsuranceToggle,
   onDeclaredValueChange
 }) => {
-  // Fixed $2 for up to $100 coverage
-  const insuranceCost = insuranceEnabled && declaredValue <= 100 ? 2.00 : 0;
+  const insuranceCost = insuranceEnabled ? (declaredValue * 0.02) : 0;
 
   return (
-    <div className="space-y-3 p-3 bg-white rounded-lg border border-gray-300">
+    <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <Label htmlFor={`insurance-${shipmentId}`} className="text-sm font-medium text-gray-700">
+          <Label htmlFor={`insurance-${shipmentId}`} className="text-sm font-medium">
             Insurance
           </Label>
           <TooltipProvider>
@@ -38,7 +37,7 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
               </TooltipTrigger>
               <TooltipContent>
                 <p className="max-w-xs">
-                  $2.00 covers up to $100 declared value. Additional coverage available at standard rates.
+                  Up to $100 covered by most carriers by default. Additional value insured via EasyPost at 2% of declared amount.
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -64,7 +63,6 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
             disabled={!insuranceEnabled}
             className="mt-1"
             min="0"
-            max="100"
             step="1"
           />
         </div>
@@ -73,11 +71,6 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
           <div className="text-sm font-semibold text-green-600">
             ${insuranceCost.toFixed(2)}
           </div>
-          {declaredValue > 100 && insuranceEnabled && (
-            <div className="text-xs text-orange-600">
-              {'>'} $100 requires custom rate
-            </div>
-          )}
         </div>
       </div>
     </div>

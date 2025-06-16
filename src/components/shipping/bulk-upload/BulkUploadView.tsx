@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Package, Download, PrinterIcon, AlertTriangle, X, Calendar } from 'lucide-react';
+import { Upload, FileText, Package, Download, PrinterIcon, AlertTriangle, X } from 'lucide-react';
 import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
@@ -60,22 +60,6 @@ const BulkUploadView: React.FC = () => {
 
   const handlePickupAddressSelect = (address: any) => {
     setPickupAddress(address);
-  };
-
-  const getEstimatedDeliveryDate = () => {
-    // Calculate estimated delivery based on selected rates
-    const selectedRates = filteredShipments
-      .filter(s => s.selectedRateId)
-      .map(s => s.availableRates?.find(r => r.id === s.selectedRateId))
-      .filter(Boolean);
-    
-    if (selectedRates.length === 0) return null;
-    
-    const avgDeliveryDays = selectedRates.reduce((sum, rate) => sum + (rate?.delivery_days || 3), 0) / selectedRates.length;
-    const deliveryDate = new Date();
-    deliveryDate.setDate(deliveryDate.getDate() + Math.ceil(avgDeliveryDays));
-    
-    return deliveryDate.toLocaleDateString();
   };
 
   return (
@@ -182,49 +166,7 @@ const BulkUploadView: React.FC = () => {
           <div className="max-w-7xl mx-auto p-6">
             <div className="mb-6">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">Rate Selection & Label Creation</h1>
-              <p className="text-gray-600">Review shipping rates, configure insurance, and create your labels.</p>
-            </div>
-            
-            {/* Action Bar */}
-            <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  {results?.batchResult?.consolidatedLabelUrls?.pdf && !labelGenerationProgress.isGenerating && (
-                    <Button
-                      onClick={() => handleDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
-                      variant="outline"
-                      className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download Batch PDF
-                    </Button>
-                  )}
-                  {results?.batchResult && !labelGenerationProgress.isGenerating && (
-                    <Button
-                      onClick={handleOpenBatchPrintPreview}
-                      variant="outline"
-                      className="text-purple-600 border-purple-600 hover:bg-purple-50"
-                    >
-                      <PrinterIcon className="mr-2 h-4 w-4" />
-                      Print Preview
-                    </Button>
-                  )}
-                  {getEstimatedDeliveryDate() && (
-                    <div className="flex items-center text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
-                      <Calendar className="mr-2 h-4 w-4" />
-                      Est. Delivery: {getEstimatedDeliveryDate()}
-                    </div>
-                  )}
-                </div>
-                
-                <Button
-                  onClick={handleCreateLabels}
-                  disabled={isCreatingLabels || !filteredShipments.some(s => s.selectedRateId)}
-                  className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
-                >
-                  {isCreatingLabels ? 'Creating Labels...' : 'Create Selected Labels'}
-                </Button>
-              </div>
+              <p className="text-gray-600">Review shipping rates, configure insurance, and create your labels with AI assistance.</p>
             </div>
             
             <div className="bg-white rounded-lg shadow-sm border">
@@ -233,9 +175,45 @@ const BulkUploadView: React.FC = () => {
                 isFetchingRates={isFetchingRates}
                 onSelectRate={handleSelectRate}
                 onRemoveShipment={handleRemoveShipment}
-                onEditShipment={handleEditShipment}
+                onEditShipment={(shipmentId: string, details: any) => {
+                  console.log('Edit shipment:', shipmentId, details);
+                }}
                 onRefreshRates={() => {}}
               />
+            </div>
+            
+            {/* Create Labels Button */}
+            <div className="mt-6 flex justify-between items-center">
+              <div className="flex gap-2">
+                {results?.batchResult?.consolidatedLabelUrls?.pdf && !labelGenerationProgress.isGenerating && (
+                  <Button
+                    onClick={() => handleDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
+                    variant="outline"
+                    className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download Batch PDF
+                  </Button>
+                )}
+                {results?.batchResult && !labelGenerationProgress.isGenerating && (
+                  <Button
+                    onClick={handleOpenBatchPrintPreview}
+                    variant="outline"
+                    className="text-purple-600 border-purple-600 hover:bg-purple-50"
+                  >
+                    <PrinterIcon className="mr-2 h-4 w-4" />
+                    Print Preview
+                  </Button>
+                )}
+              </div>
+              
+              <Button
+                onClick={handleCreateLabels}
+                disabled={isCreatingLabels || !filteredShipments.some(s => s.selectedRateId)}
+                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
+              >
+                {isCreatingLabels ? 'Creating Labels...' : 'Create Selected Labels'}
+              </Button>
             </div>
           </div>
         </div>

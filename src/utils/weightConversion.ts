@@ -21,7 +21,7 @@ export const formatWeightDisplay = (ounces: number): string => {
 export const parseWeightInput = (input: string | number): number => {
   // Parse weight input and convert to ounces for backend
   const value = typeof input === 'string' ? parseFloat(input) : input;
-  if (isNaN(value)) return 16; // Default 1 lb in ounces
+  if (isNaN(value)) return 0;
   
   // If input is string and contains 'lb' or 'pound', convert to ounces
   if (typeof input === 'string' && (input.toLowerCase().includes('lb') || input.toLowerCase().includes('pound'))) {
