@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { ArrowRight, CheckCircle, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -139,8 +139,8 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
         <CardContent className="p-8">
           <div className="text-center">
             <RefreshCw className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Analyzing CSV Headers</h3>
-            <p className="text-gray-600">AI is analyzing your CSV structure and suggesting mappings...</p>
+            <h3 className="text-lg font-semibold mb-2">🧠 AI is Analyzing Your CSV Headers</h3>
+            <p className="text-gray-600">Our AI is analyzing your CSV structure and suggesting the best mappings to our shipping template...</p>
           </div>
         </CardContent>
       </Card>
@@ -154,8 +154,9 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
           <div className="text-center">
             <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Analysis Failed</h3>
-            <p className="text-gray-600">Could not analyze the CSV file. Please try again.</p>
-            <Button onClick={onCancel} className="mt-4">
+            <p className="text-gray-600 mb-4">Could not analyze the CSV file. Please try again.</p>
+            <Button onClick={onCancel} variant="outline">
+              <ArrowLeft className="h-4 w-4 mr-2" />
               Go Back
             </Button>
           </div>
@@ -173,25 +174,38 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ArrowRight className="h-5 w-5" />
-            Map CSV Headers to EasyPost Template
+            <ArrowRight className="h-5 w-5 text-blue-600" />
+            🎯 Map Your CSV Headers to EasyPost Template
           </CardTitle>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Badge variant={analysis.suggestions.confidence === 'high' ? 'default' : 'secondary'}>
-              AI Confidence: {analysis.suggestions.confidence}
+              🧠 AI Confidence: {analysis.suggestions.confidence}
             </Badge>
             <Badge variant="outline">
-              {analysis.detectedHeaders.length} headers detected
+              📊 {analysis.detectedHeaders.length} headers detected
+            </Badge>
+            <Badge variant="outline">
+              ✅ {Object.keys(userMappings).length} mapped
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-medium text-blue-800 mb-2">📋 How this works:</h4>
+            <ul className="text-sm text-blue-700 space-y-1">
+              <li>• Review the AI-suggested mappings below</li>
+              <li>• Adjust any mappings that don't look correct</li>
+              <li>• All <span className="font-semibold text-red-600">REQUIRED</span> fields must be mapped</li>
+              <li>• Click "Convert & Proceed" when ready</li>
+            </ul>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {analysis.detectedHeaders.map((detectedHeader) => (
-              <Card key={detectedHeader} className="p-4">
+              <Card key={detectedHeader} className="p-4 border-l-4 border-l-blue-500">
                 <div className="space-y-3">
                   <div className="font-medium text-sm">
-                    Detected: <span className="text-blue-600">{detectedHeader}</span>
+                    📝 Your Header: <span className="text-blue-600 font-mono">{detectedHeader}</span>
                   </div>
                   
                   <Select
@@ -202,18 +216,17 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
                         delete newMappings[detectedHeader];
                         setUserMappings(newMappings);
                       } else {
-                        // Remove any existing mapping to this template header
                         removeMappingForTemplate(value);
                         handleMappingChange(detectedHeader, value);
                       }
                     }}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select mapping..." />
+                      <SelectValue placeholder="🎯 Select mapping..." />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="unmapped">
-                        <span className="text-gray-500">Don't map</span>
+                        <span className="text-gray-500">🚫 Don't map</span>
                       </SelectItem>
                       {analysis.requiredHeaders.map((header) => (
                         <SelectItem 
@@ -222,8 +235,8 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
                           disabled={mappedTemplateHeaders.includes(header) && userMappings[detectedHeader] !== header}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-red-600 text-xs">REQUIRED</span>
-                            <span>{header}</span>
+                            <span className="text-red-600 text-xs font-bold">🔴 REQUIRED</span>
+                            <span className="font-mono">{header}</span>
                           </div>
                         </SelectItem>
                       ))}
@@ -234,8 +247,8 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
                           disabled={mappedTemplateHeaders.includes(header) && userMappings[detectedHeader] !== header}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-blue-600 text-xs">OPTIONAL</span>
-                            <span>{header}</span>
+                            <span className="text-blue-600 text-xs font-bold">🔵 OPTIONAL</span>
+                            <span className="font-mono">{header}</span>
                           </div>
                         </SelectItem>
                       ))}
@@ -245,7 +258,7 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
                   {userMappings[detectedHeader] && (
                     <div className="flex items-center gap-1 text-green-600 text-xs">
                       <CheckCircle className="h-3 w-3" />
-                      Mapped to {userMappings[detectedHeader]}
+                      ✅ Maps to <span className="font-mono">{userMappings[detectedHeader]}</span>
                     </div>
                   )}
                 </div>
@@ -258,13 +271,15 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
             <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-center gap-2 text-red-800 font-medium mb-2">
                 <AlertCircle className="h-4 w-4" />
-                Missing Required Mappings
+                🚨 Missing Required Mappings
               </div>
               <div className="text-red-700 text-sm">
                 The following required fields need to be mapped: {' '}
-                {analysis.requiredHeaders
-                  .filter(header => !mappedTemplateHeaders.includes(header))
-                  .join(', ')}
+                <span className="font-mono font-semibold">
+                  {analysis.requiredHeaders
+                    .filter(header => !mappedTemplateHeaders.includes(header))
+                    .join(', ')}
+                </span>
               </div>
             </div>
           )}
@@ -274,11 +289,13 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="flex items-center gap-2 text-yellow-800 font-medium mb-2">
                 <AlertCircle className="h-4 w-4" />
-                Unmapped Headers
+                ⚠️ Unmapped Headers
               </div>
               <div className="text-yellow-700 text-sm">
                 These headers will be ignored: {' '}
-                {analysis.detectedHeaders.filter(h => !userMappings[h]).join(', ')}
+                <span className="font-mono">
+                  {analysis.detectedHeaders.filter(h => !userMappings[h]).join(', ')}
+                </span>
               </div>
             </div>
           )}
@@ -290,18 +307,22 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
                 isConverting || 
                 analysis.requiredHeaders.some(header => !mappedTemplateHeaders.includes(header))
               }
-              className="flex-1"
+              className="flex-1 bg-green-600 hover:bg-green-700"
             >
               {isConverting ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Converting...
+                  🔄 Converting...
                 </>
               ) : (
-                'Convert & Proceed'
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  ✅ Convert & Proceed
+                </>
               )}
             </Button>
             <Button variant="outline" onClick={onCancel}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
               Cancel
             </Button>
           </div>
