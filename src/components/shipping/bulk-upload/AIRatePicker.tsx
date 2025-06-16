@@ -50,9 +50,11 @@ const AIRatePicker: React.FC<AIRatePickerProps> = ({
             );
             break;
           case 'affordable':
-            bestRate = shipment.availableRates.reduce((prev, curr) => 
-              parseFloat(curr.rate) < parseFloat(prev.rate) ? curr : prev
-            );
+            bestRate = shipment.availableRates.reduce((prev, curr) => {
+              const currRate = typeof curr.rate === 'string' ? parseFloat(curr.rate) : curr.rate;
+              const prevRate = typeof prev.rate === 'string' ? parseFloat(prev.rate) : prev.rate;
+              return currRate < prevRate ? curr : prev;
+            });
             break;
           case '2day':
             bestRate = shipment.availableRates.find(rate => rate.delivery_days === 2) ||
