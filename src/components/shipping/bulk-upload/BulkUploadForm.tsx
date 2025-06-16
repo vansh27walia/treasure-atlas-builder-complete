@@ -7,7 +7,6 @@ import SelectAddressDropdown from '../SelectAddressDropdown';
 import AddressForm from '../AddressForm';
 import CsvHeaderMapper from './CsvHeaderMapper';
 import { addressService, SavedAddress } from '@/services/AddressService';
-import { supabase } from '@/integrations/supabase/client';
 
 export interface BulkUploadFormProps {
   onUploadSuccess: (results: any) => void;
@@ -32,7 +31,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [csvContent, setCsvContent] = useState<string>('');
   const [showHeaderMapper, setShowHeaderMapper] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Load saved addresses when component mounts
   useEffect(() => {
@@ -63,54 +61,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     loadAddresses();
   }, [onPickupAddressSelect]);
 
-  const analyzeCSVHeaders = async (content: string) => {
-    try {
-      setIsAnalyzing(true);
-      console.log('Analyzing CSV headers for AI mapping...');
-      
-      const { data, error } = await supabase.functions.invoke('ai-csv-mapper', {
-        body: {
-          csvContent: content,
-          action: 'analyze'
-        }
-      });
-      
-      if (error) {
-        throw new Error(error.message);
-      }
-      
-      console.log('CSV analysis result:', data);
-      
-      // Check if this looks like our standard template
-      const requiredHeaders = ['to_name', 'to_street1', 'to_city', 'to_state', 'to_zip', 'to_country', 'weight', 'length', 'width', 'height'];
-      const detectedHeaders = data.detectedHeaders || [];
-      
-      // Check if most required headers are present (case-insensitive)
-      const matchingHeaders = requiredHeaders.filter(required => 
-        detectedHeaders.some(detected => detected.toLowerCase() === required.toLowerCase())
-      );
-      
-      console.log(`Template match check: ${matchingHeaders.length}/${requiredHeaders.length} headers match`);
-      
-      // If most headers match, proceed with standard upload
-      if (matchingHeaders.length >= 8) {
-        console.log('CSV appears to match template, proceeding with standard upload');
-        return false; // No mapping needed
-      }
-      
-      // Otherwise, show the mapping interface
-      console.log('CSV needs header mapping, showing mapper interface');
-      return true; // Mapping needed
-      
-    } catch (error) {
-      console.error('Error analyzing CSV:', error);
-      toast.error('Failed to analyze CSV headers: ' + (error instanceof Error ? error.message : 'Unknown error'));
-      return false;
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     
@@ -131,14 +81,13 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       
       setSelectedFile(file);
       
-      // Read file content and analyze headers
+      // Read file content and show header mapper
       const reader = new FileReader();
       reader.onload = async (event) => {
         const content = event.target?.result as string;
         setCsvContent(content);
-        
-        const needsMapping = await analyzeCSVHeaders(content);
-        setShowHeaderMapper(needsMapping);
+        console.log('CSV content loaded, showing header mapper');
+        setShowHeaderMapper(true);
       };
       reader.readAsText(file);
     }
@@ -163,14 +112,13 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       
       setSelectedFile(file);
       
-      // Read file content and analyze headers
+      // Read file content and show header mapper
       const reader = new FileReader();
       reader.onload = async (event) => {
         const content = event.target?.result as string;
         setCsvContent(content);
-        
-        const needsMapping = await analyzeCSVHeaders(content);
-        setShowHeaderMapper(needsMapping);
+        console.log('CSV content loaded from drag/drop, showing header mapper');
+        setShowHeaderMapper(true);
       };
       reader.readAsText(file);
     }
@@ -378,12 +326,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
             </p>
             {selectedFile && !showHeaderMapper && (
               <p className="text-xs text-green-600 mt-2">
-                ✓ File ready for upload
-              </p>
-            )}
-            {isAnalyzing && (
-              <p className="text-xs text-blue-600 mt-2">
-                🧠 Analyzing headers...
+                ✓ File ready for header mapping
               </p>
             )}
           </div>
@@ -402,7 +345,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       <div className="flex justify-end">
         <Button 
           type="submit" 
-          disabled={!selectedFile || !pickupAddress || isUploading || showHeaderMapper || isAnalyzing}
+          disabled={!selectedFile || !pickupAddress || isUploading || showHeaderMapper}
           className="flex items-center gap-2 px-8 py-2"
         >
           {isUploading ? (
