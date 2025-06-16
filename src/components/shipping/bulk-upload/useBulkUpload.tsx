@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -107,7 +106,7 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  const handleCreateLabels = async () => {
+  const handleCreateLabels = async (insuranceData?: Record<string, any>) => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
       return;
@@ -127,12 +126,13 @@ export const useBulkUpload = () => {
       return;
     }
 
+    // Check for any missing rates and stop if found
     const totalShipments = shipmentsArray.length;
     const shipmentsWithRates = shipmentsToProcess.length;
     
     if (shipmentsWithRates !== totalShipments) {
       const missingRates = totalShipments - shipmentsWithRates;
-      toast.error(`${missingRates} shipment(s) are missing rate selections. ALL shipments must have rates selected before creating labels.`);
+      toast.error(`Batch halted. ${missingRates} shipment(s) are missing rate selections. Please select rates for all shipments before creating labels.`);
       console.error(`Rate validation failed: ${shipmentsWithRates}/${totalShipments} shipments have rates selected`);
       return;
     }
@@ -159,23 +159,32 @@ export const useBulkUpload = () => {
         }));
       }, 1000);
 
-      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
-        body: {
-          shipments: shipmentsToProcess, // these should be EasyPost shipment objects or IDs
-          pickupAddress,
-          labelOptions: { // These options might be specific to how 'create-bulk-labels' is implemented
-            // format: 'PDF', // Example, may not be used if backend generates all
-            // size: '4x6',
-            generateBatch: true, // Instruct backend to create an EasyPost Batch
-            generateManifest: true // Instruct backend to attempt Scan Form generation
-          }
+      // Include insurance data in the request
+      const requestBody = {
+        shipments: shipmentsToProcess,
+        pickupAddress,
+        insuranceData: insuranceData || {},
+        labelOptions: {
+          generateBatch: true,
+          generateManifest: true
         }
+      };
+
+      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
+        body: requestBody
       });
 
       clearInterval(progressInterval);
 
       if (error) {
         console.error('Label creation error from Supabase function:', error);
+        
+        // Check if this is a specific shipment failure
+        if (error.message && error.message.includes('Package #')) {
+          toast.error(`Batch halted. ${error.message}`);
+          return;
+        }
+        
         throw new Error(error.message || 'Unknown error from label generation function.');
       }
 
@@ -296,7 +305,14 @@ export const useBulkUpload = () => {
         isGenerating: false,
         currentStep: 'Label generation failed'
       }));
-      toast.error(error instanceof Error ? error.message : 'Failed to create labels');
+      
+      // Handle specific errors that should halt the batch
+      if (error instanceof Error && error.message.includes('Package #')) {
+        toast.error(error.message);
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Failed to create labels');
+      }
+      
       setUploadStatus('error');
     }
   };
