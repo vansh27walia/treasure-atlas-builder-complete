@@ -7,7 +7,6 @@ import SuccessNotification from './bulk-upload/SuccessNotification';
 import UploadError from './bulk-upload/UploadError';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
-import FailedShipmentsTable from './bulk-upload/FailedShipmentsTable';
 import LabelCreationOverlay from './LabelCreationOverlay';
 import StripePaymentModal from './StripePaymentModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
