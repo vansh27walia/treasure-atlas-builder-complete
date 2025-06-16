@@ -12,6 +12,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
 import { Form, FormField, FormItem, FormLabel, FormControl } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
+import { formatWeightDisplay } from '@/utils/weightConversion';
+import InsuranceOptions from './InsuranceOptions';
+import AIRatePicker from './AIRatePicker';
+import RateDisplay from './RateDisplay';
 
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
@@ -31,6 +35,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   onRefreshRates
 }) => {
   const [openDialogs, setOpenDialogs] = useState<Record<string, boolean>>({});
+  const [insuranceSettings, setInsuranceSettings] = useState<Record<string, { enabled: boolean; value: number }>>({});
 
   const handleOpenEditDialog = (shipmentId: string) => {
     setOpenDialogs({
@@ -46,6 +51,32 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     });
   };
 
+  const handleInsuranceToggle = (shipmentId: string, enabled: boolean) => {
+    setInsuranceSettings(prev => ({
+      ...prev,
+      [shipmentId]: {
+        ...prev[shipmentId],
+        enabled,
+        value: prev[shipmentId]?.value || 200
+      }
+    }));
+  };
+
+  const handleDeclaredValueChange = (shipmentId: string, value: number) => {
+    setInsuranceSettings(prev => ({
+      ...prev,
+      [shipmentId]: {
+        ...prev[shipmentId],
+        value,
+        enabled: prev[shipmentId]?.enabled ?? true
+      }
+    }));
+  };
+
+  const handleAIRateSelection = (shipmentId: string, rateId: string) => {
+    onSelectRate(shipmentId, rateId);
+  };
+
   // Helper function to safely format rate as number
   const formatRate = (rate: string | number | undefined): string => {
     if (!rate) return '0.00';
@@ -53,8 +84,19 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     return isNaN(numRate) ? '0.00' : numRate.toFixed(2);
   };
 
+  // Helper function to get insurance settings with defaults
+  const getInsuranceSettings = (shipmentId: string) => {
+    return insuranceSettings[shipmentId] || { enabled: true, value: 200 };
+  };
+
   return (
     <div className="space-y-4">
+      {/* AI Rate Picker */}
+      <AIRatePicker 
+        shipments={shipments}
+        onApplyAISelection={handleAIRateSelection}
+      />
+
       {shipments.length === 0 ? (
         <Card className="p-6 text-center">
           <p className="text-gray-500">No shipments found.</p>
@@ -68,163 +110,184 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 <TableHead className="w-2/12">Customer Details</TableHead>
                 <TableHead className="w-2/12">Shipping Address</TableHead>
                 <TableHead className="w-2/12">Carrier & Service</TableHead>
+                <TableHead className="w-2/12">Insurance</TableHead>
                 <TableHead className="w-1/12">Rate</TableHead>
                 <TableHead className="w-1/12">Status</TableHead>
-                <TableHead className="w-3/12 text-right">Actions</TableHead>
+                <TableHead className="w-1/12 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {shipments.map((shipment) => (
-                <TableRow key={shipment.id}>
-                  <TableCell>{shipment.row}</TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="font-medium">{shipment.details.to_name}</div>
-                      {shipment.details.to_company && (
-                        <div className="text-xs text-gray-500">{shipment.details.to_company}</div>
-                      )}
-                      {shipment.details.to_phone && (
-                        <div className="text-xs text-blue-600">{shipment.details.to_phone}</div>
-                      )}
-                      {shipment.details.to_email && (
-                        <div className="text-xs text-green-600">{shipment.details.to_email}</div>
-                      )}
-                      {shipment.details.reference && (
-                        <div className="text-xs text-gray-500">Ref: {shipment.details.reference}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="text-sm">{shipment.details.to_street1}</div>
-                      {shipment.details.to_street2 && (
-                        <div className="text-sm text-gray-500">{shipment.details.to_street2}</div>
-                      )}
-                      <div className="text-sm">
-                        {shipment.details.to_city}, {shipment.details.to_state} {shipment.details.to_zip}
+              {shipments.map((shipment) => {
+                const insurance = getInsuranceSettings(shipment.id);
+                const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
+                
+                return (
+                  <TableRow key={shipment.id}>
+                    <TableCell>{shipment.row}</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-medium">{shipment.details.to_name}</div>
+                        {shipment.details.to_company && (
+                          <div className="text-xs text-gray-500">{shipment.details.to_company}</div>
+                        )}
+                        {shipment.details.to_phone && (
+                          <div className="text-xs text-blue-600">{shipment.details.to_phone}</div>
+                        )}
+                        {shipment.details.to_email && (
+                          <div className="text-xs text-green-600">{shipment.details.to_email}</div>
+                        )}
+                        {shipment.details.reference && (
+                          <div className="text-xs text-gray-500">Ref: {shipment.details.reference}</div>
+                        )}
                       </div>
-                      <div className="text-xs text-gray-500">{shipment.details.to_country}</div>
-                      <div className="text-xs text-purple-600">
-                        {shipment.details.weight}oz • {shipment.details.length}"×{shipment.details.width}"×{shipment.details.height}"
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="text-sm">{shipment.details.to_street1}</div>
+                        {shipment.details.to_street2 && (
+                          <div className="text-sm text-gray-500">{shipment.details.to_street2}</div>
+                        )}
+                        <div className="text-sm">
+                          {shipment.details.to_city}, {shipment.details.to_state} {shipment.details.to_zip}
+                        </div>
+                        <div className="text-xs text-gray-500">{shipment.details.to_country}</div>
+                        <div className="text-xs text-purple-600">
+                          {formatWeightDisplay(shipment.details.weight || 16)} • {shipment.details.length}"×{shipment.details.width}"×{shipment.details.height}"
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {shipment.status !== 'failed' && shipment.status !== 'error' ? (
-                      <div>
-                        <Select 
-                          value={shipment.selectedRateId}
-                          onValueChange={(value) => onSelectRate(shipment.id, value)}
+                    </TableCell>
+                    <TableCell>
+                      {shipment.status !== 'failed' && shipment.status !== 'error' ? (
+                        <div className="space-y-2">
+                          <Select 
+                            value={shipment.selectedRateId}
+                            onValueChange={(value) => onSelectRate(shipment.id, value)}
+                            disabled={shipment.status === 'pending_rates'}
+                          >
+                            <SelectTrigger className="min-w-[180px]">
+                              <SelectValue placeholder={shipment.status === 'pending_rates' ? "Fetching rates..." : "Select a carrier"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(shipment.availableRates || []).map((rate) => (
+                                <SelectItem key={rate.id} value={rate.id}>
+                                  <div className="w-full">
+                                    <RateDisplay
+                                      actualRate={rate.rate}
+                                      carrier={rate.carrier}
+                                      service={rate.service}
+                                      deliveryDays={rate.delivery_days}
+                                    />
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="bg-red-50 text-red-700">
+                          {shipment.error || 'Error loading rates'}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <InsuranceOptions
+                        shipmentId={shipment.id}
+                        insuranceEnabled={insurance.enabled}
+                        declaredValue={insurance.value}
+                        onInsuranceToggle={handleInsuranceToggle}
+                        onDeclaredValueChange={handleDeclaredValueChange}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {shipment.status !== 'pending_rates' && shipment.selectedRateId && selectedRate ? (
+                        <div className="space-y-1">
+                          <div className="font-semibold">
+                            ${formatRate(selectedRate.rate)}
+                          </div>
+                          {insurance.enabled && (
+                            <div className="text-xs text-blue-600">
+                              +${(insurance.value * 0.02).toFixed(2)} ins.
+                            </div>
+                          )}
+                        </div>
+                      ) : shipment.status === 'pending_rates' ? (
+                        <Skeleton className="h-6 w-16" />
+                      ) : (
+                        <span className="text-gray-500">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {['completed', 'rate_selected', 'rates_fetched', 'label_purchased'].includes(shipment.status) ? (
+                        <Badge className="bg-green-100 text-green-700 border-green-200">
+                          <PackageCheck className="mr-1 h-3 w-3" />
+                          Ready
+                        </Badge>
+                      ) : shipment.status === 'pending_rates' ? (
+                        <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                          <Package className="mr-1 h-3 w-3 animate-pulse" />
+                          Processing
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-red-100 text-red-700 border-red-200">
+                          <X className="mr-1 h-3 w-3" />
+                          Error
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end space-x-2">
+                        <Dialog open={openDialogs[shipment.id]} onOpenChange={(open) => {
+                          if (!open) handleCloseEditDialog(shipment.id);
+                        }}>
+                          <DialogTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleOpenEditDialog(shipment.id)}
+                            >
+                              <Edit className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Edit Customer & Shipment Details</DialogTitle>
+                            </DialogHeader>
+                            <ShipmentEditForm
+                              shipment={shipment}
+                              onSubmit={(data) => {
+                                onEditShipment(shipment.id, data);
+                                handleCloseEditDialog(shipment.id);
+                              }}
+                              onCancel={() => handleCloseEditDialog(shipment.id)}
+                            />
+                          </DialogContent>
+                        </Dialog>
+
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => onRefreshRates(shipment.id)}
                           disabled={shipment.status === 'pending_rates'}
                         >
-                          <SelectTrigger className="min-w-[180px]">
-                            <SelectValue placeholder={shipment.status === 'pending_rates' ? "Fetching rates..." : "Select a carrier"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {(shipment.availableRates || []).map((rate) => (
-                              <SelectItem key={rate.id} value={rate.id}>
-                                <span className="flex items-center">
-                                  <Truck className="mr-2 h-4 w-4" />
-                                  <span>
-                                    {rate.carrier} - {rate.service}
-                                    <span className="ml-2 text-xs text-gray-500">
-                                      ({rate.delivery_days} days) - ${formatRate(rate.rate)}
-                                    </span>
-                                  </span>
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ) : (
-                      <Badge variant="outline" className="bg-red-50 text-red-700">
-                        {shipment.error || 'Error loading rates'}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {shipment.status !== 'pending_rates' && shipment.selectedRateId ? (
-                      <div className="font-semibold">
-                        ${formatRate(shipment.availableRates?.find(r => r.id === shipment.selectedRateId)?.rate)}
-                      </div>
-                    ) : shipment.status === 'pending_rates' ? (
-                      <Skeleton className="h-6 w-16" />
-                    ) : (
-                      <span className="text-gray-500">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {['completed', 'rate_selected', 'rates_fetched', 'label_purchased'].includes(shipment.status) ? (
-                      <Badge className="bg-green-100 text-green-700 border-green-200">
-                        <PackageCheck className="mr-1 h-3 w-3" />
-                        Ready
-                      </Badge>
-                    ) : shipment.status === 'pending_rates' ? (
-                      <Badge className="bg-blue-100 text-blue-700 border-blue-200">
-                        <Package className="mr-1 h-3 w-3 animate-pulse" />
-                        Processing
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-red-100 text-red-700 border-red-200">
-                        <X className="mr-1 h-3 w-3" />
-                        Error
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end space-x-2">
-                      <Dialog open={openDialogs[shipment.id]} onOpenChange={(open) => {
-                        if (!open) handleCloseEditDialog(shipment.id);
-                      }}>
-                        <DialogTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleOpenEditDialog(shipment.id)}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Edit Customer & Shipment Details</DialogTitle>
-                          </DialogHeader>
-                          <ShipmentEditForm
-                            shipment={shipment}
-                            onSubmit={(data) => {
-                              onEditShipment(shipment.id, data);
-                              handleCloseEditDialog(shipment.id);
-                            }}
-                            onCancel={() => handleCloseEditDialog(shipment.id)}
-                          />
-                        </DialogContent>
-                      </Dialog>
+                          <RefreshCcw className={`h-4 w-4 mr-1 ${shipment.status === 'pending_rates' ? 'animate-spin' : ''}`} />
+                          Rates
+                        </Button>
 
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => onRefreshRates(shipment.id)}
-                        disabled={shipment.status === 'pending_rates'}
-                      >
-                        <RefreshCcw className={`h-4 w-4 mr-1 ${shipment.status === 'pending_rates' ? 'animate-spin' : ''}`} />
-                        Rates
-                      </Button>
-
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => onRemoveShipment(shipment.id)}
-                        className="text-red-500 border-red-200 hover:bg-red-50"
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => onRemoveShipment(shipment.id)}
+                          className="text-red-500 border-red-200 hover:bg-red-50"
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Remove
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

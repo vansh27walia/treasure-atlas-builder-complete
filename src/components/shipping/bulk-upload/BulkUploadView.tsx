@@ -2,13 +2,14 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Package, Download, PrinterIcon } from 'lucide-react';
+import { Upload, FileText, Package, Download, PrinterIcon, AlertTriangle, X } from 'lucide-react';
 import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
 import LabelGenerationProgress from './LabelGenerationProgress';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import { useBulkUpload } from './useBulkUpload';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const BulkUploadView: React.FC = () => {
   const {
@@ -25,6 +26,7 @@ const BulkUploadView: React.FC = () => {
     selectedCarrierFilter,
     filteredShipments,
     pickupAddress,
+    batchError,
     labelGenerationProgress,
     batchPrintPreviewModalOpen,
     setBatchPrintPreviewModalOpen,
@@ -36,6 +38,7 @@ const BulkUploadView: React.FC = () => {
     handleBulkApplyCarrier,
     handleCreateLabels,
     handleOpenBatchPrintPreview,
+    handleClearBatchError,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
     handleEmailLabels,
@@ -99,6 +102,30 @@ const BulkUploadView: React.FC = () => {
         </div>
       </div>
 
+      {/* Batch Error Alert */}
+      {batchError && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="flex items-center justify-between">
+            <div>
+              <strong>Batch halted.</strong> Package #{batchError.packageNumber} couldn't be processed with the selected carrier. 
+              Please select a different carrier or fix the label details to proceed.
+              <div className="mt-1 text-sm text-red-700">
+                Error: {batchError.error}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearBatchError}
+              className="text-red-600 hover:text-red-800"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* File Upload Section */}
       {uploadStatus === 'idle' && (
         <Card className="p-6">
@@ -152,7 +179,7 @@ const BulkUploadView: React.FC = () => {
           <Card className="p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Rate Selection & Label Creation</h2>
-              <p className="text-gray-600">Review and select shipping rates for each package, then create your labels.</p>
+              <p className="text-gray-600">Review shipping rates, configure insurance, and create your labels with AI assistance.</p>
             </div>
             
             <BulkShipmentsList
@@ -163,7 +190,7 @@ const BulkUploadView: React.FC = () => {
               onEditShipment={(shipmentId: string, details: any) => {
                 console.log('Edit shipment:', shipmentId, details);
               }}
-              onRefreshRates={() => {}} // Removed refresh functionality as requested
+              onRefreshRates={() => {}}
             />
             
             {/* Create Labels Button */}

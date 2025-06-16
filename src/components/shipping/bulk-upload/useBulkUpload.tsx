@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -12,6 +11,7 @@ import { toast } from '@/components/ui/sonner';
 
 export const useBulkUpload = () => {
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
+  const [batchError, setBatchError] = useState<{ packageNumber: number; error: string; shipmentId: string } | null>(null);
   const [labelGenerationProgress, setLabelGenerationProgress] = useState({
     isGenerating: false,
     totalShipments: 0,
@@ -113,6 +113,9 @@ export const useBulkUpload = () => {
       return;
     }
     
+    // Clear any previous batch errors
+    setBatchError(null);
+    
     let shipmentsArray = [];
     if (Array.isArray(results.processedShipments)) {
       shipmentsArray = results.processedShipments;
@@ -161,13 +164,12 @@ export const useBulkUpload = () => {
 
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
-          shipments: shipmentsToProcess, // these should be EasyPost shipment objects or IDs
+          shipments: shipmentsToProcess,
           pickupAddress,
-          labelOptions: { // These options might be specific to how 'create-bulk-labels' is implemented
-            // format: 'PDF', // Example, may not be used if backend generates all
-            // size: '4x6',
-            generateBatch: true, // Instruct backend to create an EasyPost Batch
-            generateManifest: true // Instruct backend to attempt Scan Form generation
+          labelOptions: {
+            generateBatch: true,
+            generateManifest: true,
+            haltOnFailure: true
           }
         }
       });
@@ -176,6 +178,36 @@ export const useBulkUpload = () => {
 
       if (error) {
         console.error('Label creation error from Supabase function:', error);
+        
+        // Check if this is a batch halt error
+        if (error.message && error.message.includes('Batch halted')) {
+          const errorMatch = error.message.match(/Package #(\d+)/);
+          const packageNumber = errorMatch ? parseInt(errorMatch[1]) : 1;
+          const failedShipment = shipmentsToProcess[packageNumber - 1];
+          
+          setBatchError({
+            packageNumber,
+            error: error.message,
+            shipmentId: failedShipment?.id || 'unknown'
+          });
+          
+          setLabelGenerationProgress({
+            isGenerating: false,
+            totalShipments: shipmentsToProcess.length,
+            processedShipments: packageNumber - 1,
+            successfulShipments: 0,
+            failedShipments: 1,
+            currentStep: 'Batch halted due to error',
+            estimatedTimeRemaining: 0
+          });
+          
+          toast.error(`Batch halted. Package #${packageNumber} couldn't be processed. Please fix the issue to continue.`, {
+            duration: 10000
+          });
+          
+          return;
+        }
+        
         throw new Error(error.message || 'Unknown error from label generation function.');
       }
 
@@ -188,7 +220,7 @@ export const useBulkUpload = () => {
         setLabelGenerationProgress({
           isGenerating: false,
           totalShipments: expectedLabels,
-          processedShipments: expectedLabels, // Assuming all attempts are "processed"
+          processedShipments: expectedLabels,
           successfulShipments: actualLabels,
           failedShipments: data.failedLabels?.length || (expectedLabels - actualLabels),
           currentStep: 'Label generation complete!',
@@ -201,7 +233,7 @@ export const useBulkUpload = () => {
           );
           return {
             id: labelData.id || originalShipment?.id || `ship_${Date.now()}`,
-            shipment_id: labelData.id, // EasyPost shipment ID
+            shipment_id: labelData.id,
             easypost_id: labelData.id,
             original_shipment_id: labelData.original_shipment_id || originalShipment?.id,
             row: originalShipment?.row || 0,
@@ -213,8 +245,8 @@ export const useBulkUpload = () => {
             rate: parseFloat(labelData.rate) || originalShipment?.rate || 0,
             tracking_code: labelData.tracking_code,
             tracking_number: labelData.tracking_code,
-            label_url: labelData.label_urls?.png || labelData.label_url, // Prioritize PNG from label_urls
-            label_urls: labelData.label_urls || { png: labelData.label_url }, // Ensure label_urls object exists
+            label_url: labelData.label_urls?.png || labelData.label_url,
+            label_urls: labelData.label_urls || { png: labelData.label_url },
             status: 'completed' as const,
             details: originalShipment?.details || {},
             availableRates: originalShipment?.availableRates || [],
@@ -231,10 +263,8 @@ export const useBulkUpload = () => {
             };
         });
 
-
         const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
         
-        // Map backend batchResult (e.g., data.batchDetails) to the BatchResult type used by PrintPreview
         let frontendBatchResult: BatchResult | null = null;
         if (data.batchResult && data.batchResult.batchId) {
             frontendBatchResult = {
@@ -243,10 +273,6 @@ export const useBulkUpload = () => {
                     pdf: data.batchResult.batchLabelUrls?.pdfUrl,
                     zpl: data.batchResult.batchLabelUrls?.zplUrl,
                     epl: data.batchResult.batchLabelUrls?.eplUrl,
-                    // If backend provides zips too, map them here:
-                    // pdfZip: data.batchResult.batchLabelUrls?.pdfZipUrl, 
-                    // zplZip: data.batchResult.batchLabelUrls?.zplZipUrl,
-                    // eplZip: data.batchResult.batchLabelUrls?.eplZipUrl,
                 },
                 scanFormUrl: data.batchResult.scanFormUrl || null,
             };
@@ -275,7 +301,6 @@ export const useBulkUpload = () => {
         } else if (expectedLabels > 0) {
            toast.error(`❌ All ${expectedLabels} label creations failed. Check details.`);
         }
-
 
         if (frontendBatchResult) {
           toast.success('✅ Batch outputs (PDF, ZPL, EPL, Manifest) generated successfully!');
@@ -327,6 +352,10 @@ export const useBulkUpload = () => {
     }
   };
 
+  const handleClearBatchError = () => {
+    setBatchError(null);
+  };
+
   return {
     file,
     isUploading,
@@ -342,6 +371,7 @@ export const useBulkUpload = () => {
     selectedCarrierFilter,
     filteredShipments,
     pickupAddress,
+    batchError,
     setPickupAddress,
     handleFileChange,
     handleUpload: handleFileUpload,
@@ -352,6 +382,7 @@ export const useBulkUpload = () => {
     handleBulkApplyCarrier,
     handleCreateLabels,
     handleOpenBatchPrintPreview,
+    handleClearBatchError,
     batchPrintPreviewModalOpen,
     setBatchPrintPreviewModalOpen,
     handleDownloadAllLabels,
