@@ -52,7 +52,7 @@ const FailedShipmentsTable: React.FC<FailedShipmentsTableProps> = ({
                 </TableCell>
                 <TableCell className="text-sm">
                   <div className="max-w-md">
-                    {shipment.details}
+                    {shipment.details || 'No additional details available'}
                   </div>
                 </TableCell>
               </TableRow>
