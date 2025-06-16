@@ -17,6 +17,34 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   onDownloadLabel,
   onPreviewLabel
 }) => {
+  
+  const getAddressDisplay = (shipment: BulkShipment) => {
+    if (typeof shipment.customer_address === 'string') {
+      return shipment.customer_address;
+    }
+    if (shipment.customer_address && typeof shipment.customer_address === 'object') {
+      return shipment.customer_address.street1 || 'No address';
+    }
+    return 'No address';
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+      case 'label_purchased':
+        return <Badge variant="default">Completed</Badge>;
+      case 'failed':
+      case 'error':
+        return <Badge variant="destructive">Failed</Badge>;
+      case 'pending_rates':
+      case 'rates_fetched':
+      case 'rate_selected':
+        return <Badge variant="secondary">Processing</Badge>;
+      default:
+        return <Badge variant="outline">{status || 'Unknown'}</Badge>;
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
       <div className="p-4 border-b">
@@ -45,10 +73,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                 <div>
                   <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
                   <div className="text-sm text-gray-500">
-                    {typeof shipment.customer_address === 'string' 
-                      ? shipment.customer_address 
-                      : shipment.customer_address?.street1 || 'No address'
-                    }
+                    {getAddressDisplay(shipment)}
                   </div>
                 </div>
               </TableCell>
@@ -65,9 +90,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
               <TableCell>{shipment.service}</TableCell>
               <TableCell>${shipment.rate?.toFixed(2) || '0.00'}</TableCell>
               <TableCell>
-                <Badge variant={shipment.status === 'success' ? 'default' : 'destructive'}>
-                  {shipment.status === 'success' ? 'Completed' : 'Failed'}
-                </Badge>
+                {getStatusBadge(shipment.status)}
               </TableCell>
               <TableCell>
                 <div className="flex items-center space-x-2">
