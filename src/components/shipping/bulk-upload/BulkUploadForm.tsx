@@ -6,6 +6,7 @@ import { CloudUpload, FileUp, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import SelectAddressDropdown from '../SelectAddressDropdown';
 import AddressForm from '../AddressForm';
+import CsvHeaderMapper from './CsvHeaderMapper';
 import { addressService, SavedAddress } from '@/services/AddressService';
 
 export interface BulkUploadFormProps {
