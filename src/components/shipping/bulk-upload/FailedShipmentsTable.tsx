@@ -3,10 +3,15 @@ import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FailedShipmentInfo } from '@/types/shipping';
+
+interface FailedShipment {
+  row: number;
+  error: string;
+  details: string;
+}
 
 interface FailedShipmentsTableProps {
-  shipments: FailedShipmentInfo[];
+  shipments: FailedShipment[];
 }
 
 const FailedShipmentsTable: React.FC<FailedShipmentsTableProps> = ({
@@ -42,7 +47,7 @@ const FailedShipmentsTable: React.FC<FailedShipmentsTableProps> = ({
               <TableRow key={index} className="hover:bg-red-100">
                 <TableCell className="font-mono">
                   <span className="bg-red-200 text-red-900 text-xs font-bold px-2 py-1 rounded">
-                    Row {shipment.row || 'Unknown'}
+                    Row {shipment.row}
                   </span>
                 </TableCell>
                 <TableCell>
@@ -52,7 +57,7 @@ const FailedShipmentsTable: React.FC<FailedShipmentsTableProps> = ({
                 </TableCell>
                 <TableCell className="text-sm">
                   <div className="max-w-md">
-                    {shipment.details || 'No additional details available'}
+                    {shipment.details}
                   </div>
                 </TableCell>
               </TableRow>
