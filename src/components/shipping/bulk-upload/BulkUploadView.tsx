@@ -78,6 +78,14 @@ const BulkUploadView: React.FC = () => {
     setIndividualPreviewOpen(true);
   };
 
+  // Wrapper function to match the expected signature for BulkShipmentsList
+  const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
+    const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+    if (shipment) {
+      handleEditShipment(shipment);
+    }
+  };
+
   // Get customer email from first shipment for email functionality
   const customerEmail = results?.processedShipments?.[0]?.details?.to_email || '';
 
@@ -194,7 +202,7 @@ const BulkUploadView: React.FC = () => {
                 isFetchingRates={isFetchingRates}
                 onSelectRate={handleSelectRate}
                 onRemoveShipment={handleRemoveShipment}
-                onEditShipment={handleEditShipment}
+                onEditShipment={handleEditShipmentWrapper}
                 onRefreshRates={() => {}}
               />
             </div>
