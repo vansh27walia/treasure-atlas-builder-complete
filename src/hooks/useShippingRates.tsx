@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -48,18 +47,17 @@ export const useShippingRates = () => {
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
 
-  // Process and enhance rates with original prices at 85-90% higher than actual rate
+  // Process and enhance rates with inflated prices vs actual prices
   const processRates = (incomingRates: ShippingRate[]) => {
     return incomingRates.map(rate => {
-      // Generate a random discount percentage between 85% and 90%
+      // Generate a realistic inflated rate (85-90% higher than actual rate)
       const discountPercentage = Math.random() * (90 - 85) + 85;
       
-      // Calculate inflated original rate (actual rate + discount percentage)
+      // Calculate inflated original rate
       const actualRate = parseFloat(rate.rate);
-      // Calculate what the "original" price would be before our massive discount
       const inflatedRate = (actualRate * (100 / (100 - discountPercentage))).toFixed(2);
       
-      // Generate premium flag - typically express, overnight, or most expensive services
+      // Generate premium flag
       const isPremium = 
         rate.service.toLowerCase().includes('express') || 
         rate.service.toLowerCase().includes('priority') || 
@@ -67,7 +65,7 @@ export const useShippingRates = () => {
         rate.service.toLowerCase().includes('next day') ||
         rate.service.toLowerCase().includes('same day') ||
         (rate.delivery_days === 1) ||
-        actualRate > 20; // If rate is above $20, consider it a premium service
+        actualRate > 20;
       
       return {
         ...rate,
@@ -113,7 +111,6 @@ export const useShippingRates = () => {
         setTimeout(() => {
           const ratesSection = document.getElementById('shipping-rates-section');
           if (ratesSection) {
-            // Use scrollIntoView with behavior smooth
             ratesSection.scrollIntoView({ 
               behavior: 'smooth', 
               block: 'start'
@@ -204,16 +201,13 @@ export const useShippingRates = () => {
       console.log("Creating label with shipmentId:", effectiveShipmentId, "and rateId:", effectiveRateId);
       console.log("Label options:", labelOptions);
       
-      // Get the selected rate to determine if it's international
       const selectedRate = rates.find(rate => rate.id === effectiveRateId);
       const isInternational = selectedRate?.service?.toLowerCase().includes('international');
       
-      // Choose the appropriate endpoint based on whether it's international
       const endpoint = isInternational ? 'create-international-label' : 'create-label';
       
       console.log(`Using ${endpoint} endpoint for label creation with options:`, labelOptions);
       
-      // Add default label format and size if not provided
       const options = {
         label_format: "PDF",
         label_size: "4x6",
@@ -242,7 +236,6 @@ export const useShippingRates = () => {
       setLabelUrl(data.labelUrl);
       setTrackingCode(data.trackingCode);
       
-      // Force step update to label step
       document.dispatchEvent(new CustomEvent('shipping-step-change', { 
         detail: { step: 'label' }
       }));
@@ -295,14 +288,11 @@ export const useShippingRates = () => {
   const getBestValueRate = () => {
     if (filteredRates.length === 0) return null;
     
-    // Sort by price and delivery days to find the best value
     const sortedRates = [...filteredRates].sort((a, b) => {
-      // First compare price
       const aPrice = parseFloat(a.rate);
       const bPrice = parseFloat(b.rate);
       if (aPrice !== bPrice) return aPrice - bPrice;
       
-      // If price is the same, compare delivery days
       return (a.delivery_days || 999) - (b.delivery_days || 999);
     });
     
@@ -313,7 +303,6 @@ export const useShippingRates = () => {
   const getFastestRate = () => {
     if (filteredRates.length === 0) return null;
     
-    // Sort by delivery days to find the fastest
     const sortedRates = [...filteredRates].sort((a, b) => 
       (a.delivery_days || 999) - (b.delivery_days || 999)
     );

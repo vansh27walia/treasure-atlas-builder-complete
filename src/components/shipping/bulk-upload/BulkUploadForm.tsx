@@ -1,362 +1,176 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { CloudUpload, FileUp, Loader2 } from 'lucide-react';
-import { toast } from '@/components/ui/sonner';
-import SelectAddressDropdown from '../SelectAddressDropdown';
-import AddressForm from '../AddressForm';
-import CsvHeaderMapper from './CsvHeaderMapper';
-import { addressService, SavedAddress } from '@/services/AddressService';
 
-export interface BulkUploadFormProps {
+import React, { useState, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Upload, FileText, AlertCircle } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
+import { SavedAddress } from '@/services/AddressService';
+import AddressSelector from '../AddressSelector';
+import CsvHeaderMapper from './CsvHeaderMapper';
+import { Progress } from '@/components/ui/progress';
+
+interface BulkUploadFormProps {
   onUploadSuccess: (results: any) => void;
   onUploadFail: (error: string) => void;
   onPickupAddressSelect: (address: SavedAddress | null) => void;
-  isUploading?: boolean;
-  progress?: number;
-  handleUpload?: (file: File) => Promise<any>; 
+  isUploading: boolean;
+  progress: number;
+  handleUpload: (csvContent: string, pickupAddress: SavedAddress) => Promise<void>;
 }
 
-const BulkUploadForm: React.FC<BulkUploadFormProps> = ({ 
-  onUploadSuccess, 
+const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
+  onUploadSuccess,
   onUploadFail,
   onPickupAddressSelect,
-  isUploading = false,
-  progress = 0,
+  isUploading,
+  progress,
   handleUpload
 }) => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [showAddNewAddress, setShowAddNewAddress] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
-  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [showMapper, setShowMapper] = useState(false);
   const [csvContent, setCsvContent] = useState<string>('');
-  const [showHeaderMapper, setShowHeaderMapper] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load saved addresses when component mounts
-  useEffect(() => {
-    const loadAddresses = async () => {
-      try {
-        console.log('Loading addresses in BulkUploadForm...');
-        const savedAddresses = await addressService.getSavedAddresses();
-        console.log('Loaded addresses:', savedAddresses);
-        setAddresses(savedAddresses);
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile) {
+      if (selectedFile.type !== 'text/csv' && !selectedFile.name.endsWith('.csv')) {
+        toast.error('Please select a valid CSV file');
+        return;
+      }
+      setFile(selectedFile);
+      
+      // Read the file content and check if mapping is needed
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target?.result as string;
+        setCsvContent(content);
         
-        const defaultFromAddress = savedAddresses.find(addr => addr.is_default_from);
-        if (defaultFromAddress) {
-          console.log('Setting default pickup address:', defaultFromAddress);
-          setPickupAddress(defaultFromAddress);
-          onPickupAddressSelect(defaultFromAddress);
-        } else if (savedAddresses.length > 0) {
-          const firstAddress = savedAddresses[0];
-          console.log('No default found, using first address:', firstAddress);
-          setPickupAddress(firstAddress);
-          onPickupAddressSelect(firstAddress);
-        }
-      } catch (error) {
-        console.error('Error loading addresses:', error);
-        toast.error('Error loading pickup addresses');
-      }
-    };
-    
-    loadAddresses();
-  }, [onPickupAddressSelect]);
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    
-    if (file) {
-      console.log('File selected:', { name: file.name, size: file.size, type: file.type });
-      
-      if (!file.name.toLowerCase().endsWith('.csv')) {
-        toast.error('Please upload a CSV file');
-        e.target.value = '';
-        return;
-      }
-      
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('File is too large. Maximum size is 10MB.');
-        e.target.value = '';
-        return;
-      }
-      
-      setSelectedFile(file);
-      
-      // Read file content and show header mapper
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const content = event.target?.result as string;
-        setCsvContent(content);
-        console.log('CSV content loaded, showing header mapper');
-        setShowHeaderMapper(true);
+        // Always show the mapper for header validation
+        setShowMapper(true);
       };
-      reader.readAsText(file);
+      reader.readAsText(selectedFile);
     }
-  };
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (e.dataTransfer.files.length) {
-      const file = e.dataTransfer.files[0];
-      
-      if (!file.name.toLowerCase().endsWith('.csv')) {
-        toast.error('Please upload a CSV file');
-        return;
-      }
-      
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error('File is too large. Maximum size is 10MB.');
-        return;
-      }
-      
-      setSelectedFile(file);
-      
-      // Read file content and show header mapper
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const content = event.target?.result as string;
-        setCsvContent(content);
-        console.log('CSV content loaded from drag/drop, showing header mapper');
-        setShowHeaderMapper(true);
-      };
-      reader.readAsText(file);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
   };
 
   const handleMappingComplete = async (convertedCsv: string) => {
-    console.log('Header mapping complete, proceeding with converted CSV');
-    
-    // Create a new File object with the converted CSV content
-    const blob = new Blob([convertedCsv], { type: 'text/csv' });
-    const convertedFile = new File([blob], selectedFile?.name || 'converted.csv', { type: 'text/csv' });
-    
-    try {
-      if (handleUpload) {
-        await handleUpload(convertedFile);
-        onUploadSuccess({});
-        setShowHeaderMapper(false);
-      } else {
-        onUploadFail('Upload handler not available');
-      }
-    } catch (error) {
-      console.error('Upload error after mapping:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to process converted file';
-      onUploadFail(errorMessage);
-    }
-  };
-
-  const handleMappingCancel = () => {
-    setShowHeaderMapper(false);
-    setSelectedFile(null);
-    setCsvContent('');
-    // Reset file input
-    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = '';
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    console.log('Form submitted with:', { selectedFile: selectedFile?.name, pickupAddress: pickupAddress?.name });
-    
-    if (!selectedFile) {
-      toast.error('Please select a CSV file to upload');
-      return;
-    }
-    
     if (!pickupAddress) {
-      toast.error('Please select a pickup address or add one in Settings');
+      toast.error('Please select a pickup address');
       return;
     }
-    
-    try {
-      if (handleUpload) {
-        console.log('Using provided handleUpload function');
-        await handleUpload(selectedFile);
-        onUploadSuccess({});
-      } else {
-        console.log('No handleUpload function provided');
-        onUploadFail('Upload handler not available');
-      }
-    } catch (error) {
-      console.error('Upload error in form:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to process file';
-      onUploadFail(errorMessage);
-    }
-  };
 
-  const handleAddressSubmit = async (values: any) => {
     try {
-      console.log('Creating new address:', values);
-      
-      const newAddress = await addressService.createAddress({
-        name: values.name || '',
-        company: values.company || '',
-        street1: values.street1,
-        street2: values.street2 || '',
-        city: values.city,
-        state: values.state,
-        zip: values.zip,
-        country: values.country || 'US',
-        phone: values.phone || '',
-        is_default_from: values.is_default_from || false,
-        is_default_to: values.is_default_to || false
-      }, true);
-      
-      if (newAddress) {
-        toast.success('Address saved successfully');
-        
-        if (values.is_default_from) {
-          await addressService.setDefaultFromAddress(newAddress.id);
-        }
-        
-        setAddresses(prev => [newAddress, ...prev]);
-        setPickupAddress(newAddress);
-        onPickupAddressSelect(newAddress);
-        setShowAddNewAddress(false);
-      }
+      setShowMapper(false);
+      await handleUpload(convertedCsv, pickupAddress);
     } catch (error) {
-      console.error('Error saving address:', error);
-      toast.error('Failed to save address');
+      console.error('Upload failed after mapping:', error);
+      onUploadFail(error instanceof Error ? error.message : 'Upload failed');
     }
   };
 
   const handlePickupAddressChange = (address: SavedAddress | null) => {
-    console.log('Pickup address changed in form:', address);
     setPickupAddress(address);
     onPickupAddressSelect(address);
   };
 
-  // Show header mapper if needed
-  if (showHeaderMapper && csvContent) {
+  if (showMapper) {
     return (
-      <div className="space-y-6">
-        <CsvHeaderMapper
-          csvContent={csvContent}
-          onMappingComplete={handleMappingComplete}
-          onCancel={handleMappingCancel}
-        />
-      </div>
+      <CsvHeaderMapper
+        csvContent={csvContent}
+        onMappingComplete={handleMappingComplete}
+        onCancel={() => {
+          setShowMapper(false);
+          setFile(null);
+          setCsvContent('');
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        }}
+      />
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="space-y-6">
+      {isUploading && (
+        <div className="mb-6">
+          <h3 className="font-medium mb-2">Processing your shipments</h3>
+          <Progress value={progress} className="h-2" />
+          <p className="text-sm text-gray-500 mt-2">
+            {progress < 100 
+              ? `Processing shipments (${progress}%)...` 
+              : 'Processing complete! Loading shipment options...'}
+          </p>
+        </div>
+      )}
+
       <div className="space-y-4">
-        <h3 className="text-lg font-medium">Pickup Address</h3>
-        {showAddNewAddress ? (
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h4 className="font-medium">Add New Address</h4>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setShowAddNewAddress(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-              <AddressForm 
-                onSubmit={handleAddressSubmit} 
-                buttonText="Save Address" 
-                isPickupAddress={true}
-                showDefaultOptions={true}
-              />
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            <SelectAddressDropdown
-              onAddressSelected={handlePickupAddressChange}
-              onAddNew={() => setShowAddNewAddress(true)}
-              placeholder="Select a pickup address"
-              isPickupAddress={true}
-              defaultAddress={pickupAddress}
-              className="w-full"
-            />
-            {!pickupAddress && addresses.length === 0 && (
-              <div className="p-4 bg-blue-50 rounded-md border border-blue-200">
-                <p className="text-sm text-blue-800">
-                  <strong>No pickup addresses found.</strong> You need to add a pickup address before uploading CSV files. 
-                  Click "Add new address" above or go to Settings to add one.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      
-      <div className="space-y-4">
-        <h3 className="text-lg font-medium">Upload CSV File</h3>
-        <div
-          className="border-2 border-dashed border-gray-300 rounded-lg p-8 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 transition-colors bg-gray-50 hover:bg-blue-50"
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onClick={() => document.getElementById('file-upload')?.click()}
-        >
-          <input
-            id="file-upload"
-            type="file"
-            accept=".csv"
-            className="hidden"
-            onChange={handleFileChange}
+        <div>
+          <Label htmlFor="pickup-address" className="text-sm font-medium text-gray-700 mb-2 block">
+            Select Pickup Address *
+          </Label>
+          <AddressSelector
+            type="from"
+            onAddressSelect={handlePickupAddressChange}
+            selectedAddressId={pickupAddress?.id}
           />
-          
-          <CloudUpload className="h-16 w-16 text-gray-400 mb-4" />
-          
-          <div className="text-center">
-            <p className="text-lg font-medium mb-2">
-              {selectedFile 
-                ? `Selected: ${selectedFile.name}` 
-                : 'Drag & drop your CSV file here or click to browse'
-              }
+          {!pickupAddress && (
+            <p className="text-xs text-orange-600 mt-1 flex items-center">
+              <AlertCircle className="h-3 w-3 mr-1" />
+              Pickup address is required before uploading
             </p>
-            <p className="text-sm text-gray-500">
-              Supported format: CSV (up to 10MB)
-            </p>
-            {selectedFile && !showHeaderMapper && (
-              <p className="text-xs text-green-600 mt-2">
-                ✓ File ready for header mapping
-              </p>
-            )}
+          )}
+        </div>
+
+        <div>
+          <Label htmlFor="file-upload" className="text-sm font-medium text-gray-700 mb-2 block">
+            Upload CSV File *
+          </Label>
+          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-blue-400 transition-colors">
+            <div className="space-y-1 text-center">
+              <FileText className="mx-auto h-12 w-12 text-gray-400" />
+              <div className="flex text-sm text-gray-600">
+                <label
+                  htmlFor="file-upload"
+                  className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
+                >
+                  <span>Upload a CSV file</span>
+                  <Input
+                    ref={fileInputRef}
+                    id="file-upload"
+                    name="file-upload"
+                    type="file"
+                    accept=".csv"
+                    className="sr-only"
+                    onChange={handleFileSelect}
+                    disabled={isUploading}
+                  />
+                </label>
+                <p className="pl-1">or drag and drop</p>
+              </div>
+              <p className="text-xs text-gray-500">CSV files only, up to 10MB</p>
+              {file && (
+                <p className="text-sm font-medium text-green-600 mt-2 flex items-center justify-center">
+                  <FileText className="h-4 w-4 mr-1" />
+                  {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                </p>
+              )}
+            </div>
           </div>
         </div>
-        
-        {isUploading && progress > 0 && (
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
-              style={{ width: `${progress}%` }}
-            ></div>
-          </div>
-        )}
+
+        <div className="text-xs text-gray-500 bg-blue-50 p-3 rounded-lg">
+          <p className="font-medium text-blue-800 mb-1">📋 Quick Guide:</p>
+          <ul className="space-y-1 text-blue-700">
+            <li>• Any CSV format is supported - our AI will help map headers</li>
+            <li>• Or download our template for instant compatibility</li>
+            <li>• Pickup address will be used for all shipments in the batch</li>
+          </ul>
+        </div>
       </div>
-      
-      <div className="flex justify-end">
-        <Button 
-          type="submit" 
-          disabled={!selectedFile || !pickupAddress || isUploading || showHeaderMapper}
-          className="flex items-center gap-2 px-8 py-2"
-        >
-          {isUploading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <FileUp className="h-4 w-4" />
-          )}
-          {isUploading ? `Uploading... (${progress}%)` : 'Upload and Process'}
-        </Button>
-      </div>
-    </form>
+    </div>
   );
 };
 

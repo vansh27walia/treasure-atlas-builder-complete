@@ -92,6 +92,19 @@ const BulkUpload: React.FC = () => {
     console.error("Upload failed in BulkUpload component:", error);
   };
 
+  // Create a wrapper function that handles the CSV content and pickup address
+  const handleUploadWrapper = async (csvContent: string, pickupAddress: SavedAddress) => {
+    // Convert CSV content to a File object for the existing handleUpload function
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const file = new File([blob], 'upload.csv', { type: 'text/csv' });
+    
+    // Set the pickup address first
+    setPickupAddress(pickupAddress);
+    
+    // Then call the original handleUpload with the file
+    await handleUpload(file);
+  };
+
   // Wrapper function to match expected signature
   const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
     const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
@@ -206,7 +219,7 @@ const BulkUpload: React.FC = () => {
             }}
             isUploading={isUploading}
             progress={progress}
-            handleUpload={handleUpload}
+            handleUpload={handleUploadWrapper}
           />
         )}
         
