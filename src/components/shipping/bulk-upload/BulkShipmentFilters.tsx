@@ -62,7 +62,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
   };
 
   const handleApplyToAll = () => {
-    if (bulkCarrier && bulkCarrier !== 'all') {
+    if (bulkCarrier) {
       onApplyCarrierToAll(bulkCarrier, bulkService);
       setBulkCarrier('');
       setBulkService('');
@@ -113,12 +113,12 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
         {/* Filter by Carrier */}
         <div className="lg:w-48">
           <Label className="text-sm font-medium text-gray-700 mb-2 block">Filter by Carrier</Label>
-          <Select value={selectedCarrier || 'all'} onValueChange={(value) => onCarrierFilterChange(value === 'all' ? '' : value)}>
+          <Select value={selectedCarrier} onValueChange={onCarrierFilterChange}>
             <SelectTrigger>
               <SelectValue placeholder="All Carriers" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Carriers</SelectItem>
+              <SelectItem value="">All Carriers</SelectItem>
               {carrierOptions.map((carrier) => (
                 <SelectItem key={carrier.value} value={carrier.value}>
                   {carrier.label}
@@ -154,7 +154,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
                 </SelectContent>
               </Select>
 
-              {bulkCarrier && bulkCarrier !== 'all' && (
+              {bulkCarrier && (
                 <Select value={bulkService} onValueChange={setBulkService}>
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder="Select service..." />
@@ -173,7 +173,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
 
           <Button 
             onClick={handleApplyToAll}
-            disabled={!bulkCarrier || bulkCarrier === 'all'}
+            disabled={!bulkCarrier}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Check className="h-4 w-4 mr-2" />
