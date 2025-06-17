@@ -8,19 +8,19 @@ import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
 import LabelGenerationProgress from './LabelGenerationProgress';
 import BulkLabelPrintPage from './BulkLabelPrintPage';
-import { useBulkUpload } from '@/hooks/useBulkUpload';
+import { useBulkUpload } from './useBulkUpload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const BulkUploadView: React.FC = () => {
   const [showPrintPage, setShowPrintPage] = useState(false);
   
   const {
-    file,
     isUploading,
     uploadStatus,
     results,
     progress,
     isFetchingRates,
+    isPaying,
     isCreatingLabels,
     searchTerm,
     sortField,
