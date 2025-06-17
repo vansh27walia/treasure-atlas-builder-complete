@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { ArrowLeft, Download, Mail, Printer, FileText, File, FileImage, Zap } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
@@ -25,6 +26,7 @@ const BulkLabelPrintPage: React.FC<BulkLabelPrintPageProps> = ({
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl' | 'epl'>('pdf');
   const [emailAddress, setEmailAddress] = useState('');
   const [showEmailDialog, setShowEmailDialog] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'vertical'>('grid');
 
   const formatOptions = [
     { value: 'pdf', label: 'PDF', icon: File, description: 'Portable Document Format' },
@@ -36,7 +38,15 @@ const BulkLabelPrintPage: React.FC<BulkLabelPrintPageProps> = ({
   const handlePrint = () => {
     const consolidatedUrl = batchResult?.consolidatedLabelUrls?.[selectedFormat];
     if (consolidatedUrl) {
-      window.print();
+      // Open PDF in new window for printing
+      const printWindow = window.open(consolidatedUrl, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      } else {
+        toast.error('Popup blocked. Please allow popups and try again.');
+      }
     } else {
       toast.error(`${selectedFormat.toUpperCase()} format not available for batch print`);
     }
@@ -61,6 +71,21 @@ const BulkLabelPrintPage: React.FC<BulkLabelPrintPageProps> = ({
     setShowEmailDialog(false);
     setEmailAddress('');
     toast.success(`Batch labels sent to ${emailAddress} in ${selectedFormat.toUpperCase()} format`);
+  };
+
+  const handlePrintSingle = (labelUrl: string) => {
+    const printWindow = window.open(labelUrl, '_blank');
+    if (printWindow) {
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    } else {
+      toast.error('Popup blocked. Please allow popups and try again.');
+    }
+  };
+
+  const handleViewInNewTab = (labelUrl: string) => {
+    window.open(labelUrl, '_blank');
   };
 
   const shipmentsWithLabels = shipments.filter(s => s.label_urls || s.label_url);
@@ -123,6 +148,21 @@ const BulkLabelPrintPage: React.FC<BulkLabelPrintPageProps> = ({
                   </SelectContent>
                 </Select>
               </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">
+                  View Mode
+                </label>
+                <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="grid">Grid</SelectItem>
+                    <SelectItem value="vertical">Vertical</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="flex space-x-3">
@@ -156,21 +196,47 @@ const BulkLabelPrintPage: React.FC<BulkLabelPrintPageProps> = ({
         {/* Consolidated Label Preview */}
         {batchResult?.consolidatedLabelUrls?.pdf && (
           <Card className="p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4">Consolidated Batch Preview</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Consolidated Batch Preview</h2>
+              <div className="flex space-x-2">
+                <Button
+                  onClick={() => handleViewInNewTab(batchResult.consolidatedLabelUrls.pdf)}
+                  variant="outline"
+                  size="sm"
+                >
+                  Open Full Screen
+                </Button>
+                <Button
+                  onClick={() => handlePrintSingle(batchResult.consolidatedLabelUrls.pdf)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Printer className="mr-1 h-3 w-3" />
+                  Print
+                </Button>
+              </div>
+            </div>
             <div className="bg-white border rounded-lg p-4">
-              <iframe
-                src={batchResult.consolidatedLabelUrls.pdf}
-                className="w-full h-96 border-0"
-                title="Batch Label Preview"
-              />
+              <div className="w-full h-96 bg-gray-100 rounded border-2 border-dashed border-gray-300 flex items-center justify-center">
+                <div className="text-center">
+                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-600 mb-2">PDF Preview</p>
+                  <Button
+                    onClick={() => handleViewInNewTab(batchResult.consolidatedLabelUrls.pdf)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    View Full PDF
+                  </Button>
+                </div>
+              </div>
             </div>
           </Card>
         )}
 
-        {/* Individual Labels Grid */}
+        {/* Individual Labels */}
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Individual Labels</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className={viewMode === 'vertical' ? 'space-y-4' : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'}>
             {shipmentsWithLabels.map((shipment, index) => (
               <Card key={shipment.id || index} className="p-4">
                 <div className="space-y-3">
@@ -189,37 +255,46 @@ const BulkLabelPrintPage: React.FC<BulkLabelPrintPageProps> = ({
                   </div>
 
                   {/* Individual label preview */}
-                  {shipment.label_urls?.pdf && (
-                    <div className="bg-gray-50 border rounded p-2">
-                      <iframe
-                        src={shipment.label_urls.pdf}
-                        className="w-full h-32 border-0"
-                        title={`Label ${index + 1}`}
-                      />
+                  <div className="bg-gray-50 border rounded p-4">
+                    <div className="w-full h-32 bg-white rounded border-2 border-dashed border-gray-300 flex items-center justify-center">
+                      <div className="text-center">
+                        <FileText className="h-8 w-8 text-gray-400 mx-auto mb-1" />
+                        <p className="text-xs text-gray-600">Label Preview</p>
+                      </div>
                     </div>
-                  )}
+                  </div>
 
                   {/* Individual actions */}
                   <div className="flex space-x-2">
-                    {shipment.label_urls?.[selectedFormat] && (
-                      <Button
-                        size="sm"
-                        onClick={() => onDownloadSingle(shipment.label_urls[selectedFormat], selectedFormat)}
-                        className="flex-1"
-                      >
-                        <Download className="mr-1 h-3 w-3" />
-                        Download
-                      </Button>
+                    {(shipment.label_urls?.[selectedFormat] || shipment.label_url) && (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => handleViewInNewTab(shipment.label_urls?.[selectedFormat] || shipment.label_url)}
+                          className="flex-1"
+                        >
+                          View Full
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => onDownloadSingle(shipment.label_urls?.[selectedFormat] || shipment.label_url, selectedFormat)}
+                          variant="outline"
+                          className="flex-1"
+                        >
+                          <Download className="mr-1 h-3 w-3" />
+                          Download
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handlePrintSingle(shipment.label_urls?.[selectedFormat] || shipment.label_url)}
+                          className="flex-1"
+                        >
+                          <Printer className="mr-1 h-3 w-3" />
+                          Print
+                        </Button>
+                      </>
                     )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handlePrint}
-                      className="flex-1"
-                    >
-                      <Printer className="mr-1 h-3 w-3" />
-                      Print
-                    </Button>
                   </div>
                 </div>
               </Card>
@@ -237,12 +312,11 @@ const BulkLabelPrintPage: React.FC<BulkLabelPrintPageProps> = ({
                   <label className="text-sm font-medium text-gray-700 mb-2 block">
                     Email Address
                   </label>
-                  <input
+                  <Input
                     type="email"
                     value={emailAddress}
                     onChange={(e) => setEmailAddress(e.target.value)}
                     placeholder="Enter email address"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
