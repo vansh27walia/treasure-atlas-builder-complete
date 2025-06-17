@@ -168,24 +168,58 @@ export const useBulkUpload = () => {
       shipmentsArray = Object.values(results.processedShipments).filter(Boolean);
     }
     
-    const shipmentsToProcess = shipmentsArray.filter(s => s.selectedRateId && s.easypost_id) || [];
+    // Enhanced validation to ensure all shipments have proper rate selection
+    const shipmentsToProcess = shipmentsArray.filter(s => {
+      const hasSelectedRate = s.selectedRateId;
+      const hasEasypostId = s.easypost_id;
+      const hasEasypostRateId = s.availableRates?.find(rate => rate.id === s.selectedRateId)?.easypost_rate_id;
+      
+      console.log(`Shipment ${s.id} validation:`, {
+        hasSelectedRate,
+        hasEasypostId,
+        hasEasypostRateId,
+        selectedRateId: s.selectedRateId,
+        availableRatesCount: s.availableRates?.length || 0
+      });
+      
+      return hasSelectedRate && hasEasypostId && hasEasypostRateId;
+    });
     
     if (shipmentsToProcess.length === 0) {
-      toast.error('No shipments with selected rates found');
+      toast.error('No shipments with selected rates found. Please select rates for all shipments before creating labels.');
+      console.error('No valid shipments found. All shipments need selected rates and EasyPost IDs.');
       return;
     }
 
     const totalShipments = shipmentsArray.length;
-    const shipmentsWithRates = shipmentsToProcess.length;
+    const shipmentsWithValidRates = shipmentsToProcess.length;
     
-    if (shipmentsWithRates !== totalShipments) {
-      const missingRates = totalShipments - shipmentsWithRates;
-      toast.error(`${missingRates} shipment(s) are missing rate selections. ALL shipments must have rates selected before creating labels.`);
-      console.error(`Rate validation failed: ${shipmentsWithRates}/${totalShipments} shipments have rates selected`);
+    if (shipmentsWithValidRates !== totalShipments) {
+      const missingRates = totalShipments - shipmentsWithValidRates;
+      toast.error(`${missingRates} shipment(s) are missing rate selections or have invalid rates. ALL shipments must have valid rates selected before creating labels.`);
+      console.error(`Rate validation failed: ${shipmentsWithValidRates}/${totalShipments} shipments have valid rates selected`);
+      
+      // Log details of failed shipments for debugging
+      const failedShipments = shipmentsArray.filter(s => {
+        const hasSelectedRate = s.selectedRateId;
+        const hasEasypostId = s.easypost_id;
+        const hasEasypostRateId = s.availableRates?.find(rate => rate.id === s.selectedRateId)?.easypost_rate_id;
+        return !(hasSelectedRate && hasEasypostId && hasEasypostRateId);
+      });
+      
+      failedShipments.forEach(shipment => {
+        console.error(`Failed shipment ${shipment.id}:`, {
+          selectedRateId: shipment.selectedRateId,
+          easypost_id: shipment.easypost_id,
+          availableRatesCount: shipment.availableRates?.length || 0,
+          selectedRate: shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId)
+        });
+      });
+      
       return;
     }
     
-    console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with rates selected`);
+    console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with valid rates selected`);
     
     setLabelGenerationProgress({
       isGenerating: true,
@@ -207,16 +241,34 @@ export const useBulkUpload = () => {
         }));
       }, 1000);
 
-      // Use the enhanced bulk labels function with better PDF handling
+      // Enhanced shipment data preparation
+      const enhancedShipments = shipmentsToProcess.map(shipment => {
+        const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
+        
+        return {
+          ...shipment,
+          // Ensure we have the EasyPost rate ID
+          easypost_rate_id: selectedRate?.easypost_rate_id,
+          // Add additional validation data
+          validation: {
+            hasSelectedRate: !!shipment.selectedRateId,
+            hasEasypostId: !!shipment.easypost_id,
+            hasEasypostRateId: !!selectedRate?.easypost_rate_id,
+            selectedRateData: selectedRate
+          }
+        };
+      });
+
+      // Use the enhanced bulk labels function with better validation
       const { data, error } = await supabase.functions.invoke('create-enhanced-bulk-labels', {
         body: {
-          shipments: shipmentsToProcess,
+          shipments: enhancedShipments,
           pickupAddress,
           labelOptions: {
             generateBatch: true,
             generateManifest: true,
             haltOnFailure: true,
-            consolidatedPdfName: `batch-${Date.now()}.pdf` // Predictable naming convention
+            consolidatedPdfName: `batch-${Date.now()}.pdf`
           }
         }
       });

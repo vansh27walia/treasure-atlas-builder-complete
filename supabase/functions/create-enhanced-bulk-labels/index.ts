@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { ZipWriter, Uint8ArrayReader } from "https://deno.land/x/zipjs@v2.7.34/index.js"; // Using @deno/zip was causing issues, trying zipjs
@@ -45,8 +44,32 @@ serve(async (req) => {
       throw new Error("EasyPost API key not configured");
     }
 
+    // Enhanced validation before processing
+    const invalidShipments = shipments.filter(shipment => {
+      const hasSelectedRate = !!shipment.selectedRateId;
+      const hasEasypostId = !!shipment.easypost_id;
+      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
+      const hasEasypostRateId = !!selectedRate?.easypost_rate_id;
+      
+      if (!hasSelectedRate || !hasEasypostId || !hasEasypostRateId) {
+        logStep(`Invalid shipment ${shipment.id}`, {
+          hasSelectedRate,
+          hasEasypostId,
+          hasEasypostRateId,
+          selectedRateId: shipment.selectedRateId,
+          availableRatesCount: shipment.availableRates?.length || 0
+        });
+        return true;
+      }
+      return false;
+    });
+
+    if (invalidShipments.length > 0) {
+      throw new Error(`${invalidShipments.length} shipments have invalid or missing rate selections. All shipments must have selected rates with EasyPost rate IDs.`);
+    }
+
     const processedLabels = [];
-    const failedLabelsInfo = []; // Renamed from failedLabels to avoid conflict
+    const failedLabelsInfo = [];
 
     logStep(`Processing ${shipments.length} shipments`);
 
@@ -101,9 +124,17 @@ serve(async (req) => {
         logStep(`Shipment created`, { easypostId: shipmentData.id });
 
         const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-        if (!selectedRate || !selectedRate.easypost_rate_id) { // Added check for easypost_rate_id
-          throw new Error(`No selected rate or EasyPost rate ID found for shipment ${shipment.id}`);
+        if (!selectedRate || !selectedRate.easypost_rate_id) {
+          throw new Error(`No selected rate or EasyPost rate ID found for shipment ${shipment.id}. Selected rate ID: ${shipment.selectedRateId}, Available rates: ${shipment.availableRates?.length || 0}`);
         }
+
+        logStep(`Using rate for shipment ${shipment.id}`, {
+          rateId: selectedRate.id,
+          easypostRateId: selectedRate.easypost_rate_id,
+          carrier: selectedRate.carrier,
+          service: selectedRate.service,
+          rate: selectedRate.rate
+        });
 
         const buyResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentData.id}/buy`, {
           method: "POST",
