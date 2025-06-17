@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useShipmentUpload } from './useShipmentUpload';
 import { useShipmentManagement } from './useShipmentManagement';
@@ -312,46 +313,8 @@ export const useBulkUpload = () => {
     }
   };
 
-  const handleEmailLabels = (email: string, format: string) => {
-    if (!results) {
-      toast.error('No labels available to email');
-      return;
-    }
-
-    // Create a more robust email handling
-    const consolidatedUrl = results.batchResult?.consolidatedLabelUrls?.[format];
-    
-    if (consolidatedUrl) {
-      // For now, we'll show a success message. In a real implementation,
-      // this would call a backend service to send the email
-      toast.success(`Batch labels will be sent to ${email} in ${format.toUpperCase()} format`);
-      
-      // Log the email request for debugging
-      console.log('Email request:', {
-        email,
-        format,
-        consolidatedUrl,
-        shipmentCount: results.processedShipments?.length || 0
-      });
-    } else {
-      toast.error(`${format.toUpperCase()} format not available for email`);
-    }
-  };
-
-  // Add batch error handling states
-  const [batchError, setBatchError] = useState<{ packageNumber: number; error: string } | null>(null);
-  const [labelGenerationProgress, setLabelGenerationProgress] = useState({
-    isGenerating: false,
-    totalShipments: 0,
-    processedShipments: 0,
-    successfulShipments: 0,
-    failedShipments: 0,
-    currentStep: '',
-    estimatedTimeRemaining: 0
-  });
-
-  const handleClearBatchError = () => {
-    setBatchError(null);
+  const handleEmailLabels = (email: string) => {
+    toast.success('Email functionality will be implemented soon');
   };
 
   return {
@@ -396,9 +359,6 @@ export const useBulkUpload = () => {
     handleRemoveShipment,
     handleEditShipment,
     handleRefreshRates,
-    handleBulkApplyCarrier,
-    batchError,
-    labelGenerationProgress,
-    handleClearBatchError
+    handleBulkApplyCarrier
   };
 };

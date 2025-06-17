@@ -41,6 +41,7 @@ export const useBulkUpload = () => {
     setResults(newResults);
     
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
+      // Only update status if it's one of the types compatible with useShipmentUpload's state
       const compatibleStatuses = ['idle', 'uploading', 'success', 'error', 'editing', 'creating-labels'];
       if (compatibleStatuses.includes(newResults.uploadStatus)) {
         setUploadStatus(newResults.uploadStatus as 'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels');
@@ -66,7 +67,7 @@ export const useBulkUpload = () => {
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
-    handleEmailLabels: originalHandleEmailLabels
+    handleEmailLabels
   } = useShipmentManagement(results, updateResults);
 
   const {
@@ -106,59 +107,13 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  const handleEmailLabels = async (email: string, format: string = 'pdf') => {
-    if (!results) {
-      toast.error('No labels available to email');
-      return;
-    }
-
-    try {
-      toast.loading('Sending email with batch labels...');
-      
-      // Use the consolidated PDF if available
-      const consolidatedUrl = results.bulk_label_pdf_url || results.batchResult?.consolidatedLabelUrls?.pdf;
-      
-      if (consolidatedUrl) {
-        // Call Supabase edge function to send email with attachment
-        const { data, error } = await supabase.functions.invoke('send-batch-labels-email', {
-          body: {
-            email,
-            consolidatedPdfUrl: consolidatedUrl,
-            format,
-            shipmentCount: results.processedShipments?.length || 0,
-            batchId: results.batchResult?.batchId || `batch_${Date.now()}`
-          }
-        });
-
-        if (error) {
-          throw new Error(error.message);
-        }
-
-        toast.dismiss();
-        toast.success(`Batch labels sent to ${email} successfully!`);
-        
-        console.log('Email sent successfully:', {
-          email,
-          consolidatedUrl,
-          format,
-          shipmentCount: results.processedShipments?.length || 0
-        });
-      } else {
-        throw new Error('No consolidated PDF available for email');
-      }
-    } catch (error) {
-      toast.dismiss();
-      console.error('Error sending email:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to send email');
-    }
-  };
-
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
       return;
     }
     
+    // Clear any previous batch errors
     setBatchError(null);
     
     let shipmentsArray = [];
@@ -168,58 +123,24 @@ export const useBulkUpload = () => {
       shipmentsArray = Object.values(results.processedShipments).filter(Boolean);
     }
     
-    // Enhanced validation to ensure all shipments have proper rate selection
-    const shipmentsToProcess = shipmentsArray.filter(s => {
-      const hasSelectedRate = s.selectedRateId;
-      const hasEasypostId = s.easypost_id;
-      const hasEasypostRateId = s.availableRates?.find(rate => rate.id === s.selectedRateId)?.easypost_rate_id;
-      
-      console.log(`Shipment ${s.id} validation:`, {
-        hasSelectedRate,
-        hasEasypostId,
-        hasEasypostRateId,
-        selectedRateId: s.selectedRateId,
-        availableRatesCount: s.availableRates?.length || 0
-      });
-      
-      return hasSelectedRate && hasEasypostId && hasEasypostRateId;
-    });
+    const shipmentsToProcess = shipmentsArray.filter(s => s.selectedRateId && s.easypost_id) || [];
     
     if (shipmentsToProcess.length === 0) {
-      toast.error('No shipments with selected rates found. Please select rates for all shipments before creating labels.');
-      console.error('No valid shipments found. All shipments need selected rates and EasyPost IDs.');
+      toast.error('No shipments with selected rates found');
       return;
     }
 
     const totalShipments = shipmentsArray.length;
-    const shipmentsWithValidRates = shipmentsToProcess.length;
+    const shipmentsWithRates = shipmentsToProcess.length;
     
-    if (shipmentsWithValidRates !== totalShipments) {
-      const missingRates = totalShipments - shipmentsWithValidRates;
-      toast.error(`${missingRates} shipment(s) are missing rate selections or have invalid rates. ALL shipments must have valid rates selected before creating labels.`);
-      console.error(`Rate validation failed: ${shipmentsWithValidRates}/${totalShipments} shipments have valid rates selected`);
-      
-      // Log details of failed shipments for debugging
-      const failedShipments = shipmentsArray.filter(s => {
-        const hasSelectedRate = s.selectedRateId;
-        const hasEasypostId = s.easypost_id;
-        const hasEasypostRateId = s.availableRates?.find(rate => rate.id === s.selectedRateId)?.easypost_rate_id;
-        return !(hasSelectedRate && hasEasypostId && hasEasypostRateId);
-      });
-      
-      failedShipments.forEach(shipment => {
-        console.error(`Failed shipment ${shipment.id}:`, {
-          selectedRateId: shipment.selectedRateId,
-          easypost_id: shipment.easypost_id,
-          availableRatesCount: shipment.availableRates?.length || 0,
-          selectedRate: shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId)
-        });
-      });
-      
+    if (shipmentsWithRates !== totalShipments) {
+      const missingRates = totalShipments - shipmentsWithRates;
+      toast.error(`${missingRates} shipment(s) are missing rate selections. ALL shipments must have rates selected before creating labels.`);
+      console.error(`Rate validation failed: ${shipmentsWithRates}/${totalShipments} shipments have rates selected`);
       return;
     }
     
-    console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with valid rates selected`);
+    console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with rates selected`);
     
     setLabelGenerationProgress({
       isGenerating: true,
@@ -241,34 +162,14 @@ export const useBulkUpload = () => {
         }));
       }, 1000);
 
-      // Enhanced shipment data preparation
-      const enhancedShipments = shipmentsToProcess.map(shipment => {
-        const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-        
-        return {
-          ...shipment,
-          // Ensure we have the EasyPost rate ID
-          easypost_rate_id: selectedRate?.easypost_rate_id,
-          // Add additional validation data
-          validation: {
-            hasSelectedRate: !!shipment.selectedRateId,
-            hasEasypostId: !!shipment.easypost_id,
-            hasEasypostRateId: !!selectedRate?.easypost_rate_id,
-            selectedRateData: selectedRate
-          }
-        };
-      });
-
-      // Use the enhanced bulk labels function with better validation
-      const { data, error } = await supabase.functions.invoke('create-enhanced-bulk-labels', {
+      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: {
-          shipments: enhancedShipments,
+          shipments: shipmentsToProcess,
           pickupAddress,
           labelOptions: {
             generateBatch: true,
             generateManifest: true,
-            haltOnFailure: true,
-            consolidatedPdfName: `batch-${Date.now()}.pdf`
+            haltOnFailure: true
           }
         }
       });
@@ -278,6 +179,7 @@ export const useBulkUpload = () => {
       if (error) {
         console.error('Label creation error from Supabase function:', error);
         
+        // Check if this is a batch halt error
         if (error.message && error.message.includes('Batch halted')) {
           const errorMatch = error.message.match(/Package #(\d+)/);
           const packageNumber = errorMatch ? parseInt(errorMatch[1]) : 1;
@@ -309,7 +211,7 @@ export const useBulkUpload = () => {
         throw new Error(error.message || 'Unknown error from label generation function.');
       }
 
-      console.log('Raw label creation response from create-enhanced-bulk-labels:', data);
+      console.log('Raw label creation response from create-bulk-labels:', data);
 
       if (data && data.processedLabels && Array.isArray(data.processedLabels)) {
         const expectedLabels = shipmentsToProcess.length;
@@ -363,15 +265,14 @@ export const useBulkUpload = () => {
 
         const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
         
-        // Enhanced batch result with ZIP URLs support
         let frontendBatchResult: BatchResult | null = null;
-        if (data.batchResult) {
+        if (data.batchResult && data.batchResult.batchId) {
             frontendBatchResult = {
-                batchId: data.batchResult.batchId || `batch_${Date.now()}`,
+                batchId: data.batchResult.batchId,
                 consolidatedLabelUrls: {
-                    pdf: data.batchResult.consolidatedLabelUrls?.pdf,
-                    pdfZip: data.batchResult.consolidatedLabelUrls?.pdfZip,
-                    zplZip: data.batchResult.consolidatedLabelUrls?.zplZip,
+                    pdf: data.batchResult.batchLabelUrls?.pdfUrl,
+                    zpl: data.batchResult.batchLabelUrls?.zplUrl,
+                    epl: data.batchResult.batchLabelUrls?.eplUrl,
                 },
                 scanFormUrl: data.batchResult.scanFormUrl || null,
             };

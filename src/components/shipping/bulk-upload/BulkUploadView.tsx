@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Upload, FileText, Package, Download, PrinterIcon, AlertTriangle, X } from 'lucide-react';
@@ -7,22 +7,18 @@ import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
 import LabelGenerationProgress from './LabelGenerationProgress';
-import BulkLabelPrintPage from './BulkLabelPrintPage';
-import BatchLabelCreationPage from './BatchLabelCreationPage';
+import PrintPreview from '@/components/shipping/PrintPreview';
 import { useBulkUpload } from './useBulkUpload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const BulkUploadView: React.FC = () => {
-  const [showPrintPage, setShowPrintPage] = useState(false);
-  const [showBatchCreationPage, setShowBatchCreationPage] = useState(false);
-  
   const {
+    file,
     isUploading,
     uploadStatus,
     results,
     progress,
     isFetchingRates,
-    isPaying,
     isCreatingLabels,
     searchTerm,
     sortField,
@@ -32,6 +28,8 @@ const BulkUploadView: React.FC = () => {
     pickupAddress,
     batchError,
     labelGenerationProgress,
+    batchPrintPreviewModalOpen,
+    setBatchPrintPreviewModalOpen,
     handleFileChange,
     handleUpload,
     handleSelectRate,
@@ -39,6 +37,7 @@ const BulkUploadView: React.FC = () => {
     handleEditShipment,
     handleBulkApplyCarrier,
     handleCreateLabels,
+    handleOpenBatchPrintPreview,
     handleClearBatchError,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
@@ -62,69 +61,6 @@ const BulkUploadView: React.FC = () => {
   const handlePickupAddressSelect = (address: any) => {
     setPickupAddress(address);
   };
-
-  const handleOpenPrintReview = () => {
-    console.log('Opening print review, results:', results);
-    if (results?.bulk_label_pdf_url) {
-      window.open(results.bulk_label_pdf_url, '_blank');
-      console.log('Opened PDF for print review:', results.bulk_label_pdf_url);
-    } else {
-      setShowPrintPage(true);
-    }
-  };
-
-  const handleBackFromPrintPage = () => {
-    setShowPrintPage(false);
-  };
-
-  const handleBackFromBatchCreation = () => {
-    setShowBatchCreationPage(false);
-  };
-
-  const handleCreateLabelsWithBatchPage = async () => {
-    setShowBatchCreationPage(true);
-    await handleCreateLabels();
-  };
-
-  const handleEditShipmentWrapper = (shipmentId: string, updates: Partial<any>) => {
-    if (!results?.processedShipments) return;
-    
-    const updatedShipments = results.processedShipments.map(shipment => {
-      if (shipment.id === shipmentId) {
-        return { ...shipment, ...updates };
-      }
-      return shipment;
-    });
-    
-    console.log('Updated shipment:', shipmentId, updates);
-  };
-
-  // Show batch creation page when creating labels or when labels are successfully created
-  if ((showBatchCreationPage || isCreatingLabels || (uploadStatus === 'success' && results?.processedShipments?.some(s => s.label_url))) && results) {
-    return (
-      <BatchLabelCreationPage
-        batchResult={results}
-        onBack={handleBackFromBatchCreation}
-        onPrintReview={handleOpenPrintReview}
-        onEmailLabels={handleEmailLabels}
-        isCreatingLabels={isCreatingLabels}
-        labelGenerationProgress={labelGenerationProgress}
-      />
-    );
-  }
-
-  // If showing print page, render the dedicated print page
-  if (showPrintPage && results?.processedShipments && results.processedShipments.length > 0) {
-    return (
-      <BulkLabelPrintPage
-        batchResult={results.batchResult || null}
-        shipments={results.processedShipments || []}
-        onBack={handleBackFromPrintPage}
-        onDownloadSingle={handleDownloadSingleLabel}
-        onEmailLabels={handleEmailLabels}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -239,7 +175,9 @@ const BulkUploadView: React.FC = () => {
                 isFetchingRates={isFetchingRates}
                 onSelectRate={handleSelectRate}
                 onRemoveShipment={handleRemoveShipment}
-                onEditShipment={handleEditShipmentWrapper}
+                onEditShipment={(shipmentId: string, details: any) => {
+                  console.log('Edit shipment:', shipmentId, details);
+                }}
                 onRefreshRates={() => {}}
               />
             </div>
@@ -247,9 +185,9 @@ const BulkUploadView: React.FC = () => {
             {/* Create Labels Button */}
             <div className="mt-6 flex justify-between items-center">
               <div className="flex gap-2">
-                {results?.bulk_label_pdf_url && !labelGenerationProgress.isGenerating && (
+                {results?.batchResult?.consolidatedLabelUrls?.pdf && !labelGenerationProgress.isGenerating && (
                   <Button
-                    onClick={() => handleDownloadSingleLabel(results.bulk_label_pdf_url!)}
+                    onClick={() => handleDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
                     variant="outline"
                     className="text-blue-600 border-blue-600 hover:bg-blue-50"
                   >
@@ -257,9 +195,9 @@ const BulkUploadView: React.FC = () => {
                     Download Batch PDF
                   </Button>
                 )}
-                {results?.processedShipments && results.processedShipments.some(s => s.label_url) && !labelGenerationProgress.isGenerating && (
+                {results?.batchResult && !labelGenerationProgress.isGenerating && (
                   <Button
-                    onClick={handleOpenPrintReview}
+                    onClick={handleOpenBatchPrintPreview}
                     variant="outline"
                     className="text-purple-600 border-purple-600 hover:bg-purple-50"
                   >
@@ -270,7 +208,7 @@ const BulkUploadView: React.FC = () => {
               </div>
               
               <Button
-                onClick={handleCreateLabelsWithBatchPage}
+                onClick={handleCreateLabels}
                 disabled={isCreatingLabels || !filteredShipments.some(s => s.selectedRateId)}
                 className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
               >
@@ -279,6 +217,37 @@ const BulkUploadView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Results Section */}
+      {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
+        <div className="min-h-screen bg-gray-50">
+          <div className="max-w-7xl mx-auto p-6">
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Label Creation Complete</h1>
+              <p className="text-gray-600">Your shipping labels have been generated successfully.</p>
+            </div>
+            
+            {results.processedShipments && results.processedShipments.length > 0 && (
+              <LabelResultsTable
+                shipments={results.processedShipments || []}
+                onDownloadLabel={handleDownloadSingleLabel}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Batch Print Preview Modal */}
+      {results?.batchResult && (
+        <PrintPreview
+          isOpenProp={batchPrintPreviewModalOpen}
+          onOpenChangeProp={setBatchPrintPreviewModalOpen}
+          labelUrl=""
+          trackingCode={null}
+          batchResult={results.batchResult}
+          isBatchPreview={true}
+        />
       )}
     </div>
   );

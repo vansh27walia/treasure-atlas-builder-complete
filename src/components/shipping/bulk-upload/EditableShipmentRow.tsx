@@ -69,25 +69,6 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
     setIsEditing(false);
   };
 
-  // Safely get address display with proper type checking
-  const getAddressDisplay = () => {
-    if (!shipment.customer_address) {
-      return '';
-    }
-    
-    if (typeof shipment.customer_address === 'string') {
-      return shipment.customer_address;
-    }
-    
-    // Handle object type address with proper type checking
-    if (typeof shipment.customer_address === 'object' && shipment.customer_address !== null) {
-      const addressObj = shipment.customer_address as any;
-      return addressObj.street1 || '';
-    }
-    
-    return '';
-  };
-
   return (
     <TableRow>
       <TableCell>
@@ -100,7 +81,7 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
         ) : (
           <div>
             <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
-            <div className="text-sm text-gray-500">{getAddressDisplay()}</div>
+            <div className="text-sm text-gray-500">{shipment.customer_address?.street1}</div>
           </div>
         )}
       </TableCell>
