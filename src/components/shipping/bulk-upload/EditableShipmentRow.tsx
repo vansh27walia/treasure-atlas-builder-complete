@@ -69,6 +69,14 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
     setIsEditing(false);
   };
 
+  // Get street address safely
+  const getStreetAddress = () => {
+    if (typeof shipment.customer_address === 'string') {
+      return shipment.customer_address;
+    }
+    return shipment.customer_address?.street1 || '';
+  };
+
   return (
     <TableRow>
       <TableCell>
@@ -81,7 +89,7 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
         ) : (
           <div>
             <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
-            <div className="text-sm text-gray-500">{shipment.customer_address?.street1}</div>
+            <div className="text-sm text-gray-500">{getStreetAddress()}</div>
           </div>
         )}
       </TableCell>

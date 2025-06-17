@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,6 +6,7 @@ import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
 import LabelGenerationProgress from './LabelGenerationProgress';
+import BatchLabelCreationPage from './BatchLabelCreationPage';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import { useBulkUpload } from './useBulkUpload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -219,35 +219,35 @@ const BulkUploadView: React.FC = () => {
         </div>
       )}
 
-      {/* Results Section */}
+      {/* Batch Label Creation Page - Show when labels are successfully created */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
-        <div className="min-h-screen bg-gray-50">
-          <div className="max-w-7xl mx-auto p-6">
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Label Creation Complete</h1>
-              <p className="text-gray-600">Your shipping labels have been generated successfully.</p>
-            </div>
-            
-            {results.processedShipments && results.processedShipments.length > 0 && (
-              <LabelResultsTable
-                shipments={results.processedShipments || []}
-                onDownloadLabel={handleDownloadSingleLabel}
-              />
-            )}
-          </div>
-        </div>
+        <BatchLabelCreationPage
+          results={results}
+          onDownloadSingleLabel={handleDownloadSingleLabel}
+          batchPrintPreviewModalOpen={batchPrintPreviewModalOpen}
+          setBatchPrintPreviewModalOpen={setBatchPrintPreviewModalOpen}
+        />
       )}
 
-      {/* Batch Print Preview Modal */}
-      {results?.batchResult && (
-        <PrintPreview
-          isOpenProp={batchPrintPreviewModalOpen}
-          onOpenChangeProp={setBatchPrintPreviewModalOpen}
-          labelUrl=""
-          trackingCode={null}
-          batchResult={results.batchResult}
-          isBatchPreview={true}
-        />
+      {/* Legacy Results Section - Keep as fallback */}
+      {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && results.processedShipments && results.processedShipments.length > 0 && (
+        <div className="hidden">
+          <div className="min-h-screen bg-gray-50">
+            <div className="max-w-7xl mx-auto p-6">
+              <div className="mb-6">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Label Creation Complete</h1>
+                <p className="text-gray-600">Your shipping labels have been generated successfully.</p>
+              </div>
+              
+              {results.processedShipments && results.processedShipments.length > 0 && (
+                <LabelResultsTable
+                  shipments={results.processedShipments || []}
+                  onDownloadLabel={handleDownloadSingleLabel}
+                />
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

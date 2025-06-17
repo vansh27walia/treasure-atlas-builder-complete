@@ -1,0 +1,204 @@
+
+import React from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Download, PrinterIcon, Package, CheckCircle, AlertCircle } from 'lucide-react';
+import { BulkUploadResult } from '@/types/shipping';
+import PrintPreview from '@/components/shipping/PrintPreview';
+
+interface BatchLabelCreationPageProps {
+  results: BulkUploadResult;
+  onDownloadSingleLabel: (labelUrl: string) => void;
+  batchPrintPreviewModalOpen: boolean;
+  setBatchPrintPreviewModalOpen: (open: boolean) => void;
+}
+
+const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
+  results,
+  onDownloadSingleLabel,
+  batchPrintPreviewModalOpen,
+  setBatchPrintPreviewModalOpen
+}) => {
+  const handleBatchPrintPreview = () => {
+    setBatchPrintPreviewModalOpen(true);
+  };
+
+  const successfulLabels = results.processedShipments?.filter(s => s.status === 'completed' && s.label_url) || [];
+  const failedLabels = results.processedShipments?.filter(s => s.status === 'failed') || [];
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <div className="flex items-center justify-center mb-4">
+            <Package className="h-8 w-8 text-green-600 mr-3" />
+            <h1 className="text-3xl font-bold text-gray-900">Batch Labels Created Successfully</h1>
+          </div>
+          <p className="text-gray-600">Your shipping labels have been generated and are ready for download and printing.</p>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="p-6 text-center">
+            <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-3" />
+            <h3 className="text-2xl font-bold text-green-600">{successfulLabels.length}</h3>
+            <p className="text-gray-600">Labels Created</p>
+          </Card>
+          
+          <Card className="p-6 text-center">
+            <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-3" />
+            <h3 className="text-2xl font-bold text-red-600">{failedLabels.length}</h3>
+            <p className="text-gray-600">Failed Labels</p>
+          </Card>
+          
+          <Card className="p-6 text-center">
+            <Package className="h-8 w-8 text-blue-600 mx-auto mb-3" />
+            <h3 className="text-2xl font-bold text-blue-600">${results.totalCost?.toFixed(2) || '0.00'}</h3>
+            <p className="text-gray-600">Total Cost</p>
+          </Card>
+        </div>
+
+        {/* Batch Actions */}
+        <Card className="p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4">Batch Actions</h2>
+          <div className="flex flex-wrap gap-4">
+            {/* Batch Print Preview */}
+            <Button
+              onClick={handleBatchPrintPreview}
+              className="bg-purple-600 hover:bg-purple-700 text-white flex items-center"
+              size="lg"
+            >
+              <PrinterIcon className="mr-2 h-5 w-5" />
+              Print Preview All Labels
+            </Button>
+
+            {/* Download Consolidated PDF */}
+            {results.batchResult?.consolidatedLabelUrls?.pdf && (
+              <Button
+                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
+                variant="outline"
+                className="text-blue-600 border-blue-600 hover:bg-blue-50 flex items-center"
+                size="lg"
+              >
+                <Download className="mr-2 h-5 w-5" />
+                Download Consolidated PDF
+              </Button>
+            )}
+
+            {/* Download Consolidated ZPL */}
+            {results.batchResult?.consolidatedLabelUrls?.zpl && (
+              <Button
+                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.zpl!)}
+                variant="outline"
+                className="text-green-600 border-green-600 hover:bg-green-50 flex items-center"
+                size="lg"
+              >
+                <Download className="mr-2 h-5 w-5" />
+                Download ZPL File
+              </Button>
+            )}
+          </div>
+        </Card>
+
+        {/* Individual Labels Table */}
+        {successfulLabels.length > 0 && (
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Individual Labels</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="border-b">
+                  <tr>
+                    <th className="text-left py-3 px-4">Recipient</th>
+                    <th className="text-left py-3 px-4">Tracking Number</th>
+                    <th className="text-left py-3 px-4">Carrier</th>
+                    <th className="text-left py-3 px-4">Cost</th>
+                    <th className="text-left py-3 px-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {successfulLabels.map((shipment, index) => (
+                    <tr key={shipment.id || index} className="border-b hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <div>
+                          <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
+                          <div className="text-sm text-gray-500">
+                            {typeof shipment.customer_address === 'string' 
+                              ? shipment.customer_address 
+                              : shipment.customer_address?.street1}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                          {shipment.tracking_code || shipment.tracking_number}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div>
+                          <div className="font-medium">{shipment.carrier}</div>
+                          <div className="text-sm text-gray-500">{shipment.service}</div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="font-medium">${shipment.rate?.toFixed(2) || '0.00'}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex space-x-2">
+                          {shipment.label_url && (
+                            <Button
+                              onClick={() => onDownloadSingleLabel(shipment.label_url!)}
+                              size="sm"
+                              variant="outline"
+                              className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                            >
+                              <Download className="mr-1 h-4 w-4" />
+                              Download
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
+
+        {/* Failed Labels */}
+        {failedLabels.length > 0 && (
+          <Card className="p-6 mt-8 border-red-200">
+            <h2 className="text-xl font-semibold mb-4 text-red-600">Failed Labels</h2>
+            <div className="space-y-3">
+              {failedLabels.map((shipment, index) => (
+                <div key={shipment.id || index} className="p-3 bg-red-50 border border-red-200 rounded">
+                  <div className="font-medium text-red-800">
+                    {shipment.customer_name || shipment.recipient}
+                  </div>
+                  <div className="text-sm text-red-600 mt-1">
+                    Error: {shipment.error || 'Unknown error occurred'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+      </div>
+
+      {/* Print Preview Modal */}
+      {results.batchResult && (
+        <PrintPreview
+          isOpenProp={batchPrintPreviewModalOpen}
+          onOpenChangeProp={setBatchPrintPreviewModalOpen}
+          labelUrl=""
+          trackingCode={null}
+          batchResult={results.batchResult}
+          isBatchPreview={true}
+        />
+      )}
+    </div>
+  );
+};
+
+export default BatchLabelCreationPage;
