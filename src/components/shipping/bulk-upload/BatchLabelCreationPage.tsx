@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, PrinterIcon, Package, CheckCircle, AlertCircle } from 'lucide-react';
+import { Download, PrinterIcon, Package, CheckCircle, AlertCircle, FileText } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
 
@@ -49,6 +49,77 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
           <p className="text-gray-600">Your shipping labels have been generated and are ready for download and printing.</p>
         </div>
 
+        {/* Consolidated Batch Labels Download Section */}
+        <Card className="p-6 mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+          <div className="flex items-center mb-4">
+            <FileText className="h-6 w-6 text-blue-600 mr-3" />
+            <h2 className="text-xl font-semibold text-blue-900">Consolidated Batch Labels</h2>
+          </div>
+          <p className="text-blue-700 mb-4">Download all labels as consolidated files in different formats:</p>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Consolidated PDF */}
+            {results.batchResult?.consolidatedLabelUrls?.pdf && (
+              <Button
+                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
+                className="bg-red-600 hover:bg-red-700 text-white flex items-center justify-center h-16"
+                size="lg"
+              >
+                <Download className="mr-2 h-5 w-5" />
+                <div className="text-center">
+                  <div className="font-semibold">PDF</div>
+                  <div className="text-xs opacity-90">Consolidated</div>
+                </div>
+              </Button>
+            )}
+
+            {/* Consolidated ZPL */}
+            {results.batchResult?.consolidatedLabelUrls?.zpl && (
+              <Button
+                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.zpl!)}
+                className="bg-green-600 hover:bg-green-700 text-white flex items-center justify-center h-16"
+                size="lg"
+              >
+                <Download className="mr-2 h-5 w-5" />
+                <div className="text-center">
+                  <div className="font-semibold">ZPL</div>
+                  <div className="text-xs opacity-90">Consolidated</div>
+                </div>
+              </Button>
+            )}
+
+            {/* Consolidated EPL */}
+            {results.batchResult?.consolidatedLabelUrls?.epl && (
+              <Button
+                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.epl!)}
+                className="bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center h-16"
+                size="lg"
+              >
+                <Download className="mr-2 h-5 w-5" />
+                <div className="text-center">
+                  <div className="font-semibold">EPL</div>
+                  <div className="text-xs opacity-90">Consolidated</div>
+                </div>
+              </Button>
+            )}
+
+            {/* Consolidated PDF ZIP */}
+            {results.batchResult?.consolidatedLabelUrls?.pdfZip && (
+              <Button
+                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdfZip!)}
+                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center h-16"
+                size="lg"
+              >
+                <Download className="mr-2 h-5 w-5" />
+                <div className="text-center">
+                  <div className="font-semibold">ZIP</div>
+                  <div className="text-xs opacity-90">PDF Bundle</div>
+                </div>
+              </Button>
+            )}
+          </div>
+        </Card>
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="p-6 text-center">
@@ -83,58 +154,6 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
               <PrinterIcon className="mr-2 h-5 w-5" />
               Print Preview All Labels
             </Button>
-
-            {/* Download Consolidated PDF */}
-            {results.batchResult?.consolidatedLabelUrls?.pdf && (
-              <Button
-                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
-                variant="outline"
-                className="text-blue-600 border-blue-600 hover:bg-blue-50 flex items-center"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                Download Consolidated PDF
-              </Button>
-            )}
-
-            {/* Download Consolidated ZPL */}
-            {results.batchResult?.consolidatedLabelUrls?.zpl && (
-              <Button
-                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.zpl!)}
-                variant="outline"
-                className="text-green-600 border-green-600 hover:bg-green-50 flex items-center"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                Download ZPL File
-              </Button>
-            )}
-
-            {/* Download Consolidated EPL */}
-            {results.batchResult?.consolidatedLabelUrls?.epl && (
-              <Button
-                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.epl!)}
-                variant="outline"
-                className="text-orange-600 border-orange-600 hover:bg-orange-50 flex items-center"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                Download EPL File
-              </Button>
-            )}
-
-            {/* Download PDF ZIP */}
-            {results.batchResult?.consolidatedLabelUrls?.pdfZip && (
-              <Button
-                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdfZip!)}
-                variant="outline"
-                className="text-indigo-600 border-indigo-600 hover:bg-indigo-50 flex items-center"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                Download PDF ZIP
-              </Button>
-            )}
           </div>
         </Card>
 
