@@ -38,7 +38,6 @@ const BulkLabelPrintPage: React.FC<BulkLabelPrintPageProps> = ({
   const handlePrint = () => {
     const consolidatedUrl = batchResult?.consolidatedLabelUrls?.[selectedFormat];
     if (consolidatedUrl) {
-      // Open PDF in new window for printing
       const printWindow = window.open(consolidatedUrl, '_blank');
       if (printWindow) {
         printWindow.onload = () => {
@@ -89,6 +88,10 @@ const BulkLabelPrintPage: React.FC<BulkLabelPrintPageProps> = ({
   };
 
   const shipmentsWithLabels = shipments.filter(s => s.label_urls || s.label_url);
+
+  console.log('BulkLabelPrintPage - shipments:', shipments);
+  console.log('BulkLabelPrintPage - batchResult:', batchResult);
+  console.log('BulkLabelPrintPage - shipmentsWithLabels:', shipmentsWithLabels);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -217,18 +220,13 @@ const BulkLabelPrintPage: React.FC<BulkLabelPrintPageProps> = ({
               </div>
             </div>
             <div className="bg-white border rounded-lg p-4">
-              <div className="w-full h-96 bg-gray-100 rounded border-2 border-dashed border-gray-300 flex items-center justify-center">
-                <div className="text-center">
-                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600 mb-2">PDF Preview</p>
-                  <Button
-                    onClick={() => handleViewInNewTab(batchResult.consolidatedLabelUrls.pdf)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    View Full PDF
-                  </Button>
-                </div>
-              </div>
+              <iframe
+                src={batchResult.consolidatedLabelUrls.pdf}
+                width="100%"
+                height="600"
+                className="border-0"
+                title="Consolidated Label Preview"
+              />
             </div>
           </Card>
         )}
