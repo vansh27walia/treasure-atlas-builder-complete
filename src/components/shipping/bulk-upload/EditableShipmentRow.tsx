@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,7 +73,10 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
     if (typeof shipment.customer_address === 'string') {
       return shipment.customer_address;
     }
-    return shipment.customer_address?.street1 || '';
+    if (shipment.customer_address && typeof shipment.customer_address === 'object') {
+      return (shipment.customer_address as any).street1 || '';
+    }
+    return '';
   };
 
   return (

@@ -26,6 +26,17 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
   const successfulLabels = results.processedShipments?.filter(s => s.status === 'completed' && s.label_url) || [];
   const failedLabels = results.processedShipments?.filter(s => s.status === 'failed') || [];
 
+  // Get street address safely
+  const getStreetAddress = (shipment: any) => {
+    if (typeof shipment.customer_address === 'string') {
+      return shipment.customer_address;
+    }
+    if (shipment.customer_address && typeof shipment.customer_address === 'object') {
+      return (shipment.customer_address as any).street1 || '';
+    }
+    return '';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto p-6">
@@ -123,9 +134,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
                         <div>
                           <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
                           <div className="text-sm text-gray-500">
-                            {typeof shipment.customer_address === 'string' 
-                              ? shipment.customer_address 
-                              : shipment.customer_address?.street1}
+                            {getStreetAddress(shipment)}
                           </div>
                         </div>
                       </td>
