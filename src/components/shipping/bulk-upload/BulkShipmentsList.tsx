@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { BulkShipment } from '@/types/shipping';
 import { Button } from '@/components/ui/button';
@@ -175,7 +176,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     <div className="mb-4">
                       <Label className="text-sm font-medium text-gray-700 mb-2 block">Selected Rate</Label>
                       <EnhancedRateDisplay
-                        actualRate={selectedRate.rate}
+                        actualRate={formatRate(selectedRate.rate)}
                         carrier={selectedRate.carrier}
                         service={selectedRate.service}
                         deliveryDays={selectedRate.delivery_days}
@@ -221,12 +222,12 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 onClick={() => onSelectRate(shipment.id, rate.id)}
                               >
                                 <EnhancedRateDisplay
-                                  actualRate={rate.rate}
+                                  actualRate={formatRate(rate.rate)}
                                   carrier={rate.carrier}
                                   service={rate.service}
                                   deliveryDays={rate.delivery_days}
                                   isSelected={rate.id === shipment.selectedRateId}
-                                  isRecommended={rate.carrier === 'USPS'} // Simple AI recommendation logic
+                                  isRecommended={rate.carrier === 'USPS'}
                                 />
                               </div>
                             ))}
