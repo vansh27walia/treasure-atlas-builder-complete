@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Upload, FileText, Package, Download, PrinterIcon, AlertTriangle, X } from 'lucide-react';
@@ -7,11 +7,13 @@ import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
 import LabelGenerationProgress from './LabelGenerationProgress';
-import PrintPreview from '@/components/shipping/PrintPreview';
+import BulkLabelPrintPage from './BulkLabelPrintPage';
 import { useBulkUpload } from './useBulkUpload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const BulkUploadView: React.FC = () => {
+  const [showPrintPage, setShowPrintPage] = useState(false);
+  
   const {
     file,
     isUploading,
@@ -28,8 +30,6 @@ const BulkUploadView: React.FC = () => {
     pickupAddress,
     batchError,
     labelGenerationProgress,
-    batchPrintPreviewModalOpen,
-    setBatchPrintPreviewModalOpen,
     handleFileChange,
     handleUpload,
     handleSelectRate,
@@ -37,7 +37,6 @@ const BulkUploadView: React.FC = () => {
     handleEditShipment,
     handleBulkApplyCarrier,
     handleCreateLabels,
-    handleOpenBatchPrintPreview,
     handleClearBatchError,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
@@ -61,6 +60,27 @@ const BulkUploadView: React.FC = () => {
   const handlePickupAddressSelect = (address: any) => {
     setPickupAddress(address);
   };
+
+  const handleOpenPrintPreview = () => {
+    setShowPrintPage(true);
+  };
+
+  const handleBackFromPrintPage = () => {
+    setShowPrintPage(false);
+  };
+
+  // If showing print page, render the dedicated print page
+  if (showPrintPage && results?.batchResult) {
+    return (
+      <BulkLabelPrintPage
+        batchResult={results.batchResult}
+        shipments={results.processedShipments || []}
+        onBack={handleBackFromPrintPage}
+        onDownloadSingle={handleDownloadSingleLabel}
+        onEmailLabels={handleEmailLabels}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -197,7 +217,7 @@ const BulkUploadView: React.FC = () => {
                 )}
                 {results?.batchResult && !labelGenerationProgress.isGenerating && (
                   <Button
-                    onClick={handleOpenBatchPrintPreview}
+                    onClick={handleOpenPrintPreview}
                     variant="outline"
                     className="text-purple-600 border-purple-600 hover:bg-purple-50"
                   >
@@ -223,31 +243,33 @@ const BulkUploadView: React.FC = () => {
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="min-h-screen bg-gray-50">
           <div className="max-w-7xl mx-auto p-6">
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Label Creation Complete</h1>
-              <p className="text-gray-600">Your shipping labels have been generated successfully.</p>
+            <div className="mb-6 flex justify-between items-center">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Label Creation Complete</h1>
+                <p className="text-gray-600">Your shipping labels have been generated successfully.</p>
+              </div>
+              
+              {/* Print Preview Button in Header */}
+              {results.batchResult && (
+                <Button
+                  onClick={handleOpenPrintPreview}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <PrinterIcon className="mr-2 h-4 w-4" />
+                  Print Preview
+                </Button>
+              )}
             </div>
             
             {results.processedShipments && results.processedShipments.length > 0 && (
               <LabelResultsTable
                 shipments={results.processedShipments || []}
                 onDownloadLabel={handleDownloadSingleLabel}
+                onEmailLabel={handleEmailLabels}
               />
             )}
           </div>
         </div>
-      )}
-
-      {/* Batch Print Preview Modal */}
-      {results?.batchResult && (
-        <PrintPreview
-          isOpenProp={batchPrintPreviewModalOpen}
-          onOpenChangeProp={setBatchPrintPreviewModalOpen}
-          labelUrl=""
-          trackingCode={null}
-          batchResult={results.batchResult}
-          isBatchPreview={true}
-        />
       )}
     </div>
   );
