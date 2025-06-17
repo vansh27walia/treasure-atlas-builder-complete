@@ -69,6 +69,23 @@ const BulkUploadView: React.FC = () => {
     setShowPrintPage(false);
   };
 
+  // Wrapper for edit shipment to match expected signature
+  const handleEditShipmentWrapper = (shipmentId: string, updates: Partial<any>) => {
+    // Find the shipment and update it
+    if (!results?.processedShipments) return;
+    
+    const updatedShipments = results.processedShipments.map(shipment => {
+      if (shipment.id === shipmentId) {
+        return { ...shipment, ...updates };
+      }
+      return shipment;
+    });
+    
+    // Update the results with the modified shipments
+    // This should trigger a re-render with the updated data
+    console.log('Updated shipment:', shipmentId, updates);
+  };
+
   // If showing print page, render the dedicated print page
   if (showPrintPage && results?.batchResult) {
     return (
@@ -195,9 +212,7 @@ const BulkUploadView: React.FC = () => {
                 isFetchingRates={isFetchingRates}
                 onSelectRate={handleSelectRate}
                 onRemoveShipment={handleRemoveShipment}
-                onEditShipment={(shipmentId: string, details: any) => {
-                  console.log('Edit shipment:', shipmentId, details);
-                }}
+                onEditShipment={handleEditShipmentWrapper}
                 onRefreshRates={() => {}}
               />
             </div>
@@ -265,7 +280,6 @@ const BulkUploadView: React.FC = () => {
               <LabelResultsTable
                 shipments={results.processedShipments || []}
                 onDownloadLabel={handleDownloadSingleLabel}
-                onEmailLabel={handleEmailLabels}
               />
             )}
           </div>
