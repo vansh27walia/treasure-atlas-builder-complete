@@ -6,16 +6,16 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Package, PackageCheck, Edit, RefreshCcw, X, FileText, Truck, ArrowUp, ArrowDown, Check } from 'lucide-react';
+import { Package, PackageCheck, Edit, RefreshCcw, X, FileText, Truck, ArrowUp, ArrowDown, Check, ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
-import { Form, FormField, FormItem, FormLabel, FormControl } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { formatWeightDisplay } from '@/utils/weightConversion';
 import InsuranceOptions from './InsuranceOptions';
 import AIRatePicker from './AIRatePicker';
-import RateDisplay from './RateDisplay';
+import EnhancedRateDisplay from './EnhancedRateDisplay';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
@@ -35,6 +35,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   onRefreshRates
 }) => {
   const [openDialogs, setOpenDialogs] = useState<Record<string, boolean>>({});
+  const [openRateSelectors, setOpenRateSelectors] = useState<Record<string, boolean>>({});
   const [insuranceSettings, setInsuranceSettings] = useState<Record<string, { enabled: boolean; value: number }>>({});
 
   const handleOpenEditDialog = (shipmentId: string) => {
@@ -49,6 +50,13 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       ...openDialogs,
       [shipmentId]: false
     });
+  };
+
+  const toggleRateSelector = (shipmentId: string) => {
+    setOpenRateSelectors(prev => ({
+      ...prev,
+      [shipmentId]: !prev[shipmentId]
+    }));
   };
 
   const handleInsuranceToggle = (shipmentId: string, enabled: boolean) => {
@@ -77,146 +85,72 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     onSelectRate(shipmentId, rateId);
   };
 
-  // Helper function to safely format rate as number
   const formatRate = (rate: string | number | undefined): string => {
     if (!rate) return '0.00';
     const numRate = typeof rate === 'string' ? parseFloat(rate) : rate;
     return isNaN(numRate) ? '0.00' : numRate.toFixed(2);
   };
 
-  // Helper function to get insurance settings with defaults
   const getInsuranceSettings = (shipmentId: string) => {
     return insuranceSettings[shipmentId] || { enabled: true, value: 200 };
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* AI Rate Picker */}
-      <AIRatePicker 
-        shipments={shipments}
-        onApplyAISelection={handleAIRateSelection}
-      />
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
+        <AIRatePicker 
+          shipments={shipments}
+          onApplyAISelection={handleAIRateSelection}
+        />
+      </div>
 
       {shipments.length === 0 ? (
         <Card className="p-6 text-center">
-          <p className="text-gray-500">No shipments found.</p>
+          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500 text-lg">No shipments found.</p>
         </Card>
       ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-1/12">Row</TableHead>
-                <TableHead className="w-2/12">Customer Details</TableHead>
-                <TableHead className="w-2/12">Shipping Address</TableHead>
-                <TableHead className="w-2/12">Carrier & Service</TableHead>
-                <TableHead className="w-2/12">Insurance</TableHead>
-                <TableHead className="w-1/12">Rate</TableHead>
-                <TableHead className="w-1/12">Status</TableHead>
-                <TableHead className="w-1/12 text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {shipments.map((shipment) => {
-                const insurance = getInsuranceSettings(shipment.id);
-                const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
-                
-                return (
-                  <TableRow key={shipment.id}>
-                    <TableCell>{shipment.row}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium">{shipment.details.to_name}</div>
-                        {shipment.details.to_company && (
-                          <div className="text-xs text-gray-500">{shipment.details.to_company}</div>
-                        )}
-                        {shipment.details.to_phone && (
-                          <div className="text-xs text-blue-600">{shipment.details.to_phone}</div>
-                        )}
-                        {shipment.details.to_email && (
-                          <div className="text-xs text-green-600">{shipment.details.to_email}</div>
-                        )}
-                        {shipment.details.reference && (
-                          <div className="text-xs text-gray-500">Ref: {shipment.details.reference}</div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="text-sm">{shipment.details.to_street1}</div>
-                        {shipment.details.to_street2 && (
-                          <div className="text-sm text-gray-500">{shipment.details.to_street2}</div>
-                        )}
-                        <div className="text-sm">
-                          {shipment.details.to_city}, {shipment.details.to_state} {shipment.details.to_zip}
-                        </div>
-                        <div className="text-xs text-gray-500">{shipment.details.to_country}</div>
-                        <div className="text-xs text-purple-600">
-                          {formatWeightDisplay(shipment.details.weight || 16)} • {shipment.details.length}"×{shipment.details.width}"×{shipment.details.height}"
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {shipment.status !== 'failed' && shipment.status !== 'error' ? (
-                        <div className="space-y-2">
-                          <Select 
-                            value={shipment.selectedRateId}
-                            onValueChange={(value) => onSelectRate(shipment.id, value)}
-                            disabled={shipment.status === 'pending_rates'}
-                          >
-                            <SelectTrigger className="min-w-[180px]">
-                              <SelectValue placeholder={shipment.status === 'pending_rates' ? "Fetching rates..." : "Select a carrier"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {(shipment.availableRates || []).map((rate) => (
-                                <SelectItem key={rate.id} value={rate.id}>
-                                  <div className="w-full">
-                                    <RateDisplay
-                                      actualRate={rate.rate}
-                                      carrier={rate.carrier}
-                                      service={rate.service}
-                                      deliveryDays={rate.delivery_days}
-                                    />
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      ) : (
-                        <Badge variant="outline" className="bg-red-50 text-red-700">
-                          {shipment.error || 'Error loading rates'}
+        <div className="space-y-4">
+          {shipments.map((shipment) => {
+            const insurance = getInsuranceSettings(shipment.id);
+            const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
+            const isRatesSectionOpen = openRateSelectors[shipment.id];
+            
+            return (
+              <Card key={shipment.id} className="overflow-hidden">
+                <div className="p-6">
+                  {/* Header Section */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start space-x-4">
+                      <div className="flex-shrink-0">
+                        <Badge variant="outline" className="text-xs">
+                          #{shipment.row}
                         </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <InsuranceOptions
-                        shipmentId={shipment.id}
-                        insuranceEnabled={insurance.enabled}
-                        declaredValue={insurance.value}
-                        onInsuranceToggle={handleInsuranceToggle}
-                        onDeclaredValueChange={handleDeclaredValueChange}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {shipment.status !== 'pending_rates' && shipment.selectedRateId && selectedRate ? (
-                        <div className="space-y-1">
-                          <div className="font-semibold">
-                            ${formatRate(selectedRate.rate)}
-                          </div>
-                          {insurance.enabled && (
-                            <div className="text-xs text-blue-600">
-                              +${(insurance.value * 0.02).toFixed(2)} ins.
-                            </div>
+                      </div>
+                      
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg text-gray-900">
+                          {shipment.details.to_name}
+                        </h3>
+                        {shipment.details.to_company && (
+                          <p className="text-sm text-gray-600">{shipment.details.to_company}</p>
+                        )}
+                        <div className="text-sm text-gray-500 mt-1">
+                          {shipment.details.to_street1}, {shipment.details.to_city}, {shipment.details.to_state} {shipment.details.to_zip}
+                        </div>
+                        <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                          <span>📦 {formatWeightDisplay(shipment.details.weight || 16)}</span>
+                          <span>📏 {shipment.details.length}"×{shipment.details.width}"×{shipment.details.height}"</span>
+                          {shipment.details.reference && (
+                            <span>🏷️ {shipment.details.reference}</span>
                           )}
                         </div>
-                      ) : shipment.status === 'pending_rates' ? (
-                        <Skeleton className="h-6 w-16" />
-                      ) : (
-                        <span className="text-gray-500">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
+                      </div>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="flex items-center space-x-2">
                       {['completed', 'rate_selected', 'rates_fetched', 'label_purchased'].includes(shipment.status) ? (
                         <Badge className="bg-green-100 text-green-700 border-green-200">
                           <PackageCheck className="mr-1 h-3 w-3" />
@@ -233,69 +167,147 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                           Error
                         </Badge>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <Dialog open={openDialogs[shipment.id]} onOpenChange={(open) => {
-                          if (!open) handleCloseEditDialog(shipment.id);
-                        }}>
-                          <DialogTrigger asChild>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleOpenEditDialog(shipment.id)}
-                            >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Edit
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Edit Customer & Shipment Details</DialogTitle>
-                            </DialogHeader>
-                            <ShipmentEditForm
-                              shipment={shipment}
-                              onSubmit={(data) => {
-                                onEditShipment(shipment.id, data);
-                                handleCloseEditDialog(shipment.id);
-                              }}
-                              onCancel={() => handleCloseEditDialog(shipment.id)}
-                            />
-                          </DialogContent>
-                        </Dialog>
+                    </div>
+                  </div>
 
+                  {/* Selected Rate Display */}
+                  {selectedRate && (
+                    <div className="mb-4">
+                      <Label className="text-sm font-medium text-gray-700 mb-2 block">Selected Rate</Label>
+                      <EnhancedRateDisplay
+                        actualRate={selectedRate.rate}
+                        carrier={selectedRate.carrier}
+                        service={selectedRate.service}
+                        deliveryDays={selectedRate.delivery_days}
+                        isSelected={true}
+                      />
+                    </div>
+                  )}
+
+                  {/* Rate Selection Section */}
+                  {shipment.status !== 'failed' && shipment.status !== 'error' && (
+                    <Collapsible open={isRatesSectionOpen} onOpenChange={() => toggleRateSelector(shipment.id)}>
+                      <CollapsibleTrigger asChild>
                         <Button 
                           variant="outline" 
-                          size="sm"
-                          onClick={() => onRefreshRates(shipment.id)}
+                          className="w-full justify-between"
                           disabled={shipment.status === 'pending_rates'}
                         >
-                          <RefreshCcw className={`h-4 w-4 mr-1 ${shipment.status === 'pending_rates' ? 'animate-spin' : ''}`} />
-                          Rates
+                          <span>
+                            {shipment.status === 'pending_rates' 
+                              ? 'Fetching rates...' 
+                              : selectedRate 
+                                ? 'Change Rate Selection' 
+                                : 'Select Shipping Rate'
+                            }
+                          </span>
+                          <ChevronDown className={`h-4 w-4 transition-transform ${isRatesSectionOpen ? 'rotate-180' : ''}`} />
                         </Button>
+                      </CollapsibleTrigger>
+                      
+                      <CollapsibleContent className="space-y-3 mt-4">
+                        {shipment.status === 'pending_rates' ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {[1, 2, 3, 4].map(i => (
+                              <Skeleton key={i} className="h-24 w-full" />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {(shipment.availableRates || []).map((rate) => (
+                              <div 
+                                key={rate.id}
+                                className="cursor-pointer"
+                                onClick={() => onSelectRate(shipment.id, rate.id)}
+                              >
+                                <EnhancedRateDisplay
+                                  actualRate={rate.rate}
+                                  carrier={rate.carrier}
+                                  service={rate.service}
+                                  deliveryDays={rate.delivery_days}
+                                  isSelected={rate.id === shipment.selectedRateId}
+                                  isRecommended={rate.carrier === 'USPS'} // Simple AI recommendation logic
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
 
+                  {/* Insurance Section */}
+                  <div className="mt-4">
+                    <InsuranceOptions
+                      shipmentId={shipment.id}
+                      insuranceEnabled={insurance.enabled}
+                      declaredValue={insurance.value}
+                      onInsuranceToggle={handleInsuranceToggle}
+                      onDeclaredValueChange={handleDeclaredValueChange}
+                    />
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex justify-end space-x-2 mt-4 pt-4 border-t border-gray-200">
+                    <Dialog open={openDialogs[shipment.id]} onOpenChange={(open) => {
+                      if (!open) handleCloseEditDialog(shipment.id);
+                    }}>
+                      <DialogTrigger asChild>
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => onRemoveShipment(shipment.id)}
-                          className="text-red-500 border-red-200 hover:bg-red-50"
+                          onClick={() => handleOpenEditDialog(shipment.id)}
                         >
-                          <X className="h-4 w-4 mr-1" />
-                          Remove
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
                         </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle>Edit Customer & Shipment Details</DialogTitle>
+                        </DialogHeader>
+                        <ShipmentEditForm
+                          shipment={shipment}
+                          onSubmit={(data) => {
+                            onEditShipment(shipment.id, data);
+                            handleCloseEditDialog(shipment.id);
+                          }}
+                          onCancel={() => handleCloseEditDialog(shipment.id)}
+                        />
+                      </DialogContent>
+                    </Dialog>
+
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => onRefreshRates(shipment.id)}
+                      disabled={shipment.status === 'pending_rates'}
+                    >
+                      <RefreshCcw className={`h-4 w-4 mr-1 ${shipment.status === 'pending_rates' ? 'animate-spin' : ''}`} />
+                      Refresh
+                    </Button>
+
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => onRemoveShipment(shipment.id)}
+                      className="text-red-500 border-red-200 hover:bg-red-50"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
   );
 };
 
+// Keep the existing ShipmentEditForm component
 interface ShipmentEditFormProps {
   shipment: BulkShipment;
   onSubmit: (data: BulkShipment['details']) => void;

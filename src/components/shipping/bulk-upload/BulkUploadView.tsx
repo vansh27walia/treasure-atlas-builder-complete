@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,7 +66,6 @@ const BulkUploadView: React.FC = () => {
   const handleOpenPrintReview = () => {
     console.log('Opening print review, results:', results);
     if (results?.bulk_label_pdf_url) {
-      // Open PDF in new tab for print review
       window.open(results.bulk_label_pdf_url, '_blank');
       console.log('Opened PDF for print review:', results.bulk_label_pdf_url);
     } else {
@@ -86,7 +86,6 @@ const BulkUploadView: React.FC = () => {
     await handleCreateLabels();
   };
 
-  // Wrapper for edit shipment to match expected signature
   const handleEditShipmentWrapper = (shipmentId: string, updates: Partial<any>) => {
     if (!results?.processedShipments) return;
     
@@ -100,8 +99,8 @@ const BulkUploadView: React.FC = () => {
     console.log('Updated shipment:', shipmentId, updates);
   };
 
-  // If showing batch creation page
-  if (showBatchCreationPage && results) {
+  // Show batch creation page when creating labels or when labels are successfully created
+  if ((showBatchCreationPage || isCreatingLabels || (uploadStatus === 'success' && results?.processedShipments?.some(s => s.label_url))) && results) {
     return (
       <BatchLabelCreationPage
         batchResult={results}
@@ -278,38 +277,6 @@ const BulkUploadView: React.FC = () => {
                 {isCreatingLabels ? 'Creating Labels...' : 'Create Selected Labels'}
               </Button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Results Section */}
-      {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
-        <div className="min-h-screen bg-gray-50">
-          <div className="max-w-7xl mx-auto p-6">
-            <div className="mb-6 flex justify-between items-center">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Label Creation Complete</h1>
-                <p className="text-gray-600">Your shipping labels have been generated successfully.</p>
-              </div>
-              
-              {/* Print Preview Button in Header */}
-              {results.processedShipments && results.processedShipments.some(s => s.label_url) && (
-                <Button
-                  onClick={handleOpenPrintReview}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  <PrinterIcon className="mr-2 h-4 w-4" />
-                  Print Review
-                </Button>
-              )}
-            </div>
-            
-            {results.processedShipments && results.processedShipments.length > 0 && (
-              <LabelResultsTable
-                shipments={results.processedShipments || []}
-                onDownloadLabel={handleDownloadSingleLabel}
-              />
-            )}
           </div>
         </div>
       )}
