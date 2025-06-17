@@ -123,16 +123,16 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
               </Button>
             )}
 
-            {/* Download Consolidated PNG */}
-            {results.batchResult?.consolidatedLabelUrls?.png && (
+            {/* Download PDF ZIP */}
+            {results.batchResult?.consolidatedLabelUrls?.pdfZip && (
               <Button
-                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.png!)}
+                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdfZip!)}
                 variant="outline"
                 className="text-indigo-600 border-indigo-600 hover:bg-indigo-50 flex items-center"
                 size="lg"
               >
                 <Download className="mr-2 h-5 w-5" />
-                Download PNG File
+                Download PDF ZIP
               </Button>
             )}
           </div>
