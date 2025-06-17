@@ -65,7 +65,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
   const allShipments = batchResult.processedShipments || [];
   const completedLabels = allShipments.filter(s => s.status === 'completed' || s.label_url);
   const failedLabels = allShipments.filter(s => s.status === 'failed');
-  const pendingLabels = allShipments.filter(s => !s.status || s.status === 'pending');
+  const pendingLabels = allShipments.filter(s => !s.status || s.status === 'pending_rates' || s.status === 'rates_fetched' || s.status === 'rate_selected');
 
   return (
     <div className="min-h-screen bg-gray-50">
