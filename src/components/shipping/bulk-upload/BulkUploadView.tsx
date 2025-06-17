@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,7 +68,12 @@ const BulkUploadView: React.FC = () => {
   };
 
   const handleEditShipmentWrapper = (shipmentId: string, updates: Partial<any>) => {
-    handleEditShipment(shipmentId, updates);
+    const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+    if (shipment) {
+      // Merge the updates with the existing shipment
+      const updatedShipment = { ...shipment, ...updates };
+      handleEditShipment(updatedShipment);
+    }
   };
 
   const handleEmailSingleLabel = (labelUrl: string) => {
