@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -57,7 +56,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
           </div>
           <p className="text-green-700 mb-4">Download all labels as consolidated files in different formats:</p>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {/* Consolidated PDF */}
             {results.batchResult?.consolidatedLabelUrls?.pdf && (
               <Button
@@ -83,21 +82,6 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
                 <Download className="mr-2 h-5 w-5" />
                 <div className="text-center">
                   <div className="font-semibold">ZPL</div>
-                  <div className="text-xs opacity-90">Consolidated</div>
-                </div>
-              </Button>
-            )}
-
-            {/* Consolidated PNG */}
-            {results.batchResult?.consolidatedLabelUrls?.png && (
-              <Button
-                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.png!)}
-                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">PNG</div>
                   <div className="text-xs opacity-90">Consolidated</div>
                 </div>
               </Button>
