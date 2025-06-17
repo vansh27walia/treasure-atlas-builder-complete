@@ -41,7 +41,6 @@ export const useBulkUpload = () => {
     setResults(newResults);
     
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
-      // Only update status if it's one of the types compatible with useShipmentUpload's state
       const compatibleStatuses = ['idle', 'uploading', 'success', 'error', 'editing', 'creating-labels'];
       if (compatibleStatuses.includes(newResults.uploadStatus)) {
         setUploadStatus(newResults.uploadStatus as 'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels');
@@ -67,7 +66,7 @@ export const useBulkUpload = () => {
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat, 
     handleDownloadSingleLabel,
-    handleEmailLabels
+    handleEmailLabels: originalHandleEmailLabels
   } = useShipmentManagement(results, updateResults);
 
   const {
@@ -107,13 +106,59 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
+  const handleEmailLabels = async (email: string, format: string = 'pdf') => {
+    if (!results) {
+      toast.error('No labels available to email');
+      return;
+    }
+
+    try {
+      toast.loading('Sending email with batch labels...');
+      
+      // Use the consolidated PDF if available
+      const consolidatedUrl = results.bulk_label_pdf_url || results.batchResult?.consolidatedLabelUrls?.pdf;
+      
+      if (consolidatedUrl) {
+        // Call Supabase edge function to send email with attachment
+        const { data, error } = await supabase.functions.invoke('send-batch-labels-email', {
+          body: {
+            email,
+            consolidatedPdfUrl: consolidatedUrl,
+            format,
+            shipmentCount: results.processedShipments?.length || 0,
+            batchId: results.batchResult?.batchId || `batch_${Date.now()}`
+          }
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        toast.dismiss();
+        toast.success(`Batch labels sent to ${email} successfully!`);
+        
+        console.log('Email sent successfully:', {
+          email,
+          consolidatedUrl,
+          format,
+          shipmentCount: results.processedShipments?.length || 0
+        });
+      } else {
+        throw new Error('No consolidated PDF available for email');
+      }
+    } catch (error) {
+      toast.dismiss();
+      console.error('Error sending email:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to send email');
+    }
+  };
+
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
       return;
     }
     
-    // Clear any previous batch errors
     setBatchError(null);
     
     let shipmentsArray = [];
@@ -162,14 +207,16 @@ export const useBulkUpload = () => {
         }));
       }, 1000);
 
-      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
+      // Use the enhanced bulk labels function with better PDF handling
+      const { data, error } = await supabase.functions.invoke('create-enhanced-bulk-labels', {
         body: {
           shipments: shipmentsToProcess,
           pickupAddress,
           labelOptions: {
             generateBatch: true,
             generateManifest: true,
-            haltOnFailure: true
+            haltOnFailure: true,
+            consolidatedPdfName: `batch-${Date.now()}.pdf` // Predictable naming convention
           }
         }
       });
@@ -179,7 +226,6 @@ export const useBulkUpload = () => {
       if (error) {
         console.error('Label creation error from Supabase function:', error);
         
-        // Check if this is a batch halt error
         if (error.message && error.message.includes('Batch halted')) {
           const errorMatch = error.message.match(/Package #(\d+)/);
           const packageNumber = errorMatch ? parseInt(errorMatch[1]) : 1;
@@ -211,7 +257,7 @@ export const useBulkUpload = () => {
         throw new Error(error.message || 'Unknown error from label generation function.');
       }
 
-      console.log('Raw label creation response from create-bulk-labels:', data);
+      console.log('Raw label creation response from create-enhanced-bulk-labels:', data);
 
       if (data && data.processedLabels && Array.isArray(data.processedLabels)) {
         const expectedLabels = shipmentsToProcess.length;
@@ -265,14 +311,15 @@ export const useBulkUpload = () => {
 
         const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
         
+        // Enhanced batch result with ZIP URLs support
         let frontendBatchResult: BatchResult | null = null;
-        if (data.batchResult && data.batchResult.batchId) {
+        if (data.batchResult) {
             frontendBatchResult = {
-                batchId: data.batchResult.batchId,
+                batchId: data.batchResult.batchId || `batch_${Date.now()}`,
                 consolidatedLabelUrls: {
-                    pdf: data.batchResult.batchLabelUrls?.pdfUrl,
-                    zpl: data.batchResult.batchLabelUrls?.zplUrl,
-                    epl: data.batchResult.batchLabelUrls?.eplUrl,
+                    pdf: data.batchResult.consolidatedLabelUrls?.pdf,
+                    pdfZip: data.batchResult.consolidatedLabelUrls?.pdfZip,
+                    zplZip: data.batchResult.consolidatedLabelUrls?.zplZip,
                 },
                 scanFormUrl: data.batchResult.scanFormUrl || null,
             };

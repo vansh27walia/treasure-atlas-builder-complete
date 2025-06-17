@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,11 +7,13 @@ import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
 import LabelGenerationProgress from './LabelGenerationProgress';
 import BulkLabelPrintPage from './BulkLabelPrintPage';
+import BatchLabelCreationPage from './BatchLabelCreationPage';
 import { useBulkUpload } from './useBulkUpload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const BulkUploadView: React.FC = () => {
   const [showPrintPage, setShowPrintPage] = useState(false);
+  const [showBatchCreationPage, setShowBatchCreationPage] = useState(false);
   
   const {
     isUploading,
@@ -61,13 +62,28 @@ const BulkUploadView: React.FC = () => {
     setPickupAddress(address);
   };
 
-  const handleOpenPrintPreview = () => {
-    console.log('Opening print preview, results:', results);
-    setShowPrintPage(true);
+  const handleOpenPrintReview = () => {
+    console.log('Opening print review, results:', results);
+    if (results?.bulk_label_pdf_url) {
+      // Open PDF in new tab for print review
+      window.open(results.bulk_label_pdf_url, '_blank');
+      console.log('Opened PDF for print review:', results.bulk_label_pdf_url);
+    } else {
+      setShowPrintPage(true);
+    }
   };
 
   const handleBackFromPrintPage = () => {
     setShowPrintPage(false);
+  };
+
+  const handleBackFromBatchCreation = () => {
+    setShowBatchCreationPage(false);
+  };
+
+  const handleCreateLabelsWithBatchPage = async () => {
+    setShowBatchCreationPage(true);
+    await handleCreateLabels();
   };
 
   // Wrapper for edit shipment to match expected signature
@@ -83,6 +99,20 @@ const BulkUploadView: React.FC = () => {
     
     console.log('Updated shipment:', shipmentId, updates);
   };
+
+  // If showing batch creation page
+  if (showBatchCreationPage && results) {
+    return (
+      <BatchLabelCreationPage
+        batchResult={results}
+        onBack={handleBackFromBatchCreation}
+        onPrintReview={handleOpenPrintReview}
+        onEmailLabels={handleEmailLabels}
+        isCreatingLabels={isCreatingLabels}
+        labelGenerationProgress={labelGenerationProgress}
+      />
+    );
+  }
 
   // If showing print page, render the dedicated print page
   if (showPrintPage && results?.processedShipments && results.processedShipments.length > 0) {
@@ -230,7 +260,7 @@ const BulkUploadView: React.FC = () => {
                 )}
                 {results?.processedShipments && results.processedShipments.some(s => s.label_url) && !labelGenerationProgress.isGenerating && (
                   <Button
-                    onClick={handleOpenPrintPreview}
+                    onClick={handleOpenPrintReview}
                     variant="outline"
                     className="text-purple-600 border-purple-600 hover:bg-purple-50"
                   >
@@ -241,7 +271,7 @@ const BulkUploadView: React.FC = () => {
               </div>
               
               <Button
-                onClick={handleCreateLabels}
+                onClick={handleCreateLabelsWithBatchPage}
                 disabled={isCreatingLabels || !filteredShipments.some(s => s.selectedRateId)}
                 className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
               >
@@ -265,11 +295,11 @@ const BulkUploadView: React.FC = () => {
               {/* Print Preview Button in Header */}
               {results.processedShipments && results.processedShipments.some(s => s.label_url) && (
                 <Button
-                  onClick={handleOpenPrintPreview}
+                  onClick={handleOpenPrintReview}
                   className="bg-purple-600 hover:bg-purple-700 text-white"
                 >
                   <PrinterIcon className="mr-2 h-4 w-4" />
-                  Print Preview
+                  Print Review
                 </Button>
               )}
             </div>
