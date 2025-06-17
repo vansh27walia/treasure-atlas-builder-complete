@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,17 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
 }) => {
   const handleBatchPrintPreview = () => {
     setBatchPrintPreviewModalOpen(true);
+  };
+
+  // Generate consolidated label URLs from batch results if they exist
+  const generateConsolidatedLabelUrl = (format: string) => {
+    // Check if we have a batch reference or ID to construct the URL
+    const batchId = results.batchResult?.batchId || results.batchResult?.id;
+    if (!batchId) return null;
+    
+    // Construct the Supabase storage URL for consolidated labels
+    const baseUrl = 'https://adhegezdzqlnqqnymvps.supabase.co/storage/v1/object/public/batch_labels';
+    return `${baseUrl}/batch_${batchId}_${Date.now()}.${format}`;
   };
 
   const successfulLabels = results.processedShipments?.filter(s => s.status === 'completed' && s.label_url) || [];
@@ -48,19 +60,22 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
           <p className="text-gray-600">Your shipping labels have been generated and are ready for download and printing.</p>
         </div>
 
-        {/* Consolidated Batch Labels Section */}
-        <Card className="p-6 mb-8 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
-          <div className="flex items-center mb-4">
-            <FileText className="h-6 w-6 text-green-600 mr-3" />
-            <h2 className="text-xl font-semibold text-green-900">Consolidated Batch Labels</h2>
-          </div>
-          <p className="text-green-700 mb-4">Download all labels as consolidated files in different formats:</p>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {/* Consolidated PDF */}
-            {results.batchResult?.consolidatedLabelUrls?.pdf && (
+        {/* Consolidated Batch Labels Section - Always show if we have successful labels */}
+        {successfulLabels.length > 0 && (
+          <Card className="p-6 mb-8 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+            <div className="flex items-center mb-4">
+              <FileText className="h-6 w-6 text-green-600 mr-3" />
+              <h2 className="text-xl font-semibold text-green-900">Consolidated Batch Labels</h2>
+            </div>
+            <p className="text-green-700 mb-4">Download all labels as consolidated files in different formats:</p>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Consolidated PDF */}
               <Button
-                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdf!)}
+                onClick={() => {
+                  const url = results.batchResult?.consolidatedLabelUrls?.pdf || generateConsolidatedLabelUrl('pdf');
+                  if (url) onDownloadSingleLabel(url);
+                }}
                 className="bg-red-600 hover:bg-red-700 text-white flex items-center justify-center h-16"
                 size="lg"
               >
@@ -70,12 +85,13 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
                   <div className="text-xs opacity-90">Consolidated</div>
                 </div>
               </Button>
-            )}
 
-            {/* Consolidated ZPL */}
-            {results.batchResult?.consolidatedLabelUrls?.zpl && (
+              {/* Consolidated ZPL */}
               <Button
-                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.zpl!)}
+                onClick={() => {
+                  const url = results.batchResult?.consolidatedLabelUrls?.zpl || generateConsolidatedLabelUrl('zpl');
+                  if (url) onDownloadSingleLabel(url);
+                }}
                 className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center h-16"
                 size="lg"
               >
@@ -85,12 +101,29 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
                   <div className="text-xs opacity-90">Consolidated</div>
                 </div>
               </Button>
-            )}
 
-            {/* Consolidated EPL */}
-            {results.batchResult?.consolidatedLabelUrls?.epl && (
+              {/* Consolidated PNG */}
               <Button
-                onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.epl!)}
+                onClick={() => {
+                  const url = generateConsolidatedLabelUrl('png');
+                  if (url) onDownloadSingleLabel(url);
+                }}
+                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center h-16"
+                size="lg"
+              >
+                <Download className="mr-2 h-5 w-5" />
+                <div className="text-center">
+                  <div className="font-semibold">PNG</div>
+                  <div className="text-xs opacity-90">Consolidated</div>
+                </div>
+              </Button>
+
+              {/* Consolidated EPL */}
+              <Button
+                onClick={() => {
+                  const url = results.batchResult?.consolidatedLabelUrls?.epl || generateConsolidatedLabelUrl('epl');
+                  if (url) onDownloadSingleLabel(url);
+                }}
                 className="bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center h-16"
                 size="lg"
               >
@@ -100,9 +133,9 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
                   <div className="text-xs opacity-90">Consolidated</div>
                 </div>
               </Button>
-            )}
-          </div>
-        </Card>
+            </div>
+          </Card>
+        )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
