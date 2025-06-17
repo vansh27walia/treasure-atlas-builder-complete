@@ -14,7 +14,6 @@ interface SuccessNotificationProps {
   onCreateLabels: () => void;
   isPaying: boolean;
   isCreatingLabels: boolean;
-  onEmailLabel?: (labelUrl: string) => void;
 }
 
 const SuccessNotification: React.FC<SuccessNotificationProps> = ({
@@ -23,8 +22,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   onDownloadSingleLabel,
   onCreateLabels,
   isPaying,
-  isCreatingLabels,
-  onEmailLabel
+  isCreatingLabels
 }) => {
   console.log('SuccessNotification received results:', results);
 
@@ -236,7 +234,6 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
               toast.error('Invalid label URL - cannot download');
             }
           }}
-          onEmailLabel={onEmailLabel || (() => {})}
         />
       )}
 
