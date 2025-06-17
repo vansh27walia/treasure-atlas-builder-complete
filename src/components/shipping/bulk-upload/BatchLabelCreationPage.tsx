@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,7 +25,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
   // Generate consolidated label URLs from batch results if they exist
   const generateConsolidatedLabelUrl = (format: string) => {
     // Check if we have a batch reference or ID to construct the URL
-    const batchId = results.batchResult?.batchId || results.batchResult?.id;
+    const batchId = results.batchResult?.batchId;
     if (!batchId) return null;
     
     // Construct the Supabase storage URL for consolidated labels
