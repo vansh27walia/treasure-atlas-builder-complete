@@ -320,7 +320,7 @@ const BulkUploadView: React.FC = () => {
         isOpen={emailModalOpen}
         onOpenChange={setEmailModalOpen}
         labelUrl={selectedLabelForEmail}
-        onSendEmail={handleEmailLabels}
+        onSendEmail={(email, subject, labelUrl) => handleEmailLabels(email, subject)}
         isBatch={false}
       />
       
@@ -328,7 +328,7 @@ const BulkUploadView: React.FC = () => {
         isOpen={batchEmailModalOpen}
         onOpenChange={setBatchEmailModalOpen}
         labelUrl={results?.batchResult?.consolidatedLabelUrls?.pdf}
-        onSendEmail={handleEmailLabels}
+        onSendEmail={(email, subject, labelUrl) => handleEmailLabels(email, subject)}
         isBatch={true}
       />
     </div>
