@@ -3,18 +3,20 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, File, FileImage, Printer } from 'lucide-react';
+import { Download, Eye, Truck, Package, MapPin, Calendar, FileText, File, FileImage, Printer, Mail } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import PrintPreview from '@/components/shipping/PrintPreview';
 
 interface LabelResultsTableProps {
   shipments: any[];
   onDownloadLabel: (url: string) => void;
+  onEmailLabel: (url: string) => void;
 }
 
 const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
   shipments,
-  onDownloadLabel
+  onDownloadLabel,
+  onEmailLabel
 }) => {
   const handleDownload = (shipment: any, format: string = 'png') => {
     console.log('Attempting download for:', { format, shipmentId: shipment.id, labelUrls: shipment.label_urls });
@@ -31,6 +33,35 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
       return;
     }
     onDownloadLabel(url);
+  };
+
+  const downloadLocalPdf = async (pdfUrl: string, shipmentId: string) => {
+    try {
+      // Download PDF to local storage first, then display
+      const response = await fetch(pdfUrl);
+      const blob = await response.blob();
+      const localUrl = URL.createObjectURL(blob);
+      
+      // Open in new window for preview
+      const previewWindow = window.open('', '_blank');
+      if (previewWindow) {
+        previewWindow.document.write(`
+          <html>
+            <head><title>Label Preview - ${shipmentId}</title></head>
+            <body style="margin:0;padding:20px;background:#f5f5f5;">
+              <div style="text-align:center;margin-bottom:20px;">
+                <h2>Shipping Label Preview</h2>
+                <p>Shipment ID: ${shipmentId}</p>
+              </div>
+              <embed src="${localUrl}" type="application/pdf" width="100%" height="800px" />
+            </body>
+          </html>
+        `);
+      }
+    } catch (error) {
+      console.error('Error loading PDF for preview:', error);
+      toast.error('Failed to load PDF preview');
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -109,7 +140,7 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                           {shipment.tracking_code || shipment.tracking_number || 'Pending'}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {shipment.status === 'success' || shipment.status === 'completed' ? (
+                          {shipment.status === 'completed' || shipment.status === 'label_purchased' ? (
                             <Badge className="bg-green-100 text-green-800">Completed</Badge>
                           ) : (
                             <Badge className="bg-yellow-100 text-yellow-800">Processing</Badge>
@@ -129,7 +160,10 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         {shipment.customer_name || shipment.recipient || 'No recipient name'}
                       </div>
                       <div className="text-xs text-gray-500 max-w-xs">
-                        {shipment.customer_address || 'No address available'}
+                        {typeof shipment.customer_address === 'string' 
+                          ? shipment.customer_address 
+                          : (shipment.customer_address as any)?.street1 || 'No address available'
+                        }
                       </div>
                     </div>
                   </td>
@@ -215,23 +249,30 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                         Download
                       </Button>
                       
-                      {/* PrintPreview for individual label - ONLY show if PDF URL exists */}
+                      {/* Enhanced Print Preview with local PDF loading */}
                       {pdfUrl && (
-                        <PrintPreview
-                          labelUrl={pdfUrl}
-                          trackingCode={shipment.tracking_code || shipment.tracking_number || ''}
-                          labelUrls={shipment.label_urls}
-                          shipmentDetails={{
-                            fromAddress: 'Your Saved Pickup Address',
-                            toAddress: shipment.customer_address || '',
-                            weight: shipment.details?.weight ? `${shipment.details.weight} lbs` : 'N/A',
-                            dimensions: shipment.details?.length && shipment.details?.width && shipment.details?.height ? 
-                              `${shipment.details.length}"×${shipment.details.width}"×${shipment.details.height}"` : 'N/A',
-                            service: shipment.service || 'N/A',
-                            carrier: shipment.carrier || 'N/A'
-                          }}
-                          shipmentId={shipment.id || shipment.original_shipment_id}
-                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => downloadLocalPdf(pdfUrl, shipment.id || shipment.original_shipment_id)}
+                          className="text-purple-600 border-purple-600 hover:bg-purple-50"
+                        >
+                          <Printer className="h-3 w-3 mr-1" />
+                          Preview
+                        </Button>
+                      )}
+                      
+                      {/* Email Label Button */}
+                      {(shipment.label_urls?.pdf || shipment.label_url) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onEmailLabel(shipment.label_urls?.pdf || shipment.label_url)}
+                          className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                        >
+                          <Mail className="h-3 w-3 mr-1" />
+                          Email
+                        </Button>
                       )}
                     </div>
                   </td>
