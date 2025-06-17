@@ -81,6 +81,15 @@ const BulkUploadView: React.FC = () => {
     setBatchEmailModalOpen(true);
   };
 
+  // Create wrapper functions for email handling
+  const handleSendSingleEmail = (email: string, subject: string, labelUrl: string) => {
+    handleEmailLabels(email);
+  };
+
+  const handleSendBatchEmail = (email: string, subject: string, labelUrl: string) => {
+    handleEmailLabels(email);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* File Upload Section - Only show when idle */}
@@ -158,7 +167,6 @@ const BulkUploadView: React.FC = () => {
       {/* Rate Selection Full Screen - Now converted to dedicated page */}
       {uploadStatus === 'editing' && results && results.processedShipments && results.processedShipments.length > 0 && (
         <div className="min-h-screen bg-white">
-          {/* Batch Error Alert */}
           {batchError && (
             <div className="bg-red-50 border-b border-red-200 p-4">
               <Alert className="border-red-200 bg-red-50 max-w-6xl mx-auto">
@@ -184,14 +192,12 @@ const BulkUploadView: React.FC = () => {
             </div>
           )}
 
-          {/* Centered Rate Fetching Page */}
           <div className="flex items-center justify-center min-h-screen p-6">
             <div className="max-w-7xl w-full">
               <div className="text-center mb-8">
                 <h1 className="text-4xl font-bold text-gray-900 mb-4">AI-Powered Rate Selection</h1>
                 <p className="text-xl text-gray-600 mb-6">Choose from multiple AI options to optimize your shipping rates</p>
                 
-                {/* AI Options Section */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                   <Card className="p-6 border-2 border-blue-200 hover:border-blue-400 transition-colors cursor-pointer">
                     <div className="text-center">
@@ -236,7 +242,6 @@ const BulkUploadView: React.FC = () => {
                 />
               </div>
               
-              {/* Create Labels Button */}
               <div className="mt-6 flex justify-center">
                 <Button
                   onClick={handleCreateLabels}
@@ -260,7 +265,6 @@ const BulkUploadView: React.FC = () => {
               <p className="text-gray-600">Your shipping labels have been generated successfully.</p>
             </div>
             
-            {/* Enhanced Action Buttons */}
             <div className="mb-6 flex flex-wrap gap-4 justify-center">
               {results?.batchResult?.consolidatedLabelUrls?.pdf && (
                 <>
@@ -320,7 +324,7 @@ const BulkUploadView: React.FC = () => {
         isOpen={emailModalOpen}
         onOpenChange={setEmailModalOpen}
         labelUrl={selectedLabelForEmail}
-        onSendEmail={(email, subject, labelUrl) => handleEmailLabels(email, subject)}
+        onSendEmail={handleSendSingleEmail}
         isBatch={false}
       />
       
@@ -328,7 +332,7 @@ const BulkUploadView: React.FC = () => {
         isOpen={batchEmailModalOpen}
         onOpenChange={setBatchEmailModalOpen}
         labelUrl={results?.batchResult?.consolidatedLabelUrls?.pdf}
-        onSendEmail={(email, subject, labelUrl) => handleEmailLabels(email, subject)}
+        onSendEmail={handleSendBatchEmail}
         isBatch={true}
       />
     </div>
