@@ -29,6 +29,17 @@ export const useBulkUpload = () => {
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
+  const [batchError, setBatchError] = useState<{ packageNumber: number; error: string } | null>(null);
+  const [labelGenerationProgress, setLabelGenerationProgress] = useState({
+    isGenerating: false,
+    totalShipments: 0,
+    processedShipments: 0,
+    successfulShipments: 0,
+    failedShipments: 0,
+    currentStep: '',
+    estimatedTimeRemaining: 0
+  });
+  const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
 
   // Load default pickup address
   useEffect(() => {
@@ -136,8 +147,22 @@ export const useBulkUpload = () => {
     toast.success('Shipment removed from list');
   };
 
-  const handleEditShipment = (shipment: BulkShipment) => {
-    console.log('Edit shipment:', shipment);
+  const handleEditShipment = (shipmentId: string, updates: Partial<BulkShipment>) => {
+    if (!results) return;
+    
+    const updatedShipments = results.processedShipments.map(shipment => {
+      if (shipment.id === shipmentId) {
+        return { ...shipment, ...updates };
+      }
+      return shipment;
+    });
+    
+    setResults({
+      ...results,
+      processedShipments: updatedShipments
+    });
+    
+    toast.success('Shipment updated');
   };
 
   const handleRefreshRates = async (shipmentId: string) => {
@@ -175,8 +200,12 @@ export const useBulkUpload = () => {
     toast.success(`Applied ${carrier} to all applicable shipments`);
   };
 
-  const handleProceedToPayment = async () => {
-    await handleCreateLabels();
+  const handleClearBatchError = () => {
+    setBatchError(null);
+  };
+
+  const handleOpenBatchPrintPreview = () => {
+    setBatchPrintPreviewModalOpen(true);
   };
 
   // Direct label creation without modal - goes straight to label creation
@@ -187,6 +216,15 @@ export const useBulkUpload = () => {
     }
     
     setIsCreatingLabels(true);
+    setLabelGenerationProgress({
+      isGenerating: true,
+      totalShipments: results.processedShipments.length,
+      processedShipments: 0,
+      successfulShipments: 0,
+      failedShipments: 0,
+      currentStep: 'Starting label generation...',
+      estimatedTimeRemaining: 0
+    });
     
     try {
       console.log('Creating labels for shipments:', results.processedShipments);
@@ -215,7 +253,7 @@ export const useBulkUpload = () => {
           processedShipments: data.processedLabels,
           batchResult: data.batchResult,
           bulk_label_pdf_url: data.batchResult?.consolidatedLabelUrls?.pdf,
-          bulk_label_png_url: data.batchResult?.consolidatedLabelUrls?.png, // Store png just in case
+          bulk_label_png_url: data.batchResult?.consolidatedLabelUrls?.png,
         });
 
         setUploadStatus('success');
@@ -234,6 +272,15 @@ export const useBulkUpload = () => {
       toast.error(error instanceof Error ? error.message : 'Failed to create labels');
     } finally {
       setIsCreatingLabels(false);
+      setLabelGenerationProgress({
+        isGenerating: false,
+        totalShipments: 0,
+        processedShipments: 0,
+        successfulShipments: 0,
+        failedShipments: 0,
+        currentStep: '',
+        estimatedTimeRemaining: 0
+      });
     }
   };
 
@@ -338,6 +385,14 @@ export const useBulkUpload = () => {
     // Address
     pickupAddress,
     
+    // Error handling
+    batchError,
+    labelGenerationProgress,
+    
+    // Modal states
+    batchPrintPreviewModalOpen,
+    setBatchPrintPreviewModalOpen,
+    
     // Setters
     setPickupAddress,
     setSearchTerm,
@@ -348,8 +403,7 @@ export const useBulkUpload = () => {
     // Handlers
     handleFileChange,
     handleUpload,
-    handleProceedToPayment,
-    handleCreateLabels, // Now goes directly to label creation
+    handleCreateLabels,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
@@ -359,6 +413,8 @@ export const useBulkUpload = () => {
     handleRemoveShipment,
     handleEditShipment,
     handleRefreshRates,
-    handleBulkApplyCarrier
+    handleBulkApplyCarrier,
+    handleClearBatchError,
+    handleOpenBatchPrintPreview
   };
 };
