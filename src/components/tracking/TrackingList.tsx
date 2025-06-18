@@ -71,7 +71,7 @@ const TrackingList: React.FC<TrackingListProps> = ({
     setTrackingInput(e.target.value);
   };
   
-  // Track a package manually
+  // Track a package manually using live EasyPost API
   const trackPackage = async () => {
     if (!trackingInput.trim()) {
       toast.error("Please enter a tracking number");
@@ -81,18 +81,28 @@ const TrackingList: React.FC<TrackingListProps> = ({
     setIsManualTracking(true);
     
     try {
-      // Call tracking API
-      const { data, error } = await supabase.functions.invoke('get-tracking-info', {
-        body: { tracking_code: trackingInput.trim() }
+      console.log('Tracking package:', trackingInput.trim());
+      
+      // Call the new live tracking API
+      const { data, error } = await supabase.functions.invoke('track-shipment', {
+        body: { tracking_number: trackingInput.trim() }
       });
       
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error(error.message);
+      }
       
       if (data) {
+        console.log('Tracking data received:', data);
+        
         // Add to manual tracking list
         setManualTrackingData(prev => {
           // Check if tracking number already exists
-          if (prev.some(item => item.tracking_code === data.tracking_code)) {
+          const exists = prev.some(item => item.tracking_code === data.tracking_code) ||
+                        trackingData.some(item => item.tracking_code === data.tracking_code);
+          
+          if (exists) {
             toast.info("This tracking number is already being tracked");
             return prev;
           }
@@ -108,9 +118,16 @@ const TrackingList: React.FC<TrackingListProps> = ({
       }
     } catch (error) {
       console.error('Error tracking package:', error);
-      toast.error("Error tracking package. Please try again.");
+      toast.error("Error tracking package. Please check the tracking number and try again.");
     } finally {
       setIsManualTracking(false);
+    }
+  };
+  
+  // Handle Enter key press in input
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      trackPackage();
     }
   };
   
@@ -119,9 +136,10 @@ const TrackingList: React.FC<TrackingListProps> = ({
       <div className="space-y-6">
         <div className="flex items-center space-x-2 mb-6">
           <Input 
-            placeholder="Enter tracking number" 
+            placeholder="Enter tracking number (e.g., 1Z999AA1234567890)" 
             value={trackingInput}
             onChange={handleTrackingInput}
+            onKeyPress={handleKeyPress}
             className="flex-1"
           />
           <Button 
@@ -149,9 +167,10 @@ const TrackingList: React.FC<TrackingListProps> = ({
     <div className="space-y-6">
       <div className="flex items-center space-x-2 mb-6">
         <Input 
-          placeholder="Enter tracking number" 
+          placeholder="Enter tracking number (e.g., 1Z999AA1234567890)" 
           value={trackingInput}
           onChange={handleTrackingInput}
+          onKeyPress={handleKeyPress}
           className="flex-1"
         />
         <Button 
