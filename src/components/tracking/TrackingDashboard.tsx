@@ -77,6 +77,18 @@ const TrackingDashboard: React.FC = () => {
           `${toAddress.street1}, ${toAddress.city}, ${toAddress.state} ${toAddress.zip}` : 
           'Unknown Address';
         
+        // Safely handle tracking_details conversion
+        let trackingEvents: TrackingEvent[] = [];
+        if (shipment.tracking_details && Array.isArray(shipment.tracking_details)) {
+          trackingEvents = (shipment.tracking_details as any[]).map((event: any, index: number) => ({
+            id: event.id || `event_${index}`,
+            description: event.description || event.message || 'Unknown event',
+            location: event.location || 'Unknown location',
+            timestamp: event.timestamp || event.datetime || new Date().toISOString(),
+            status: event.status || 'unknown'
+          }));
+        }
+        
         return {
           id: shipment.id.toString(),
           tracking_code: shipment.tracking_code || '',
@@ -90,7 +102,7 @@ const TrackingDashboard: React.FC = () => {
           recipient_address: recipientAddress,
           service: shipment.service || 'Standard',
           created_at: shipment.created_at || '',
-          tracking_events: shipment.tracking_details as TrackingEvent[] || [],
+          tracking_events: trackingEvents,
           est_delivery_date: shipment.est_delivery_date
         };
       }) || [];
