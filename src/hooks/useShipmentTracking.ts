@@ -21,11 +21,12 @@ interface ShipmentData {
 export const useShipmentTracking = () => {
   const saveShipmentToDatabase = useCallback(async (shipmentData: ShipmentData) => {
     try {
-      console.log('Saving shipment to new shipments table:', shipmentData);
+      console.log('Saving shipment to tracking database:', shipmentData);
       
       // Get current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
+        console.error('User not authenticated:', userError);
         throw new Error('User not authenticated');
       }
 
@@ -51,7 +52,7 @@ export const useShipmentTracking = () => {
           .update({
             label_url: shipmentData.label_url,
             status: shipmentData.status || 'created',
-            recipient_name: shipmentData.recipient_name || shipmentData.to_address?.name,
+            recipient_name: shipmentData.recipient_name || shipmentData.to_address?.name || 'Unknown',
             recipient_address: recipientAddress,
             service: shipmentData.service,
             updated_at: new Date().toISOString()
@@ -63,7 +64,11 @@ export const useShipmentTracking = () => {
           console.error('Error updating shipment:', updateError);
           throw updateError;
         }
+        
+        console.log('Shipment updated successfully');
       } else {
+        console.log('Creating new shipment record...');
+        
         // Insert new shipment record
         const { error: insertError } = await supabase
           .from('shipments')
@@ -85,7 +90,13 @@ export const useShipmentTracking = () => {
               service: shipmentData.service || 'Standard'
             },
             tracking_history: {
-              events: [],
+              events: [{
+                id: crypto.randomUUID(),
+                description: 'Label created',
+                location: shipmentData.from_address?.city || 'Unknown',
+                timestamp: new Date().toISOString(),
+                status: 'created'
+              }],
               created_at: new Date().toISOString()
             },
             created_at: new Date().toISOString(),
@@ -96,12 +107,13 @@ export const useShipmentTracking = () => {
           console.error('Error inserting shipment:', insertError);
           throw insertError;
         }
+        
+        console.log('New shipment created successfully');
       }
 
-      console.log('Shipment saved successfully to shipments table');
       return true;
     } catch (error) {
-      console.error('Error saving shipment to shipments table:', error);
+      console.error('Error saving shipment to tracking database:', error);
       toast.error('Failed to save shipment tracking information');
       return false;
     }
@@ -120,16 +132,17 @@ export const useShipmentTracking = () => {
       rate_id: labelData.rateId,
       label_url: labelData.labelUrl,
       service: labelData.service,
-      from_address: shipmentDetails?.fromAddress,
-      to_address: shipmentDetails?.toAddress,
-      parcel: shipmentDetails?.parcel,
+      from_address: labelData.from_address || shipmentDetails?.fromAddress,
+      to_address: labelData.to_address || shipmentDetails?.toAddress,
+      parcel: labelData.parcel || shipmentDetails?.parcel,
       status: 'created',
-      recipient_name: shipmentDetails?.toAddress?.name,
-      recipient_address: shipmentDetails?.toAddress ? 
-        `${shipmentDetails.toAddress.street1 || ''} ${shipmentDetails.toAddress.street2 || ''}, ${shipmentDetails.toAddress.city || ''}, ${shipmentDetails.toAddress.state || ''} ${shipmentDetails.toAddress.zip || ''}`.trim() : 
+      recipient_name: labelData.to_address?.name || shipmentDetails?.toAddress?.name,
+      recipient_address: labelData.to_address ? 
+        `${labelData.to_address.street1 || ''} ${labelData.to_address.street2 || ''}, ${labelData.to_address.city || ''}, ${labelData.to_address.state || ''} ${labelData.to_address.zip || ''}`.trim() : 
         undefined
     };
 
+    console.log('Tracking new shipment with data:', shipmentData);
     return await saveShipmentToDatabase(shipmentData);
   }, [saveShipmentToDatabase]);
 
