@@ -7,9 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Calendar, Clock, Truck, PackageCheck, MapPin, CheckCircle, RefreshCw } from 'lucide-react';
+import { Loader2, Calendar, Clock, Truck, PackageCheck, MapPin, CheckCircle } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { AddressData, PickupRequestData, carrierService } from '@/services/CarrierService';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -152,146 +151,6 @@ const PickupPage: React.FC = () => {
     }
   };
   
-  const [pickupRates, setPickupRates] = useState<any[]>([]);
-  const [selectedRate, setSelectedRate] = useState<any>(null);
-  const [isGettingRates, setIsGettingRates] = useState(false);
-  const [paymentProcessing, setPaymentProcessing] = useState(false);
-
-  const getPickupRates = async () => {
-    const values = form.getValues();
-    
-    // Validate required fields
-    if (!values.name || !values.street1 || !values.city || !values.state || !values.zip || !values.phone) {
-      toast.error('Please fill in all required address fields');
-      return;
-    }
-
-    setIsGettingRates(true);
-    try {
-      const pickupAddress = {
-        name: values.name,
-        company: values.company || undefined,
-        street1: values.street1,
-        street2: values.street2 || undefined,
-        city: values.city,
-        state: values.state,
-        zip: values.zip,
-        country: values.country,
-        phone: values.phone
-      };
-
-      const shipmentIdArray = values.shipmentIds
-        ? values.shipmentIds.split(',').map(id => id.trim())
-        : [];
-
-      const pickupDateTime = new Date(`${values.pickupDate}T${values.timeStart}`);
-      const pickupEndDateTime = new Date(`${values.pickupDate}T${values.timeEnd}`);
-
-      const requestData = {
-        address: pickupAddress,
-        min_datetime: pickupDateTime.toISOString(),
-        max_datetime: pickupEndDateTime.toISOString(),
-        shipment_ids: shipmentIdArray.length > 0 ? shipmentIdArray : undefined,
-        is_account_address: false,
-        instructions: values.instructions
-      };
-
-      // Call the rate fetching endpoint (we'll create this)
-      const { data, error } = await supabase.functions.invoke('get-pickup-rates', {
-        body: requestData
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setPickupRates(data.pickup_rates || []);
-      toast.success('Pickup rates retrieved successfully!');
-    } catch (error) {
-      console.error('Error getting pickup rates:', error);
-      toast.error('Failed to get pickup rates. Please try again.');
-    } finally {
-      setIsGettingRates(false);
-    }
-  };
-
-  const handleConfirmPickup = async () => {
-    if (!selectedRate) {
-      toast.error('Please select a pickup rate');
-      return;
-    }
-
-    setPaymentProcessing(true);
-    try {
-      const values = form.getValues();
-      
-      const pickupAddress = {
-        name: values.name,
-        company: values.company || undefined,
-        street1: values.street1,
-        street2: values.street2 || undefined,
-        city: values.city,
-        state: values.state,
-        zip: values.zip,
-        country: values.country,
-        phone: values.phone
-      };
-
-      const shipmentIdArray = values.shipmentIds
-        ? values.shipmentIds.split(',').map(id => id.trim())
-        : [];
-
-      const pickupDateTime = new Date(`${values.pickupDate}T${values.timeStart}`);
-      const pickupEndDateTime = new Date(`${values.pickupDate}T${values.timeEnd}`);
-
-      const requestData = {
-        address: pickupAddress,
-        min_datetime: pickupDateTime.toISOString(),
-        max_datetime: pickupEndDateTime.toISOString(),
-        shipment_ids: shipmentIdArray.length > 0 ? shipmentIdArray : undefined,
-        is_account_address: false,
-        instructions: values.instructions,
-        selected_rate: selectedRate
-      };
-
-      const { data, error } = await supabase.functions.invoke('create-pickup', {
-        body: requestData
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      setPickupConfirmation({
-        confirmation: data.confirmation,
-        carrier: selectedRate.carrier,
-        scheduledDate: values.pickupDate,
-        timeWindow: {
-          start: values.timeStart,
-          end: values.timeEnd
-        },
-        address: pickupAddress,
-        packageCount: values.packageCount,
-        cost: data.cost
-      });
-
-      toast.success('Pickup scheduled and payment processed successfully!');
-    } catch (error) {
-      console.error('Error confirming pickup:', error);
-      toast.error('Failed to confirm pickup. Please try again.');
-    } finally {
-      setPaymentProcessing(false);
-    }
-  };
-
   const handleSubmit = async (values: FormValues) => {
     setIsLoading(true);
     try {
@@ -629,11 +488,6 @@ const PickupPage: React.FC = () => {
                   <div>
                     <h3 className="font-semibold text-gray-700">Package Count</h3>
                     <p className="text-lg">{pickupConfirmation.packageCount}</p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Total Cost</h3>
-                    <p className="text-xl font-bold text-green-800">${pickupConfirmation.cost}</p>
                   </div>
                 </div>
               </div>
