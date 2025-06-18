@@ -282,6 +282,7 @@ export type Database = {
           delivery_days: number | null
           document_urls_json: Json | null
           easypost_rate: number | null
+          est_delivery_date: string | null
           from_address_json: Json | null
           id: number
           is_international: boolean | null
@@ -296,6 +297,8 @@ export type Database = {
           status: string | null
           to_address_json: Json | null
           tracking_code: string | null
+          tracking_details: Json | null
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
@@ -311,6 +314,7 @@ export type Database = {
           delivery_days?: number | null
           document_urls_json?: Json | null
           easypost_rate?: number | null
+          est_delivery_date?: string | null
           from_address_json?: Json | null
           id?: number
           is_international?: boolean | null
@@ -325,6 +329,8 @@ export type Database = {
           status?: string | null
           to_address_json?: Json | null
           tracking_code?: string | null
+          tracking_details?: Json | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
@@ -340,6 +346,7 @@ export type Database = {
           delivery_days?: number | null
           document_urls_json?: Json | null
           easypost_rate?: number | null
+          est_delivery_date?: string | null
           from_address_json?: Json | null
           id?: number
           is_international?: boolean | null
@@ -354,6 +361,8 @@ export type Database = {
           status?: string | null
           to_address_json?: Json | null
           tracking_code?: string | null
+          tracking_details?: Json | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: [

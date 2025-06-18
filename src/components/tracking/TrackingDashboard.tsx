@@ -58,12 +58,16 @@ const TrackingDashboard: React.FC = () => {
           created_at,
           to_address_json,
           tracking_details,
-          est_delivery_date
+          est_delivery_date,
+          updated_at
         `)
         .not('tracking_code', 'is', null)
         .order('created_at', { ascending: false });
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('Database error:', error);
+        throw new Error(error.message);
+      }
       
       // Transform shipment data to match tracking interface
       const transformedData: TrackingInfo[] = shipments?.map(shipment => {
@@ -75,17 +79,17 @@ const TrackingDashboard: React.FC = () => {
         
         return {
           id: shipment.id.toString(),
-          tracking_code: shipment.tracking_code,
+          tracking_code: shipment.tracking_code || '',
           carrier: shipment.carrier || 'Unknown',
           status: shipment.status || 'unknown',
           eta: shipment.est_delivery_date,
-          last_update: shipment.created_at,
+          last_update: shipment.updated_at || shipment.created_at || '',
           label_url: shipment.label_url,
           shipment_id: shipment.shipment_id || '',
           recipient,
           recipient_address: recipientAddress,
           service: shipment.service || 'Standard',
-          created_at: shipment.created_at,
+          created_at: shipment.created_at || '',
           tracking_events: shipment.tracking_details as TrackingEvent[] || [],
           est_delivery_date: shipment.est_delivery_date
         };
@@ -96,6 +100,7 @@ const TrackingDashboard: React.FC = () => {
     } catch (error) {
       console.error('Error fetching tracking data:', error);
       toast.error('Failed to load tracking information');
+      setTrackingData([]); // Set empty array on error
     } finally {
       setIsLoading(false);
     }
