@@ -39,7 +39,7 @@ const EnhancedShippingForm = () => {
       {currentStep === 'rates' && (
         <div className="space-y-6">
           <ShippingForm />
-          <ShippingRates shipmentDetails={shipmentDetails} />
+          <ShippingRates />
         </div>
       )}
     </div>

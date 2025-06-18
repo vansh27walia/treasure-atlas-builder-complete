@@ -25,11 +25,16 @@ interface TrackingResult {
     time_range: string;
   } | null;
   tracking_events: any[];
+  source?: string;
 }
 
 export const useFindTracking = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [trackingResult, setTrackingResult] = useState<TrackingResult | null>(null);
+
+  const clearResults = () => {
+    setTrackingResult(null);
+  };
 
   const searchTracking = async (trackingNumber: string): Promise<TrackingResult | null> => {
     if (!trackingNumber.trim()) {
@@ -53,6 +58,31 @@ export const useFindTracking = () => {
       if (existingTracking) {
         console.log('Found existing tracking in database:', existingTracking);
         
+        // Safe type checking for package_details
+        let packageDetails = {
+          weight: 'Unknown',
+          dimensions: 'Unknown',
+          service: 'Unknown'
+        };
+        
+        if (existingTracking.package_details && typeof existingTracking.package_details === 'object') {
+          const details = existingTracking.package_details as any;
+          packageDetails = {
+            weight: details.weight || 'Unknown',
+            dimensions: details.dimensions || 'Unknown',
+            service: details.service || 'Unknown'
+          };
+        }
+
+        // Safe type checking for tracking_events
+        let trackingEvents: any[] = [];
+        if (existingTracking.tracking_history && typeof existingTracking.tracking_history === 'object') {
+          const history = existingTracking.tracking_history as any;
+          if (Array.isArray(history.events)) {
+            trackingEvents = history.events;
+          }
+        }
+        
         const result: TrackingResult = {
           id: existingTracking.id,
           tracking_code: existingTracking.tracking_code,
@@ -65,16 +95,13 @@ export const useFindTracking = () => {
           shipment_id: existingTracking.shipment_id || '',
           recipient: existingTracking.recipient_name || 'Unknown',
           recipient_address: existingTracking.recipient_address || 'Unknown',
-          package_details: existingTracking.package_details || {
-            weight: 'Unknown',
-            dimensions: 'Unknown',
-            service: 'Unknown'
-          },
+          package_details: packageDetails,
           estimated_delivery: existingTracking.eta ? {
             date: existingTracking.eta,
             time_range: 'End of day'
           } : null,
-          tracking_events: existingTracking.tracking_history?.events || []
+          tracking_events: trackingEvents,
+          source: 'database'
         };
 
         setTrackingResult(result);
@@ -114,7 +141,8 @@ export const useFindTracking = () => {
             service: 'Unknown'
           },
           estimated_delivery: data.estimated_delivery,
-          tracking_events: data.tracking_events || []
+          tracking_events: data.tracking_events || [],
+          source: 'external'
         };
 
         setTrackingResult(result);
@@ -136,6 +164,7 @@ export const useFindTracking = () => {
   return {
     searchTracking,
     isLoading,
-    trackingResult
+    trackingResult,
+    clearResults
   };
 };
