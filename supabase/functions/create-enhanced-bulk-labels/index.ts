@@ -214,9 +214,11 @@ serve(async (req) => {
     }
 
     let consolidatedUrls = { pdf: null, zpl: null, epl: null };
+    let batchId = `batch_${Date.now()}`;
+    
     if (processedLabels.length > 0) {
       try {
-        consolidatedUrls = await createConsolidatedFiles(supabaseClient, processedLabels);
+        consolidatedUrls = await createConsolidatedFiles(supabaseClient, processedLabels, batchId);
         logStep(`Consolidated files created`, { urls: consolidatedUrls });
       } catch (error) {
         logStep(`Consolidated file creation failed`, { error: error.message });
@@ -230,7 +232,7 @@ serve(async (req) => {
       processedLabels,
       failedLabels: failedLabelsInfo,
       batchResult: (consolidatedUrls.pdf || consolidatedUrls.zpl || consolidatedUrls.epl) ? {
-        batchId: `batch_${Date.now()}`,
+        batchId: batchId,
         consolidatedLabelUrls: {
           pdf: consolidatedUrls.pdf,
           zpl: consolidatedUrls.zpl,
@@ -315,9 +317,8 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
   return storedUrls;
 }
 
-async function createConsolidatedFiles(supabaseClient: any, processedLabels: any[]) {
+async function createConsolidatedFiles(supabaseClient: any, processedLabels: any[], batchId: string) {
   const storageBucket = 'shipping-labels-2';
-  const timestamp = Date.now();
   const results = { pdf: null, zpl: null, epl: null };
 
   // Create consolidated files for PDF, ZPL, and EPL
@@ -331,7 +332,7 @@ async function createConsolidatedFiles(supabaseClient: any, processedLabels: any
         // For PDF, we'll create a simple text file listing all tracking numbers
         // In a real implementation, you'd merge PDFs
         contentType = 'text/plain';
-        consolidatedContent = `Consolidated PDF Labels - Batch ${timestamp}\n\n`;
+        consolidatedContent = `Consolidated PDF Labels - Batch ${batchId}\n\n`;
         consolidatedContent += 'Tracking Numbers:\n';
         processedLabels.forEach(label => {
           if (label.tracking_code) {
@@ -359,7 +360,7 @@ async function createConsolidatedFiles(supabaseClient: any, processedLabels: any
       }
 
       if (filesFound > 0) {
-        const filePath = `batch_labels/batch_${timestamp}.${format}`;
+        const filePath = `batch_labels/batch_${batchId}.${format}`;
         const blob = new Blob([consolidatedContent], { type: contentType });
         
         const { error } = await supabaseClient.storage
