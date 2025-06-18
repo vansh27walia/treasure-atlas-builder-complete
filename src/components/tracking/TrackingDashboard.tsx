@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Package, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TrackingHistoryChart from './TrackingHistoryChart';
 import TrackingFilters from './TrackingFilters';
@@ -18,22 +18,10 @@ interface TrackingEvent {
   status: string;
 }
 
-interface PackageDetails {
-  weight: string;
-  dimensions: string;
-  service: string;
-}
-
-interface EstimatedDelivery {
-  date: string;
-  time_range: string;
-}
-
 interface TrackingInfo {
   id: string;
   tracking_code: string;
   carrier: string;
-  carrier_code: string;
   status: string;
   eta: string | null;
   last_update: string;
@@ -41,9 +29,10 @@ interface TrackingInfo {
   shipment_id: string;
   recipient: string;
   recipient_address: string;
-  package_details: PackageDetails;
-  estimated_delivery: EstimatedDelivery | null;
+  service: string;
+  created_at: string;
   tracking_events?: TrackingEvent[];
+  est_delivery_date?: string;
 }
 
 const TrackingDashboard: React.FC = () => {
@@ -55,14 +44,55 @@ const TrackingDashboard: React.FC = () => {
   const fetchTrackingData = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('get-tracking-info', {
-        body: {}
-      });
+      // Fetch actual shipment records from database
+      const { data: shipments, error } = await supabase
+        .from('shipment_records')
+        .select(`
+          id,
+          tracking_code,
+          carrier,
+          service,
+          status,
+          shipment_id,
+          label_url,
+          created_at,
+          to_address_json,
+          tracking_details,
+          est_delivery_date
+        `)
+        .not('tracking_code', 'is', null)
+        .order('created_at', { ascending: false });
 
       if (error) throw new Error(error.message);
       
-      setTrackingData(data || []);
-      toast.success('Tracking data updated');
+      // Transform shipment data to match tracking interface
+      const transformedData: TrackingInfo[] = shipments?.map(shipment => {
+        const toAddress = shipment.to_address_json as any;
+        const recipient = toAddress?.name || 'Unknown Recipient';
+        const recipientAddress = toAddress ? 
+          `${toAddress.street1}, ${toAddress.city}, ${toAddress.state} ${toAddress.zip}` : 
+          'Unknown Address';
+        
+        return {
+          id: shipment.id.toString(),
+          tracking_code: shipment.tracking_code,
+          carrier: shipment.carrier || 'Unknown',
+          status: shipment.status || 'unknown',
+          eta: shipment.est_delivery_date,
+          last_update: shipment.created_at,
+          label_url: shipment.label_url,
+          shipment_id: shipment.shipment_id || '',
+          recipient,
+          recipient_address: recipientAddress,
+          service: shipment.service || 'Standard',
+          created_at: shipment.created_at,
+          tracking_events: shipment.tracking_details as TrackingEvent[] || [],
+          est_delivery_date: shipment.est_delivery_date
+        };
+      }) || [];
+      
+      setTrackingData(transformedData);
+      toast.success(`Loaded ${transformedData.length} shipments`);
     } catch (error) {
       console.error('Error fetching tracking data:', error);
       toast.error('Failed to load tracking information');
@@ -73,9 +103,6 @@ const TrackingDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchTrackingData();
-    // Set up refresh interval (every 30 seconds for demo purposes)
-    const interval = setInterval(fetchTrackingData, 30000);
-    return () => clearInterval(interval);
   }, []);
 
   // Filter tracking data based on active filter
@@ -97,10 +124,10 @@ const TrackingDashboard: React.FC = () => {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div>
           <CardTitle className="text-2xl font-semibold flex items-center">
-            <Package className="mr-2" /> Tracking Dashboard
+            <Package className="mr-2" /> Your Shipments Dashboard
           </CardTitle>
           <CardDescription>
-            Track and manage all your shipments in one place
+            Track shipments from normal shipping, international shipping, and batch labels
           </CardDescription>
         </div>
         <Button 
