@@ -18,10 +18,22 @@ interface TrackingEvent {
   status: string;
 }
 
+interface PackageDetails {
+  weight: string;
+  dimensions: string;
+  service: string;
+}
+
+interface EstimatedDelivery {
+  date: string;
+  time_range: string;
+}
+
 interface ShipmentTrackingInfo {
   id: string;
   tracking_code: string;
   carrier: string;
+  carrier_code: string;
   status: string;
   eta: string | null;
   last_update: string;
@@ -33,6 +45,8 @@ interface ShipmentTrackingInfo {
   created_at: string;
   tracking_events?: TrackingEvent[];
   est_delivery_date?: string;
+  package_details: PackageDetails;
+  estimated_delivery: EstimatedDelivery | null;
 }
 
 const TrackingDashboard: React.FC = () => {
@@ -93,6 +107,7 @@ const TrackingDashboard: React.FC = () => {
           id: shipment.id.toString(),
           tracking_code: shipment.tracking_code || '',
           carrier: shipment.carrier || 'Unknown',
+          carrier_code: shipment.carrier || 'Unknown',
           status: shipment.status || 'unknown',
           eta: shipment.est_delivery_date,
           last_update: shipment.updated_at || shipment.created_at || '',
@@ -103,7 +118,16 @@ const TrackingDashboard: React.FC = () => {
           service: shipment.service || 'Standard',
           created_at: shipment.created_at || '',
           tracking_events: trackingEvents,
-          est_delivery_date: shipment.est_delivery_date
+          est_delivery_date: shipment.est_delivery_date,
+          package_details: {
+            weight: 'Unknown',
+            dimensions: 'Unknown',
+            service: shipment.service || 'Standard'
+          },
+          estimated_delivery: shipment.est_delivery_date ? {
+            date: shipment.est_delivery_date,
+            time_range: 'End of day'
+          } : null
         };
       }) || [];
       
