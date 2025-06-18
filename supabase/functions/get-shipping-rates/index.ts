@@ -128,24 +128,6 @@ serve(async (req) => {
       );
     }
     
-    // Set up carrier account options for EasyPost
-    let carrierAccounts: any[] = [];
-    const specificCarriers: string[] = [];
-    
-    // Process requested carriers
-    if (requestData.carriers && requestData.carriers.length > 0) {
-      console.log(`Requested carriers: ${requestData.carriers.join(', ')}`);
-      
-      // Map specific carrier strings to EasyPost carrier IDs
-      requestData.carriers.forEach(carrier => {
-        if (carrier !== 'all' && carrier !== 'easypost') {
-          specificCarriers.push(carrier.toLowerCase());
-        }
-      });
-    }
-    
-    console.log(`Filtered carriers for API request: ${specificCarriers.join(', ')}`);
-    
     // Create shipment request for EasyPost API
     const shipmentRequest = {
       shipment: {
@@ -206,18 +188,9 @@ serve(async (req) => {
 
     console.log('EasyPost API response received successfully');
 
-    // Filter rates by carrier if specified
+    // Get rates from response
     let rates = data.rates || [];
     console.log(`Raw rates returned from EasyPost: ${rates.length}`);
-    
-    if (specificCarriers.length > 0) {
-      rates = rates.filter((rate: any) => 
-        specificCarriers.some(carrier => 
-          rate.carrier.toLowerCase().includes(carrier)
-        )
-      );
-      console.log(`Filtered to ${rates.length} rates matching requested carriers`);
-    }
     
     // Ensure we have rates to return
     if (rates.length === 0) {
@@ -247,7 +220,7 @@ serve(async (req) => {
       JSON.stringify({ 
         rates: organizedRates,
         shipmentId: data.id,
-        markupPercentage: markupPercentage // Include markup percentage for transparency
+        markupPercentage: markupPercentage
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
