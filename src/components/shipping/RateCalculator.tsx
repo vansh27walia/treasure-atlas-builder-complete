@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -482,7 +483,7 @@ const RateCalculator: React.FC = () => {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-lg font-bold">${rate.rate.toFixed(2)}</p>
+                      <p className="text-lg font-bold">${parseFloat(rate.rate).toFixed(2)}</p>
                       <p className="text-sm text-gray-600">{rate.currency}</p>
                     </div>
                   </div>
