@@ -204,12 +204,14 @@ export const useShippingRates = () => {
         });
         document.dispatchEvent(stepEvent);
         
+        toast.success('Label created successfully!');
         return data;
       } else {
         throw new Error('Invalid response from label creation');
       }
     } catch (error) {
       console.error('Error creating label:', error);
+      toast.error('Failed to create label. Please try again.');
       throw error;
     } finally {
       setIsLoading(false);
