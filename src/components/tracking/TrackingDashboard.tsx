@@ -123,7 +123,7 @@ const TrackingDashboard: React.FC = () => {
   }, []);
 
   // Filter tracking data based on active filter
-  const getFilteredTrackingData = () => {
+  const getFilteredTrackingData = (): ShipmentTrackingInfo[] => {
     if (activeFilter === 'all') return trackingData;
     return trackingData.filter(item => item.status === activeFilter);
   };
