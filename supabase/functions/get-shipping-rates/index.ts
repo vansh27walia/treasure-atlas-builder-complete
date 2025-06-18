@@ -26,6 +26,16 @@ serve(async (req) => {
       throw new Error('EasyPost API key not configured')
     }
 
+    // Ensure weight is in ounces for EasyPost (weight conversion should already be done in frontend)
+    let weightInOz = parseFloat(parcel.weight) || 1;
+    
+    // Handle weight unit conversion if still needed
+    if (parcel.weightUnit === 'lbs') {
+      weightInOz = weightInOz * 16;
+    } else if (parcel.weightUnit === 'kg') {
+      weightInOz = weightInOz * 35.274;
+    }
+
     // Create shipment for rates
     const shipmentData = {
       shipment: {
@@ -55,7 +65,7 @@ serve(async (req) => {
           length: parseFloat(parcel.length) || 1,
           width: parseFloat(parcel.width) || 1,
           height: parseFloat(parcel.height) || 1,
-          weight: parseFloat(parcel.weight) || 1
+          weight: weightInOz
         },
         options: {
           ...options
@@ -88,7 +98,7 @@ serve(async (req) => {
     }
 
     // Format rates for frontend
-    const formattedRates = shipmentResponse.rates.map((rate: any) => ({
+    let formattedRates = shipmentResponse.rates.map((rate: any) => ({
       id: rate.id,
       carrier: rate.carrier,
       service: rate.service,
@@ -99,8 +109,19 @@ serve(async (req) => {
       delivery_date_guaranteed: rate.delivery_date_guaranteed,
       est_delivery_days: rate.est_delivery_days,
       shipment_id: shipmentResponse.id,
-      carrier_account_id: rate.carrier_account_id
+      carrier_account_id: rate.carrier_account_id,
+      list_rate: rate.list_rate,
+      retail_rate: rate.retail_rate
     }))
+
+    // Filter by selected carriers if specified
+    if (options.carriers && Array.isArray(options.carriers) && !options.carriers.includes('all')) {
+      formattedRates = formattedRates.filter((rate: any) => 
+        options.carriers.some((carrier: string) => 
+          rate.carrier.toLowerCase().includes(carrier.toLowerCase())
+        )
+      )
+    }
 
     // Sort by price (lowest first)
     formattedRates.sort((a: any, b: any) => a.rate - b.rate)

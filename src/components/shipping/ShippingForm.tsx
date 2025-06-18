@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { usePickupAddresses } from '@/hooks/usePickupAddresses';
 import PickupAddressSelector from './PickupAddressSelector';
@@ -14,6 +15,7 @@ interface ParcelData {
   width: number;
   height: number;
   weight: number;
+  weightUnit: 'oz' | 'lbs' | 'kg';
 }
 
 interface ShippingFormProps {
@@ -37,11 +39,22 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ onRatesCalculated }) => {
     length: 0,
     width: 0,
     height: 0,
-    weight: 0
+    weight: 0,
+    weightUnit: 'oz'
   });
+  const [selectedCarriers, setSelectedCarriers] = useState<string[]>(['all']);
 
   const { fetchRates, isLoading } = useShippingRates();
   const { selectedAddress } = usePickupAddresses();
+
+  // Available carriers for selection
+  const availableCarriers = [
+    { value: 'all', label: 'All Carriers' },
+    { value: 'USPS', label: 'USPS' },
+    { value: 'UPS', label: 'UPS' },
+    { value: 'FedEx', label: 'FedEx' },
+    { value: 'DHL', label: 'DHL' }
+  ];
 
   useEffect(() => {
     if (selectedAddress) {
@@ -73,7 +86,16 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ onRatesCalculated }) => {
         company: fromAddress.company || ''
       },
       toAddress,
-      parcel
+      parcel: {
+        length: parcel.length,
+        width: parcel.width,
+        height: parcel.height,
+        weight: parcel.weight,
+        weightUnit: parcel.weightUnit
+      },
+      options: {
+        carriers: selectedCarriers.includes('all') ? undefined : selectedCarriers
+      }
     };
 
     console.log('Sending rate request:', rateRequest);
@@ -88,6 +110,18 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ onRatesCalculated }) => {
       }
     });
     document.dispatchEvent(event);
+  };
+
+  const handleCarrierChange = (carrierId: string) => {
+    if (carrierId === 'all') {
+      setSelectedCarriers(['all']);
+    } else {
+      const newCarriers = selectedCarriers.includes(carrierId) 
+        ? selectedCarriers.filter(c => c !== carrierId)
+        : [...selectedCarriers.filter(c => c !== 'all'), carrierId];
+      
+      setSelectedCarriers(newCarriers.length === 0 ? ['all'] : newCarriers);
+    }
   };
 
   return (
@@ -234,18 +268,52 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ onRatesCalculated }) => {
                 />
               </div>
               <div>
-                <Label htmlFor="weight">Weight (oz) *</Label>
-                <Input
-                  id="weight"
-                  type="number"
-                  value={parcel.weight || ''}
-                  onChange={(e) => setParcel(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
-                  placeholder="0"
-                  step="0.1"
-                  min="0"
-                  required
-                />
+                <Label htmlFor="weight">Weight *</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="weight"
+                    type="number"
+                    value={parcel.weight || ''}
+                    onChange={(e) => setParcel(prev => ({ ...prev, weight: parseFloat(e.target.value) || 0 }))}
+                    placeholder="0"
+                    step="0.1"
+                    min="0"
+                    required
+                    className="flex-1"
+                  />
+                  <Select 
+                    value={parcel.weightUnit} 
+                    onValueChange={(value) => setParcel(prev => ({ ...prev, weightUnit: value as 'oz' | 'lbs' | 'kg' }))}
+                  >
+                    <SelectTrigger className="w-20">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="oz">oz</SelectItem>
+                      <SelectItem value="lbs">lbs</SelectItem>
+                      <SelectItem value="kg">kg</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Carrier Selection */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Preferred Carriers</h3>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              {availableCarriers.map((carrier) => (
+                <label key={carrier.value} className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedCarriers.includes(carrier.value)}
+                    onChange={() => handleCarrierChange(carrier.value)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm">{carrier.label}</span>
+                </label>
+              ))}
             </div>
           </div>
 
