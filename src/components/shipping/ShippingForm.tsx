@@ -22,7 +22,6 @@ interface ShippingFormProps {
 
 const ShippingForm: React.FC<ShippingFormProps> = ({ onRatesCalculated }) => {
   const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
-  const [showFromAddressForm, setShowFromAddressForm] = useState(false);
   const [toAddress, setToAddress] = useState({
     name: '',
     street1: '',
@@ -77,7 +76,18 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ onRatesCalculated }) => {
       parcel
     };
 
+    console.log('Sending rate request:', rateRequest);
     await fetchRates(rateRequest);
+    
+    // Dispatch event for other components to listen
+    const event = new CustomEvent('shipping-form-completed', {
+      detail: { 
+        fromAddress: rateRequest.fromAddress,
+        toAddress: rateRequest.toAddress,
+        parcel: rateRequest.parcel
+      }
+    });
+    document.dispatchEvent(event);
   };
 
   return (
@@ -93,22 +103,8 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ onRatesCalculated }) => {
             <PickupAddressSelector
               selectedAddress={fromAddress}
               onAddressSelected={setFromAddress}
-              onAddNew={() => setShowFromAddressForm(true)}
+              onAddNew={() => {}}
             />
-            
-            {showFromAddressForm && (
-              <div className="p-4 border rounded-lg bg-gray-50">
-                <p className="text-sm text-gray-600 mb-2">
-                  Please use the Address Settings page to add new pickup addresses.
-                </p>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowFromAddressForm(false)}
-                >
-                  Close
-                </Button>
-              </div>
-            )}
           </div>
 
           {/* To Address */}

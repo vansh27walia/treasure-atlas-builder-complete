@@ -167,7 +167,95 @@ export const useShippingRates = () => {
     }
   }, [selectedRateId]);
 
-  const handleCreateLabel = useCallback(async (rateId?: string, shipmentIdParam?: string, options?: any) => {
+  const saveShipmentToDatabase = useCallback(async (shipmentData: any) => {
+    try {
+      console.log('Saving shipment to database:', shipmentData);
+      
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Format recipient address
+      const recipientAddress = shipmentData.toAddress ? 
+        `${shipmentData.toAddress.street1 || ''} ${shipmentData.toAddress.street2 || ''}, ${shipmentData.toAddress.city || ''}, ${shipmentData.toAddress.state || ''} ${shipmentData.toAddress.zip || ''}`.trim() : 
+        'Unknown';
+
+      // Check if shipment already exists
+      const { data: existingShipment } = await supabase
+        .from('shipments')
+        .select('id')
+        .eq('tracking_code', shipmentData.trackingCode)
+        .eq('user_id', user.id)
+        .single();
+
+      if (existingShipment) {
+        console.log('Shipment already exists, updating...');
+        
+        // Update existing shipment
+        const { error: updateError } = await supabase
+          .from('shipments')
+          .update({
+            label_url: shipmentData.labelUrl,
+            status: 'created',
+            recipient_name: shipmentData.toAddress?.name || 'Unknown',
+            recipient_address: recipientAddress,
+            service: shipmentData.service,
+            updated_at: new Date().toISOString()
+          })
+          .eq('tracking_code', shipmentData.trackingCode)
+          .eq('user_id', user.id);
+
+        if (updateError) {
+          console.error('Error updating shipment:', updateError);
+          throw updateError;
+        }
+      } else {
+        // Insert new shipment record
+        const { error: insertError } = await supabase
+          .from('shipments')
+          .insert([{
+            user_id: user.id,
+            tracking_code: shipmentData.trackingCode,
+            carrier: shipmentData.carrier,
+            shipment_id: shipmentData.shipmentId || '',
+            label_url: shipmentData.labelUrl,
+            service: shipmentData.service,
+            status: 'created',
+            recipient_name: shipmentData.toAddress?.name || 'Unknown',
+            recipient_address: recipientAddress,
+            package_details: {
+              weight: shipmentData.parcel?.weight ? `${shipmentData.parcel.weight} oz` : 'Unknown',
+              dimensions: shipmentData.parcel ? 
+                `${shipmentData.parcel.length || 0}x${shipmentData.parcel.width || 0}x${shipmentData.parcel.height || 0} in` : 
+                'Unknown',
+              service: shipmentData.service || 'Standard'
+            },
+            tracking_history: {
+              events: [],
+              created_at: new Date().toISOString()
+            },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }]);
+
+        if (insertError) {
+          console.error('Error inserting shipment:', insertError);
+          throw insertError;
+        }
+      }
+
+      console.log('Shipment saved successfully to database');
+      return true;
+    } catch (error) {
+      console.error('Error saving shipment to database:', error);
+      toast.error('Failed to save shipment tracking information');
+      return false;
+    }
+  }, []);
+
+  const handleCreateLabel = useCallback(async (rateId?: string, shipmentIdParam?: string, options?: any, shipmentDetails?: any) => {
     const finalRateId = rateId || selectedRateId;
     const finalShipmentId = shipmentIdParam || shipmentId;
     
@@ -198,6 +286,20 @@ export const useShippingRates = () => {
         setLabelUrl(data.labelUrl);
         setTrackingCode(data.trackingCode);
         
+        // Get the selected rate details
+        const selectedRate = rates.find(rate => rate.id === finalRateId);
+        
+        // Save shipment to database for tracking
+        await saveShipmentToDatabase({
+          trackingCode: data.trackingCode,
+          carrier: selectedRate?.carrier || 'Unknown',
+          shipmentId: finalShipmentId,
+          labelUrl: data.labelUrl,
+          service: selectedRate?.service,
+          toAddress: shipmentDetails?.toAddress,
+          parcel: shipmentDetails?.parcel
+        });
+        
         // Update step to label
         const stepEvent = new CustomEvent('shipping-step-change', {
           detail: { step: 'label' }
@@ -216,7 +318,7 @@ export const useShippingRates = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedRateId, shipmentId]);
+  }, [selectedRateId, shipmentId, rates, saveShipmentToDatabase]);
 
   const clearRates = useCallback(() => {
     setRates([]);
