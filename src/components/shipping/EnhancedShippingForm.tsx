@@ -110,12 +110,48 @@ const EnhancedShippingForm: React.FC = () => {
       return;
     }
 
+    // Validate required fields
+    if (!fromAddress.street1 || !fromAddress.city || !fromAddress.state || !fromAddress.zip) {
+      toast.error('Please fill in all required from address fields');
+      return;
+    }
+
+    if (!toAddress.street1 || !toAddress.city || !toAddress.state || !toAddress.zip) {
+      toast.error('Please fill in all required to address fields');
+      return;
+    }
+
     console.log('Getting rates with:', { fromAddress, toAddress, parcel });
 
     try {
+      // Ensure addresses have required fields
+      const validFromAddress = {
+        name: fromAddress.name || '',
+        street1: fromAddress.street1,
+        street2: fromAddress.street2 || '',
+        city: fromAddress.city,
+        state: fromAddress.state,
+        zip: fromAddress.zip,
+        country: fromAddress.country || 'US',
+        phone: fromAddress.phone || '',
+        company: fromAddress.company || '',
+      };
+
+      const validToAddress = {
+        name: toAddress.name || '',
+        street1: toAddress.street1,
+        street2: toAddress.street2 || '',
+        city: toAddress.city,
+        state: toAddress.state,
+        zip: toAddress.zip,
+        country: toAddress.country || 'US',
+        phone: toAddress.phone || '',
+        company: toAddress.company || '',
+      };
+
       await fetchRates({
-        fromAddress,
-        toAddress,
+        fromAddress: validFromAddress,
+        toAddress: validToAddress,
         parcel: {
           length: parseFloat(parcel.length) || 1,
           width: parseFloat(parcel.width) || 1,
@@ -127,7 +163,7 @@ const EnhancedShippingForm: React.FC = () => {
 
       // Dispatch event to show rates
       const rateEvent = new CustomEvent('shipping-form-completed', {
-        detail: { fromAddress, toAddress, parcel }
+        detail: { fromAddress: validFromAddress, toAddress: validToAddress, parcel }
       });
       document.dispatchEvent(rateEvent);
 
