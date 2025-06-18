@@ -4,43 +4,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Package, Search, RefreshCw, Truck, MapPin } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import TrackingDashboard from '@/components/tracking/TrackingDashboard';
+import { useFindTracking } from '@/hooks/useFindTracking';
 
 const TrackingPage = () => {
   const [trackingNumber, setTrackingNumber] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [trackingResult, setTrackingResult] = useState<any>(null);
+  const { searchTracking, isLoading, trackingResult, clearResults } = useFindTracking();
 
   const handleTrack = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!trackingNumber.trim()) {
-      toast.error('Please enter a tracking number');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Call tracking API through edge function
-      const { data, error } = await supabase.functions.invoke('track-shipment', {
-        body: { tracking_number: trackingNumber }
-      });
-
-      if (error) {
-        throw new Error('Error tracking shipment: ' + error.message);
-      }
-
-      setTrackingResult(data);
-      toast.success('Tracking information retrieved successfully');
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Unable to track package. Please check the tracking number and try again.');
-    } finally {
-      setIsLoading(false);
-    }
+    await searchTracking(trackingNumber);
   };
 
   return (
@@ -86,28 +60,48 @@ const TrackingPage = () => {
             
             {trackingResult && (
               <div className="mt-6 border border-gray-200 rounded-lg p-4">
-                <h3 className="font-semibold text-lg mb-2 flex items-center">
-                  <Package className="mr-2 h-5 w-5 text-blue-600" />
-                  Tracking Result
-                </h3>
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-semibold text-lg flex items-center">
+                    <Package className="mr-2 h-5 w-5 text-blue-600" />
+                    Tracking Result
+                  </h3>
+                  {trackingResult.source && (
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                      {trackingResult.source.replace('_', ' ').toUpperCase()}
+                    </span>
+                  )}
+                </div>
                 
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-500">Tracking Number</p>
-                      <p className="font-medium">{trackingResult.tracking_code || trackingNumber}</p>
+                      <p className="font-medium">{trackingResult.tracking_code}</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-500">Status</p>
-                      <p className="font-medium">{trackingResult.status || 'Unknown'}</p>
+                      <p className="font-medium capitalize">{trackingResult.status}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Carrier</p>
+                      <p className="font-medium">{trackingResult.carrier}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Recipient</p>
+                      <p className="font-medium">{trackingResult.recipient}</p>
                     </div>
                   </div>
                   
                   {trackingResult.estimated_delivery && (
                     <div>
                       <p className="text-sm text-gray-500">Estimated Delivery</p>
-                      <p className="font-medium">{trackingResult.estimated_delivery.date} 
-                        {trackingResult.estimated_delivery.time_range && ` (${trackingResult.estimated_delivery.time_range})`}
+                      <p className="font-medium">
+                        {new Date(trackingResult.estimated_delivery.date).toLocaleDateString()}
+                        {trackingResult.estimated_delivery.time_range && 
+                          ` (${trackingResult.estimated_delivery.time_range})`}
                       </p>
                     </div>
                   )}
@@ -115,9 +109,9 @@ const TrackingPage = () => {
                   {trackingResult.tracking_events && trackingResult.tracking_events.length > 0 && (
                     <div className="mt-4">
                       <h4 className="font-medium mb-2">Tracking Events</h4>
-                      <div className="space-y-3">
-                        {trackingResult.tracking_events.map((event: any, index: number) => (
-                          <div key={index} className="border-l-2 border-blue-400 pl-4 py-1">
+                      <div className="space-y-3 max-h-60 overflow-y-auto">
+                        {trackingResult.tracking_events.map((event, index) => (
+                          <div key={event.id || index} className="border-l-2 border-blue-400 pl-4 py-1">
                             <p className="font-medium">{event.description}</p>
                             <div className="flex items-center text-sm text-gray-500 mt-1">
                               <MapPin className="h-4 w-4 mr-1" />
@@ -130,6 +124,23 @@ const TrackingPage = () => {
                       </div>
                     </div>
                   )}
+                </div>
+                
+                <div className="mt-4 flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={clearResults}
+                  >
+                    Clear Results
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setTrackingNumber('')}
+                  >
+                    Track Another Package
+                  </Button>
                 </div>
               </div>
             )}
