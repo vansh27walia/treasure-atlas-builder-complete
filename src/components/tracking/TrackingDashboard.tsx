@@ -18,7 +18,7 @@ interface TrackingEvent {
   status: string;
 }
 
-interface TrackingInfo {
+interface ShipmentTrackingInfo {
   id: string;
   tracking_code: string;
   carrier: string;
@@ -36,7 +36,7 @@ interface TrackingInfo {
 }
 
 const TrackingDashboard: React.FC = () => {
-  const [trackingData, setTrackingData] = useState<TrackingInfo[]>([]);
+  const [trackingData, setTrackingData] = useState<ShipmentTrackingInfo[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedTracking, setSelectedTracking] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>('all');
@@ -70,7 +70,7 @@ const TrackingDashboard: React.FC = () => {
       }
       
       // Transform shipment data to match tracking interface
-      const transformedData: TrackingInfo[] = shipments?.map(shipment => {
+      const transformedData: ShipmentTrackingInfo[] = shipments?.map(shipment => {
         const toAddress = shipment.to_address_json as any;
         const recipient = toAddress?.name || 'Unknown Recipient';
         const recipientAddress = toAddress ? 
