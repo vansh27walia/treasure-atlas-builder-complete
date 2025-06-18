@@ -58,7 +58,7 @@ const TrackingDashboard: React.FC = () => {
   const fetchTrackingData = async () => {
     setIsLoading(true);
     try {
-      // Fetch actual shipment records from database - including all types (batch, individual, international)
+      // Fetch actual shipment records from database
       const { data: shipments, error } = await supabase
         .from('shipment_records')
         .select(`
@@ -73,10 +73,7 @@ const TrackingDashboard: React.FC = () => {
           to_address_json,
           tracking_details,
           est_delivery_date,
-          updated_at,
-          from_address_json,
-          parcel_json,
-          is_international
+          updated_at
         `)
         .not('tracking_code', 'is', null)
         .order('created_at', { ascending: false });
@@ -86,14 +83,9 @@ const TrackingDashboard: React.FC = () => {
         throw new Error(error.message);
       }
       
-      console.log(`Found ${shipments?.length || 0} shipments with tracking codes`);
-      
       // Transform shipment data to match tracking interface
       const transformedData: ShipmentTrackingInfo[] = shipments?.map(shipment => {
         const toAddress = shipment.to_address_json as any;
-        const fromAddress = shipment.from_address_json as any;
-        const parcelData = shipment.parcel_json as any;
-        
         const recipient = toAddress?.name || 'Unknown Recipient';
         const recipientAddress = toAddress ? 
           `${toAddress.street1}, ${toAddress.city}, ${toAddress.state} ${toAddress.zip}` : 
@@ -104,20 +96,11 @@ const TrackingDashboard: React.FC = () => {
         if (shipment.tracking_details && Array.isArray(shipment.tracking_details)) {
           trackingEvents = (shipment.tracking_details as any[]).map((event: any, index: number) => ({
             id: event.id || `event_${index}`,
-            description: event.description || event.message || 'Label Created',
-            location: event.location || fromAddress?.city || 'Processing Center',
-            timestamp: event.timestamp || event.datetime || shipment.created_at || new Date().toISOString(),
-            status: event.status || 'pre_transit'
+            description: event.description || event.message || 'Unknown event',
+            location: event.location || 'Unknown location',
+            timestamp: event.timestamp || event.datetime || new Date().toISOString(),
+            status: event.status || 'unknown'
           }));
-        } else {
-          // If no tracking details exist, create a default event
-          trackingEvents = [{
-            id: 'initial',
-            description: 'Shipping label created',
-            location: fromAddress?.city || 'Processing Center',
-            timestamp: shipment.created_at || new Date().toISOString(),
-            status: 'pre_transit'
-          }];
         }
         
         return {
@@ -125,7 +108,7 @@ const TrackingDashboard: React.FC = () => {
           tracking_code: shipment.tracking_code || '',
           carrier: shipment.carrier || 'Unknown',
           carrier_code: shipment.carrier || 'Unknown',
-          status: shipment.status || 'pre_transit',
+          status: shipment.status || 'unknown',
           eta: shipment.est_delivery_date,
           last_update: shipment.updated_at || shipment.created_at || '',
           label_url: shipment.label_url,
@@ -137,8 +120,8 @@ const TrackingDashboard: React.FC = () => {
           tracking_events: trackingEvents,
           est_delivery_date: shipment.est_delivery_date,
           package_details: {
-            weight: parcelData?.weight ? `${parcelData.weight} oz` : 'Unknown',
-            dimensions: parcelData ? `${parcelData.length || 0}"L x ${parcelData.width || 0}"W x ${parcelData.height || 0}"H` : 'Unknown',
+            weight: 'Unknown',
+            dimensions: 'Unknown',
             service: shipment.service || 'Standard'
           },
           estimated_delivery: shipment.est_delivery_date ? {
@@ -149,7 +132,7 @@ const TrackingDashboard: React.FC = () => {
       }) || [];
       
       setTrackingData(transformedData);
-      toast.success(`Loaded ${transformedData.length} tracked shipments`);
+      toast.success(`Loaded ${transformedData.length} shipments`);
     } catch (error) {
       console.error('Error fetching tracking data:', error);
       toast.error('Failed to load tracking information');
@@ -185,7 +168,7 @@ const TrackingDashboard: React.FC = () => {
             <Package className="mr-2" /> Your Shipments Dashboard
           </CardTitle>
           <CardDescription>
-            Track shipments from batch labels, individual shipping, and international shipping
+            Track shipments from normal shipping, international shipping, and batch labels
           </CardDescription>
         </div>
         <Button 

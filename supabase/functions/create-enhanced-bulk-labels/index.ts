@@ -1,7 +1,8 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { ZipWriter, Uint8ArrayReader } from "https://deno.land/x/zipjs@v2.7.34/index.js";
+import { ZipWriter, Uint8ArrayReader } from "https://deno.land/x/zipjs@v2.7.34/index.js"; // Using @deno/zip was causing issues, trying zipjs
+// Note: If zipjs also has issues, may need to find a more stable Deno zipping library or simplify to not use ReadableStream directly if that's the cause.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,13 +31,8 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header provided");
 
-    // Extract user ID from auth header
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError || !user) throw new Error("Invalid authentication");
-
     const { shipments, pickupAddress, labelOptions } = await req.json();
-    logStep("Request data received", { shipmentsCount: shipments?.length, hasPickupAddress: !!pickupAddress, userId: user.id });
+    logStep("Request data received", { shipmentsCount: shipments?.length, hasPickupAddress: !!pickupAddress });
 
     if (!shipments || !Array.isArray(shipments) || shipments.length === 0) {
       throw new Error("No shipments provided");
@@ -50,7 +46,7 @@ serve(async (req) => {
     }
 
     const processedLabels = [];
-    const failedLabelsInfo = [];
+    const failedLabelsInfo = []; // Renamed from failedLabels to avoid conflict
 
     logStep(`Processing ${shipments.length} shipments`);
 
@@ -60,7 +56,7 @@ serve(async (req) => {
 
       try {
         const shipmentPayload = {
-          to_address: {
+          to_address: { // ... keep existing code (to_address details)
             name: shipment.customer_name || shipment.recipient || 'Unknown',
             street1: shipment.details?.to_street1 || '',
             street2: shipment.details?.to_street2 || '',
@@ -71,7 +67,7 @@ serve(async (req) => {
             phone: shipment.details?.to_phone || '',
             email: shipment.details?.to_email || ''
           },
-          from_address: {
+          from_address: { // ... keep existing code (from_address details)
             name: pickupAddress.name || '',
             company: pickupAddress.company || '',
             street1: pickupAddress.street1,
@@ -83,7 +79,7 @@ serve(async (req) => {
             phone: pickupAddress.phone || '',
             email: pickupAddress.email || ''
           },
-          parcel: {
+          parcel: { // ... keep existing code (parcel details)
             length: shipment.details?.length || 12,
             width: shipment.details?.width || 8,
             height: shipment.details?.height || 4,
@@ -94,7 +90,7 @@ serve(async (req) => {
         const shipmentResponse = await fetch("https://api.easypost.com/v2/shipments", {
           method: "POST",
           headers: { "Authorization": `Bearer ${easypostApiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({shipment: shipmentPayload})
+          body: JSON.stringify({shipment: shipmentPayload}) // EasyPost expects shipment to be nested
         });
 
         if (!shipmentResponse.ok) {
@@ -105,7 +101,7 @@ serve(async (req) => {
         logStep(`Shipment created`, { easypostId: shipmentData.id });
 
         const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-        if (!selectedRate || !selectedRate.easypost_rate_id) {
+        if (!selectedRate || !selectedRate.easypost_rate_id) { // Added check for easypost_rate_id
           throw new Error(`No selected rate or EasyPost rate ID found for shipment ${shipment.id}`);
         }
 
@@ -123,7 +119,7 @@ serve(async (req) => {
         logStep(`Rate purchased`, { trackingCode: purchaseData.tracking_code });
 
         const labelUrls = {
-          png: purchaseData.postage_label?.label_png_url || purchaseData.postage_label?.label_url,
+          png: purchaseData.postage_label?.label_png_url || purchaseData.postage_label?.label_url, // Prefer png_url if available
           pdf: null,
           zpl: null
         };
@@ -132,7 +128,7 @@ serve(async (req) => {
         const fetchLabelFormat = async (format: 'pdf' | 'zpl') => {
           try {
             const formatResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentData.id}/label`, {
-              method: "POST",
+              method: "POST", // Changed to POST
               headers: { "Authorization": `Bearer ${easypostApiKey}`, "Content-Type": "application/json" },
               body: JSON.stringify({ file_format: format })
             });
@@ -152,56 +148,29 @@ serve(async (req) => {
 
         labelUrls.pdf = await fetchLabelFormat('pdf');
         labelUrls.zpl = await fetchLabelFormat('zpl');
+        
+        // Fallback for PDF if PNG exists and PDF failed
+        if (!labelUrls.pdf && labelUrls.png) {
+            logStep(`Falling back PDF to PNG URL as PDF generation failed or was not available.`);
+            // labelUrls.pdf = labelUrls.png; // This might not be a true PDF. Better to leave null if not a PDF.
+        }
+
 
         const storedUrls = await storeLabelsInStorage(supabaseClient, labelUrls, shipmentData.id, purchaseData.tracking_code);
 
-        // Save shipment record to database for tracking
-        try {
-          const { error: insertError } = await supabaseClient
-            .from('shipment_records')
-            .insert({
-              user_id: user.id,
-              tracking_code: purchaseData.tracking_code,
-              carrier: selectedRate.carrier,
-              service: selectedRate.service,
-              status: 'pre_transit',
-              shipment_id: shipmentData.id,
-              label_url: storedUrls.png || labelUrls.png,
-              charged_rate: selectedRate.rate,
-              to_address_json: shipmentPayload.to_address,
-              from_address_json: shipmentPayload.from_address,
-              parcel_json: shipmentPayload.parcel,
-              tracking_details: [{
-                id: 'initial',
-                description: 'Shipping label created',
-                location: pickupAddress.city,
-                timestamp: new Date().toISOString(),
-                status: 'pre_transit'
-              }]
-            });
-
-          if (insertError) {
-            logStep(`Failed to save shipment record`, { error: insertError.message });
-          } else {
-            logStep(`Shipment record saved for tracking`, { trackingCode: purchaseData.tracking_code });
-          }
-        } catch (dbError) {
-          logStep(`Database error saving shipment`, { error: dbError.message });
-        }
-
         processedLabels.push({
-          id: shipmentData.id,
-          original_shipment_id: shipment.id,
+          id: shipmentData.id, // EasyPost shipment ID
+          original_shipment_id: shipment.id, // Original client-side/DB shipment ID
           tracking_code: purchaseData.tracking_code,
           customer_name: shipment.customer_name || shipment.recipient,
           customer_address: `${shipment.details?.to_street1 || ''}, ${shipment.details?.to_city || ''}, ${shipment.details?.to_state || ''} ${shipment.details?.to_zip || ''}`,
           carrier: selectedRate.carrier,
           service: selectedRate.service,
           rate: selectedRate.rate,
-          label_url: storedUrls.png || labelUrls.png,
-          label_urls: storedUrls,
+          label_url: storedUrls.png || labelUrls.png, // Primary display URL
+          label_urls: storedUrls, // Contains all stored URLs (png, pdf, zpl)
           status: 'success',
-          details: shipment.details
+          details: shipment.details // Pass along original details for display
         });
 
       } catch (error) {
@@ -213,15 +182,13 @@ serve(async (req) => {
       }
     }
 
-    let consolidatedUrls = { pdf: null, zpl: null, epl: null };
-    let batchId = `batch_${Date.now()}`;
-    
+    let consolidatedZipUrls = { pdf_zip: null, zpl_zip: null };
     if (processedLabels.length > 0) {
       try {
-        consolidatedUrls = await createConsolidatedFiles(supabaseClient, processedLabels, batchId);
-        logStep(`Consolidated files created`, { urls: consolidatedUrls });
+        consolidatedZipUrls = await createConsolidatedZipFiles(supabaseClient, processedLabels);
+        logStep(`Consolidated ZIP files created`, { urls: consolidatedZipUrls });
       } catch (error) {
-        logStep(`Consolidated file creation failed`, { error: error.message });
+        logStep(`Consolidated ZIP creation failed`, { error: error.message });
       }
     }
 
@@ -230,15 +197,14 @@ serve(async (req) => {
       successful: processedLabels.length,
       failed: failedLabelsInfo.length,
       processedLabels,
-      failedLabels: failedLabelsInfo,
-      batchResult: (consolidatedUrls.pdf || consolidatedUrls.zpl || consolidatedUrls.epl) ? {
-        batchId: batchId,
+      failedLabels: failedLabelsInfo, // Ensure this matches frontend expectation
+      batchResult: (consolidatedZipUrls.pdf_zip || consolidatedZipUrls.zpl_zip) ? {
+        batchId: `batch_zip_${Date.now()}`,
         consolidatedLabelUrls: {
-          pdf: consolidatedUrls.pdf,
-          zpl: consolidatedUrls.zpl,
-          epl: consolidatedUrls.epl
+          pdfZip: consolidatedZipUrls.pdf_zip,
+          zplZip: consolidatedZipUrls.zpl_zip
         },
-        scanFormUrl: null
+        scanFormUrl: null // Scan forms are for actual EasyPost Batches
       } : null
     };
 
@@ -260,7 +226,7 @@ serve(async (req) => {
 
 async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmentId: string, trackingCode: string) {
   const storedUrls = { png: null, pdf: null, zpl: null };
-  const storageBucket = 'shipping-labels-2';
+  const storageBucket = 'shipping-labels'; // Or your configured bucket name
 
   const safeTrackingCode = trackingCode ? trackingCode.replace(/[^a-zA-Z0-9]/g, '_') : `shipment_${shipmentId}`;
 
@@ -270,7 +236,7 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
       const pngResponse = await fetch(labelUrls.png);
       if (pngResponse.ok) {
         const pngBlob = await pngResponse.blob();
-        const pngPath = `individual_labels/${safeTrackingCode}_${shipmentId}.png`;
+        const pngPath = `labels/${safeTrackingCode}_${shipmentId}.png`;
         const { error } = await supabaseClient.storage.from(storageBucket).upload(pngPath, pngBlob, { contentType: 'image/png', upsert: true });
         if (!error) {
           const { data: urlData } = supabaseClient.storage.from(storageBucket).getPublicUrl(pngPath);
@@ -287,7 +253,7 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
       const pdfResponse = await fetch(labelUrls.pdf);
       if (pdfResponse.ok) {
         const pdfBlob = await pdfResponse.blob();
-        const pdfPath = `individual_labels/${safeTrackingCode}_${shipmentId}.pdf`;
+        const pdfPath = `labels/${safeTrackingCode}_${shipmentId}.pdf`;
         const { error } = await supabaseClient.storage.from(storageBucket).upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true });
         if (!error) {
           const { data: urlData } = supabaseClient.storage.from(storageBucket).getPublicUrl(pdfPath);
@@ -303,9 +269,9 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
     try {
       const zplResponse = await fetch(labelUrls.zpl);
       if (zplResponse.ok) {
-        const zplBlob = await zplResponse.blob();
-        const zplPath = `individual_labels/${safeTrackingCode}_${shipmentId}.zpl`;
-        const { error } = await supabaseClient.storage.from(storageBucket).upload(zplPath, zplBlob, { contentType: 'application/zpl', upsert: true });
+        const zplBlob = await zplResponse.blob(); // ZPL might be text, ensure blob is fine
+        const zplPath = `labels/${safeTrackingCode}_${shipmentId}.zpl`;
+        const { error } = await supabaseClient.storage.from(storageBucket).upload(zplPath, zplBlob, { contentType: 'application/zpl', upsert: true }); // Or text/plain
         if (!error) {
           const { data: urlData } = supabaseClient.storage.from(storageBucket).getPublicUrl(zplPath);
           storedUrls.zpl = urlData.publicUrl;
@@ -317,68 +283,62 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
   return storedUrls;
 }
 
-async function createConsolidatedFiles(supabaseClient: any, processedLabels: any[], batchId: string) {
-  const storageBucket = 'shipping-labels-2';
-  const results = { pdf: null, zpl: null, epl: null };
 
-  // Create consolidated files for PDF, ZPL, and EPL
-  for (const format of ['pdf', 'zpl', 'epl']) {
-    try {
-      let consolidatedContent = '';
-      let contentType = 'text/plain';
-      let filesFound = 0;
+async function createConsolidatedZipFiles(supabaseClient: any, processedLabels: any[]) {
+  const storageBucket = 'shipping-labels';
+  const timestamp = Date.now();
+  const results = { pdf_zip: null, zpl_zip: null };
 
-      if (format === 'pdf') {
-        // For PDF, we'll create a simple text file listing all tracking numbers
-        // In a real implementation, you'd merge PDFs
-        contentType = 'text/plain';
-        consolidatedContent = `Consolidated PDF Labels - Batch ${batchId}\n\n`;
-        consolidatedContent += 'Tracking Numbers:\n';
-        processedLabels.forEach(label => {
-          if (label.tracking_code) {
-            consolidatedContent += `${label.tracking_code} - ${label.customer_name}\n`;
-            filesFound++;
+  const createZip = async (format: 'pdf' | 'zpl') => {
+    const zipWriter = new ZipWriter(new Blob([]).stream()); // zip.js needs a WritableStream, Blob stream can work
+    let filesAdded = 0;
+
+    for (const label of processedLabels) {
+      const url = label.label_urls?.[format];
+      if (url) {
+        try {
+          const response = await fetch(url);
+          if (response.ok && response.body) {
+            const trackingCode = label.tracking_code ? label.tracking_code.replace(/[^a-zA-Z0-9]/g, '_') : `label_${label.id}`;
+            const fileName = `label_${trackingCode}.${format}`;
+            // Use Uint8ArrayReader for zip.js
+             const labelData = await response.arrayBuffer();
+             zipWriter.add(fileName, new Uint8ArrayReader(new Uint8Array(labelData)));
+            filesAdded++;
+            logStep(`Added ${fileName} to ${format} ZIP`);
+          } else {
+            logStep(`Failed to fetch ${format} label for ZIP: ${url}`, { status: response.status });
           }
-        });
-      } else {
-        // For ZPL and EPL, concatenate the label content
-        for (const label of processedLabels) {
-          const url = label.label_urls?.[format];
-          if (url) {
-            try {
-              const response = await fetch(url);
-              if (response.ok) {
-                const content = await response.text();
-                consolidatedContent += content + '\n';
-                filesFound++;
-              }
-            } catch (e) {
-              logStep(`Error fetching ${format} for consolidation`, { url, error: e.message });
-            }
-          }
+        } catch (e) {
+          logStep(`Error fetching/adding ${format} label ${url} to ZIP`, { error: e.message });
         }
       }
-
-      if (filesFound > 0) {
-        const filePath = `batch_labels/batch_${batchId}.${format}`;
-        const blob = new Blob([consolidatedContent], { type: contentType });
-        
-        const { error } = await supabaseClient.storage
-          .from(storageBucket)
-          .upload(filePath, blob, { contentType, upsert: true });
-
-        if (!error) {
-          const { data: urlData } = supabaseClient.storage.from(storageBucket).getPublicUrl(filePath);
-          results[format] = urlData.publicUrl;
-          logStep(`Uploaded ${format.toUpperCase()} consolidated file`, { url: urlData.publicUrl, filesIncluded: filesFound });
-        } else {
-          logStep(`Failed to upload ${format.toUpperCase()} consolidated file`, { error });
-        }
-      }
-    } catch (error) {
-      logStep(`Error creating ${format.toUpperCase()} consolidated file`, { error: error.message });
     }
-  }
+
+    if (filesAdded === 0) {
+      logStep(`No ${format} files to add to ZIP.`);
+      return null;
+    }
+    
+    const zipBlob = await zipWriter.close();
+    const zipPath = `batches/consolidated_labels_${timestamp}.${format}.zip`;
+    
+    const { error } = await supabaseClient.storage
+      .from(storageBucket)
+      .upload(zipPath, zipBlob, { contentType: 'application/zip', upsert: true });
+
+    if (error) {
+      logStep(`Failed to upload ${format} ZIP to Supabase`, { error });
+      return null;
+    }
+    
+    const { data: urlData } = supabaseClient.storage.from(storageBucket).getPublicUrl(zipPath);
+    logStep(`Uploaded ${format} ZIP to Supabase`, { url: urlData.publicUrl });
+    return urlData.publicUrl;
+  };
+
+  results.pdf_zip = await createZip('pdf');
+  results.zpl_zip = await createZip('zpl');
 
   return results;
 }
