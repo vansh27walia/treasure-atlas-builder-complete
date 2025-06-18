@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { usePickupAddresses } from '@/hooks/usePickupAddresses';
 import PickupAddressSelector from './PickupAddressSelector';
-import AddressForm from './AddressForm';
 import { SavedAddress } from '@/services/AddressService';
 
 interface ParcelData {
@@ -98,14 +97,17 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ onRatesCalculated }) => {
             />
             
             {showFromAddressForm && (
-              <AddressForm
-                onAddressSaved={(address) => {
-                  setFromAddress(address);
-                  setShowFromAddressForm(false);
-                }}
-                onCancel={() => setShowFromAddressForm(false)}
-                isPickupAddress={true}
-              />
+              <div className="p-4 border rounded-lg bg-gray-50">
+                <p className="text-sm text-gray-600 mb-2">
+                  Please use the Address Settings page to add new pickup addresses.
+                </p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowFromAddressForm(false)}
+                >
+                  Close
+                </Button>
+              </div>
             )}
           </div>
 
