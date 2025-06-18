@@ -46,32 +46,48 @@ const EnhancedTrackingDashboard: React.FC = () => {
   const fetchInternalTrackingData = async () => {
     setIsLoading(true);
     try {
-      // This would typically fetch from your shipments table
       const { data, error } = await supabase
-        .from('shipments')
+        .from('shipment_records')
         .select(`
           id,
           tracking_code,
           carrier,
           status,
-          shipment_method,
-          origin_address,
-          destination_address,
+          service,
+          from_address_json,
+          to_address_json,
           created_at,
-          estimated_delivery,
-          latest_scan_event,
-          latest_scan_location,
-          recipient_name,
           label_url
         `)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching shipments:', error);
-        // For demo purposes, use mock data
+        console.error('Error fetching shipment records:', error);
         setTrackingData(getMockTrackingData());
       } else {
-        setTrackingData(data || []);
+        // Transform the data to match our interface
+        const transformedData = data?.map(record => {
+          const fromAddress = record.from_address_json as any;
+          const toAddress = record.to_address_json as any;
+          
+          return {
+            id: record.id.toString(),
+            tracking_code: record.tracking_code || 'N/A',
+            carrier: record.carrier || 'Unknown',
+            status: record.status || 'pending',
+            shipment_method: record.service || 'Standard',
+            origin_address: fromAddress ? `${fromAddress.city}, ${fromAddress.state}` : 'N/A',
+            destination_address: toAddress ? `${toAddress.city}, ${toAddress.state}` : 'N/A',
+            created_date: record.created_at || '',
+            estimated_delivery: '',
+            latest_scan_event: 'Package created',
+            latest_scan_location: fromAddress ? `${fromAddress.city}, ${fromAddress.state}` : 'N/A',
+            recipient_name: toAddress?.name || 'N/A',
+            label_url: record.label_url || undefined
+          };
+        }) || [];
+        
+        setTrackingData(transformedData);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -296,8 +312,8 @@ const EnhancedTrackingDashboard: React.FC = () => {
                       </div>
                       
                       <div>
-                        <p className="text-gray-500">Est. Delivery</p>
-                        <p className="font-medium">{new Date(shipment.estimated_delivery).toLocaleDateString()}</p>
+                        <p className="text-gray-500">Created</p>
+                        <p className="font-medium">{new Date(shipment.created_date).toLocaleDateString()}</p>
                       </div>
                     </div>
 
@@ -359,7 +375,7 @@ const EnhancedTrackingDashboard: React.FC = () => {
           {/* Add filtered views for other tabs */}
           <TabsContent value="normal">
             <div className="space-y-4">
-              {trackingData.filter(s => s.shipment_method === 'Normal Shipping').map((shipment) => (
+              {trackingData.filter(s => s.shipment_method.includes('Normal')).map((shipment) => (
                 <div key={shipment.id} className="p-4 border rounded">
                   <p className="font-semibold">{shipment.tracking_code}</p>
                   <p className="text-sm text-gray-600">{shipment.carrier}</p>
@@ -370,7 +386,7 @@ const EnhancedTrackingDashboard: React.FC = () => {
           
           <TabsContent value="international">
             <div className="space-y-4">
-              {trackingData.filter(s => s.shipment_method === 'International Shipping').map((shipment) => (
+              {trackingData.filter(s => s.shipment_method.includes('International')).map((shipment) => (
                 <div key={shipment.id} className="p-4 border rounded">
                   <p className="font-semibold">{shipment.tracking_code}</p>
                   <p className="text-sm text-gray-600">{shipment.carrier}</p>
@@ -381,7 +397,7 @@ const EnhancedTrackingDashboard: React.FC = () => {
           
           <TabsContent value="batch">
             <div className="space-y-4">
-              {trackingData.filter(s => s.shipment_method === 'Batch Label Creation').map((shipment) => (
+              {trackingData.filter(s => s.shipment_method.includes('Batch')).map((shipment) => (
                 <div key={shipment.id} className="p-4 border rounded">
                   <p className="font-semibold">{shipment.tracking_code}</p>
                   <p className="text-sm text-gray-600">{shipment.carrier}</p>
