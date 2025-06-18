@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,8 +29,8 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
     if (!batchId) return null;
     
     // Construct the Supabase storage URL for consolidated labels
-    const baseUrl = 'https://adhegezdzqlnqqnymvps.supabase.co/storage/v1/object/public/batch_labels';
-    return `${baseUrl}/batch_label_${batchId}.${format}`;
+    const baseUrl = 'https://adhegezdzqlnqqnymvps.supabase.co/storage/v1/object/public/shipping-labels-2/batch_labels';
+    return `${baseUrl}/batch_${batchId}.${format}`;
   };
 
   const successfulLabels = results.processedShipments?.filter(s => s.status === 'completed' && s.label_url) || [];
@@ -58,79 +59,83 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
           <p className="text-gray-600">Your shipping labels have been generated and are ready for download and printing.</p>
         </div>
 
-        {/* Consolidated Download Section */}
+        {/* TOP LEVEL - Consolidated Download Section */}
         {successfulLabels.length > 0 && (
-          <Card className="p-6 mb-8 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
-            <div className="flex items-center mb-4">
-              <FileText className="h-6 w-6 text-green-600 mr-3" />
-              <h2 className="text-xl font-semibold text-green-900">Download Consolidated Labels</h2>
+          <Card className="p-8 mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 shadow-lg">
+            <div className="text-center mb-6">
+              <div className="flex items-center justify-center mb-4">
+                <FileText className="h-8 w-8 text-blue-600 mr-3" />
+                <h2 className="text-2xl font-bold text-blue-900">Download All Labels - Consolidated Files</h2>
+              </div>
+              <p className="text-blue-700 text-lg">Get all your labels in convenient consolidated formats:</p>
             </div>
-            <p className="text-green-700 mb-4">Download all labels as consolidated files in different formats:</p>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
               {/* Consolidated PDF */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('pdf');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-red-600 hover:bg-red-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
+              <Card className="p-6 hover:shadow-lg transition-shadow bg-white border-2 border-red-200">
                 <div className="text-center">
-                  <div className="font-semibold">Consolidated PDF</div>
-                  <div className="text-xs opacity-90">All Labels</div>
+                  <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="h-8 w-8 text-red-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-red-800 mb-2">PDF Format</h3>
+                  <p className="text-red-600 mb-4 text-sm">All labels in one PDF file - perfect for printing</p>
+                  <Button
+                    onClick={() => {
+                      const url = generateConsolidatedLabelUrl('pdf');
+                      if (url) onDownloadSingleLabel(url);
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white w-full h-12"
+                    size="lg"
+                  >
+                    <Download className="mr-2 h-5 w-5" />
+                    Download PDF
+                  </Button>
                 </div>
-              </Button>
+              </Card>
 
               {/* Consolidated ZPL */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('zpl');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
+              <Card className="p-6 hover:shadow-lg transition-shadow bg-white border-2 border-blue-200">
                 <div className="text-center">
-                  <div className="font-semibold">Consolidated ZPL</div>
-                  <div className="text-xs opacity-90">All Labels</div>
+                  <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-blue-800 mb-2">ZPL Format</h3>
+                  <p className="text-blue-600 mb-4 text-sm">Zebra printer compatible format</p>
+                  <Button
+                    onClick={() => {
+                      const url = generateConsolidatedLabelUrl('zpl');
+                      if (url) onDownloadSingleLabel(url);
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white w-full h-12"
+                    size="lg"
+                  >
+                    <Download className="mr-2 h-5 w-5" />
+                    Download ZPL
+                  </Button>
                 </div>
-              </Button>
-
-              {/* Consolidated PNG */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('png');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Consolidated PNG</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
+              </Card>
 
               {/* Consolidated EPL */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('epl');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
+              <Card className="p-6 hover:shadow-lg transition-shadow bg-white border-2 border-purple-200">
                 <div className="text-center">
-                  <div className="font-semibold">Consolidated EPL</div>
-                  <div className="text-xs opacity-90">All Labels</div>
+                  <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="h-8 w-8 text-purple-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-purple-800 mb-2">EPL Format</h3>
+                  <p className="text-purple-600 mb-4 text-sm">Eltron printer compatible format</p>
+                  <Button
+                    onClick={() => {
+                      const url = generateConsolidatedLabelUrl('epl');
+                      if (url) onDownloadSingleLabel(url);
+                    }}
+                    className="bg-purple-600 hover:bg-purple-700 text-white w-full h-12"
+                    size="lg"
+                  >
+                    <Download className="mr-2 h-5 w-5" />
+                    Download EPL
+                  </Button>
                 </div>
-              </Button>
+              </Card>
             </div>
           </Card>
         )}
