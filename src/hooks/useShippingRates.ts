@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
@@ -98,8 +97,8 @@ export const useShippingRates = () => {
         setRates(data.rates);
         setShipmentId(data.shipment_id);
         
-        // Extract unique carriers
-        const carriers = [...new Set(data.rates.map((rate: ShippingRate) => rate.carrier))];
+        // Extract unique carriers with proper typing
+        const carriers = [...new Set(data.rates.map((rate: ShippingRate) => rate.carrier))] as string[];
         setUniqueCarriers(carriers);
         
         // Dispatch event for other components
@@ -126,6 +125,18 @@ export const useShippingRates = () => {
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  // Clear rates function
+  const clearRates = useCallback(() => {
+    setRates([]);
+    setAllRates([]);
+    setSelectedRateId(null);
+    setLabelUrl(null);
+    setTrackingCode(null);
+    setShipmentId(null);
+    setUniqueCarriers([]);
+    setActiveCarrierFilter('all');
   }, []);
 
   // Listen for rate events
@@ -285,6 +296,7 @@ export const useShippingRates = () => {
     uniqueCarriers,
     activeCarrierFilter,
     handleFilterByCarrier,
-    fetchRates
+    fetchRates,
+    clearRates
   };
 };
