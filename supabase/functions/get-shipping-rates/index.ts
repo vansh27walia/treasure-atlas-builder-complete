@@ -1,238 +1,134 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
-// Set up CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Define the input data structure
-interface AddressData {
-  name: string;
-  company?: string;
-  street1: string;
-  street2?: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  phone?: string;
 }
-
-interface ParcelData {
-  length: number;
-  width: number;
-  height: number;
-  weight: number;
-}
-
-interface ShippingRequestData {
-  fromAddress: AddressData;
-  toAddress: AddressData;
-  parcel: ParcelData;
-  options?: Record<string, any>;
-  carriers?: string[];
-}
-
-// Get markup percentage from environment variable or use default value
-const getMarkupPercentage = (): number => {
-  const markupStr = Deno.env.get('SHIPPING_MARKUP_PERCENTAGE');
-  if (!markupStr) return 15; // Default 15% markup if not set
-  
-  const markup = parseFloat(markupStr);
-  return isNaN(markup) ? 15 : markup;
-};
-
-// Apply markup to rates
-const applyMarkup = (rates: any[], markupPercentage: number): any[] => {
-  return rates.map(rate => {
-    // Store original rate
-    const originalRate = rate.rate;
-    
-    // Calculate markup
-    const rateValue = parseFloat(rate.rate);
-    const markupAmount = rateValue * (markupPercentage / 100);
-    const markedUpRate = (rateValue + markupAmount).toFixed(2);
-    
-    // Return rate with markup applied
-    return {
-      ...rate,
-      original_rate: originalRate, // Store original rate
-      rate: markedUpRate.toString() // Update rate with markup
-    };
-  });
-};
-
-// Group rates by carrier for better organization
-const organizeRatesByCarrier = (rates: any[]): any[] => {
-  // Define carrier order for consistent presentation
-  const carrierOrder = ['USPS', 'UPS', 'FedEx', 'DHL'];
-  
-  // Sort rates by carrier first, then by price within each carrier
-  return rates.sort((a, b) => {
-    const carrierA = a.carrier.toUpperCase();
-    const carrierB = b.carrier.toUpperCase();
-    
-    // Compare carriers based on predefined order
-    const orderA = carrierOrder.indexOf(carrierA);
-    const orderB = carrierOrder.indexOf(carrierB);
-    
-    // If carriers are in our predefined list, sort by that order
-    if (orderA >= 0 && orderB >= 0) {
-      if (orderA !== orderB) return orderA - orderB;
-    } else if (orderA >= 0) {
-      return -1; // A is in the list, B is not
-    } else if (orderB >= 0) {
-      return 1; // B is in the list, A is not
-    }
-    
-    // If carriers are the same or neither is in our list, sort alphabetically
-    if (carrierA !== carrierB) {
-      return carrierA.localeCompare(carrierB);
-    }
-    
-    // Within same carrier, sort by price
-    return parseFloat(a.rate) - parseFloat(b.rate);
-  });
-};
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    console.log('Rate fetching request received');
-    
-    // Get the EasyPost API key from Supabase secrets
-    const apiKey = Deno.env.get('EASYPOST_API_KEY');
-    if (!apiKey) {
-      console.error('EasyPost API key not configured');
-      return new Response(
-        JSON.stringify({ error: 'API key not configured' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
+    const requestBody = await req.json()
+    console.log('Rate request received:', requestBody)
+
+    const { fromAddress, toAddress, parcel, options = {} } = requestBody
+
+    if (!fromAddress || !toAddress || !parcel) {
+      throw new Error('Missing required fields: fromAddress, toAddress, and parcel are required')
     }
 
-    // Parse the request body
-    const requestData: ShippingRequestData = await req.json();
-    console.log('Request data received:', JSON.stringify(requestData, null, 2));
-    
-    // Validate required data
-    if (!requestData.fromAddress || !requestData.toAddress || !requestData.parcel) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required address or parcel data' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+    const easypostApiKey = Deno.env.get('EASYPOST_API_KEY')
+    if (!easypostApiKey) {
+      throw new Error('EasyPost API key not configured')
     }
-    
-    // Create shipment request for EasyPost API
-    const shipmentRequest = {
+
+    // Create shipment for rates
+    const shipmentData = {
       shipment: {
         from_address: {
-          name: requestData.fromAddress.name,
-          company: requestData.fromAddress.company || '',
-          street1: requestData.fromAddress.street1,
-          street2: requestData.fromAddress.street2 || '',
-          city: requestData.fromAddress.city,
-          state: requestData.fromAddress.state,
-          zip: requestData.fromAddress.zip,
-          country: requestData.fromAddress.country,
-          phone: requestData.fromAddress.phone || ''
+          name: fromAddress.name || 'Sender',
+          street1: fromAddress.street1,
+          street2: fromAddress.street2 || '',
+          city: fromAddress.city,
+          state: fromAddress.state,
+          zip: fromAddress.zip,
+          country: fromAddress.country || 'US',
+          phone: fromAddress.phone || '',
+          company: fromAddress.company || ''
         },
         to_address: {
-          name: requestData.toAddress.name,
-          company: requestData.toAddress.company || '',
-          street1: requestData.toAddress.street1,
-          street2: requestData.toAddress.street2 || '',
-          city: requestData.toAddress.city,
-          state: requestData.toAddress.state,
-          zip: requestData.toAddress.zip,
-          country: requestData.toAddress.country,
-          phone: requestData.toAddress.phone || ''
+          name: toAddress.name || 'Recipient',
+          street1: toAddress.street1,
+          street2: toAddress.street2 || '',
+          city: toAddress.city,
+          state: toAddress.state,
+          zip: toAddress.zip,
+          country: toAddress.country || 'US',
+          phone: toAddress.phone || '',
+          company: toAddress.company || ''
         },
         parcel: {
-          length: requestData.parcel.length,
-          width: requestData.parcel.width,
-          height: requestData.parcel.height,
-          weight: requestData.parcel.weight
+          length: parseFloat(parcel.length) || 1,
+          width: parseFloat(parcel.width) || 1,
+          height: parseFloat(parcel.height) || 1,
+          weight: parseFloat(parcel.weight) || 1
         },
-        options: requestData.options || {}
+        options: {
+          ...options
+        }
       }
-    };
-    
-    console.log("Sending request to EasyPost API:", JSON.stringify(shipmentRequest, null, 2));
-    
-    // Create a shipment with EasyPost API
+    }
+
+    console.log('Sending to EasyPost:', JSON.stringify(shipmentData, null, 2))
+
     const response = await fetch('https://api.easypost.com/v2/shipments', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${easypostApiKey}`,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(shipmentRequest),
-    });
+      body: JSON.stringify(shipmentData)
+    })
 
-    const data = await response.json();
-    
-    // Check for API errors
     if (!response.ok) {
-      console.error('EasyPost API error:', data);
-      return new Response(
-        JSON.stringify({ error: 'Failed to get shipping rates', details: data }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
-      );
+      const errorData = await response.text()
+      console.error('EasyPost API error:', errorData)
+      throw new Error(`EasyPost API error: ${response.status} - ${errorData}`)
     }
 
-    console.log('EasyPost API response received successfully');
+    const shipmentResponse = await response.json()
+    console.log('EasyPost response received:', JSON.stringify(shipmentResponse, null, 2))
 
-    // Get rates from response
-    let rates = data.rates || [];
-    console.log(`Raw rates returned from EasyPost: ${rates.length}`);
-    
-    // Ensure we have rates to return
-    if (rates.length === 0) {
-      console.log('No rates found for the given criteria');
-      return new Response(
-        JSON.stringify({ 
-          rates: [],
-          shipmentId: data.id,
-          message: 'No rates available for this shipment'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!shipmentResponse.rates || shipmentResponse.rates.length === 0) {
+      throw new Error('No shipping rates available for this shipment')
     }
-    
-    // Get markup percentage and apply to rates
-    const markupPercentage = getMarkupPercentage();
-    console.log(`Applying ${markupPercentage}% markup to shipping rates`);
-    const markedUpRates = applyMarkup(rates, markupPercentage);
-    
-    // Organize rates by carrier for better presentation
-    const organizedRates = organizeRatesByCarrier(markedUpRates);
 
-    console.log(`Returning ${organizedRates.length} processed rates`);
+    // Format rates for frontend
+    const formattedRates = shipmentResponse.rates.map((rate: any) => ({
+      id: rate.id,
+      carrier: rate.carrier,
+      service: rate.service,
+      rate: parseFloat(rate.rate),
+      currency: rate.currency,
+      delivery_days: rate.delivery_days,
+      delivery_date: rate.delivery_date,
+      delivery_date_guaranteed: rate.delivery_date_guaranteed,
+      est_delivery_days: rate.est_delivery_days,
+      shipment_id: shipmentResponse.id,
+      carrier_account_id: rate.carrier_account_id
+    }))
 
-    // Return the rates from the response
+    // Sort by price (lowest first)
+    formattedRates.sort((a: any, b: any) => a.rate - b.rate)
+
     return new Response(
-      JSON.stringify({ 
-        rates: organizedRates,
-        shipmentId: data.id,
-        markupPercentage: markupPercentage
+      JSON.stringify({
+        success: true,
+        shipment_id: shipmentResponse.id,
+        rates: formattedRates,
+        from_address: shipmentResponse.from_address,
+        to_address: shipmentResponse.to_address,
+        parcel: shipmentResponse.parcel
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    )
+
   } catch (error) {
-    console.error('Error in get-shipping-rates function:', error);
+    console.error('Rate fetching error:', error)
     return new Response(
       JSON.stringify({ 
-        error: 'Internal Server Error', 
-        message: error instanceof Error ? error.message : 'Unknown error',
-        details: 'Please check your request data and try again'
+        success: false,
+        error: error.message,
+        rates: []
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+      { 
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
   }
-});
+})
