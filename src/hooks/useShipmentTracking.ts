@@ -14,18 +14,33 @@ interface ShipmentData {
   to_address?: any;
   parcel?: any;
   status?: string;
+  recipient_name?: string;
+  recipient_address?: string;
 }
 
 export const useShipmentTracking = () => {
   const saveShipmentToDatabase = useCallback(async (shipmentData: ShipmentData) => {
     try {
-      console.log('Saving shipment to database:', shipmentData);
+      console.log('Saving shipment to tracking database:', shipmentData);
       
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('User not authenticated:', userError);
+        throw new Error('User not authenticated');
+      }
+
+      // Format recipient address
+      const recipientAddress = shipmentData.to_address ? 
+        `${shipmentData.to_address.street1 || ''} ${shipmentData.to_address.street2 || ''}, ${shipmentData.to_address.city || ''}, ${shipmentData.to_address.state || ''} ${shipmentData.to_address.zip || ''}`.trim() : 
+        shipmentData.recipient_address || 'Unknown';
+
       // Check if shipment already exists
       const { data: existingShipment } = await supabase
-        .from('shipment_records')
+        .from('shipments')
         .select('id')
         .eq('tracking_code', shipmentData.tracking_code)
+        .eq('user_id', user.id)
         .single();
 
       if (existingShipment) {
@@ -33,33 +48,61 @@ export const useShipmentTracking = () => {
         
         // Update existing shipment
         const { error: updateError } = await supabase
-          .from('shipment_records')
+          .from('shipments')
           .update({
             label_url: shipmentData.label_url,
-            status: shipmentData.status || 'created',
+            status: shipmentData.status || 'label_created',
+            recipient_name: shipmentData.recipient_name || shipmentData.to_address?.name || 'Unknown',
+            recipient_address: recipientAddress,
+            service: shipmentData.service,
             updated_at: new Date().toISOString()
           })
-          .eq('tracking_code', shipmentData.tracking_code);
+          .eq('tracking_code', shipmentData.tracking_code)
+          .eq('user_id', user.id);
 
         if (updateError) {
           console.error('Error updating shipment:', updateError);
           throw updateError;
         }
+        
+        console.log('Shipment updated successfully');
       } else {
-        // Insert new shipment record
+        console.log('Creating new shipment record...');
+        
+        // Insert new shipment record with enhanced data
         const { error: insertError } = await supabase
-          .from('shipment_records')
+          .from('shipments')
           .insert([{
+            user_id: user.id,
             tracking_code: shipmentData.tracking_code,
             carrier: shipmentData.carrier,
             shipment_id: shipmentData.shipment_id,
-            rate_id: shipmentData.rate_id,
             label_url: shipmentData.label_url,
             service: shipmentData.service,
-            status: shipmentData.status || 'created',
-            from_address_json: shipmentData.from_address,
-            to_address_json: shipmentData.to_address,
-            parcel_json: shipmentData.parcel,
+            status: shipmentData.status || 'label_created',
+            recipient_name: shipmentData.recipient_name || shipmentData.to_address?.name || 'Unknown',
+            recipient_address: recipientAddress,
+            package_details: {
+              weight: shipmentData.parcel?.weight ? `${shipmentData.parcel.weight} oz` : 'Unknown',
+              dimensions: shipmentData.parcel ? 
+                `${shipmentData.parcel.length || 0}x${shipmentData.parcel.width || 0}x${shipmentData.parcel.height || 0} in` : 
+                'Unknown',
+              service: shipmentData.service || 'Standard',
+              from_address: shipmentData.from_address,
+              to_address: shipmentData.to_address
+            },
+            tracking_history: {
+              events: [{
+                id: crypto.randomUUID(),
+                description: 'Shipping label created',
+                location: shipmentData.from_address?.city || 'Origin',
+                timestamp: new Date().toISOString(),
+                status: 'label_created',
+                carrier: shipmentData.carrier
+              }],
+              created_at: new Date().toISOString(),
+              last_updated: new Date().toISOString()
+            },
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           }]);
@@ -68,12 +111,30 @@ export const useShipmentTracking = () => {
           console.error('Error inserting shipment:', insertError);
           throw insertError;
         }
+        
+        console.log('New shipment created successfully with tracking code:', shipmentData.tracking_code);
       }
 
-      console.log('Shipment saved successfully');
+      // Also try to get real tracking updates from carrier if possible
+      try {
+        const { data: trackingData, error: trackingError } = await supabase.functions.invoke('track-shipment', {
+          body: {
+            trackingCode: shipmentData.tracking_code,
+            carrier: shipmentData.carrier
+          }
+        });
+
+        if (!trackingError && trackingData) {
+          console.log('Got initial tracking data:', trackingData);
+        }
+      } catch (trackingError) {
+        console.log('Could not fetch initial tracking data:', trackingError);
+        // This is not critical, continue without tracking updates
+      }
+
       return true;
     } catch (error) {
-      console.error('Error saving shipment to database:', error);
+      console.error('Error saving shipment to tracking database:', error);
       toast.error('Failed to save shipment tracking information');
       return false;
     }
@@ -85,6 +146,8 @@ export const useShipmentTracking = () => {
       return false;
     }
 
+    console.log('Tracking new shipment with enhanced data:', labelData, shipmentDetails);
+
     const shipmentData: ShipmentData = {
       tracking_code: labelData.trackingCode,
       carrier: labelData.carrier,
@@ -92,10 +155,14 @@ export const useShipmentTracking = () => {
       rate_id: labelData.rateId,
       label_url: labelData.labelUrl,
       service: labelData.service,
-      from_address: shipmentDetails?.fromAddress,
-      to_address: shipmentDetails?.toAddress,
-      parcel: shipmentDetails?.parcel,
-      status: 'created'
+      from_address: labelData.from_address || shipmentDetails?.fromAddress,
+      to_address: labelData.to_address || shipmentDetails?.toAddress,
+      parcel: labelData.parcel || shipmentDetails?.parcel,
+      status: 'label_created',
+      recipient_name: labelData.to_address?.name || shipmentDetails?.toAddress?.name,
+      recipient_address: labelData.to_address ? 
+        `${labelData.to_address.street1 || ''} ${labelData.to_address.street2 || ''}, ${labelData.to_address.city || ''}, ${labelData.to_address.state || ''} ${labelData.to_address.zip || ''}`.trim() : 
+        undefined
     };
 
     return await saveShipmentToDatabase(shipmentData);
