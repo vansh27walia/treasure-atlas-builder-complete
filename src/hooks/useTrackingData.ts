@@ -49,83 +49,25 @@ export const useTrackingData = () => {
     setError(null);
     
     try {
-      console.log('Fetching user-specific tracking data...');
+      console.log('Fetching user tracking data...');
       
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        console.error('User not authenticated:', userError);
-        throw new Error('User not authenticated');
+      const { data, error } = await supabase.functions.invoke('get-tracking-info');
+      
+      if (error) {
+        console.error('Error fetching tracking data:', error);
+        throw new Error(error.message || 'Failed to fetch tracking data');
       }
-
-      // Fetch shipments for the current user only
-      const { data: shipments, error: shipmentsError } = await supabase
-        .from('shipments')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (shipmentsError) {
-        console.error('Error fetching shipments:', shipmentsError);
-        throw new Error(shipmentsError.message);
-      }
-
-      console.log('User shipments found:', shipments?.length || 0);
-
-      if (shipments && shipments.length > 0) {
-        // Transform shipments to tracking info format
-        const trackingInfo: TrackingInfo[] = shipments.map(shipment => {
-          // Safe type checking for package_details
-          let packageDetails = {
-            weight: 'Unknown',
-            dimensions: 'Unknown',
-            service: 'Unknown'
-          };
-          
-          if (shipment.package_details && typeof shipment.package_details === 'object') {
-            const details = shipment.package_details as any;
-            packageDetails = {
-              weight: details.weight || 'Unknown',
-              dimensions: details.dimensions || 'Unknown',
-              service: details.service || 'Unknown'
-            };
-          }
-
-          // Safe type checking for tracking_events
-          let trackingEvents: TrackingEvent[] = [];
-          if (shipment.tracking_history && typeof shipment.tracking_history === 'object') {
-            const history = shipment.tracking_history as any;
-            if (Array.isArray(history.events)) {
-              trackingEvents = history.events;
-            }
-          }
-
-          return {
-            id: shipment.id,
-            tracking_code: shipment.tracking_code,
-            carrier: shipment.carrier || 'Unknown',
-            carrier_code: shipment.carrier?.toLowerCase() || 'unknown',
-            status: shipment.status || 'unknown',
-            eta: shipment.eta,
-            last_update: shipment.updated_at || shipment.created_at,
-            label_url: shipment.label_url,
-            shipment_id: shipment.shipment_id || '',
-            recipient: shipment.recipient_name || 'Unknown',
-            recipient_address: shipment.recipient_address || 'Unknown',
-            package_details: packageDetails,
-            estimated_delivery: shipment.eta ? {
-              date: shipment.eta,
-              time_range: 'End of day'
-            } : null,
-            tracking_events: trackingEvents
-          };
-        });
-
-        setTrackingData(trackingInfo);
-        console.log('Tracking data loaded:', trackingInfo.length, 'items');
+      
+      console.log('Tracking data received:', data);
+      
+      if (Array.isArray(data)) {
+        setTrackingData(data);
+        if (data.length === 0) {
+          console.log('No tracking data found for user');
+        }
       } else {
+        console.log('Invalid tracking data format received');
         setTrackingData([]);
-        console.log('No tracking data found for user');
       }
       
     } catch (error) {
@@ -139,7 +81,6 @@ export const useTrackingData = () => {
   };
 
   const refreshTrackingData = () => {
-    console.log('Refreshing tracking data...');
     fetchUserTrackingData();
   };
 
