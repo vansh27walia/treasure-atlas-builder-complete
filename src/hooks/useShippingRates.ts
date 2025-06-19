@@ -1,26 +1,7 @@
-
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
-
-interface Address {
-  name?: string;
-  street1: string;
-  street2?: string;
-  city: string;
-  state: string;
-  zip: string;
-  country?: string;
-  phone?: string;
-  company?: string;
-}
-
-interface Parcel {
-  length: number;
-  width: number;
-  height: number;
-  weight: number;
-}
+import { useShipmentTracking } from './useShipmentTracking';
 
 interface ShippingRate {
   id: string;
@@ -29,21 +10,19 @@ interface ShippingRate {
   rate: string;
   currency: string;
   delivery_days: number;
-  delivery_date: string;
-  delivery_date_guaranteed: boolean;
-  est_delivery_days: number;
-  shipment_id: string;
-  carrier_account_id: string;
+  delivery_date: string | null;
   list_rate?: string;
   retail_rate?: string;
+  est_delivery_days?: number;
+  shipment_id?: string;
   original_rate?: string;
 }
 
 interface RateRequest {
-  fromAddress: Address;
-  toAddress: Address;
-  parcel: Parcel;
-  options?: Record<string, any>;
+  fromAddress: any;
+  toAddress: any;
+  parcel: any;
+  options?: any;
 }
 
 export const useShippingRates = () => {
@@ -52,12 +31,13 @@ export const useShippingRates = () => {
   const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
+  const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
   const [activeCarrierFilter, setActiveCarrierFilter] = useState<string>('all');
+  
+  const { trackNewShipment } = useShipmentTracking();
 
   // Calculate best value and fastest rates
   const bestValueRateId = rates.length > 0 
@@ -73,54 +53,114 @@ export const useShippingRates = () => {
     : null;
 
   const fetchRates = useCallback(async (rateRequest: RateRequest) => {
+    console.log('Fetching rates for:', rateRequest);
     setIsLoading(true);
-    setError(null);
     setRates([]);
-
+    setAllRates([]);
+    
     try {
-      console.log('Fetching rates with request:', rateRequest);
+      // Convert weight from other units to ounces for EasyPost
+      let weightInOz = rateRequest.parcel.weight;
+      
+      if (rateRequest.parcel.weightUnit === 'lbs') {
+        weightInOz = rateRequest.parcel.weight * 16;
+      } else if (rateRequest.parcel.weightUnit === 'kg') {
+        weightInOz = rateRequest.parcel.weight * 35.274;
+      }
+
+      const requestData = {
+        fromAddress: rateRequest.fromAddress,
+        toAddress: rateRequest.toAddress,
+        parcel: {
+          ...rateRequest.parcel,
+          weight: weightInOz
+        },
+        options: rateRequest.options || {}
+      };
+
+      console.log('Sending request to get-shipping-rates:', requestData);
 
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: rateRequest
+        body: requestData
       });
 
+      console.log('Rate response:', data);
+
       if (error) {
-        throw new Error(error.message);
+        console.error('Rate fetching error:', error);
+        throw new Error(error.message || 'Failed to fetch rates');
       }
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch shipping rates');
-      }
-
-      console.log('Rates fetched successfully:', data.rates);
-      const formattedRates = data.rates.map((rate: any) => ({
-        ...rate,
-        rate: rate.rate.toString(),
-        original_rate: rate.rate.toString()
-      }));
-      
-      setRates(formattedRates || []);
-      setAllRates(formattedRates || []);
-      setShipmentId(data.shipment_id);
-      
-      // Extract unique carriers
-      const carriers = [...new Set(formattedRates.map((rate: ShippingRate) => rate.carrier))] as string[];
-      setUniqueCarriers(carriers);
-      
-      if (formattedRates && formattedRates.length > 0) {
-        toast.success(`Found ${formattedRates.length} shipping rates`);
+      if (data && data.success && data.rates && data.rates.length > 0) {
+        console.log('Setting rates:', data.rates);
+        setAllRates(data.rates);
+        setRates(data.rates);
+        setShipmentId(data.shipment_id);
+        
+        // Extract unique carriers with proper typing
+        const carriers = [...new Set(data.rates.map((rate: ShippingRate) => rate.carrier))] as string[];
+        setUniqueCarriers(carriers);
+        
+        // Dispatch event for other components
+        const event = new CustomEvent('easypost-rates-received', {
+          detail: { 
+            rates: data.rates, 
+            shipmentId: data.shipment_id 
+          }
+        });
+        document.dispatchEvent(event);
+        
+        toast.success(`Found ${data.rates.length} shipping rates`);
       } else {
-        toast.warning('No shipping rates available for this shipment');
+        console.log('No rates in response:', data);
+        setRates([]);
+        setAllRates([]);
+        toast.info('No shipping rates available for this shipment');
       }
-
     } catch (error) {
       console.error('Error fetching rates:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch shipping rates';
-      setError(errorMessage);
-      toast.error(errorMessage);
+      setRates([]);
+      setAllRates([]);
+      toast.error('Failed to fetch shipping rates: ' + (error as Error).message);
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  // Clear rates function
+  const clearRates = useCallback(() => {
+    setRates([]);
+    setAllRates([]);
+    setSelectedRateId(null);
+    setLabelUrl(null);
+    setTrackingCode(null);
+    setShipmentId(null);
+    setUniqueCarriers([]);
+    setActiveCarrierFilter('all');
+  }, []);
+
+  // Listen for rate events
+  useEffect(() => {
+    const handleRatesReceived = (event: CustomEvent) => {
+      const { rates: newRates, shipmentId: newShipmentId } = event.detail;
+      console.log('Rates received via event:', newRates);
+      
+      setAllRates(newRates);
+      setRates(newRates);
+      setShipmentId(newShipmentId);
+      
+      // Extract unique carriers with proper typing
+      const carriers = [...new Set(newRates.map((rate: ShippingRate) => rate.carrier))] as string[];
+      setUniqueCarriers(carriers);
+      
+      setIsLoading(false);
+    };
+
+    document.addEventListener('easypost-rates-received', handleRatesReceived as EventListener);
+
+    return () => {
+      document.removeEventListener('easypost-rates-received', handleRatesReceived as EventListener);
+    };
   }, []);
 
   const handleSelectRate = useCallback((rateId: string) => {
@@ -159,6 +199,8 @@ export const useShippingRates = () => {
       await new Promise(resolve => setTimeout(resolve, 2000));
       toast.success('Payment processed successfully');
       
+      // You can add actual payment processing logic here
+      
     } catch (error) {
       console.error('Payment processing failed:', error);
       toast.error('Payment processing failed');
@@ -167,112 +209,21 @@ export const useShippingRates = () => {
     }
   }, [selectedRateId]);
 
-  const saveShipmentToDatabase = useCallback(async (shipmentData: any) => {
-    try {
-      console.log('Saving shipment to database:', shipmentData);
-      
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        throw new Error('User not authenticated');
-      }
-
-      // Format recipient address
-      const recipientAddress = shipmentData.toAddress ? 
-        `${shipmentData.toAddress.street1 || ''} ${shipmentData.toAddress.street2 || ''}, ${shipmentData.toAddress.city || ''}, ${shipmentData.toAddress.state || ''} ${shipmentData.toAddress.zip || ''}`.trim() : 
-        'Unknown';
-
-      // Check if shipment already exists
-      const { data: existingShipment } = await supabase
-        .from('shipments')
-        .select('id')
-        .eq('tracking_code', shipmentData.trackingCode)
-        .eq('user_id', user.id)
-        .single();
-
-      if (existingShipment) {
-        console.log('Shipment already exists, updating...');
-        
-        // Update existing shipment
-        const { error: updateError } = await supabase
-          .from('shipments')
-          .update({
-            label_url: shipmentData.labelUrl,
-            status: 'created',
-            recipient_name: shipmentData.toAddress?.name || 'Unknown',
-            recipient_address: recipientAddress,
-            service: shipmentData.service,
-            updated_at: new Date().toISOString()
-          })
-          .eq('tracking_code', shipmentData.trackingCode)
-          .eq('user_id', user.id);
-
-        if (updateError) {
-          console.error('Error updating shipment:', updateError);
-          throw updateError;
-        }
-      } else {
-        // Insert new shipment record
-        const { error: insertError } = await supabase
-          .from('shipments')
-          .insert([{
-            user_id: user.id,
-            tracking_code: shipmentData.trackingCode,
-            carrier: shipmentData.carrier,
-            shipment_id: shipmentData.shipmentId || '',
-            label_url: shipmentData.labelUrl,
-            service: shipmentData.service,
-            status: 'created',
-            recipient_name: shipmentData.toAddress?.name || 'Unknown',
-            recipient_address: recipientAddress,
-            package_details: {
-              weight: shipmentData.parcel?.weight ? `${shipmentData.parcel.weight} oz` : 'Unknown',
-              dimensions: shipmentData.parcel ? 
-                `${shipmentData.parcel.length || 0}x${shipmentData.parcel.width || 0}x${shipmentData.parcel.height || 0} in` : 
-                'Unknown',
-              service: shipmentData.service || 'Standard'
-            },
-            tracking_history: {
-              events: [],
-              created_at: new Date().toISOString()
-            },
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }]);
-
-        if (insertError) {
-          console.error('Error inserting shipment:', insertError);
-          throw insertError;
-        }
-      }
-
-      console.log('Shipment saved successfully to database');
-      return true;
-    } catch (error) {
-      console.error('Error saving shipment to database:', error);
-      toast.error('Failed to save shipment tracking information');
-      return false;
-    }
-  }, []);
-
-  const handleCreateLabel = useCallback(async (rateId?: string, shipmentIdParam?: string, options?: any, shipmentDetails?: any) => {
-    const finalRateId = rateId || selectedRateId;
-    const finalShipmentId = shipmentIdParam || shipmentId;
-    
-    if (!finalRateId || !finalShipmentId) {
+  const handleCreateLabel = useCallback(async (rateId: string, shipmentIdParam: string, options?: any, shipmentDetails?: any) => {
+    if (!rateId || !shipmentIdParam) {
       throw new Error('Missing rate ID or shipment ID');
     }
 
     setIsLoading(true);
     
     try {
-      console.log('Creating label with rate:', finalRateId, 'shipment:', finalShipmentId);
+      console.log('Creating label with rate:', rateId, 'shipment:', shipmentIdParam);
       
       // Call the create-label function
       const { data, error } = await supabase.functions.invoke('create-label', {
         body: { 
-          shipmentId: finalShipmentId, 
-          rateId: finalRateId,
+          shipmentId: shipmentIdParam, 
+          rateId: rateId,
           options: options || {}
         }
       });
@@ -287,18 +238,26 @@ export const useShippingRates = () => {
         setTrackingCode(data.trackingCode);
         
         // Get the selected rate details
-        const selectedRate = rates.find(rate => rate.id === finalRateId);
+        const selectedRate = rates.find(rate => rate.id === rateId);
         
-        // Save shipment to database for tracking
-        await saveShipmentToDatabase({
+        // Track the new shipment with comprehensive details
+        const trackingSuccess = await trackNewShipment({
           trackingCode: data.trackingCode,
           carrier: selectedRate?.carrier || 'Unknown',
-          shipmentId: finalShipmentId,
+          shipmentId: shipmentIdParam,
+          rateId: rateId,
           labelUrl: data.labelUrl,
           service: selectedRate?.service,
-          toAddress: shipmentDetails?.toAddress,
+          from_address: shipmentDetails?.fromAddress,
+          to_address: shipmentDetails?.toAddress,
           parcel: shipmentDetails?.parcel
-        });
+        }, shipmentDetails);
+        
+        if (trackingSuccess) {
+          console.log('Tracking data saved successfully');
+        } else {
+          console.warn('Failed to save tracking data');
+        }
         
         // Update step to label
         const stepEvent = new CustomEvent('shipping-step-change', {
@@ -306,7 +265,7 @@ export const useShippingRates = () => {
         });
         document.dispatchEvent(stepEvent);
         
-        toast.success('Label created successfully!');
+        toast.success('Label created and tracking saved successfully!');
         return data;
       } else {
         throw new Error('Invalid response from label creation');
@@ -318,39 +277,26 @@ export const useShippingRates = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedRateId, shipmentId, rates, saveShipmentToDatabase]);
-
-  const clearRates = useCallback(() => {
-    setRates([]);
-    setAllRates([]);
-    setError(null);
-    setShipmentId(null);
-    setSelectedRateId(null);
-    setLabelUrl(null);
-    setTrackingCode(null);
-    setUniqueCarriers([]);
-    setActiveCarrierFilter('all');
-  }, []);
+  }, [rates, trackNewShipment]);
 
   return {
     rates,
     allRates,
     selectedRateId,
-    isLoading,
-    isProcessingPayment,
-    error,
-    shipmentId,
-    labelUrl,
-    trackingCode,
+    handleSelectRate,
     bestValueRateId,
     fastestRateId,
+    isLoading,
+    isProcessingPayment,
+    handleCreateLabel,
+    handleProceedToPayment,
+    labelUrl,
+    trackingCode,
+    shipmentId,
     uniqueCarriers,
     activeCarrierFilter,
-    fetchRates,
-    handleSelectRate,
     handleFilterByCarrier,
-    handleProceedToPayment,
-    handleCreateLabel,
+    fetchRates,
     clearRates
   };
 };
