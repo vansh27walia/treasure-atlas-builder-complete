@@ -115,7 +115,7 @@ export const useShipmentTracking = () => {
         console.log('New shipment created successfully with tracking code:', shipmentData.tracking_code);
       }
 
-      // Also try to get real tracking updates from carrier if possible
+      // Try to get real tracking updates from carrier
       try {
         const { data: trackingData, error: trackingError } = await supabase.functions.invoke('track-shipment', {
           body: {

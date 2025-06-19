@@ -26,6 +26,25 @@ interface RateRequest {
   options?: any;
 }
 
+// Convert weight to ounces for EasyPost API
+const convertWeightToOunces = (weight: number, unit: string): number => {
+  console.log(`Converting weight: ${weight} ${unit} to ounces`);
+  
+  switch (unit.toLowerCase()) {
+    case 'lbs':
+    case 'lb':
+    case 'pounds':
+      return weight * 16;
+    case 'kg':
+    case 'kilograms':
+      return weight * 35.274;
+    case 'oz':
+    case 'ounces':
+    default:
+      return weight;
+  }
+};
+
 // Function to calculate dynamic discount (70-95%)
 const calculateDynamicDiscount = (carrier: string, service: string): number => {
   const baseDiscount = 70;
@@ -62,10 +81,10 @@ const applyDiscountToRates = (rates: ShippingRate[]): ShippingRate[] => {
     
     return {
       ...rate,
-      original_rate: rate.rate, // Store original rate
-      rate: discountedRate.toFixed(2), // Apply discounted rate
-      list_rate: rate.list_rate || rate.rate, // Keep list rate for comparison
-      retail_rate: rate.retail_rate || rate.rate // Keep retail rate for comparison
+      original_rate: rate.rate,
+      rate: discountedRate.toFixed(2),
+      list_rate: rate.list_rate || rate.rate,
+      retail_rate: rate.retail_rate || rate.rate
     };
   });
 };
@@ -105,21 +124,19 @@ export const useShippingRates = () => {
     setAllRates([]);
     
     try {
-      // Convert weight from other units to ounces for EasyPost
-      let weightInOz = rateRequest.parcel.weight;
-      
-      if (rateRequest.parcel.weightUnit === 'lbs') {
-        weightInOz = rateRequest.parcel.weight * 16;
-      } else if (rateRequest.parcel.weightUnit === 'kg') {
-        weightInOz = rateRequest.parcel.weight * 35.274;
-      }
+      // Convert weight to ounces for EasyPost, handling any unit
+      const parcelWeight = rateRequest.parcel.weight || 1;
+      const weightUnit = rateRequest.parcel.weightUnit || 'oz';
+      const weightInOz = convertWeightToOunces(parcelWeight, weightUnit);
+
+      console.log(`Weight conversion: ${parcelWeight} ${weightUnit} = ${weightInOz} oz`);
 
       const requestData = {
         fromAddress: rateRequest.fromAddress,
         toAddress: rateRequest.toAddress,
         parcel: {
           ...rateRequest.parcel,
-          weight: weightInOz
+          weight: weightInOz // Always send weight in ounces to EasyPost
         },
         options: rateRequest.options || {}
       };
@@ -147,8 +164,8 @@ export const useShippingRates = () => {
         setRates(discountedRates);
         setShipmentId(data.shipment_id);
         
-        // Extract unique carriers with proper typing
-        const carriers = [...new Set(discountedRates.map((rate: ShippingRate) => rate.carrier))] as string[];
+        // Extract unique carriers
+        const carriers = [...new Set(discountedRates.map((rate: ShippingRate) => rate.carrier))];
         setUniqueCarriers(carriers);
         
         toast.success(`Found ${discountedRates.length} discounted shipping rates`);
@@ -156,7 +173,7 @@ export const useShippingRates = () => {
         console.log('No rates in response:', data);
         setRates([]);
         setAllRates([]);
-        toast.info('No shipping rates available for this shipment');
+        toast.error('No shipping rates available for this shipment');
       }
     } catch (error) {
       console.error('Error fetching rates:', error);
@@ -259,7 +276,7 @@ export const useShippingRates = () => {
         // Get the selected rate details
         const selectedRate = rates.find(rate => rate.id === finalRateId);
         
-        // Track the new shipment with comprehensive details
+        // Automatically save tracking information
         const trackingSuccess = await trackNewShipment({
           trackingCode: data.trackingCode,
           carrier: selectedRate?.carrier || 'Unknown',
