@@ -23,6 +23,7 @@ export const useBulkLabelCreation = () => {
     
     const results: BulkLabelResult[] = [];
     let successCount = 0;
+    let trackingSuccessCount = 0;
     
     try {
       for (let i = 0; i < shipments.length; i++) {
@@ -45,7 +46,7 @@ export const useBulkLabelCreation = () => {
           }
 
           if (data && data.labelUrl && data.trackingCode) {
-            // Save to tracking system
+            // Save to tracking system with enhanced data
             const trackingSuccess = await trackNewShipment({
               trackingCode: data.trackingCode,
               carrier: shipment.carrier,
@@ -64,6 +65,7 @@ export const useBulkLabelCreation = () => {
 
             if (trackingSuccess) {
               console.log(`Tracking saved for shipment ${i + 1}`);
+              trackingSuccessCount++;
             } else {
               console.warn(`Failed to save tracking for shipment ${i + 1}`);
             }
@@ -91,7 +93,13 @@ export const useBulkLabelCreation = () => {
         setProgress(((i + 1) / shipments.length) * 100);
       }
       
-      toast.success(`Successfully created ${successCount} out of ${shipments.length} labels with tracking data`);
+      // Enhanced success message
+      if (trackingSuccessCount === successCount) {
+        toast.success(`Successfully created ${successCount} labels with tracking data saved for all shipments!`);
+      } else {
+        toast.success(`Successfully created ${successCount} labels. Tracking saved for ${trackingSuccessCount} shipments.`);
+      }
+      
       return results;
       
     } catch (error) {
