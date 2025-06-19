@@ -51,7 +51,7 @@ export const useShipmentTracking = () => {
           .from('shipments')
           .update({
             label_url: shipmentData.label_url,
-            status: shipmentData.status || 'created',
+            status: shipmentData.status || 'label_created',
             recipient_name: shipmentData.recipient_name || shipmentData.to_address?.name || 'Unknown',
             recipient_address: recipientAddress,
             service: shipmentData.service,
@@ -69,7 +69,7 @@ export const useShipmentTracking = () => {
       } else {
         console.log('Creating new shipment record...');
         
-        // Insert new shipment record
+        // Insert new shipment record with enhanced data
         const { error: insertError } = await supabase
           .from('shipments')
           .insert([{
@@ -79,7 +79,7 @@ export const useShipmentTracking = () => {
             shipment_id: shipmentData.shipment_id,
             label_url: shipmentData.label_url,
             service: shipmentData.service,
-            status: shipmentData.status || 'created',
+            status: shipmentData.status || 'label_created',
             recipient_name: shipmentData.recipient_name || shipmentData.to_address?.name || 'Unknown',
             recipient_address: recipientAddress,
             package_details: {
@@ -87,17 +87,21 @@ export const useShipmentTracking = () => {
               dimensions: shipmentData.parcel ? 
                 `${shipmentData.parcel.length || 0}x${shipmentData.parcel.width || 0}x${shipmentData.parcel.height || 0} in` : 
                 'Unknown',
-              service: shipmentData.service || 'Standard'
+              service: shipmentData.service || 'Standard',
+              from_address: shipmentData.from_address,
+              to_address: shipmentData.to_address
             },
             tracking_history: {
               events: [{
                 id: crypto.randomUUID(),
-                description: 'Label created',
-                location: shipmentData.from_address?.city || 'Unknown',
+                description: 'Shipping label created',
+                location: shipmentData.from_address?.city || 'Origin',
                 timestamp: new Date().toISOString(),
-                status: 'created'
+                status: 'label_created',
+                carrier: shipmentData.carrier
               }],
-              created_at: new Date().toISOString()
+              created_at: new Date().toISOString(),
+              last_updated: new Date().toISOString()
             },
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
@@ -108,7 +112,24 @@ export const useShipmentTracking = () => {
           throw insertError;
         }
         
-        console.log('New shipment created successfully');
+        console.log('New shipment created successfully with tracking code:', shipmentData.tracking_code);
+      }
+
+      // Also try to get real tracking updates from carrier if possible
+      try {
+        const { data: trackingData, error: trackingError } = await supabase.functions.invoke('track-shipment', {
+          body: {
+            trackingCode: shipmentData.tracking_code,
+            carrier: shipmentData.carrier
+          }
+        });
+
+        if (!trackingError && trackingData) {
+          console.log('Got initial tracking data:', trackingData);
+        }
+      } catch (trackingError) {
+        console.log('Could not fetch initial tracking data:', trackingError);
+        // This is not critical, continue without tracking updates
       }
 
       return true;
@@ -125,6 +146,8 @@ export const useShipmentTracking = () => {
       return false;
     }
 
+    console.log('Tracking new shipment with enhanced data:', labelData, shipmentDetails);
+
     const shipmentData: ShipmentData = {
       tracking_code: labelData.trackingCode,
       carrier: labelData.carrier,
@@ -135,14 +158,13 @@ export const useShipmentTracking = () => {
       from_address: labelData.from_address || shipmentDetails?.fromAddress,
       to_address: labelData.to_address || shipmentDetails?.toAddress,
       parcel: labelData.parcel || shipmentDetails?.parcel,
-      status: 'created',
+      status: 'label_created',
       recipient_name: labelData.to_address?.name || shipmentDetails?.toAddress?.name,
       recipient_address: labelData.to_address ? 
         `${labelData.to_address.street1 || ''} ${labelData.to_address.street2 || ''}, ${labelData.to_address.city || ''}, ${labelData.to_address.state || ''} ${labelData.to_address.zip || ''}`.trim() : 
         undefined
     };
 
-    console.log('Tracking new shipment with data:', shipmentData);
     return await saveShipmentToDatabase(shipmentData);
   }, [saveShipmentToDatabase]);
 
