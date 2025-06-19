@@ -51,6 +51,12 @@ const ShippingForm = () => {
     clearRates();
   }, [clearRates]);
 
+  // Handle address form submission for destination address
+  const handleToAddressSubmit = (addressData: any) => {
+    console.log('To address submitted:', addressData);
+    setToAddress(addressData);
+  };
+
   const onSubmit = async (data: ShippingFormData) => {
     if (!fromAddress || !toAddress) {
       console.error('Missing addresses');
@@ -102,6 +108,11 @@ const ShippingForm = () => {
     clearRates();
   };
 
+  // Mock function for adding new address - you might want to implement this properly
+  const handleAddNewAddress = () => {
+    console.log('Add new address clicked');
+  };
+
   return (
     <Card className="p-6">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -112,8 +123,9 @@ const ShippingForm = () => {
             <h3 className="text-lg font-semibold">From Address</h3>
           </div>
           <PickupAddressSelector
-            onAddressSelect={setFromAddress}
+            onAddressSelected={setFromAddress}
             selectedAddress={fromAddress}
+            onAddNew={handleAddNewAddress}
           />
         </div>
 
@@ -126,8 +138,11 @@ const ShippingForm = () => {
             <h3 className="text-lg font-semibold">To Address</h3>
           </div>
           <AddressForm
-            onAddressChange={setToAddress}
-            address={toAddress}
+            onSubmit={handleToAddressSubmit}
+            defaultValues={toAddress}
+            buttonText="Save Destination Address"
+            showDefaultOptions={false}
+            isPickupAddress={false}
           />
         </div>
 

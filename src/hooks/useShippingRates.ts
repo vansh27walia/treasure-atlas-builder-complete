@@ -69,7 +69,7 @@ export const useShippingRates = () => {
     setCurrentRequest(rateRequest);
     
     try {
-      // Convert weight from other units to ounces for EasyPost
+      // Convert weight to ounces for EasyPost (backend handles conversion)
       let weightInOz = rateRequest.parcel.weight;
       
       if (rateRequest.parcel.weightUnit === 'lbs') {
@@ -107,8 +107,8 @@ export const useShippingRates = () => {
         setRates(data.rates);
         setShipmentId(data.shipment_id);
         
-        // Extract unique carriers
-        const carriers = [...new Set(data.rates.map((rate: ShippingRate) => rate.carrier))];
+        // Extract unique carriers with proper type casting
+        const carriers = [...new Set(data.rates.map((rate: ShippingRate) => rate.carrier))].filter((carrier): carrier is string => typeof carrier === 'string');
         setUniqueCarriers(carriers);
         
         toast.success(`Found ${data.rates.length} shipping rates`);
