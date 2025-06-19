@@ -74,7 +74,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
 
   // When defaultValues change, update form values
   useEffect(() => {
-    if (Object.keys(defaultValues).length > 0) {
+    if (defaultValues && typeof defaultValues === 'object' && Object.keys(defaultValues).length > 0) {
       Object.entries(defaultValues).forEach(([key, value]) => {
         if (value !== undefined) {
           form.setValue(key as keyof AddressFormValues, value as any);
