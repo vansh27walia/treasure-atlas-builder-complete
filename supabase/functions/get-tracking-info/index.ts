@@ -21,11 +21,37 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
+    // Get the user's JWT token from the Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'No authorization header' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
     );
+
+    // Get the current user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    
+    if (userError || !user) {
+      logStep("User authentication failed", { error: userError?.message });
+      return new Response(
+        JSON.stringify({ error: 'User not authenticated' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    logStep("User authenticated", { userId: user.id });
 
     const apiKey = Deno.env.get('EASYPOST_API_KEY');
     if (!apiKey) {
@@ -35,23 +61,28 @@ serve(async (req) => {
       );
     }
 
-    // Get shipment records from our database
+    // Get shipment records from our database - ONLY for the authenticated user
     const { data: shipmentRecords, error: dbError } = await supabaseClient
       .from('shipment_records')
       .select('*')
+      .eq('user_id', user.id) // Filter by user_id
       .not('tracking_code', 'is', null)
       .order('created_at', { ascending: false });
 
     if (dbError) {
       logStep("Database error", { error: dbError.message });
+      return new Response(
+        JSON.stringify({ error: `Database error: ${dbError.message}` }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      );
     }
+
+    logStep(`Found ${shipmentRecords?.length || 0} user-specific shipment records`);
 
     const trackingData = [];
 
     // Process each shipment record with live EasyPost data
     if (shipmentRecords && shipmentRecords.length > 0) {
-      logStep(`Processing ${shipmentRecords.length} shipment records`);
-
       for (const record of shipmentRecords) {
         try {
           // Fetch live tracking data from EasyPost
@@ -124,7 +155,7 @@ serve(async (req) => {
       }
     }
 
-    logStep(`Returning ${trackingData.length} tracking records`);
+    logStep(`Returning ${trackingData.length} user-specific tracking records`);
 
     return new Response(JSON.stringify(trackingData), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

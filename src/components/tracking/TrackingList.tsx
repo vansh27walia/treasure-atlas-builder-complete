@@ -71,10 +71,17 @@ const TrackingList: React.FC<TrackingListProps> = ({
     setTrackingInput(e.target.value);
   };
   
-  // Track a package manually using live EasyPost API
+  // Track a package manually using live EasyPost API with user authentication
   const trackPackage = async () => {
     if (!trackingInput.trim()) {
       toast.error("Please enter a tracking number");
+      return;
+    }
+    
+    // Check if user is authenticated
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error("Please log in to track packages");
       return;
     }
     
@@ -83,7 +90,7 @@ const TrackingList: React.FC<TrackingListProps> = ({
     try {
       console.log('Tracking package:', trackingInput.trim());
       
-      // Call the new live tracking API
+      // Call the tracking API with user authentication
       const { data, error } = await supabase.functions.invoke('track-shipment', {
         body: { tracking_number: trackingInput.trim() }
       });
