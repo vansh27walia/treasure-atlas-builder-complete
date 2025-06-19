@@ -46,7 +46,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   const deliveryDays = rate.delivery_days || rate.est_delivery_days;
   const deliveryEstimate = deliveryDays === 1 ? 'Next day' : deliveryDays ? `${deliveryDays} days` : 'N/A';
   
-  // Calculate discount percentage if available
+  // Calculate discount percentage - use original_rate which contains the pre-discount rate
   const originalRate = rate.original_rate || rate.list_rate || rate.retail_rate;
   const hasDiscount = showDiscount && originalRate && Number(originalRate) > Number(rate.rate);
   const discountPercent = hasDiscount ? 
@@ -66,6 +66,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
         border rounded-lg p-4 cursor-pointer transition-all
         ${isSelected ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'}
         ${isPremium ? 'border-amber-400 bg-amber-50/50' : ''}
+        ${hasDiscount && discountPercent >= 70 ? 'ring-2 ring-green-200' : ''}
       `}
       onClick={() => onSelect(rate.id)}
       data-testid={`rate-card-${rate.id}`}
@@ -80,7 +81,6 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
                 alt={`${rate.carrier} logo`} 
                 className="h-8 w-auto object-contain"
                 onError={(e) => {
-                  // If image fails to load, hide the image container
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
               />
@@ -109,14 +109,21 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
                   ${parseFloat(originalRate).toFixed(2)}
                 </span>
               )}
-              <span className="font-bold text-lg">
+              <span className="font-bold text-lg text-green-600">
                 ${parseFloat(rate.rate).toFixed(2)}
               </span>
             </div>
             {hasDiscount && (
-              <span className="text-xs font-medium text-green-600">
-                Save {discountPercent}%
-              </span>
+              <div className="flex flex-col items-end">
+                <span className="text-xs font-medium text-green-600">
+                  Save {discountPercent}%
+                </span>
+                {discountPercent >= 70 && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300 text-xs mt-1">
+                    HUGE SAVINGS!
+                  </Badge>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -133,6 +140,12 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
           {isFastest && (
             <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
               <Zap className="h-3 w-3 mr-1" /> Fastest
+            </Badge>
+          )}
+
+          {hasDiscount && discountPercent >= 85 && (
+            <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">
+              LIMITED TIME
             </Badge>
           )}
         </div>
