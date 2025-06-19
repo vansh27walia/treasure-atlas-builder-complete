@@ -16,7 +16,6 @@ interface ShippingRate {
   retail_rate?: string;
   est_delivery_days?: number;
   shipment_id?: string;
-  original_rate?: string;
 }
 
 export const useShippingRates = () => {
@@ -24,7 +23,6 @@ export const useShippingRates = () => {
   const [allRates, setAllRates] = useState<ShippingRate[]>([]);
   const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [labelUrl, setLabelUrl] = useState<string | null>(null);
   const [trackingCode, setTrackingCode] = useState<string | null>(null);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
@@ -56,8 +54,8 @@ export const useShippingRates = () => {
       setRates(newRates);
       setShipmentId(newShipmentId);
       
-      // Extract unique carriers with proper typing
-      const carriers = [...new Set(newRates.map((rate: ShippingRate) => rate.carrier))] as string[];
+      // Extract unique carriers
+      const carriers = [...new Set(newRates.map((rate: ShippingRate) => rate.carrier))];
       setUniqueCarriers(carriers);
       
       setIsLoading(false);
@@ -92,29 +90,6 @@ export const useShippingRates = () => {
       setRates(filteredRates);
     }
   }, [allRates]);
-
-  const handleProceedToPayment = useCallback(async () => {
-    if (!selectedRateId) {
-      toast.error('Please select a shipping rate first');
-      return;
-    }
-
-    setIsProcessingPayment(true);
-    
-    try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success('Payment processed successfully');
-      
-      // You can add actual payment processing logic here
-      
-    } catch (error) {
-      console.error('Payment processing failed:', error);
-      toast.error('Payment processing failed');
-    } finally {
-      setIsProcessingPayment(false);
-    }
-  }, [selectedRateId]);
 
   const handleCreateLabel = useCallback(async (rateId: string, shipmentIdParam: string, options?: any) => {
     if (!rateId || !shipmentIdParam) {
@@ -183,9 +158,7 @@ export const useShippingRates = () => {
     bestValueRateId,
     fastestRateId,
     isLoading,
-    isProcessingPayment,
     handleCreateLabel,
-    handleProceedToPayment,
     labelUrl,
     trackingCode,
     shipmentId,
