@@ -40,7 +40,7 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ onRatesCalculated }) => {
     width: 0,
     height: 0,
     weight: 0,
-    weightUnit: 'lbs' // Default to pounds for user-friendly input
+    weightUnit: 'oz'
   });
   const [selectedCarriers, setSelectedCarriers] = useState<string[]>(['all']);
 
@@ -73,8 +73,6 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ onRatesCalculated }) => {
       return;
     }
 
-    console.log('Preparing rate request with parcel:', parcel);
-
     const rateRequest = {
       fromAddress: {
         name: fromAddress.name || '',
@@ -93,22 +91,14 @@ const ShippingForm: React.FC<ShippingFormProps> = ({ onRatesCalculated }) => {
         width: parcel.width,
         height: parcel.height,
         weight: parcel.weight,
-        weightUnit: parcel.weightUnit // Pass the unit to backend for conversion
+        weightUnit: parcel.weightUnit
       },
       options: {
         carriers: selectedCarriers.includes('all') ? undefined : selectedCarriers
       }
     };
 
-    console.log('Sending rate request with weight unit:', rateRequest);
-    
-    // Store calculator data for later use
-    sessionStorage.setItem('calculatorData', JSON.stringify({
-      fromAddress: rateRequest.fromAddress,
-      toAddress: rateRequest.toAddress,
-      parcel: rateRequest.parcel
-    }));
-    
+    console.log('Sending rate request:', rateRequest);
     await fetchRates(rateRequest);
     
     // Dispatch event for other components to listen

@@ -26,69 +26,6 @@ interface RateRequest {
   options?: any;
 }
 
-// Convert weight to ounces for EasyPost API
-const convertWeightToOunces = (weight: number, unit: string): number => {
-  console.log(`Converting weight: ${weight} ${unit} to ounces`);
-  
-  switch (unit.toLowerCase()) {
-    case 'lbs':
-    case 'lb':
-    case 'pounds':
-      return weight * 16;
-    case 'kg':
-    case 'kilograms':
-      return weight * 35.274;
-    case 'oz':
-    case 'ounces':
-    default:
-      return weight;
-  }
-};
-
-// Function to calculate dynamic discount (70-95%)
-const calculateDynamicDiscount = (carrier: string, service: string): number => {
-  const baseDiscount = 70;
-  const maxDiscount = 95;
-  
-  // Premium services get higher discounts
-  const premiumServices = ['Express', 'Priority', 'NextDay', 'Overnight', 'PRIORITY_OVERNIGHT', 'STANDARD_OVERNIGHT'];
-  const isPremium = premiumServices.some(premium => service.toLowerCase().includes(premium.toLowerCase()));
-  
-  // USPS gets higher discounts
-  const isUSPS = carrier.toLowerCase().includes('usps');
-  
-  let discount = baseDiscount;
-  
-  if (isPremium) {
-    discount += Math.random() * 15 + 10; // 80-95% for premium
-  } else {
-    discount += Math.random() * 10 + 5; // 75-85% for standard
-  }
-  
-  if (isUSPS) {
-    discount += 5; // Extra 5% for USPS
-  }
-  
-  return Math.min(Math.max(discount, baseDiscount), maxDiscount);
-};
-
-// Function to apply discount to rates
-const applyDiscountToRates = (rates: ShippingRate[]): ShippingRate[] => {
-  return rates.map(rate => {
-    const originalRate = parseFloat(rate.rate);
-    const discountPercent = calculateDynamicDiscount(rate.carrier, rate.service);
-    const discountedRate = originalRate * (1 - discountPercent / 100);
-    
-    return {
-      ...rate,
-      original_rate: rate.rate,
-      rate: discountedRate.toFixed(2),
-      list_rate: rate.list_rate || rate.rate,
-      retail_rate: rate.retail_rate || rate.rate
-    };
-  });
-};
-
 export const useShippingRates = () => {
   const [rates, setRates] = useState<ShippingRate[]>([]);
   const [allRates, setAllRates] = useState<ShippingRate[]>([]);
@@ -100,7 +37,6 @@ export const useShippingRates = () => {
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
   const [activeCarrierFilter, setActiveCarrierFilter] = useState<string>('all');
-  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   
   const { trackNewShipment } = useShipmentTracking();
 
@@ -124,19 +60,21 @@ export const useShippingRates = () => {
     setAllRates([]);
     
     try {
-      // Convert weight to ounces for EasyPost, handling any unit
-      const parcelWeight = rateRequest.parcel.weight || 1;
-      const weightUnit = rateRequest.parcel.weightUnit || 'oz';
-      const weightInOz = convertWeightToOunces(parcelWeight, weightUnit);
-
-      console.log(`Weight conversion: ${parcelWeight} ${weightUnit} = ${weightInOz} oz`);
+      // Convert weight from other units to ounces for EasyPost
+      let weightInOz = rateRequest.parcel.weight;
+      
+      if (rateRequest.parcel.weightUnit === 'lbs') {
+        weightInOz = rateRequest.parcel.weight * 16;
+      } else if (rateRequest.parcel.weightUnit === 'kg') {
+        weightInOz = rateRequest.parcel.weight * 35.274;
+      }
 
       const requestData = {
         fromAddress: rateRequest.fromAddress,
         toAddress: rateRequest.toAddress,
         parcel: {
           ...rateRequest.parcel,
-          weight: weightInOz // Always send weight in ounces to EasyPost
+          weight: weightInOz
         },
         options: rateRequest.options || {}
       };
@@ -155,25 +93,30 @@ export const useShippingRates = () => {
       }
 
       if (data && data.success && data.rates && data.rates.length > 0) {
-        console.log('Processing rates with discounts:', data.rates);
-        
-        // Apply dynamic discounts to all rates
-        const discountedRates = applyDiscountToRates(data.rates);
-        
-        setAllRates(discountedRates);
-        setRates(discountedRates);
+        console.log('Setting rates:', data.rates);
+        setAllRates(data.rates);
+        setRates(data.rates);
         setShipmentId(data.shipment_id);
         
         // Extract unique carriers
-        const carriers = [...new Set(discountedRates.map((rate: ShippingRate) => rate.carrier))];
+        const carriers = [...new Set(data.rates.map((rate: ShippingRate) => rate.carrier))];
         setUniqueCarriers(carriers);
         
-        toast.success(`Found ${discountedRates.length} discounted shipping rates`);
+        // Dispatch event for other components
+        const event = new CustomEvent('easypost-rates-received', {
+          detail: { 
+            rates: data.rates, 
+            shipmentId: data.shipment_id 
+          }
+        });
+        document.dispatchEvent(event);
+        
+        toast.success(`Found ${data.rates.length} shipping rates`);
       } else {
         console.log('No rates in response:', data);
         setRates([]);
         setAllRates([]);
-        toast.error('No shipping rates available for this shipment');
+        toast.info('No shipping rates available for this shipment');
       }
     } catch (error) {
       console.error('Error fetching rates:', error);
@@ -185,16 +128,28 @@ export const useShippingRates = () => {
     }
   }, []);
 
-  // Clear rates function
-  const clearRates = useCallback(() => {
-    setRates([]);
-    setAllRates([]);
-    setSelectedRateId(null);
-    setLabelUrl(null);
-    setTrackingCode(null);
-    setShipmentId(null);
-    setUniqueCarriers([]);
-    setActiveCarrierFilter('all');
+  // Listen for rate events
+  useEffect(() => {
+    const handleRatesReceived = (event: CustomEvent) => {
+      const { rates: newRates, shipmentId: newShipmentId } = event.detail;
+      console.log('Rates received via event:', newRates);
+      
+      setAllRates(newRates);
+      setRates(newRates);
+      setShipmentId(newShipmentId);
+      
+      // Extract unique carriers with proper typing
+      const carriers = [...new Set(newRates.map((rate: ShippingRate) => rate.carrier))] as string[];
+      setUniqueCarriers(carriers);
+      
+      setIsLoading(false);
+    };
+
+    document.addEventListener('easypost-rates-received', handleRatesReceived as EventListener);
+
+    return () => {
+      document.removeEventListener('easypost-rates-received', handleRatesReceived as EventListener);
+    };
   }, []);
 
   const handleSelectRate = useCallback((rateId: string) => {
@@ -233,6 +188,8 @@ export const useShippingRates = () => {
       await new Promise(resolve => setTimeout(resolve, 2000));
       toast.success('Payment processed successfully');
       
+      // You can add actual payment processing logic here
+      
     } catch (error) {
       console.error('Payment processing failed:', error);
       toast.error('Payment processing failed');
@@ -241,25 +198,21 @@ export const useShippingRates = () => {
     }
   }, [selectedRateId]);
 
-  const handleCreateLabel = useCallback(async (rateId?: string, shipmentIdParam?: string, options?: any, shipmentDetails?: any) => {
-    const finalRateId = rateId || selectedRateId;
-    const finalShipmentId = shipmentIdParam || shipmentId;
-    
-    if (!finalRateId || !finalShipmentId) {
-      toast.error('Please select a shipping rate first');
-      return;
+  const handleCreateLabel = useCallback(async (rateId: string, shipmentIdParam: string, options?: any, shipmentDetails?: any) => {
+    if (!rateId || !shipmentIdParam) {
+      throw new Error('Missing rate ID or shipment ID');
     }
 
-    setIsCreatingLabel(true);
+    setIsLoading(true);
     
     try {
-      console.log('Creating label with rate:', finalRateId, 'shipment:', finalShipmentId);
+      console.log('Creating label with rate:', rateId, 'shipment:', shipmentIdParam);
       
       // Call the create-label function
       const { data, error } = await supabase.functions.invoke('create-label', {
         body: { 
-          shipmentId: finalShipmentId, 
-          rateId: finalRateId,
+          shipmentId: shipmentIdParam, 
+          rateId: rateId,
           options: options || {}
         }
       });
@@ -274,14 +227,14 @@ export const useShippingRates = () => {
         setTrackingCode(data.trackingCode);
         
         // Get the selected rate details
-        const selectedRate = rates.find(rate => rate.id === finalRateId);
+        const selectedRate = rates.find(rate => rate.id === rateId);
         
-        // Automatically save tracking information
+        // Track the new shipment with comprehensive details
         const trackingSuccess = await trackNewShipment({
           trackingCode: data.trackingCode,
           carrier: selectedRate?.carrier || 'Unknown',
-          shipmentId: finalShipmentId,
-          rateId: finalRateId,
+          shipmentId: shipmentIdParam,
+          rateId: rateId,
           labelUrl: data.labelUrl,
           service: selectedRate?.service,
           from_address: shipmentDetails?.fromAddress,
@@ -291,12 +244,17 @@ export const useShippingRates = () => {
         
         if (trackingSuccess) {
           console.log('Tracking data saved successfully');
-          toast.success('Label created and tracking saved successfully!');
         } else {
           console.warn('Failed to save tracking data');
-          toast.success('Label created successfully!');
         }
         
+        // Update step to label
+        const stepEvent = new CustomEvent('shipping-step-change', {
+          detail: { step: 'label' }
+        });
+        document.dispatchEvent(stepEvent);
+        
+        toast.success('Label created and tracking saved successfully!');
         return data;
       } else {
         throw new Error('Invalid response from label creation');
@@ -306,9 +264,9 @@ export const useShippingRates = () => {
       toast.error('Failed to create label. Please try again.');
       throw error;
     } finally {
-      setIsCreatingLabel(false);
+      setIsLoading(false);
     }
-  }, [rates, trackNewShipment, selectedRateId, shipmentId]);
+  }, [rates, trackNewShipment]);
 
   return {
     rates,
@@ -319,7 +277,6 @@ export const useShippingRates = () => {
     fastestRateId,
     isLoading,
     isProcessingPayment,
-    isCreatingLabel,
     handleCreateLabel,
     handleProceedToPayment,
     labelUrl,
@@ -328,7 +285,6 @@ export const useShippingRates = () => {
     uniqueCarriers,
     activeCarrierFilter,
     handleFilterByCarrier,
-    fetchRates,
-    clearRates
+    fetchRates
   };
 };
