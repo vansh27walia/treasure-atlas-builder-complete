@@ -356,58 +356,6 @@ export const useBulkUpload = () => {
     setBatchError(null);
   };
 
-  const processShipmentRates = async (shipment: any) => {
-    try {
-      console.log('Getting rates for shipment:', shipment);
-
-      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: {
-          fromAddress: {
-            name: shipment.fromName || 'Sender',
-            street1: shipment.fromStreet1,
-            street2: shipment.fromStreet2 || '',
-            city: shipment.fromCity,
-            state: shipment.fromState,
-            zip: shipment.fromZip,
-            country: shipment.fromCountry || 'US',
-            phone: shipment.fromPhone || '',
-            company: shipment.fromCompany || ''
-          },
-          toAddress: {
-            name: shipment.toName || 'Recipient',
-            street1: shipment.toStreet1,
-            street2: shipment.toStreet2 || '',
-            city: shipment.toCity,
-            state: shipment.toState,
-            zip: shipment.toZip,
-            country: shipment.toCountry || 'US',
-            phone: shipment.toPhone || '',
-            company: shipment.toCompany || ''
-          },
-          parcel: {
-            length: parseFloat(shipment.length) || 1,
-            width: parseFloat(shipment.width) || 1,
-            height: parseFloat(shipment.height) || 1,
-            weight: parseFloat(shipment.weight) || 1
-          }
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to fetch rates');
-      }
-
-      return data.rates || [];
-    } catch (error) {
-      console.error('Error getting rates for shipment:', error);
-      return [];
-    }
-  };
-
   return {
     file,
     isUploading,
@@ -446,7 +394,6 @@ export const useBulkUpload = () => {
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
-    labelGenerationProgress,
-    processShipmentRates
+    labelGenerationProgress
   };
 };

@@ -5,37 +5,33 @@ import { Package, Truck, MapPin, CheckCircle } from 'lucide-react';
 
 interface TrackingFiltersProps {
   activeFilter: string;
-  onFilterChange: (filter: string) => void;
-  trackingData: any[];
+  setActiveFilter: (filter: string) => void;
+  trackingCount: {
+    all: number;
+    in_transit: number;
+    out_for_delivery: number;
+    delivered: number;
+  };
 }
 
 const TrackingFilters: React.FC<TrackingFiltersProps> = ({
   activeFilter,
-  onFilterChange,
-  trackingData
+  setActiveFilter,
+  trackingCount
 }) => {
-  const trackingCount = React.useMemo(() => {
-    const all = trackingData.length;
-    const in_transit = trackingData.filter(item => item.status === 'in_transit').length;
-    const out_for_delivery = trackingData.filter(item => item.status === 'out_for_delivery').length;
-    const delivered = trackingData.filter(item => item.status === 'delivered').length;
-
-    return { all, in_transit, out_for_delivery, delivered };
-  }, [trackingData]);
-
   return (
     <div className="flex flex-wrap gap-2 mb-4">
       <Button 
         variant={activeFilter === 'all' ? 'default' : 'outline'}
         size="sm"
-        onClick={() => onFilterChange('all')}
+        onClick={() => setActiveFilter('all')}
       >
         All ({trackingCount.all})
       </Button>
       <Button 
         variant={activeFilter === 'in_transit' ? 'default' : 'outline'}
         size="sm"
-        onClick={() => onFilterChange('in_transit')}
+        onClick={() => setActiveFilter('in_transit')}
         className={activeFilter === 'in_transit' ? 'bg-blue-500 hover:bg-blue-600' : ''}
       >
         <Truck className="h-4 w-4 mr-1" />
@@ -44,7 +40,7 @@ const TrackingFilters: React.FC<TrackingFiltersProps> = ({
       <Button 
         variant={activeFilter === 'out_for_delivery' ? 'default' : 'outline'}
         size="sm"
-        onClick={() => onFilterChange('out_for_delivery')}
+        onClick={() => setActiveFilter('out_for_delivery')}
         className={activeFilter === 'out_for_delivery' ? 'bg-purple-500 hover:bg-purple-600' : ''}
       >
         <MapPin className="h-4 w-4 mr-1" />
@@ -53,7 +49,7 @@ const TrackingFilters: React.FC<TrackingFiltersProps> = ({
       <Button 
         variant={activeFilter === 'delivered' ? 'default' : 'outline'}
         size="sm"
-        onClick={() => onFilterChange('delivered')}
+        onClick={() => setActiveFilter('delivered')}
         className={activeFilter === 'delivered' ? 'bg-green-500 hover:bg-green-600' : ''}
       >
         <CheckCircle className="h-4 w-4 mr-1" />

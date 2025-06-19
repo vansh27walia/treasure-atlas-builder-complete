@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import TrackingListItem from './TrackingListItem';
 import TrackingEmptyState from './TrackingEmptyState';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, RefreshCw, Package } from 'lucide-react';
-import { useFindTracking } from '@/hooks/useFindTracking';
 
 interface TrackingEvent {
   id: string;
@@ -61,9 +61,7 @@ const TrackingList: React.FC<TrackingListProps> = ({
 }) => {
   const [trackingInput, setTrackingInput] = useState('');
   const [manualTrackingData, setManualTrackingData] = useState<TrackingInfo[]>([]);
-  
-  // Use the new enhanced tracking hook
-  const { searchTracking, isLoading: isSearching, trackingResult } = useFindTracking();
+  const [isManualTracking, setIsManualTracking] = useState(false);
   
   // Combine manually tracked shipments with system tracking data
   const allTrackingData = [...trackingData, ...manualTrackingData];
@@ -73,55 +71,56 @@ const TrackingList: React.FC<TrackingListProps> = ({
     setTrackingInput(e.target.value);
   };
   
-  // Track a package using the enhanced search
+  // Track a package manually using live EasyPost API
   const trackPackage = async () => {
     if (!trackingInput.trim()) {
       toast.error("Please enter a tracking number");
       return;
     }
     
+    setIsManualTracking(true);
+    
     try {
-      const result = await searchTracking(trackingInput.trim());
+      console.log('Tracking package:', trackingInput.trim());
       
-      if (result) {
-        // Add to manual tracking list if not already present
+      // Call the new live tracking API
+      const { data, error } = await supabase.functions.invoke('track-shipment', {
+        body: { tracking_number: trackingInput.trim() }
+      });
+      
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error(error.message);
+      }
+      
+      if (data) {
+        console.log('Tracking data received:', data);
+        
+        // Add to manual tracking list
         setManualTrackingData(prev => {
-          const exists = prev.some(item => item.tracking_code === result.tracking_code) ||
-                        trackingData.some(item => item.tracking_code === result.tracking_code);
+          // Check if tracking number already exists
+          const exists = prev.some(item => item.tracking_code === data.tracking_code) ||
+                        trackingData.some(item => item.tracking_code === data.tracking_code);
           
           if (exists) {
             toast.info("This tracking number is already being tracked");
             return prev;
           }
           
-          // Convert the search result to TrackingInfo format
-          const trackingInfo: TrackingInfo = {
-            id: result.id || crypto.randomUUID(),
-            tracking_code: result.tracking_code,
-            carrier: result.carrier,
-            carrier_code: result.carrier_code,
-            status: result.status,
-            eta: result.eta,
-            last_update: result.last_update || new Date().toISOString(),
-            label_url: result.label_url,
-            shipment_id: result.shipment_id || '',
-            recipient: result.recipient,
-            recipient_address: result.recipient_address,
-            package_details: result.package_details,
-            estimated_delivery: result.estimated_delivery,
-            tracking_events: result.tracking_events
-          };
-          
           toast.success("Package tracking added successfully");
-          return [...prev, trackingInfo];
+          return [...prev, data];
         });
         
         // Clear input
         setTrackingInput('');
+      } else {
+        toast.error("No tracking information found for this number");
       }
     } catch (error) {
       console.error('Error tracking package:', error);
       toast.error("Error tracking package. Please check the tracking number and try again.");
+    } finally {
+      setIsManualTracking(false);
     }
   };
   
@@ -145,9 +144,9 @@ const TrackingList: React.FC<TrackingListProps> = ({
           />
           <Button 
             onClick={trackPackage}
-            disabled={isSearching}
+            disabled={isManualTracking}
           >
-            {isSearching ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+            {isManualTracking ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
             Track
           </Button>
         </div>
@@ -176,9 +175,9 @@ const TrackingList: React.FC<TrackingListProps> = ({
         />
         <Button 
           onClick={trackPackage}
-          disabled={isSearching}
+          disabled={isManualTracking}
         >
-          {isSearching ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+          {isManualTracking ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
           Track
         </Button>
       </div>

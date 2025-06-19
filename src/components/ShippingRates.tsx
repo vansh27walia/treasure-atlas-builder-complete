@@ -13,6 +13,7 @@ import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-reac
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PrintPreview from './shipping/PrintPreview';
+import { formatWeightDisplay } from '@/utils/weightConversion';
 
 const ShippingRates: React.FC = () => {
   const {
@@ -20,7 +21,6 @@ const ShippingRates: React.FC = () => {
     allRates,
     isLoading,
     isProcessingPayment,
-    isCreatingLabel,
     selectedRateId,
     labelUrl,
     trackingCode,
@@ -54,7 +54,7 @@ const ShippingRates: React.FC = () => {
         setShipmentDetails({
           fromAddress: "Your shipping address",
           toAddress: "Recipient address",
-          weight: "Package weight",
+          weight: "Package weight", // Weight will be formatted in display components
           service: selectedRate.service,
           carrier: selectedRate.carrier.toUpperCase(),
         });
@@ -85,7 +85,7 @@ const ShippingRates: React.FC = () => {
     
     const calculatorData = sessionStorage.getItem('calculatorData');
     if (calculatorData) {
-      toast.success("Rate selected! Click 'Create Label' to generate your shipping label.", {
+      toast.success("Rate selected! Click 'Proceed Forward' to continue with label creation.", {
         duration: 5000,
       });
     }
@@ -94,32 +94,6 @@ const ShippingRates: React.FC = () => {
   const handleProceedForward = () => {
     if (selectedRateId) {
       selectRateAndProceed(selectedRateId);
-    }
-  };
-
-  const handleCreateLabelClick = async () => {
-    if (!selectedRateId) {
-      toast.error('Please select a shipping rate first');
-      return;
-    }
-
-    try {
-      // Get shipment details from sessionStorage if available
-      const calculatorData = sessionStorage.getItem('calculatorData');
-      let shipmentData = null;
-      
-      if (calculatorData) {
-        shipmentData = JSON.parse(calculatorData);
-      }
-
-      const labelOptions = {
-        label_format: "PDF",
-        label_size: selectedLabelFormat
-      };
-
-      await handleCreateLabel(selectedRateId, shipmentId, labelOptions, shipmentData);
-    } catch (error) {
-      console.error('Label creation failed:', error);
     }
   };
   
@@ -160,7 +134,7 @@ const ShippingRates: React.FC = () => {
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6">
             <h2 className="text-xl font-bold text-blue-800 flex items-center mb-4 lg:mb-0">
               <Truck className="mr-2 h-5 w-5 text-blue-600" />
-              Discounted Shipping Rates (70-95% OFF)
+              Available Shipping Rates
             </h2>
             <div className="flex flex-wrap gap-3">
               <DropdownMenu>
@@ -281,19 +255,25 @@ const ShippingRates: React.FC = () => {
                 )}
                 
                 <Button 
-                  onClick={handleCreateLabelClick}
-                  disabled={!selectedRateId || isCreatingLabel}
+                  onClick={() => {
+                    const labelOptions = {
+                      label_format: "PDF",
+                      label_size: selectedLabelFormat
+                    };
+                    handleCreateLabel(undefined, undefined, labelOptions);
+                  }}
+                  disabled={!selectedRateId || isLoading}
                   className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md shadow-md"
                 >
-                  {isCreatingLabel ? (
+                  {isLoading ? (
                     <>
                       <Loader className="h-4 w-4 animate-spin" />
-                      Creating Label...
+                      Creating...
                     </>
                   ) : (
                     <>
                       <Download className="h-4 w-4" />
-                      Create Label
+                      Buy & Print Label
                     </>
                   )}
                 </Button>
@@ -335,7 +315,7 @@ const ShippingRates: React.FC = () => {
           )}
           
           <div className="mt-4 text-center text-xs text-gray-500">
-            <p>* All rates include handling fees and applicable taxes. Discounts applied automatically!</p>
+            <p>* All rates include handling fees and applicable taxes</p>
           </div>
         </div>
       </Card>
