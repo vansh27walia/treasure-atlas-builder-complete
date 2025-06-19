@@ -1,259 +1,167 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-// Set up CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[CREATE-INTERNATIONAL-LABEL] ${step}${detailsStr}`);
+};
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get the EasyPost API key from Supabase secrets
+    logStep("Function started");
+
+    // Get the user's JWT token from the Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'No authorization header' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401
+      });
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
+    );
+
+    // Get the current user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    
+    if (userError || !user) {
+      logStep("User authentication failed", { error: userError?.message });
+      return new Response(JSON.stringify({ error: 'User not authenticated' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401
+      });
+    }
+
+    logStep("User authenticated", { userId: user.id });
+
     const apiKey = Deno.env.get('EASYPOST_API_KEY');
     if (!apiKey) {
-      console.error('API key not configured');
-      return new Response(
-        JSON.stringify({ error: 'API key not configured' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
+      return new Response(JSON.stringify({ error: 'API key not configured' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
+      });
     }
 
-    // Create a Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Supabase configuration not found');
-      return new Response(
-        JSON.stringify({ error: 'Supabase configuration not found' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const requestBody = await req.json();
+    const { 
+      shipmentId, 
+      rateId, 
+      customsItems, 
+      customsSigner, 
+      contentsType, 
+      contentsDescription, 
+      customsCertify, 
+      nonDeliveryOption 
+    } = requestBody;
 
-    // Parse the request body
-    const requestData = await req.json();
-    const { shipmentId, rateId, options = {} } = requestData;
-    
     if (!shipmentId || !rateId) {
-      console.error('Missing required parameters', { shipmentId, rateId });
-      return new Response(
-        JSON.stringify({ error: 'Missing required parameters' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
     }
 
-    console.log(`Creating international label for shipment ${shipmentId} with rate ${rateId}`);
-    console.log(`Label options:`, options);
+    logStep("Creating international label", { shipmentId, rateId, userId: user.id });
 
-    try {
-      // Check if storage bucket exists, create if not
-      const { data: bucketData, error: bucketError } = await supabase
-        .storage
-        .listBuckets();
-      
-      const bucketExists = bucketData?.some(bucket => bucket.name === 'shipping-labels');
-      
-      if (!bucketExists) {
-        console.log('Creating shipping-labels bucket');
-        const { error } = await supabase
-          .storage
-          .createBucket('shipping-labels', {
-            public: false,
-            fileSizeLimit: 10485760, // 10MB limit for label files
-          });
-          
-        if (error) {
-          console.error('Error creating bucket:', error);
-          throw new Error('Failed to create storage bucket');
-        }
-      }
-    } catch (bucketError) {
-      console.error('Error checking/creating bucket:', bucketError);
-      // Continue anyway, the bucket might exist but we might not have permission to list buckets
-    }
-
-    // Create request body for EasyPost with label format options
-    const buyOptions = {
-      rate: { id: rateId }
-    };
-    
-    // If label format and size are specified, add them to the request
-    if (options.label_format || options.label_size) {
-      buyOptions.label_format = options.label_format || "PDF";
-      buyOptions.label_size = options.label_size || "4x6";
-    }
-
-    // Buy the label with EasyPost API
-    const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
-      method: 'POST',
+    // Buy the shipment to create the label
+    const easypostResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+        'Authorization': `Basic ${btoa(apiKey + ":")}`,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(buyOptions),
+      body: JSON.stringify({
+        rate: { id: rateId }
+      })
     });
 
-    const data = await response.json();
-    
-    // Check for API errors
-    if (!response.ok) {
-      console.error('EasyPost API error:', JSON.stringify(data, null, 2));
-      
-      // If postage already exists, try to get the existing label
-      if (data.error?.code === 'SHIPMENT.POSTAGE.EXISTS') {
-        console.log('Postage already exists, retrieving existing label');
-        
-        // Get the shipment details to get the label URL
-        const shipmentResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          }
-        });
-        
-        if (!shipmentResponse.ok) {
-          return new Response(
-            JSON.stringify({ error: 'Failed to retrieve existing shipment', details: data }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
-          );
-        }
-        
-        const shipmentData = await shipmentResponse.json();
-        if (shipmentData.postage_label?.label_url) {
-          // We got the existing label URL, return it
-          return new Response(
-            JSON.stringify({
-              labelUrl: shipmentData.postage_label.label_url,
-              trackingCode: shipmentData.tracking_code,
-              shipmentId: shipmentData.id,
-              message: 'Retrieved existing label'
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-      }
-      
-      return new Response(
-        JSON.stringify({ error: 'Failed to create label', details: data }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
-      );
-    }
-
-    // Download the label PDF from EasyPost
-    const labelURL = data.postage_label.label_url;
-    console.log(`Label URL from EasyPost: ${labelURL}`);
-    
-    const labelResponse = await fetch(labelURL);
-    if (!labelResponse.ok) {
-      console.error('Failed to download label from EasyPost');
-      throw new Error('Failed to download label from EasyPost');
-    }
-    
-    // Convert the label to a blob
-    const labelBlob = await labelResponse.blob();
-    const labelArrayBuffer = await labelBlob.arrayBuffer();
-    const labelBuffer = new Uint8Array(labelArrayBuffer);
-    
-    // Generate a unique filename for the label
-    const fileName = `intl_label_${shipmentId}_${Date.now()}.pdf`;
-    
-    // Upload the label to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase
-      .storage
-      .from('shipping-labels')
-      .upload(fileName, labelBuffer, {
-        contentType: 'application/pdf',
-        cacheControl: '3600',
-        upsert: false
+    if (!easypostResponse.ok) {
+      const errorText = await easypostResponse.text();
+      logStep("EasyPost API error", { status: easypostResponse.status, error: errorText });
+      return new Response(JSON.stringify({ error: 'Failed to create international label', details: errorText }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
       });
-      
-    if (uploadError) {
-      console.error('Error uploading label to storage:', uploadError);
-      
-      // If storage upload fails, still return the original EasyPost label URL
-      return new Response(
-        JSON.stringify({ 
-          labelUrl: labelURL,
-          trackingCode: data.tracking_code,
-          shipmentId: data.id,
-          message: 'Using original EasyPost URL due to storage error'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
-    // Create a signed URL for the label with 2 weeks expiration
-    const twoWeeksInSeconds = 60 * 60 * 24 * 14;
-    const { data: signedURLData, error: signedURLError } = await supabase
-      .storage
-      .from('shipping-labels')
-      .createSignedUrl(fileName, twoWeeksInSeconds);
-      
-    if (signedURLError) {
-      console.error('Error creating signed URL:', signedURLError);
-      
-      // If we can't create a signed URL, return the original EasyPost URL
-      return new Response(
-        JSON.stringify({ 
-          labelUrl: labelURL,
-          trackingCode: data.tracking_code,
-          shipmentId: data.id,
-          message: 'Using original EasyPost URL due to signed URL error'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    // Save the shipping record in the database
-    const { error: dbError } = await supabase
+    const shipmentData = await easypostResponse.json();
+    logStep("International label created successfully", { trackingCode: shipmentData.tracking_code });
+
+    // Save tracking data to shipment_records table with user_id
+    const trackingRecord = {
+      user_id: user.id,
+      shipment_id: shipmentData.id,
+      tracking_code: shipmentData.tracking_code,
+      carrier: shipmentData.selected_rate?.carrier || 'Unknown',
+      service: shipmentData.selected_rate?.service || 'International',
+      status: 'created',
+      label_url: shipmentData.postage_label?.label_url,
+      rate_id: rateId,
+      charged_rate: parseFloat(shipmentData.selected_rate?.rate || '0'),
+      currency: shipmentData.selected_rate?.currency || 'USD',
+      delivery_days: shipmentData.selected_rate?.delivery_days,
+      est_delivery_date: shipmentData.selected_rate?.delivery_date,
+      from_address_json: shipmentData.from_address,
+      to_address_json: shipmentData.to_address,
+      parcel_json: shipmentData.parcel,
+      is_international: true,
+      customs_items_json: customsItems,
+      customs_signer: customsSigner,
+      contents_type: contentsType,
+      contents_description: contentsDescription,
+      customs_certify: customsCertify,
+      non_delivery_option: nonDeliveryOption,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    logStep("Saving international tracking record", { trackingCode: trackingRecord.tracking_code });
+
+    const { error: dbError } = await supabaseClient
       .from('shipment_records')
-      .insert({
-        shipment_id: shipmentId,
-        rate_id: rateId,
-        tracking_code: data.tracking_code,
-        label_url: signedURLData.signedUrl,
-        status: 'created',
-        carrier: data.selected_rate?.carrier,
-        service: data.selected_rate?.service,
-        delivery_days: data.selected_rate?.delivery_days || null,
-        charged_rate: data.selected_rate?.rate || null,
-        easypost_rate: data.selected_rate?.rate || null,
-        currency: data.selected_rate?.currency || 'USD',
-        label_format: options.label_format || "PDF",
-        label_size: options.label_size || "4x6",
-        is_international: true,
-        created_at: new Date().toISOString()
-      });
-      
+      .insert(trackingRecord);
+
     if (dbError) {
-      console.error('Error saving shipment record:', dbError);
-      // Continue anyway as we already have the label URL
+      logStep("Database error saving tracking record", { error: dbError.message });
+      // Continue anyway as we still have the label
+    } else {
+      logStep("International tracking record saved successfully");
     }
 
-    // Return the label information with our internally stored URL
-    return new Response(
-      JSON.stringify({
-        labelUrl: signedURLData.signedUrl || labelURL, // Fall back to EasyPost URL if needed
-        trackingCode: data.tracking_code,
-        shipmentId: data.id,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({
+      labelUrl: shipmentData.postage_label?.label_url,
+      trackingCode: shipmentData.tracking_code,
+      shipmentId: shipmentData.id,
+      customsForm: shipmentData.forms?.[0]?.form_url || null
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
+    });
+
   } catch (error) {
-    console.error('Error in create-international-label function:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logStep("ERROR", { message: errorMessage });
+    return new Response(JSON.stringify({ error: 'Internal Server Error', message: errorMessage }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500
+    });
   }
 });
