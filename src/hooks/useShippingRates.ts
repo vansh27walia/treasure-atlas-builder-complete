@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
@@ -36,6 +37,7 @@ export const useShippingRates = () => {
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
   const [activeCarrierFilter, setActiveCarrierFilter] = useState<string>('all');
+  const [currentRequest, setCurrentRequest] = useState<RateRequest | null>(null);
   
   const { trackNewShipment } = useShipmentTracking();
 
@@ -54,9 +56,17 @@ export const useShippingRates = () => {
 
   const fetchRates = useCallback(async (rateRequest: RateRequest) => {
     console.log('Fetching rates for:', rateRequest);
+    
+    // Prevent duplicate fetching for the same request
+    if (isLoading) {
+      console.log('Already fetching rates, skipping duplicate request');
+      return;
+    }
+    
     setIsLoading(true);
     setRates([]);
     setAllRates([]);
+    setCurrentRequest(rateRequest);
     
     try {
       // Convert weight from other units to ounces for EasyPost
@@ -97,18 +107,9 @@ export const useShippingRates = () => {
         setRates(data.rates);
         setShipmentId(data.shipment_id);
         
-        // Extract unique carriers with proper typing
-        const carriers = [...new Set(data.rates.map((rate: ShippingRate) => rate.carrier))] as string[];
+        // Extract unique carriers
+        const carriers = [...new Set(data.rates.map((rate: ShippingRate) => rate.carrier))];
         setUniqueCarriers(carriers);
-        
-        // Dispatch event for other components
-        const event = new CustomEvent('easypost-rates-received', {
-          detail: { 
-            rates: data.rates, 
-            shipmentId: data.shipment_id 
-          }
-        });
-        document.dispatchEvent(event);
         
         toast.success(`Found ${data.rates.length} shipping rates`);
       } else {
@@ -125,7 +126,7 @@ export const useShippingRates = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isLoading]);
 
   // Clear rates function
   const clearRates = useCallback(() => {
@@ -137,40 +138,12 @@ export const useShippingRates = () => {
     setShipmentId(null);
     setUniqueCarriers([]);
     setActiveCarrierFilter('all');
-  }, []);
-
-  // Listen for rate events
-  useEffect(() => {
-    const handleRatesReceived = (event: CustomEvent) => {
-      const { rates: newRates, shipmentId: newShipmentId } = event.detail;
-      console.log('Rates received via event:', newRates);
-      
-      setAllRates(newRates);
-      setRates(newRates);
-      setShipmentId(newShipmentId);
-      
-      // Extract unique carriers with proper typing
-      const carriers = [...new Set(newRates.map((rate: ShippingRate) => rate.carrier))] as string[];
-      setUniqueCarriers(carriers);
-      
-      setIsLoading(false);
-    };
-
-    document.addEventListener('easypost-rates-received', handleRatesReceived as EventListener);
-
-    return () => {
-      document.removeEventListener('easypost-rates-received', handleRatesReceived as EventListener);
-    };
+    setCurrentRequest(null);
   }, []);
 
   const handleSelectRate = useCallback((rateId: string) => {
     setSelectedRateId(rateId);
-    
-    // Dispatch rate selected event
-    const event = new CustomEvent('rate-selected', {
-      detail: { rateId }
-    });
-    document.dispatchEvent(event);
+    console.log('Rate selected:', rateId);
   }, []);
 
   const handleFilterByCarrier = useCallback((carrier: string) => {
@@ -198,8 +171,6 @@ export const useShippingRates = () => {
       // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 2000));
       toast.success('Payment processed successfully');
-      
-      // You can add actual payment processing logic here
       
     } catch (error) {
       console.error('Payment processing failed:', error);
@@ -240,6 +211,8 @@ export const useShippingRates = () => {
         // Get the selected rate details
         const selectedRate = rates.find(rate => rate.id === rateId);
         
+        console.log('Label created successfully, saving tracking data...');
+        
         // Track the new shipment with comprehensive details
         const trackingSuccess = await trackNewShipment({
           trackingCode: data.trackingCode,
@@ -248,22 +221,16 @@ export const useShippingRates = () => {
           rateId: rateId,
           labelUrl: data.labelUrl,
           service: selectedRate?.service,
-          from_address: shipmentDetails?.fromAddress,
-          to_address: shipmentDetails?.toAddress,
-          parcel: shipmentDetails?.parcel
-        }, shipmentDetails);
+          from_address: shipmentDetails?.fromAddress || currentRequest?.fromAddress,
+          to_address: shipmentDetails?.toAddress || currentRequest?.toAddress,
+          parcel: shipmentDetails?.parcel || currentRequest?.parcel
+        }, shipmentDetails || currentRequest);
         
         if (trackingSuccess) {
           console.log('Tracking data saved successfully');
         } else {
           console.warn('Failed to save tracking data');
         }
-        
-        // Update step to label
-        const stepEvent = new CustomEvent('shipping-step-change', {
-          detail: { step: 'label' }
-        });
-        document.dispatchEvent(stepEvent);
         
         toast.success('Label created and tracking saved successfully!');
         return data;
@@ -277,7 +244,7 @@ export const useShippingRates = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [rates, trackNewShipment]);
+  }, [rates, trackNewShipment, currentRequest]);
 
   return {
     rates,

@@ -45,6 +45,8 @@ export const useBulkLabelCreation = () => {
           }
 
           if (data && data.labelUrl && data.trackingCode) {
+            console.log(`Label created for shipment ${i + 1}, saving tracking...`);
+            
             // Save to tracking system
             const trackingSuccess = await trackNewShipment({
               trackingCode: data.trackingCode,

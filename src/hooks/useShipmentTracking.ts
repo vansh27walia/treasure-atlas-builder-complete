@@ -66,6 +66,7 @@ export const useShipmentTracking = () => {
         }
         
         console.log('Shipment updated successfully');
+        toast.success('Tracking information updated successfully');
       } else {
         console.log('Creating new shipment record...');
         
@@ -109,6 +110,7 @@ export const useShipmentTracking = () => {
         }
         
         console.log('New shipment created successfully');
+        toast.success('Tracking number saved successfully');
       }
 
       return true;
@@ -120,6 +122,8 @@ export const useShipmentTracking = () => {
   }, []);
 
   const trackNewShipment = useCallback(async (labelData: any, shipmentDetails?: any) => {
+    console.log('trackNewShipment called with:', { labelData, shipmentDetails });
+    
     if (!labelData.trackingCode || !labelData.carrier) {
       console.warn('Missing tracking code or carrier for shipment tracking');
       return false;
