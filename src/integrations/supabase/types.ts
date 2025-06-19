@@ -230,45 +230,6 @@ export type Database = {
         }
         Relationships: []
       }
-      external_trackings: {
-        Row: {
-          carrier: string | null
-          created_at: string | null
-          estimated_delivery: Json | null
-          id: string
-          last_fetched: string | null
-          status: string | null
-          tracking_code: string
-          tracking_data: Json | null
-          tracking_events: Json | null
-          updated_at: string | null
-        }
-        Insert: {
-          carrier?: string | null
-          created_at?: string | null
-          estimated_delivery?: Json | null
-          id?: string
-          last_fetched?: string | null
-          status?: string | null
-          tracking_code: string
-          tracking_data?: Json | null
-          tracking_events?: Json | null
-          updated_at?: string | null
-        }
-        Update: {
-          carrier?: string | null
-          created_at?: string | null
-          estimated_delivery?: Json | null
-          id?: string
-          last_fetched?: string | null
-          status?: string | null
-          tracking_code?: string
-          tracking_data?: Json | null
-          tracking_events?: Json | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       saved_parcels: {
         Row: {
           height: number
@@ -413,60 +374,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      shipments: {
-        Row: {
-          carrier: string | null
-          created_at: string | null
-          eta: string | null
-          id: string
-          label_url: string | null
-          package_details: Json | null
-          recipient_address: string | null
-          recipient_name: string | null
-          service: string | null
-          shipment_id: string | null
-          status: string | null
-          tracking_code: string
-          tracking_history: Json | null
-          updated_at: string | null
-          user_id: string | null
-        }
-        Insert: {
-          carrier?: string | null
-          created_at?: string | null
-          eta?: string | null
-          id?: string
-          label_url?: string | null
-          package_details?: Json | null
-          recipient_address?: string | null
-          recipient_name?: string | null
-          service?: string | null
-          shipment_id?: string | null
-          status?: string | null
-          tracking_code: string
-          tracking_history?: Json | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          carrier?: string | null
-          created_at?: string | null
-          eta?: string | null
-          id?: string
-          label_url?: string | null
-          package_details?: Json | null
-          recipient_address?: string | null
-          recipient_name?: string | null
-          service?: string | null
-          shipment_id?: string | null
-          status?: string | null
-          tracking_code?: string
-          tracking_history?: Json | null
-          updated_at?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
       }
       shipping_label_files: {
         Row: {

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
@@ -11,89 +12,6 @@ export const useShipmentManagement = (
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
   const [showLabelOptions, setShowLabelOptions] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState('PDF');
-
-  const saveShipmentToDatabase = async (shipmentData: any) => {
-    try {
-      console.log('Saving bulk shipment to database:', shipmentData);
-      
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        throw new Error('User not authenticated');
-      }
-
-      // Format recipient address
-      const recipientAddress = shipmentData.recipient_address || 'Unknown';
-
-      // Check if shipment already exists
-      const { data: existingShipment } = await supabase
-        .from('shipments')
-        .select('id')
-        .eq('tracking_code', shipmentData.tracking_code)
-        .eq('user_id', user.id)
-        .single();
-
-      if (existingShipment) {
-        console.log('Bulk shipment already exists, updating...');
-        
-        // Update existing shipment
-        const { error: updateError } = await supabase
-          .from('shipments')
-          .update({
-            label_url: shipmentData.label_url,
-            status: 'created',
-            recipient_name: shipmentData.recipient_name || 'Unknown',
-            recipient_address: recipientAddress,
-            service: shipmentData.service,
-            updated_at: new Date().toISOString()
-          })
-          .eq('tracking_code', shipmentData.tracking_code)
-          .eq('user_id', user.id);
-
-        if (updateError) {
-          console.error('Error updating bulk shipment:', updateError);
-          throw updateError;
-        }
-      } else {
-        // Insert new shipment record
-        const { error: insertError } = await supabase
-          .from('shipments')
-          .insert([{
-            user_id: user.id,
-            tracking_code: shipmentData.tracking_code,
-            carrier: shipmentData.carrier || 'Unknown',
-            shipment_id: shipmentData.shipment_id || '',
-            label_url: shipmentData.label_url,
-            service: shipmentData.service || 'Standard',
-            status: 'created',
-            recipient_name: shipmentData.recipient_name || 'Unknown',
-            recipient_address: recipientAddress,
-            package_details: {
-              weight: 'Unknown',
-              dimensions: 'Unknown',
-              service: shipmentData.service || 'Standard'
-            },
-            tracking_history: {
-              events: [],
-              created_at: new Date().toISOString()
-            },
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }]);
-
-        if (insertError) {
-          console.error('Error inserting bulk shipment:', insertError);
-          throw insertError;
-        }
-      }
-
-      console.log('Bulk shipment saved successfully to database');
-      return true;
-    } catch (error) {
-      console.error('Error saving bulk shipment to database:', error);
-      return false;
-    }
-  };
 
   const handleRemoveShipment = (shipmentId: string) => {
     if (!results) return;
@@ -200,23 +118,6 @@ export const useShipmentManagement = (
       
       if (error) {
         throw error;
-      }
-      
-      // Save each successful shipment to the tracking database
-      if (data.processedLabels) {
-        for (const label of data.processedLabels) {
-          if (label.tracking_code && label.label_url) {
-            await saveShipmentToDatabase({
-              tracking_code: label.tracking_code,
-              carrier: label.carrier || 'Unknown',
-              shipment_id: label.shipment_id || '',
-              label_url: label.label_url,
-              service: label.service || 'Standard',
-              recipient_name: label.recipient_name || 'Unknown',
-              recipient_address: label.recipient_address || 'Unknown'
-            });
-          }
-        }
       }
       
       // Update state with generated labels
