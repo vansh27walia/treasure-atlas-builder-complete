@@ -79,34 +79,41 @@ const TrackingDashboard: React.FC = () => {
 
       console.log('Fetched shipment records:', shipmentRecords?.length || 0);
 
-      // Transform shipment records to tracking format
-      const transformedData: TrackingInfo[] = (shipmentRecords || []).map((record) => ({
-        id: record.id.toString(),
-        tracking_code: record.tracking_code || 'N/A',
-        carrier: record.carrier || 'Unknown',
-        carrier_code: record.carrier?.toLowerCase() || 'unknown',
-        status: record.status || 'created',
-        eta: record.est_delivery_date,
-        last_update: record.updated_at || record.created_at,
-        label_url: record.label_url,
-        shipment_id: record.shipment_id || '',
-        recipient: record.to_address_json?.name || 'Unknown Recipient',
-        recipient_address: record.to_address_json ? 
-          `${record.to_address_json.street1}, ${record.to_address_json.city}, ${record.to_address_json.state} ${record.to_address_json.zip}` : 
-          'Unknown Address',
-        package_details: {
-          weight: record.parcel_json?.weight ? `${record.parcel_json.weight} oz` : 'N/A',
-          dimensions: record.parcel_json ? 
-            `${record.parcel_json.length}x${record.parcel_json.width}x${record.parcel_json.height} in` : 
-            'N/A',
-          service: record.service || 'Standard'
-        },
-        estimated_delivery: record.est_delivery_date ? {
-          date: record.est_delivery_date,
-          time_range: 'By end of day'
-        } : null,
-        tracking_events: record.tracking_details || []
-      }));
+      // Transform shipment records to tracking format with proper type casting
+      const transformedData: TrackingInfo[] = (shipmentRecords || []).map((record) => {
+        // Type cast JSON fields to expected objects
+        const toAddress = record.to_address_json as any;
+        const parcel = record.parcel_json as any;
+        const trackingDetails = record.tracking_details as any[];
+
+        return {
+          id: record.id.toString(),
+          tracking_code: record.tracking_code || 'N/A',
+          carrier: record.carrier || 'Unknown',
+          carrier_code: record.carrier?.toLowerCase() || 'unknown',
+          status: record.status || 'created',
+          eta: record.est_delivery_date,
+          last_update: record.updated_at || record.created_at,
+          label_url: record.label_url,
+          shipment_id: record.shipment_id || '',
+          recipient: toAddress?.name || 'Unknown Recipient',
+          recipient_address: toAddress ? 
+            `${toAddress.street1 || ''}, ${toAddress.city || ''}, ${toAddress.state || ''} ${toAddress.zip || ''}`.trim() : 
+            'Unknown Address',
+          package_details: {
+            weight: parcel?.weight ? `${parcel.weight} oz` : 'N/A',
+            dimensions: parcel ? 
+              `${parcel.length || 0}x${parcel.width || 0}x${parcel.height || 0} in` : 
+              'N/A',
+            service: record.service || 'Standard'
+          },
+          estimated_delivery: record.est_delivery_date ? {
+            date: record.est_delivery_date,
+            time_range: 'By end of day'
+          } : null,
+          tracking_events: Array.isArray(trackingDetails) ? trackingDetails : []
+        };
+      });
 
       setTrackingData(transformedData);
       console.log('Successfully loaded tracking data:', transformedData.length, 'items');
