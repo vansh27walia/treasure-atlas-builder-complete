@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface AddressData {
@@ -160,6 +159,14 @@ class CarrierService {
     trackingCode: string;
   }> {
     try {
+      // Check if user is authenticated before making the request
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Please log in to create shipping labels');
+      }
+
+      console.log('Creating label for authenticated user:', session.user.id);
+
       // Handle different carrier APIs
       if (carrier === 'easypost') {
         const { data, error } = await supabase.functions.invoke('create-label', {
@@ -169,6 +176,8 @@ class CarrierService {
         if (error) {
           throw new Error(`Error creating label: ${error.message}`);
         }
+
+        console.log('Label created successfully:', data);
 
         // The edge function should handle saving the tracking record with user_id
         return {
