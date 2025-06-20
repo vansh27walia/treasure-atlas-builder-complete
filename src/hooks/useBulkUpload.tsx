@@ -29,6 +29,17 @@ export const useBulkUpload = () => {
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
+  const [batchError, setBatchError] = useState<{ packageNumber: number; error: string } | null>(null);
+  const [labelGenerationProgress, setLabelGenerationProgress] = useState({
+    isGenerating: false,
+    totalShipments: 0,
+    processedShipments: 0,
+    successfulShipments: 0,
+    failedShipments: 0,
+    currentStep: '',
+    estimatedTimeRemaining: 0
+  });
+  const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
 
   // Load default pickup address
   useEffect(() => {
@@ -136,8 +147,22 @@ export const useBulkUpload = () => {
     toast.success('Shipment removed from list');
   };
 
-  const handleEditShipment = (shipment: BulkShipment) => {
-    console.log('Edit shipment:', shipment);
+  const handleEditShipment = (shipmentId: string, updates: Partial<BulkShipment>) => {
+    if (!results) return;
+    
+    const updatedShipments = results.processedShipments.map(shipment => {
+      if (shipment.id === shipmentId) {
+        return { ...shipment, ...updates };
+      }
+      return shipment;
+    });
+    
+    setResults({
+      ...results,
+      processedShipments: updatedShipments
+    });
+    
+    toast.success('Shipment updated');
   };
 
   const handleRefreshRates = async (shipmentId: string) => {
@@ -175,10 +200,15 @@ export const useBulkUpload = () => {
     toast.success(`Applied ${carrier} to all applicable shipments`);
   };
 
-  const handleProceedToPayment = async () => {
-    await handleCreateLabels();
+  const handleClearBatchError = () => {
+    setBatchError(null);
   };
 
+  const handleOpenBatchPrintPreview = () => {
+    setBatchPrintPreviewModalOpen(true);
+  };
+
+  // Direct label creation without modal - goes straight to label creation
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -186,6 +216,15 @@ export const useBulkUpload = () => {
     }
     
     setIsCreatingLabels(true);
+    setLabelGenerationProgress({
+      isGenerating: true,
+      totalShipments: results.processedShipments.length,
+      processedShipments: 0,
+      successfulShipments: 0,
+      failedShipments: 0,
+      currentStep: 'Starting label generation...',
+      estimatedTimeRemaining: 0
+    });
     
     try {
       console.log('Creating labels for shipments:', results.processedShipments);
@@ -196,7 +235,8 @@ export const useBulkUpload = () => {
           pickupAddress,
           labelOptions: {
             format: 'PDF',
-            size: '4x6'
+            size: '4x6',
+            generateBatch: true
           }
         }
       });
@@ -207,54 +247,24 @@ export const useBulkUpload = () => {
 
       console.log('Label creation response:', data);
 
-      if (data.labels && data.labels.length > 0) {
-        // Process the response and update shipments with label URLs
-        const updatedShipments = results.processedShipments.map(shipment => {
-          const labelData = data.labels.find((label: any) => 
-            label.shipment_id === shipment.id && 
-            (label.status === 'success_individual_png_saved' || label.status.includes('success'))
-          );
-          
-          if (labelData && labelData.label_urls?.png) {
-            return {
-              ...shipment,
-              label_url: labelData.label_urls.png,
-              tracking_code: labelData.tracking_number,
-              status: 'completed' as const,
-              customer_name: labelData.recipient_name || shipment.customer_name,
-              customer_address: labelData.drop_off_address || shipment.customer_address
-            };
-          }
-          return shipment;
-        });
-
-        // Count successful labels
-        const successfulLabels = data.labels.filter((label: any) => 
-          label.status === 'success_individual_png_saved' || 
-          label.status.includes('success')
-        ).length;
-
+      if (data.processedLabels && data.processedLabels.length > 0) {
         setResults({
           ...results,
-          processedShipments: updatedShipments,
-          bulk_label_png_url: data.bulk_label_png_url,
-          bulk_label_pdf_url: data.bulk_label_pdf_url
+          processedShipments: data.processedLabels,
+          batchResult: data.batchResult,
+          bulk_label_pdf_url: data.batchResult?.consolidatedLabelUrls?.pdf,
+          bulk_label_png_url: data.batchResult?.consolidatedLabelUrls?.png,
         });
 
         setUploadStatus('success');
-        toast.success(`Successfully created ${successfulLabels} shipping labels`);
+        toast.success(`Successfully created ${data.successful} shipping labels`);
 
-        // Show any failed labels
-        const failedLabels = data.labels.filter((label: any) => 
-          label.status.includes('error') || label.status.includes('fail')
-        );
-        
-        if (failedLabels.length > 0) {
-          console.error('Failed labels:', failedLabels);
-          toast.error(`${failedLabels.length} labels failed to create. Check console for details.`);
+        if (data.failedLabels && data.failedLabels.length > 0) {
+          console.error('Failed labels:', data.failedLabels);
+          toast.error(`${data.failedLabels.length} labels failed to create. Check console for details.`);
         }
       } else {
-        throw new Error('No labels were created');
+        throw new Error(data.message || 'No labels were created');
       }
 
     } catch (error) {
@@ -262,6 +272,15 @@ export const useBulkUpload = () => {
       toast.error(error instanceof Error ? error.message : 'Failed to create labels');
     } finally {
       setIsCreatingLabels(false);
+      setLabelGenerationProgress({
+        isGenerating: false,
+        totalShipments: 0,
+        processedShipments: 0,
+        successfulShipments: 0,
+        failedShipments: 0,
+        currentStep: '',
+        estimatedTimeRemaining: 0
+      });
     }
   };
 
@@ -366,6 +385,14 @@ export const useBulkUpload = () => {
     // Address
     pickupAddress,
     
+    // Error handling
+    batchError,
+    labelGenerationProgress,
+    
+    // Modal states
+    batchPrintPreviewModalOpen,
+    setBatchPrintPreviewModalOpen,
+    
     // Setters
     setPickupAddress,
     setSearchTerm,
@@ -376,7 +403,6 @@ export const useBulkUpload = () => {
     // Handlers
     handleFileChange,
     handleUpload,
-    handleProceedToPayment,
     handleCreateLabels,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat,
@@ -387,6 +413,8 @@ export const useBulkUpload = () => {
     handleRemoveShipment,
     handleEditShipment,
     handleRefreshRates,
-    handleBulkApplyCarrier
+    handleBulkApplyCarrier,
+    handleClearBatchError,
+    handleOpenBatchPrintPreview
   };
 };

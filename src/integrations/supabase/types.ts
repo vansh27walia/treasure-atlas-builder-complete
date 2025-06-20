@@ -83,6 +83,108 @@ export type Database = {
           },
         ]
       }
+      api_keys: {
+        Row: {
+          created_at: string
+          encrypted_key: string
+          id: string
+          service_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          encrypted_key: string
+          id?: string
+          service_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          encrypted_key?: string
+          id?: string
+          service_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      batch_processing_logs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          download_url: string | null
+          error_message: string | null
+          failed_row_count: number | null
+          filename: string
+          id: string
+          original_row_count: number
+          processed_row_count: number
+          processing_status: string
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          download_url?: string | null
+          error_message?: string | null
+          failed_row_count?: number | null
+          filename: string
+          id?: string
+          original_row_count: number
+          processed_row_count: number
+          processing_status?: string
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          download_url?: string | null
+          error_message?: string | null
+          failed_row_count?: number | null
+          filename?: string
+          id?: string
+          original_row_count?: number
+          processed_row_count?: number
+          processing_status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      bulk_label_batches: {
+        Row: {
+          batch_reference: string
+          created_at: string | null
+          id: string
+          total_labels: number
+          updated_at: string | null
+          user_id: string | null
+          zip_file_path: string | null
+          zip_file_url: string | null
+        }
+        Insert: {
+          batch_reference: string
+          created_at?: string | null
+          id?: string
+          total_labels?: number
+          updated_at?: string | null
+          user_id?: string | null
+          zip_file_path?: string | null
+          zip_file_url?: string | null
+        }
+        Update: {
+          batch_reference?: string
+          created_at?: string | null
+          id?: string
+          total_labels?: number
+          updated_at?: string | null
+          user_id?: string | null
+          zip_file_path?: string | null
+          zip_file_url?: string | null
+        }
+        Relationships: []
+      }
       bulk_label_uploads: {
         Row: {
           batch_id: string
@@ -125,6 +227,45 @@ export type Database = {
           updated_at?: string
           upload_status?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      external_trackings: {
+        Row: {
+          carrier: string | null
+          created_at: string | null
+          estimated_delivery: Json | null
+          id: string
+          last_fetched: string | null
+          status: string | null
+          tracking_code: string
+          tracking_data: Json | null
+          tracking_events: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          carrier?: string | null
+          created_at?: string | null
+          estimated_delivery?: Json | null
+          id?: string
+          last_fetched?: string | null
+          status?: string | null
+          tracking_code: string
+          tracking_data?: Json | null
+          tracking_events?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          carrier?: string | null
+          created_at?: string | null
+          estimated_delivery?: Json | null
+          id?: string
+          last_fetched?: string | null
+          status?: string | null
+          tracking_code?: string
+          tracking_data?: Json | null
+          tracking_events?: Json | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -180,6 +321,7 @@ export type Database = {
           delivery_days: number | null
           document_urls_json: Json | null
           easypost_rate: number | null
+          est_delivery_date: string | null
           from_address_json: Json | null
           id: number
           is_international: boolean | null
@@ -194,6 +336,8 @@ export type Database = {
           status: string | null
           to_address_json: Json | null
           tracking_code: string | null
+          tracking_details: Json | null
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
@@ -209,6 +353,7 @@ export type Database = {
           delivery_days?: number | null
           document_urls_json?: Json | null
           easypost_rate?: number | null
+          est_delivery_date?: string | null
           from_address_json?: Json | null
           id?: number
           is_international?: boolean | null
@@ -223,6 +368,8 @@ export type Database = {
           status?: string | null
           to_address_json?: Json | null
           tracking_code?: string | null
+          tracking_details?: Json | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
@@ -238,6 +385,7 @@ export type Database = {
           delivery_days?: number | null
           document_urls_json?: Json | null
           easypost_rate?: number | null
+          est_delivery_date?: string | null
           from_address_json?: Json | null
           id?: number
           is_international?: boolean | null
@@ -252,6 +400,8 @@ export type Database = {
           status?: string | null
           to_address_json?: Json | null
           tracking_code?: string | null
+          tracking_details?: Json | null
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -263,6 +413,105 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      shipments: {
+        Row: {
+          carrier: string | null
+          created_at: string | null
+          eta: string | null
+          id: string
+          label_url: string | null
+          package_details: Json | null
+          recipient_address: string | null
+          recipient_name: string | null
+          service: string | null
+          shipment_id: string | null
+          status: string | null
+          tracking_code: string
+          tracking_history: Json | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          carrier?: string | null
+          created_at?: string | null
+          eta?: string | null
+          id?: string
+          label_url?: string | null
+          package_details?: Json | null
+          recipient_address?: string | null
+          recipient_name?: string | null
+          service?: string | null
+          shipment_id?: string | null
+          status?: string | null
+          tracking_code: string
+          tracking_history?: Json | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          carrier?: string | null
+          created_at?: string | null
+          eta?: string | null
+          id?: string
+          label_url?: string | null
+          package_details?: Json | null
+          recipient_address?: string | null
+          recipient_name?: string | null
+          service?: string | null
+          shipment_id?: string | null
+          status?: string | null
+          tracking_code?: string
+          tracking_history?: Json | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      shipping_label_files: {
+        Row: {
+          created_at: string | null
+          easypost_shipment_id: string | null
+          file_path: string
+          file_size: number | null
+          id: string
+          label_type: string
+          order_reference: string | null
+          shipment_id: string
+          supabase_url: string
+          tracking_code: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          easypost_shipment_id?: string | null
+          file_path: string
+          file_size?: number | null
+          id?: string
+          label_type: string
+          order_reference?: string | null
+          shipment_id: string
+          supabase_url: string
+          tracking_code?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          easypost_shipment_id?: string | null
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          label_type?: string
+          order_reference?: string | null
+          shipment_id?: string
+          supabase_url?: string
+          tracking_code?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       user_profiles: {
         Row: {

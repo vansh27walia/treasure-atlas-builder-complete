@@ -15,12 +15,12 @@ import { SavedAddress } from '@/services/AddressService';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { createAddressSelectHandler } from '@/utils/addressUtils';
+import InstantAddressForm from '@/components/shipping/InstantAddressForm';
 
 const instantDeliverySchema = z.object({
   packageSize: z.string().min(1, "Select a package size"),
   packageType: z.string().min(1, "Select package type"),
   weight: z.coerce.number().min(0, "Weight must be greater than or equal to 0").max(50, "Weight must be less than 50 lbs"),
-  // Add dimensions fields
   length: z.coerce.number().min(0, "Length must be greater than or equal to 0"),
   width: z.coerce.number().min(0, "Width must be greater than or equal to 0"),
   height: z.coerce.number().min(0, "Height must be greater than or equal to 0"),
@@ -35,7 +35,6 @@ const instantDeliverySchema = z.object({
   requireSignature: z.boolean().default(false),
   fragile: z.boolean().default(false),
 }).refine((data) => {
-  // If delivery is scheduled, both date and time are required
   if (data.deliverySpeed === 'scheduled') {
     return !!data.scheduledDate && !!data.scheduledTime;
   }
@@ -51,10 +50,24 @@ const InstantDeliveryPage: React.FC = () => {
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
   const [dropoffAddress, setDropoffAddress] = useState<SavedAddress | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showInstantPickupForm, setShowInstantPickupForm] = useState(false);
+  const [showInstantDropoffForm, setShowInstantDropoffForm] = useState(false);
 
   // Create address selection handlers using the updated utility function
   const handlePickupAddressSelect = createAddressSelectHandler(setPickupAddress);
   const handleDropoffAddressSelect = createAddressSelectHandler(setDropoffAddress);
+
+  const handlePickupAddressSaved = (address: SavedAddress) => {
+    setPickupAddress(address);
+    setShowInstantPickupForm(false);
+    toast.success('Pickup address saved and selected');
+  };
+
+  const handleDropoffAddressSaved = (address: SavedAddress) => {
+    setDropoffAddress(address);
+    setShowInstantDropoffForm(false);
+    toast.success('Dropoff address saved and selected');
+  };
 
   // Using react-hook-form to manage form state
   const form = useForm<InstantDeliveryFormValues>({
@@ -134,7 +147,22 @@ const InstantDeliveryPage: React.FC = () => {
                       onAddressSelect={handlePickupAddressSelect}
                       selectedAddressId={pickupAddress?.id}
                     />
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      className="mt-2 w-full" 
+                      onClick={() => setShowInstantPickupForm(!showInstantPickupForm)}
+                    >
+                      {showInstantPickupForm ? 'Hide' : 'Add New Pickup Address'}
+                    </Button>
                   </div>
+                  
+                  {showInstantPickupForm && (
+                    <InstantAddressForm 
+                      onAddressSaved={handlePickupAddressSaved}
+                      isPickupAddress={true}
+                    />
+                  )}
                   
                   {pickupAddress && (
                     <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
@@ -158,7 +186,22 @@ const InstantDeliveryPage: React.FC = () => {
                       onAddressSelect={handleDropoffAddressSelect}
                       selectedAddressId={dropoffAddress?.id}
                     />
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      className="mt-2 w-full" 
+                      onClick={() => setShowInstantDropoffForm(!showInstantDropoffForm)}
+                    >
+                      {showInstantDropoffForm ? 'Hide' : 'Add New Dropoff Address'}
+                    </Button>
                   </div>
+                  
+                  {showInstantDropoffForm && (
+                    <InstantAddressForm 
+                      onAddressSaved={handleDropoffAddressSaved}
+                      isPickupAddress={false}
+                    />
+                  )}
                   
                   {dropoffAddress && (
                     <div className="border border-gray-200 rounded-lg p-4 bg-white shadow-sm">
@@ -280,7 +323,6 @@ const InstantDeliveryPage: React.FC = () => {
                     />
                   </div>
 
-                  {/* Package Dimensions Section */}
                   <div className="space-y-3">
                     <div className="flex items-center mb-2">
                       <Ruler className="mr-2 h-4 w-4 text-blue-600" />
