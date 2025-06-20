@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface IndividualLabelCardProps {
   shipment: {
@@ -45,16 +46,42 @@ const IndividualLabelCard: React.FC<IndividualLabelCardProps> = ({
   const [emailAddress, setEmailAddress] = useState('');
   const [emailFormat, setEmailFormat] = useState('pdf');
 
-  const handleEmailSubmit = () => {
+  console.log('IndividualLabelCard render:', {
+    shipmentId: shipment.id,
+    hasLabelUrl: !!shipment.label_url,
+    hasLabelUrls: !!shipment.label_urls,
+    labelUrls: shipment.label_urls
+  });
+
+  const handleEmailSubmit = async () => {
     if (!emailAddress.trim()) {
       toast.error('Please enter an email address');
       return;
     }
     
-    onEmail(emailAddress, emailFormat);
-    setEmailDialogOpen(false);
-    setEmailAddress('');
-    toast.success(`Label sent to ${emailAddress}`);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-label-email', {
+        body: {
+          email: emailAddress,
+          shipmentId: shipment.id,
+          format: emailFormat,
+          type: 'individual'
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      console.log('Individual email sent successfully:', data);
+      onEmail(emailAddress, emailFormat);
+      setEmailDialogOpen(false);
+      setEmailAddress('');
+      toast.success(`Label sent to ${emailAddress}`);
+    } catch (error) {
+      console.error('Email error:', error);
+      toast.error('Failed to send email');
+    }
   };
 
   const handleCopyLink = (format: string) => {
@@ -73,6 +100,32 @@ const IndividualLabelCard: React.FC<IndividualLabelCardProps> = ({
     }
   };
 
+  // For failed shipments, don't show action buttons
+  if (shipment.status === 'failed') {
+    return (
+      <Card className="p-4 border-red-200 bg-red-50">
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex items-center">
+            <Package className="h-5 w-5 text-red-600 mr-3" />
+            <div>
+              <h4 className="font-medium text-red-900">
+                {shipment.customer_name || 'Unknown Recipient'}
+              </h4>
+              <p className="text-sm text-red-700 flex items-center mt-1">
+                <MapPin className="h-3 w-3 mr-1" />
+                {shipment.customer_address || 'No address'}
+              </p>
+            </div>
+          </div>
+          {getStatusBadge(shipment.status)}
+        </div>
+        <div className="text-sm text-red-600">
+          <p>This shipment failed to process. Please check the details and try again.</p>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card className="p-4 hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start mb-4">
@@ -88,7 +141,6 @@ const IndividualLabelCard: React.FC<IndividualLabelCardProps> = ({
             </p>
           </div>
         </div>
-        
         {getStatusBadge(shipment.status)}
       </div>
 
@@ -96,7 +148,7 @@ const IndividualLabelCard: React.FC<IndividualLabelCardProps> = ({
       <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
         <div>
           <p className="text-gray-600">Tracking:</p>
-          <p className="font-mono text-gray-900">{shipment.tracking_code || 'N/A'}</p>
+          <p className="font-mono text-gray-900 text-xs">{shipment.tracking_code || 'N/A'}</p>
         </div>
         <div>
           <p className="text-gray-600">Carrier:</p>
@@ -117,15 +169,15 @@ const IndividualLabelCard: React.FC<IndividualLabelCardProps> = ({
 
       {/* Action Buttons */}
       <div className="border-t pt-4">
-        <h5 className="text-sm font-medium text-gray-700 mb-2">Actions</h5>
+        <h5 className="text-sm font-medium text-gray-700 mb-3">Download Formats</h5>
         
         {/* Download Format Buttons */}
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="grid grid-cols-2 gap-2 mb-3">
           <Button
             onClick={() => onDownload('pdf')}
             size="sm"
             className="bg-red-600 hover:bg-red-700 text-white"
-            disabled={!shipment.label_urls?.pdf}
+            disabled={!shipment.label_urls?.pdf && !shipment.label_url}
           >
             <Download className="h-3 w-3 mr-1" />
             PDF
@@ -135,7 +187,7 @@ const IndividualLabelCard: React.FC<IndividualLabelCardProps> = ({
             onClick={() => onDownload('png')}
             size="sm"
             className="bg-green-600 hover:bg-green-700 text-white"
-            disabled={!shipment.label_urls?.png}
+            disabled={!shipment.label_urls?.png && !shipment.label_url}
           >
             <Download className="h-3 w-3 mr-1" />
             PNG
@@ -163,16 +215,16 @@ const IndividualLabelCard: React.FC<IndividualLabelCardProps> = ({
         </div>
 
         {/* Additional Actions */}
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <Button
             onClick={onPrintPreview}
             size="sm"
             variant="outline"
             className="border-purple-300 text-purple-700 hover:bg-purple-50"
-            disabled={!shipment.label_urls?.pdf}
+            disabled={!shipment.label_urls?.pdf && !shipment.label_url}
           >
             <Printer className="h-3 w-3 mr-1" />
-            Print Preview
+            Print
           </Button>
 
           {/* Email Dialog */}
@@ -232,18 +284,15 @@ const IndividualLabelCard: React.FC<IndividualLabelCardProps> = ({
             </DialogContent>
           </Dialog>
 
-          {/* Copy Link Dropdown */}
-          <div className="relative">
-            <Button
-              onClick={() => handleCopyLink('pdf')}
-              size="sm"
-              variant="outline"
-              className="border-gray-300 text-gray-700 hover:bg-gray-50"
-            >
-              <Copy className="h-3 w-3 mr-1" />
-              Copy Link
-            </Button>
-          </div>
+          <Button
+            onClick={() => handleCopyLink('pdf')}
+            size="sm"
+            variant="outline"
+            className="border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            <Copy className="h-3 w-3 mr-1" />
+            Copy
+          </Button>
         </div>
       </div>
     </Card>
