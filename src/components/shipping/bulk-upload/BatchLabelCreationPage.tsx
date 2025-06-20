@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { BulkUploadResult } from '@/types/shipping';
 import BatchLabelDisplay from './BatchLabelDisplay';
-import { supabase } from '@/integrations/supa' + 'base/client';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 
 interface BatchLabelCreationPageProps {
