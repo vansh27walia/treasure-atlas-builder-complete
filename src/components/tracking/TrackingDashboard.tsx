@@ -58,38 +58,20 @@ const TrackingDashboard: React.FC = () => {
       // Check if user is authenticated
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        console.log('User not authenticated, clearing tracking data');
         toast.error('Please log in to view tracking data');
         setTrackingData([]);
         return;
       }
-
-      console.log('Fetching tracking data for user:', session.user.id);
 
       // This will now only return user-specific tracking data
       const { data, error } = await supabase.functions.invoke('get-tracking-info', {
         body: {}
       });
 
-      if (error) {
-        console.error('Error from get-tracking-info function:', error);
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
       
-      console.log('Tracking data received:', data);
-      
-      if (data && Array.isArray(data)) {
-        setTrackingData(data);
-        if (data.length > 0) {
-          toast.success(`Loaded ${data.length} tracking records`);
-        } else {
-          toast.info('No tracking data found for your account');
-        }
-      } else {
-        console.log('No tracking data returned');
-        setTrackingData([]);
-        toast.info('No tracking data found for your account');
-      }
+      setTrackingData(data || []);
+      toast.success('Tracking data updated');
     } catch (error) {
       console.error('Error fetching tracking data:', error);
       toast.error('Failed to load tracking information');
