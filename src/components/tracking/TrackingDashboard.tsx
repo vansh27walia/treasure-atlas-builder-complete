@@ -58,71 +58,20 @@ const TrackingDashboard: React.FC = () => {
       // Check if user is authenticated
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        console.log('No active session found');
         toast.error('Please log in to view tracking data');
         setTrackingData([]);
         return;
       }
 
-      console.log('Fetching tracking data for user:', session.user.id);
-
-      // Fetch user-scoped tracking data from shipment_records
-      const { data: shipmentRecords, error } = await supabase
-        .from('shipment_records')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching shipment records:', error);
-        throw new Error(error.message);
-      }
-
-      console.log('Fetched shipment records:', shipmentRecords?.length || 0);
-
-      // Transform shipment records to tracking format with proper type casting
-      const transformedData: TrackingInfo[] = (shipmentRecords || []).map((record) => {
-        // Type cast JSON fields to expected objects
-        const toAddress = record.to_address_json as any;
-        const parcel = record.parcel_json as any;
-        const trackingDetails = record.tracking_details as any[];
-
-        return {
-          id: record.id.toString(),
-          tracking_code: record.tracking_code || 'N/A',
-          carrier: record.carrier || 'Unknown',
-          carrier_code: record.carrier?.toLowerCase() || 'unknown',
-          status: record.status || 'created',
-          eta: record.est_delivery_date,
-          last_update: record.updated_at || record.created_at,
-          label_url: record.label_url,
-          shipment_id: record.shipment_id || '',
-          recipient: toAddress?.name || 'Unknown Recipient',
-          recipient_address: toAddress ? 
-            `${toAddress.street1 || ''}, ${toAddress.city || ''}, ${toAddress.state || ''} ${toAddress.zip || ''}`.trim() : 
-            'Unknown Address',
-          package_details: {
-            weight: parcel?.weight ? `${parcel.weight} oz` : 'N/A',
-            dimensions: parcel ? 
-              `${parcel.length || 0}x${parcel.width || 0}x${parcel.height || 0} in` : 
-              'N/A',
-            service: record.service || 'Standard'
-          },
-          estimated_delivery: record.est_delivery_date ? {
-            date: record.est_delivery_date,
-            time_range: 'By end of day'
-          } : null,
-          tracking_events: Array.isArray(trackingDetails) ? trackingDetails : []
-        };
+      // This will now only return user-specific tracking data
+      const { data, error } = await supabase.functions.invoke('get-tracking-info', {
+        body: {}
       });
 
-      setTrackingData(transformedData);
-      console.log('Successfully loaded tracking data:', transformedData.length, 'items');
+      if (error) throw new Error(error.message);
       
-      if (transformedData.length > 0) {
-        toast.success(`Loaded ${transformedData.length} tracking records`);
-      } else {
-        toast.info('No tracking data found. Create a shipping label to see tracking information here.');
-      }
+      setTrackingData(data || []);
+      toast.success('Tracking data updated');
     } catch (error) {
       console.error('Error fetching tracking data:', error);
       toast.error('Failed to load tracking information');
@@ -134,6 +83,9 @@ const TrackingDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchTrackingData();
+    // Set up refresh interval (every 30 seconds for demo purposes)
+    const interval = setInterval(fetchTrackingData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // Filter tracking data based on active filter
