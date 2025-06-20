@@ -1,5 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,6 +20,36 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
+    // Get the user's JWT token from the Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'No authorization header' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401
+      });
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
+    );
+
+    // Get the current user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    
+    if (userError || !user) {
+      logStep("User authentication failed", { error: userError?.message });
+      return new Response(JSON.stringify({ error: 'User not authenticated' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401
+      });
+    }
+
     const apiKey = Deno.env.get('EASYPOST_API_KEY');
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'API key not configured' }), {
@@ -35,7 +66,7 @@ serve(async (req) => {
       });
     }
 
-    logStep("Creating tracker for tracking number", { tracking_number });
+    logStep("Creating tracker for tracking number", { tracking_number, userId: user.id });
 
     // Create tracker with EasyPost - let EasyPost auto-detect the carrier
     const easypostResponse = await fetch("https://api.easypost.com/v2/trackers", {
@@ -62,6 +93,32 @@ serve(async (req) => {
 
     const trackerData = await easypostResponse.json();
     logStep("EasyPost tracker created", { trackerId: trackerData.id, status: trackerData.status });
+
+    // Save the tracking record to our database with user_id
+    const trackingRecord = {
+      user_id: user.id, // Associate with the authenticated user
+      tracking_code: trackerData.tracking_code,
+      carrier: trackerData.carrier || 'Unknown',
+      status: mapEasyPostStatus(trackerData.status),
+      est_delivery_date: trackerData.est_delivery_date,
+      tracking_details: trackerData.tracking_details || [],
+      shipment_id: trackerData.shipment_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Insert or update the tracking record
+    const { error: dbError } = await supabaseClient
+      .from('shipment_records')
+      .upsert(trackingRecord, { 
+        onConflict: 'tracking_code,user_id',
+        ignoreDuplicates: false 
+      });
+
+    if (dbError) {
+      logStep("Database error saving tracking record", { error: dbError.message });
+      // Continue anyway as we still have the tracking data
+    }
 
     // Transform EasyPost response to match our frontend expected format
     const transformedData = {
