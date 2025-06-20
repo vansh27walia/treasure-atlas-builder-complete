@@ -53,17 +53,14 @@ const BatchLabelActions: React.FC<BatchLabelActionsProps> = ({
       }
     }
 
-    // Fallback to bulk URLs if consolidated URLs not available
-    if (!downloadUrl) {
+    // Fallback to bulk URLs if consolidated URLs not available (only for PDF/PNG)
+    if (!downloadUrl && (format === 'pdf' || format === 'png')) {
       switch (format) {
         case 'pdf':
           downloadUrl = results.bulk_label_pdf_url || '';
           break;
         case 'png':
           downloadUrl = results.bulk_label_png_url || '';
-          break;
-        case 'zpl':
-          downloadUrl = results.bulk_label_zpl_url || '';
           break;
       }
     }
