@@ -3,76 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CARRIER_OPTIONS } from '@/types/shipping';
 import { Search, SortAsc, SortDesc, Filter } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-
-// Extended carrier options with additional carriers
-const EXTENDED_CARRIER_OPTIONS = [
-  {
-    id: 'usps',
-    name: 'USPS',
-    services: [
-      { id: 'first_class', name: 'First Class' },
-      { id: 'priority', name: 'Priority Mail' },
-      { id: 'priority_express', name: 'Priority Express' },
-      { id: 'ground_advantage', name: 'Ground Advantage' },
-      { id: 'media_mail', name: 'Media Mail' }
-    ]
-  },
-  {
-    id: 'ups',
-    name: 'UPS',
-    services: [
-      { id: 'ground', name: 'Ground' },
-      { id: 'next_day_air', name: 'Next Day Air' },
-      { id: 'next_day_air_saver', name: 'Next Day Air Saver' },
-      { id: '2nd_day_air', name: '2nd Day Air' },
-      { id: '3_day_select', name: '3 Day Select' }
-    ]
-  },
-  {
-    id: 'fedex',
-    name: 'FedEx',
-    services: [
-      { id: 'ground', name: 'Ground' },
-      { id: 'express_saver', name: 'Express Saver' },
-      { id: '2day', name: '2Day' },
-      { id: 'standard_overnight', name: 'Standard Overnight' },
-      { id: 'priority_overnight', name: 'Priority Overnight' }
-    ]
-  },
-  {
-    id: 'dhl',
-    name: 'DHL',
-    services: [
-      { id: 'express', name: 'Express' },
-      { id: 'express_worldwide', name: 'Express Worldwide' },
-      { id: 'economy_select', name: 'Economy Select' }
-    ]
-  },
-  {
-    id: 'canada_post',
-    name: 'Canada Post',
-    services: [
-      { id: 'regular_parcel', name: 'Regular Parcel' },
-      { id: 'expedited_parcel', name: 'Expedited Parcel' },
-      { id: 'xpresspost', name: 'Xpresspost' },
-      { id: 'priority', name: 'Priority' }
-    ]
-  },
-  {
-    id: 'purolator',
-    name: 'Purolator',
-    services: [
-      { id: 'ground', name: 'Ground' },
-      { id: 'express', name: 'Express' },
-      { id: 'express_9am', name: 'Express 9AM' },
-      { id: 'express_1030am', name: 'Express 10:30AM' }
-    ]
-  }
-];
 
 interface BulkShipmentFiltersProps {
   searchTerm: string;
@@ -101,7 +36,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
   // Update available services when carrier changes
   useEffect(() => {
     if (selectedCarrierService?.carrierId) {
-      const carrier = EXTENDED_CARRIER_OPTIONS.find(c => c.id === selectedCarrierService.carrierId);
+      const carrier = CARRIER_OPTIONS.find(c => c.id === selectedCarrierService.carrierId);
       if (carrier) {
         setAvailableServices(carrier.services);
         // Auto select first service if current service doesn't exist in this carrier
@@ -117,15 +52,13 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
     }
   }, [selectedCarrierService?.carrierId]);
 
-  // Handle apply to all button click - Fixed functionality
+  // Handle apply to all button click
   const handleApplyToAll = () => {
     if (selectedCarrierService?.carrierId && selectedCarrierService?.serviceId) {
-      const carrier = EXTENDED_CARRIER_OPTIONS.find(c => c.id === selectedCarrierService.carrierId);
-      const service = availableServices.find(s => s.id === selectedCarrierService.serviceId);
-      
-      if (carrier && service) {
-        onApplyCarrierToAll(carrier.name, service.name);
-      }
+      onApplyCarrierToAll(
+        CARRIER_OPTIONS.find(c => c.id === selectedCarrierService.carrierId)?.name || '',
+        availableServices.find(s => s.id === selectedCarrierService.serviceId)?.name || ''
+      );
     }
   };
 
@@ -189,7 +122,7 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
                   <Label htmlFor="all">All carriers</Label>
                 </div>
                 
-                {EXTENDED_CARRIER_OPTIONS.map((carrier) => (
+                {CARRIER_OPTIONS.map((carrier) => (
                   <div className="flex items-center space-x-2" key={carrier.id}>
                     <RadioGroupItem value={carrier.id} id={carrier.id} />
                     <Label htmlFor={carrier.id}>{carrier.name}</Label>
@@ -211,12 +144,12 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
             })}
           >
             <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Choose All Carriers" />
+              <SelectValue placeholder="Select carrier" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 <SelectLabel>Carriers</SelectLabel>
-                {EXTENDED_CARRIER_OPTIONS.map((carrier) => (
+                {CARRIER_OPTIONS.map((carrier) => (
                   <SelectItem key={carrier.id} value={carrier.id}>{carrier.name}</SelectItem>
                 ))}
               </SelectGroup>
@@ -248,7 +181,6 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
             onClick={handleApplyToAll}
             disabled={!selectedCarrierService?.carrierId || !selectedCarrierService?.serviceId}
             size="sm"
-            className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             Apply to All
           </Button>

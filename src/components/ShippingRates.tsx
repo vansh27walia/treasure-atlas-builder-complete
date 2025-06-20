@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,6 @@ import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-reac
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PrintPreview from './shipping/PrintPreview';
-import { formatWeightDisplay } from '@/utils/weightConversion';
 
 const ShippingRates: React.FC = () => {
   const {
@@ -53,7 +53,7 @@ const ShippingRates: React.FC = () => {
         setShipmentDetails({
           fromAddress: "Your shipping address",
           toAddress: "Recipient address",
-          weight: "Package weight", // Weight will be formatted in display components
+          weight: "Package weight",
           service: selectedRate.service,
           carrier: selectedRate.carrier.toUpperCase(),
         });

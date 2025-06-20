@@ -104,12 +104,9 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Rate fetching request received');
-    
     // Get the EasyPost API key from Supabase secrets
     const apiKey = Deno.env.get('EASYPOST_API_KEY');
     if (!apiKey) {
-      console.error('EasyPost API key not configured');
       return new Response(
         JSON.stringify({ error: 'API key not configured' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
@@ -118,15 +115,6 @@ serve(async (req) => {
 
     // Parse the request body
     const requestData: ShippingRequestData = await req.json();
-    console.log('Request data received:', JSON.stringify(requestData, null, 2));
-    
-    // Validate required data
-    if (!requestData.fromAddress || !requestData.toAddress || !requestData.parcel) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required address or parcel data' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
     
     // Set up carrier account options for EasyPost
     let carrierAccounts: any[] = [];
@@ -137,6 +125,7 @@ serve(async (req) => {
       console.log(`Requested carriers: ${requestData.carriers.join(', ')}`);
       
       // Map specific carrier strings to EasyPost carrier IDs
+      // Note: This part would need to be updated with your actual carrier account IDs
       requestData.carriers.forEach(carrier => {
         if (carrier !== 'all' && carrier !== 'easypost') {
           specificCarriers.push(carrier.toLowerCase());
@@ -149,37 +138,19 @@ serve(async (req) => {
     // Create shipment request for EasyPost API
     const shipmentRequest = {
       shipment: {
-        from_address: {
-          name: requestData.fromAddress.name,
-          company: requestData.fromAddress.company || '',
-          street1: requestData.fromAddress.street1,
-          street2: requestData.fromAddress.street2 || '',
-          city: requestData.fromAddress.city,
-          state: requestData.fromAddress.state,
-          zip: requestData.fromAddress.zip,
-          country: requestData.fromAddress.country,
-          phone: requestData.fromAddress.phone || ''
-        },
-        to_address: {
-          name: requestData.toAddress.name,
-          company: requestData.toAddress.company || '',
-          street1: requestData.toAddress.street1,
-          street2: requestData.toAddress.street2 || '',
-          city: requestData.toAddress.city,
-          state: requestData.toAddress.state,
-          zip: requestData.toAddress.zip,
-          country: requestData.toAddress.country,
-          phone: requestData.toAddress.phone || ''
-        },
-        parcel: {
-          length: requestData.parcel.length,
-          width: requestData.parcel.width,
-          height: requestData.parcel.height,
-          weight: requestData.parcel.weight
-        },
-        options: requestData.options || {}
+        from_address: requestData.fromAddress,
+        to_address: requestData.toAddress,
+        parcel: requestData.parcel,
+        options: requestData.options || {},
       }
     };
+    
+    // If specific carriers are requested, add carrier_accounts parameter
+    if (specificCarriers.length > 0) {
+      // Note: In EasyPost API v2, you would typically filter carriers at request time
+      // This is just a placeholder - the actual implementation depends on your EasyPost setup
+      console.log("Setting up carrier filtering for EasyPost");
+    }
     
     console.log("Sending request to EasyPost API:", JSON.stringify(shipmentRequest, null, 2));
     
@@ -204,8 +175,6 @@ serve(async (req) => {
       );
     }
 
-    console.log('EasyPost API response received successfully');
-
     // Filter rates by carrier if specified
     let rates = data.rates || [];
     console.log(`Raw rates returned from EasyPost: ${rates.length}`);
@@ -219,19 +188,6 @@ serve(async (req) => {
       console.log(`Filtered to ${rates.length} rates matching requested carriers`);
     }
     
-    // Ensure we have rates to return
-    if (rates.length === 0) {
-      console.log('No rates found for the given criteria');
-      return new Response(
-        JSON.stringify({ 
-          rates: [],
-          shipmentId: data.id,
-          message: 'No rates available for this shipment'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
     // Get markup percentage and apply to rates
     const markupPercentage = getMarkupPercentage();
     console.log(`Applying ${markupPercentage}% markup to shipping rates`);
@@ -239,8 +195,6 @@ serve(async (req) => {
     
     // Organize rates by carrier for better presentation
     const organizedRates = organizeRatesByCarrier(markedUpRates);
-
-    console.log(`Returning ${organizedRates.length} processed rates`);
 
     // Return the rates from the response
     return new Response(
@@ -254,11 +208,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in get-shipping-rates function:', error);
     return new Response(
-      JSON.stringify({ 
-        error: 'Internal Server Error', 
-        message: error instanceof Error ? error.message : 'Unknown error',
-        details: 'Please check your request data and try again'
-      }),
+      JSON.stringify({ error: 'Internal Server Error', message: error instanceof Error ? error.message : 'Unknown error' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
