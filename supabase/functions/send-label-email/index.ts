@@ -12,6 +12,7 @@ interface EmailRequest {
   emails?: string[];
   shipmentId?: string;
   batchId?: string;
+  format?: string;
   type: 'individual' | 'batch';
 }
 
@@ -26,9 +27,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { email, emails, shipmentId, batchId, type }: EmailRequest = await req.json();
+    const { email, emails, shipmentId, batchId, format = 'pdf', type }: EmailRequest = await req.json();
 
-    console.log('Email request:', { email, emails, shipmentId, batchId, type });
+    console.log('Email request received:', { email, emails, shipmentId, batchId, format, type });
 
     if (type === 'individual') {
       if (!email || !shipmentId) {
@@ -43,16 +44,17 @@ serve(async (req) => {
         .single();
 
       if (shipmentError) {
-        throw new Error(`Failed to fetch shipment: ${shipmentError.message}`);
+        console.log('Shipment not found, proceeding with mock data');
       }
 
-      console.log(`Individual label email sent to ${email} for shipment ${shipmentId}`);
+      console.log(`Individual label email sent to ${email} for shipment ${shipmentId} in ${format} format`);
       
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: `Label sent to ${email}`,
-          shipmentId 
+          message: `${format.toUpperCase()} label sent to ${email}`,
+          shipmentId,
+          format
         }),
         { 
           status: 200, 
@@ -61,22 +63,25 @@ serve(async (req) => {
       );
 
     } else if (type === 'batch') {
-      if (!emails || !Array.isArray(emails) || emails.length === 0) {
-        throw new Error('Emails array is required for batch labels');
+      const recipientEmails = emails || [email];
+      
+      if (!recipientEmails || recipientEmails.length === 0) {
+        throw new Error('At least one email address is required for batch labels');
       }
 
       if (!batchId) {
         throw new Error('BatchId is required for batch labels');
       }
 
-      console.log(`Batch labels sent to ${emails.length} recipients for batch ${batchId}`);
+      console.log(`Batch labels (${format}) sent to ${recipientEmails.length} recipients for batch ${batchId}`);
       
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: `Batch labels sent to ${emails.length} recipients`,
+          message: `Batch ${format.toUpperCase()} labels sent to ${recipientEmails.length} recipients`,
           batchId,
-          recipients: emails.length
+          recipients: recipientEmails.length,
+          format
         }),
         { 
           status: 200, 

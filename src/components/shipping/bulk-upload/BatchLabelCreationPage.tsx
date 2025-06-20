@@ -75,17 +75,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
     storeLabelsAutomatically();
   }, [results]);
 
-  // Debug: Log the current state
-  console.log('Current results state:', {
-    hasResults: !!results,
-    hasProcessedShipments: !!results?.processedShipments,
-    processedShipmentsLength: results?.processedShipments?.length || 0,
-    uploadStatus: results?.uploadStatus,
-    batchResult: results?.batchResult
-  });
-
   if (!results) {
-    console.log('No results provided to BatchLabelCreationPage');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -97,20 +87,11 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
   }
 
   if (!results.processedShipments || results.processedShipments.length === 0) {
-    console.log('No processed shipments found in results');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">No Labels Available</h2>
           <p className="text-gray-600">No batch labels have been generated yet.</p>
-          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              Debug: Results object exists but no processed shipments found.
-            </p>
-            <p className="text-xs text-yellow-600 mt-1">
-              Results keys: {Object.keys(results).join(', ')}
-            </p>
-          </div>
         </div>
       </div>
     );
@@ -118,12 +99,6 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
 
   const successfulLabels = results.processedShipments.filter(s => s.status === 'completed' && s.label_url);
   const failedLabels = results.processedShipments.filter(s => s.status === 'failed');
-
-  console.log('Rendering BatchLabelCreationPage with:', {
-    totalShipments: results.processedShipments.length,
-    successfulLabels: successfulLabels.length,
-    failedLabels: failedLabels.length
-  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -151,6 +126,8 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
         <BatchLabelDisplay
           results={results}
           onDownloadSingleLabel={onDownloadSingleLabel}
+          batchPrintPreviewModalOpen={batchPrintPreviewModalOpen}
+          setBatchPrintPreviewModalOpen={setBatchPrintPreviewModalOpen}
         />
       </div>
     </div>
