@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -62,8 +63,17 @@ const BulkUploadView: React.FC = () => {
     setPickupAddress(address);
   };
 
-  // Render the correct view based on upload status
-  if (uploadStatus === 'success' && results) {
+  // Debug logging
+  console.log('BulkUploadView render state:', {
+    uploadStatus,
+    hasResults: !!results,
+    resultsProcessedShipments: results?.processedShipments?.length || 0,
+    labelGenerationInProgress: labelGenerationProgress.isGenerating
+  });
+
+  // Render the BatchLabelCreationPage when labels have been successfully created
+  if (uploadStatus === 'success' && results && results.processedShipments && results.processedShipments.length > 0) {
+    console.log('Rendering BatchLabelCreationPage with:', results);
     return (
       <BatchLabelCreationPage
         results={results}
@@ -231,24 +241,13 @@ const BulkUploadView: React.FC = () => {
         </div>
       )}
 
-      {/* Legacy Results Section - Keep as fallback */}
-      {uploadStatus === 'success' && results && results.processedShipments && results.processedShipments.length > 0 && (
-        <div className="hidden">
-          <div className="min-h-screen bg-gray-50">
-            <div className="max-w-7xl mx-auto p-6">
-              <div className="mb-6">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Label Creation Complete</h1>
-                <p className="text-gray-600">Your shipping labels have been generated successfully.</p>
-              </div>
-              
-              {results.processedShipments && results.processedShipments.length > 0 && (
-                <LabelResultsTable
-                  shipments={results.processedShipments || []}
-                  onDownloadLabel={handleDownloadSingleLabel}
-                />
-              )}
-            </div>
-          </div>
+      {/* Debug Information - Show current state */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-4 right-4 bg-black text-white p-2 rounded text-xs max-w-xs">
+          <div>Status: {uploadStatus}</div>
+          <div>Results: {results ? 'Yes' : 'No'}</div>
+          <div>Shipments: {results?.processedShipments?.length || 0}</div>
+          <div>Generating: {labelGenerationProgress.isGenerating ? 'Yes' : 'No'}</div>
         </div>
       )}
     </div>
