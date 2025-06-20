@@ -55,15 +55,6 @@ const TrackingDashboard: React.FC = () => {
   const fetchTrackingData = async () => {
     setIsLoading(true);
     try {
-      // Check if user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('Please log in to view tracking data');
-        setTrackingData([]);
-        return;
-      }
-
-      // This will now only return user-specific tracking data
       const { data, error } = await supabase.functions.invoke('get-tracking-info', {
         body: {}
       });
@@ -75,7 +66,6 @@ const TrackingDashboard: React.FC = () => {
     } catch (error) {
       console.error('Error fetching tracking data:', error);
       toast.error('Failed to load tracking information');
-      setTrackingData([]);
     } finally {
       setIsLoading(false);
     }

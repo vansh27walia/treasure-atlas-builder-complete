@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PickupAddressSettings from '@/components/settings/PickupAddressSettings';
 import { Card } from '@/components/ui/card';
+import GoogleApiKeyInput from '@/components/settings/GoogleApiKeyInput';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,8 +14,6 @@ import { addressService } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
-import AddressAutoComplete from '@/components/shipping/AddressAutoComplete';
-import { extractAddressComponents } from '@/utils/addressUtils';
 
 interface SimpleAddressFormValues {
   name: string;
@@ -40,46 +39,6 @@ const SettingsPage: React.FC = () => {
       isDefault: true,
     }
   });
-
-  // Handle Google autocomplete address selection
-  const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
-    try {
-      console.log("Google Place selected in simple form:", place);
-      
-      if (!place) {
-        console.warn("No place data received");
-        return;
-      }
-      
-      const { street1, city, state, zip, country } = extractAddressComponents(place);
-      
-      console.log("Extracted components for simple form:", { street1, city, state, zip, country });
-      
-      // Set all the form values at once
-      if (street1) {
-        form.setValue('street1', street1, { shouldValidate: true, shouldDirty: true });
-      }
-      if (city) {
-        form.setValue('city', city, { shouldValidate: true, shouldDirty: true });
-      }
-      if (state) {
-        form.setValue('state', state, { shouldValidate: true, shouldDirty: true });
-      }
-      if (zip) {
-        form.setValue('zip', zip, { shouldValidate: true, shouldDirty: true });
-      }
-      
-      toast.success('Address details populated from Google Maps');
-    } catch (error) {
-      console.error("Error processing Google place selection:", error);
-      toast.error('Failed to process selected address. Please fill in the fields manually.');
-    }
-  };
-
-  // Handle address line changes directly from the autocomplete
-  const handleAddressLineChange = (value: string) => {
-    form.setValue('street1', value, { shouldValidate: true, shouldDirty: true });
-  };
 
   const onSubmit = async (values: SimpleAddressFormValues) => {
     if (!user) {
@@ -138,6 +97,7 @@ const SettingsPage: React.FC = () => {
         <TabsList className="mb-4">
           <TabsTrigger value="pickup-addresses">Pickup Addresses</TabsTrigger>
           <TabsTrigger value="shipping">Shipping Options</TabsTrigger>
+          <TabsTrigger value="api-keys">API Settings</TabsTrigger>
         </TabsList>
         
         <TabsContent value="pickup-addresses">
@@ -153,8 +113,8 @@ const SettingsPage: React.FC = () => {
             
             {useAlternativeForm ? (
               <Card className="p-6">
-                <h2 className="text-2xl font-bold mb-4">Simple Address Form with Google Autocomplete</h2>
-                <p className="text-gray-500 mb-4">Use this simplified form with Google autocomplete to quickly add a pickup address</p>
+                <h2 className="text-2xl font-bold mb-4">Simple Address Form</h2>
+                <p className="text-gray-500 mb-4">Use this simplified form to add a pickup address</p>
                 
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -176,16 +136,9 @@ const SettingsPage: React.FC = () => {
                       name="street1"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Street Address with Google Autocomplete</FormLabel>
+                          <FormLabel>Street Address</FormLabel>
                           <FormControl>
-                            <AddressAutoComplete 
-                              placeholder="Start typing your address..."
-                              defaultValue={field.value}
-                              onAddressSelected={handleGooglePlaceSelected}
-                              onChange={handleAddressLineChange}
-                              id="simple-address-autocomplete"
-                              required
-                            />
+                            <Input required placeholder="123 Main St" {...field} />
                           </FormControl>
                         </FormItem>
                       )}
@@ -288,6 +241,10 @@ const SettingsPage: React.FC = () => {
               </div>
             </div>
           </Card>
+        </TabsContent>
+        
+        <TabsContent value="api-keys">
+          <GoogleApiKeyInput />
         </TabsContent>
       </Tabs>
     </div>

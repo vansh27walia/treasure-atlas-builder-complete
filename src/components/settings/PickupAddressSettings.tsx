@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -356,7 +357,6 @@ const PickupAddressSettings: React.FC = () => {
             buttonText={editingAddress ? 'Update Address' : 'Save Address'}
             isPickupAddress={true}
             showDefaultOptions={true}
-            enableGoogleAutocomplete={true}
           />
         </DialogContent>
       </Dialog>

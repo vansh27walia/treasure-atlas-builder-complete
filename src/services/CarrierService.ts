@@ -153,7 +153,7 @@ class CarrierService {
   }
   
   /**
-   * Creates a shipping label and automatically saves tracking data with user association
+   * Creates a shipping label
    */
   public async createLabel(shipmentId: string, rateId: string, carrier: CarrierType = 'easypost'): Promise<{
     labelUrl: string;
@@ -170,7 +170,6 @@ class CarrierService {
           throw new Error(`Error creating label: ${error.message}`);
         }
 
-        // The edge function should handle saving the tracking record with user_id
         return {
           labelUrl: data.labelUrl,
           trackingCode: data.trackingCode

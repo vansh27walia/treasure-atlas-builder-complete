@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { loadGoogleMapsAPI, initAddressAutocomplete } from '@/utils/addressUtils';
@@ -14,7 +15,6 @@ interface AddressAutoCompleteProps {
   className?: string;
   disabled?: boolean;
   onChange?: (value: string) => void;
-  onFullAddressPopulated?: (addressData: any) => void;
 }
 
 const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
@@ -26,8 +26,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
   required = false,
   className = '',
   disabled = false,
-  onChange,
-  onFullAddressPopulated
+  onChange
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -43,7 +42,7 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
     }
   }, [defaultValue]);
 
-  // Enhanced address selection handler that populates the entire form
+  // Memoize the address selection handler to prevent recreation
   const handleAddressSelection = useCallback((place: GoogleMapsPlace) => {
     console.log("Google Maps place selected:", place);
     
@@ -56,60 +55,11 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
     if (place) {
       console.log("Calling onAddressSelected with place");
       onAddressSelected(place);
-      
-      // Extract and populate full address data
-      if (onFullAddressPopulated) {
-        const addressData = extractFullAddressData(place);
-        console.log("Extracted full address data:", addressData);
-        onFullAddressPopulated(addressData);
-      }
     } else {
       console.warn("Missing place data in selection");
       toast.warning("Could not get complete address details");
     }
-  }, [onAddressSelected, onChange, onFullAddressPopulated]);
-
-  // Function to extract complete address data from Google Place
-  const extractFullAddressData = (place: GoogleMapsPlace) => {
-    let street_number = '';
-    let route = '';
-    let city = '';
-    let state = '';
-    let zip = '';
-    let country = 'US';
-    
-    if (place.address_components && place.address_components.length > 0) {
-      place.address_components.forEach((component) => {
-        const types = component.types;
-        
-        if (types.includes('street_number')) {
-          street_number = component.long_name;
-        } else if (types.includes('route')) {
-          route = component.long_name;
-        } else if (types.includes('locality') || types.includes('sublocality')) {
-          city = component.long_name;
-        } else if (types.includes('administrative_area_level_1')) {
-          state = component.short_name;
-        } else if (types.includes('postal_code')) {
-          zip = component.long_name;
-        } else if (types.includes('country')) {
-          country = component.short_name;
-        }
-      });
-    }
-    
-    // Combine street number and route for full street address
-    const street1 = street_number && route ? `${street_number} ${route}` : (route || street_number || '');
-    
-    return {
-      street1,
-      city,
-      state,
-      zip,
-      country,
-      formatted_address: place.formatted_address || ''
-    };
-  };
+  }, [onAddressSelected, onChange]);
 
   // Optimize API key fetching to prevent multiple calls
   useEffect(() => {
@@ -229,8 +179,8 @@ const AddressAutoComplete: React.FC<AddressAutoCompleteProps> = ({
         required={required}
         className={`${className} ${isLoaded ? 'border-blue-300 focus:border-blue-500' : ''}`}
         disabled={disabled || isLoadingKey}
-        autoComplete="off"
-        style={{ zIndex: 10 }}
+        autoComplete="off" // Disable browser's native autocomplete
+        style={{ zIndex: 10 }} // Ensure input is above other elements
       />
       {isLoaded && (
         <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-blue-500">
