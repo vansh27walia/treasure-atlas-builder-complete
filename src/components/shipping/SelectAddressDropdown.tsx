@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Check, ChevronsUpDown, MapPin, Plus } from 'lucide-react';
+import { Check, ChevronsUpDown, MapPin, Plus, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Command,
@@ -42,73 +42,116 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(defaultAddress);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
-  // Memoize the address loading function to prevent constant re-renders
-  const loadAddresses = useCallback(async () => {
-    if (isLoading || hasLoadedOnce) return;
-    
+  // Refresh addresses function with proper state management
+  const refreshAddresses = useCallback(async () => {
     setIsLoading(true);
     try {
-      console.log('Loading addresses for dropdown...');
+      console.log('Refreshing addresses for dropdown...');
       const { data } = await addressService.getSession();
       if (!data?.session?.user) {
         console.log('User not authenticated, skipping address loading');
         setAddresses([]);
-        setIsLoading(false);
-        setHasLoadedOnce(true);
         return;
       }
       
       const savedAddresses = await addressService.getSavedAddresses();
-      console.log('Loaded addresses for dropdown:', savedAddresses);
+      console.log('Refreshed addresses for dropdown:', savedAddresses);
       setAddresses(savedAddresses || []);
-      setHasLoadedOnce(true);
-
-      // Only auto-select default if no address is currently selected
-      if (!selectedAddress && savedAddresses?.length > 0) {
-        const defaultAddr = isPickupAddress 
-          ? savedAddresses.find(addr => addr.is_default_from)
-          : savedAddresses.find(addr => addr.is_default_to);
-        
-        if (defaultAddr) {
-          console.log('Auto-selecting default address:', defaultAddr);
-          setSelectedAddress(defaultAddr);
-          onAddressSelected(defaultAddr);
-        }
-      }
+      toast.success('Addresses refreshed successfully');
     } catch (error) {
-      console.error('Error loading addresses:', error);
-      toast.error('Failed to load saved addresses');
+      console.error('Error refreshing addresses:', error);
+      toast.error('Failed to refresh addresses');
     } finally {
       setIsLoading(false);
     }
-  }, [isPickupAddress, onAddressSelected, selectedAddress, isLoading, hasLoadedOnce]);
+  }, []);
 
-  // Load addresses only once when component mounts
+  // Load addresses on component mount
   useEffect(() => {
-    loadAddresses();
-  }, [loadAddresses]);
+    let isMounted = true;
+    
+    const loadAddresses = async () => {
+      if (isLoading) return;
+      
+      setIsLoading(true);
+      try {
+        console.log('Loading addresses for dropdown...');
+        const { data } = await addressService.getSession();
+        if (!data?.session?.user) {
+          console.log('User not authenticated, skipping address loading');
+          if (isMounted) {
+            setAddresses([]);
+            setIsLoading(false);
+          }
+          return;
+        }
+        
+        const savedAddresses = await addressService.getSavedAddresses();
+        console.log('Loaded addresses for dropdown:', savedAddresses);
+        
+        if (isMounted) {
+          setAddresses(savedAddresses || []);
 
-  // Handle external default address changes without causing re-renders
+          // Auto-select default if no address is currently selected
+          if (!selectedAddress && savedAddresses?.length > 0) {
+            const defaultAddr = isPickupAddress 
+              ? savedAddresses.find(addr => addr.is_default_from)
+              : savedAddresses.find(addr => addr.is_default_to);
+            
+            if (defaultAddr) {
+              console.log('Auto-selecting default address:', defaultAddr);
+              setSelectedAddress(defaultAddr);
+              onAddressSelected(defaultAddr);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading addresses:', error);
+        if (isMounted) {
+          toast.error('Failed to load saved addresses');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadAddresses();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Empty dependency array to run only once
+
+  // Handle external default address changes
   useEffect(() => {
     if (defaultAddress && (!selectedAddress || defaultAddress.id !== selectedAddress.id)) {
       console.log('Setting selected address from default prop:', defaultAddress);
       setSelectedAddress(defaultAddress);
     }
-  }, [defaultAddress?.id]); // Only depend on ID to prevent constant updates
+  }, [defaultAddress?.id]);
 
   const handleSelectAddress = useCallback((address: SavedAddress) => {
     console.log('Address selected from dropdown:', address);
     setSelectedAddress(address);
     onAddressSelected(address);
     setOpen(false);
+    toast.success('Address selected successfully');
   }, [onAddressSelected]);
 
   const handleAddNew = useCallback(() => {
     onAddNew();
     setOpen(false);
   }, [onAddNew]);
+
+  const handleClearSelection = useCallback(() => {
+    console.log('Clearing address selection');
+    setSelectedAddress(null);
+    onAddressSelected(null);
+    toast.info('Address selection cleared');
+  }, [onAddressSelected]);
 
   // Memoize the address label to prevent recalculation
   const addressLabel = useMemo(() => {
@@ -144,14 +187,25 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
             <CommandEmpty>
               <div className="flex flex-col items-center justify-center py-6">
                 <p className="text-sm text-muted-foreground mb-2">No addresses found</p>
-                <Button 
-                  variant="outline" 
-                  onClick={handleAddNew}
-                  className="flex items-center"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add new address
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={refreshAddresses}
+                    disabled={isLoading}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Refresh
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleAddNew}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add new
+                  </Button>
+                </div>
               </div>
             </CommandEmpty>
             <CommandGroup heading={isPickupAddress ? "Pickup Addresses" : "Recipient Addresses"}>
@@ -159,7 +213,10 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                 <CommandItem
                   key={address.id}
                   value={`${address.id}-${address.name || address.street1}`}
-                  onSelect={() => handleSelectAddress(address)}
+                  onSelect={() => {
+                    console.log('Selecting address:', address);
+                    handleSelectAddress(address);
+                  }}
                   className="cursor-pointer hover:bg-gray-50"
                 >
                   <div className="flex items-start mr-2">
@@ -195,11 +252,31 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
             </CommandGroup>
             <CommandSeparator />
             <CommandGroup>
+              {selectedAddress && (
+                <CommandItem 
+                  onSelect={handleClearSelection}
+                  className="cursor-pointer hover:bg-gray-50 text-red-600"
+                >
+                  <span className="font-medium flex items-center">
+                    Clear Selection
+                  </span>
+                </CommandItem>
+              )}
+              <CommandItem 
+                onSelect={refreshAddresses}
+                className="cursor-pointer hover:bg-gray-50"
+                disabled={isLoading}
+              >
+                <span className="font-medium text-blue-600 flex items-center">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh Addresses
+                </span>
+              </CommandItem>
               <CommandItem 
                 onSelect={handleAddNew}
                 className="cursor-pointer hover:bg-gray-50"
               >
-                <span className="font-medium text-blue-600 flex items-center">
+                <span className="font-medium text-green-600 flex items-center">
                   <Plus className="mr-2 h-4 w-4" />
                   Add new address
                 </span>

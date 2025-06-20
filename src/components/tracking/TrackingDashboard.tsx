@@ -55,17 +55,71 @@ const TrackingDashboard: React.FC = () => {
   const fetchTrackingData = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('get-tracking-info', {
-        body: {}
-      });
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.log('No active session found');
+        toast.error('Please log in to view tracking data');
+        setTrackingData([]);
+        return;
+      }
 
-      if (error) throw new Error(error.message);
+      console.log('Fetching tracking data for user:', session.user.id);
+
+      // Fetch user-scoped tracking data from shipment_records
+      const { data: shipmentRecords, error } = await supabase
+        .from('shipment_records')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching shipment records:', error);
+        throw new Error(error.message);
+      }
+
+      console.log('Fetched shipment records:', shipmentRecords?.length || 0);
+
+      // Transform shipment records to tracking format
+      const transformedData: TrackingInfo[] = (shipmentRecords || []).map((record) => ({
+        id: record.id.toString(),
+        tracking_code: record.tracking_code || 'N/A',
+        carrier: record.carrier || 'Unknown',
+        carrier_code: record.carrier?.toLowerCase() || 'unknown',
+        status: record.status || 'created',
+        eta: record.est_delivery_date,
+        last_update: record.updated_at || record.created_at,
+        label_url: record.label_url,
+        shipment_id: record.shipment_id || '',
+        recipient: record.to_address_json?.name || 'Unknown Recipient',
+        recipient_address: record.to_address_json ? 
+          `${record.to_address_json.street1}, ${record.to_address_json.city}, ${record.to_address_json.state} ${record.to_address_json.zip}` : 
+          'Unknown Address',
+        package_details: {
+          weight: record.parcel_json?.weight ? `${record.parcel_json.weight} oz` : 'N/A',
+          dimensions: record.parcel_json ? 
+            `${record.parcel_json.length}x${record.parcel_json.width}x${record.parcel_json.height} in` : 
+            'N/A',
+          service: record.service || 'Standard'
+        },
+        estimated_delivery: record.est_delivery_date ? {
+          date: record.est_delivery_date,
+          time_range: 'By end of day'
+        } : null,
+        tracking_events: record.tracking_details || []
+      }));
+
+      setTrackingData(transformedData);
+      console.log('Successfully loaded tracking data:', transformedData.length, 'items');
       
-      setTrackingData(data || []);
-      toast.success('Tracking data updated');
+      if (transformedData.length > 0) {
+        toast.success(`Loaded ${transformedData.length} tracking records`);
+      } else {
+        toast.info('No tracking data found. Create a shipping label to see tracking information here.');
+      }
     } catch (error) {
       console.error('Error fetching tracking data:', error);
       toast.error('Failed to load tracking information');
+      setTrackingData([]);
     } finally {
       setIsLoading(false);
     }
@@ -73,9 +127,6 @@ const TrackingDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchTrackingData();
-    // Set up refresh interval (every 30 seconds for demo purposes)
-    const interval = setInterval(fetchTrackingData, 30000);
-    return () => clearInterval(interval);
   }, []);
 
   // Filter tracking data based on active filter
