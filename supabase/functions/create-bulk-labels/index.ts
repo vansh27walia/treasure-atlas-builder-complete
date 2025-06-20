@@ -1,10 +1,15 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[CREATE-BULK-LABELS] ${step}${detailsStr}`);
 };
 
 serve(async (req) => {
@@ -13,6 +18,8 @@ serve(async (req) => {
   }
 
   try {
+    logStep("Function started");
+
     // Get the user's JWT token from the Authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -22,7 +29,6 @@ serve(async (req) => {
       });
     }
 
-    // Create a Supabase client with user authentication
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -37,159 +43,162 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     
     if (userError || !user) {
-      console.error('User authentication failed:', userError?.message);
+      logStep("User authentication failed", { error: userError?.message });
       return new Response(JSON.stringify({ error: 'User not authenticated' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401
       });
     }
 
-    const { shipments, pickupAddress, labelOptions = {} } = await req.json();
-    
-    if (!shipments || !Array.isArray(shipments)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid shipments data' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+    logStep("User authenticated", { userId: user.id });
+
+    const apiKey = Deno.env.get('EASYPOST_API_KEY');
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: 'API key not configured' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
+      });
     }
 
-    console.log(`Processing ${shipments.length} shipments for label creation for user: ${user.id}`);
+    const { shipments } = await req.json();
     
-    const processedLabels = [];
-    const failedLabels = [];
+    if (!shipments || !Array.isArray(shipments) || shipments.length === 0) {
+      return new Response(JSON.stringify({ error: 'No shipments provided' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
+    }
 
-    // Process individual labels
-    for (let i = 0; i < shipments.length; i++) {
-      const shipment = shipments[i];
-      const shipmentIndex = i + 1;
-      
+    logStep("Processing bulk labels", { count: shipments.length, userId: user.id });
+
+    const results = [];
+    const trackingRecords = [];
+
+    for (const shipment of shipments) {
       try {
-        console.log(`Processing shipment ${shipmentIndex}/${shipments.length}: ${shipment.id} for user: ${user.id}`);
+        const { shipmentId, rateId } = shipment;
         
-        if (!shipment.selectedRateId || !shipment.easypost_id) {
-          throw new Error('Missing EasyPost shipment ID or rate ID for label generation');
+        if (!shipmentId || !rateId) {
+          results.push({
+            success: false,
+            error: 'Missing shipmentId or rateId',
+            shipment
+          });
+          continue;
         }
 
-        // Purchase the label
-        const labelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId);
+        // Buy the shipment to create the label
+        const easypostResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
+          method: "POST",
+          headers: {
+            'Authorization': `Basic ${btoa(apiKey + ":")}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            rate: { id: rateId }
+          })
+        });
 
-        // Save tracking record to database with user_id
-        const shipmentRecord = {
+        if (!easypostResponse.ok) {
+          const errorText = await easypostResponse.text();
+          logStep("EasyPost API error for shipment", { shipmentId, error: errorText });
+          results.push({
+            success: false,
+            error: errorText,
+            shipment
+          });
+          continue;
+        }
+
+        const shipmentData = await easypostResponse.json();
+        
+        results.push({
+          success: true,
+          labelUrl: shipmentData.postage_label?.label_url,
+          trackingCode: shipmentData.tracking_code,
+          shipmentId: shipmentData.id,
+          shipment
+        });
+
+        // Prepare tracking record for batch insert
+        trackingRecords.push({
           user_id: user.id,
-          shipment_id: shipment.easypost_id,
-          rate_id: shipment.selectedRateId,
-          tracking_code: labelData.tracking_code,
-          label_url: labelData.postage_label?.label_url,
+          shipment_id: shipmentData.id,
+          tracking_code: shipmentData.tracking_code,
+          carrier: shipmentData.selected_rate?.carrier || 'Unknown',
+          service: shipmentData.selected_rate?.service || 'Standard',
           status: 'created',
-          carrier: labelData.selected_rate?.carrier,
-          service: labelData.selected_rate?.service,
-          delivery_days: labelData.selected_rate?.delivery_days || null,
-          charged_rate: labelData.selected_rate?.rate || null,
-          easypost_rate: labelData.selected_rate?.rate || null,
-          currency: labelData.selected_rate?.currency || 'USD',
-          label_format: labelOptions.label_format || "PDF",
-          label_size: labelOptions.label_size || "4x6",
-          is_international: false,
+          label_url: shipmentData.postage_label?.label_url,
+          rate_id: rateId,
+          charged_rate: parseFloat(shipmentData.selected_rate?.rate || '0'),
+          currency: shipmentData.selected_rate?.currency || 'USD',
+          delivery_days: shipmentData.selected_rate?.delivery_days,
+          est_delivery_date: shipmentData.selected_rate?.delivery_date,
+          from_address_json: shipmentData.from_address,
+          to_address_json: shipmentData.to_address,
+          parcel_json: shipmentData.parcel,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        };
+        });
 
-        const { error: dbError } = await supabaseClient
-          .from('shipment_records')
-          .insert(shipmentRecord);
-          
-        if (dbError) {
-          console.error('Error saving bulk shipment record:', dbError);
-        } else {
-          console.log(`Successfully saved tracking record for bulk shipment ${shipment.id}`);
-        }
-
-        const processedLabel = {
-          ...shipment,
-          ...labelData,
-          status: 'completed' as const,
-          customer_name: labelData.to_address?.name || shipment.details?.to_name || shipment.recipient,
-          customer_address: `${labelData.to_address?.street1 || shipment.details?.to_street1}, ${labelData.to_address?.city || shipment.details?.to_city}, ${labelData.to_address?.state || shipment.details?.to_state} ${labelData.to_address?.zip || shipment.details?.to_zip}`,
-        };
-
-        processedLabels.push(processedLabel);
-        console.log(`✅ Successfully processed shipment ${shipmentIndex}/${shipments.length}: ${shipment.id}`);
-
-        // Add delay between shipments to avoid rate limiting
-        if (i < shipments.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
+        logStep("Label created for shipment", { 
+          shipmentId: shipmentData.id, 
+          trackingCode: shipmentData.tracking_code 
+        });
 
       } catch (error) {
-        console.error(`❌ FAILED to process label for shipment ${shipment.id}:`, error);
-        failedLabels.push({
-          shipmentId: shipment.id,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          originalShipment: shipment
+        logStep("Error processing shipment", { shipment, error: error.message });
+        results.push({
+          success: false,
+          error: error.message,
+          shipment
         });
       }
     }
 
-    console.log(`✅ Bulk processing complete for user ${user.id}: ${processedLabels.length} successful, ${failedLabels.length} failed out of ${shipments.length} total`);
+    // Batch insert all tracking records
+    if (trackingRecords.length > 0) {
+      logStep("Saving bulk tracking records", { count: trackingRecords.length });
+      
+      const { error: dbError } = await supabaseClient
+        .from('shipment_records')
+        .insert(trackingRecords);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        processedLabels,
-        failedLabels,
-        total: shipments.length,
-        successful: processedLabels.length,
-        failed: failedLabels.length,
-        message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels`,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    );
-
-  } catch (error) {
-    console.error('Error in create-bulk-labels function:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Label Creation Error', 
-        message: error instanceof Error ? error.message : 'Unknown error' 
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
-  }
-});
-
-const purchaseEasyPostLabel = async (shipmentId: string, rateId: string) => {
-  const apiKey = Deno.env.get('EASYPOST_API_KEY');
-  if (!apiKey) {
-    throw new Error('EasyPost API key not configured');
-  }
-
-  try {
-    console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
-    
-    const buyResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        rate: { id: rateId }
-      }),
-    });
-
-    if (!buyResponse.ok) {
-      const errorData = await buyResponse.json();
-      console.error(`EasyPost purchase error for ${shipmentId}:`, errorData);
-      throw new Error(`EasyPost purchase error: ${errorData.error?.message || 'Unknown error'}`);
+      if (dbError) {
+        logStep("Database error saving bulk tracking records", { error: dbError.message });
+        // Continue anyway as we still have the labels
+      } else {
+        logStep("Bulk tracking records saved successfully");
+      }
     }
 
-    const boughtShipment = await buyResponse.json();
-    console.log(`Successfully purchased label for shipment ${shipmentId}. Tracking: ${boughtShipment.tracking_code}`);
-    
-    return boughtShipment;
-    
+    const successCount = results.filter(r => r.success).length;
+    const failureCount = results.filter(r => !r.success).length;
+
+    logStep("Bulk label creation completed", { 
+      total: shipments.length, 
+      success: successCount, 
+      failed: failureCount 
+    });
+
+    return new Response(JSON.stringify({
+      results,
+      summary: {
+        total: shipments.length,
+        successful: successCount,
+        failed: failureCount
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
+    });
+
   } catch (error) {
-    console.error(`EasyPost label purchase error for shipment ${shipmentId}:`, error);
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logStep("ERROR", { message: errorMessage });
+    return new Response(JSON.stringify({ error: 'Internal Server Error', message: errorMessage }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500
+    });
   }
-};
+});
