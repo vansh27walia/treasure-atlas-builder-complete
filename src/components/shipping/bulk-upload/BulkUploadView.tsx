@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -220,7 +219,7 @@ const BulkUploadView: React.FC = () => {
         </div>
       )}
 
-      {/* Enhanced Batch Label Creation Page - Show when labels are successfully created */}
+      {/* Batch Label Creation Page - Show when labels are successfully created */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <BatchLabelCreationPage
           results={results}
@@ -228,6 +227,27 @@ const BulkUploadView: React.FC = () => {
           batchPrintPreviewModalOpen={batchPrintPreviewModalOpen}
           setBatchPrintPreviewModalOpen={setBatchPrintPreviewModalOpen}
         />
+      )}
+
+      {/* Legacy Results Section - Keep as fallback */}
+      {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && results.processedShipments && results.processedShipments.length > 0 && (
+        <div className="hidden">
+          <div className="min-h-screen bg-gray-50">
+            <div className="max-w-7xl mx-auto p-6">
+              <div className="mb-6">
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">Label Creation Complete</h1>
+                <p className="text-gray-600">Your shipping labels have been generated successfully.</p>
+              </div>
+              
+              {results.processedShipments && results.processedShipments.length > 0 && (
+                <LabelResultsTable
+                  shipments={results.processedShipments || []}
+                  onDownloadLabel={handleDownloadSingleLabel}
+                />
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
