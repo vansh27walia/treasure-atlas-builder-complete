@@ -513,6 +513,54 @@ export type Database = {
         }
         Relationships: []
       }
+      tracking_records: {
+        Row: {
+          carrier: string | null
+          created_at: string
+          easypost_id: string | null
+          id: string
+          label_url: string | null
+          recipient_address: string | null
+          recipient_name: string | null
+          service: string | null
+          shipment_id: string | null
+          status: string | null
+          tracking_code: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          carrier?: string | null
+          created_at?: string
+          easypost_id?: string | null
+          id?: string
+          label_url?: string | null
+          recipient_address?: string | null
+          recipient_name?: string | null
+          service?: string | null
+          shipment_id?: string | null
+          status?: string | null
+          tracking_code: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          carrier?: string | null
+          created_at?: string
+          easypost_id?: string | null
+          id?: string
+          label_url?: string | null
+          recipient_address?: string | null
+          recipient_name?: string | null
+          service?: string | null
+          shipment_id?: string | null
+          status?: string | null
+          tracking_code?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_profiles: {
         Row: {
           created_at: string | null
