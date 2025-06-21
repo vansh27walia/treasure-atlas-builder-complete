@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { ZipWriter, Uint8ArrayReader } from "https://deno.land/x/zipjs@v2.7.34/index.js";
@@ -59,7 +60,6 @@ serve(async (req) => {
       logStep(`Processing shipment ${i + 1}/${shipments.length}`, { shipmentId: shipment.id });
 
       try {
-        // ... keep existing code (shipment payload creation)
         const shipmentPayload = {
           to_address: {
             name: shipment.customer_name || shipment.recipient || 'Unknown',
@@ -133,7 +133,7 @@ serve(async (req) => {
             status: 'created',
             recipient_name: shipment.customer_name || shipment.recipient || 'Unknown',
             recipient_address: `${shipment.details?.to_street1 || ''}, ${shipment.details?.to_city || ''}, ${shipment.details?.to_state || ''} ${shipment.details?.to_zip || ''}`,
-            label_url: purchaseData.postage_label?.label_url || null,
+            label_url: null, // Will be updated after storing
             shipment_id: shipmentData.id,
             easypost_id: shipmentData.id
           };
@@ -149,12 +149,14 @@ serve(async (req) => {
           }
         }
 
+        // Get all label formats
         const labelUrls = {
           png: purchaseData.postage_label?.label_png_url || purchaseData.postage_label?.label_url,
           pdf: null,
           zpl: null
         };
 
+        // Fetch PDF and ZPL formats
         const fetchLabelFormat = async (format: 'pdf' | 'zpl') => {
           try {
             const formatResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentData.id}/label`, {
@@ -179,7 +181,17 @@ serve(async (req) => {
         labelUrls.pdf = await fetchLabelFormat('pdf');
         labelUrls.zpl = await fetchLabelFormat('zpl');
 
+        // Store all labels in Supabase storage
         const storedUrls = await storeLabelsInStorage(supabaseClient, labelUrls, shipmentData.id, purchaseData.tracking_code);
+
+        // Update tracking record with stored label URL
+        if (purchaseData.tracking_code && storedUrls.png) {
+          await supabaseClient
+            .from('tracking_records')
+            .update({ label_url: storedUrls.png })
+            .eq('tracking_code', purchaseData.tracking_code)
+            .eq('user_id', user.id);
+        }
 
         processedLabels.push({
           id: shipmentData.id,
@@ -190,8 +202,8 @@ serve(async (req) => {
           carrier: selectedRate.carrier,
           service: selectedRate.service,
           rate: selectedRate.rate,
-          label_url: storedUrls.png || labelUrls.png,
-          label_urls: storedUrls,
+          label_url: storedUrls.png, // Use Supabase URL
+          label_urls: storedUrls, // All stored URLs
           status: 'success',
           details: shipment.details
         });
@@ -205,11 +217,12 @@ serve(async (req) => {
       }
     }
 
+    // Create consolidated ZIP files and store them in Supabase
     let consolidatedZipUrls = { pdf_zip: null, zpl_zip: null };
     if (processedLabels.length > 0) {
       try {
         consolidatedZipUrls = await createConsolidatedZipFiles(supabaseClient, processedLabels);
-        logStep(`Consolidated ZIP files created`, { urls: consolidatedZipUrls });
+        logStep(`Consolidated ZIP files created and stored`, { urls: consolidatedZipUrls });
       } catch (error) {
         logStep(`Consolidated ZIP creation failed`, { error: error.message });
       }
@@ -253,6 +266,7 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
 
   const safeTrackingCode = trackingCode ? trackingCode.replace(/[^a-zA-Z0-9]/g, '_') : `shipment_${shipmentId}`;
 
+  // Store PNG label
   if (labelUrls.png) {
     try {
       const pngResponse = await fetch(labelUrls.png);
@@ -263,12 +277,15 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
         if (!error) {
           const { data: urlData } = supabaseClient.storage.from(storageBucket).getPublicUrl(pngPath);
           storedUrls.png = urlData.publicUrl;
-           logStep('Stored PNG in Supabase', { url: storedUrls.png });
+          logStep('Stored PNG in Supabase', { url: storedUrls.png });
         } else throw error;
       } else throw new Error(`Failed to fetch PNG: ${pngResponse.status}`);
-    } catch (error) { logStep('PNG storage failed', { error: error.message }); }
+    } catch (error) { 
+      logStep('PNG storage failed', { error: error.message }); 
+    }
   }
 
+  // Store PDF label
   if (labelUrls.pdf) {
     try {
       const pdfResponse = await fetch(labelUrls.pdf);
@@ -282,9 +299,12 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
           logStep('Stored PDF in Supabase', { url: storedUrls.pdf });
         } else throw error;
       } else throw new Error(`Failed to fetch PDF: ${pdfResponse.status}`);
-    } catch (error) { logStep('PDF storage failed', { error: error.message }); }
+    } catch (error) { 
+      logStep('PDF storage failed', { error: error.message }); 
+    }
   }
 
+  // Store ZPL label
   if (labelUrls.zpl) {
     try {
       const zplResponse = await fetch(labelUrls.zpl);
@@ -298,8 +318,11 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
           logStep('Stored ZPL in Supabase', { url: storedUrls.zpl });
         } else throw error;
       } else throw new Error(`Failed to fetch ZPL: ${zplResponse.status}`);
-    } catch (error) { logStep('ZPL storage failed', { error: error.message }); }
+    } catch (error) { 
+      logStep('ZPL storage failed', { error: error.message }); 
+    }
   }
+
   return storedUrls;
 }
 
@@ -320,8 +343,8 @@ async function createConsolidatedZipFiles(supabaseClient: any, processedLabels: 
           if (response.ok && response.body) {
             const trackingCode = label.tracking_code ? label.tracking_code.replace(/[^a-zA-Z0-9]/g, '_') : `label_${label.id}`;
             const fileName = `label_${trackingCode}.${format}`;
-             const labelData = await response.arrayBuffer();
-             zipWriter.add(fileName, new Uint8ArrayReader(new Uint8Array(labelData)));
+            const labelData = await response.arrayBuffer();
+            zipWriter.add(fileName, new Uint8ArrayReader(new Uint8Array(labelData)));
             filesAdded++;
             logStep(`Added ${fileName} to ${format} ZIP`);
           } else {
@@ -341,6 +364,7 @@ async function createConsolidatedZipFiles(supabaseClient: any, processedLabels: 
     const zipBlob = await zipWriter.close();
     const zipPath = `bulk_batches/consolidated_labels_${timestamp}.${format}.zip`;
     
+    // Store consolidated ZIP in Supabase storage
     const { error } = await supabaseClient.storage
       .from(storageBucket)
       .upload(zipPath, zipBlob, { contentType: 'application/zip', upsert: true });
@@ -350,6 +374,7 @@ async function createConsolidatedZipFiles(supabaseClient: any, processedLabels: 
       return null;
     }
     
+    // Get Supabase public URL
     const { data: urlData } = supabaseClient.storage.from(storageBucket).getPublicUrl(zipPath);
     logStep(`Uploaded ${format} ZIP to Supabase`, { url: urlData.publicUrl });
     return urlData.publicUrl;

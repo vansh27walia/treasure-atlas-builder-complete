@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,16 +21,6 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
 }) => {
   const handleBatchPrintPreview = () => {
     setBatchPrintPreviewModalOpen(true);
-  };
-
-  // Generate consolidated label URLs from Supabase storage
-  const generateConsolidatedLabelUrl = (format: string) => {
-    const batchId = results.batchResult?.batchId;
-    if (!batchId) return null;
-    
-    // Construct the Supabase storage URL for consolidated labels
-    const baseUrl = 'https://adhegezdzqlnqqnymvps.supabase.co/storage/v1/object/public/batch_labels';
-    return `${baseUrl}/batch_label_${batchId}.${format}`;
   };
 
   const successfulLabels = results.processedShipments?.filter(s => s.status === 'completed' && s.label_url) || [];
@@ -55,11 +46,11 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
             <Package className="h-8 w-8 text-green-600 mr-3" />
             <h1 className="text-3xl font-bold text-gray-900">Batch Labels Created Successfully</h1>
           </div>
-          <p className="text-gray-600">Your shipping labels have been generated and are ready for download and printing.</p>
+          <p className="text-gray-600">Your shipping labels have been generated and saved to secure storage.</p>
         </div>
 
         {/* Consolidated Download Section */}
-        {successfulLabels.length > 0 && (
+        {results.batchResult?.consolidatedLabelUrls && (
           <Card className="p-6 mb-8 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
             <div className="flex items-center mb-4">
               <FileText className="h-6 w-6 text-green-600 mr-3" />
@@ -69,68 +60,34 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {/* Consolidated PDF */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('pdf');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-red-600 hover:bg-red-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Consolidated PDF</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
+              {results.batchResult.consolidatedLabelUrls.pdfZip && (
+                <Button
+                  onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdfZip!)}
+                  className="bg-red-600 hover:bg-red-700 text-white flex items-center justify-center h-16"
+                  size="lg"
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  <div className="text-center">
+                    <div className="font-semibold">Consolidated PDF</div>
+                    <div className="text-xs opacity-90">All Labels</div>
+                  </div>
+                </Button>
+              )}
 
               {/* Consolidated ZPL */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('zpl');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Consolidated ZPL</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
-
-              {/* Consolidated PNG */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('png');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Consolidated PNG</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
-
-              {/* Consolidated EPL */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('epl');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Consolidated EPL</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
+              {results.batchResult.consolidatedLabelUrls.zplZip && (
+                <Button
+                  onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.zplZip!)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center h-16"
+                  size="lg"
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  <div className="text-center">
+                    <div className="font-semibold">Consolidated ZPL</div>
+                    <div className="text-xs opacity-90">All Labels</div>
+                  </div>
+                </Button>
+              )}
             </div>
           </Card>
         )}
@@ -214,15 +171,38 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex space-x-2">
-                          {shipment.label_url && (
+                          {/* Individual label downloads - now using Supabase URLs */}
+                          {shipment.label_urls?.png && (
                             <Button
-                              onClick={() => onDownloadSingleLabel(shipment.label_url!)}
+                              onClick={() => onDownloadSingleLabel(shipment.label_urls.png)}
+                              size="sm"
+                              variant="outline"
+                              className="text-purple-600 border-purple-600 hover:bg-purple-50"
+                            >
+                              <Download className="mr-1 h-4 w-4" />
+                              PNG
+                            </Button>
+                          )}
+                          {shipment.label_urls?.pdf && (
+                            <Button
+                              onClick={() => onDownloadSingleLabel(shipment.label_urls.pdf)}
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 border-red-600 hover:bg-red-50"
+                            >
+                              <Download className="mr-1 h-4 w-4" />
+                              PDF
+                            </Button>
+                          )}
+                          {shipment.label_urls?.zpl && (
+                            <Button
+                              onClick={() => onDownloadSingleLabel(shipment.label_urls.zpl)}
                               size="sm"
                               variant="outline"
                               className="text-blue-600 border-blue-600 hover:bg-blue-50"
                             >
                               <Download className="mr-1 h-4 w-4" />
-                              Download
+                              ZPL
                             </Button>
                           )}
                         </div>
