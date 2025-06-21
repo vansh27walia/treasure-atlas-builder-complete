@@ -13,7 +13,6 @@ serve(async (req) => {
   }
 
   try {
-    // Get the user's JWT token from the Authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'No authorization header' }), {
@@ -22,7 +21,6 @@ serve(async (req) => {
       });
     }
 
-    // Create a Supabase client with user authentication
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -33,7 +31,6 @@ serve(async (req) => {
       }
     );
 
-    // Get the current user
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     
     if (userError || !user) {
@@ -46,19 +43,29 @@ serve(async (req) => {
 
     console.log('Fetching tracking info for user:', user.id);
 
-    // Fetch user's shipment records (RLS will automatically scope to user)
-    const { data: shipmentRecords, error } = await supabaseClient
+    // Fetch from both shipment_records and tracking_records tables
+    const { data: shipmentRecords, error: shipmentError } = await supabaseClient
       .from('shipment_records')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching shipment records:', error);
-      throw new Error(error.message);
+    const { data: trackingRecords, error: trackingError } = await supabaseClient
+      .from('tracking_records')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (shipmentError) {
+      console.error('Error fetching shipment records:', shipmentError);
+      throw new Error(shipmentError.message);
     }
 
-    // Transform to expected format
-    const trackingData = (shipmentRecords || []).map((record) => ({
+    if (trackingError) {
+      console.error('Error fetching tracking records:', trackingError);
+      throw new Error(trackingError.message);
+    }
+
+    // Transform shipment records to expected format
+    const shipmentTrackingData = (shipmentRecords || []).map((record) => ({
       id: record.id.toString(),
       tracking_code: record.tracking_code || 'N/A',
       carrier: record.carrier || 'Unknown',
@@ -86,10 +93,50 @@ serve(async (req) => {
       tracking_events: record.tracking_details || []
     }));
 
-    console.log(`Returning ${trackingData.length} tracking records for user ${user.id}`);
+    // Transform tracking records to expected format
+    const bulkTrackingData = (trackingRecords || []).map((record) => ({
+      id: record.id.toString(),
+      tracking_code: record.tracking_code,
+      carrier: record.carrier || 'Unknown',
+      carrier_code: record.carrier?.toLowerCase() || 'unknown',
+      status: record.status || 'created',
+      eta: null,
+      last_update: record.updated_at || record.created_at,
+      label_url: record.label_url,
+      shipment_id: record.shipment_id || '',
+      recipient: record.recipient_name || 'Unknown Recipient',
+      recipient_address: record.recipient_address || 'Unknown Address',
+      package_details: {
+        weight: 'N/A',
+        dimensions: 'N/A',
+        service: record.service || 'Standard'
+      },
+      estimated_delivery: null,
+      tracking_events: []
+    }));
+
+    // Combine both datasets, avoiding duplicates based on tracking_code
+    const combinedTrackingData = [...shipmentTrackingData];
+    
+    // Add bulk tracking data that doesn't already exist in shipment data
+    for (const bulkRecord of bulkTrackingData) {
+      const exists = shipmentTrackingData.some(shipmentRecord => 
+        shipmentRecord.tracking_code === bulkRecord.tracking_code
+      );
+      if (!exists) {
+        combinedTrackingData.push(bulkRecord);
+      }
+    }
+
+    // Sort by last_update descending
+    combinedTrackingData.sort((a, b) => 
+      new Date(b.last_update).getTime() - new Date(a.last_update).getTime()
+    );
+
+    console.log(`Returning ${combinedTrackingData.length} tracking records for user ${user.id} (${shipmentTrackingData.length} from shipments, ${bulkTrackingData.length} from bulk)`);
 
     return new Response(
-      JSON.stringify(trackingData),
+      JSON.stringify(combinedTrackingData),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
