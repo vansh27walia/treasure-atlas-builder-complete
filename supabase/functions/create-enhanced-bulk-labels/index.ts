@@ -59,6 +59,7 @@ serve(async (req) => {
       logStep(`Processing shipment ${i + 1}/${shipments.length}`, { shipmentId: shipment.id });
 
       try {
+        // ... keep existing code (shipment payload creation)
         const shipmentPayload = {
           to_address: {
             name: shipment.customer_name || shipment.recipient || 'Unknown',
@@ -257,7 +258,7 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
       const pngResponse = await fetch(labelUrls.png);
       if (pngResponse.ok) {
         const pngBlob = await pngResponse.blob();
-        const pngPath = `labels/${safeTrackingCode}_${shipmentId}.png`;
+        const pngPath = `bulk_labels/${safeTrackingCode}_${shipmentId}.png`;
         const { error } = await supabaseClient.storage.from(storageBucket).upload(pngPath, pngBlob, { contentType: 'image/png', upsert: true });
         if (!error) {
           const { data: urlData } = supabaseClient.storage.from(storageBucket).getPublicUrl(pngPath);
@@ -273,7 +274,7 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
       const pdfResponse = await fetch(labelUrls.pdf);
       if (pdfResponse.ok) {
         const pdfBlob = await pdfResponse.blob();
-        const pdfPath = `labels/${safeTrackingCode}_${shipmentId}.pdf`;
+        const pdfPath = `bulk_labels/${safeTrackingCode}_${shipmentId}.pdf`;
         const { error } = await supabaseClient.storage.from(storageBucket).upload(pdfPath, pdfBlob, { contentType: 'application/pdf', upsert: true });
         if (!error) {
           const { data: urlData } = supabaseClient.storage.from(storageBucket).getPublicUrl(pdfPath);
@@ -289,7 +290,7 @@ async function storeLabelsInStorage(supabaseClient: any, labelUrls: any, shipmen
       const zplResponse = await fetch(labelUrls.zpl);
       if (zplResponse.ok) {
         const zplBlob = await zplResponse.blob();
-        const zplPath = `labels/${safeTrackingCode}_${shipmentId}.zpl`;
+        const zplPath = `bulk_labels/${safeTrackingCode}_${shipmentId}.zpl`;
         const { error } = await supabaseClient.storage.from(storageBucket).upload(zplPath, zplBlob, { contentType: 'application/zpl', upsert: true });
         if (!error) {
           const { data: urlData } = supabaseClient.storage.from(storageBucket).getPublicUrl(zplPath);
@@ -338,7 +339,7 @@ async function createConsolidatedZipFiles(supabaseClient: any, processedLabels: 
     }
     
     const zipBlob = await zipWriter.close();
-    const zipPath = `batches/consolidated_labels_${timestamp}.${format}.zip`;
+    const zipPath = `bulk_batches/consolidated_labels_${timestamp}.${format}.zip`;
     
     const { error } = await supabaseClient.storage
       .from(storageBucket)

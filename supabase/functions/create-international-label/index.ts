@@ -93,13 +93,50 @@ serve(async (req) => {
       );
     }
 
+    // Save label to Supabase Storage
+    let storedLabelUrl = data.postage_label?.label_url;
+    
+    if (data.postage_label?.label_url) {
+      try {
+        // Fetch the label from EasyPost
+        const labelResponse = await fetch(data.postage_label.label_url);
+        if (labelResponse.ok) {
+          const labelBlob = await labelResponse.blob();
+          const safeTrackingCode = data.tracking_code ? data.tracking_code.replace(/[^a-zA-Z0-9]/g, '_') : `shipment_${shipmentId}`;
+          const fileName = `international_labels/${safeTrackingCode}_${shipmentId}.pdf`;
+          
+          // Upload to Supabase Storage
+          const { error: uploadError } = await supabaseClient.storage
+            .from('shipping-labels')
+            .upload(fileName, labelBlob, {
+              contentType: 'application/pdf',
+              upsert: true
+            });
+          
+          if (!uploadError) {
+            // Get the public URL from Supabase
+            const { data: urlData } = supabaseClient.storage
+              .from('shipping-labels')
+              .getPublicUrl(fileName);
+            
+            storedLabelUrl = urlData.publicUrl;
+            console.log('International label saved to Supabase storage:', storedLabelUrl);
+          } else {
+            console.error('Failed to upload international label to storage:', uploadError);
+          }
+        }
+      } catch (error) {
+        console.error('Error saving international label to storage:', error);
+      }
+    }
+
     // Save the shipping record in the database with user_id
     const shipmentRecord = {
       user_id: user.id,
       shipment_id: shipmentId,
       rate_id: rateId,
       tracking_code: data.tracking_code,
-      label_url: data.postage_label?.label_url,
+      label_url: storedLabelUrl,
       status: 'created',
       carrier: data.selected_rate?.carrier,
       service: data.selected_rate?.service,
@@ -125,10 +162,36 @@ serve(async (req) => {
       console.log('Successfully saved international tracking record for user:', user.id);
     }
 
-    // Return the label information
+    // Also save to tracking_records table
+    if (data.tracking_code) {
+      const trackingRecord = {
+        user_id: user.id,
+        tracking_code: data.tracking_code,
+        carrier: data.selected_rate?.carrier || 'Unknown',
+        service: data.selected_rate?.service || 'Standard',
+        status: 'created',
+        recipient_name: 'Unknown',
+        recipient_address: 'Unknown',
+        label_url: storedLabelUrl,
+        shipment_id: shipmentId,
+        easypost_id: shipmentId
+      };
+
+      const { error: trackingError } = await supabaseClient
+        .from('tracking_records')
+        .insert(trackingRecord);
+
+      if (trackingError) {
+        console.error('Failed to save international tracking record:', trackingError);
+      } else {
+        console.log('Successfully saved international tracking record');
+      }
+    }
+
+    // Return the label information with Supabase URL
     return new Response(
       JSON.stringify({
-        labelUrl: data.postage_label?.label_url,
+        labelUrl: storedLabelUrl,
         trackingCode: data.tracking_code,
         shipmentId: data.id,
       }),
