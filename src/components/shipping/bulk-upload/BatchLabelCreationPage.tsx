@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,18 +23,8 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
     setBatchPrintPreviewModalOpen(true);
   };
 
-  // Generate consolidated label URLs from Supabase storage
-  const generateConsolidatedLabelUrl = (format: string) => {
-    const batchId = results.batchResult?.batchId;
-    if (!batchId) return null;
-    
-    // Construct the Supabase storage URL for consolidated labels
-    const baseUrl = 'https://adhegezdzqlnqqnymvps.supabase.co/storage/v1/object/public/batch_labels';
-    return `${baseUrl}/batch_label_${batchId}.${format}`;
-  };
-
-  const successfulLabels = results.processedShipments?.filter(s => s.status === 'completed' && s.label_url) || [];
-  const failedLabels = results.processedShipments?.filter(s => s.status === 'failed') || [];
+  const successfulLabels = results.processedLabels?.filter(s => s.status === 'completed' && s.label_url) || [];
+  const failedLabels = results.failedLabels || [];
 
   // Get street address safely
   const getStreetAddress = (shipment: any) => {
@@ -59,7 +50,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
         </div>
 
         {/* Consolidated Download Section */}
-        {successfulLabels.length > 0 && (
+        {successfulLabels.length > 0 && results.batchResult?.consolidatedLabelUrls && (
           <Card className="p-6 mb-8 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
             <div className="flex items-center mb-4">
               <FileText className="h-6 w-6 text-green-600 mr-3" />
@@ -69,68 +60,64 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {/* Consolidated PDF */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('pdf');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-red-600 hover:bg-red-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Consolidated PDF</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
+              {results.batchResult.consolidatedLabelUrls.pdfZip && (
+                <Button
+                  onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.pdfZip!)}
+                  className="bg-red-600 hover:bg-red-700 text-white flex items-center justify-center h-16"
+                  size="lg"
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  <div className="text-center">
+                    <div className="font-semibold">Consolidated PDF</div>
+                    <div className="text-xs opacity-90">All Labels</div>
+                  </div>
+                </Button>
+              )}
 
               {/* Consolidated ZPL */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('zpl');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Consolidated ZPL</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
-
-              {/* Consolidated PNG */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('png');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Consolidated PNG</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
+              {results.batchResult.consolidatedLabelUrls.zplZip && (
+                <Button
+                  onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.zplZip!)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center h-16"
+                  size="lg"
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  <div className="text-center">
+                    <div className="font-semibold">Consolidated ZPL</div>
+                    <div className="text-xs opacity-90">All Labels</div>
+                  </div>
+                </Button>
+              )}
 
               {/* Consolidated EPL */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('epl');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Consolidated EPL</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
+              {results.batchResult.consolidatedLabelUrls.eplZip && (
+                <Button
+                  onClick={() => onDownloadSingleLabel(results.batchResult!.consolidatedLabelUrls.eplZip!)}
+                  className="bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center h-16"
+                  size="lg"
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  <div className="text-center">
+                    <div className="font-semibold">Consolidated EPL</div>
+                    <div className="text-xs opacity-90">All Labels</div>
+                  </div>
+                </Button>
+              )}
+
+              {/* Scan Form */}
+              {results.batchResult.scanFormUrl && (
+                <Button
+                  onClick={() => onDownloadSingleLabel(results.batchResult!.scanFormUrl!)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center h-16"
+                  size="lg"
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  <div className="text-center">
+                    <div className="font-semibold">Scan Form</div>
+                    <div className="text-xs opacity-90">Manifest</div>
+                  </div>
+                </Button>
+              )}
             </div>
           </Card>
         )}
@@ -184,7 +171,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
                     <th className="text-left py-3 px-4">Tracking Number</th>
                     <th className="text-left py-3 px-4">Carrier</th>
                     <th className="text-left py-3 px-4">Cost</th>
-                    <th className="text-left py-3 px-4">Actions</th>
+                    <th className="text-left py-3 px-4">Labels</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -213,8 +200,45 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
                         <span className="font-medium">${shipment.rate?.toFixed(2) || '0.00'}</span>
                       </td>
                       <td className="py-3 px-4">
-                        <div className="flex space-x-2">
-                          {shipment.label_url && (
+                        <div className="flex flex-wrap gap-1">
+                          {/* PDF Label */}
+                          {shipment.label_urls?.pdf && (
+                            <Button
+                              onClick={() => onDownloadSingleLabel(shipment.label_urls.pdf)}
+                              size="sm"
+                              variant="outline"
+                              className="text-red-600 border-red-600 hover:bg-red-50 text-xs"
+                            >
+                              PDF
+                            </Button>
+                          )}
+                          
+                          {/* PNG Label */}
+                          {shipment.label_urls?.png && (
+                            <Button
+                              onClick={() => onDownloadSingleLabel(shipment.label_urls.png)}
+                              size="sm"
+                              variant="outline"
+                              className="text-green-600 border-green-600 hover:bg-green-50 text-xs"
+                            >
+                              PNG
+                            </Button>
+                          )}
+                          
+                          {/* ZPL Label */}
+                          {shipment.label_urls?.zpl && (
+                            <Button
+                              onClick={() => onDownloadSingleLabel(shipment.label_urls.zpl)}
+                              size="sm"
+                              variant="outline"
+                              className="text-blue-600 border-blue-600 hover:bg-blue-50 text-xs"
+                            >
+                              ZPL
+                            </Button>
+                          )}
+                          
+                          {/* Fallback to main label_url if individual formats not available */}
+                          {!shipment.label_urls && shipment.label_url && (
                             <Button
                               onClick={() => onDownloadSingleLabel(shipment.label_url!)}
                               size="sm"
@@ -240,13 +264,13 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
           <Card className="p-6 mt-8 border-red-200">
             <h2 className="text-xl font-semibold mb-4 text-red-600">Failed Labels</h2>
             <div className="space-y-3">
-              {failedLabels.map((shipment, index) => (
-                <div key={shipment.id || index} className="p-3 bg-red-50 border border-red-200 rounded">
+              {failedLabels.map((failure, index) => (
+                <div key={failure.shipmentId || index} className="p-3 bg-red-50 border border-red-200 rounded">
                   <div className="font-medium text-red-800">
-                    {shipment.customer_name || shipment.recipient}
+                    Shipment ID: {failure.shipmentId}
                   </div>
                   <div className="text-sm text-red-600 mt-1">
-                    Error: {shipment.error || 'Unknown error occurred'}
+                    Error: {failure.error || 'Unknown error occurred'}
                   </div>
                 </div>
               ))}
