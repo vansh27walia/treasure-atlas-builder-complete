@@ -23,8 +23,8 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
     setBatchPrintPreviewModalOpen(true);
   };
 
-  const successfulLabels = results.processedShipments?.filter(s => s.status === 'completed' && s.label_url) || [];
-  const failedLabels = results.failedShipments || [];
+  const successfulLabels = results.processedLabels?.filter(s => s.status === 'completed' && s.label_url) || [];
+  const failedLabels = results.failedLabels || [];
 
   // Get street address safely
   const getStreetAddress = (shipment: any) => {
