@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface AddressData {
@@ -212,28 +211,60 @@ class CarrierService {
   }
   
   /**
-   * Schedules a pickup
+   * Schedules a pickup with enhanced error handling and real API integration
    */
   public async schedulePickup(pickupData: PickupRequestData): Promise<{
     pickupId: string;
     confirmation: string;
     scheduledDate: string;
     carrier: string;
+    status: string;
+    address: AddressData;
+    timeWindow: {
+      start: string;
+      end: string;
+    };
+    packageCount: number;
+    message: string;
+    pickupFee?: number;
+    estimatedWindow?: string;
+    easypostData?: any;
   }> {
     try {
-      // This will be implemented with a new Edge Function
       const { data, error } = await supabase.functions.invoke('schedule-pickup', {
         body: pickupData
       });
 
       if (error) {
+        // Handle specific error types
+        if (error.message.includes('Invalid pickup time window')) {
+          throw new Error('The selected pickup time window is invalid. Please choose different times.');
+        } else if (error.message.includes('Invalid pickup address')) {
+          throw new Error('The pickup address is invalid. Please verify the address details.');
+        } else if (error.message.includes('No valid shipments found')) {
+          throw new Error('No valid shipments found for pickup. Please select valid tracking numbers.');
+        } else if (error.message.includes('EasyPost API key not configured')) {
+          throw new Error('Pickup service is not properly configured. Please contact support.');
+        }
+        
         throw new Error(`Error scheduling pickup: ${error.message}`);
       }
 
       return data;
     } catch (error) {
       console.error('Error scheduling pickup:', error);
-      throw new Error('Failed to schedule pickup');
+      
+      // Provide user-friendly error messages
+      if (error instanceof Error) {
+        if (error.message.includes('fetch')) {
+          throw new Error('Network error occurred. Please check your connection and try again.');
+        } else if (error.message.includes('unauthorized') || error.message.includes('authentication')) {
+          throw new Error('Authentication failed. Please sign in again.');
+        }
+        throw error;
+      }
+      
+      throw new Error('Failed to schedule pickup. Please try again later.');
     }
   }
   

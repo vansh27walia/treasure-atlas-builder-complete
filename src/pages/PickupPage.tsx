@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { Card } from '@/components/ui/card';
@@ -7,206 +6,208 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Calendar, Clock, Truck, PackageCheck, MapPin, CheckCircle } from 'lucide-react';
+import { Loader2, Calendar, Clock, Truck, PackageCheck, MapPin, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import { AddressData, PickupRequestData, carrierService } from '@/services/CarrierService';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { initAddressAutocomplete, extractAddressComponents, loadGoogleMapsAPI } from '@/utils/addressUtils';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import AddressSelector from '@/components/shipping/AddressSelector';
+import { SavedAddress } from '@/services/AddressService';
+import { createAddressSelectHandler } from '@/utils/addressUtils';
 
 interface FormValues {
-  name: string;
-  company: string;
-  street1: string;
-  street2: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  phone: string;
   carrierCode: string;
   pickupDate: string;
   timeStart: string;
   timeEnd: string;
   packageCount: number;
-  shipmentIds: string;
   instructions: string;
+  specialInstructions: string;
+  readyTime: string;
+  closeTime: string;
+}
+
+interface PickupConfirmation {
+  pickupId: string;
+  confirmation: string;
+  scheduledDate: string;
+  carrier: string;
+  status: string;
+  address: any;
+  timeWindow: {
+    start: string;
+    end: string;
+  };
+  packageCount: number;
+  message: string;
+  pickupFee?: number;
+  estimatedWindow?: string;
 }
 
 const pickupCarriers = [
-  { value: 'usps', label: 'USPS' },
-  { value: 'ups', label: 'UPS' },
-  { value: 'fedex', label: 'FedEx' },
+  { value: 'USPS', label: 'USPS - United States Postal Service' },
+  { value: 'UPS', label: 'UPS - United Parcel Service' },
+  { value: 'FedEx', label: 'FedEx' },
 ];
 
-interface SavedAddress {
-  id: string;
-  name: string;
-  street: string;
-  city: string;
-  state: string;
-  zip: string;
-  country?: string;
-  company?: string;
-  phone?: string;
-}
-
 const PickupPage: React.FC = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const [pickupConfirmation, setPickupConfirmation] = useState<any>(null);
-  const streetInputRef = useRef<HTMLInputElement>(null);
-  const [googlePlacesEnabled, setGooglePlacesEnabled] = useState(false);
-  
-  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([
-    { id: '1', name: 'Home Office', street: '123 Main St', city: 'Boston', state: 'MA', zip: '02101', country: 'US', company: 'My Company', phone: '555-1234' },
-    { id: '2', name: 'Warehouse', street: '456 Storage Ave', city: 'Chicago', state: 'IL', zip: '60007', country: 'US', company: 'Storage Inc.', phone: '555-5678' },
-  ]);
-  
+  const [pickupConfirmation, setPickupConfirmation] = useState<PickupConfirmation | null>(null);
+  const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
+  const [availableShipments, setAvailableShipments] = useState<any[]>([]);
+  const [selectedShipments, setSelectedShipments] = useState<string[]>([]);
+  const [loadingShipments, setLoadingShipments] = useState(false);
+
   const form = useForm<FormValues>({
     defaultValues: {
-      country: 'US',
-      carrierCode: 'usps',
+      carrierCode: 'USPS',
       packageCount: 1,
       pickupDate: new Date().toISOString().split('T')[0],
       timeStart: '09:00',
       timeEnd: '17:00',
+      readyTime: '09:00',
+      closeTime: '17:00',
+      instructions: '',
+      specialInstructions: '',
     },
   });
-  
-  const [selectedAddress, setSelectedAddress] = useState<string>('');
-  
-  // Initialize Google Places API
+
+  const handlePickupAddressSelect = createAddressSelectHandler(setPickupAddress);
+
+  // Load available shipments for pickup
   useEffect(() => {
-    const initGooglePlaces = async () => {
+    const loadAvailableShipments = async () => {
+      if (!user) return;
+      
+      setLoadingShipments(true);
       try {
-        const loaded = await loadGoogleMapsAPI();
-        setGooglePlacesEnabled(loaded);
-        
-        if (loaded && streetInputRef.current) {
-          console.log('Google Places API loaded successfully, initializing autocomplete');
-          
-          initAddressAutocomplete(streetInputRef.current, (place) => {
-            if (place && place.address_components) {
-              const addressComponents = extractAddressComponents(place);
-              
-              form.setValue('street1', addressComponents.street1);
-              form.setValue('city', addressComponents.city);
-              form.setValue('state', addressComponents.state);
-              form.setValue('zip', addressComponents.zip);
-              form.setValue('country', addressComponents.country);
-              
-              toast.success('Address found and auto-filled');
-            }
-          });
-        }
+        const { data: shipments, error } = await supabase
+          .from('tracking_records')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', 'created')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setAvailableShipments(shipments || []);
       } catch (error) {
-        console.error('Error initializing Google Places:', error);
+        console.error('Error loading shipments:', error);
+        toast.error('Failed to load available shipments');
+      } finally {
+        setLoadingShipments(false);
       }
     };
-    
-    initGooglePlaces();
-  }, [form]);
-  
-  const handleSelectAddress = (addressId: string) => {
-    const address = savedAddresses.find(addr => addr.id === addressId);
-    if (address) {
-      form.setValue('name', address.name);
-      form.setValue('company', address.company || '');
-      form.setValue('street1', address.street);
-      form.setValue('city', address.city);
-      form.setValue('state', address.state);
-      form.setValue('zip', address.zip);
-      form.setValue('country', address.country || 'US');
-      form.setValue('phone', address.phone || '');
-      setSelectedAddress(addressId);
-    }
-  };
-  
-  const savePickupAddress = () => {
-    try {
-      const values = form.getValues();
-      
-      // Create a new address object
-      const newAddress: SavedAddress = {
-        id: String(Date.now()),
-        name: values.name,
-        street: values.street1,
-        city: values.city,
-        state: values.state,
-        zip: values.zip,
-        country: values.country,
-        company: values.company,
-        phone: values.phone,
-      };
-      
-      // Add the new address to the saved addresses array
-      setSavedAddresses(prev => [...prev, newAddress]);
-      setSelectedAddress(newAddress.id);
-      
-      toast.success('Pickup address saved successfully!');
-    } catch (error) {
-      console.error('Error saving pickup address:', error);
-      toast.error('Failed to save pickup address. Please try again.');
-    }
-  };
-  
+
+    loadAvailableShipments();
+  }, [user]);
+
   const handleSubmit = async (values: FormValues) => {
+    if (!user) {
+      toast.error('You must be logged in to schedule a pickup');
+      return;
+    }
+
+    if (!pickupAddress) {
+      toast.error('Please select a pickup address');
+      return;
+    }
+
+    if (selectedShipments.length === 0) {
+      toast.error('Please select at least one shipment for pickup');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Parse shipment IDs from comma-separated string
-      const shipmentIdArray = values.shipmentIds
-        ? values.shipmentIds.split(',').map(id => id.trim())
-        : [];
-      
-      if (shipmentIdArray.length === 0) {
-        throw new Error('At least one shipment ID is required');
+      console.log('Scheduling pickup with values:', values);
+      console.log('Pickup address:', pickupAddress);
+      console.log('Selected shipments:', selectedShipments);
+
+      const { data, error } = await supabase.functions.invoke('schedule-pickup', {
+        body: {
+          carrierCode: values.carrierCode,
+          shipmentIds: selectedShipments,
+          pickupAddress: {
+            name: pickupAddress.name || '',
+            company: pickupAddress.company || '',
+            street1: pickupAddress.street1,
+            street2: pickupAddress.street2 || '',
+            city: pickupAddress.city,
+            state: pickupAddress.state,
+            zip: pickupAddress.zip,
+            country: pickupAddress.country || 'US',
+            phone: pickupAddress.phone || '',
+          },
+          pickupDate: values.pickupDate,
+          pickupTimeWindow: {
+            start: values.timeStart,
+            end: values.timeEnd,
+          },
+          readyTime: values.readyTime,
+          closeTime: values.closeTime,
+          instructions: values.instructions,
+          specialInstructions: values.specialInstructions,
+          packageCount: values.packageCount || selectedShipments.length,
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
       }
-      
-      const pickupAddress: AddressData = {
-        name: values.name,
-        company: values.company || undefined,
-        street1: values.street1,
-        street2: values.street2 || undefined,
-        city: values.city,
-        state: values.state,
-        zip: values.zip,
-        country: values.country,
-        phone: values.phone || undefined,
-      };
-      
-      const requestData: PickupRequestData = {
-        carrierCode: values.carrierCode,
-        shipmentIds: shipmentIdArray,
-        pickupAddress,
-        pickupDate: values.pickupDate,
-        pickupTimeWindow: {
-          start: values.timeStart,
-          end: values.timeEnd,
-        },
-        instructions: values.instructions,
-        packageCount: values.packageCount,
-      };
-      
-      // In a real app, this would call a real API
-      const response = await carrierService.schedulePickup(requestData);
-      
-      setPickupConfirmation(response);
+
+      setPickupConfirmation(data);
       toast.success('Pickup scheduled successfully!');
+      
+      // Refresh available shipments
+      const updatedShipments = availableShipments.filter(
+        shipment => !selectedShipments.includes(shipment.tracking_code)
+      );
+      setAvailableShipments(updatedShipments);
+      setSelectedShipments([]);
+      
     } catch (error) {
       console.error('Error scheduling pickup:', error);
-      toast.error('Failed to schedule pickup. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Failed to schedule pickup');
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleShipmentSelect = (shipmentId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedShipments(prev => [...prev, shipmentId]);
+    } else {
+      setSelectedShipments(prev => prev.filter(id => id !== shipmentId));
+    }
+    
+    // Update package count automatically
+    const newCount = checked ? selectedShipments.length + 1 : selectedShipments.length - 1;
+    form.setValue('packageCount', Math.max(1, newCount));
+  };
+
+  if (!user) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            You must be logged in to schedule pickups. Please sign in to continue.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6 bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-100">
         <h1 className="text-3xl font-bold text-purple-800 flex items-center">
           <Truck className="mr-3 h-8 w-8 text-purple-600" /> 
-          Schedule a Pickup
+          Schedule Carrier Pickup
         </h1>
       </div>
       
@@ -218,7 +219,7 @@ const PickupPage: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="manage" className="data-[state=active]:bg-white data-[state=active]:text-purple-600 data-[state=active]:shadow-sm">
             <Clock className="mr-2 h-5 w-5" />
-            Manage Pickups
+            Pickup History
           </TabsTrigger>
         </TabsList>
         
@@ -231,185 +232,196 @@ const PickupPage: React.FC = () => {
               </h2>
               
               <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div>
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-medium flex items-center">
-                        <MapPin className="mr-2 h-5 w-5 text-purple-500" />
-                        Pickup Address
-                      </h3>
-                      <Select value={selectedAddress} onValueChange={handleSelectAddress}>
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Saved Addresses" />
+                {/* Pickup Address Section */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-medium mb-4 flex items-center text-blue-700">
+                    <MapPin className="mr-2 h-5 w-5" />
+                    Pickup Address
+                  </h3>
+                  <AddressSelector 
+                    type="from"
+                    onAddressSelect={handlePickupAddressSelect}
+                    selectedAddressId={pickupAddress?.id}
+                  />
+                  {pickupAddress && (
+                    <div className="mt-4 p-3 bg-white border border-blue-200 rounded">
+                      <p className="font-medium">{pickupAddress.name}</p>
+                      <p className="text-sm text-gray-600">
+                        {pickupAddress.street1}
+                        {pickupAddress.street2 && `, ${pickupAddress.street2}`}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {pickupAddress.city}, {pickupAddress.state} {pickupAddress.zip}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Available Shipments Section */}
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-medium mb-4 flex items-center text-green-700">
+                    <PackageCheck className="mr-2 h-5 w-5" />
+                    Select Shipments for Pickup ({selectedShipments.length} selected)
+                  </h3>
+                  
+                  {loadingShipments ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      <span>Loading available shipments...</span>
+                    </div>
+                  ) : availableShipments.length === 0 ? (
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        No shipments available for pickup. Create some shipping labels first.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {availableShipments.map((shipment) => (
+                        <div key={shipment.id} className="flex items-center space-x-3 p-3 bg-white border rounded">
+                          <input
+                            type="checkbox"
+                            id={shipment.tracking_code}
+                            checked={selectedShipments.includes(shipment.tracking_code)}
+                            onChange={(e) => handleShipmentSelect(shipment.tracking_code, e.target.checked)}
+                            className="h-4 w-4 text-purple-600"
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium">{shipment.tracking_code}</p>
+                            <p className="text-sm text-gray-600">
+                              {shipment.recipient_name} - {shipment.carrier} {shipment.service}
+                            </p>
+                            <p className="text-xs text-gray-500">{shipment.recipient_address}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Pickup Details */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium flex items-center">
+                      <Truck className="mr-2 h-5 w-5 text-purple-500" />
+                      Pickup Details
+                    </h3>
+                    
+                    <div>
+                      <Label htmlFor="carrierCode">Carrier</Label>
+                      <Select defaultValue="USPS" onValueChange={(value) => form.setValue('carrierCode', value)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Carrier" />
                         </SelectTrigger>
                         <SelectContent>
-                          {savedAddresses.map((address) => (
-                            <SelectItem key={address.id} value={address.id}>
-                              {address.name}
+                          {pickupCarriers.map((carrier) => (
+                            <SelectItem key={carrier.value} value={carrier.value}>
+                              {carrier.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                     
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="name">Name</Label>
-                        <Input id="name" {...form.register('name')} placeholder="Name" required />
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="company">Company (optional)</Label>
-                        <Input id="company" {...form.register('company')} placeholder="Company" />
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="phone">Phone Number</Label>
-                        <Input id="phone" {...form.register('phone')} placeholder="Phone Number" required />
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="street1">Address Line 1</Label>
+                        <Label htmlFor="packageCount">Package Count</Label>
                         <Input 
-                          id="street1" 
-                          {...form.register('street1')} 
-                          placeholder="Street address" 
-                          required 
-                          ref={streetInputRef}
-                          className={googlePlacesEnabled ? "border-blue-300" : ""}
+                          id="packageCount" 
+                          type="number" 
+                          min="1"
+                          {...form.register('packageCount', { valueAsNumber: true })}
+                          required
                         />
                       </div>
                       
                       <div>
-                        <Label htmlFor="street2">Address Line 2 (optional)</Label>
-                        <Input id="street2" {...form.register('street2')} placeholder="Apt, Suite, Unit, etc." />
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="city">City</Label>
-                          <Input id="city" {...form.register('city')} placeholder="City" required />
-                        </div>
-                        
-                        <div>
-                          <Label htmlFor="state">State</Label>
-                          <Input id="state" {...form.register('state')} placeholder="State" required />
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="zip">ZIP Code</Label>
-                          <Input id="zip" {...form.register('zip')} placeholder="ZIP Code" required />
-                        </div>
-                        
-                        <div>
-                          <Label htmlFor="country">Country</Label>
-                          <Input id="country" {...form.register('country')} placeholder="Country" required />
-                        </div>
-                      </div>
-                      
-                      <div className="pt-2">
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          onClick={savePickupAddress}
-                        >
-                          Save this address
-                        </Button>
+                        <Label htmlFor="pickupDate">Pickup Date</Label>
+                        <Input 
+                          id="pickupDate" 
+                          type="date" 
+                          {...form.register('pickupDate')} 
+                          required
+                          min={new Date().toISOString().split('T')[0]}
+                        />
                       </div>
                     </div>
                   </div>
-                  
-                  <div>
-                    <h3 className="text-lg font-medium mb-4 flex items-center">
-                      <Truck className="mr-2 h-5 w-5 text-purple-500" />
-                      Pickup Details
+
+                  {/* Time Windows */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium flex items-center">
+                      <Clock className="mr-2 h-5 w-5 text-purple-500" />
+                      Time Windows
                     </h3>
                     
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="carrierCode">Carrier</Label>
-                        <Select defaultValue="usps" onValueChange={(value) => form.setValue('carrierCode', value)}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Carrier" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {pickupCarriers.map((carrier) => (
-                              <SelectItem key={carrier.value} value={carrier.value}>
-                                {carrier.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor="shipmentIds">Shipment ID(s)</Label>
+                        <Label htmlFor="readyTime">Ready Time</Label>
                         <Input 
-                          id="shipmentIds" 
-                          {...form.register('shipmentIds')} 
-                          placeholder="Comma-separated shipment IDs" 
-                          required 
+                          id="readyTime" 
+                          type="time" 
+                          {...form.register('readyTime')} 
+                          required
                         />
-                        <p className="text-sm text-gray-500 mt-1">Enter one or more shipment IDs separated by commas</p>
-                      </div>
-                      
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="col-span-1">
-                          <Label htmlFor="packageCount">Package Count</Label>
-                          <Input 
-                            id="packageCount" 
-                            type="number" 
-                            min="1"
-                            {...form.register('packageCount', { valueAsNumber: true })}
-                            required
-                          />
-                        </div>
-                        
-                        <div className="col-span-2">
-                          <Label htmlFor="pickupDate">Pickup Date</Label>
-                          <Input 
-                            id="pickupDate" 
-                            type="date" 
-                            {...form.register('pickupDate')} 
-                            required
-                            min={new Date().toISOString().split('T')[0]}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="timeStart">Start Time</Label>
-                          <Input 
-                            id="timeStart" 
-                            type="time" 
-                            {...form.register('timeStart')} 
-                            required
-                          />
-                        </div>
-                        
-                        <div>
-                          <Label htmlFor="timeEnd">End Time</Label>
-                          <Input 
-                            id="timeEnd" 
-                            type="time" 
-                            {...form.register('timeEnd')} 
-                            required
-                          />
-                        </div>
+                        <p className="text-xs text-gray-500 mt-1">When packages are ready</p>
                       </div>
                       
                       <div>
-                        <Label htmlFor="instructions">Special Instructions (optional)</Label>
+                        <Label htmlFor="closeTime">Close Time</Label>
                         <Input 
-                          id="instructions" 
-                          {...form.register('instructions')} 
-                          placeholder="Ring doorbell, leave at dock, etc."
+                          id="closeTime" 
+                          type="time" 
+                          {...form.register('closeTime')} 
+                          required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Latest pickup time</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="timeStart">Preferred Start</Label>
+                        <Input 
+                          id="timeStart" 
+                          type="time" 
+                          {...form.register('timeStart')} 
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="timeEnd">Preferred End</Label>
+                        <Input 
+                          id="timeEnd" 
+                          type="time" 
+                          {...form.register('timeEnd')} 
+                          required
                         />
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Instructions */}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="instructions">Pickup Instructions</Label>
+                    <Input 
+                      id="instructions" 
+                      {...form.register('instructions')} 
+                      placeholder="Ring doorbell, use side entrance, etc."
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="specialInstructions">Special Instructions</Label>
+                    <Input 
+                      id="specialInstructions" 
+                      {...form.register('specialInstructions')} 
+                      placeholder="Fragile items, special handling, etc."
+                    />
                   </div>
                 </div>
                 
@@ -420,7 +432,7 @@ const PickupPage: React.FC = () => {
                     type="submit"
                     size="lg"
                     className="bg-purple-600 hover:bg-purple-700 flex items-center gap-2 text-white px-8"
-                    disabled={isLoading}
+                    disabled={isLoading || selectedShipments.length === 0 || !pickupAddress}
                   >
                     {isLoading ? (
                       <>
@@ -430,7 +442,7 @@ const PickupPage: React.FC = () => {
                     ) : (
                       <>
                         <Truck className="h-5 w-5" />
-                        Schedule Pickup
+                        Schedule Pickup ({selectedShipments.length} packages)
                       </>
                     )}
                   </Button>
@@ -438,6 +450,7 @@ const PickupPage: React.FC = () => {
               </form>
             </Card>
           ) : (
+            
             <Card className="border-2 border-green-200 bg-green-50 shadow-sm p-6 mb-8">
               <div className="flex items-center mb-6">
                 <CheckCircle className="h-10 w-10 text-green-600 mr-4" />
@@ -469,6 +482,13 @@ const PickupPage: React.FC = () => {
                       {pickupConfirmation.timeWindow.start} - {pickupConfirmation.timeWindow.end}
                     </p>
                   </div>
+
+                  {pickupConfirmation.pickupFee && (
+                    <div>
+                      <h3 className="font-semibold text-gray-700">Pickup Fee</h3>
+                      <p className="text-lg">${pickupConfirmation.pickupFee}</p>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-4">
@@ -488,6 +508,11 @@ const PickupPage: React.FC = () => {
                   <div>
                     <h3 className="font-semibold text-gray-700">Package Count</h3>
                     <p className="text-lg">{pickupConfirmation.packageCount}</p>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Status</h3>
+                    <p className="text-lg capitalize">{pickupConfirmation.status}</p>
                   </div>
                 </div>
               </div>
@@ -514,54 +539,15 @@ const PickupPage: React.FC = () => {
           <Card className="border-2 border-gray-200 shadow-sm p-6 mb-8">
             <h2 className="text-2xl font-semibold mb-6 flex items-center">
               <Clock className="mr-2 h-6 w-6 text-purple-600" />
-              Manage Scheduled Pickups
+              Pickup History
             </h2>
             
             <div className="bg-gray-50 p-4 rounded-lg text-center">
-              <p className="text-gray-600">You have no scheduled pickups at this time.</p>
-            </div>
-            
-            <div className="mt-8 flex justify-end">
-              <Button
-                variant="default"
-                className="bg-purple-600 hover:bg-purple-700"
-                onClick={() => document.querySelector('[data-value="schedule"]')?.dispatchEvent(
-                  new MouseEvent('click', { bubbles: true })
-                )}
-              >
-                <Truck className="mr-2 h-5 w-5" />
-                Schedule New Pickup
-              </Button>
+              <p className="text-gray-600">Pickup history feature coming soon. You'll be able to view and manage all your scheduled pickups here.</p>
             </div>
           </Card>
         </TabsContent>
       </Tabs>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <Card className="p-6 border-2 border-purple-100 bg-purple-50">
-          <h3 className="text-lg font-semibold mb-3 text-purple-800 flex items-center">
-            <Calendar className="mr-2 h-5 w-5 text-purple-600" />
-            Flexible Scheduling
-          </h3>
-          <p className="text-purple-700 mb-2">Schedule pickups on your terms with flexible timeframes and same-day service available in many areas.</p>
-        </Card>
-        
-        <Card className="p-6 border-2 border-green-100 bg-green-50">
-          <h3 className="text-lg font-semibold mb-3 text-green-800 flex items-center">
-            <Truck className="mr-2 h-5 w-5 text-green-600" />
-            Multiple Carriers
-          </h3>
-          <p className="text-green-700 mb-2">Choose from multiple carriers including USPS, UPS, and FedEx for your shipping pickup needs.</p>
-        </Card>
-        
-        <Card className="p-6 border-2 border-blue-100 bg-blue-50">
-          <h3 className="text-lg font-semibold mb-3 text-blue-800 flex items-center">
-            <CheckCircle className="mr-2 h-5 w-5 text-blue-600" />
-            Pickup Confirmations
-          </h3>
-          <p className="text-blue-700 mb-2">Receive instant confirmations and notifications for all your scheduled pickups.</p>
-        </Card>
-      </div>
     </div>
   );
 };
