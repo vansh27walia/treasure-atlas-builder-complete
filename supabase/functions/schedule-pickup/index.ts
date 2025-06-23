@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -38,6 +37,79 @@ interface PickupRequestData {
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[PICKUP-SCHEDULER] ${step}${detailsStr}`);
+};
+
+const createEasyPostPickup = async (
+  addressData: any, 
+  easypostShipmentIds: string[], 
+  requestData: PickupRequestData, 
+  apiKey: string
+) => {
+  logStep("Creating EasyPost pickup", { 
+    shipmentCount: easypostShipmentIds.length,
+    carrier: requestData.carrierCode 
+  });
+
+  // Format pickup times correctly
+  const pickupDate = new Date(requestData.pickupDate);
+  const [readyHour, readyMinute] = requestData.readyTime.split(':');
+  const [closeHour, closeMinute] = requestData.closeTime.split(':');
+  
+  const readyTime = new Date(pickupDate);
+  readyTime.setHours(parseInt(readyHour), parseInt(readyMinute), 0, 0);
+  
+  const closeTime = new Date(pickupDate);
+  closeTime.setHours(parseInt(closeHour), parseInt(closeMinute), 0, 0);
+
+  // Create pickup payload with proper shipment format
+  const pickupPayload = {
+    pickup: {
+      address: addressData.id,
+      shipment: easypostShipmentIds, // Pass as array of IDs directly
+      min_datetime: readyTime.toISOString(),
+      max_datetime: closeTime.toISOString(),
+      instructions: requestData.instructions || '',
+      reference: `Pickup-${Date.now()}`,
+      is_account_address: false,
+    }
+  };
+
+  logStep("Sending pickup request to EasyPost", pickupPayload);
+
+  const pickupResponse = await fetch('https://api.easypost.com/v2/pickups', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(pickupPayload)
+  });
+
+  if (!pickupResponse.ok) {
+    const errorData = await pickupResponse.json();
+    logStep("EasyPost pickup creation failed", { error: errorData });
+    
+    // Enhanced error handling
+    if (errorData.error?.code === 'PICKUP.REQUEST.INVALID') {
+      throw new Error('Invalid pickup request. Please ensure all shipments are valid and ready for pickup.');
+    } else if (errorData.error?.code === 'PICKUP.FAILED') {
+      throw new Error(`Pickup scheduling failed: ${errorData.error.message}`);
+    } else if (errorData.error?.code === 'PICKUP.INVALID_TIME') {
+      throw new Error('Invalid pickup time window. Please check your selected times.');
+    } else if (errorData.error?.code === 'PICKUP.ADDRESS_INVALID') {
+      throw new Error('Invalid pickup address. Please verify the address details.');
+    }
+    
+    throw new Error(`Pickup creation failed: ${errorData.error?.message || 'Unknown error'}`);
+  }
+
+  const pickupData = await pickupResponse.json();
+  logStep("Pickup created successfully", { 
+    pickupId: pickupData.id,
+    status: pickupData.status 
+  });
+
+  return pickupData;
 };
 
 const validatePickupRequest = (requestData: PickupRequestData) => {
@@ -96,78 +168,6 @@ const createEasyPostAddress = async (address: AddressData, apiKey: string) => {
   const addressData = await addressResponse.json();
   logStep("EasyPost address created successfully", { addressId: addressData.id });
   return addressData;
-};
-
-const createEasyPostPickup = async (
-  addressData: any, 
-  easypostShipmentIds: string[], 
-  requestData: PickupRequestData, 
-  apiKey: string
-) => {
-  logStep("Creating EasyPost pickup", { 
-    shipmentCount: easypostShipmentIds.length,
-    carrier: requestData.carrierCode 
-  });
-
-  // Format pickup times
-  const pickupDate = new Date(requestData.pickupDate);
-  const [readyHour, readyMinute] = requestData.readyTime.split(':');
-  const [closeHour, closeMinute] = requestData.closeTime.split(':');
-  
-  const readyTime = new Date(pickupDate);
-  readyTime.setHours(parseInt(readyHour), parseInt(readyMinute), 0, 0);
-  
-  const closeTime = new Date(pickupDate);
-  closeTime.setHours(parseInt(closeHour), parseInt(closeMinute), 0, 0);
-
-  const pickupPayload = {
-    pickup: {
-      address: { id: addressData.id },
-      shipment: easypostShipmentIds.map(id => ({ id })),
-      min_datetime: readyTime.toISOString(),
-      max_datetime: closeTime.toISOString(),
-      instructions: requestData.instructions || '',
-      reference: `Pickup-${Date.now()}`,
-      is_account_address: false,
-    }
-  };
-
-  logStep("Sending pickup request to EasyPost", pickupPayload);
-
-  const pickupResponse = await fetch('https://api.easypost.com/v2/pickups', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(pickupPayload)
-  });
-
-  if (!pickupResponse.ok) {
-    const errorData = await pickupResponse.json();
-    logStep("EasyPost pickup creation failed", { error: errorData });
-    
-    // Handle specific EasyPost errors with user-friendly messages
-    if (errorData.error?.code === 'PICKUP.FAILED') {
-      throw new Error(`Pickup scheduling failed: ${errorData.error.message}`);
-    } else if (errorData.error?.code === 'PICKUP.INVALID_TIME') {
-      throw new Error('Invalid pickup time window. Please check your selected times.');
-    } else if (errorData.error?.code === 'PICKUP.ADDRESS_INVALID') {
-      throw new Error('Invalid pickup address. Please verify the address details.');
-    } else if (errorData.error?.message?.includes('shipment')) {
-      throw new Error('Invalid shipment data. Please ensure all shipments are valid for pickup.');
-    }
-    
-    throw new Error(`Pickup creation failed: ${errorData.error?.message || 'Unknown error'}`);
-  }
-
-  const pickupData = await pickupResponse.json();
-  logStep("Pickup created successfully", { 
-    pickupId: pickupData.id,
-    status: pickupData.status 
-  });
-
-  return pickupData;
 };
 
 const purchasePickup = async (pickupData: any, requestData: PickupRequestData, apiKey: string) => {
@@ -248,17 +248,54 @@ serve(async (req) => {
     logStep("Request data received", { 
       carrierCode: requestData.carrierCode, 
       packageCount: requestData.packageCount,
-      userId: user.id 
+      userId: user.id,
+      shipmentIds: requestData.shipmentIds
     });
-    
-    // Validate the request
-    const validationErrors = validatePickupRequest(requestData);
-    if (validationErrors.length > 0) {
-      throw new Error(`Validation failed: ${validationErrors.join(', ')}`);
+
+    // Enhanced validation
+    if (!requestData.carrierCode) {
+      throw new Error('Carrier code is required');
+    }
+    if (!requestData.shipmentIds || requestData.shipmentIds.length === 0) {
+      throw new Error('At least one shipment must be selected for pickup');
+    }
+    if (!requestData.pickupAddress || !requestData.pickupAddress.street1) {
+      throw new Error('Valid pickup address is required');
+    }
+    if (!requestData.pickupDate) {
+      throw new Error('Pickup date is required');
     }
 
     // Create pickup address in EasyPost
-    const addressData = await createEasyPostAddress(requestData.pickupAddress, apiKey);
+    const addressResponse = await fetch('https://api.easypost.com/v2/addresses', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        address: {
+          name: requestData.pickupAddress.name || 'Pickup Address',
+          company: requestData.pickupAddress.company || '',
+          street1: requestData.pickupAddress.street1,
+          street2: requestData.pickupAddress.street2 || '',
+          city: requestData.pickupAddress.city,
+          state: requestData.pickupAddress.state,
+          zip: requestData.pickupAddress.zip,
+          country: requestData.pickupAddress.country || 'US',
+          phone: requestData.pickupAddress.phone || '',
+        }
+      })
+    });
+
+    if (!addressResponse.ok) {
+      const errorData = await addressResponse.text();
+      logStep("Failed to create EasyPost address", { error: errorData });
+      throw new Error(`Failed to create pickup address: ${errorData}`);
+    }
+
+    const addressData = await addressResponse.json();
+    logStep("EasyPost address created successfully", { addressId: addressData.id });
 
     // Get tracking records to find EasyPost shipment IDs
     logStep("Looking up EasyPost shipment IDs");
@@ -296,27 +333,42 @@ serve(async (req) => {
       apiKey
     );
 
-    // Purchase the pickup if possible
-    const finalPickupData = await purchasePickup(pickupData, requestData, apiKey);
+    // Try to purchase the pickup if it has rates
+    let finalPickupData = pickupData;
+    
+    if (pickupData.pickup_rates && pickupData.pickup_rates.length > 0) {
+      logStep("Attempting to purchase pickup", { 
+        pickupId: pickupData.id,
+        ratesCount: pickupData.pickup_rates.length 
+      });
+      
+      try {
+        const buyResponse = await fetch(`https://api.easypost.com/v2/pickups/${pickupData.id}/buy`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            carrier: requestData.carrierCode,
+            service: pickupData.pickup_rates[0].service
+          })
+        });
 
-    // Store pickup record in database (optional - for future pickup history feature)
-    const pickupRecord = {
-      user_id: user.id,
-      easypost_pickup_id: finalPickupData.id,
-      confirmation_number: finalPickupData.confirmation || finalPickupData.id,
-      carrier: requestData.carrierCode,
-      pickup_date: requestData.pickupDate,
-      pickup_address: requestData.pickupAddress,
-      shipment_ids: requestData.shipmentIds,
-      package_count: requestData.packageCount,
-      instructions: requestData.instructions,
-      special_instructions: requestData.specialInstructions,
-      status: finalPickupData.status || 'scheduled',
-      pickup_fee: finalPickupData.pickup_rates?.[0]?.rate || null,
-      time_window_start: requestData.readyTime,
-      time_window_end: requestData.closeTime,
-      created_at: new Date().toISOString(),
-    };
+        if (buyResponse.ok) {
+          finalPickupData = await buyResponse.json();
+          logStep("Pickup purchased successfully", { 
+            status: finalPickupData.status,
+            confirmation: finalPickupData.confirmation 
+          });
+        } else {
+          const errorData = await buyResponse.json();
+          logStep("Pickup purchase failed, but pickup was created", { error: errorData });
+        }
+      } catch (purchaseError) {
+        logStep("Pickup purchase error, but pickup was created", { error: purchaseError });
+      }
+    }
 
     logStep("Pickup scheduling completed successfully", {
       pickupId: finalPickupData.id,
