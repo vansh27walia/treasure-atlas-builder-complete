@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,7 @@ import PrintPreview from '@/components/shipping/PrintPreview';
 import BatchLabelControls from '@/components/shipping/BatchLabelControls';
 import BatchPrintPreviewModal from '@/components/shipping/BatchPrintPreviewModal';
 import EmailLabelsModal from '@/components/shipping/EmailLabelsModal';
+import BulkLabelDownloadOptions from './BulkLabelDownloadOptions';
 import { useBulkUpload } from './useBulkUpload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -77,16 +77,34 @@ const BulkUploadView: React.FC = () => {
     setShowPrintPreview(true);
   };
 
-  const handleDownloadConsolidated = (format: 'pdf' | 'zpl' | 'epl') => {
-    if (results?.batchResult?.consolidatedLabelUrls?.[format]) {
-      const link = document.createElement('a');
-      link.href = results.batchResult.consolidatedLabelUrls[format];
-      link.download = `consolidated_labels.${format}`;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+  const handleDownloadConsolidated = (format: 'pdf' | 'zpl' | 'epl', url: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `consolidated_labels.${format}`;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadManifest = (url: string) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `pickup_manifest.pdf`;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadIndividualLabel = (labelUrl: string, format: string) => {
+    const link = document.createElement('a');
+    link.href = labelUrl;
+    link.download = `individual_label.${format}`;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleEmailConsolidated = () => {
@@ -213,75 +231,21 @@ const BulkUploadView: React.FC = () => {
               />
             </div>
             
-            {/* Enhanced Create Labels Section with Batch Controls */}
-            <div className="mt-6 flex justify-between items-center">
-              <div className="flex gap-2">
-                {/* Show consolidated label controls if batch result exists */}
-                {results?.batchResult?.consolidatedLabelUrls && !labelGenerationProgress.isGenerating && (
-                  <>
-                    <Button
-                      onClick={handlePrintPreview}
-                      variant="outline"
-                      className="text-purple-600 border-purple-600 hover:bg-purple-50"
-                    >
-                      <PrinterIcon className="mr-2 h-4 w-4" />
-                      Print Preview
-                    </Button>
-                    
-                    <Button
-                      onClick={() => handleDownloadConsolidated('pdf')}
-                      variant="outline"
-                      className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download PDF
-                    </Button>
-                    
-                    <Button
-                      onClick={() => handleDownloadConsolidated('zpl')}
-                      variant="outline"
-                      className="text-green-600 border-green-600 hover:bg-green-50"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download ZPL
-                    </Button>
-                    
-                    <Button
-                      onClick={() => handleDownloadConsolidated('epl')}
-                      variant="outline"
-                      className="text-orange-600 border-orange-600 hover:bg-orange-50"
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Download EPL
-                    </Button>
-                    
-                    <Button
-                      onClick={handleEmailConsolidated}
-                      variant="outline"
-                      className="text-indigo-600 border-indigo-600 hover:bg-indigo-50"
-                    >
-                      <Mail className="mr-2 h-4 w-4" />
-                      Email Labels
-                    </Button>
-                  </>
-                )}
-              </div>
-              
+            {/* Create Labels Button */}
+            <div className="mt-6 flex justify-end">
               <div className="flex gap-4 items-center">
-                {/* Batch Label Controls */}
                 <BatchLabelControls
                   selectedShipments={filteredShipments.filter(s => s.selectedRateId)}
                   pickupAddress={pickupAddress}
                   onBatchProcessed={handleBatchProcessed}
                 />
                 
-                {/* Individual Label Creation Button */}
                 <Button
                   onClick={handleCreateLabels}
                   disabled={isCreatingLabels || !filteredShipments.some(s => s.selectedRateId)}
                   className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
                 >
-                  {isCreatingLabels ? 'Creating Labels...' : 'Create Individual Labels'}
+                  {isCreatingLabels ? 'Creating Labels...' : 'Create Labels'}
                 </Button>
               </div>
             </div>
@@ -289,14 +253,26 @@ const BulkUploadView: React.FC = () => {
         </div>
       )}
 
-      {/* Batch Label Creation Page - Show when labels are successfully created */}
+      {/* Success Screen with All Label Downloads */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
-        <BatchLabelCreationPage
-          results={results}
-          onDownloadSingleLabel={handleDownloadSingleLabel}
-          batchPrintPreviewModalOpen={batchPrintPreviewModalOpen}
-          setBatchPrintPreviewModalOpen={setBatchPrintPreviewModalOpen}
-        />
+        <div className="min-h-screen bg-white">
+          <div className="max-w-7xl mx-auto p-6">
+            <div className="mb-6">
+              <h1 className="font-semibold text-2xl text-green-800 mb-4">Labels Created Successfully!</h1>
+              <p className="text-gray-600">Your shipping labels have been created and are ready for download.</p>
+            </div>
+
+            <BulkLabelDownloadOptions
+              batchResult={results.batchResult}
+              processedLabels={results.processedShipments || []}
+              onDownloadBatch={handleDownloadConsolidated}
+              onDownloadManifest={handleDownloadManifest}
+              onDownloadIndividual={handleDownloadIndividualLabel}
+              onPrintPreview={handlePrintPreview}
+              onEmailLabels={handleEmailConsolidated}
+            />
+          </div>
+        </div>
       )}
 
       {/* Print Preview Modal */}
