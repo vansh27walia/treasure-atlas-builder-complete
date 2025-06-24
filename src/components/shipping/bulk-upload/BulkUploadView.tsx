@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -80,7 +81,7 @@ const BulkUploadView: React.FC = () => {
   const handleDownloadConsolidated = (format: 'pdf' | 'zpl' | 'epl', url: string) => {
     const link = document.createElement('a');
     link.href = url;
-    link.download = `consolidated_labels.${format}`;
+    link.download = `consolidated_labels_${Date.now()}.${format}`;
     link.target = '_blank';
     document.body.appendChild(link);
     link.click();
@@ -90,7 +91,7 @@ const BulkUploadView: React.FC = () => {
   const handleDownloadManifest = (url: string) => {
     const link = document.createElement('a');
     link.href = url;
-    link.download = `pickup_manifest.pdf`;
+    link.download = `pickup_manifest_${Date.now()}.pdf`;
     link.target = '_blank';
     document.body.appendChild(link);
     link.click();
@@ -100,7 +101,7 @@ const BulkUploadView: React.FC = () => {
   const handleDownloadIndividualLabel = (labelUrl: string, format: string) => {
     const link = document.createElement('a');
     link.href = labelUrl;
-    link.download = `individual_label.${format}`;
+    link.download = `individual_label_${Date.now()}.${format}`;
     link.target = '_blank';
     document.body.appendChild(link);
     link.click();
@@ -253,15 +254,19 @@ const BulkUploadView: React.FC = () => {
         </div>
       )}
 
-      {/* Success Screen with All Label Downloads */}
+      {/* Success Screen with Batch Label Download Options */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="min-h-screen bg-white">
           <div className="max-w-7xl mx-auto p-6">
             <div className="mb-6">
-              <h1 className="font-semibold text-2xl text-green-800 mb-4">Labels Created Successfully!</h1>
-              <p className="text-gray-600">Your shipping labels have been created and are ready for download.</p>
+              <h1 className="text-2xl font-bold text-green-800 mb-4 flex items-center">
+                <Package className="mr-3 h-8 w-8" />
+                Labels Created Successfully!
+              </h1>
+              <p className="text-gray-600">Your shipping labels have been created. Choose from the download options below.</p>
             </div>
 
+            {/* Batch Label Download Options */}
             <BulkLabelDownloadOptions
               batchResult={results.batchResult}
               processedLabels={results.processedShipments || []}
