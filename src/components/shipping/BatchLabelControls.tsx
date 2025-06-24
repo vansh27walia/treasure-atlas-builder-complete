@@ -29,13 +29,12 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
 
-  const handlePrintBatchLabels = async () => {
+  const handleCreateBatchLabels = async () => {
     try {
       const result = await processBatchLabels(selectedShipments, pickupAddress);
       if (result && onBatchProcessed) {
         onBatchProcessed(result);
       }
-      setShowPrintPreview(true);
     } catch (error) {
       console.error('Failed to process batch labels:', error);
     }
@@ -46,72 +45,15 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
 
   return (
     <div className="flex items-center gap-2">
-      {/* Print Batch Labels Button */}
+      {/* Create Batch Labels Button */}
       <Button
-        onClick={handlePrintBatchLabels}
+        onClick={handleCreateBatchLabels}
         disabled={!hasSelectedShipments || isProcessingBatch}
         className="bg-blue-600 hover:bg-blue-700 text-white"
       >
         <Printer className="mr-2 h-4 w-4" />
-        {isProcessingBatch ? 'Processing...' : 'Print Batch Labels'}
+        {isProcessingBatch ? 'Processing...' : 'Create Batch Labels'}
       </Button>
-
-      {/* Download Options Dropdown */}
-      {hasBatchResult && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
-              <Download className="mr-2 h-4 w-4" />
-              Download
-              <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {batchResult.consolidatedLabelUrls.pdf && (
-              <DropdownMenuItem onClick={() => downloadConsolidatedLabel('pdf')}>
-                <Download className="mr-2 h-4 w-4" />
-                Download Consolidated PDF
-              </DropdownMenuItem>
-            )}
-            {batchResult.consolidatedLabelUrls.png && (
-              <DropdownMenuItem onClick={() => downloadConsolidatedLabel('png')}>
-                <Download className="mr-2 h-4 w-4" />
-                Download Consolidated PNG
-              </DropdownMenuItem>
-            )}
-            {batchResult.consolidatedLabelUrls.zpl && (
-              <DropdownMenuItem onClick={() => downloadConsolidatedLabel('zpl')}>
-                <Download className="mr-2 h-4 w-4" />
-                Download Consolidated ZPL
-              </DropdownMenuItem>
-            )}
-            {batchResult.consolidatedLabelUrls.epl && (
-              <DropdownMenuItem onClick={() => downloadConsolidatedLabel('epl')}>
-                <Download className="mr-2 h-4 w-4" />
-                Download Consolidated EPL
-              </DropdownMenuItem>
-            )}
-            {batchResult.scanFormUrl && (
-              <DropdownMenuItem onClick={downloadScanForm}>
-                <Download className="mr-2 h-4 w-4" />
-                Download Scan Form
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-
-      {/* Email Labels Button */}
-      {hasBatchResult && (
-        <Button
-          onClick={() => setShowEmailModal(true)}
-          variant="outline"
-          className="border-green-600 text-green-600 hover:bg-green-50"
-        >
-          <Mail className="mr-2 h-4 w-4" />
-          Email Labels
-        </Button>
-      )}
 
       {/* Print Preview Modal */}
       <BatchPrintPreviewModal
