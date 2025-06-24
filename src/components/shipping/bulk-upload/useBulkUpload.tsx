@@ -265,20 +265,17 @@ export const useBulkUpload = () => {
 
         const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
         
-        // Process batch result properly
         let frontendBatchResult: BatchResult | null = null;
         if (data.batchResult && data.batchResult.batchId) {
-            console.log('Processing batch result:', data.batchResult);
             frontendBatchResult = {
                 batchId: data.batchResult.batchId,
                 consolidatedLabelUrls: {
-                    pdf: data.batchResult.batchLabelUrls?.pdfUrl || data.batchResult.consolidatedLabelUrls?.pdf,
-                    zpl: data.batchResult.batchLabelUrls?.zplUrl || data.batchResult.consolidatedLabelUrls?.zpl,
-                    epl: data.batchResult.batchLabelUrls?.eplUrl || data.batchResult.consolidatedLabelUrls?.epl,
+                    pdf: data.batchResult.batchLabelUrls?.pdfUrl,
+                    zpl: data.batchResult.batchLabelUrls?.zplUrl,
+                    epl: data.batchResult.batchLabelUrls?.eplUrl,
                 },
                 scanFormUrl: data.batchResult.scanFormUrl || null,
             };
-            console.log('Created frontend batch result:', frontendBatchResult);
         }
 
         const updatedResults: BulkUploadResult = {
@@ -295,7 +292,6 @@ export const useBulkUpload = () => {
         };
 
         console.log(`✅ Label creation complete: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
-        console.log('Final batch result being set:', updatedResults.batchResult);
         updateResults(updatedResults);
         
         if (updatedResults.successful === expectedLabels && expectedLabels > 0) {
