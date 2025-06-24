@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
+import BatchLabelControls from '@/components/shipping/BatchLabelControls';
 
 const CreateLabelPage: React.FC = () => {
   const location = useLocation();
@@ -18,6 +19,7 @@ const CreateLabelPage: React.FC = () => {
   const tabFromQuery = queryParams.get('tab');
   const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
   const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
+  const [selectedShipments, setSelectedShipments] = useState<any[]>([]);
 
   useEffect(() => {
     if (activeTab) {
@@ -68,6 +70,16 @@ const CreateLabelPage: React.FC = () => {
             <Package className="mr-3 h-7 w-7 text-blue-600" />
             Create a Shipping Label
           </h1>
+          
+          {/* Batch Label Controls - Show on domestic tab when there are selected shipments */}
+          {activeTab === 'domestic' && selectedShipments.length > 0 && (
+            <BatchLabelControls
+              selectedShipments={selectedShipments}
+              onBatchProcessed={(result) => {
+                console.log('Batch processed from main page:', result);
+              }}
+            />
+          )}
         </div>
       
         <div className="sticky top-0 z-20 bg-white py-3 shadow-sm rounded-lg mb-4">

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import LabelResultsTable from './LabelResultsTable';
 import LabelGenerationProgress from './LabelGenerationProgress';
 import BatchLabelCreationPage from './BatchLabelCreationPage';
 import PrintPreview from '@/components/shipping/PrintPreview';
+import BatchLabelControls from '@/components/shipping/BatchLabelControls';
 import { useBulkUpload } from './useBulkUpload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -60,6 +62,11 @@ const BulkUploadView: React.FC = () => {
 
   const handlePickupAddressSelect = (address: any) => {
     setPickupAddress(address);
+  };
+
+  const handleBatchProcessed = (batchResult: any) => {
+    // Handle batch processing result if needed
+    console.log('Batch processed:', batchResult);
   };
 
   return (
@@ -182,7 +189,7 @@ const BulkUploadView: React.FC = () => {
               />
             </div>
             
-            {/* Create Labels Button */}
+            {/* Enhanced Create Labels Section with Batch Controls */}
             <div className="mt-6 flex justify-between items-center">
               <div className="flex gap-2">
                 {results?.batchResult?.consolidatedLabelUrls?.pdf && !labelGenerationProgress.isGenerating && (
@@ -207,13 +214,23 @@ const BulkUploadView: React.FC = () => {
                 )}
               </div>
               
-              <Button
-                onClick={handleCreateLabels}
-                disabled={isCreatingLabels || !filteredShipments.some(s => s.selectedRateId)}
-                className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
-              >
-                {isCreatingLabels ? 'Creating Labels...' : 'Create Selected Labels'}
-              </Button>
+              <div className="flex gap-4 items-center">
+                {/* Batch Label Controls */}
+                <BatchLabelControls
+                  selectedShipments={filteredShipments.filter(s => s.selectedRateId)}
+                  pickupAddress={pickupAddress}
+                  onBatchProcessed={handleBatchProcessed}
+                />
+                
+                {/* Individual Label Creation Button */}
+                <Button
+                  onClick={handleCreateLabels}
+                  disabled={isCreatingLabels || !filteredShipments.some(s => s.selectedRateId)}
+                  className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
+                >
+                  {isCreatingLabels ? 'Creating Labels...' : 'Create Individual Labels'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
