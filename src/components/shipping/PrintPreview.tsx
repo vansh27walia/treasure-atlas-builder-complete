@@ -2,11 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Printer, Download, File, FileArchive, X, FileImage, FileText, Eye, Package, Briefcase, Loader2, Files, Mail } from 'lucide-react';
-// Removed: import { useReactToPrint } from 'react-to-print';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner'; // FIX: Changed import path for toast
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ConsolidatedLabelUrls } from '@/types/shipping'; // Import the updated type
+import { ConsolidatedLabelUrls } from '@/types/shipping';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
@@ -16,10 +15,10 @@ const labelFormats = [
 ];
 
 interface PrintPreviewProps {
-  triggerButton?: React.ReactNode; // Allow custom trigger - Note: This will be overridden by the new buttons unless explicitly used elsewhere
-  isOpenProp?: boolean; // Control openness from parent
-  onOpenChangeProp?: (open: boolean) => void; // Notify parent of open state change
-  labelUrl: string; // Primary URL, usually PNG for preview image OR PDF for individual
+  triggerButton?: React.ReactNode;
+  isOpenProp?: boolean;
+  onOpenChangeProp?: (open: boolean) => void;
+  labelUrl: string;
   trackingCode: string | null;
   shipmentDetails?: {
     fromAddress: string;
@@ -29,8 +28,8 @@ interface PrintPreviewProps {
     service: string;
     carrier: string;
   };
-  onFormatChange?: (format: string) => Promise<void>; // For individual label format regeneration
-  onBatchFormatChange?: (format: string) => Promise<void>; // New: For batch label format regeneration
+  onFormatChange?: (format: string) => Promise<void>;
+  onBatchFormatChange?: (format: string) => Promise<void>;
   shipmentId?: string;
   labelUrls?: {
     png?: string;
@@ -39,14 +38,14 @@ interface PrintPreviewProps {
   };
   batchResult?: {
     batchId: string;
-    consolidatedLabelUrls: ConsolidatedLabelUrls; // Use the imported type
+    consolidatedLabelUrls: ConsolidatedLabelUrls;
     scanFormUrl: string | null;
   };
-  isBatchPreview?: boolean; // Flag to indicate if this is for a batch
+  isBatchPreview?: boolean;
 }
 
 const PrintPreview: React.FC<PrintPreviewProps> = ({
-  triggerButton, // This prop will now be less directly used for the default buttons
+  triggerButton,
   isOpenProp,
   onOpenChangeProp,
   labelUrl,
@@ -70,20 +69,18 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
   };
 
   const [selectedFormat, setSelectedFormat] = useState('4x6');
-  // Removed contentRef for useReactToPrint
-  const iframeRef = useRef<HTMLIFrameElement>(null); // New ref for the iframe
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   const [isRegeneratingLabel, setIsRegeneratingLabel] = useState(false);
-  const [currentPreviewUrl, setCurrentPreviewUrl] = useState(''); // For the img/iframe src in preview
-  const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'placeholder'>('placeholder'); // Default to placeholder
+  const [currentPreviewUrl, setCurrentPreviewUrl] = useState('');
+  const [previewType, setPreviewType] = useState<'image' | 'pdf' | 'placeholder'>('placeholder');
 
-  // Effect to set the initial preview URL and type based on props and whether it's a batch
   useEffect(() => {
     if (isBatchPreview) {
       if (batchResult?.consolidatedLabelUrls?.pdf) {
         setCurrentPreviewUrl(batchResult.consolidatedLabelUrls.pdf);
         setPreviewType('pdf');
-        setSelectedFormat('8.5x11-2up'); // Default batch print format if not specified
+        setSelectedFormat('8.5x11-2up');
       } else {
         setCurrentPreviewUrl('');
         setPreviewType('placeholder');
@@ -92,24 +89,23 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       if (labelUrls?.pdf) {
         setCurrentPreviewUrl(labelUrls.pdf);
         setPreviewType('pdf');
-      } else if (labelUrl && labelUrl.endsWith('.png')) { // Check explicitly for PNG for fallback image
+      } else if (labelUrl && labelUrl.endsWith('.png')) {
         setCurrentPreviewUrl(labelUrl);
         setPreviewType('image');
       } else {
         setCurrentPreviewUrl('');
         setPreviewType('placeholder');
       }
-      setSelectedFormat('4x6'); // Default individual print format
+      setSelectedFormat('4x6');
     }
-  }, [labelUrl, labelUrls, isBatchPreview, isOpen, batchResult]); // Re-evaluate when modal opens or batchResult changes
+  }, [labelUrl, labelUrls, isBatchPreview, isOpen, batchResult]);
 
-  // Custom handlePrint function without react-to-print
   const handlePrint = () => {
     if (previewType === 'pdf' && iframeRef.current && iframeRef.current.contentWindow) {
       try {
-        iframeRef.current.contentWindow.focus(); // Focus the iframe before printing
-        iframeRef.current.contentWindow.print(); // Trigger print on iframe content
-        setIsOpen(false); // Close dialog after print attempt
+        iframeRef.current.contentWindow.focus();
+        iframeRef.current.contentWindow.print();
+        setIsOpen(false);
       } catch (error) {
         console.error("Error printing PDF from iframe:", error);
         toast.error("Failed to initiate print. Please try downloading the PDF and printing it manually.");
@@ -121,26 +117,23 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   const handleFormatChange = async (format: string) => {
     setSelectedFormat(format);
-    setIsRegeneratingLabel(true); // Indicate regeneration started
+    setIsRegeneratingLabel(true);
 
     try {
       if (isBatchPreview && onBatchFormatChange) {
-        // For batch labels, call batch-specific format change handler
         await onBatchFormatChange(format);
         toast.success(`Batch label format updated by server to ${format}.`);
       } else if (!isBatchPreview && onFormatChange) {
-        // For individual labels, call individual-specific format change handler
         await onFormatChange(format);
         toast.success(`Label format updated by server to ${format}.`);
       } else {
-        // If no server-side handler, just update client-side state
         toast.info(`Format selected: ${labelFormats.find(f => f.value === format)?.label || format}. (Server-side update not configured)`);
       }
     } catch (error) {
       console.error("Error changing label format:", error);
       toast.error("Failed to update label format.");
     } finally {
-      setIsRegeneratingLabel(false); // Indicate regeneration finished
+      setIsRegeneratingLabel(false);
     }
   };
 
@@ -168,7 +161,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     console.log('Download individual format attempt:', format, labelUrls);
     let urlToDownload = labelUrls?.[format];
 
-    // Always prioritize PDF for download, then PNG if PDF not available for general 'labelUrl'
     if (format === 'pdf' && !urlToDownload && labelUrl && labelUrl.endsWith('.pdf')) {
       urlToDownload = labelUrl;
     } else if (format === 'png' && !urlToDownload && labelUrl && labelUrl.endsWith('.png')) {
@@ -267,40 +259,17 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
     downloadFile(batchResult.scanFormUrl, `manifest_${batchResult.batchId}.pdf`);
   };
 
-  // Placeholder for email functionality - you'll connect this to your backend
   const handleEmailLabels = (isBatch: boolean) => {
     toast.info(`Initiating email process for ${isBatch ? 'batch' : 'individual'} labels...`);
     console.log(`Email request for ${isBatch ? 'batch ID: ' + batchResult?.batchId : 'shipment ID: ' + shipmentId || trackingCode}`);
     // TODO: Implement API call to your backend to send the email
-    // Example:
-    // try {
-    //   const response = await fetch('/api/send-label-email', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({
-    //       shipmentId: shipmentId, // or batchId: batchResult?.batchId
-    //       labelFormat: isBatch ? 'pdf' : selectedFormat, // or specific format if needed
-    //       recipientEmail: 'user@example.com' // Get this from user input or profile
-    //     })
-    //   });
-    //   if (response.ok) {
-    //     toast.success('Labels emailed successfully!');
-    //   } else {
-    //     toast.error('Failed to email labels.');
-    //   }
-    // } catch (error) {
-    //   console.error('Email sending error:', error);
-    //   toast.error('An error occurred while trying to email labels.');
-    // }
   };
-
 
   const hasIndividualDownloadFormats = !isBatchPreview && labelUrls && (labelUrls.png || labelUrls.pdf || labelUrls.zpl || labelUrl);
   const hasBatchDownloads = isBatchPreview && batchResult?.consolidatedLabelUrls &&
     (batchResult.consolidatedLabelUrls.pdf || batchResult.consolidatedLabelUrls.zpl || batchResult.consolidatedLabelUrls.epl ||
       batchResult.consolidatedLabelUrls.pdfZip || batchResult.consolidatedLabelUrls.zplZip || batchResult.consolidatedLabelUrls.eplZip);
 
-  // Determine if a PDF is available for direct download
   const isPdfDownloadAvailable = isBatchPreview
     ? !!batchResult?.consolidatedLabelUrls?.pdf
     : (!!labelUrls?.pdf || (labelUrl && labelUrl.endsWith('.pdf')));
@@ -311,9 +280,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {/* Replaced the single defaultTrigger with two buttons */}
-      {triggerButton ? triggerButton : ( // If a custom triggerButton is provided, use it
-        <div className="flex gap-2"> {/* Container for the two buttons */}
+      {/* Replaced the single defaultTrigger with two buttons at the top level */}
+      {triggerButton ? triggerButton : (
+        <div className="flex gap-2">
           {/* Button for direct PDF Download */}
           <Button
             variant="outline"
@@ -352,7 +321,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           </Button>
         </DialogHeader>
 
-        <Tabs defaultValue={"preview"} className="w-full pt-4"> {/* Always default to 'preview' */}
+        <Tabs defaultValue={"preview"} className="w-full pt-4">
           <TabsList className="grid grid-cols-2 md:grid-cols-4 mb-4">
             <TabsTrigger value="preview">Preview</TabsTrigger>
             {!isBatchPreview && <TabsTrigger value="individual" disabled={!hasIndividualDownloadFormats}>Individual Formats</TabsTrigger>}
@@ -362,7 +331,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
           <TabsContent value="preview">
             <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-2">
-              {(isBatchPreview || !isBatchPreview) && ( // Show format select for both, but behavior differs
+              {(isBatchPreview || !isBatchPreview) && (
                 <Select
                   value={selectedFormat}
                   onValueChange={handleFormatChange}
@@ -386,13 +355,13 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 size="sm"
                 onClick={handlePrint}
                 className="border-purple-200 hover:bg-purple-50 text-purple-700 w-full sm:w-auto"
-                disabled={isRegeneratingLabel || previewType !== 'pdf' || !currentPreviewUrl} // Only enable print if PDF preview is active
+                disabled={isRegeneratingLabel || previewType !== 'pdf' || !currentPreviewUrl}
               >
                 <Printer className="h-4 w-4 mr-2" /> {isBatchPreview ? 'Print Batch Preview' : 'Print Label'}
               </Button>
             </div>
 
-            <div /* ref={contentRef} - No longer needed here as iframe is directly referenced */ className="p-6 bg-gray-50 border rounded-lg">
+            <div className="p-6 bg-gray-50 border rounded-lg">
               <div className="mb-6">
                 <div className="mb-3 text-sm text-gray-500">
                   {isRegeneratingLabel ? (
@@ -416,7 +385,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     </div>
                   ) : previewType === 'pdf' && currentPreviewUrl ? (
                     <iframe ref={iframeRef} src={currentPreviewUrl} style={{ width: '100%', height: '600px', border: '1px solid #ccc' }} title="Label Preview"></iframe>
-                  ) : ( // Fallback for image preview if it's not a PDF, or placeholder
+                  ) : (
                     <div className="border border-gray-300 h-64 flex items-center justify-center text-gray-500">
                       {isBatchPreview && !batchResult?.consolidatedLabelUrls?.pdf
                         ? 'A batch PDF is needed for preview.'
@@ -441,7 +410,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                     size="sm"
                     onClick={() => handleEmailLabels(false)}
                     className="border-blue-200 hover:bg-blue-50 text-blue-700"
-                    disabled={!labelUrls?.pdf && !(labelUrl && labelUrl.endsWith('.pdf'))} // Disable if no PDF or PNG label to send
+                    disabled={!labelUrls?.pdf && !(labelUrl && labelUrl.endsWith('.pdf'))}
                   >
                     <Mail className="h-4 w-4 mr-2" /> Email Label
                   </Button>
@@ -515,6 +484,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           {isBatchPreview && (
             <TabsContent value="batch">
               <div className="space-y-6 p-4">
+                {/* Consolidated batch action buttons moved to the top */}
                 <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-3">
                   <div className="flex-grow w-full sm:w-auto">
                     <Button
@@ -539,10 +509,10 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                   <div className="flex-grow w-full sm:w-auto">
                     <Button
                       variant="outline"
-                      size="lg" // Use lg for larger button to match
+                      size="lg"
                       onClick={() => handleEmailLabels(true)}
                       className="w-full border-blue-600 hover:bg-blue-100 text-blue-700 py-3 rounded-md flex items-center justify-center text-md font-semibold"
-                      disabled={!hasBatchDownloads} // Disable if no labels to send
+                      disabled={!hasBatchDownloads}
                     >
                       <Mail className="h-5 w-5 mr-3" /> Email Batch Labels
                     </Button>
@@ -559,7 +529,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 {hasBatchDownloads ? (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {/* Batch PDF (Direct or ZIP) */}
                       {(batchResult?.consolidatedLabelUrls?.pdf || batchResult?.consolidatedLabelUrls?.pdfZip) && (
                         <div className="border rounded-lg p-4 text-center hover:border-indigo-300 transition-colors">
                           <Briefcase className="h-10 w-10 mx-auto mb-2 text-indigo-600" />
@@ -576,7 +545,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                           </Button>
                         </div>
                       )}
-                      {/* Batch ZPL (Direct or ZIP) */}
                       {(batchResult?.consolidatedLabelUrls?.zpl || batchResult?.consolidatedLabelUrls?.zplZip) && (
                         <div className="border rounded-lg p-4 text-center hover:border-teal-300 transition-colors">
                           <Briefcase className="h-10 w-10 mx-auto mb-2 text-teal-600" />
@@ -593,7 +561,6 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                           </Button>
                         </div>
                       )}
-                      {/* Batch EPL (Direct or ZIP) */}
                       {(batchResult?.consolidatedLabelUrls?.epl || batchResult?.consolidatedLabelUrls?.eplZip) && (
                         <div className="border rounded-lg p-4 text-center hover:border-cyan-300 transition-colors">
                           <Briefcase className="h-10 w-10 mx-auto mb-2 text-cyan-600" />
@@ -628,7 +595,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
           <TabsContent value="print_settings">
             <div className="space-y-4 p-4">
               <h3 className="text-lg font-semibold">Print Output</h3>
-              {(isBatchPreview || !isBatchPreview) && ( // Show format select for both, but behavior differs
+              {(isBatchPreview || !isBatchPreview) && (
                 <Select
                   value={selectedFormat}
                   onValueChange={handleFormatChange}
@@ -656,7 +623,7 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
               <Button
                 onClick={handlePrint}
                 className="w-full h-12 bg-purple-600 hover:bg-purple-700"
-                disabled={isRegeneratingLabel || previewType !== 'pdf' || !currentPreviewUrl} // Only enable print if PDF preview is active
+                disabled={isRegeneratingLabel || previewType !== 'pdf' || !currentPreviewUrl}
               >
                 <Printer className="mr-2 h-5 w-5" />
                 {isBatchPreview ? "Print Batch PDF (via Browser)" : "Print Label Now"}
