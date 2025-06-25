@@ -21,7 +21,6 @@ import InternationalShippingPage from './pages/InternationalShippingPage';
 import LabelSuccessPage from './pages/LabelSuccessPage';
 import PickupPage from './pages/PickupPage';
 import BulkUploadPage from './pages/BulkUploadPage';
-import BulkLabelCreationPage from './pages/BulkLabelCreationPage';
 import TrackingPage from './pages/TrackingPage';
 import ShipToPage from './pages/ShipToPage';
 import FreightForwardingPage from './pages/FreightForwardingPage';

@@ -3,18 +3,20 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Upload, FileText, Package, Download, PrinterIcon, AlertTriangle, X, Mail } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
 import LabelGenerationProgress from './LabelGenerationProgress';
+import BatchLabelCreationPage from './BatchLabelCreationPage';
+import PrintPreview from '@/components/shipping/PrintPreview';
 import BatchLabelControls from '@/components/shipping/BatchLabelControls';
+import BatchPrintPreviewModal from '@/components/shipping/BatchPrintPreviewModal';
+import EmailLabelsModal from '@/components/shipping/EmailLabelsModal';
+import BulkLabelDownloadOptions from './BulkLabelDownloadOptions';
 import { useBulkUpload } from './useBulkUpload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from '@/components/ui/sonner';
 
 const BulkUploadView: React.FC = () => {
-  const navigate = useNavigate();
-  
   const {
     file,
     isUploading,
@@ -31,6 +33,8 @@ const BulkUploadView: React.FC = () => {
     pickupAddress,
     batchError,
     labelGenerationProgress,
+    batchPrintPreviewModalOpen,
+    setBatchPrintPreviewModalOpen,
     handleFileChange,
     handleUpload,
     handleSelectRate,
@@ -38,7 +42,11 @@ const BulkUploadView: React.FC = () => {
     handleEditShipment,
     handleBulkApplyCarrier,
     handleCreateLabels,
+    handleOpenBatchPrintPreview,
     handleClearBatchError,
+    handleDownloadLabelsWithFormat,
+    handleDownloadSingleLabel,
+    handleEmailLabels,
     handleDownloadTemplate,
     setSearchTerm,
     setSortField,
@@ -46,6 +54,9 @@ const BulkUploadView: React.FC = () => {
     setSelectedCarrierFilter,
     setPickupAddress
   } = useBulkUpload();
+
+  const [showPrintPreview, setShowPrintPreview] = React.useState(false);
+  const [showEmailModal, setShowEmailModal] = React.useState(false);
 
   const handleUploadSuccess = (uploadResults: any) => {
     console.log('Upload successful:', uploadResults);
@@ -63,14 +74,73 @@ const BulkUploadView: React.FC = () => {
     console.log('Batch processed:', batchResult);
   };
 
-  // Navigate to full-screen label creation page when labels are created
-  React.useEffect(() => {
-    if (uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating) {
-      navigate('/bulk-label-creation', {
-        state: { results, pickupAddress }
-      });
+  const handlePrintPreview = () => {
+    setShowPrintPreview(true);
+  };
+
+  const handleDownloadAllLabels = () => {
+    if (results?.batchResult?.consolidatedLabelUrls?.pdf) {
+      const link = document.createElement('a');
+      link.href = results.batchResult.consolidatedLabelUrls.pdf;
+      link.download = `batch_labels_${results.batchResult.batchId || Date.now()}.pdf`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Downloading consolidated PDF labels');
+    } else {
+      toast.error('Consolidated PDF not available');
     }
-  }, [uploadStatus, results, labelGenerationProgress.isGenerating, navigate, pickupAddress]);
+  };
+
+  const handleDownloadZPL = () => {
+    if (results?.batchResult?.consolidatedLabelUrls?.zpl) {
+      const link = document.createElement('a');
+      link.href = results.batchResult.consolidatedLabelUrls.zpl;
+      link.download = `batch_labels_${results.batchResult.batchId || Date.now()}.zpl`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Downloading ZPL labels');
+    } else {
+      toast.error('ZPL format not available');
+    }
+  };
+
+  const handleDownloadEPL = () => {
+    if (results?.batchResult?.consolidatedLabelUrls?.epl) {
+      const link = document.createElement('a');
+      link.href = results.batchResult.consolidatedLabelUrls.epl;
+      link.download = `batch_labels_${results.batchResult.batchId || Date.now()}.epl`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Downloading EPL labels');
+    } else {
+      toast.error('EPL format not available');
+    }
+  };
+
+  const handleDownloadManifest = () => {
+    if (results?.batchResult?.scanFormUrl) {
+      const link = document.createElement('a');
+      link.href = results.batchResult.scanFormUrl;
+      link.download = `manifest_${results.batchResult.batchId || Date.now()}.pdf`;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Downloading pickup manifest');
+    } else {
+      toast.error('Manifest not available');
+    }
+  };
+
+  const handleEmailConsolidated = () => {
+    setShowEmailModal(true);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -215,6 +285,140 @@ const BulkUploadView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Success Screen with Full Screen Batch Label Download Options */}
+      {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
+        <div className="min-h-screen bg-white w-full">
+          <div className="w-full p-6">
+            <div className="mb-6">
+              <h1 className="text-2xl font-bold text-green-800 mb-4 flex items-center">
+                <Package className="mr-3 h-8 w-8" />
+                Labels Created Successfully!
+              </h1>
+              <p className="text-gray-600">Your shipping labels have been created. Choose from the download options below.</p>
+            </div>
+
+            {/* Main Action Buttons - Prominent Display */}
+            <div className="mb-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border-2 border-green-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Button
+                  onClick={handleDownloadAllLabels}
+                  className="bg-green-600 hover:bg-green-700 text-white py-3 px-6 text-lg"
+                  disabled={!results.batchResult?.consolidatedLabelUrls?.pdf}
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  Download All Labels (PDF)
+                </Button>
+                
+                <Button
+                  onClick={handlePrintPreview}
+                  variant="outline"
+                  className="border-purple-300 text-purple-700 hover:bg-purple-50 py-3 px-6 text-lg"
+                  disabled={!results.batchResult?.consolidatedLabelUrls?.pdf}
+                >
+                  <PrinterIcon className="mr-2 h-5 w-5" />
+                  Print Preview
+                </Button>
+                
+                <Button
+                  onClick={handleEmailConsolidated}
+                  variant="outline"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-50 py-3 px-6 text-lg"
+                >
+                  <Mail className="mr-2 h-5 w-5" />
+                  Email Labels
+                </Button>
+                
+                <Button
+                  onClick={handleDownloadManifest}
+                  variant="outline" 
+                  className="border-orange-300 text-orange-700 hover:bg-orange-50 py-3 px-6 text-lg"
+                  disabled={!results.batchResult?.scanFormUrl}
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  Pickup Manifest
+                </Button>
+              </div>
+            </div>
+
+            {/* Additional Format Downloads */}
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold mb-4">Additional Download Formats</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button
+                  onClick={handleDownloadZPL}
+                  variant="outline"
+                  className="border-purple-300 text-purple-700 hover:bg-purple-50 py-2 px-4"
+                  disabled={!results.batchResult?.consolidatedLabelUrls?.zpl}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download ZPL Format
+                </Button>
+                
+                <Button
+                  onClick={handleDownloadEPL}
+                  variant="outline"
+                  className="border-teal-300 text-teal-700 hover:bg-teal-50 py-2 px-4"
+                  disabled={!results.batchResult?.consolidatedLabelUrls?.epl}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download EPL Format
+                </Button>
+              </div>
+            </div>
+
+            {/* Individual Labels Section */}
+            {results.processedShipments && results.processedShipments.length > 0 && (
+              <div className="w-full">
+                <BulkLabelDownloadOptions
+                  batchResult={results.batchResult}
+                  processedLabels={results.processedShipments || []}
+                  onDownloadBatch={(format, url) => {
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `batch_labels_${Date.now()}.${format}`;
+                    link.target = '_blank';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  onDownloadManifest={handleDownloadManifest}
+                  onDownloadIndividual={(labelUrl, format) => {
+                    const link = document.createElement('a');
+                    link.href = labelUrl;
+                    link.download = `individual_label_${Date.now()}.${format}`;
+                    link.target = '_blank';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }}
+                  onPrintPreview={handlePrintPreview}
+                  onEmailLabels={handleEmailConsolidated}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Full Screen Print Preview Modal */}
+      {results?.batchResult?.consolidatedLabelUrls?.pdf && (
+        <PrintPreview
+          isOpenProp={showPrintPreview}
+          onOpenChangeProp={setShowPrintPreview}
+          labelUrl={results.batchResult.consolidatedLabelUrls.pdf}
+          trackingCode={null}
+          isBatchPreview={true}
+          batchResult={results.batchResult}
+        />
+      )}
+
+      {/* Email Modal */}
+      <EmailLabelsModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        batchResult={results?.batchResult || null}
+      />
     </div>
   );
 };
