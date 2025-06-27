@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -159,7 +158,6 @@ export interface BulkShipment {
 
 export interface ConsolidatedLabelUrls {
   pdf?: string;       // Direct URL to consolidated PDF
-  png?: string;       // Direct URL to consolidated PNG
   zpl?: string;       // Direct URL to consolidated ZPL
   epl?: string;       // Direct URL to consolidated EPL
   pdfZip?: string;    // URL to ZIP of PDFs (legacy or alternative)
