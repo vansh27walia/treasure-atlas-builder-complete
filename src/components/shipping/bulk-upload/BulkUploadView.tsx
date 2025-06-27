@@ -274,7 +274,7 @@ const BulkUploadView: React.FC = () => {
               <Button
                 onClick={() => {
                   if (results.batchResult?.consolidatedLabelUrls?.pdf) {
-                    handleDownloadSingleLabel(results.batchResult.consolidatedLabelUrls.pdf);
+                    handleDownloadSingleLabel(results.batchResult.consolidatedLabelUrls.pdf, 'pdf');
                   }
                 }}
                 className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-12 py-8 text-xl font-bold shadow-2xl transform hover:scale-105 transition-all duration-200"
