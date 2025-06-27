@@ -63,6 +63,7 @@ const BulkUploadView: React.FC = () => {
       return 'selection';
     }
     if (isCreatingLabels || labelGenerationProgress.isGenerating) return 'labels';
+    if (uploadStatus === 'success') return 'labels';
     return 'upload';
   };
 
@@ -135,24 +136,24 @@ const BulkUploadView: React.FC = () => {
       {/* Processing Section - Enhanced with better visuals */}
       {(uploadStatus === 'uploading' || (uploadStatus === 'editing' && !results?.processedShipments?.length)) && (
         <div className="min-h-screen flex items-center justify-center p-6">
-          <Card className="p-16 max-w-2xl w-full shadow-2xl border-0 bg-white/95 backdrop-blur-lg">
+          <Card className="p-12 max-w-xl w-full shadow-2xl border-0 bg-white/95 backdrop-blur-lg">
             <div className="text-center">
-              <div className="relative w-20 h-20 mx-auto mb-8">
+              <div className="relative w-16 h-16 mx-auto mb-6">
                 <div className="absolute inset-0 rounded-full border-4 border-blue-200"></div>
                 <div className="absolute inset-0 rounded-full border-t-4 border-blue-600 animate-spin"></div>
                 <div className="absolute inset-0 rounded-full border-r-4 border-purple-600 animate-spin animate-reverse"></div>
               </div>
-              <h3 className="text-3xl font-bold mb-6 text-gray-900">Processing Your Upload</h3>
-              <p className="text-gray-600 mb-8 text-lg">We're analyzing your shipment data and fetching the best rates...</p>
+              <h3 className="text-2xl font-bold mb-4 text-gray-900">Processing Your Upload</h3>
+              <p className="text-gray-600 mb-6 text-base">We're analyzing your shipment data and fetching the best rates...</p>
               {progress > 0 && progress < 100 && (
-                <div className="space-y-4">
-                  <div className="bg-gray-200 rounded-full h-4 overflow-hidden">
+                <div className="space-y-3">
+                  <div className="bg-gray-200 rounded-full h-3 overflow-hidden">
                     <div 
-                      className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 h-4 rounded-full transition-all duration-700 ease-out" 
+                      className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 h-3 rounded-full transition-all duration-700 ease-out" 
                       style={{ width: `${progress}%` }}
                     ></div>
                   </div>
-                  <p className="text-lg font-semibold text-blue-600">{progress}% Complete</p>
+                  <p className="text-base font-semibold text-blue-600">{progress}% Complete</p>
                 </div>
               )}
             </div>
@@ -256,67 +257,80 @@ const BulkUploadView: React.FC = () => {
       {/* Success Screen - Consolidated actions */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50">
-          <div className="max-w-6xl mx-auto p-8">
-            <div className="text-center mb-12">
-              <div className="w-28 h-28 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-xl">
-                <CheckCircle className="h-14 w-14 text-white" />
+          <div className="max-w-4xl mx-auto p-8">
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
+                <CheckCircle className="h-10 w-10 text-white" />
               </div>
-              <h1 className="text-5xl font-bold text-gray-900 mb-6">
+              <h1 className="text-3xl font-bold text-gray-900 mb-4">
                 Labels Created Successfully!
               </h1>
-              <p className="text-2xl text-gray-600 max-w-3xl mx-auto">
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
                 Your shipping labels are ready. Choose your preferred action below.
               </p>
             </div>
 
+            {/* Success Summary - Smaller box */}
+            <Card className="p-6 bg-white/80 backdrop-blur-lg shadow-lg border-0 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-green-600 mb-1">
+                    {results.processedShipments?.length || 0}
+                  </div>
+                  <div className="text-gray-600 text-sm font-medium">Labels Created</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-blue-600 mb-1">
+                    ${results.totalCost?.toFixed(2) || '0.00'}
+                  </div>
+                  <div className="text-gray-600 text-sm font-medium">Total Cost</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-purple-600 mb-1">
+                    {results.batchResult ? 'Ready' : 'Processing'}
+                  </div>
+                  <div className="text-gray-600 text-sm font-medium">Batch Status</div>
+                </div>
+              </div>
+            </Card>
+
             {/* Consolidated Action Buttons - Only 2 main options */}
-            <div className="flex justify-center gap-8 mb-12">
+            <div className="flex justify-center gap-6 mb-8">
               <Button
                 onClick={() => {
                   if (results.batchResult?.consolidatedLabelUrls?.pdf) {
                     handleDownloadSingleLabel(results.batchResult.consolidatedLabelUrls.pdf);
                   }
                 }}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-12 py-8 text-xl font-bold shadow-2xl transform hover:scale-105 transition-all duration-200"
+                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-4 text-lg font-bold shadow-xl transform hover:scale-105 transition-all duration-200"
                 size="lg"
               >
-                <Package className="mr-4 h-8 w-8" />
+                <Package className="mr-3 h-6 w-6" />
                 Download PDF Labels
               </Button>
 
               <Button
                 onClick={() => setShowPrintPreview(true)}
-                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-12 py-8 text-xl font-bold shadow-2xl transform hover:scale-105 transition-all duration-200"
+                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-8 py-4 text-lg font-bold shadow-xl transform hover:scale-105 transition-all duration-200"
                 size="lg"
               >
-                <FileText className="mr-4 h-8 w-8" />
+                <FileText className="mr-3 h-6 w-6" />
                 Print Preview & Options
               </Button>
             </div>
 
-            {/* Success Summary */}
-            <Card className="p-8 bg-white/80 backdrop-blur-lg shadow-xl border-0">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-                <div>
-                  <div className="text-4xl font-bold text-green-600 mb-2">
-                    {results.processedShipments?.length || 0}
-                  </div>
-                  <div className="text-gray-600 font-medium">Labels Created</div>
-                </div>
-                <div>
-                  <div className="text-4xl font-bold text-blue-600 mb-2">
-                    ${results.totalCost?.toFixed(2) || '0.00'}
-                  </div>
-                  <div className="text-gray-600 font-medium">Total Cost</div>
-                </div>
-                <div>
-                  <div className="text-4xl font-bold text-purple-600 mb-2">
-                    {results.batchResult ? 'Ready' : 'Processing'}
-                  </div>
-                  <div className="text-gray-600 font-medium">Batch Status</div>
-                </div>
-              </div>
-            </Card>
+            {/* Additional Actions */}
+            <div className="text-center">
+              <Button
+                onClick={() => setShowEmailModal(true)}
+                variant="outline"
+                className="bg-white/90 backdrop-blur-lg border-gray-200 hover:bg-white shadow-lg px-6 py-3"
+                size="lg"
+              >
+                <FileText className="h-5 w-5 mr-2" />
+                Email Labels
+              </Button>
+            </div>
           </div>
         </div>
       )}
