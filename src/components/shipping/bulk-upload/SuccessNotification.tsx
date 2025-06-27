@@ -1,11 +1,13 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, FileText, File } from 'lucide-react';
+import { CheckCircle, Download, FileText, File, PrinterIcon, Mail, Package } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import LabelResultsTable from './LabelResultsTable';
 import { toast } from '@/components/ui/sonner';
+import BatchPrintPreviewModal from '@/components/shipping/BatchPrintPreviewModal';
+import EmailLabelsModal from '@/components/shipping/EmailLabelsModal';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
@@ -24,6 +26,9 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+
   console.log('SuccessNotification received results:', results);
 
   // Safely get shipments array
@@ -66,64 +71,38 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   // Show notification if we have shipments or results
   const shouldShowNotification = totalProcessed > 0 || results.total > 0 || results.successful > 0;
 
-  const downloadFile = async (url: string, filename: string) => {
-    try {
-      console.log('Downloading file from URL:', url);
-      
-      if (!url || url.trim() === '') {
-        toast.error('Invalid label URL - cannot download');
-        return;
-      }
-
-      // Direct download approach
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      link.target = '_blank';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.success(`Downloaded ${filename}`);
-    } catch (error) {
-      console.error('Download error:', error);
-      toast.error(`Failed to download ${filename}`);
-    }
-  };
-
-  const handleDownloadAllIndividualLabels = async () => {
-    console.log('Downloading all individual labels, count:', shipmentsWithLabels.length);
-    
-    if (shipmentsWithLabels.length === 0) {
-      toast.error('No labels available for download');
+  const handleDownloadConsolidated = (format: 'pdf' | 'png' | 'zpl' | 'epl') => {
+    if (!results.batchResult?.consolidatedLabelUrls[format]) {
+      toast.error(`${format.toUpperCase()} consolidated labels not available`);
       return;
     }
 
-    toast.loading('Starting downloads...');
+    const link = document.createElement('a');
+    link.href = results.batchResult.consolidatedLabelUrls[format]!;
+    link.download = `consolidated_labels_${Date.now()}.${format}`;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     
-    let successCount = 0;
-    
-    for (let i = 0; i < shipmentsWithLabels.length; i++) {
-      const shipment = shipmentsWithLabels[i];
-      const labelUrl = shipment.label_urls?.png || shipment.label_url;
-      if (labelUrl && labelUrl.trim() !== '') {
-        try {
-          setTimeout(async () => {
-            const trackingCode = shipment.tracking_number || shipment.tracking_code || shipment.trackingCode;
-            await downloadFile(labelUrl, `label_${trackingCode || `shipment_${i + 1}`}.png`);
-            successCount++;
-          }, i * 500);
-        } catch (error) {
-          console.error('Error downloading label for shipment:', shipment.id, error);
-        }
-      }
+    toast.success(`Downloaded consolidated ${format.toUpperCase()} labels`);
+  };
+
+  const handleDownloadManifest = () => {
+    if (!results.batchResult?.scanFormUrl) {
+      toast.error('Scan form not available');
+      return;
     }
+
+    const link = document.createElement('a');
+    link.href = results.batchResult.scanFormUrl;
+    link.download = `pickup_manifest_${Date.now()}.pdf`;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     
-    toast.dismiss();
-    setTimeout(() => {
-      toast.success(`Started download of ${shipmentsWithLabels.length} labels`);
-    }, 1000);
+    toast.success('Downloaded pickup manifest');
   };
 
   // Don't show if no data
@@ -142,7 +121,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           <CheckCircle className="h-6 w-6 text-green-600" />
           <div>
             <h3 className="text-lg font-semibold text-green-800">
-              {hasLabels ? 'Labels Processing Complete!' : 'Shipments Processed Successfully!'}
+              {hasLabels ? 'Labels Created Successfully!' : 'Shipments Processed Successfully!'}
             </h3>
             <p className="text-green-700">
               {hasLabels
@@ -185,19 +164,96 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </div>
         </div>
 
-        {/* Download Buttons Section */}
-        {hasLabels && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h4 className="font-semibold text-lg text-blue-800 mb-4">Download Your Labels</h4>
+        {/* Batch Label Creation Controls */}
+        {hasLabels && results.batchResult && (
+          <div className="mb-6 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center mb-4">
+              <Package className="h-6 w-6 text-blue-600 mr-3" />
+              <h4 className="font-semibold text-lg text-blue-800">Batch Label Actions</h4>
+            </div>
             
-            <div className="flex flex-col gap-3">
-              <Button 
-                onClick={handleDownloadAllIndividualLabels}
+            {/* Consolidated Download Options */}
+            <div className="mb-6">
+              <h5 className="font-medium text-blue-700 mb-3">Download Consolidated Labels</h5>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Button
+                  onClick={() => handleDownloadConsolidated('pdf')}
+                  className="bg-red-600 hover:bg-red-700 text-white flex items-center justify-center h-16"
+                  disabled={!results.batchResult?.consolidatedLabelUrls?.pdf}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  <div className="text-center">
+                    <div className="font-semibold">PDF</div>
+                    <div className="text-xs opacity-90">All Labels</div>
+                  </div>
+                </Button>
+
+                <Button
+                  onClick={() => handleDownloadConsolidated('png')}
+                  className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center h-16"
+                  disabled={!results.batchResult?.consolidatedLabelUrls?.png}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  <div className="text-center">
+                    <div className="font-semibold">PNG</div>
+                    <div className="text-xs opacity-90">All Labels</div>
+                  </div>
+                </Button>
+
+                <Button
+                  onClick={() => handleDownloadConsolidated('zpl')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center h-16"
+                  disabled={!results.batchResult?.consolidatedLabelUrls?.zpl}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  <div className="text-center">
+                    <div className="font-semibold">ZPL</div>
+                    <div className="text-xs opacity-90">All Labels</div>
+                  </div>
+                </Button>
+
+                <Button
+                  onClick={() => handleDownloadConsolidated('epl')}
+                  className="bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center h-16"
+                  disabled={!results.batchResult?.consolidatedLabelUrls?.epl}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  <div className="text-center">
+                    <div className="font-semibold">EPL</div>
+                    <div className="text-xs opacity-90">All Labels</div>
+                  </div>
+                </Button>
+              </div>
+            </div>
+
+            {/* Additional Actions */}
+            <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={() => setShowPrintPreview(true)}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
-                <Download className="mr-2 h-4 w-4" />
-                Download All Labels ({shipmentsWithLabels.length} PNG files)
+                <PrinterIcon className="mr-2 h-4 w-4" />
+                Print Preview All Labels
               </Button>
+
+              <Button
+                onClick={() => setShowEmailModal(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Email Labels
+              </Button>
+
+              {results.batchResult?.scanFormUrl && (
+                <Button
+                  onClick={handleDownloadManifest}
+                  variant="outline"
+                  className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Download Manifest
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -221,7 +277,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
         )}
       </Card>
 
-      {/* New Clean Table Display */}
+      {/* Individual Labels Table */}
       {allShipments.length > 0 && (
         <LabelResultsTable
           shipments={allShipments}
@@ -229,7 +285,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
             if (url && url.trim() !== '') {
               const timestamp = Date.now();
               const filename = `shipping_label_${timestamp}.${format || 'png'}`;
-              downloadFile(url, filename);
+              onDownloadSingleLabel(url, format);
             } else {
               toast.error('Invalid label URL - cannot download');
             }
@@ -253,6 +309,20 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
           </div>
         </Card>
       )}
+
+      {/* Print Preview Modal */}
+      <BatchPrintPreviewModal
+        isOpen={showPrintPreview}
+        onClose={() => setShowPrintPreview(false)}
+        batchResult={results.batchResult || null}
+      />
+
+      {/* Email Modal */}
+      <EmailLabelsModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        batchResult={results.batchResult || null}
+      />
     </div>
   );
 };
