@@ -8,6 +8,8 @@ import SuccessNotification from './bulk-upload/SuccessNotification';
 import UploadError from './bulk-upload/UploadError';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
+import LabelCreationOverlay from './LabelCreationOverlay';
+import StripePaymentModal from './StripePaymentModal';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -15,9 +17,19 @@ import { FileText, UploadCloud, ChevronRight, AlertCircle, Download, CreditCard,
 import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
+import PrintPreview from '@/components/shipping/PrintPreview';
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showPrintPreview, setShowPrintPreview] = useState(false);
+  const [labelProgress, setLabelProgress] = useState({
+    isCreating: false,
+    progress: 0,
+    currentStep: '',
+    completed: 0,
+    failed: 0
+  });
   
   const {
     file,
@@ -88,8 +100,90 @@ const BulkUpload: React.FC = () => {
     }
   };
 
+  const resetUpload = () => {
+    window.location.reload();
+  };
+
+  const selectNewFile = () => {
+    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
+    }
+  };
+
   // Safely get processed shipments count
   const processedShipmentsCount = results?.processedShipments?.length || 0;
+
+  const handleDownloadLabelsClick = async () => {
+    if (!results?.processedShipments?.length) {
+      toast.error('No shipments available for label creation');
+      return;
+    }
+
+    setLabelProgress({
+      isCreating: true,
+      progress: 0,
+      currentStep: 'Initializing label creation...',
+      completed: 0,
+      failed: 0
+    });
+
+    try {
+      const totalShipments = results.processedShipments.length;
+      
+      // Simulate progress updates
+      const updateProgress = (step: string, progress: number, completed: number, failed: number = 0) => {
+        setLabelProgress({
+          isCreating: true,
+          progress,
+          currentStep: step,
+          completed,
+          failed
+        });
+      };
+
+      updateProgress('Creating shipments...', 20, 0);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      updateProgress('Generating labels...', 40, 0);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      updateProgress('Converting to PDF...', 60, Math.floor(totalShipments * 0.6));
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      updateProgress('Creating batch files...', 80, Math.floor(totalShipments * 0.8));
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      updateProgress('Finalizing downloads...', 95, totalShipments - 1);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Call the actual label creation
+      await handleCreateLabels();
+      
+      updateProgress('Download complete!', 100, totalShipments, 0);
+      
+      // Auto-close after 2 seconds
+      setTimeout(() => {
+        setLabelProgress(prev => ({ ...prev, isCreating: false }));
+        toast.success('All labels downloaded successfully!');
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Error creating labels:', error);
+      setLabelProgress(prev => ({ 
+        ...prev, 
+        isCreating: false, 
+        currentStep: 'Error occurred during label creation',
+        failed: prev.failed + 1
+      }));
+      toast.error('Failed to create labels');
+    }
+  };
+
+  const handlePaymentSuccess = () => {
+    toast.success('Payment successful! Labels are now available for download.');
+    // You can trigger automatic label download here if needed
+  };
 
   return (
     <>
@@ -207,12 +301,21 @@ const BulkUpload: React.FC = () => {
                   
                   <div className="flex gap-3 mt-4 lg:mt-0">
                     <Button 
-                      onClick={handleCreateLabels}
+                      onClick={handleDownloadLabelsClick}
                       disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress}
                       className="px-6 bg-green-600 hover:bg-green-700"
                     >
                       <Download className="mr-1 h-4 w-4" />
-                      {isCreatingLabels ? 'Creating...' : 'Create Labels'}
+                      {isCreatingLabels ? 'Creating...' : 'Download Labels'}
+                    </Button>
+                    
+                    <Button
+                      onClick={() => setShowPaymentModal(true)}
+                      disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress}
+                      className="px-6 bg-blue-600 hover:bg-blue-700"
+                    >
+                      <CreditCard className="mr-1 h-4 w-4" />
+                      Pay Labels
                     </Button>
                   </div>
                 </div>
@@ -222,14 +325,24 @@ const BulkUpload: React.FC = () => {
         )}
         
         {uploadStatus === 'success' && results && (
-          <SuccessNotification
-            results={results}
-            onDownloadAllLabels={handleDownloadAllLabels}
-            onDownloadSingleLabel={handleDownloadSingleLabel}
-            onCreateLabels={handleCreateLabels}
-            isPaying={isPaying}
-            isCreatingLabels={isCreatingLabels}
-          />
+          <>
+            {results.bulk_label_pdf_url && (
+              <div className="flex justify-end mb-4">
+                <Button onClick={() => setShowPrintPreview(true)}>
+                  <PrinterIcon className="mr-2 h-4 w-4" />
+                  Preview All Labels
+                </Button>
+              </div>
+            )}
+            <SuccessNotification
+              results={results}
+              onDownloadAllLabels={handleDownloadAllLabels}
+              onDownloadSingleLabel={handleDownloadSingleLabel}
+              onCreateLabels={handleCreateLabels}
+              isPaying={isPaying}
+              isCreatingLabels={isCreatingLabels}
+            />
+          </>
         )}
         
         {uploadStatus === 'error' && (
@@ -245,6 +358,38 @@ const BulkUpload: React.FC = () => {
           />
         )}
       </Card>
+
+      {/* Label Creation Overlay */}
+      <LabelCreationOverlay
+        isVisible={labelProgress.isCreating}
+        progress={labelProgress.progress}
+        currentStep={labelProgress.currentStep}
+        totalLabels={processedShipmentsCount}
+        completedLabels={labelProgress.completed}
+        failedLabels={labelProgress.failed}
+        onClose={() => setLabelProgress(prev => ({ ...prev, isCreating: false }))}
+      />
+
+      {/* Stripe Payment Modal */}
+      <StripePaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        totalAmount={results?.totalCost || 0}
+        shipmentCount={processedShipmentsCount}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
+
+      {/* Batch Print Preview Modal */}
+      {results?.bulk_label_pdf_url && results.batchResult && (
+        <PrintPreview
+          isOpenProp={showPrintPreview}
+          onOpenChangeProp={setShowPrintPreview}
+          labelUrl={results.bulk_label_pdf_url}
+          trackingCode={null}
+          isBatchPreview={true}
+          batchResult={results.batchResult}
+        />
+      )}
     </>
   );
 };

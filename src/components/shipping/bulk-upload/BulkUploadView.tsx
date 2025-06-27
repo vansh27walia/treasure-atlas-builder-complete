@@ -1,18 +1,20 @@
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Upload, FileText, Package, Download, PrinterIcon, AlertTriangle, X, Mail } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
 import LabelGenerationProgress from './LabelGenerationProgress';
+import BatchLabelControls from '@/components/shipping/BatchLabelControls';
 import { useBulkUpload } from './useBulkUpload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from '@/components/ui/sonner';
 
 const BulkUploadView: React.FC = () => {
   const navigate = useNavigate();
+  
   const {
     file,
     isUploading,
@@ -57,21 +59,18 @@ const BulkUploadView: React.FC = () => {
     setPickupAddress(address);
   };
 
-  const handleProceedToLabelCreation = () => {
-    if (!results || !pickupAddress) {
-      toast.error('Missing shipments or pickup address');
-      return;
-    }
-
-    // Navigate to the dedicated label creation page
-    navigate('/bulk-label-creation', {
-      state: {
-        shipments: filteredShipments,
-        batchResult: results.batchResult,
-        pickupAddress: pickupAddress
-      }
-    });
+  const handleBatchProcessed = (batchResult: any) => {
+    console.log('Batch processed:', batchResult);
   };
+
+  // Navigate to full-screen label creation page when labels are created
+  React.useEffect(() => {
+    if (uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating) {
+      navigate('/bulk-label-creation', {
+        state: { results, pickupAddress }
+      });
+    }
+  }, [uploadStatus, results, labelGenerationProgress.isGenerating, navigate, pickupAddress]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -136,6 +135,17 @@ const BulkUploadView: React.FC = () => {
         </div>
       )}
 
+      {/* Label Generation Progress */}
+      <LabelGenerationProgress
+        isGenerating={labelGenerationProgress.isGenerating}
+        totalShipments={labelGenerationProgress.totalShipments}
+        processedShipments={labelGenerationProgress.processedShipments}
+        successfulShipments={labelGenerationProgress.successfulShipments}
+        failedShipments={labelGenerationProgress.failedShipments}
+        currentStep={labelGenerationProgress.currentStep}
+        estimatedTimeRemaining={labelGenerationProgress.estimatedTimeRemaining}
+      />
+
       {/* Rate Selection Full Screen */}
       {uploadStatus === 'editing' && results && results.processedShipments && results.processedShipments.length > 0 && (
         <div className="min-h-screen bg-white w-full">
@@ -187,12 +197,18 @@ const BulkUploadView: React.FC = () => {
             {/* Create Labels Button */}
             <div className="mt-6 flex justify-end">
               <div className="flex gap-4 items-center">
+                <BatchLabelControls
+                  selectedShipments={filteredShipments.filter(s => s.selectedRateId)}
+                  pickupAddress={pickupAddress}
+                  onBatchProcessed={handleBatchProcessed}
+                />
+                
                 <Button
-                  onClick={handleProceedToLabelCreation}
+                  onClick={handleCreateLabels}
                   disabled={isCreatingLabels || !filteredShipments.some(s => s.selectedRateId)}
                   className="bg-green-600 hover:bg-green-700 text-white px-8 py-3 text-lg"
                 >
-                  {isCreatingLabels ? 'Creating Labels...' : 'Proceed to Label Creation'}
+                  {isCreatingLabels ? 'Creating Labels...' : 'Create Labels'}
                 </Button>
               </div>
             </div>
