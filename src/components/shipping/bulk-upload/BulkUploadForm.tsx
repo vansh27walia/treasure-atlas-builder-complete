@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -42,10 +43,10 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         // Set default address
         const defaultAddress = await addressService.getDefaultFromAddress();
         if (defaultAddress) {
-          setSelectedAddressId(defaultAddress.id.toString());
+          setSelectedAddressId(defaultAddress.id);
           onPickupAddressSelect(defaultAddress);
         } else if (addresses.length > 0) {
-          setSelectedAddressId(addresses[0].id.toString());
+          setSelectedAddressId(addresses[0].id);
           onPickupAddressSelect(addresses[0]);
         }
         
@@ -62,7 +63,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   const handleAddressChange = (addressId: string) => {
     setSelectedAddressId(addressId);
-    const selectedAddress = availableAddresses.find(addr => addr.id.toString() === addressId);
+    const selectedAddress = availableAddresses.find(addr => addr.id === addressId);
     onPickupAddressSelect(selectedAddress || null);
   };
 
@@ -125,38 +126,36 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   return (
     <div className="space-y-8">
-      {/* Pickup Address Selection - Centered */}
+      {/* Pickup Address Selection */}
       <div className="space-y-4">
-        <div className="flex items-center justify-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-4">
           <MapPin className="h-5 w-5 text-blue-600" />
           <Label className="text-lg font-medium">Select Pickup Address</Label>
         </div>
         
         {!addressesLoaded ? (
-          <div className="flex items-center justify-center gap-2 p-4 bg-blue-50 rounded-lg">
+          <div className="flex items-center gap-2 p-4 bg-blue-50 rounded-lg">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
             <span className="text-blue-800">Loading pickup addresses...</span>
           </div>
         ) : availableAddresses.length > 0 ? (
-          <div className="flex justify-center">
-            <Select value={selectedAddressId} onValueChange={handleAddressChange}>
-              <SelectTrigger className="w-full max-w-md p-4 text-left bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors">
-                <SelectValue placeholder="Choose your pickup address" />
-              </SelectTrigger>
-              <SelectContent className="bg-white border shadow-lg z-50">
-                {availableAddresses.map((address) => (
-                  <SelectItem key={address.id} value={address.id.toString()} className="hover:bg-gray-50 cursor-pointer">
-                    <div className="flex flex-col">
-                      <span className="font-medium">{address.name}</span>
-                      <span className="text-sm text-gray-600">
-                        {address.street1}, {address.city}, {address.state} {address.zip}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={selectedAddressId} onValueChange={handleAddressChange}>
+            <SelectTrigger className="w-full p-4 text-left bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors">
+              <SelectValue placeholder="Choose your pickup address" />
+            </SelectTrigger>
+            <SelectContent className="bg-white border shadow-lg z-50">
+              {availableAddresses.map((address) => (
+                <SelectItem key={address.id} value={address.id} className="hover:bg-gray-50 cursor-pointer">
+                  <div className="flex flex-col">
+                    <span className="font-medium">{address.name}</span>
+                    <span className="text-sm text-gray-600">
+                      {address.street1}, {address.city}, {address.state} {address.zip}
+                    </span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         ) : (
           <Alert className="border-orange-200 bg-orange-50">
             <AlertCircle className="h-4 w-4 text-orange-600" />
