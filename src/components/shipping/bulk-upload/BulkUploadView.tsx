@@ -76,6 +76,16 @@ const BulkUploadView: React.FC = () => {
     handleDownloadSingleLabel(url);
   };
 
+  // Fix the handleEditShipment wrapper to match expected signature
+  const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
+    const shipment = filteredShipments.find(s => s.id === shipmentId);
+    if (shipment) {
+      // Update the shipment with new details
+      const updatedShipment = { ...shipment, ...details };
+      handleEditShipment(updatedShipment);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Progress Tracker - Always visible when not idle */}
@@ -176,7 +186,7 @@ const BulkUploadView: React.FC = () => {
           batchError={batchError}
           onSelectRate={handleSelectRate}
           onRemoveShipment={handleRemoveShipment}
-          onEditShipment={handleEditShipment}
+          onEditShipment={handleEditShipmentWrapper}
           onRefreshRates={() => {}}
           onCreateLabels={handleCreateLabels}
           onClearBatchError={handleClearBatchError}
