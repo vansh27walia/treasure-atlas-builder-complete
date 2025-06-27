@@ -38,9 +38,8 @@ function App() {
       <AuthProvider>
         <OnboardingProvider>
           <Router>
-            <div className="flex h-screen bg-gray-100">
-              <SidebarNavigation />
-              <div className="flex-1 flex flex-col overflow-hidden">
+            <SidebarNavigation>
+              <div className="flex flex-col h-full">
                 <Header />
                 <main className="flex-1 overflow-auto">
                   <Routes>
@@ -66,7 +65,7 @@ function App() {
                   </Routes>
                 </main>
               </div>
-            </div>
+            </SidebarNavigation>
             <Toaster />
           </Router>
         </OnboardingProvider>
