@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -42,10 +43,10 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         // Set default address
         const defaultAddress = await addressService.getDefaultFromAddress();
         if (defaultAddress) {
-          setSelectedAddressId(defaultAddress.id.toString());
+          setSelectedAddressId(defaultAddress.id);
           onPickupAddressSelect(defaultAddress);
         } else if (addresses.length > 0) {
-          setSelectedAddressId(addresses[0].id.toString());
+          setSelectedAddressId(addresses[0].id);
           onPickupAddressSelect(addresses[0]);
         }
         
@@ -62,7 +63,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   const handleAddressChange = (addressId: string) => {
     setSelectedAddressId(addressId);
-    const selectedAddress = availableAddresses.find(addr => addr.id.toString() === addressId);
+    const selectedAddress = availableAddresses.find(addr => addr.id === addressId);
     onPickupAddressSelect(selectedAddress || null);
   };
 
@@ -145,7 +146,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
               </SelectTrigger>
               <SelectContent className="bg-white border shadow-lg z-50">
                 {availableAddresses.map((address) => (
-                  <SelectItem key={address.id} value={address.id.toString()} className="hover:bg-gray-50 cursor-pointer">
+                  <SelectItem key={address.id} value={address.id} className="hover:bg-gray-50 cursor-pointer">
                     <div className="flex flex-col">
                       <span className="font-medium">{address.name}</span>
                       <span className="text-sm text-gray-600">
