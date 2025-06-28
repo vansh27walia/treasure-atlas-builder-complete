@@ -90,7 +90,7 @@ const BulkUploadView: React.FC = () => {
         setShowHeaderMapper(true);
       } else {
         // Direct upload for standard CSV
-        handleUpload(file, pickupAddress);
+        handleUpload(file);
       }
     } catch (error) {
       console.error('Error reading file:', error);
@@ -103,7 +103,7 @@ const BulkUploadView: React.FC = () => {
     const file = new File([blob], 'converted.csv', { type: 'text/csv' });
     
     setShowHeaderMapper(false);
-    handleUpload(file, pickupAddress);
+    handleUpload(file);
   };
 
   const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
@@ -118,11 +118,15 @@ const BulkUploadView: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Progress Tracker - Always visible when not idle */}
       {(uploadStatus !== 'idle' || showHeaderMapper) && (
-        <ProgressTracker
-          currentStep={getCurrentStep()}
-          isProcessing={isUploading || isFetchingRates || isCreatingLabels || showHeaderMapper}
-          completedSteps={getCompletedSteps()}
-        />
+        <div className="w-full bg-white border-b border-gray-200 py-4">
+          <div className="max-w-4xl mx-auto px-6">
+            <ProgressTracker
+              currentStep={getCurrentStep()}
+              isProcessing={isUploading || isFetchingRates || isCreatingLabels || showHeaderMapper}
+              completedSteps={getCompletedSteps()}
+            />
+          </div>
+        </div>
       )}
 
       {/* File Upload Section */}

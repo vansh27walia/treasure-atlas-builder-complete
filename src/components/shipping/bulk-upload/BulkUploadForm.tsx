@@ -33,7 +33,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const { addresses, loading: addressesLoading } = usePickupAddresses();
+  const { addresses, isLoading: addressesLoading } = usePickupAddresses();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -50,7 +50,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   const handleAddressChange = (addressId: string) => {
     setSelectedAddressId(addressId);
-    const selectedAddress = addresses.find(addr => addr.id === addressId) || null;
+    const selectedAddress = addresses.find(addr => addr.id.toString() === addressId) || null;
     onPickupAddressSelect(selectedAddress);
   };
 
@@ -67,7 +67,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       return;
     }
 
-    const selectedAddress = addresses.find(addr => addr.id === selectedAddressId);
+    const selectedAddress = addresses.find(addr => addr.id.toString() === selectedAddressId);
     if (!selectedAddress) {
       toast.error('Selected pickup address not found');
       return;
@@ -89,6 +89,47 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   return (
     <div className="space-y-8">
       <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Pickup Address Selection - Moved to Top */}
+        <div className="space-y-4">
+          <Label className="text-lg font-semibold text-gray-900 flex items-center">
+            <MapPin className="h-5 w-5 mr-2 text-blue-600" />
+            Pickup Address
+          </Label>
+          
+          {addressesLoading ? (
+            <div className="p-4 border rounded-lg bg-gray-50">
+              <p className="text-gray-600">Loading pickup addresses...</p>
+            </div>
+          ) : addresses.length > 0 ? (
+            <Select value={selectedAddressId} onValueChange={handleAddressChange}>
+              <SelectTrigger className="w-full h-14 text-left">
+                <SelectValue placeholder="Select pickup address for all shipments" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60 overflow-y-auto">
+                {addresses.map((address) => (
+                  <SelectItem key={address.id} value={address.id.toString()}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">
+                        {address.name || `${address.street1}`}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {address.street1}, {address.city}, {address.state} {address.zip}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                No pickup addresses found. Please add a pickup address in Settings first.
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
         {/* File Upload Section */}
         <div className="space-y-4">
           <Label className="text-lg font-semibold text-gray-900">
@@ -118,47 +159,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
             className="hidden"
             id="file-upload"
           />
-        </div>
-
-        {/* Pickup Address Selection */}
-        <div className="space-y-4">
-          <Label className="text-lg font-semibold text-gray-900 flex items-center">
-            <MapPin className="h-5 w-5 mr-2 text-blue-600" />
-            Pickup Address
-          </Label>
-          
-          {addressesLoading ? (
-            <div className="p-4 border rounded-lg bg-gray-50">
-              <p className="text-gray-600">Loading pickup addresses...</p>
-            </div>
-          ) : addresses.length > 0 ? (
-            <Select value={selectedAddressId} onValueChange={handleAddressChange}>
-              <SelectTrigger className="w-full h-14 text-left">
-                <SelectValue placeholder="Select pickup address for all shipments" />
-              </SelectTrigger>
-              <SelectContent className="max-h-60 overflow-y-auto">
-                {addresses.map((address) => (
-                  <SelectItem key={address.id} value={address.id}>
-                    <div className="flex flex-col">
-                      <span className="font-medium">
-                        {address.name || `${address.street1}`}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {address.street1}, {address.city}, {address.state} {address.zip}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                No pickup addresses found. Please add a pickup address in Settings first.
-              </AlertDescription>
-            </Alert>
-          )}
         </div>
 
         {/* Submit Button */}
