@@ -1,18 +1,22 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Upload, FileText } from 'lucide-react';
 import BulkUploadForm from './BulkUploadForm';
 import ProgressTracker from './ProgressTracker';
+import CsvHeaderMapper from './CsvHeaderMapper';
 import RateSelectionPage from './RateSelectionPage';
-import SuccessPage from './SuccessPage';
+import SuccessNotification from './SuccessNotification';
 import LabelGenerationProgress from './LabelGenerationProgress';
 import BatchPrintPreviewModal from '@/components/shipping/BatchPrintPreviewModal';
 import EmailLabelsModal from '@/components/shipping/EmailLabelsModal';
 import { useBulkUpload } from './useBulkUpload';
 
 const BulkUploadView: React.FC = () => {
+  const [csvContent, setCsvContent] = useState<string>('');
+  const [showHeaderMapper, setShowHeaderMapper] = useState(false);
+  
   const {
     isUploading,
     uploadStatus,
@@ -24,8 +28,6 @@ const BulkUploadView: React.FC = () => {
     pickupAddress,
     batchError,
     labelGenerationProgress,
-    batchPrintPreviewModalOpen,
-    setBatchPrintPreviewModalOpen,
     handleUpload,
     handleSelectRate,
     handleRemoveShipment,
@@ -43,6 +45,7 @@ const BulkUploadView: React.FC = () => {
 
   // Get current step for progress tracker
   const getCurrentStep = () => {
+    if (showHeaderMapper) return 'processing';
     if (uploadStatus === 'idle') return 'upload';
     if (uploadStatus === 'uploading' || isUploading) return 'processing';
     if (uploadStatus === 'editing') {
@@ -56,7 +59,7 @@ const BulkUploadView: React.FC = () => {
 
   const getCompletedSteps = () => {
     const completed = [];
-    if (uploadStatus !== 'idle') completed.push('upload');
+    if (uploadStatus !== 'idle' || showHeaderMapper) completed.push('upload');
     if (uploadStatus === 'editing' || uploadStatus === 'success') {
       completed.push('processing');
       if (!isFetchingRates) completed.push('rates');
@@ -67,20 +70,45 @@ const BulkUploadView: React.FC = () => {
     return completed;
   };
 
-  const handleDownloadConsolidated = (format: string) => {
-    const batchId = results?.batchResult?.batchId;
-    if (!batchId) return;
-    
-    const baseUrl = 'https://adhegezdzqlnqqnymvps.supabase.co/storage/v1/object/public/batch_labels';
-    const url = `${baseUrl}/batch_label_${batchId}.${format}`;
-    handleDownloadSingleLabel(url);
+  const handleFileUpload = async (file: File, pickupAddress: any) => {
+    try {
+      const text = await file.text();
+      setCsvContent(text);
+      
+      // Check if headers need mapping
+      const lines = text.split('\n').filter(line => line.trim() !== '');
+      if (lines.length < 2) {
+        throw new Error('CSV file must have at least a header row and one data row');
+      }
+      
+      const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+      const requiredFields = ['to_name', 'to_street1', 'to_city', 'to_state', 'to_zip', 'to_country', 'weight', 'length', 'width', 'height'];
+      const missingFields = requiredFields.filter(field => !headers.includes(field));
+      
+      if (missingFields.length > 0) {
+        // Show header mapper for non-standard CSV
+        setShowHeaderMapper(true);
+      } else {
+        // Direct upload for standard CSV
+        handleUpload(file, pickupAddress);
+      }
+    } catch (error) {
+      console.error('Error reading file:', error);
+    }
   };
 
-  // Fix the handleEditShipment wrapper to match expected signature
+  const handleMappingComplete = (convertedCsv: string) => {
+    // Create a new file from converted CSV
+    const blob = new Blob([convertedCsv], { type: 'text/csv' });
+    const file = new File([blob], 'converted.csv', { type: 'text/csv' });
+    
+    setShowHeaderMapper(false);
+    handleUpload(file, pickupAddress);
+  };
+
   const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
     const shipment = filteredShipments.find(s => s.id === shipmentId);
     if (shipment) {
-      // Update the shipment with new details
       const updatedShipment = { ...shipment, ...details };
       handleEditShipment(updatedShipment);
     }
@@ -89,16 +117,16 @@ const BulkUploadView: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Progress Tracker - Always visible when not idle */}
-      {uploadStatus !== 'idle' && (
+      {(uploadStatus !== 'idle' || showHeaderMapper) && (
         <ProgressTracker
           currentStep={getCurrentStep()}
-          isProcessing={isUploading || isFetchingRates || isCreatingLabels}
+          isProcessing={isUploading || isFetchingRates || isCreatingLabels || showHeaderMapper}
           completedSteps={getCompletedSteps()}
         />
       )}
 
       {/* File Upload Section */}
-      {uploadStatus === 'idle' && (
+      {uploadStatus === 'idle' && !showHeaderMapper && (
         <div className="min-h-screen flex items-center justify-center p-6">
           <div className="max-w-3xl w-full">
             <div className="text-center mb-12">
@@ -120,7 +148,7 @@ const BulkUploadView: React.FC = () => {
                 onPickupAddressSelect={setPickupAddress}
                 isUploading={isUploading}
                 progress={progress}
-                handleUpload={handleUpload}
+                handleUpload={handleFileUpload}
               />
             </Card>
             
@@ -136,6 +164,20 @@ const BulkUploadView: React.FC = () => {
               </Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* AI Header Mapping Section */}
+      {showHeaderMapper && csvContent && (
+        <div className="min-h-screen flex items-center justify-center p-6">
+          <CsvHeaderMapper
+            csvContent={csvContent}
+            onMappingComplete={handleMappingComplete}
+            onCancel={() => {
+              setShowHeaderMapper(false);
+              setCsvContent('');
+            }}
+          />
         </div>
       )}
 
@@ -196,17 +238,22 @@ const BulkUploadView: React.FC = () => {
 
       {/* Success Page */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
-        <SuccessPage
-          results={results}
-          onDownloadPDF={() => {
-            if (results.batchResult?.consolidatedLabelUrls?.pdf) {
-              handleDownloadSingleLabel(results.batchResult.consolidatedLabelUrls.pdf);
-            }
-          }}
-          onPrintPreview={() => setShowPrintPreview(true)}
-          onEmailLabels={() => setShowEmailModal(true)}
-          onDownloadConsolidated={handleDownloadConsolidated}
-        />
+        <div className="min-h-screen bg-gray-50 py-8">
+          <div className="max-w-7xl mx-auto px-6">
+            <SuccessNotification
+              results={results}
+              onDownloadAllLabels={() => {
+                if (results.batchResult?.consolidatedLabelUrls?.pdf) {
+                  handleDownloadSingleLabel(results.batchResult.consolidatedLabelUrls.pdf);
+                }
+              }}
+              onDownloadSingleLabel={handleDownloadSingleLabel}
+              onCreateLabels={handleCreateLabels}
+              isPaying={false}
+              isCreatingLabels={isCreatingLabels}
+            />
+          </div>
+        </div>
       )}
 
       {/* Print Preview Modal */}
