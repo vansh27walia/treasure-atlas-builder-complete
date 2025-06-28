@@ -10,6 +10,7 @@ import SuccessPage from './SuccessPage';
 import LabelGenerationProgress from './LabelGenerationProgress';
 import BatchPrintPreviewModal from '@/components/shipping/BatchPrintPreviewModal';
 import EmailLabelsModal from '@/components/shipping/EmailLabelsModal';
+import CsvHeaderMapper from './CsvHeaderMapper';
 import { useBulkUpload } from './useBulkUpload';
 
 const BulkUploadView: React.FC = () => {
@@ -26,6 +27,8 @@ const BulkUploadView: React.FC = () => {
     labelGenerationProgress,
     batchPrintPreviewModalOpen,
     setBatchPrintPreviewModalOpen,
+    csvContent,
+    showCsvMapper,
     handleUpload,
     handleSelectRate,
     handleRemoveShipment,
@@ -35,6 +38,8 @@ const BulkUploadView: React.FC = () => {
     handleDownloadSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,
+    handleCsvMappingComplete,
+    handleCancelCsvMapping,
     setPickupAddress
   } = useBulkUpload();
 
@@ -45,6 +50,7 @@ const BulkUploadView: React.FC = () => {
   const getCurrentStep = () => {
     if (uploadStatus === 'idle') return 'upload';
     if (uploadStatus === 'uploading' || isUploading) return 'processing';
+    if (showCsvMapper) return 'processing'; // AI header mapping is part of processing
     if (uploadStatus === 'editing') {
       if (isFetchingRates) return 'rates';
       return 'selection';
@@ -76,11 +82,9 @@ const BulkUploadView: React.FC = () => {
     handleDownloadSingleLabel(url);
   };
 
-  // Fix the handleEditShipment wrapper to match expected signature
   const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
     const shipment = filteredShipments.find(s => s.id === shipmentId);
     if (shipment) {
-      // Update the shipment with new details
       const updatedShipment = { ...shipment, ...details };
       handleEditShipment(updatedShipment);
     }
@@ -92,7 +96,7 @@ const BulkUploadView: React.FC = () => {
       {uploadStatus !== 'idle' && (
         <ProgressTracker
           currentStep={getCurrentStep()}
-          isProcessing={isUploading || isFetchingRates || isCreatingLabels}
+          isProcessing={isUploading || isFetchingRates || isCreatingLabels || showCsvMapper}
           completedSteps={getCompletedSteps()}
         />
       )}
@@ -139,8 +143,19 @@ const BulkUploadView: React.FC = () => {
         </div>
       )}
 
+      {/* AI CSV Header Mapping Section */}
+      {showCsvMapper && csvContent && (
+        <div className="min-h-screen flex items-center justify-center p-6">
+          <CsvHeaderMapper
+            csvContent={csvContent}
+            onMappingComplete={handleCsvMappingComplete}
+            onCancel={handleCancelCsvMapping}
+          />
+        </div>
+      )}
+
       {/* Processing Section */}
-      {(uploadStatus === 'uploading' || (uploadStatus === 'editing' && !results?.processedShipments?.length)) && (
+      {(uploadStatus === 'uploading' || (uploadStatus === 'editing' && !results?.processedShipments?.length)) && !showCsvMapper && (
         <div className="min-h-screen flex items-center justify-center p-6">
           <Card className="p-12 max-w-xl w-full shadow-2xl border-0 bg-white/95 backdrop-blur-lg">
             <div className="text-center">
@@ -179,7 +194,7 @@ const BulkUploadView: React.FC = () => {
       />
 
       {/* Rate Selection Page */}
-      {uploadStatus === 'editing' && results && results.processedShipments && results.processedShipments.length > 0 && (
+      {uploadStatus === 'editing' && results && results.processedShipments && results.processedShipments.length > 0 && !showCsvMapper && (
         <RateSelectionPage
           shipments={filteredShipments}
           isFetchingRates={isFetchingRates}
