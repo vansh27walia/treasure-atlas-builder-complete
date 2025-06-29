@@ -3,7 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, FileText, Package, File, FileImage, Mail, Printer } from 'lucide-react';
+import { Download, FileText, Package, File, Mail, Printer } from 'lucide-react';
 
 interface BulkLabelDownloadOptionsProps {
   batchResult?: {
@@ -12,6 +12,7 @@ interface BulkLabelDownloadOptionsProps {
       pdf?: string;
       zpl?: string;
       epl?: string;
+      png?: string;
     };
     scanFormUrl?: string;
   };
@@ -58,9 +59,9 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Print Preview and Email Actions */}
+              {/* Actions */}
               <div className="space-y-2">
-                <h4 className="font-medium text-green-800 mb-2">Actions</h4>
+                <h4 className="font-medium text-green-800 mb-2">Quick Actions</h4>
                 <Button
                   onClick={onPrintPreview}
                   variant="outline"
@@ -68,7 +69,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                   className="w-full justify-start border-purple-300 text-purple-700 hover:bg-purple-50"
                 >
                   <Printer className="h-4 w-4 mr-2" />
-                  Print Preview (PDF)
+                  Print Preview & Download
                 </Button>
                 
                 <Button
@@ -82,9 +83,9 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                 </Button>
               </div>
 
-              {/* Download Options */}
+              {/* Quick Downloads */}
               <div className="space-y-2">
-                <h4 className="font-medium text-green-800 mb-2">Download Formats</h4>
+                <h4 className="font-medium text-green-800 mb-2">Quick Downloads</h4>
                 {batchResult.consolidatedLabelUrls.pdf && (
                   <Button
                     onClick={() => onDownloadBatch('pdf', batchResult.consolidatedLabelUrls.pdf!)}
@@ -93,7 +94,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                     className="w-full justify-start border-blue-300 text-blue-700 hover:bg-blue-50"
                   >
                     <File className="h-4 w-4 mr-2" />
-                    Download PDF Batch
+                    PDF Labels
                   </Button>
                 )}
                 
@@ -105,7 +106,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                     className="w-full justify-start border-purple-300 text-purple-700 hover:bg-purple-50"
                   >
                     <FileText className="h-4 w-4 mr-2" />
-                    Download ZPL Batch
+                    ZPL Labels
                   </Button>
                 )}
                 
@@ -117,7 +118,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                     className="w-full justify-start border-orange-300 text-orange-700 hover:bg-orange-50"
                   >
                     <FileText className="h-4 w-4 mr-2" />
-                    Download EPL Batch
+                    EPL Labels
                   </Button>
                 )}
               </div>
@@ -168,34 +169,16 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                     <p className="text-xs text-gray-600">{label.tracking_code}</p>
                   </div>
                   <div className="flex gap-1">
-                    {label.label_urls?.pdf && (
+                    {/* Only show individual download if different from batch */}
+                    {label.stored_label_url && (
                       <Button
-                        onClick={() => onDownloadIndividual(label.label_urls.pdf, 'pdf')}
+                        onClick={() => onDownloadIndividual(label.stored_label_url, 'pdf')}
                         variant="outline"
                         size="sm"
                         className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
                       >
-                        PDF
-                      </Button>
-                    )}
-                    {label.label_urls?.png && (
-                      <Button
-                        onClick={() => onDownloadIndividual(label.label_urls.png, 'png')}
-                        variant="outline"
-                        size="sm"
-                        className="text-xs border-green-300 text-green-700 hover:bg-green-50"
-                      >
-                        PNG
-                      </Button>
-                    )}
-                    {label.label_urls?.zpl && (
-                      <Button
-                        onClick={() => onDownloadIndividual(label.label_urls.zpl, 'zpl')}
-                        variant="outline"
-                        size="sm"
-                        className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
-                      >
-                        ZPL
+                        <Download className="h-3 w-3 mr-1" />
+                        Download
                       </Button>
                     )}
                   </div>
