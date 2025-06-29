@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -64,25 +63,34 @@ export const useBulkUpload = () => {
       const fileContent = await uploadedFile.text();
       setCsvContent(fileContent);
 
-      // Check if we need AI header mapping
-      const firstLine = fileContent.split('\n')[0];
+      // Always check if we need AI header mapping
+      const lines = fileContent.trim().split('\n');
+      if (lines.length < 2) {
+        throw new Error('CSV file must have at least a header row and one data row');
+      }
+
+      const firstLine = lines[0];
       const headers = firstLine.split(',').map(h => h.trim().replace(/"/g, ''));
       
-      // Check if headers match our expected template
+      // Check if headers match our expected template exactly
       const expectedHeaders = ['to_name', 'to_company', 'to_street1', 'to_city', 'to_state', 'to_zip', 'to_country', 'to_phone', 'weight', 'length', 'width', 'height'];
-      const hasMatchingHeaders = expectedHeaders.some(expected => 
+      const hasExactMatch = expectedHeaders.every(expected => 
         headers.some(header => header.toLowerCase() === expected.toLowerCase())
       );
 
-      if (!hasMatchingHeaders) {
-        // Show AI mapper
+      console.log('Headers found:', headers);
+      console.log('Has exact match:', hasExactMatch);
+
+      if (!hasExactMatch) {
+        // Show AI mapper for header mapping
+        console.log('Headers do not match template, showing CSV mapper');
         setShowCsvMapper(true);
         setIsUploading(false);
         setUploadStatus('editing');
         return;
       }
 
-      // Process the file directly if headers match
+      // Process the file directly if headers match exactly
       await processUploadedFile(fileContent);
 
     } catch (error) {
@@ -97,10 +105,6 @@ export const useBulkUpload = () => {
     try {
       setProgress(25);
       
-      const formData = new FormData();
-      formData.append('csvContent', content);
-      formData.append('pickupAddress', JSON.stringify(pickupAddress));
-
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
         body: { 
           csvContent: content,
@@ -126,6 +130,7 @@ export const useBulkUpload = () => {
   }, [pickupAddress]);
 
   const handleCsvMappingComplete = useCallback(async (convertedCsv: string) => {
+    console.log('CSV mapping completed, processing converted CSV');
     setShowCsvMapper(false);
     setIsUploading(true);
     setUploadStatus('uploading');
@@ -133,6 +138,7 @@ export const useBulkUpload = () => {
   }, [processUploadedFile]);
 
   const handleCancelCsvMapping = useCallback(() => {
+    console.log('CSV mapping cancelled');
     setShowCsvMapper(false);
     setUploadStatus('idle');
     setFile(null);
@@ -253,56 +259,6 @@ export const useBulkUpload = () => {
     }
   }, [results]);
 
-  const handleDownloadAllLabels = useCallback(() => {
-    if (!results?.processedShipments) return;
-    
-    const labelsWithUrls = results.processedShipments.filter(s => s.label_url);
-    
-    if (labelsWithUrls.length === 0) {
-      toast.error('No labels available for download');
-      return;
-    }
-
-    // Download each label individually with staggered timing
-    labelsWithUrls.forEach((shipment, index) => {
-      setTimeout(() => {
-        handleDownloadSingleLabel(shipment.label_url!);
-      }, index * 300);
-    });
-    
-    toast.success(`Started download of ${labelsWithUrls.length} labels`);
-  }, [results]);
-
-  const handleDownloadLabelsWithFormat = useCallback(async (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
-    if (!results) return;
-    
-    if (format === 'pdf' && results.batchResult?.consolidatedLabelUrls?.pdf) {
-      // Download bulk PDF
-      handleDownloadSingleLabel(results.batchResult.consolidatedLabelUrls.pdf);
-      toast.success('Downloaded bulk PDF label');
-      return;
-    }
-    
-    const labelsWithUrls = results.processedShipments?.filter(s => s.label_url) || [];
-    
-    if (labelsWithUrls.length === 0) {
-      toast.error('No labels available for download');
-      return;
-    }
-
-    labelsWithUrls.forEach((shipment, index) => {
-      setTimeout(() => {
-        handleDownloadSingleLabel(shipment.label_url!);
-      }, index * 300);
-    });
-    
-    toast.success(`Started download of ${labelsWithUrls.length} ${format.toUpperCase()} labels`);
-  }, [results]);
-
-  const handleClearBatchError = useCallback(() => {
-    setBatchError(null);
-  }, []);
-
   const handleDownloadSingleLabel = useCallback((url: string) => {
     const link = document.createElement('a');
     link.href = url;
@@ -321,7 +277,7 @@ export const useBulkUpload = () => {
       toast.success('Labels sent successfully!');
     } catch (error) {
       console.error('Email error:', error);
-      toast.error('Failed to send labels');
+      toast.error('Failed to send labels: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   }, []);
 
@@ -339,12 +295,10 @@ export const useBulkUpload = () => {
   }, []);
 
   const handleRefreshRates = useCallback(() => {
-    // Implement rate refresh logic if needed
     toast.info('Refreshing rates...');
   }, []);
 
   const handleBulkApplyCarrier = useCallback((carrier: string) => {
-    // Implement bulk carrier application logic if needed
     toast.info(`Applying ${carrier} to all shipments...`);
   }, []);
 
@@ -373,9 +327,6 @@ export const useBulkUpload = () => {
     handleRemoveShipment,
     handleEditShipment,
     handleCreateLabels,
-    handleDownloadAllLabels,
-    handleDownloadLabelsWithFormat,
-    handleClearBatchError,
     handleDownloadSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,

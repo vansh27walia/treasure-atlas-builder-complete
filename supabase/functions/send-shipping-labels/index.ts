@@ -2,8 +2,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -22,7 +20,7 @@ interface SendLabelsRequest {
   };
   manifestUrl?: string;
   totalLabels: number;
-  selectedFormats?: string[]; // New field for selected formats
+  selectedFormats?: string[];
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -31,6 +29,24 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // Check if RESEND_API_KEY is available
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      console.error("RESEND_API_KEY environment variable is not set");
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: "Email service not configured. Please contact support."
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    const resend = new Resend(resendApiKey);
+
     const { 
       email, 
       subject, 
@@ -38,7 +54,7 @@ const handler = async (req: Request): Promise<Response> => {
       labelUrls, 
       manifestUrl, 
       totalLabels,
-      selectedFormats = ['pdf'] // Default to PDF if not specified
+      selectedFormats = ['pdf']
     }: SendLabelsRequest = await req.json();
 
     if (!email || !subject) {
@@ -46,6 +62,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log('Preparing email with selected formats:', selectedFormats);
+    console.log('Label URLs:', labelUrls);
 
     // Prepare attachments based on selected formats
     const attachments = [];
@@ -147,6 +164,8 @@ const handler = async (req: Request): Promise<Response> => {
         </div>
       </div>
     `;
+
+    console.log(`Sending email to ${email} with ${attachments.length} attachments`);
 
     const emailResponse = await resend.emails.send({
       from: "Shipping System <shipping@resend.dev>",
