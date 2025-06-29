@@ -49,6 +49,8 @@ const BulkUpload: React.FC = () => {
     setPickupAddress,
     handleUpload,
     handleCreateLabels,
+    handleDownloadAllLabels,
+    handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,
@@ -259,12 +261,9 @@ const BulkUpload: React.FC = () => {
               onSearchChange={setSearchTerm}
               sortField={sortField}
               sortDirection={sortDirection}
-              onSortChange={(field: string, direction: string) => {
-                // Map between different sort field types
-                const mappedField = field === 'customer' ? 'recipient' : 
-                                   field === 'cost' ? 'rate' : field as 'carrier' | 'recipient' | 'rate';
-                setSortField(mappedField);
-                setSortDirection(direction as 'asc' | 'desc');
+              onSortChange={(field, direction) => {
+                setSortField(field as any);
+                setSortDirection(direction as any);
               }}
               selectedCarrier={selectedCarrierFilter}
               onCarrierFilterChange={setSelectedCarrierFilter}
@@ -285,13 +284,13 @@ const BulkUpload: React.FC = () => {
               onRefreshRates={handleRefreshRates}
             />
             
-            {(results?.processedShipments?.length || 0) > 0 && (
+            {processedShipmentsCount > 0 && (
               <div className="mt-8 p-4 border rounded-lg bg-gray-50">
                 <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
                   <div>
                     <h3 className="font-semibold text-lg">Order Summary</h3>
                     <p className="text-gray-600">
-                      {results?.processedShipments?.length || 0} shipments selected with a total cost of ${results?.totalCost?.toFixed(2) || '0.00'}
+                      {processedShipmentsCount} shipments selected with a total cost of ${results.totalCost?.toFixed(2) || '0.00'}
                     </p>
                     {pickupAddress && (
                       <p className="text-sm text-blue-600 mt-1">
@@ -302,8 +301,8 @@ const BulkUpload: React.FC = () => {
                   
                   <div className="flex gap-3 mt-4 lg:mt-0">
                     <Button 
-                      onClick={handleCreateLabels}
-                      disabled={isPaying || isCreatingLabels || !results?.processedShipments?.length || !pickupAddress}
+                      onClick={handleDownloadLabelsClick}
+                      disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress}
                       className="px-6 bg-green-600 hover:bg-green-700"
                     >
                       <Download className="mr-1 h-4 w-4" />
@@ -312,7 +311,7 @@ const BulkUpload: React.FC = () => {
                     
                     <Button
                       onClick={() => setShowPaymentModal(true)}
-                      disabled={isPaying || !results?.processedShipments?.length || !pickupAddress}
+                      disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress}
                       className="px-6 bg-blue-600 hover:bg-blue-700"
                     >
                       <CreditCard className="mr-1 h-4 w-4" />
@@ -327,7 +326,7 @@ const BulkUpload: React.FC = () => {
         
         {uploadStatus === 'success' && results && (
           <>
-            {results.batchResult?.consolidatedLabelUrls?.pdf && (
+            {results.bulk_label_pdf_url && (
               <div className="flex justify-end mb-4">
                 <Button onClick={() => setShowPrintPreview(true)}>
                   <PrinterIcon className="mr-2 h-4 w-4" />
@@ -337,6 +336,7 @@ const BulkUpload: React.FC = () => {
             )}
             <SuccessNotification
               results={results}
+              onDownloadAllLabels={handleDownloadAllLabels}
               onDownloadSingleLabel={handleDownloadSingleLabel}
               onCreateLabels={handleCreateLabels}
               isPaying={isPaying}
@@ -364,7 +364,7 @@ const BulkUpload: React.FC = () => {
         isVisible={labelProgress.isCreating}
         progress={labelProgress.progress}
         currentStep={labelProgress.currentStep}
-        totalLabels={results?.processedShipments?.length || 0}
+        totalLabels={processedShipmentsCount}
         completedLabels={labelProgress.completed}
         failedLabels={labelProgress.failed}
         onClose={() => setLabelProgress(prev => ({ ...prev, isCreating: false }))}
@@ -375,16 +375,16 @@ const BulkUpload: React.FC = () => {
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         totalAmount={results?.totalCost || 0}
-        shipmentCount={results?.processedShipments?.length || 0}
-        onPaymentSuccess={() => toast.success('Payment successful! Labels are now available for download.')}
+        shipmentCount={processedShipmentsCount}
+        onPaymentSuccess={handlePaymentSuccess}
       />
 
       {/* Batch Print Preview Modal */}
-      {results?.batchResult?.consolidatedLabelUrls?.pdf && results.batchResult && (
+      {results?.bulk_label_pdf_url && results.batchResult && (
         <PrintPreview
           isOpenProp={showPrintPreview}
           onOpenChangeProp={setShowPrintPreview}
-          labelUrl={results.batchResult.consolidatedLabelUrls.pdf}
+          labelUrl={results.bulk_label_pdf_url}
           trackingCode={null}
           isBatchPreview={true}
           batchResult={results.batchResult}

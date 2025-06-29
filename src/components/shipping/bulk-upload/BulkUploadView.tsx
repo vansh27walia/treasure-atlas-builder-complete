@@ -6,7 +6,7 @@ import { Upload, FileText } from 'lucide-react';
 import BulkUploadForm from './BulkUploadForm';
 import ProgressTracker from './ProgressTracker';
 import RateSelectionPage from './RateSelectionPage';
-import StreamlinedSuccessPage from './StreamlinedSuccessPage';
+import SuccessPage from './SuccessPage';
 import LabelGenerationProgress from './LabelGenerationProgress';
 import BatchPrintPreviewModal from '@/components/shipping/BatchPrintPreviewModal';
 import EmailLabelsModal from '@/components/shipping/EmailLabelsModal';
@@ -34,6 +34,7 @@ const BulkUploadView: React.FC = () => {
     handleRemoveShipment,
     handleEditShipment,
     handleCreateLabels,
+    handleClearBatchError,
     handleDownloadSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,
@@ -49,7 +50,7 @@ const BulkUploadView: React.FC = () => {
   const getCurrentStep = () => {
     if (uploadStatus === 'idle') return 'upload';
     if (uploadStatus === 'uploading' || isUploading) return 'processing';
-    if (showCsvMapper) return 'processing';
+    if (showCsvMapper) return 'processing'; // AI header mapping is part of processing
     if (uploadStatus === 'editing') {
       if (isFetchingRates) return 'rates';
       return 'selection';
@@ -72,10 +73,13 @@ const BulkUploadView: React.FC = () => {
     return completed;
   };
 
-  const handleDownloadPDF = () => {
-    if (results?.batchResult?.consolidatedLabelUrls?.pdf) {
-      handleDownloadSingleLabel(results.batchResult.consolidatedLabelUrls.pdf);
-    }
+  const handleDownloadConsolidated = (format: string) => {
+    const batchId = results?.batchResult?.batchId;
+    if (!batchId) return;
+    
+    const baseUrl = 'https://adhegezdzqlnqqnymvps.supabase.co/storage/v1/object/public/batch_labels';
+    const url = `${baseUrl}/batch_label_${batchId}.${format}`;
+    handleDownloadSingleLabel(url);
   };
 
   const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
@@ -194,24 +198,29 @@ const BulkUploadView: React.FC = () => {
         <RateSelectionPage
           shipments={filteredShipments}
           isFetchingRates={isFetchingRates}
-          batchError={null}
+          batchError={batchError}
           onSelectRate={handleSelectRate}
           onRemoveShipment={handleRemoveShipment}
           onEditShipment={handleEditShipmentWrapper}
           onRefreshRates={() => {}}
           onCreateLabels={handleCreateLabels}
-          onClearBatchError={() => {}}
+          onClearBatchError={handleClearBatchError}
           isCreatingLabels={isCreatingLabels}
         />
       )}
 
-      {/* Streamlined Success Page - Only 3 main options */}
+      {/* Success Page */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
-        <StreamlinedSuccessPage
+        <SuccessPage
           results={results}
-          onDownloadPDF={handleDownloadPDF}
+          onDownloadPDF={() => {
+            if (results.batchResult?.consolidatedLabelUrls?.pdf) {
+              handleDownloadSingleLabel(results.batchResult.consolidatedLabelUrls.pdf);
+            }
+          }}
           onPrintPreview={() => setShowPrintPreview(true)}
           onEmailLabels={() => setShowEmailModal(true)}
+          onDownloadConsolidated={handleDownloadConsolidated}
         />
       )}
 

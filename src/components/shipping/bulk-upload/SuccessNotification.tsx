@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import EmailLabelsModal from '@/components/shipping/EmailLabelsModal';
 
 interface SuccessNotificationProps {
   results: BulkUploadResult;
+  onDownloadAllLabels: () => void;
   onDownloadSingleLabel: (labelUrl: string, format?: string) => void;
   onCreateLabels: () => void;
   isPaying: boolean;
@@ -18,6 +20,7 @@ interface SuccessNotificationProps {
 
 const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   results,
+  onDownloadAllLabels,
   onDownloadSingleLabel,
   onCreateLabels,
   isPaying,
