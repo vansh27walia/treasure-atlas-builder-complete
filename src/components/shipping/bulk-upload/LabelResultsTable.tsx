@@ -205,16 +205,6 @@ const LabelResultsTable: React.FC<LabelResultsTableProps> = ({
                   {/* Actions */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex space-x-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleDownload(shipment, 'pdf')} // Default download is PDF
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                        disabled={!shipment.label_urls?.pdf}
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        Download
-                      </Button>
-                      
                       {/* PrintPreview for individual label - ONLY show if PDF URL exists */}
                       {pdfUrl && (
                         <PrintPreview
