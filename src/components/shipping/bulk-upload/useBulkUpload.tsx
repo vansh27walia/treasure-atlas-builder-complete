@@ -15,7 +15,7 @@ export const useBulkUpload = () => {
   const [results, setResults] = useState<BulkUploadResult | null>(null);
   const [progress, setProgress] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<'customer' | 'carrier' | 'service' | 'cost'>('customer');
+  const [sortField, setSortField] = useState<'recipient' | 'carrier' | 'rate'>('recipient');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedCarrierFilter, setSelectedCarrierFilter] = useState<string>('');
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
@@ -234,12 +234,12 @@ export const useBulkUpload = () => {
 
       if (error) throw error;
 
-      setResults({
-        ...results,
+      // Update results with the processed labels
+      setResults(prevResults => ({
+        ...prevResults!,
         processedShipments: data.processedLabels,
-        failedLabels: data.failedLabels,
         batchResult: data.batchResult
-      });
+      }));
 
       setUploadStatus('success');
       toast.success(`Successfully created ${data.successful} labels`);
