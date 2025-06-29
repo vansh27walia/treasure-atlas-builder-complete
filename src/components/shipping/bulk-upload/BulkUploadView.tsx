@@ -81,6 +81,14 @@ const BulkUploadView: React.FC = () => {
     }
   };
 
+  console.log('BulkUploadView render state:', {
+    uploadStatus,
+    showCsvMapper,
+    csvContent: csvContent ? `${csvContent.length} chars` : 'empty',
+    isUploading,
+    isFetchingRates
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Progress Tracker - Always visible when not idle */}
