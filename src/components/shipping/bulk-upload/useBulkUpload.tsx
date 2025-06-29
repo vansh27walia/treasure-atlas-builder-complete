@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -63,26 +62,30 @@ export const useBulkUpload = () => {
       // Read file content
       const fileContent = await uploadedFile.text();
       setCsvContent(fileContent);
+      setProgress(25);
 
       // Check if we need AI header mapping
       const firstLine = fileContent.split('\n')[0];
       const headers = firstLine.split(',').map(h => h.trim().replace(/"/g, ''));
       
-      // Check if headers match our expected template
+      // Check if headers match our expected template exactly
       const expectedHeaders = ['to_name', 'to_company', 'to_street1', 'to_city', 'to_state', 'to_zip', 'to_country', 'to_phone', 'weight', 'length', 'width', 'height'];
-      const hasMatchingHeaders = expectedHeaders.some(expected => 
+      const hasExactMatch = expectedHeaders.every(expected => 
         headers.some(header => header.toLowerCase() === expected.toLowerCase())
       );
 
-      if (!hasMatchingHeaders) {
-        // Show AI mapper
+      setProgress(50);
+
+      if (!hasExactMatch) {
+        // Always show AI mapper for non-exact matches
+        console.log('Headers do not match template exactly, showing AI mapper');
         setShowCsvMapper(true);
         setIsUploading(false);
         setUploadStatus('editing');
         return;
       }
 
-      // Process the file directly if headers match
+      // Process the file directly if headers match exactly
       await processUploadedFile(fileContent);
 
     } catch (error) {
@@ -95,11 +98,10 @@ export const useBulkUpload = () => {
 
   const processUploadedFile = useCallback(async (content: string) => {
     try {
-      setProgress(25);
+      setProgress(75);
+      setIsFetchingRates(true);
       
-      const formData = new FormData();
-      formData.append('csvContent', content);
-      formData.append('pickupAddress', JSON.stringify(pickupAddress));
+      console.log('Processing CSV content and fetching rates...');
 
       const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
         body: { 
@@ -115,24 +117,30 @@ export const useBulkUpload = () => {
       setUploadStatus('editing');
       setIsFetchingRates(false);
       
-      toast.success(`Successfully processed ${data.processedShipments?.length || 0} shipments`);
+      console.log('Successfully processed shipments with rates:', data);
+      toast.success(`Successfully processed ${data.processedShipments?.length || 0} shipments with rates`);
     } catch (error) {
       console.error('Processing error:', error);
-      toast.error('Failed to process upload');
+      toast.error('Failed to process upload and fetch rates');
       setUploadStatus('error');
+      setIsFetchingRates(false);
     } finally {
       setIsUploading(false);
     }
   }, [pickupAddress]);
 
   const handleCsvMappingComplete = useCallback(async (convertedCsv: string) => {
+    console.log('CSV mapping completed, processing converted CSV...');
     setShowCsvMapper(false);
     setIsUploading(true);
     setUploadStatus('uploading');
+    
+    // Process the converted CSV and fetch rates
     await processUploadedFile(convertedCsv);
   }, [processUploadedFile]);
 
   const handleCancelCsvMapping = useCallback(() => {
+    console.log('CSV mapping cancelled');
     setShowCsvMapper(false);
     setUploadStatus('idle');
     setFile(null);

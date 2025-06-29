@@ -6,11 +6,11 @@ import { Upload, FileText } from 'lucide-react';
 import BulkUploadForm from './BulkUploadForm';
 import ProgressTracker from './ProgressTracker';
 import RateSelectionPage from './RateSelectionPage';
-import SuccessPage from './SuccessPage';
 import LabelGenerationProgress from './LabelGenerationProgress';
 import BatchPrintPreviewModal from '@/components/shipping/BatchPrintPreviewModal';
 import EmailLabelsModal from '@/components/shipping/EmailLabelsModal';
 import CsvHeaderMapper from './CsvHeaderMapper';
+import StreamlinedSuccessPage from './StreamlinedSuccessPage';
 import { useBulkUpload } from './useBulkUpload';
 
 const BulkUploadView: React.FC = () => {
@@ -73,15 +73,6 @@ const BulkUploadView: React.FC = () => {
     return completed;
   };
 
-  const handleDownloadConsolidated = (format: string) => {
-    const batchId = results?.batchResult?.batchId;
-    if (!batchId) return;
-    
-    const baseUrl = 'https://adhegezdzqlnqqnymvps.supabase.co/storage/v1/object/public/batch_labels';
-    const url = `${baseUrl}/batch_label_${batchId}.${format}`;
-    handleDownloadSingleLabel(url);
-  };
-
   const handleEditShipmentWrapper = (shipmentId: string, details: any) => {
     const shipment = filteredShipments.find(s => s.id === shipmentId);
     if (shipment) {
@@ -113,7 +104,7 @@ const BulkUploadView: React.FC = () => {
                 Bulk Shipping Upload
               </h1>
               <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                Upload your CSV file to create multiple shipping labels with advanced rate selection and batch processing
+                Upload your CSV file to create multiple shipping labels with AI-powered header mapping and advanced rate selection
               </p>
             </div>
             
@@ -143,14 +134,24 @@ const BulkUploadView: React.FC = () => {
         </div>
       )}
 
-      {/* AI CSV Header Mapping Section */}
+      {/* AI CSV Header Mapping Section - This runs FIRST after upload */}
       {showCsvMapper && csvContent && (
         <div className="min-h-screen flex items-center justify-center p-6">
-          <CsvHeaderMapper
-            csvContent={csvContent}
-            onMappingComplete={handleCsvMappingComplete}
-            onCancel={handleCancelCsvMapping}
-          />
+          <div className="max-w-6xl w-full">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                🧠 AI Header Mapping
+              </h2>
+              <p className="text-lg text-gray-600">
+                Our AI is analyzing your CSV headers and mapping them to our shipping template
+              </p>
+            </div>
+            <CsvHeaderMapper
+              csvContent={csvContent}
+              onMappingComplete={handleCsvMappingComplete}
+              onCancel={handleCancelCsvMapping}
+            />
+          </div>
         </div>
       )}
 
@@ -164,8 +165,14 @@ const BulkUploadView: React.FC = () => {
                 <div className="absolute inset-0 rounded-full border-t-4 border-blue-600 animate-spin"></div>
                 <div className="absolute inset-0 rounded-full border-r-4 border-purple-600 animate-spin animate-reverse"></div>
               </div>
-              <h3 className="text-2xl font-bold mb-4 text-gray-900">Processing Your Upload</h3>
-              <p className="text-gray-600 mb-6 text-base">We're analyzing your shipment data and fetching the best rates...</p>
+              <h3 className="text-2xl font-bold mb-4 text-gray-900">
+                {isFetchingRates ? 'Fetching Shipping Rates' : 'Processing Your Upload'}
+              </h3>
+              <p className="text-gray-600 mb-6 text-base">
+                {isFetchingRates 
+                  ? 'Getting the best shipping rates for your shipments...' 
+                  : 'We\'re analyzing your shipment data and preparing everything...'}
+              </p>
               {progress > 0 && progress < 100 && (
                 <div className="space-y-3">
                   <div className="bg-gray-200 rounded-full h-3 overflow-hidden">
@@ -193,11 +200,11 @@ const BulkUploadView: React.FC = () => {
         estimatedTimeRemaining={labelGenerationProgress.estimatedTimeRemaining}
       />
 
-      {/* Rate Selection Page */}
-      {uploadStatus === 'editing' && results && results.processedShipments && results.processedShipments.length > 0 && !showCsvMapper && (
+      {/* Rate Selection Page - Shows AFTER mapping and rate fetching */}
+      {uploadStatus === 'editing' && results && results.processedShipments && results.processedShipments.length > 0 && !showCsvMapper && !isFetchingRates && (
         <RateSelectionPage
           shipments={filteredShipments}
-          isFetchingRates={isFetchingRates}
+          isFetchingRates={false}
           batchError={typeof batchError === 'string' ? null : batchError}
           onSelectRate={handleSelectRate}
           onRemoveShipment={handleRemoveShipment}
@@ -209,9 +216,9 @@ const BulkUploadView: React.FC = () => {
         />
       )}
 
-      {/* Success Page */}
+      {/* Success Page - Streamlined with only 3 options */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
-        <SuccessPage
+        <StreamlinedSuccessPage
           results={results}
           onDownloadPDF={() => {
             if (results.batchResult?.consolidatedLabelUrls?.pdf) {
@@ -220,7 +227,6 @@ const BulkUploadView: React.FC = () => {
           }}
           onPrintPreview={() => setShowPrintPreview(true)}
           onEmailLabels={() => setShowEmailModal(true)}
-          onDownloadConsolidated={handleDownloadConsolidated}
         />
       )}
 
