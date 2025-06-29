@@ -49,8 +49,6 @@ const BulkUpload: React.FC = () => {
     setPickupAddress,
     handleUpload,
     handleCreateLabels,
-    handleDownloadAllLabels,
-    handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,
@@ -329,7 +327,7 @@ const BulkUpload: React.FC = () => {
         
         {uploadStatus === 'success' && results && (
           <>
-            {results.bulk_label_pdf_url && (
+            {results.batchResult?.consolidatedLabelUrls?.pdf && (
               <div className="flex justify-end mb-4">
                 <Button onClick={() => setShowPrintPreview(true)}>
                   <PrinterIcon className="mr-2 h-4 w-4" />
@@ -339,7 +337,6 @@ const BulkUpload: React.FC = () => {
             )}
             <SuccessNotification
               results={results}
-              onDownloadAllLabels={handleDownloadAllLabels}
               onDownloadSingleLabel={handleDownloadSingleLabel}
               onCreateLabels={handleCreateLabels}
               isPaying={isPaying}
@@ -383,11 +380,11 @@ const BulkUpload: React.FC = () => {
       />
 
       {/* Batch Print Preview Modal */}
-      {results?.bulk_label_pdf_url && results.batchResult && (
+      {results?.batchResult?.consolidatedLabelUrls?.pdf && results.batchResult && (
         <PrintPreview
           isOpenProp={showPrintPreview}
           onOpenChangeProp={setShowPrintPreview}
-          labelUrl={results.bulk_label_pdf_url}
+          labelUrl={results.batchResult.consolidatedLabelUrls.pdf}
           trackingCode={null}
           isBatchPreview={true}
           batchResult={results.batchResult}
