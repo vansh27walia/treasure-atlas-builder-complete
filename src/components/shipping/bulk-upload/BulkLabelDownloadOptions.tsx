@@ -3,7 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, FileText, Package, File, Mail, Printer } from 'lucide-react';
+import { Download, FileText, Package, File, FileImage, Mail, Printer } from 'lucide-react';
 
 interface BulkLabelDownloadOptionsProps {
   batchResult?: {
@@ -39,14 +39,14 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Consolidated Batch Labels Section - Only 3 main actions */}
+      {/* Consolidated Batch Labels Section */}
       {hasConsolidatedLabels && (
         <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-green-800 flex items-center">
                 <Package className="h-5 w-5 mr-2" />
-                Consolidated Labels
+                Consolidated Batch Labels
               </h3>
               <Badge className="bg-green-100 text-green-800">
                 Ready for Download
@@ -54,51 +54,73 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
             </div>
 
             <p className="text-green-700 text-sm">
-              Your consolidated batch labels are ready. Choose from the main options below.
+              Your consolidated batch labels are ready for download in multiple formats.
             </p>
 
-            {/* Main 3 Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* 1. Consolidated PDF Download */}
-              {batchResult.consolidatedLabelUrls.pdf && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Print Preview and Email Actions */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-green-800 mb-2">Actions</h4>
                 <Button
-                  onClick={() => onDownloadBatch('pdf', batchResult.consolidatedLabelUrls.pdf!)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center h-16"
-                  size="lg"
+                  onClick={onPrintPreview}
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start border-purple-300 text-purple-700 hover:bg-purple-50"
                 >
-                  <File className="mr-2 h-5 w-5" />
-                  <div className="text-center">
-                    <div className="font-semibold">Download PDF</div>
-                    <div className="text-xs opacity-90">All Labels</div>
-                  </div>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print Preview (PDF)
                 </Button>
-              )}
+                
+                <Button
+                  onClick={onEmailLabels}
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email Labels
+                </Button>
+              </div>
 
-              {/* 2. Print Preview */}
-              <Button
-                onClick={onPrintPreview}
-                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Printer className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Print Preview</div>
-                  <div className="text-xs opacity-90">Multiple Formats</div>
-                </div>
-              </Button>
-
-              {/* 3. Email Labels */}
-              <Button
-                onClick={onEmailLabels}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Mail className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Email Labels</div>
-                  <div className="text-xs opacity-90">Send via Email</div>
-                </div>
-              </Button>
+              {/* Download Options */}
+              <div className="space-y-2">
+                <h4 className="font-medium text-green-800 mb-2">Download Formats</h4>
+                {batchResult.consolidatedLabelUrls.pdf && (
+                  <Button
+                    onClick={() => onDownloadBatch('pdf', batchResult.consolidatedLabelUrls.pdf!)}
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start border-blue-300 text-blue-700 hover:bg-blue-50"
+                  >
+                    <File className="h-4 w-4 mr-2" />
+                    Download PDF Batch
+                  </Button>
+                )}
+                
+                {batchResult.consolidatedLabelUrls.zpl && (
+                  <Button
+                    onClick={() => onDownloadBatch('zpl', batchResult.consolidatedLabelUrls.zpl!)}
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start border-purple-300 text-purple-700 hover:bg-purple-50"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Download ZPL Batch
+                  </Button>
+                )}
+                
+                {batchResult.consolidatedLabelUrls.epl && (
+                  <Button
+                    onClick={() => onDownloadBatch('epl', batchResult.consolidatedLabelUrls.epl!)}
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start border-orange-300 text-orange-700 hover:bg-orange-50"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Download EPL Batch
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Pickup Manifest */}
