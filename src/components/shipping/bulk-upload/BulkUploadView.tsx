@@ -198,7 +198,7 @@ const BulkUploadView: React.FC = () => {
         <RateSelectionPage
           shipments={filteredShipments}
           isFetchingRates={isFetchingRates}
-          batchError={batchError}
+          batchError={typeof batchError === 'string' ? null : batchError}
           onSelectRate={handleSelectRate}
           onRemoveShipment={handleRemoveShipment}
           onEditShipment={handleEditShipmentWrapper}

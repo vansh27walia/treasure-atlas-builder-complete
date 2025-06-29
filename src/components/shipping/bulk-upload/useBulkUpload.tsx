@@ -236,7 +236,7 @@ export const useBulkUpload = () => {
 
       setResults({
         ...results,
-        processedLabels: data.processedLabels,
+        processedShipments: data.processedLabels,
         failedLabels: data.failedLabels,
         batchResult: data.batchResult
       });
@@ -251,6 +251,52 @@ export const useBulkUpload = () => {
       setIsCreatingLabels(false);
       setLabelGenerationProgress(prev => ({ ...prev, isGenerating: false }));
     }
+  }, [results]);
+
+  const handleDownloadAllLabels = useCallback(() => {
+    if (!results?.processedShipments) return;
+    
+    const labelsWithUrls = results.processedShipments.filter(s => s.label_url);
+    
+    if (labelsWithUrls.length === 0) {
+      toast.error('No labels available for download');
+      return;
+    }
+
+    // Download each label individually with staggered timing
+    labelsWithUrls.forEach((shipment, index) => {
+      setTimeout(() => {
+        handleDownloadSingleLabel(shipment.label_url!);
+      }, index * 300);
+    });
+    
+    toast.success(`Started download of ${labelsWithUrls.length} labels`);
+  }, [results]);
+
+  const handleDownloadLabelsWithFormat = useCallback(async (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
+    if (!results) return;
+    
+    if (format === 'pdf' && results.batchResult?.consolidatedLabelUrls?.pdf) {
+      // Download bulk PDF
+      handleDownloadSingleLabel(results.batchResult.consolidatedLabelUrls.pdf);
+      toast.success('Downloaded bulk PDF label');
+      return;
+    }
+    
+    const labelsWithUrls = results.processedShipments?.filter(s => s.label_url) || [];
+    
+    if (labelsWithUrls.length === 0) {
+      toast.error('No labels available for download');
+      return;
+    }
+
+    labelsWithUrls.forEach((shipment, index) => {
+      setTimeout(() => {
+        handleDownloadSingleLabel(shipment.label_url!);
+      }, index * 300);
+    });
+    
+    toast.success(`Started download of ${labelsWithUrls.length} ${format.toUpperCase()} labels`);
   }, [results]);
 
   const handleClearBatchError = useCallback(() => {
@@ -327,6 +373,8 @@ export const useBulkUpload = () => {
     handleRemoveShipment,
     handleEditShipment,
     handleCreateLabels,
+    handleDownloadAllLabels,
+    handleDownloadLabelsWithFormat,
     handleClearBatchError,
     handleDownloadSingleLabel,
     handleEmailLabels,

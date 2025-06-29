@@ -262,8 +262,8 @@ const BulkUpload: React.FC = () => {
               sortField={sortField}
               sortDirection={sortDirection}
               onSortChange={(field, direction) => {
-                setSortField(field as any);
-                setSortDirection(direction as any);
+                setSortField(field as 'customer' | 'carrier' | 'service' | 'cost');
+                setSortDirection(direction as 'asc' | 'desc');
               }}
               selectedCarrier={selectedCarrierFilter}
               onCarrierFilterChange={setSelectedCarrierFilter}
