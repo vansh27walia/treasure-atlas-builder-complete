@@ -3,14 +3,22 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, Printer, X, FileText, File, Package } from 'lucide-react';
-import { BatchResult } from '@/hooks/useBatchLabelProcessing';
-import { toast } from 'sonner';
+import { Download, Printer, Mail, FileText } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 
 interface BatchPrintPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  batchResult: BatchResult | null;
+  batchResult: {
+    batchId: string;
+    consolidatedLabelUrls: {
+      pdf?: string;
+      zpl?: string;
+      epl?: string;
+      png?: string;
+    };
+    scanFormUrl?: string;
+  } | null;
 }
 
 const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
@@ -18,221 +26,205 @@ const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
   onClose,
   batchResult
 }) => {
-  const [selectedFormat, setSelectedFormat] = useState<string>('pdf');
+  const [printFormat, setPrintFormat] = useState<'4x6' | '8.5x11-single' | '8.5x11-double'>('4x6');
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
-  const handlePrint = () => {
-    if (batchResult?.consolidatedLabelUrls.pdf) {
-      window.open(batchResult.consolidatedLabelUrls.pdf, '_blank');
-    } else {
-      toast.error('PDF format not available for printing');
-    }
-  };
-
-  const handleDownload = (format?: string) => {
-    const formatToUse = format || selectedFormat;
-    const url = batchResult?.consolidatedLabelUrls[formatToUse as keyof typeof batchResult.consolidatedLabelUrls];
-    
+  const handleDownload = (format: 'pdf' | 'zpl' | 'epl') => {
+    const url = batchResult?.consolidatedLabelUrls[format];
     if (url) {
       const link = document.createElement('a');
       link.href = url;
-      link.download = `batch_labels_${Date.now()}.${formatToUse}`;
+      link.download = `batch_labels_${Date.now()}.${format}`;
       link.target = '_blank';
-      
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      toast.success(`Downloading ${formatToUse.toUpperCase()} labels`);
-    } else {
-      toast.error(`${formatToUse.toUpperCase()} format not available`);
     }
   };
 
-  const handleDownloadManifest = () => {
-    if (batchResult?.scanFormUrl) {
-      const link = document.createElement('a');
-      link.href = batchResult.scanFormUrl;
-      link.download = `pickup_manifest_${Date.now()}.pdf`;
-      link.target = '_blank';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.success('Downloading pickup manifest');
-    } else {
-      toast.error('Pickup manifest not available');
+  const handlePrint = () => {
+    if (batchResult?.consolidatedLabelUrls.pdf) {
+      const printWindow = window.open(batchResult.consolidatedLabelUrls.pdf, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
     }
   };
 
-  const availableFormats = batchResult?.consolidatedLabelUrls ? 
-    Object.keys(batchResult.consolidatedLabelUrls).filter(format => 
-      batchResult.consolidatedLabelUrls[format as keyof typeof batchResult.consolidatedLabelUrls]
-    ) : [];
+  const getFormatDescription = () => {
+    switch (printFormat) {
+      case '4x6':
+        return 'Standard shipping label size (4" x 6")';
+      case '8.5x11-single':
+        return 'Single label per page (8.5" x 11")';
+      case '8.5x11-double':
+        return 'Two labels per page vertically (8.5" x 11")';
+      default:
+        return '';
+    }
+  };
+
+  if (!batchResult?.consolidatedLabelUrls.pdf) {
+    return null;
+  }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Batch Label Print Preview</span>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
-            </Button>
-          </DialogTitle>
-        </DialogHeader>
-        
-        <div className="flex-1 overflow-auto">
-          {batchResult?.consolidatedLabelUrls && availableFormats.length > 0 ? (
-            <div className="space-y-4">
-              {/* Controls Section */}
-              <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center border-b pb-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-blue-600" />
-                    <span className="font-medium">Format:</span>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-semibold">Batch Labels Print Preview</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Format Selection */}
+            <Card className="p-4">
+              <div className="space-y-4">
+                <h3 className="font-medium text-gray-900">Print Format Options</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Label Layout
+                    </label>
+                    <Select value={printFormat} onValueChange={(value: any) => setPrintFormat(value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="4x6">4" × 6" Standard</SelectItem>
+                        <SelectItem value="8.5x11-single">8.5" × 11" Single Label</SelectItem>
+                        <SelectItem value="8.5x11-double">8.5" × 11" Two Labels</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-gray-500 mt-1">{getFormatDescription()}</p>
                   </div>
-                  <Select value={selectedFormat} onValueChange={setSelectedFormat}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableFormats.map(format => (
-                        <SelectItem key={format} value={format}>
-                          {format.toUpperCase()}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
+              </div>
+            </Card>
+
+            {/* PDF Preview */}
+            <Card className="p-4">
+              <h3 className="font-medium text-gray-900 mb-4">Label Preview</h3>
+              <div className="border rounded-lg overflow-hidden bg-gray-50" style={{ height: '500px' }}>
+                <iframe
+                  src={batchResult.consolidatedLabelUrls.pdf}
+                  width="100%"
+                  height="100%"
+                  title="Batch Labels Preview"
+                  className="border-0"
+                />
+              </div>
+            </Card>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3 justify-between">
+              <div className="flex gap-3">
+                <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700">
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print Labels
+                </Button>
                 
-                <div className="flex gap-2">
-                  <Button onClick={handlePrint} className="bg-purple-600 hover:bg-purple-700">
-                    <Printer className="mr-2 h-4 w-4" />
-                    Print Preview
-                  </Button>
-                  <Button onClick={() => handleDownload()} variant="outline">
-                    <Download className="mr-2 h-4 w-4" />
-                    Download {selectedFormat.toUpperCase()}
-                  </Button>
-                </div>
+                <Button 
+                  onClick={() => setShowEmailModal(true)}
+                  variant="outline"
+                  className="border-green-300 text-green-700 hover:bg-green-50"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email Labels
+                </Button>
               </div>
 
-              {/* Download Options Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
-                  <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
-                    <File className="mr-2 h-4 w-4" />
-                    Individual Downloads
-                  </h4>
-                  <div className="space-y-2">
-                    {availableFormats.map(format => (
-                      <Button
-                        key={format}
-                        onClick={() => handleDownload(format)}
-                        variant="outline"
-                        size="sm"
-                        className="w-full justify-start text-xs"
-                      >
-                        <Download className="mr-2 h-3 w-3" />
-                        {format.toUpperCase()} Labels
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                {batchResult.scanFormUrl && (
-                  <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
-                    <h4 className="font-semibold text-green-800 mb-3 flex items-center">
-                      <FileText className="mr-2 h-4 w-4" />
-                      Pickup Manifest
-                    </h4>
-                    <Button
-                      onClick={handleDownloadManifest}
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start text-xs"
-                    >
-                      <Download className="mr-2 h-3 w-3" />
-                      Download Manifest
-                    </Button>
-                  </div>
-                )}
-
-                <div className="bg-gradient-to-r from-amber-50 to-amber-100 p-4 rounded-lg border border-amber-200">
-                  <h4 className="font-semibold text-amber-800 mb-3">Format Guide</h4>
-                  <div className="text-xs text-amber-700 space-y-1">
-                    <p><strong>PDF:</strong> Print on regular paper</p>
-                    <p><strong>ZPL:</strong> Zebra thermal printers</p>
-                    <p><strong>EPL:</strong> Eltron thermal printers</p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Preview Section */}
-              <div className="border rounded-lg overflow-hidden bg-white">
-                {selectedFormat === 'pdf' && batchResult.consolidatedLabelUrls.pdf ? (
-                  <iframe
-                    src={batchResult.consolidatedLabelUrls.pdf}
-                    className="w-full h-[600px] border-0"
-                    title="Batch Labels Preview"
-                  />
-                ) : selectedFormat === 'zpl' && batchResult.consolidatedLabelUrls.zpl ? (
-                  <div className="p-6">
-                    <h3 className="font-medium mb-4">ZPL Code Preview</h3>
-                    <div className="bg-gray-100 p-4 rounded-lg font-mono text-sm max-h-96 overflow-auto">
-                      <p className="text-gray-600 mb-2">ZPL code ready for Zebra thermal printers</p>
-                      <Button
-                        onClick={() => handleDownload('zpl')}
-                        className="mb-4"
-                        size="sm"
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Download ZPL File
-                      </Button>
-                    </div>
-                  </div>
-                ) : selectedFormat === 'epl' && batchResult.consolidatedLabelUrls.epl ? (
-                  <div className="p-6">
-                    <h3 className="font-medium mb-4">EPL Code Preview</h3>
-                    <div className="bg-gray-100 p-4 rounded-lg font-mono text-sm max-h-96 overflow-auto">
-                      <p className="text-gray-600 mb-2">EPL code ready for Eltron thermal printers</p>
-                      <Button
-                        onClick={() => handleDownload('epl')}
-                        className="mb-4"
-                        size="sm"
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Download EPL File
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-64 text-gray-500">
-                    <div className="text-center">
-                      <FileText className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                      <p>Preview not available for {selectedFormat.toUpperCase()} format</p>
-                      <Button
-                        onClick={() => handleDownload()}
-                        className="mt-4"
-                        size="sm"
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Download {selectedFormat.toUpperCase()}
-                      </Button>
-                    </div>
-                  </div>
-                )}
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => handleDownload('pdf')}
+                  variant="outline"
+                  className="border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  PDF
+                </Button>
+                
+                <Button
+                  onClick={() => handleDownload('zpl')}
+                  variant="outline"
+                  className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  ZPL
+                </Button>
+                
+                <Button
+                  onClick={() => handleDownload('epl')}
+                  variant="outline"
+                  className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  EPL
+                </Button>
               </div>
             </div>
-          ) : (
-            <div className="flex items-center justify-center h-64 text-gray-500">
-              <div className="text-center">
-                <Printer className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <p>No consolidated labels available for preview</p>
-              </div>
-            </div>
-          )}
+
+            {/* Scan Form Section */}
+            {batchResult.scanFormUrl && (
+              <Card className="p-4 border-blue-200 bg-blue-50">
+                <h3 className="font-medium text-blue-900 mb-2">Pickup Manifest</h3>
+                <p className="text-sm text-blue-700 mb-3">
+                  Download the pickup manifest for carrier collection
+                </p>
+                <Button
+                  onClick={() => {
+                    if (batchResult.scanFormUrl) {
+                      const link = document.createElement('a');
+                      link.href = batchResult.scanFormUrl;
+                      link.download = `pickup_manifest_${Date.now()}.pdf`;
+                      link.target = '_blank';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download Manifest
+                </Button>
+              </Card>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <EmailLabelsModal
+          isOpen={showEmailModal}
+          onClose={() => setShowEmailModal(false)}
+          batchResult={batchResult}
+        />
+      )}
+    </>
+  );
+};
+
+// Placeholder EmailLabelsModal component - will be implemented separately
+const EmailLabelsModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  batchResult: any;
+}> = ({ isOpen, onClose, batchResult }) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Email Labels</DialogTitle>
+        </DialogHeader>
+        <div className="p-4">
+          <p>Email functionality will be implemented here</p>
+          <Button onClick={onClose} className="mt-4">Close</Button>
         </div>
       </DialogContent>
     </Dialog>
