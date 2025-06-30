@@ -41,16 +41,17 @@ serve(async (req) => {
     }
 
     const { 
-      toEmail, 
-      fromEmail, 
+      toEmails, // Now accepting array of emails
       subject, 
       description, 
       batchResult, 
       selectedFormats = ['pdf'] 
     } = await req.json();
 
-    if (!toEmail || !subject) {
-      return new Response(JSON.stringify({ error: 'Missing required fields: toEmail and subject' }), {
+    console.log('Email request received:', { toEmails, subject, selectedFormats });
+
+    if (!toEmails || toEmails.length === 0 || !subject) {
+      return new Response(JSON.stringify({ error: 'Missing required fields: toEmails and subject' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400
       });
@@ -58,6 +59,7 @@ serve(async (req) => {
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     if (!resendApiKey) {
+      console.error('RESEND_API_KEY is missing');
       return new Response(JSON.stringify({ 
         error: 'Email service not configured',
         message: 'RESEND_API_KEY is missing from backend configuration'
@@ -75,9 +77,28 @@ serve(async (req) => {
 
     if (batchResult?.consolidatedLabelUrls) {
       for (const format of selectedFormats) {
+        if (format === 'scanForm' && batchResult.scanFormUrl) {
+          try {
+            const response = await fetch(batchResult.scanFormUrl);
+            if (response.ok) {
+              const buffer = await response.arrayBuffer();
+              attachments.push({
+                filename: `pickup_manifest_${Date.now()}.pdf`,
+                content: new Uint8Array(buffer),
+                contentType: 'application/pdf'
+              });
+              labelsList.push('• Pickup Manifest (Scan Form)');
+            }
+          } catch (error) {
+            console.error('Error fetching scan form:', error);
+          }
+          continue;
+        }
+
         const url = batchResult.consolidatedLabelUrls[format];
         if (url) {
           try {
+            console.log(`Fetching ${format} label from:`, url);
             const response = await fetch(url);
             if (response.ok) {
               const buffer = await response.arrayBuffer();
@@ -92,6 +113,9 @@ serve(async (req) => {
               });
               
               labelsList.push(`• Consolidated ${format.toUpperCase()} Labels`);
+              console.log(`Successfully attached ${format} label`);
+            } else {
+              console.error(`Failed to fetch ${format} label: ${response.status} ${response.statusText}`);
             }
           } catch (error) {
             console.error(`Error fetching ${format} label:`, error);
@@ -100,21 +124,14 @@ serve(async (req) => {
       }
     }
 
-    if (batchResult?.scanFormUrl) {
-      try {
-        const response = await fetch(batchResult.scanFormUrl);
-        if (response.ok) {
-          const buffer = await response.arrayBuffer();
-          attachments.push({
-            filename: `scan_form_${Date.now()}.pdf`,
-            content: new Uint8Array(buffer),
-            contentType: 'application/pdf'
-          });
-          labelsList.push('• Pickup Manifest (Scan Form)');
-        }
-      } catch (error) {
-        console.error('Error fetching scan form:', error);
-      }
+    if (attachments.length === 0) {
+      return new Response(JSON.stringify({ 
+        error: 'No labels available to attach',
+        message: 'Unable to fetch any labels for email attachment'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
     }
 
     const emailHtml = `
@@ -138,12 +155,17 @@ serve(async (req) => {
       </div>
     `;
 
+    // Convert single email to array if needed
+    const emailArray = Array.isArray(toEmails) ? toEmails : [toEmails];
+    
+    console.log(`Sending email to ${emailArray.length} recipients with ${attachments.length} attachments`);
+
     const emailData = {
-      from: fromEmail || 'Shipping System <noreply@yourdomain.com>',
-      to: [toEmail],
+      from: 'Shipping System <noreply@yourdomain.com>', // Fixed sender
+      to: emailArray,
       subject: subject,
       html: emailHtml,
-      attachments: attachments.length > 0 ? attachments : undefined
+      attachments: attachments
     };
 
     const { data: emailResult, error: emailError } = await resend.emails.send(emailData);
@@ -165,6 +187,7 @@ serve(async (req) => {
       success: true,
       message: 'Email sent successfully',
       emailId: emailResult.id,
+      recipientCount: emailArray.length,
       attachmentsCount: attachments.length
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

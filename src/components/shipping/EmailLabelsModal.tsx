@@ -4,9 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Mail, Send, Loader2 } from 'lucide-react';
+import { Mail, Send, Loader2, Plus, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -31,13 +30,33 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
   batchResult
 }) => {
   const [formData, setFormData] = useState({
-    fromEmail: '',
-    toEmail: '',
+    toEmails: [''],
     subject: 'Your Shipping Labels',
     description: 'Please find your shipping labels attached to this email.',
     selectedFormats: ['pdf']
   });
   const [isSending, setIsSending] = useState(false);
+
+  const handleAddEmail = () => {
+    setFormData(prev => ({
+      ...prev,
+      toEmails: [...prev.toEmails, '']
+    }));
+  };
+
+  const handleRemoveEmail = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      toEmails: prev.toEmails.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleEmailChange = (index: number, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      toEmails: prev.toEmails.map((email, i) => i === index ? value : email)
+    }));
+  };
 
   const handleFormatChange = (format: string, checked: boolean) => {
     setFormData(prev => ({
@@ -49,8 +68,10 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
   };
 
   const handleSendEmail = async () => {
-    if (!formData.toEmail || !formData.subject) {
-      toast.error('Please fill in required fields');
+    const validEmails = formData.toEmails.filter(email => email.trim() !== '');
+    
+    if (validEmails.length === 0 || !formData.subject) {
+      toast.error('Please fill in at least one email address and subject');
       return;
     }
 
@@ -62,10 +83,16 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
     setIsSending(true);
 
     try {
+      console.log('Sending email with data:', { 
+        toEmails: validEmails, 
+        subject: formData.subject,
+        selectedFormats: formData.selectedFormats,
+        batchResult 
+      });
+
       const { data, error } = await supabase.functions.invoke('email-labels', {
         body: {
-          toEmail: formData.toEmail,
-          fromEmail: formData.fromEmail || undefined,
+          toEmails: validEmails,
           subject: formData.subject,
           description: formData.description,
           batchResult,
@@ -74,10 +101,12 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
       });
 
       if (error) {
+        console.error('Supabase function error:', error);
         throw new Error(error.message);
       }
 
-      toast.success('Email sent successfully!');
+      console.log('Email function response:', data);
+      toast.success(`Email sent successfully to ${validEmails.length} recipient(s)!`);
       onClose();
     } catch (error) {
       console.error('Email sending error:', error);
@@ -95,7 +124,7 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <Mail className="h-5 w-5 mr-2 text-blue-600" />
@@ -104,30 +133,40 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* From Email */}
+          {/* To Emails */}
           <div className="space-y-2">
-            <Label htmlFor="fromEmail">From Email (optional)</Label>
-            <Input
-              id="fromEmail"
-              type="email"
-              placeholder="your-email@company.com"
-              value={formData.fromEmail}
-              onChange={(e) => setFormData(prev => ({ ...prev, fromEmail: e.target.value }))}
-            />
-            <p className="text-xs text-gray-500">Leave empty to use default sender</p>
-          </div>
-
-          {/* To Email */}
-          <div className="space-y-2">
-            <Label htmlFor="toEmail">To Email *</Label>
-            <Input
-              id="toEmail"
-              type="email"
-              placeholder="recipient@example.com"
-              value={formData.toEmail}
-              onChange={(e) => setFormData(prev => ({ ...prev, toEmail: e.target.value }))}
-              required
-            />
+            <Label>To Email(s) *</Label>
+            {formData.toEmails.map((email, index) => (
+              <div key={index} className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="recipient@example.com"
+                  value={email}
+                  onChange={(e) => handleEmailChange(index, e.target.value)}
+                  className="flex-1"
+                />
+                {formData.toEmails.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleRemoveEmail(index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+                {index === formData.toEmails.length - 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddEmail}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* Subject */}
