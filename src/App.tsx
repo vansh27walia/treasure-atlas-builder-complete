@@ -15,6 +15,15 @@ import BulkUploadPage from '@/pages/BulkUploadPage';
 import SettingsPage from '@/pages/SettingsPage';
 import ResetPasswordPage from '@/pages/ResetPasswordPage';
 import AnalyticsPage from '@/pages/AnalyticsPage';
+import TrackingPage from '@/pages/TrackingPage';
+import PickupPage from '@/pages/PickupPage';
+import PaymentPage from '@/pages/PaymentPage';
+import FreightForwardingPage from '@/pages/FreightForwardingPage';
+import InternationalShippingPage from '@/pages/InternationalShippingPage';
+import ShipToPage from '@/pages/ShipToPage';
+import LtlShippingPage from '@/pages/LtlShippingPage';
+import FtlShippingPage from '@/pages/FtlShippingPage';
+import InstantDeliveryPage from '@/pages/InstantDeliveryPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -65,6 +74,78 @@ function App() {
                   <ProtectedRoute>
                     <SidebarNavigation>
                       <AnalyticsPage />
+                    </SidebarNavigation>
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/tracking" element={
+                  <ProtectedRoute>
+                    <SidebarNavigation>
+                      <TrackingPage />
+                    </SidebarNavigation>
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/pickup" element={
+                  <ProtectedRoute>
+                    <SidebarNavigation>
+                      <PickupPage />
+                    </SidebarNavigation>
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/payment" element={
+                  <ProtectedRoute>
+                    <SidebarNavigation>
+                      <PaymentPage />
+                    </SidebarNavigation>
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/freight-forwarding" element={
+                  <ProtectedRoute>
+                    <SidebarNavigation>
+                      <FreightForwardingPage />
+                    </SidebarNavigation>
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/international" element={
+                  <ProtectedRoute>
+                    <SidebarNavigation>
+                      <InternationalShippingPage />
+                    </SidebarNavigation>
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/ship-to" element={
+                  <ProtectedRoute>
+                    <SidebarNavigation>
+                      <ShipToPage />
+                    </SidebarNavigation>
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/ltl-shipping" element={
+                  <ProtectedRoute>
+                    <SidebarNavigation>
+                      <LtlShippingPage />
+                    </SidebarNavigation>
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/ftl-shipping" element={
+                  <ProtectedRoute>
+                    <SidebarNavigation>
+                      <FtlShippingPage />
+                    </SidebarNavigation>
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/instant-delivery" element={
+                  <ProtectedRoute>
+                    <SidebarNavigation>
+                      <InstantDeliveryPage />
                     </SidebarNavigation>
                   </ProtectedRoute>
                 } />

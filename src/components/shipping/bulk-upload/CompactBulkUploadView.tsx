@@ -75,7 +75,7 @@ const CompactBulkUploadView: React.FC = () => {
   };
 
   return (
-    <div className="h-full bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Progress Header - Sticky */}
       {uploadStatus !== 'idle' && (
         <div className="bg-white border-b shadow-sm sticky top-0 z-50">
