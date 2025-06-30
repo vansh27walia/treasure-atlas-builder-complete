@@ -74,69 +74,40 @@ const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold flex items-center">
               <File className="h-5 w-5 mr-2" />
-              Print Preview - Batch Labels
+              Batch Labels Print Preview
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6">
-            {/* Top Controls Bar - Matching Individual Print Preview Style */}
-            <Card className="p-4 border-2 border-blue-200 bg-blue-50">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                {/* Left Side - Format Selection */}
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-medium text-blue-800">Format:</label>
-                    <Select value={printFormat} onValueChange={(value: any) => setPrintFormat(value)}>
-                      <SelectTrigger className="w-48 bg-white border-blue-300">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="4x6">4" × 6" Standard</SelectItem>
-                        <SelectItem value="8.5x11-single">8.5" × 11" Single</SelectItem>
-                        <SelectItem value="8.5x11-double">8.5" × 11" Double</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="text-xs text-blue-700 font-medium">
-                    {getFormatDescription()}
-                  </div>
-                </div>
-
-                {/* Right Side - Action Buttons */}
+            {/* Top Action Bar - Similar to Individual Print Preview */}
+            <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-gray-50 rounded-lg border">
+              <div className="flex items-center gap-4">
+                {/* Format Selection */}
                 <div className="flex items-center gap-2">
-                  {/* Print Preview Button */}
-                  <Button 
-                    onClick={handlePrint} 
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
-                    size="sm"
-                  >
-                    <Printer className="h-4 w-4 mr-2" />
-                    Print Preview
-                  </Button>
-                  
-                  {/* Email Button */}
-                  <Button 
-                    onClick={() => setShowEmailModal(true)}
-                    variant="outline"
-                    size="sm"
-                    className="border-blue-300 text-blue-700 hover:bg-blue-100 font-medium"
-                  >
-                    <Mail className="h-4 w-4 mr-2" />
-                    Email
-                  </Button>
+                  <label className="text-sm font-medium text-gray-700">Layout:</label>
+                  <Select value={printFormat} onValueChange={(value: any) => setPrintFormat(value)}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="4x6">4" × 6" Standard</SelectItem>
+                      <SelectItem value="8.5x11-single">8.5" × 11" Single</SelectItem>
+                      <SelectItem value="8.5x11-double">8.5" × 11" Double</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="text-xs text-gray-500">
+                  {getFormatDescription()}
                 </div>
               </div>
-            </Card>
 
-            {/* Download Options - Inside Print Preview */}
-            <Card className="p-4 bg-gray-50 border-gray-200">
-              <h4 className="font-medium text-gray-900 mb-3">Download Options</h4>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                {/* Download Format Buttons */}
                 <Button
                   onClick={() => handleDownload('pdf')}
                   variant="outline"
@@ -147,35 +118,57 @@ const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
                   PDF
                 </Button>
                 
-                {batchResult?.consolidatedLabelUrls.zpl && (
-                  <Button
-                    onClick={() => handleDownload('zpl')}
-                    variant="outline"
-                    size="sm"
-                    className="border-purple-300 text-purple-700 hover:bg-purple-50"
-                  >
-                    <FileText className="h-4 w-4 mr-1" />
-                    ZPL
-                  </Button>
-                )}
+                <Button
+                  onClick={() => handleDownload('zpl')}
+                  variant="outline"
+                  size="sm"
+                  className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                  disabled={!batchResult?.consolidatedLabelUrls.zpl}
+                >
+                  <FileText className="h-4 w-4 mr-1" />
+                  ZPL
+                </Button>
                 
-                {batchResult?.consolidatedLabelUrls.epl && (
-                  <Button
-                    onClick={() => handleDownload('epl')}
-                    variant="outline"
-                    size="sm"
-                    className="border-orange-300 text-orange-700 hover:bg-orange-50"
-                  >
-                    <FileText className="h-4 w-4 mr-1" />
-                    EPL
-                  </Button>
-                )}
+                <Button
+                  onClick={() => handleDownload('epl')}
+                  variant="outline"
+                  size="sm"
+                  className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                  disabled={!batchResult?.consolidatedLabelUrls.epl}
+                >
+                  <FileText className="h-4 w-4 mr-1" />
+                  EPL
+                </Button>
+
+                <div className="border-l border-gray-300 h-6 mx-2"></div>
+
+                {/* Print Button */}
+                <Button 
+                  onClick={handlePrint} 
+                  className="bg-blue-600 hover:bg-blue-700"
+                  size="sm"
+                >
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print
+                </Button>
+                
+                {/* Email Button */}
+                <Button 
+                  onClick={() => setShowEmailModal(true)}
+                  variant="outline"
+                  size="sm"
+                  className="border-green-300 text-green-700 hover:bg-green-50"
+                >
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email
+                </Button>
               </div>
-            </Card>
+            </div>
 
             {/* PDF Preview */}
             <Card className="p-4">
-              <div className="border rounded-lg overflow-hidden bg-white" style={{ height: '600px' }}>
+              <h3 className="font-medium text-gray-900 mb-4">Label Preview</h3>
+              <div className="border rounded-lg overflow-hidden bg-gray-50" style={{ height: '600px' }}>
                 <iframe
                   src={batchResult.consolidatedLabelUrls.pdf}
                   width="100%"
@@ -189,10 +182,7 @@ const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
             {/* Scan Form Section */}
             {batchResult.scanFormUrl && (
               <Card className="p-4 border-blue-200 bg-blue-50">
-                <h3 className="font-medium text-blue-900 mb-2 flex items-center">
-                  <FileText className="h-4 w-4 mr-2" />
-                  Pickup Manifest
-                </h3>
+                <h3 className="font-medium text-blue-900 mb-2">Pickup Manifest</h3>
                 <p className="text-sm text-blue-700 mb-3">
                   Download the pickup manifest for carrier collection
                 </p>
@@ -220,11 +210,11 @@ const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
 
             {/* Format Information */}
             <Card className="p-4 bg-gray-50">
-              <h4 className="font-medium text-gray-900 mb-2">Print Information</h4>
+              <h4 className="font-medium text-gray-900 mb-2">Print Format Information</h4>
               <div className="text-sm text-gray-600 space-y-1">
-                <p><strong>Current Format:</strong> {getFormatDescription()}</p>
-                <p><strong>Available Downloads:</strong> PDF (ready), ZPL {batchResult?.consolidatedLabelUrls.zpl ? '(ready)' : '(not available)'}, EPL {batchResult?.consolidatedLabelUrls.epl ? '(ready)' : '(not available)'}</p>
-                <p><strong>Recommendation:</strong> Use 4×6 for thermal printers, 8.5×11 for standard office printers</p>
+                <p><strong>Current Selection:</strong> {getFormatDescription()}</p>
+                <p><strong>Available Formats:</strong> PDF (ready), ZPL {batchResult?.consolidatedLabelUrls.zpl ? '(ready)' : '(not available)'}, EPL {batchResult?.consolidatedLabelUrls.epl ? '(ready)' : '(not available)'}</p>
+                <p><strong>Recommended:</strong> Use 4x6 for thermal printers, 8.5x11 for standard office printers</p>
               </div>
             </Card>
           </div>

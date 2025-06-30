@@ -6,29 +6,16 @@ import { Resend } from "npm:resend@2.0.0";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('Email function invoked with method:', req.method);
-    
-    // Verify request method
-    if (req.method !== 'POST') {
-      return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 405
-      });
-    }
-
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      console.error('No authorization header provided');
       return new Response(JSON.stringify({ error: 'No authorization header' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401
@@ -47,54 +34,32 @@ serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
-      console.error('User authentication failed:', userError);
       return new Response(JSON.stringify({ error: 'User not authenticated' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 401
       });
     }
 
-    console.log('User authenticated successfully:', user.email);
-
-    // Parse request body
-    let requestBody;
-    try {
-      requestBody = await req.json();
-      console.log('Request body parsed:', JSON.stringify(requestBody, null, 2));
-    } catch (parseError) {
-      console.error('Failed to parse request body:', parseError);
-      return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
-      });
-    }
-
     const { 
-      toEmails, 
+      toEmails, // Now accepting array of emails
       subject, 
       description, 
       batchResult, 
       selectedFormats = ['pdf'] 
-    } = requestBody;
+    } = await req.json();
 
-    console.log('Processing email request for:', { toEmails, subject, selectedFormats });
+    console.log('Email request received:', { toEmails, subject, selectedFormats });
 
-    // Validate required fields
     if (!toEmails || toEmails.length === 0 || !subject) {
-      console.error('Missing required fields:', { toEmails, subject });
-      return new Response(JSON.stringify({ 
-        error: 'Missing required fields', 
-        details: 'toEmails and subject are required' 
-      }), {
+      return new Response(JSON.stringify({ error: 'Missing required fields: toEmails and subject' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400
       });
     }
 
-    // Check Resend API key
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     if (!resendApiKey) {
-      console.error('RESEND_API_KEY is missing from environment');
+      console.error('RESEND_API_KEY is missing');
       return new Response(JSON.stringify({ 
         error: 'Email service not configured',
         message: 'RESEND_API_KEY is missing from backend configuration'
@@ -104,7 +69,6 @@ serve(async (req) => {
       });
     }
 
-    console.log('Resend API key found, initializing Resend client');
     const resend = new Resend(resendApiKey);
 
     // Prepare attachments based on selected formats
@@ -115,7 +79,6 @@ serve(async (req) => {
       for (const format of selectedFormats) {
         if (format === 'scanForm' && batchResult.scanFormUrl) {
           try {
-            console.log('Fetching scan form from:', batchResult.scanFormUrl);
             const response = await fetch(batchResult.scanFormUrl);
             if (response.ok) {
               const buffer = await response.arrayBuffer();
@@ -125,9 +88,6 @@ serve(async (req) => {
                 contentType: 'application/pdf'
               });
               labelsList.push('• Pickup Manifest (Scan Form)');
-              console.log('Successfully attached scan form');
-            } else {
-              console.error('Failed to fetch scan form:', response.status, response.statusText);
             }
           } catch (error) {
             console.error('Error fetching scan form:', error);
@@ -165,7 +125,6 @@ serve(async (req) => {
     }
 
     if (attachments.length === 0) {
-      console.error('No attachments could be prepared');
       return new Response(JSON.stringify({ 
         error: 'No labels available to attach',
         message: 'Unable to fetch any labels for email attachment'
@@ -175,7 +134,6 @@ serve(async (req) => {
       });
     }
 
-    // Prepare email content
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #2563eb;">Shipping Labels</h2>
@@ -200,31 +158,30 @@ serve(async (req) => {
     // Convert single email to array if needed
     const emailArray = Array.isArray(toEmails) ? toEmails : [toEmails];
     
-    console.log(`Preparing to send email to ${emailArray.length} recipients with ${attachments.length} attachments`);
+    console.log(`Sending email to ${emailArray.length} recipients with ${attachments.length} attachments`);
 
     const emailData = {
-      from: 'Shipping System <noreply@yourdomain.com>',
+      from: 'Shipping System <noreply@yourdomain.com>', // Fixed sender
       to: emailArray,
       subject: subject,
       html: emailHtml,
       attachments: attachments
     };
 
-    console.log('Sending email via Resend...');
     const { data: emailResult, error: emailError } = await resend.emails.send(emailData);
 
     if (emailError) {
-      console.error('Resend API error:', emailError);
+      console.error('Email sending error:', emailError);
       return new Response(JSON.stringify({ 
         error: 'Failed to send email',
-        details: emailError.message || 'Unknown Resend error'
+        details: emailError.message 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
       });
     }
 
-    console.log('Email sent successfully via Resend:', emailResult);
+    console.log('Email sent successfully:', emailResult);
 
     return new Response(JSON.stringify({
       success: true,
@@ -238,11 +195,10 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Unexpected error in email-labels function:', error);
+    console.error('Error in email-labels function:', error);
     return new Response(JSON.stringify({
       error: 'Email service error',
-      message: error instanceof Error ? error.message : 'Unknown error occurred',
-      stack: error instanceof Error ? error.stack : undefined
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
