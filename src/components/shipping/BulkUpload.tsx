@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -72,17 +73,7 @@ const BulkUpload: React.FC = () => {
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
     if (address && address.id !== pickupAddress?.id) {
       console.log("Selected pickup address in BulkUpload:", address);
-      
-      // Ensure the address has all required properties
-      const completeAddress: SavedAddress = {
-        ...address,
-        user_id: address.user_id || '',
-        country: address.country || 'US',
-        is_default_to: address.is_default_to || false,
-        is_default_from: address.is_default_from || false
-      };
-      
-      setPickupAddress(completeAddress);
+      setPickupAddress(address);
       
       // Prevent duplicate toasts
       const now = Date.now();
@@ -205,16 +196,7 @@ const BulkUpload: React.FC = () => {
             onUploadFail={(error) => console.error('Upload failed:', error)}
             onPickupAddressSelect={(address) => {
               if (address && address.id !== pickupAddress?.id) {
-                // Ensure the address has all required properties
-                const completeAddress: SavedAddress = {
-                  ...address,
-                  user_id: address.user_id || '',
-                  country: address.country || 'US',
-                  is_default_to: address.is_default_to || false,
-                  is_default_from: address.is_default_from || false
-                };
-                
-                setPickupAddress(completeAddress);
+                setPickupAddress(address);
                 const now = Date.now();
                 if (now - lastToastRef.current > 2000) {
                   toast.success(`Selected pickup address: ${address.name || address.street1}`);
