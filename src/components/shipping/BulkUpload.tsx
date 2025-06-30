@@ -78,7 +78,8 @@ const BulkUpload: React.FC = () => {
         ...address,
         user_id: address.user_id || '',
         country: address.country || 'US',
-        is_default_to: address.is_default_to || false
+        is_default_to: address.is_default_to || false,
+        is_default_from: address.is_default_from || false
       };
       
       setPickupAddress(completeAddress);
@@ -209,7 +210,8 @@ const BulkUpload: React.FC = () => {
                   ...address,
                   user_id: address.user_id || '',
                   country: address.country || 'US',
-                  is_default_to: address.is_default_to || false
+                  is_default_to: address.is_default_to || false,
+                  is_default_from: address.is_default_from || false
                 };
                 
                 setPickupAddress(completeAddress);
