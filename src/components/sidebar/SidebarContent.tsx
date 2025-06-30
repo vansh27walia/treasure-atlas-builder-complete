@@ -26,13 +26,13 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
           <SidebarNavItem
             icon={<Home size={18} />}
             title="Dashboard"
-            to="/dashboard"
+            to="/"
             collapsed={collapsed}
           />
           <SidebarNavItem
             icon={<Package size={18} />}
             title="Standard Shipping"
-            to="/shipping"
+            to="/create-label"
             collapsed={collapsed}
           />
           <SidebarNavItem
@@ -44,7 +44,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
           <SidebarNavItem
             icon={<Calculator size={18} />}
             title="Rate Calculator"
-            to="/shipping?tab=calculator"
+            to="/create-label?tab=calculator"
             collapsed={collapsed}
           />
           <SidebarNavItem
@@ -69,7 +69,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
             collapsed={collapsed}
           />
           <SidebarNavItem
-            icon={<Search size={18} />}
+            icon={<Truck size={18} />}
             title="Tracking"
             to="/tracking" 
             collapsed={collapsed}
@@ -100,8 +100,8 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
           />
           <SidebarNavItem
             icon={<BarChart3 size={18} />}
-            title="Analytics"
-            to="/analytics"
+            title="Reports"
+            to="/dashboard?tab=history"
             collapsed={collapsed}
           />
           <SidebarNavItem
