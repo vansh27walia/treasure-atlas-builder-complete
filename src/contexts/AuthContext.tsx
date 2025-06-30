@@ -27,7 +27,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Function to refresh the session
   const refreshSession = async () => {
     try {
       const { data, error } = await supabase.auth.getSession();
@@ -46,7 +45,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     console.log('Auth context initialized');
     
-    // Set up auth state listener FIRST for proper initialization
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
@@ -69,8 +68,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // THEN check for existing session
     const initializeAuth = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
         console.log('Initial session check:', data.session ? 'Found session' : 'No session');
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          setIsLoading(false);
+          return;
+        }
         
         if (data.session) {
           setSession(data.session);
@@ -93,8 +98,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       setIsLoading(true);
-      await supabase.auth.signOut();
-      // Auth state change will handle state updates
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error signing out:', error);
+        toast.error('Failed to sign out');
+      }
     } catch (error) {
       console.error('Error signing out:', error);
       toast.error('Failed to sign out');
@@ -110,16 +118,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signOut,
     refreshSession
   };
-
-  // Debug session state changes
-  useEffect(() => {
-    console.log('Auth state updated:', { 
-      isAuthenticated: !!user, 
-      email: user?.email,
-      sessionExists: !!session,
-      isLoading
-    });
-  }, [user, session, isLoading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

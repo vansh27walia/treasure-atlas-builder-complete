@@ -36,9 +36,11 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
   const hasConsolidatedLabels = batchResult?.consolidatedLabelUrls?.pdf;
   const hasIndividualLabels = processedLabels && processedLabels.length > 0;
 
+  console.log('BulkLabelDownloadOptions render:', { batchResult, processedLabels: processedLabels?.length });
+
   return (
     <div className="space-y-6">
-      {/* Consolidated Batch Labels Section - Only PDF, Print Preview, and Email */}
+      {/* Consolidated Batch Labels Section */}
       {hasConsolidatedLabels && (
         <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
           <div className="space-y-4">
@@ -57,6 +59,14 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
             </p>
 
             <div className="flex flex-wrap gap-3">
+              <Button
+                onClick={() => window.open(batchResult.consolidatedLabelUrls.pdf, '_blank')}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download PDF
+              </Button>
+              
               <Button
                 onClick={onPrintPreview}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
@@ -94,7 +104,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
         </Card>
       )}
 
-      {/* Individual Labels Section - Single Download Button Per Label */}
+      {/* Individual Labels Section */}
       {hasIndividualLabels && (
         <Card className="p-6 bg-gradient-to-r from-blue-50 to-sky-50 border-blue-200">
           <div className="space-y-4">
@@ -119,16 +129,27 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                     <p className="font-medium text-sm">{label.customer_name || `Shipment ${index + 1}`}</p>
                     <p className="text-xs text-gray-600">{label.tracking_code}</p>
                   </div>
-                  <div>
-                    {(label.stored_label_url || label.label_url) && (
+                  <div className="flex gap-2">
+                    {label.label_urls?.pdf && (
                       <Button
-                        onClick={() => onDownloadIndividual(label.stored_label_url || label.label_url, 'pdf')}
+                        onClick={() => window.open(label.label_urls.pdf, '_blank')}
                         variant="outline"
                         size="sm"
                         className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
                       >
                         <Download className="h-3 w-3 mr-1" />
-                        Download
+                        PDF
+                      </Button>
+                    )}
+                    {(label.label_url || label.label_urls?.png) && (
+                      <Button
+                        onClick={() => window.open(label.label_url || label.label_urls.png, '_blank')}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        PNG
                       </Button>
                     )}
                   </div>
