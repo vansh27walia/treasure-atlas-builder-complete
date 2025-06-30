@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Mail, Send, Loader2, Plus, X } from 'lucide-react';
+import { Mail, Send, Loader2, Plus, X, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface EmailLabelsModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
     selectedFormats: ['pdf']
   });
   const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleAddEmail = () => {
     setFormData(prev => ({
@@ -68,15 +70,16 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
   };
 
   const handleSendEmail = async () => {
+    setError(null);
     const validEmails = formData.toEmails.filter(email => email.trim() !== '');
     
     if (validEmails.length === 0 || !formData.subject) {
-      toast.error('Please fill in at least one email address and subject');
+      setError('Please fill in at least one email address and subject');
       return;
     }
 
     if (formData.selectedFormats.length === 0) {
-      toast.error('Please select at least one format to send');
+      setError('Please select at least one format to send');
       return;
     }
 
@@ -90,7 +93,7 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
         batchResult 
       });
 
-      const { data, error } = await supabase.functions.invoke('email-labels', {
+      const { data, error: functionError } = await supabase.functions.invoke('email-labels', {
         body: {
           toEmails: validEmails,
           subject: formData.subject,
@@ -100,26 +103,42 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
         }
       });
 
-      if (error) {
-        console.error('Supabase function error:', error);
-        throw new Error(error.message);
+      console.log('Supabase function response:', { data, error: functionError });
+
+      if (functionError) {
+        console.error('Supabase function error:', functionError);
+        throw new Error(`Function error: ${functionError.message}`);
       }
 
-      console.log('Email function response:', data);
+      if (data?.error) {
+        console.error('Email service error:', data.error);
+        throw new Error(data.error);
+      }
+
+      console.log('Email sent successfully:', data);
       toast.success(`Email sent successfully to ${validEmails.length} recipient(s)!`);
       onClose();
+      
+      // Reset form
+      setFormData({
+        toEmails: [''],
+        subject: 'Your Shipping Labels',
+        description: 'Please find your shipping labels attached to this email.',
+        selectedFormats: ['pdf']
+      });
+      
     } catch (error) {
       console.error('Email sending error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to send email');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send email';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSending(false);
     }
   };
 
   const availableFormats = [
-    { value: 'pdf', label: 'PDF', available: !!batchResult?.consolidatedLabelUrls.pdf },
-    { value: 'zpl', label: 'ZPL', available: !!batchResult?.consolidatedLabelUrls.zpl },
-    { value: 'epl', label: 'EPL', available: !!batchResult?.consolidatedLabelUrls.epl }
+    { value: 'pdf', label: 'PDF', available: !!batchResult?.consolidatedLabelUrls.pdf }
   ];
 
   return (
@@ -133,6 +152,15 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-4">
+          {error && (
+            <Alert className="border-red-200 bg-red-50">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800">
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* To Emails */}
           <div className="space-y-2">
             <Label>To Email(s) *</Label>
@@ -192,9 +220,9 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
             />
           </div>
 
-          {/* Format Selection */}
+          {/* Format Selection - Only PDF */}
           <div className="space-y-2">
-            <Label>Label Formats to Include</Label>
+            <Label>Label Format to Include</Label>
             <div className="space-y-2">
               {availableFormats.map((format) => (
                 <div key={format.value} className="flex items-center space-x-2">

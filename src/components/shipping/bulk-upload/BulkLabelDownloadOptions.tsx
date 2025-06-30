@@ -38,14 +38,14 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Consolidated Batch Labels Section - Only PDF */}
+      {/* Consolidated Batch Labels Section - Only PDF, Print Preview, and Email */}
       {hasConsolidatedLabels && (
         <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-green-800 flex items-center">
                 <Package className="h-5 w-5 mr-2" />
-                Consolidated Batch Labels (PDF Only)
+                Consolidated Batch Labels
               </h3>
               <Badge className="bg-green-100 text-green-800">
                 PDF Ready
@@ -53,7 +53,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
             </div>
 
             <p className="text-green-700 text-sm">
-              Your consolidated batch labels are ready as a single PDF file with all formats available in print preview.
+              Your consolidated batch labels are ready. Use Print Preview for different formats and layout options.
             </p>
 
             <div className="flex flex-wrap gap-3">
@@ -62,7 +62,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Printer className="h-4 w-4 mr-2" />
-                Print Preview & Download Options
+                Print Preview
               </Button>
               
               <Button
