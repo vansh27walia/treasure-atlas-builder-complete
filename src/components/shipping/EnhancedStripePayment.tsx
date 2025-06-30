@@ -38,6 +38,8 @@ const EnhancedStripePayment: React.FC<EnhancedStripePaymentProps> = ({
     setPaymentStep('processing');
     
     try {
+      console.log('Creating Stripe checkout session...');
+      
       const { data, error } = await supabase.functions.invoke('create-stripe-checkout', {
         body: {
           amount: Math.round(totalAmount * 100), // Convert to cents
@@ -51,63 +53,22 @@ const EnhancedStripePayment: React.FC<EnhancedStripePaymentProps> = ({
       });
 
       if (error) {
+        console.error('Supabase function error:', error);
         throw new Error(error.message);
       }
 
       if (data?.url) {
-        // Open Stripe checkout in new window
-        const stripeWindow = window.open(data.url, 'stripe-checkout', 'width=800,height=700,scrollbars=yes');
+        console.log('Redirecting to Stripe checkout:', data.url);
         
-        // Poll for window closure
-        const checkClosed = setInterval(() => {
-          if (stripeWindow?.closed) {
-            clearInterval(checkClosed);
-            // Check payment status
-            checkPaymentStatus(data.sessionId);
-          }
-        }, 1000);
+        // Redirect to Stripe checkout
+        window.location.href = data.url;
         
-        // Timeout after 30 minutes
-        setTimeout(() => {
-          clearInterval(checkClosed);
-          if (!stripeWindow?.closed) {
-            stripeWindow?.close();
-          }
-          setIsProcessing(false);
-          setPaymentStep('summary');
-        }, 1800000);
+      } else {
+        throw new Error('No checkout URL received');
       }
     } catch (error) {
       console.error('Payment error:', error);
       toast.error('Payment failed. Please try again.');
-      setIsProcessing(false);
-      setPaymentStep('summary');
-    }
-  };
-
-  const checkPaymentStatus = async (sessionId: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('verify-stripe-payment', {
-        body: { sessionId }
-      });
-
-      if (error) throw error;
-
-      if (data?.status === 'paid') {
-        setPaymentStep('success');
-        setTimeout(() => {
-          onPaymentSuccess();
-          onClose();
-          toast.success('Payment completed successfully!');
-        }, 2000);
-      } else {
-        toast.error('Payment was not completed');
-        setIsProcessing(false);
-        setPaymentStep('summary');
-      }
-    } catch (error) {
-      console.error('Payment verification error:', error);
-      toast.error('Unable to verify payment status');
       setIsProcessing(false);
       setPaymentStep('summary');
     }
@@ -217,11 +178,8 @@ const EnhancedStripePayment: React.FC<EnhancedStripePaymentProps> = ({
   const renderProcessingStep = () => (
     <div className="text-center py-8">
       <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-      <h3 className="text-lg font-semibold mb-2">Processing Payment</h3>
-      <p className="text-gray-600">Please complete your payment in the Stripe window...</p>
-      <div className="mt-4 text-sm text-gray-500">
-        Don't close this window. We'll automatically detect when your payment is complete.
-      </div>
+      <h3 className="text-lg font-semibold mb-2">Redirecting to Stripe</h3>
+      <p className="text-gray-600">Please wait while we redirect you to secure payment...</p>
     </div>
   );
 

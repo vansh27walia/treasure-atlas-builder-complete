@@ -30,14 +30,14 @@ const BulkUploadPage = () => {
   };
   
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-screen bg-gray-50">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="bg-white border-b shadow-sm">
-          <div className="container mx-auto px-4 py-4">
+          <div className="container mx-auto px-6 py-4">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-2xl font-bold">Bulk Shipping</h1>
-                <p className="text-gray-600">Create multiple shipping labels efficiently</p>
+                <h1 className="text-3xl font-bold">Bulk Shipping</h1>
+                <p className="text-gray-600 text-lg">Create multiple shipping labels efficiently</p>
               </div>
             </div>
             
@@ -54,13 +54,13 @@ const BulkUploadPage = () => {
           </div>
         </div>
         
-        <TabsContent value="upload" className="mt-0">
+        <TabsContent value="upload" className="mt-0 h-full">
           <CompactBulkUploadView />
         </TabsContent>
         
         <TabsContent value="template">
-          <div className="container mx-auto px-4 py-8">
-            <div className="max-w-4xl mx-auto space-y-6">
+          <div className="container mx-auto px-6 py-8">
+            <div className="max-w-5xl mx-auto space-y-8">
               {/* EasyPost Integration Notice */}
               <Alert className="border-green-200 bg-green-50">
                 <Info className="h-4 w-4 text-green-600" />
@@ -73,19 +73,19 @@ const BulkUploadPage = () => {
               {/* Template Download */}
               <Card className="border-2 hover:border-green-300 transition-colors">
                 <CardHeader>
-                  <CardTitle className="flex items-center text-lg">
-                    <FileText className="h-5 w-5 mr-2 text-green-600" />
+                  <CardTitle className="flex items-center text-xl">
+                    <FileText className="h-6 w-6 mr-3 text-green-600" />
                     EasyPost CSV Template
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-base">
                     Official EasyPost format for bulk shipping uploads
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <h4 className="font-medium mb-2">Template includes:</h4>
-                      <ul className="text-sm space-y-1 text-gray-700">
+                  <div className="space-y-6">
+                    <div className="bg-gray-50 p-6 rounded-lg">
+                      <h4 className="font-medium text-lg mb-3">Template includes:</h4>
+                      <ul className="text-base space-y-2 text-gray-700">
                         <li>• Recipient address fields (to_name, to_street1, etc.)</li>
                         <li>• Package dimensions (length, width, height)</li>
                         <li>• Weight in pounds</li>
@@ -93,8 +93,8 @@ const BulkUploadPage = () => {
                         <li>• Sample data for testing</li>
                       </ul>
                     </div>
-                    <Button onClick={handleDownloadEasyPostTemplate} className="w-full bg-green-600 hover:bg-green-700">
-                      <Download className="h-4 w-4 mr-2" />
+                    <Button onClick={handleDownloadEasyPostTemplate} className="w-full bg-green-600 hover:bg-green-700 text-lg py-6">
+                      <Download className="h-5 w-5 mr-2" />
                       Download CSV Template
                     </Button>
                   </div>
@@ -102,13 +102,13 @@ const BulkUploadPage = () => {
               </Card>
 
               {/* Quick Guide */}
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid md:grid-cols-2 gap-8">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Required Fields</CardTitle>
+                    <CardTitle className="text-xl">Required Fields</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2 text-sm">
+                    <div className="space-y-3 text-base">
                       {[
                         { field: 'to_name', desc: 'Recipient name' },
                         { field: 'to_street1', desc: 'Street address' },
@@ -117,9 +117,9 @@ const BulkUploadPage = () => {
                         { field: 'to_zip', desc: 'ZIP/Postal code' },
                         { field: 'weight', desc: 'Weight (pounds)' }
                       ].map((item) => (
-                        <div key={item.field} className="flex justify-between py-1 border-b border-gray-100 last:border-0">
-                          <code className="text-xs bg-gray-100 px-1 rounded">{item.field}</code>
-                          <span className="text-gray-600 text-xs">{item.desc}</span>
+                        <div key={item.field} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
+                          <code className="text-sm bg-gray-100 px-2 py-1 rounded">{item.field}</code>
+                          <span className="text-gray-600">{item.desc}</span>
                         </div>
                       ))}
                     </div>
@@ -128,10 +128,10 @@ const BulkUploadPage = () => {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Optional Fields</CardTitle>
+                    <CardTitle className="text-xl">Optional Fields</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2 text-sm">
+                    <div className="space-y-3 text-base">
                       {[
                         { field: 'to_street2', desc: 'Apt/Suite number' },
                         { field: 'reference', desc: 'Order/Reference #' },
@@ -139,15 +139,15 @@ const BulkUploadPage = () => {
                         { field: 'width', desc: 'Width (inches)' },
                         { field: 'height', desc: 'Height (inches)' }
                       ].map((item) => (
-                        <div key={item.field} className="flex justify-between py-1 border-b border-gray-100 last:border-0">
-                          <code className="text-xs bg-blue-100 px-1 rounded">{item.field}</code>
-                          <span className="text-gray-600 text-xs">{item.desc}</span>
+                        <div key={item.field} className="flex justify-between py-2 border-b border-gray-100 last:border-0">
+                          <code className="text-sm bg-blue-100 px-2 py-1 rounded">{item.field}</code>
+                          <span className="text-gray-600">{item.desc}</span>
                         </div>
                       ))}
                     </div>
                     
-                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-blue-700">
+                    <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                      <p className="text-blue-700">
                         <strong>Note:</strong> Pickup address is selected from your saved addresses. 
                         Only include recipient details in the CSV.
                       </p>

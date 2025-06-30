@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,6 @@ import { Upload, FileText, Package, Download, CheckCircle, AlertTriangle, Truck,
 import { Progress } from '@/components/ui/progress';
 import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
-import StripePaymentModal from '../StripePaymentModal';
 import BulkLabelDownloadOptions from './BulkLabelDownloadOptions';
 import { useBulkUpload } from './useBulkUpload';
 import EnhancedStripePayment from '../EnhancedStripePayment';
@@ -29,7 +29,7 @@ const CompactBulkUploadView: React.FC = () => {
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-  // Compact progress steps
+  // Progress tracking for better UX
   const getProgressStep = () => {
     if (uploadStatus === 'idle') return 0;
     if (uploadStatus === 'uploading' || isFetchingRates) return 1;
@@ -40,8 +40,8 @@ const CompactBulkUploadView: React.FC = () => {
   };
 
   const progressSteps = [
-    { label: 'Upload', icon: Upload },
-    { label: 'Process', icon: FileText },
+    { label: 'Upload CSV', icon: Upload },
+    { label: 'Process Data', icon: FileText },
     { label: 'Select Rates', icon: Truck },
     { label: 'Create Labels', icon: Package },
     { label: 'Complete', icon: CheckCircle }
@@ -75,43 +75,41 @@ const CompactBulkUploadView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Compact Header with Progress */}
-      <div className="bg-white border-b shadow-sm sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between mb-3">
-            <h1 className="text-xl font-bold text-gray-900">Bulk Label Creation</h1>
-            {uploadStatus !== 'idle' && (
+    <div className="h-full bg-gray-50">
+      {/* Progress Header - Sticky */}
+      {uploadStatus !== 'idle' && (
+        <div className="bg-white border-b shadow-sm sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-6 py-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Label Creation Progress</h2>
               <div className="text-sm text-gray-600">
                 Step {currentStep + 1} of {progressSteps.length}
               </div>
-            )}
-          </div>
-          
-          {uploadStatus !== 'idle' && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs text-gray-500">
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm text-gray-500">
                 {progressSteps.map((step, index) => (
                   <div key={step.label} className="flex items-center">
-                    <step.icon className={`h-3 w-3 mr-1 ${index <= currentStep ? 'text-blue-600' : 'text-gray-400'}`} />
+                    <step.icon className={`h-4 w-4 mr-2 ${index <= currentStep ? 'text-blue-600' : 'text-gray-400'}`} />
                     <span className={index <= currentStep ? 'text-blue-600 font-medium' : ''}>{step.label}</span>
                   </div>
                 ))}
               </div>
-              <Progress value={progressPercent} className="h-1" />
+              <Progress value={progressPercent} className="h-2" />
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="max-w-6xl mx-auto p-4 space-y-4">
+      <div className="max-w-7xl mx-auto p-6 space-y-6">
         {/* Upload Section */}
         {uploadStatus === 'idle' && (
-          <Card className="p-6">
-            <div className="text-center mb-6">
-              <Upload className="h-12 w-12 text-blue-600 mx-auto mb-3" />
-              <h2 className="text-2xl font-bold mb-2">Upload Your CSV</h2>
-              <p className="text-gray-600">Create multiple shipping labels efficiently</p>
+          <Card className="p-8">
+            <div className="text-center mb-8">
+              <Upload className="h-16 w-16 text-blue-600 mx-auto mb-4" />
+              <h2 className="text-3xl font-bold mb-3">Upload Your CSV File</h2>
+              <p className="text-lg text-gray-600">Create multiple shipping labels efficiently with bulk upload</p>
             </div>
             
             <BulkUploadForm
@@ -123,48 +121,49 @@ const CompactBulkUploadView: React.FC = () => {
               handleUpload={handleUpload}
             />
             
-            <div className="mt-4 text-center">
+            <div className="mt-6 text-center">
               <Button
                 onClick={handleDownloadTemplate}
                 variant="outline"
-                size="sm"
+                size="lg"
               >
-                <FileText className="h-4 w-4 mr-2" />
-                Download Template
+                <FileText className="h-5 w-5 mr-2" />
+                Download CSV Template
               </Button>
             </div>
           </Card>
         )}
 
-        {/* Processing */}
+        {/* Processing State */}
         {(uploadStatus === 'uploading' || isFetchingRates) && (
-          <Card className="p-6 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <h3 className="text-lg font-semibold mb-2">Processing Your Upload</h3>
-            <p className="text-gray-600">
-              {isFetchingRates ? 'Fetching shipping rates...' : 'Analyzing your data...'}
+          <Card className="p-8 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-6"></div>
+            <h3 className="text-2xl font-semibold mb-3">Processing Your Upload</h3>
+            <p className="text-lg text-gray-600">
+              {isFetchingRates ? 'Fetching shipping rates from carriers...' : 'Analyzing your CSV data...'}
             </p>
           </Card>
         )}
 
         {/* Rate Selection */}
         {uploadStatus === 'editing' && results?.processedShipments && (
-          <div className="space-y-4">
-            <Card className="p-4">
-              <div className="flex items-center justify-between mb-4">
+          <div className="space-y-6">
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold">Rate Selection</h3>
-                  <p className="text-sm text-gray-600">
-                    {filteredShipments.length} shipments • ${getTotalCost().toFixed(2)} total
+                  <h3 className="text-2xl font-semibold">Select Shipping Rates</h3>
+                  <p className="text-lg text-gray-600">
+                    {filteredShipments.length} shipments • Total: ${getTotalCost().toFixed(2)}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <Button
                     onClick={() => setShowPaymentModal(true)}
                     disabled={!filteredShipments.some(s => s.selectedRateId)}
                     className="bg-green-600 hover:bg-green-700"
+                    size="lg"
                   >
-                    <Package className="h-4 w-4 mr-2" />
+                    <Package className="h-5 w-5 mr-2" />
                     Create Labels (${getTotalCost().toFixed(2)})
                   </Button>
                 </div>
@@ -186,16 +185,16 @@ const CompactBulkUploadView: React.FC = () => {
 
         {/* Label Generation Progress */}
         {labelGenerationProgress.isGenerating && (
-          <Card className="p-6">
+          <Card className="p-8">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto mb-4"></div>
-              <h3 className="text-lg font-semibold mb-2">Creating Labels</h3>
-              <p className="text-gray-600 mb-4">
-                {labelGenerationProgress.processedShipments} of {labelGenerationProgress.totalShipments} processed
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-6"></div>
+              <h3 className="text-2xl font-semibold mb-3">Creating Shipping Labels</h3>
+              <p className="text-lg text-gray-600 mb-6">
+                {labelGenerationProgress.processedShipments} of {labelGenerationProgress.totalShipments} labels processed
               </p>
               <Progress 
                 value={(labelGenerationProgress.processedShipments / labelGenerationProgress.totalShipments) * 100} 
-                className="h-2"
+                className="h-3"
               />
             </div>
           </Card>
@@ -203,13 +202,13 @@ const CompactBulkUploadView: React.FC = () => {
 
         {/* Success Section */}
         {uploadStatus === 'success' && results && (
-          <div className="space-y-4">
-            <Card className="p-4 bg-green-50 border-green-200">
+          <div className="space-y-6">
+            <Card className="p-6 bg-green-50 border-green-200">
               <div className="flex items-center">
-                <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
+                <CheckCircle className="h-8 w-8 text-green-600 mr-4" />
                 <div>
-                  <h3 className="text-lg font-semibold text-green-800">Labels Created Successfully!</h3>
-                  <p className="text-green-700">
+                  <h3 className="text-2xl font-semibold text-green-800">Labels Created Successfully!</h3>
+                  <p className="text-lg text-green-700">
                     {results.successful} labels created • {results.failed} failed
                   </p>
                 </div>
@@ -229,7 +228,7 @@ const CompactBulkUploadView: React.FC = () => {
         )}
       </div>
 
-      {/* Stripe Payment Modal - Updated */}
+      {/* Enhanced Stripe Payment Modal */}
       <EnhancedStripePayment
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
