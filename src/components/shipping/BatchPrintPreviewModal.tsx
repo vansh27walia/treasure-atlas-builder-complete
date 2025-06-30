@@ -3,8 +3,9 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, Printer, Mail, FileText } from 'lucide-react';
+import { Download, Printer, Mail, FileText, File } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import EmailLabelsModal from './EmailLabelsModal';
 
 interface BatchPrintPreviewModalProps {
   isOpen: boolean;
@@ -73,41 +74,108 @@ const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">Batch Labels Print Preview</DialogTitle>
+            <DialogTitle className="text-xl font-semibold flex items-center">
+              <File className="h-5 w-5 mr-2" />
+              Print Preview - Batch Labels
+            </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6">
-            {/* Format Selection */}
-            <Card className="p-4">
-              <div className="space-y-4">
-                <h3 className="font-medium text-gray-900">Print Format Options</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Label Layout
-                    </label>
+            {/* Top Controls Bar - Matching Individual Print Preview Style */}
+            <Card className="p-4 border-2 border-blue-200 bg-blue-50">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                {/* Left Side - Format Selection */}
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-blue-800">Format:</label>
                     <Select value={printFormat} onValueChange={(value: any) => setPrintFormat(value)}>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-48 bg-white border-blue-300">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="4x6">4" × 6" Standard</SelectItem>
-                        <SelectItem value="8.5x11-single">8.5" × 11" Single Label</SelectItem>
-                        <SelectItem value="8.5x11-double">8.5" × 11" Two Labels</SelectItem>
+                        <SelectItem value="8.5x11-single">8.5" × 11" Single</SelectItem>
+                        <SelectItem value="8.5x11-double">8.5" × 11" Double</SelectItem>
                       </SelectContent>
                     </Select>
-                    <p className="text-sm text-gray-500 mt-1">{getFormatDescription()}</p>
+                  </div>
+                  
+                  <div className="text-xs text-blue-700 font-medium">
+                    {getFormatDescription()}
                   </div>
                 </div>
+
+                {/* Right Side - Action Buttons */}
+                <div className="flex items-center gap-2">
+                  {/* Print Preview Button */}
+                  <Button 
+                    onClick={handlePrint} 
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+                    size="sm"
+                  >
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print Preview
+                  </Button>
+                  
+                  {/* Email Button */}
+                  <Button 
+                    onClick={() => setShowEmailModal(true)}
+                    variant="outline"
+                    size="sm"
+                    className="border-blue-300 text-blue-700 hover:bg-blue-100 font-medium"
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Email
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Download Options - Inside Print Preview */}
+            <Card className="p-4 bg-gray-50 border-gray-200">
+              <h4 className="font-medium text-gray-900 mb-3">Download Options</h4>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => handleDownload('pdf')}
+                  variant="outline"
+                  size="sm"
+                  className="border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  <File className="h-4 w-4 mr-1" />
+                  PDF
+                </Button>
+                
+                {batchResult?.consolidatedLabelUrls.zpl && (
+                  <Button
+                    onClick={() => handleDownload('zpl')}
+                    variant="outline"
+                    size="sm"
+                    className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    ZPL
+                  </Button>
+                )}
+                
+                {batchResult?.consolidatedLabelUrls.epl && (
+                  <Button
+                    onClick={() => handleDownload('epl')}
+                    variant="outline"
+                    size="sm"
+                    className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                  >
+                    <FileText className="h-4 w-4 mr-1" />
+                    EPL
+                  </Button>
+                )}
               </div>
             </Card>
 
             {/* PDF Preview */}
             <Card className="p-4">
-              <h3 className="font-medium text-gray-900 mb-4">Label Preview</h3>
-              <div className="border rounded-lg overflow-hidden bg-gray-50" style={{ height: '500px' }}>
+              <div className="border rounded-lg overflow-hidden bg-white" style={{ height: '600px' }}>
                 <iframe
                   src={batchResult.consolidatedLabelUrls.pdf}
                   width="100%"
@@ -118,58 +186,13 @@ const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
               </div>
             </Card>
 
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3 justify-between">
-              <div className="flex gap-3">
-                <Button onClick={handlePrint} className="bg-blue-600 hover:bg-blue-700">
-                  <Printer className="h-4 w-4 mr-2" />
-                  Print Labels
-                </Button>
-                
-                <Button 
-                  onClick={() => setShowEmailModal(true)}
-                  variant="outline"
-                  className="border-green-300 text-green-700 hover:bg-green-50"
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  Email Labels
-                </Button>
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => handleDownload('pdf')}
-                  variant="outline"
-                  className="border-red-300 text-red-700 hover:bg-red-50"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  PDF
-                </Button>
-                
-                <Button
-                  onClick={() => handleDownload('zpl')}
-                  variant="outline"
-                  className="border-purple-300 text-purple-700 hover:bg-purple-50"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  ZPL
-                </Button>
-                
-                <Button
-                  onClick={() => handleDownload('epl')}
-                  variant="outline"
-                  className="border-orange-300 text-orange-700 hover:bg-orange-50"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  EPL
-                </Button>
-              </div>
-            </div>
-
             {/* Scan Form Section */}
             {batchResult.scanFormUrl && (
               <Card className="p-4 border-blue-200 bg-blue-50">
-                <h3 className="font-medium text-blue-900 mb-2">Pickup Manifest</h3>
+                <h3 className="font-medium text-blue-900 mb-2 flex items-center">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Pickup Manifest
+                </h3>
                 <p className="text-sm text-blue-700 mb-3">
                   Download the pickup manifest for carrier collection
                 </p>
@@ -194,6 +217,16 @@ const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
                 </Button>
               </Card>
             )}
+
+            {/* Format Information */}
+            <Card className="p-4 bg-gray-50">
+              <h4 className="font-medium text-gray-900 mb-2">Print Information</h4>
+              <div className="text-sm text-gray-600 space-y-1">
+                <p><strong>Current Format:</strong> {getFormatDescription()}</p>
+                <p><strong>Available Downloads:</strong> PDF (ready), ZPL {batchResult?.consolidatedLabelUrls.zpl ? '(ready)' : '(not available)'}, EPL {batchResult?.consolidatedLabelUrls.epl ? '(ready)' : '(not available)'}</p>
+                <p><strong>Recommendation:</strong> Use 4×6 for thermal printers, 8.5×11 for standard office printers</p>
+              </div>
+            </Card>
           </div>
         </DialogContent>
       </Dialog>
@@ -207,27 +240,6 @@ const BatchPrintPreviewModal: React.FC<BatchPrintPreviewModalProps> = ({
         />
       )}
     </>
-  );
-};
-
-// Placeholder EmailLabelsModal component - will be implemented separately
-const EmailLabelsModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  batchResult: any;
-}> = ({ isOpen, onClose, batchResult }) => {
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Email Labels</DialogTitle>
-        </DialogHeader>
-        <div className="p-4">
-          <p>Email functionality will be implemented here</p>
-          <Button onClick={onClose} className="mt-4">Close</Button>
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 };
 

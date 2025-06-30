@@ -3,7 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Download, FileText, Package, File, Mail, Printer } from 'lucide-react';
+import { Download, FileText, Package, Mail, Printer } from 'lucide-react';
 
 interface BulkLabelDownloadOptionsProps {
   batchResult?: {
@@ -38,7 +38,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Consolidated Batch Labels Section - Only PDF */}
+      {/* Consolidated Batch Labels Section - Only PDF, Print Preview, and Email */}
       {hasConsolidatedLabels && (
         <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
           <div className="space-y-4">
@@ -53,7 +53,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
             </div>
 
             <p className="text-green-700 text-sm">
-              Your consolidated batch labels are ready as a single PDF file.
+              Your consolidated batch labels are ready. Use Print Preview for different formats and layout options.
             </p>
 
             <div className="flex flex-wrap gap-3">
@@ -62,7 +62,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Printer className="h-4 w-4 mr-2" />
-                Print Preview & Options
+                Print Preview
               </Button>
               
               <Button
@@ -72,15 +72,6 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
               >
                 <Mail className="h-4 w-4 mr-2" />
                 Email Labels
-              </Button>
-
-              <Button
-                onClick={() => onDownloadBatch('pdf', batchResult.consolidatedLabelUrls.pdf!)}
-                variant="outline"
-                className="border-green-300 text-green-700 hover:bg-green-50"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download PDF
               </Button>
             </div>
 
@@ -103,7 +94,7 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
         </Card>
       )}
 
-      {/* Individual Labels Section - Single Download Button */}
+      {/* Individual Labels Section - Single Download Button Per Label */}
       {hasIndividualLabels && (
         <Card className="p-6 bg-gradient-to-r from-blue-50 to-sky-50 border-blue-200">
           <div className="space-y-4">
@@ -129,9 +120,9 @@ const BulkLabelDownloadOptions: React.FC<BulkLabelDownloadOptionsProps> = ({
                     <p className="text-xs text-gray-600">{label.tracking_code}</p>
                   </div>
                   <div>
-                    {label.stored_label_url && (
+                    {(label.stored_label_url || label.label_url) && (
                       <Button
-                        onClick={() => onDownloadIndividual(label.stored_label_url, 'pdf')}
+                        onClick={() => onDownloadIndividual(label.stored_label_url || label.label_url, 'pdf')}
                         variant="outline"
                         size="sm"
                         className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50"

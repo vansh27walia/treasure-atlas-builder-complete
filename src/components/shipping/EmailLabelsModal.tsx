@@ -4,11 +4,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Mail, Send, Loader2 } from 'lucide-react';
+import { Mail, Send, Loader2, Plus, X, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface EmailLabelsModalProps {
   isOpen: boolean;
@@ -31,13 +31,34 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
   batchResult
 }) => {
   const [formData, setFormData] = useState({
-    fromEmail: '',
-    toEmail: '',
+    toEmails: [''],
     subject: 'Your Shipping Labels',
     description: 'Please find your shipping labels attached to this email.',
     selectedFormats: ['pdf']
   });
   const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAddEmail = () => {
+    setFormData(prev => ({
+      ...prev,
+      toEmails: [...prev.toEmails, '']
+    }));
+  };
+
+  const handleRemoveEmail = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      toEmails: prev.toEmails.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleEmailChange = (index: number, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      toEmails: prev.toEmails.map((email, i) => i === index ? value : email)
+    }));
+  };
 
   const handleFormatChange = (format: string, checked: boolean) => {
     setFormData(prev => ({
@@ -49,23 +70,32 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
   };
 
   const handleSendEmail = async () => {
-    if (!formData.toEmail || !formData.subject) {
-      toast.error('Please fill in required fields');
+    setError(null);
+    const validEmails = formData.toEmails.filter(email => email.trim() !== '');
+    
+    if (validEmails.length === 0 || !formData.subject) {
+      setError('Please fill in at least one email address and subject');
       return;
     }
 
     if (formData.selectedFormats.length === 0) {
-      toast.error('Please select at least one format to send');
+      setError('Please select at least one format to send');
       return;
     }
 
     setIsSending(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('email-labels', {
+      console.log('Sending email with data:', { 
+        toEmails: validEmails, 
+        subject: formData.subject,
+        selectedFormats: formData.selectedFormats,
+        batchResult 
+      });
+
+      const { data, error: functionError } = await supabase.functions.invoke('email-labels', {
         body: {
-          toEmail: formData.toEmail,
-          fromEmail: formData.fromEmail || undefined,
+          toEmails: validEmails,
           subject: formData.subject,
           description: formData.description,
           batchResult,
@@ -73,29 +103,47 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
         }
       });
 
-      if (error) {
-        throw new Error(error.message);
+      console.log('Supabase function response:', { data, error: functionError });
+
+      if (functionError) {
+        console.error('Supabase function error:', functionError);
+        throw new Error(`Function error: ${functionError.message}`);
       }
 
-      toast.success('Email sent successfully!');
+      if (data?.error) {
+        console.error('Email service error:', data.error);
+        throw new Error(data.error);
+      }
+
+      console.log('Email sent successfully:', data);
+      toast.success(`Email sent successfully to ${validEmails.length} recipient(s)!`);
       onClose();
+      
+      // Reset form
+      setFormData({
+        toEmails: [''],
+        subject: 'Your Shipping Labels',
+        description: 'Please find your shipping labels attached to this email.',
+        selectedFormats: ['pdf']
+      });
+      
     } catch (error) {
       console.error('Email sending error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to send email');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send email';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsSending(false);
     }
   };
 
   const availableFormats = [
-    { value: 'pdf', label: 'PDF', available: !!batchResult?.consolidatedLabelUrls.pdf },
-    { value: 'zpl', label: 'ZPL', available: !!batchResult?.consolidatedLabelUrls.zpl },
-    { value: 'epl', label: 'EPL', available: !!batchResult?.consolidatedLabelUrls.epl }
+    { value: 'pdf', label: 'PDF', available: !!batchResult?.consolidatedLabelUrls.pdf }
   ];
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <Mail className="h-5 w-5 mr-2 text-blue-600" />
@@ -104,30 +152,49 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* From Email */}
-          <div className="space-y-2">
-            <Label htmlFor="fromEmail">From Email (optional)</Label>
-            <Input
-              id="fromEmail"
-              type="email"
-              placeholder="your-email@company.com"
-              value={formData.fromEmail}
-              onChange={(e) => setFormData(prev => ({ ...prev, fromEmail: e.target.value }))}
-            />
-            <p className="text-xs text-gray-500">Leave empty to use default sender</p>
-          </div>
+          {error && (
+            <Alert className="border-red-200 bg-red-50">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800">
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
 
-          {/* To Email */}
+          {/* To Emails */}
           <div className="space-y-2">
-            <Label htmlFor="toEmail">To Email *</Label>
-            <Input
-              id="toEmail"
-              type="email"
-              placeholder="recipient@example.com"
-              value={formData.toEmail}
-              onChange={(e) => setFormData(prev => ({ ...prev, toEmail: e.target.value }))}
-              required
-            />
+            <Label>To Email(s) *</Label>
+            {formData.toEmails.map((email, index) => (
+              <div key={index} className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="recipient@example.com"
+                  value={email}
+                  onChange={(e) => handleEmailChange(index, e.target.value)}
+                  className="flex-1"
+                />
+                {formData.toEmails.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleRemoveEmail(index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+                {index === formData.toEmails.length - 1 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddEmail}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* Subject */}
@@ -153,9 +220,9 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
             />
           </div>
 
-          {/* Format Selection */}
+          {/* Format Selection - Only PDF */}
           <div className="space-y-2">
-            <Label>Label Formats to Include</Label>
+            <Label>Label Format to Include</Label>
             <div className="space-y-2">
               {availableFormats.map((format) => (
                 <div key={format.value} className="flex items-center space-x-2">
