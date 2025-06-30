@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/sonner';
 import AuthProvider from '@/contexts/AuthContext';
 import OnboardingProvider from '@/contexts/OnboardingContext';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import SidebarNavigation from '@/components/SidebarNavigation';
 import Index from '@/pages/Index';
 import AuthPage from '@/pages/AuthPage';
 import Dashboard from '@/pages/Dashboard';
@@ -38,31 +39,41 @@ function App() {
                 
                 <Route path="/dashboard" element={
                   <ProtectedRoute>
-                    <Dashboard />
+                    <SidebarNavigation>
+                      <Dashboard />
+                    </SidebarNavigation>
                   </ProtectedRoute>
                 } />
                 
                 <Route path="/shipping" element={
                   <ProtectedRoute>
-                    <UnifiedShippingPage />
+                    <SidebarNavigation>
+                      <UnifiedShippingPage />
+                    </SidebarNavigation>
                   </ProtectedRoute>
                 } />
                 
                 <Route path="/bulk-upload" element={
                   <ProtectedRoute>
-                    <BulkUploadPage />
+                    <SidebarNavigation>
+                      <BulkUploadPage />
+                    </SidebarNavigation>
                   </ProtectedRoute>
                 } />
                 
                 <Route path="/analytics" element={
                   <ProtectedRoute>
-                    <AnalyticsPage />
+                    <SidebarNavigation>
+                      <AnalyticsPage />
+                    </SidebarNavigation>
                   </ProtectedRoute>
                 } />
                 
                 <Route path="/settings" element={
                   <ProtectedRoute>
-                    <SettingsPage />
+                    <SidebarNavigation>
+                      <SettingsPage />
+                    </SidebarNavigation>
                   </ProtectedRoute>
                 } />
               </Routes>
