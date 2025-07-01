@@ -6,7 +6,7 @@ import { Plus } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import PaymentMethodCard from './PaymentMethodCard';
-import AddPaymentMethodModal from './AddPaymentMethodModal';
+import EnhancedAddPaymentMethodModal from './EnhancedAddPaymentMethodModal';
 
 interface PaymentMethod {
   id: string;
@@ -105,8 +105,13 @@ const PaymentMethodManager: React.FC = () => {
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
-            <CardTitle>Payment Methods</CardTitle>
-            <Button onClick={() => setIsModalOpen(true)}>
+            <div>
+              <CardTitle>Payment Methods</CardTitle>
+              <p className="text-sm text-gray-600 mt-1">
+                Manage your saved payment methods including cards, bank accounts, and digital wallets
+              </p>
+            </div>
+            <Button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="w-4 h-4 mr-2" />
               Add Payment Method
             </Button>
@@ -114,26 +119,39 @@ const PaymentMethodManager: React.FC = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           {paymentMethods.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500 mb-4">No payment methods added yet</p>
-              <Button onClick={() => setIsModalOpen(true)}>
+            <div className="text-center py-12">
+              <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Plus className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No payment methods yet</h3>
+              <p className="text-gray-500 mb-6">Add your first payment method to get started with secure payments</p>
+              <Button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700">
                 Add Your First Payment Method
               </Button>
             </div>
           ) : (
-            paymentMethods.map((method) => (
-              <PaymentMethodCard
-                key={method.id}
-                paymentMethod={method}
-                onDelete={handleDelete}
-                onSetDefault={handleSetDefault}
-              />
-            ))
+            <>
+              <div className="grid gap-4">
+                {paymentMethods.map((method) => (
+                  <PaymentMethodCard
+                    key={method.id}
+                    paymentMethod={method}
+                    onDelete={handleDelete}
+                    onSetDefault={handleSetDefault}
+                  />
+                ))}
+              </div>
+              <div className="pt-4 border-t">
+                <p className="text-xs text-gray-500">
+                  All payment methods are securely stored and encrypted. We never store your full card numbers.
+                </p>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
 
-      <AddPaymentMethodModal
+      <EnhancedAddPaymentMethodModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={fetchPaymentMethods}

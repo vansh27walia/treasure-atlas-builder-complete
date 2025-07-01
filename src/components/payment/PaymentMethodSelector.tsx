@@ -2,9 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Plus, CreditCard } from 'lucide-react';
+import { Plus, CreditCard, Building2, Smartphone, Globe } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import AddPaymentMethodModal from './AddPaymentMethodModal';
+import EnhancedAddPaymentMethodModal from './EnhancedAddPaymentMethodModal';
 
 interface PaymentMethod {
   id: string;
@@ -13,6 +13,7 @@ interface PaymentMethod {
   exp_month: number;
   exp_year: number;
   is_default: boolean;
+  stripe_payment_method_id: string;
 }
 
 interface PaymentMethodSelectorProps {
@@ -22,6 +23,19 @@ interface PaymentMethodSelectorProps {
   amount: number;
   description?: string;
 }
+
+const getPaymentMethodIcon = (brand: string) => {
+  const brandLower = brand?.toLowerCase();
+  if (['visa', 'mastercard', 'amex', 'discover'].includes(brandLower)) {
+    return <CreditCard className="w-4 h-4" />;
+  } else if (brandLower === 'us_bank_account') {
+    return <Building2 className="w-4 h-4" />;
+  } else if (['link', 'apple_pay', 'google_pay'].includes(brandLower)) {
+    return <Smartphone className="w-4 h-4" />;
+  } else {
+    return <Globe className="w-4 h-4" />;
+  }
+};
 
 const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   selectedPaymentMethod,
@@ -96,19 +110,29 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
     }
   };
 
+  const formatPaymentMethodDisplay = (method: PaymentMethod) => {
+    if (method.brand === 'us_bank_account') {
+      return `Bank •••• ${method.last4}`;
+    } else if (['link', 'apple_pay', 'google_pay'].includes(method.brand?.toLowerCase())) {
+      return `${method.brand} Wallet`;
+    } else {
+      return `${method.brand} •••• ${method.last4}`;
+    }
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div className="flex items-center space-x-2">
         <div className="flex-1">
           <Select value={selectedPaymentMethod || ""} onValueChange={onPaymentMethodChange}>
-            <SelectTrigger>
+            <SelectTrigger className="h-12">
               <SelectValue placeholder="Select payment method">
                 {selectedPaymentMethod && (
                   <div className="flex items-center space-x-2">
-                    <CreditCard className="w-4 h-4" />
+                    {getPaymentMethodIcon(paymentMethods.find(m => m.id === selectedPaymentMethod)?.brand || '')}
                     <span>
-                      {paymentMethods.find(m => m.id === selectedPaymentMethod)?.brand} ••••{' '}
-                      {paymentMethods.find(m => m.id === selectedPaymentMethod)?.last4}
+                      {formatPaymentMethodDisplay(paymentMethods.find(m => m.id === selectedPaymentMethod)!)}
+                      {paymentMethods.find(m => m.id === selectedPaymentMethod)?.is_default && ' (Default)'}
                     </span>
                   </div>
                 )}
@@ -118,9 +142,9 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
               {paymentMethods.map((method) => (
                 <SelectItem key={method.id} value={method.id}>
                   <div className="flex items-center space-x-2">
-                    <CreditCard className="w-4 h-4" />
+                    {getPaymentMethodIcon(method.brand)}
                     <span>
-                      {method.brand} •••• {method.last4}
+                      {formatPaymentMethodDisplay(method)}
                       {method.is_default && ' (Default)'}
                     </span>
                   </div>
@@ -133,26 +157,35 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
           variant="outline"
           size="sm"
           onClick={() => setIsModalOpen(true)}
+          className="h-12 px-4"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4 mr-1" />
+          Add
         </Button>
       </div>
 
-      <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+      <div className="flex justify-between items-center p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
         <div>
-          <p className="font-medium">Total: ${amount.toFixed(2)}</p>
+          <p className="text-lg font-semibold text-gray-900">Total: ${amount.toFixed(2)}</p>
           <p className="text-sm text-gray-600">{description}</p>
         </div>
         <Button
           onClick={handlePayment}
           disabled={!selectedPaymentMethod || isProcessing}
-          className="bg-blue-600 hover:bg-blue-700"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg font-medium"
+          size="lg"
         >
           {isProcessing ? 'Processing...' : `Pay $${amount.toFixed(2)}`}
         </Button>
       </div>
 
-      <AddPaymentMethodModal
+      <div className="text-center">
+        <p className="text-xs text-gray-500">
+          Secure payments powered by Stripe • Your payment information is encrypted and secure
+        </p>
+      </div>
+
+      <EnhancedAddPaymentMethodModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={() => {
