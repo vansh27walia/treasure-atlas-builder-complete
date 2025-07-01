@@ -19,6 +19,25 @@ import AddressAutoComplete from './AddressAutoComplete';
 import { extractAddressComponents } from '@/utils/addressUtils';
 import { toast } from '@/components/ui/sonner';
 
+// Assuming GoogleMapsPlace type is defined elsewhere or will be provided by AddressAutoComplete
+interface GoogleMapsPlace {
+    address_components: Array<{
+        long_name: string;
+        short_name: string;
+        types: string[];
+    }>;
+    formatted_address: string;
+    geometry: {
+        location: {
+            lat: () => number;
+            lng: () => number;
+        };
+    };
+    place_id: string;
+    // ... other properties you might get from Google Places API
+}
+
+
 const addressSchema = z.object({
   name: z.string().optional(),
   company: z.string().optional(),
@@ -42,7 +61,7 @@ interface AddressFormProps {
   buttonText?: string;
   showDefaultOptions?: boolean;
   isPickupAddress?: boolean;
-  enableGoogleAutocomplete?: boolean;
+  // Removed enableGoogleAutocomplete prop
 }
 
 const AddressForm: React.FC<AddressFormProps> = ({
@@ -52,7 +71,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
   buttonText = 'Save Address',
   showDefaultOptions = true,
   isPickupAddress = true,
-  enableGoogleAutocomplete = false,
+  // Removed enableGoogleAutocomplete from destructuring
 }) => {
   const form = useForm<AddressFormValues>({
     resolver: zodResolver(addressSchema),
@@ -83,6 +102,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
     }
   }, [defaultValues, form]);
 
+  // *** START: Replaced handleGooglePlaceSelected from InstantAddressForm ***
   const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
     try {
       console.log("Google Place selected in AddressForm:", place);
@@ -92,29 +112,30 @@ const AddressForm: React.FC<AddressFormProps> = ({
         return;
       }
       
-      const { street1, city, state, zip, country } = extractAddressComponents(place);
+      const { street1, city, state, zip } = extractAddressComponents(place); // InstantForm only extracts these
       
-      console.log("Extracted components:", { street1, city, state, zip, country });
+      console.log("Extracted components for AddressForm:", { street1, city, state, zip });
       
-      // Set all the form values at once for better user experience
+      // Set all the form values at once with proper validation triggers
       if (street1) {
-        form.setValue('street1', street1, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+        form.setValue('street1', street1, { shouldValidate: true, shouldDirty: true });
       }
       if (city) {
-        form.setValue('city', city, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+        form.setValue('city', city, { shouldValidate: true, shouldDirty: true });
       }
       if (state) {
-        form.setValue('state', state, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+        form.setValue('state', state, { shouldValidate: true, shouldDirty: true });
       }
       if (zip) {
-        form.setValue('zip', zip, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+        form.setValue('zip', zip, { shouldValidate: true, shouldDirty: true });
       }
-      if (country) {
-        form.setValue('country', country, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
-      }
-      
-      // Trigger validation for all fields
-      form.trigger(['street1', 'city', 'state', 'zip', 'country']);
+      // Note: InstantForm did not set 'country' directly from extraction,
+      // but if extractAddressComponents can provide it, you can add it here too.
+      // For now, mirroring the InstantForm's extraction of street1, city, state, zip.
+      // If `extractAddressComponents` also returns `country`, you can add:
+      // if (country) {
+      //   form.setValue('country', country, { shouldValidate: true, shouldDirty: true });
+      // }
       
       toast.success('Address details populated from Google Maps');
     } catch (error) {
@@ -122,36 +143,13 @@ const AddressForm: React.FC<AddressFormProps> = ({
       toast.error('Failed to process selected address. Please fill in the fields manually.');
     }
   };
+  // *** END: Replaced handleGooglePlaceSelected ***
 
-  // Enhanced handler for when full address data is populated from Google autocomplete
-  const handleFullAddressPopulated = (addressData: any) => {
-    console.log("Populating full address data:", addressData);
-    
-    // Populate all form fields with the extracted address data
-    if (addressData.street1) {
-      form.setValue('street1', addressData.street1, { shouldValidate: true, shouldDirty: true });
-    }
-    if (addressData.city) {
-      form.setValue('city', addressData.city, { shouldValidate: true, shouldDirty: true });
-    }
-    if (addressData.state) {
-      form.setValue('state', addressData.state, { shouldValidate: true, shouldDirty: true });
-    }
-    if (addressData.zip) {
-      form.setValue('zip', addressData.zip, { shouldValidate: true, shouldDirty: true });
-    }
-    if (addressData.country) {
-      form.setValue('country', addressData.country, { shouldValidate: true, shouldDirty: true });
-    }
-    
-    // Trigger validation for all updated fields
-    form.trigger(['street1', 'city', 'state', 'zip', 'country']);
-    
-    toast.success('Complete address populated successfully!');
-  };
+  // *** REMOVED handleFullAddressPopulated as it's not in the working InstantAddressForm ***
 
   // Handle address line changes directly from the input
   const handleAddressLineChange = (value: string) => {
+    // This function remains the same as it's standard for input changes
     form.setValue('street1', value, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
   };
 
@@ -212,26 +210,17 @@ const AddressForm: React.FC<AddressFormProps> = ({
             <FormItem>
               <FormLabel>Address</FormLabel>
               <FormControl>
-                {enableGoogleAutocomplete ? (
-                  <AddressAutoComplete 
-                    placeholder="Enter your address"
-                    defaultValue={field.value}
-                    onAddressSelected={handleGooglePlaceSelected}
-                    onChange={handleAddressLineChange}
-                    onFullAddressPopulated={handleFullAddressPopulated}
-                    id="address-autocomplete"
-                    required
-                  />
-                ) : (
-                  <AddressAutoComplete 
-                    placeholder="Enter your address"
-                    defaultValue={field.value}
-                    onAddressSelected={handleGooglePlaceSelected}
-                    onChange={handleAddressLineChange}
-                    id="address-autocomplete"
-                    required
-                  />
-                )}
+                {/* *** START: Simplified AddressAutoComplete usage *** */}
+                <AddressAutoComplete 
+                  placeholder="Enter your address"
+                  defaultValue={field.value}
+                  onAddressSelected={handleGooglePlaceSelected}
+                  onChange={handleAddressLineChange}
+                  // Removed onFullAddressPopulated as it's not in the working InstantAddressForm
+                  id="address-autocomplete"
+                  required
+                />
+                {/* *** END: Simplified AddressAutoComplete usage *** */}
               </FormControl>
               <FormMessage />
             </FormItem>
