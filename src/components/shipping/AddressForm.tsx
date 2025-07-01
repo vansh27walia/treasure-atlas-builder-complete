@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import AddressAutoComplete from './AddressAutoComplete';
+import AddressAutoComplete from './AddressAutoComplete'; // Assuming this path is correct
 import { extractAddressComponents } from '@/utils/addressUtils';
 import { toast } from '@/components/ui/sonner';
 
@@ -86,16 +86,17 @@ const AddressForm: React.FC<AddressFormProps> = ({
   const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
     try {
       console.log("Google Place selected in AddressForm:", place);
-      
+
       if (!place) {
         console.warn("No place data received");
         return;
       }
-      
+
+      // **This is the primary method for populating fields**
       const { street1, city, state, zip, country } = extractAddressComponents(place);
-      
+
       console.log("Extracted components:", { street1, city, state, zip, country });
-      
+
       // Set all the form values at once for better user experience
       if (street1) {
         form.setValue('street1', street1, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
@@ -112,10 +113,10 @@ const AddressForm: React.FC<AddressFormProps> = ({
       if (country) {
         form.setValue('country', country, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
       }
-      
+
       // Trigger validation for all fields
       form.trigger(['street1', 'city', 'state', 'zip', 'country']);
-      
+
       toast.success('Address details populated from Google Maps');
     } catch (error) {
       console.error("Error processing Google place selection:", error);
@@ -123,32 +124,8 @@ const AddressForm: React.FC<AddressFormProps> = ({
     }
   };
 
-  // Enhanced handler for when full address data is populated from Google autocomplete
-  const handleFullAddressPopulated = (addressData: any) => {
-    console.log("Populating full address data:", addressData);
-    
-    // Populate all form fields with the extracted address data
-    if (addressData.street1) {
-      form.setValue('street1', addressData.street1, { shouldValidate: true, shouldDirty: true });
-    }
-    if (addressData.city) {
-      form.setValue('city', addressData.city, { shouldValidate: true, shouldDirty: true });
-    }
-    if (addressData.state) {
-      form.setValue('state', addressData.state, { shouldValidate: true, shouldDirty: true });
-    }
-    if (addressData.zip) {
-      form.setValue('zip', addressData.zip, { shouldValidate: true, shouldDirty: true });
-    }
-    if (addressData.country) {
-      form.setValue('country', addressData.country, { shouldValidate: true, shouldDirty: true });
-    }
-    
-    // Trigger validation for all updated fields
-    form.trigger(['street1', 'city', 'state', 'zip', 'country']);
-    
-    toast.success('Complete address populated successfully!');
-  };
+  // Removed: handleFullAddressPopulated as it was causing redundancy/potential conflict.
+  // The logic for populating all fields is now consolidated in handleGooglePlaceSelected.
 
   // Handle address line changes directly from the input
   const handleAddressLineChange = (value: string) => {
@@ -158,13 +135,13 @@ const AddressForm: React.FC<AddressFormProps> = ({
   // Custom form submit handler that validates before calling the provided onSubmit
   const handleFormSubmit = (values: AddressFormValues) => {
     console.log("Form submitted with values:", values);
-    
+
     // Additional validation check
     if (!values.street1 || !values.city || !values.state || !values.zip) {
       toast.error('Please fill in all required address fields');
       return;
     }
-    
+
     // Call the parent onSubmit handler
     onSubmit(values);
   };
@@ -189,7 +166,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
               </FormItem>
             )}
           />
-          
+
           <FormField
             control={form.control}
             name="company"
@@ -204,7 +181,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
             )}
           />
         </div>
-        
+
         <FormField
           control={form.control}
           name="street1"
@@ -213,23 +190,24 @@ const AddressForm: React.FC<AddressFormProps> = ({
               <FormLabel>Address</FormLabel>
               <FormControl>
                 {enableGoogleAutocomplete ? (
-                  <AddressAutoComplete 
+                  <AddressAutoComplete
                     placeholder="Enter your address"
                     defaultValue={field.value}
-                    onAddressSelected={handleGooglePlaceSelected}
+                    onAddressSelected={handleGooglePlaceSelected} // This is the only one needed
                     onChange={handleAddressLineChange}
-                    onFullAddressPopulated={handleFullAddressPopulated}
+                    // Removed: onFullAddressPopulated.
+                    // The logic for populating all fields is within handleGooglePlaceSelected.
                     id="address-autocomplete"
                     required
                   />
                 ) : (
-                  <AddressAutoComplete 
+                  // Fallback to a standard Input component if autocomplete is disabled
+                  <Input
                     placeholder="Enter your address"
-                    defaultValue={field.value}
-                    onAddressSelected={handleGooglePlaceSelected}
-                    onChange={handleAddressLineChange}
-                    id="address-autocomplete"
                     required
+                    {...field}
+                    value={field.value || ''}
+                    id="address-manual-input" // Give it a different ID
                   />
                 )}
               </FormControl>
@@ -237,7 +215,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="street2"
@@ -251,7 +229,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
             </FormItem>
           )}
         />
-        
+
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -266,7 +244,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
               </FormItem>
             )}
           />
-          
+
           <FormField
             control={form.control}
             name="state"
@@ -281,7 +259,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
             )}
           />
         </div>
-        
+
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -296,7 +274,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
               </FormItem>
             )}
           />
-          
+
           <FormField
             control={form.control}
             name="country"
@@ -311,7 +289,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
             )}
           />
         </div>
-        
+
         <FormField
           control={form.control}
           name="phone"
@@ -325,7 +303,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
             </FormItem>
           )}
         />
-        
+
         {showDefaultOptions && (
           <div className="flex flex-col space-y-2">
             {isPickupAddress && (
@@ -352,7 +330,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
                 )}
               />
             )}
-            
+
             {!isPickupAddress && (
               <FormField
                 control={form.control}
@@ -379,7 +357,7 @@ const AddressForm: React.FC<AddressFormProps> = ({
             )}
           </div>
         )}
-        
+
         <Button type="submit" disabled={isLoading} className="w-full">
           {isLoading ? 'Saving...' : buttonText}
         </Button>
