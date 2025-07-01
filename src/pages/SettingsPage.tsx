@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PickupAddressSettings from '@/components/settings/PickupAddressSettings';
+import PaymentMethodManager from '@/components/payment/PaymentMethodManager';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -137,6 +138,7 @@ const SettingsPage: React.FC = () => {
       <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="pickup-addresses">Pickup Addresses</TabsTrigger>
+          <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
           <TabsTrigger value="shipping">Shipping Options</TabsTrigger>
         </TabsList>
         
@@ -267,6 +269,10 @@ const SettingsPage: React.FC = () => {
               <PickupAddressSettings />
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="payment-methods">
+          <PaymentMethodManager />
         </TabsContent>
         
         <TabsContent value="shipping">
