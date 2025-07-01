@@ -2,11 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, Shield, Lock } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
-import PaymentMethodCard from './PaymentMethodCard';
-import EnhancedAddPaymentMethodModal from './EnhancedAddPaymentMethodModal';
+import PaymentMethodModal from './PaymentMethodModal';
+import PaymentMethodList from './PaymentMethodList';
 
 interface PaymentMethod {
   id: string;
@@ -88,6 +88,11 @@ const PaymentMethodManager: React.FC = () => {
     }
   };
 
+  const handleModalSuccess = () => {
+    fetchPaymentMethods();
+    setIsModalOpen(false);
+  };
+
   if (loading) {
     return (
       <Card>
@@ -104,57 +109,73 @@ const PaymentMethodManager: React.FC = () => {
     <>
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>Payment Methods</CardTitle>
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <CardTitle className="text-xl font-semibold">Payment Methods</CardTitle>
               <p className="text-sm text-gray-600 mt-1">
-                Manage your saved payment methods including cards, bank accounts, and digital wallets
+                Securely store and manage your payment methods for quick checkout
               </p>
             </div>
-            <Button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="w-4 h-4 mr-2" />
-              Add Payment Method
+            <Button 
+              onClick={() => setIsModalOpen(true)} 
+              className="bg-blue-600 hover:bg-blue-700 flex items-center space-x-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add New</span>
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        
+        <CardContent className="space-y-6">
           {paymentMethods.length === 0 ? (
             <div className="text-center py-12">
-              <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+              <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                 <Plus className="w-8 h-8 text-gray-400" />
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">No payment methods yet</h3>
-              <p className="text-gray-500 mb-6">Add your first payment method to get started with secure payments</p>
-              <Button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+              <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                Add your first payment method to get started with secure, fast payments for your shipments
+              </p>
+              <Button 
+                onClick={() => setIsModalOpen(true)} 
+                className="bg-blue-600 hover:bg-blue-700"
+              >
                 Add Your First Payment Method
               </Button>
             </div>
           ) : (
             <>
-              <div className="grid gap-4">
-                {paymentMethods.map((method) => (
-                  <PaymentMethodCard
-                    key={method.id}
-                    paymentMethod={method}
-                    onDelete={handleDelete}
-                    onSetDefault={handleSetDefault}
-                  />
-                ))}
-              </div>
-              <div className="pt-4 border-t">
-                <p className="text-xs text-gray-500">
-                  All payment methods are securely stored and encrypted. We never store your full card numbers.
-                </p>
+              <PaymentMethodList
+                paymentMethods={paymentMethods}
+                onDelete={handleDelete}
+                onSetDefault={handleSetDefault}
+              />
+              
+              <div className="pt-4 border-t bg-gray-50 -mx-6 px-6 py-4 rounded-b-lg">
+                <div className="flex items-center justify-center space-x-6 text-xs text-gray-500">
+                  <div className="flex items-center space-x-2">
+                    <Shield className="w-4 h-4" />
+                    <span>Bank-level security</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Lock className="w-4 h-4" />
+                    <span>256-bit encryption</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span>•</span>
+                    <span>No card numbers stored</span>
+                  </div>
+                </div>
               </div>
             </>
           )}
         </CardContent>
       </Card>
 
-      <EnhancedAddPaymentMethodModal
+      <PaymentMethodModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuccess={fetchPaymentMethods}
+        onSuccess={handleModalSuccess}
       />
     </>
   );
