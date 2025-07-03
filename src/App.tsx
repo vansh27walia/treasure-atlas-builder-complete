@@ -24,6 +24,7 @@ import BulkUploadPage from './pages/BulkUploadPage';
 import TrackingPage from './pages/TrackingPage';
 import ShipToPage from './pages/ShipToPage';
 import FreightForwardingPage from './pages/FreightForwardingPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
 
 function App() {
   return (
@@ -54,6 +55,7 @@ function App() {
                     element={<ProtectedRoute><SettingsPage /></ProtectedRoute>}
                   />
                   <Route path="/label-success" element={<LabelSuccessPage />} />
+                  <Route path="/payment-success" element={<PaymentSuccessPage />} />
                   <Route path="/pickup" element={<PickupPage />} />
                   <Route
                     path="/bulk-upload"

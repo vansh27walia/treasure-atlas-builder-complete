@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Plus, CreditCard, Building2, Smartphone, Globe } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import EnhancedAddPaymentMethodModal from './EnhancedAddPaymentMethodModal';
+import FullScreenCheckoutModal from './FullScreenCheckoutModal';
 
 interface PaymentMethod {
   id: string;
@@ -185,13 +185,14 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
         </p>
       </div>
 
-      <EnhancedAddPaymentMethodModal
+      <FullScreenCheckoutModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={() => {
           fetchPaymentMethods();
           setIsModalOpen(false);
         }}
+        mode="setup"
       />
     </div>
   );

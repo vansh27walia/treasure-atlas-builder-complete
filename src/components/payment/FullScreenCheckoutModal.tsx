@@ -39,16 +39,22 @@ const paymentMethods: PaymentMethodOption[] = [
   }
 ];
 
-interface EnhancedAddPaymentMethodModalProps {
+interface FullScreenCheckoutModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  mode?: 'setup' | 'payment';
+  amount?: number;
+  description?: string;
 }
 
-const EnhancedAddPaymentMethodModal: React.FC<EnhancedAddPaymentMethodModalProps> = ({ 
+const FullScreenCheckoutModal: React.FC<FullScreenCheckoutModalProps> = ({ 
   isOpen, 
   onClose, 
-  onSuccess
+  onSuccess,
+  mode = 'setup',
+  amount,
+  description = 'Payment Setup'
 }) => {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodOption>(paymentMethods[0]);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,10 +63,12 @@ const EnhancedAddPaymentMethodModal: React.FC<EnhancedAddPaymentMethodModalProps
     setIsLoading(true);
 
     try {
-      // Create checkout session in setup mode
+      // Create checkout session
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
         body: {
-          mode: 'setup',
+          mode,
+          amount,
+          description,
           payment_method_types: getPaymentMethodTypes(selectedMethod.id)
         },
       });
@@ -99,14 +107,19 @@ const EnhancedAddPaymentMethodModal: React.FC<EnhancedAddPaymentMethodModalProps
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
             <ExternalLink className="w-5 h-5" />
-            <span>Add Payment Method</span>
+            <span>
+              {mode === 'setup' ? 'Add Payment Method' : 'Complete Payment'}
+            </span>
           </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-6">
           <div className="space-y-3">
             <p className="text-sm text-gray-600">
-              Choose your preferred payment method to securely save for future use.
+              {mode === 'setup' 
+                ? 'Choose your preferred payment method to securely save for future use.'
+                : `Complete your payment of $${amount?.toFixed(2)} using Stripe's secure checkout.`
+              }
             </p>
 
             <div className="grid gap-3">
@@ -175,7 +188,7 @@ const EnhancedAddPaymentMethodModal: React.FC<EnhancedAddPaymentMethodModalProps
               ) : (
                 <>
                   <ExternalLink className="w-4 h-4 mr-2" />
-                  Continue to Stripe
+                  {mode === 'setup' ? 'Continue to Stripe' : `Pay $${amount?.toFixed(2)}`}
                 </>
               )}
             </Button>
@@ -186,4 +199,4 @@ const EnhancedAddPaymentMethodModal: React.FC<EnhancedAddPaymentMethodModalProps
   );
 };
 
-export default EnhancedAddPaymentMethodModal;
+export default FullScreenCheckoutModal;

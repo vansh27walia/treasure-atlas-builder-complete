@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Shield, Lock } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
-import PaymentMethodModal from './PaymentMethodModal';
+import FullScreenCheckoutModal from './FullScreenCheckoutModal';
 import PaymentMethodList from './PaymentMethodList';
 
 interface PaymentMethod {
@@ -172,10 +172,11 @@ const PaymentMethodManager: React.FC = () => {
         </CardContent>
       </Card>
 
-      <PaymentMethodModal
+      <FullScreenCheckoutModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSuccess={handleModalSuccess}
+        mode="setup"
       />
     </>
   );
