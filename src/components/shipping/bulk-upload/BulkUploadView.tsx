@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Package, Download, PrinterIcon, AlertTriangle, X, Mail, CheckCircle, Clock, Truck, FileCheck } from 'lucide-react';
+import { Upload, FileText, Package, Download, PrinterIcon, AlertTriangle, X, Mail, CheckCircle, Clock, Truck, FileCheck, CreditCard } from 'lucide-react';
 import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
@@ -430,7 +430,7 @@ const BulkUploadView: React.FC = () => {
       <PaymentMethodModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
-        onPaymentMethodAdded={() => {
+        onSuccess={() => {
           setShowPaymentModal(false);
           // Proceed with label creation after payment setup
           handleCreateLabels();
