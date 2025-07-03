@@ -10,11 +10,13 @@ import LabelGenerationProgress from './LabelGenerationProgress';
 import BatchLabelCreationPage from './BatchLabelCreationPage';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import BatchLabelControls from '@/components/shipping/BatchLabelControls';
+import AdvancedProgressTracker from './AdvancedProgressTracker';
 import BatchPrintPreviewModal from '@/components/shipping/BatchPrintPreviewModal';
 import EmailLabelsModal from '@/components/shipping/EmailLabelsModal';
 import BulkLabelDownloadOptions from './BulkLabelDownloadOptions';
 import { useBulkUpload } from './useBulkUpload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import PaymentMethodModal from '@/components/payment/PaymentMethodModal';
 
 const BulkUploadView: React.FC = () => {
   const {
@@ -57,15 +59,18 @@ const BulkUploadView: React.FC = () => {
 
   const [showPrintPreview, setShowPrintPreview] = React.useState(false);
   const [showEmailModal, setShowEmailModal] = React.useState(false);
+  const [showPaymentModal, setShowPaymentModal] = React.useState(false);
 
-  // Progress tracking steps
+  // Enhanced progress tracking steps with more detailed phases
   const getProgressSteps = () => {
     const steps = [
-      { id: 'upload', label: 'Upload CSV', icon: Upload, status: 'upcoming' },
-      { id: 'processing', label: 'Process Data', icon: FileText, status: 'upcoming' },
-      { id: 'rates', label: 'Fetch Rates', icon: Truck, status: 'upcoming' },
-      { id: 'selection', label: 'Rate Selection', icon: CheckCircle, status: 'upcoming' },
-      { id: 'labels', label: 'Create Labels', icon: FileCheck, status: 'upcoming' }
+      { id: 'upload', label: 'Upload CSV', icon: Upload, status: 'upcoming', description: 'Upload your CSV file with shipment data' },
+      { id: 'processing', label: 'Process Data', icon: FileText, status: 'upcoming', description: 'Validating and parsing shipment information' },
+      { id: 'rates', label: 'Fetch Rates', icon: Truck, status: 'upcoming', description: 'Getting shipping rates from carriers' },
+      { id: 'selection', label: 'Rate Selection', icon: CheckCircle, status: 'upcoming', description: 'Choose the best rates for your shipments' },
+      { id: 'payment', label: 'Payment Setup', icon: Package, status: 'upcoming', description: 'Configure payment method for batch processing' },
+      { id: 'labels', label: 'Create Labels', icon: FileCheck, status: 'upcoming', description: 'Generating shipping labels and batch files' },
+      { id: 'storage', label: 'Store & Download', icon: Download, status: 'upcoming', description: 'Storing labels and preparing downloads' }
     ];
 
     // Update status based on current state
@@ -346,6 +351,16 @@ const BulkUploadView: React.FC = () => {
                 />
                 
                 <Button
+                  onClick={() => setShowPaymentModal(true)}
+                  disabled={!filteredShipments.some(s => s.selectedRateId)}
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-4 text-lg font-semibold shadow-lg mr-4"
+                  size="lg"
+                >
+                  <CreditCard className="mr-3 h-5 w-5" />
+                  Setup Payment
+                </Button>
+
+                <Button
                   onClick={handleCreateLabels}
                   disabled={isCreatingLabels || !filteredShipments.some(s => s.selectedRateId)}
                   className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-12 py-4 text-xl font-semibold shadow-lg"
@@ -409,6 +424,17 @@ const BulkUploadView: React.FC = () => {
         isOpen={showEmailModal}
         onClose={() => setShowEmailModal(false)}
         batchResult={results?.batchResult || null}
+      />
+
+      {/* Payment Modal */}
+      <PaymentMethodModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onPaymentMethodAdded={() => {
+          setShowPaymentModal(false);
+          // Proceed with label creation after payment setup
+          handleCreateLabels();
+        }}
       />
     </div>
   );
