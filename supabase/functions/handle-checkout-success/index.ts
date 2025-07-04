@@ -64,33 +64,57 @@ serve(async (req) => {
 
         const isFirstMethod = !existingMethods || existingMethods.length === 0;
 
+        // Determine payment method type and extract details
+        let brand = "unknown";
+        let last4 = "****";
+        let expMonth = null;
+        let expYear = null;
+
+        if (paymentMethod.card) {
+          brand = paymentMethod.card.brand;
+          last4 = paymentMethod.card.last4;
+          expMonth = paymentMethod.card.exp_month;
+          expYear = paymentMethod.card.exp_year;
+        } else if (paymentMethod.us_bank_account) {
+          brand = "bank_account";
+          last4 = paymentMethod.us_bank_account.last4;
+        } else {
+          brand = paymentMethod.type;
+        }
+
         // Save payment method to database
-        const { error } = await supabaseService
+        const { data: savedMethod, error } = await supabaseService
           .from("payment_methods")
           .insert({
             user_id: user.id,
             stripe_payment_method_id: paymentMethod.id,
-            brand: paymentMethod.card?.brand || paymentMethod.type,
-            last4: paymentMethod.card?.last4 || paymentMethod.us_bank_account?.last4 || "****",
-            exp_month: paymentMethod.card?.exp_month || null,
-            exp_year: paymentMethod.card?.exp_year || null,
+            brand: brand,
+            last4: last4,
+            exp_month: expMonth,
+            exp_year: expYear,
             is_default: isFirstMethod,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-          });
+          })
+          .select()
+          .single();
 
         if (error) {
           console.error("Error saving payment method:", error);
           throw new Error("Failed to save payment method");
         }
 
+        console.log("Successfully saved payment method:", savedMethod);
+
         return new Response(
           JSON.stringify({
             success: true,
             payment_method: {
               id: paymentMethod.id,
-              brand: paymentMethod.card?.brand || paymentMethod.type,
-              last4: paymentMethod.card?.last4 || paymentMethod.us_bank_account?.last4,
+              brand: brand,
+              last4: last4,
+              exp_month: expMonth,
+              exp_year: expYear,
               is_default: isFirstMethod
             }
           }),
