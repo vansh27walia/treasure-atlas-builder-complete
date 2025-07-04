@@ -209,33 +209,23 @@ const ShippingRates: React.FC = () => {
               <div className="space-y-4 mt-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                   {sortedRates.map((rate) => (
-                     <ShippingRateCard
-                       key={rate.id}
-                       rate={rate}
-                       isSelected={selectedRateId === rate.id}
-                       onSelect={handleRateSelection}
-                       onPaymentSuccess={() => {
-                         toast.success('Payment successful! Creating label...');
-                         // Navigate to label creation page or trigger label creation
-                         window.location.href = '/create-label';
-                       }}
-                       isBestValue={rate.id === bestValueRateId}
-                       isFastest={rate.id === fastestRateId}
-                       aiRecommendation={aiRecommendation && {
-                         rateId: aiRecommendation.bestOverall || '',
-                         reason: aiRecommendation.analysisText || ''
-                       }}
-                       showDiscount={true}
-                       originalRate={rate.original_rate}
-                       isPremium={false}
-                       showPayButton={true}
-                       shippingDetails={{
-                         rate: rate,
-                         // Add other shipping details as needed
-                       }}
-                     />
-                   ))}
+                  {sortedRates.map((rate) => (
+                    <ShippingRateCard
+                      key={rate.id}
+                      rate={rate}
+                      isSelected={selectedRateId === rate.id}
+                      onSelect={handleRateSelection}
+                      isBestValue={rate.id === bestValueRateId}
+                      isFastest={rate.id === fastestRateId}
+                      aiRecommendation={aiRecommendation && {
+                        rateId: aiRecommendation.bestOverall || '',
+                        reason: aiRecommendation.analysisText || ''
+                      }}
+                      showDiscount={true}
+                      originalRate={rate.original_rate}
+                      isPremium={false}
+                    />
+                  ))}
                 </div>
 
                 {sortedRates.length === 0 && (

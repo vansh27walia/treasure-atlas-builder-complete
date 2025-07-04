@@ -1,10 +1,8 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Check, Zap, TrendingDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { getCarrierLogoUrl } from '@/utils/addressUtils';
-import PaymentSelectionModal from '@/components/payment/PaymentSelectionModal';
 
 interface ShippingRateCardProps {
   rate: {
@@ -23,7 +21,6 @@ interface ShippingRateCardProps {
   };
   isSelected: boolean;
   onSelect: (rateId: string) => void;
-  onPaymentSuccess?: () => void;
   isBestValue: boolean;
   isFastest: boolean;
   aiRecommendation?: {
@@ -33,24 +30,18 @@ interface ShippingRateCardProps {
   showDiscount?: boolean;
   originalRate?: string;
   isPremium?: boolean;
-  showPayButton?: boolean;
-  shippingDetails?: any;
 }
 
 const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   rate,
   isSelected,
   onSelect,
-  onPaymentSuccess,
   isBestValue,
   isFastest,
   aiRecommendation,
   showDiscount = false,
   isPremium = false,
-  showPayButton = false,
-  shippingDetails,
 }) => {
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const isRecommended = aiRecommendation && aiRecommendation.rateId === rate.id;
   const deliveryDays = rate.delivery_days || rate.est_delivery_days;
   const deliveryEstimate = deliveryDays === 1 ? 'Next day' : deliveryDays ? `${deliveryDays} days` : 'N/A';
@@ -68,29 +59,8 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   const getCarrierDisplayName = (carrier: string): string => {
     return carrier.toUpperCase();
   };
-
-  const handlePayClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowPaymentModal(true);
-  };
-
-  const handlePaymentSuccess = () => {
-    setShowPaymentModal(false);
-    if (onPaymentSuccess) {
-      onPaymentSuccess();
-    }
-  };
   
   return (
-    <div>
-      <PaymentSelectionModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        onPaymentSuccess={handlePaymentSuccess}
-        amount={parseFloat(rate.rate)}
-        description={`${getCarrierDisplayName(rate.carrier)} ${rate.service} shipping`}
-        shippingDetails={shippingDetails}
-      />
     <div
       className={`
         border rounded-lg p-4 cursor-pointer transition-all
@@ -179,18 +149,6 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
           <span className="font-medium text-blue-600">AI Recommended:</span> {aiRecommendation.reason}
         </div>
       )}
-
-      {isSelected && showPayButton && (
-        <div className="mt-3 pt-3 border-t border-gray-200">
-          <Button 
-            onClick={handlePayClick}
-            className="w-full bg-blue-600 hover:bg-blue-700"
-          >
-            Pay ${parseFloat(rate.rate).toFixed(2)} & Create Label
-          </Button>
-        </div>
-      )}
-    </div>
     </div>
   );
 };

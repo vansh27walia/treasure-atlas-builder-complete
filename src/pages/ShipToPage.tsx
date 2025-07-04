@@ -83,7 +83,6 @@ const ShipToPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showRates, setShowRates] = useState(false);
   const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
-  const [formValues, setFormValues] = useState<FormValues | null>(null);
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
   const { 
     rates, 
@@ -153,7 +152,6 @@ const ShipToPage: React.FC = () => {
   }, [selectedRateId, rates, shipmentDetails]);
   
   const handleSubmit = async (values: FormValues) => {
-    setFormValues(values); // Store form values for later use
     setIsLoading(true);
     setShowRates(false);
     
@@ -450,28 +448,17 @@ ${toAddress.country}`,
               <>
                 {/* Display shipping rates in a vertical list */}
                 <div className="space-y-4">
-                   {sortedRates.map((rate) => (
-                     <ShippingRateCard
-                       key={rate.id}
-                       rate={rate}
-                       isSelected={selectedRateId === rate.id}
-                       onSelect={handleSelectRate}
-                       onPaymentSuccess={() => {
-                         toast.success('Payment successful! Creating label...');
-                         // Navigate to label creation page or trigger label creation
-                         window.location.href = '/create-label';
-                       }}
-                       isBestValue={rate.id === bestValueRateId}
-                       isFastest={rate.id === fastestRateId}
-                       showDiscount={true}
-                       showPayButton={true}
-                       shippingDetails={{
-                         rate: rate,
-                         formData: formValues,
-                         // Add other shipping details as needed
-                       }}
-                     />
-                   ))}
+                  {sortedRates.map((rate) => (
+                    <ShippingRateCard
+                      key={rate.id}
+                      rate={rate}
+                      isSelected={selectedRateId === rate.id}
+                      onSelect={handleSelectRate}
+                      isBestValue={rate.id === bestValueRateId}
+                      isFastest={rate.id === fastestRateId}
+                      showDiscount={true}
+                    />
+                  ))}
                 </div>
                 
                 <div className="mt-8 flex flex-wrap justify-end gap-4">
