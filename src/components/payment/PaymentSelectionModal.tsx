@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { CreditCard, Building2, Plus, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 
 interface PaymentMethod {
   id: string;
@@ -33,6 +34,7 @@ const PaymentSelectionModal: React.FC<PaymentSelectionModalProps> = ({
   description = "Shipping payment",
   shippingDetails
 }) => {
+  const navigate = useNavigate();
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [selectedMethodId, setSelectedMethodId] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -89,12 +91,19 @@ const PaymentSelectionModal: React.FC<PaymentSelectionModalProps> = ({
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Payment error:', error);
+        throw new Error(error.message || 'Payment failed');
+      }
+
+      if (!data || !data.success) {
+        throw new Error('Payment was not successful');
+      }
 
       toast.success('Payment processed successfully!');
       onPaymentSuccess();
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing payment:', error);
       toast.error(error.message || 'Payment failed. Please try again.');
     } finally {
@@ -151,7 +160,7 @@ const PaymentSelectionModal: React.FC<PaymentSelectionModalProps> = ({
                 <p className="text-sm text-muted-foreground mb-4">
                   Add a payment method in Settings to continue
                 </p>
-                <Button onClick={onClose} variant="outline">
+                <Button onClick={() => { onClose(); navigate('/settings'); }} variant="outline">
                   Go to Settings
                 </Button>
               </CardContent>
