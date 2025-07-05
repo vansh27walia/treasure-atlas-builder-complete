@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useSearchParams } from 'react-router-dom';
 import PickupAddressSettings from '@/components/settings/PickupAddressSettings';
 import PaymentMethodManager from '@/components/payment/PaymentMethodManager';
 import { Card } from '@/components/ui/card';
@@ -28,6 +29,7 @@ interface SimpleAddressFormValues {
 
 const SettingsPage: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<string>('pickup-addresses');
   const [useAlternativeForm, setUseAlternativeForm] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -41,6 +43,28 @@ const SettingsPage: React.FC = () => {
       isDefault: true,
     }
   });
+
+  // Handle Stripe success callback
+  useEffect(() => {
+    const sessionId = searchParams.get('session_id');
+    const isSetup = searchParams.get('setup') === 'true';
+    const canceled = searchParams.get('canceled') === 'true';
+
+    if (sessionId && isSetup) {
+      // Switch to payment methods tab and show success
+      setActiveTab('payment-methods');
+      toast.success('Payment method added successfully!');
+      
+      // Clean up URL
+      window.history.replaceState({}, document.title, '/settings');
+    } else if (canceled) {
+      toast.error('Payment setup was canceled');
+      setActiveTab('payment-methods');
+      
+      // Clean up URL
+      window.history.replaceState({}, document.title, '/settings');
+    }
+  }, [searchParams]);
 
   // Handle Google autocomplete address selection
   const handleGooglePlaceSelected = (place: GoogleMapsPlace) => {
@@ -135,7 +159,7 @@ const SettingsPage: React.FC = () => {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Settings</h1>
       
-      <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="pickup-addresses">Pickup Addresses</TabsTrigger>
           <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>

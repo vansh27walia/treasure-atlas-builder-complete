@@ -4,6 +4,7 @@ import { Check, Zap, TrendingDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getCarrierLogoUrl } from '@/utils/addressUtils';
+import { toast } from '@/components/ui/sonner';
 import PaymentSelectionModal from '@/components/payment/PaymentSelectionModal';
 
 interface ShippingRateCardProps {
@@ -76,9 +77,17 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
 
   const handlePaymentSuccess = () => {
     setShowPaymentModal(false);
+    toast.success('Payment successful! Creating label...');
+    
+    // Trigger label creation flow
     if (onPaymentSuccess) {
       onPaymentSuccess();
     }
+    
+    // Navigate to label creation/success page
+    setTimeout(() => {
+      window.location.href = '/create-label?tab=domestic';
+    }, 1500);
   };
   
   return (
