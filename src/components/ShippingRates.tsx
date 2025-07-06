@@ -5,6 +5,7 @@ import ShippingRateCard from './shipping/ShippingRateCard';
 import ShippingLabel from './shipping/ShippingLabel';
 import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
+import PaymentMethodSelector from './payment/PaymentMethodSelector';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
@@ -263,29 +264,48 @@ const ShippingRates: React.FC = () => {
                   </Button>
                 )}
                 
-                <Button 
-                  onClick={() => {
-                    const labelOptions = {
-                      label_format: "PDF",
-                      label_size: selectedLabelFormat
-                    };
-                    handleCreateLabel(undefined, undefined, labelOptions);
-                  }}
-                  disabled={!selectedRateId || isLoading}
-                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md shadow-md"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader className="h-4 w-4 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4" />
-                      Buy & Print Label
-                    </>
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <PaymentMethodSelector
+                    selectedPaymentMethod={null}
+                    onPaymentMethodChange={() => {}}
+                    onPaymentComplete={(success) => {
+                      if (success) {
+                        const labelOptions = {
+                          label_format: "PDF",
+                          label_size: selectedLabelFormat
+                        };
+                        handleCreateLabel(undefined, undefined, labelOptions);
+                      }
+                    }}
+                    amount={selectedRateId ? parseFloat(rates.find(r => r.id === selectedRateId)?.rate || '0') : 0}
+                    description="Shipping Label Purchase"
+                  />
+                  
+                  <Button 
+                    onClick={() => {
+                      const labelOptions = {
+                        label_format: "PDF",
+                        label_size: selectedLabelFormat
+                      };
+                      handleCreateLabel(undefined, undefined, labelOptions);
+                    }}
+                    disabled={!selectedRateId || isLoading}
+                    variant="outline"
+                    className="border border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader className="h-4 w-4 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4" />
+                        Download Label
+                      </>
+                    )}
+                  </Button>
+                </div>
 
                 <Button 
                   onClick={handleProceedToPayment}

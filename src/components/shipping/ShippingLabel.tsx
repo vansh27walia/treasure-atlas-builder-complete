@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import PaymentMethodSelector from '../payment/PaymentMethodSelector';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
@@ -358,12 +359,24 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
                 <h4 className="text-gray-700 font-medium mb-4 text-lg">Your label is ready! How would you like to receive it?</h4>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <PaymentMethodSelector
+                    selectedPaymentMethod={null}
+                    onPaymentMethodChange={() => {}}
+                    onPaymentComplete={(success) => {
+                      if (success) {
+                        setIsLabelModalOpen(true);
+                      }
+                    }}
+                    amount={5.99} // You can pass the actual shipping cost here
+                    description="Shipping Label Purchase"
+                  />
+                  
                   <Button 
                     onClick={() => setIsLabelModalOpen(true)}
-                    variant="default" 
-                    className="bg-purple-600 hover:bg-purple-700 text-white h-12"
+                    variant="outline" 
+                    className="border-gray-300 hover:bg-gray-50 h-12"
                   >
-                    <Download className="mr-2 h-5 w-5" /> View & Download Label
+                    <Download className="mr-2 h-5 w-5" /> Download Label
                   </Button>
                   
                   <Button 

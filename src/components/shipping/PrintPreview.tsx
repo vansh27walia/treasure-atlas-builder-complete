@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'; // FIX: Changed import path for toast
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConsolidatedLabelUrls } from '@/types/shipping';
+import PaymentMethodSelector from '../payment/PaymentMethodSelector';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
@@ -283,6 +284,23 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       {/* Replaced the single defaultTrigger with two buttons at the top level */}
       {triggerButton ? triggerButton : (
         <div className="flex gap-2">
+          {/* Payment Button for Label Purchase */}
+          <PaymentMethodSelector
+            selectedPaymentMethod={null}
+            onPaymentMethodChange={() => {}}
+            onPaymentComplete={(success) => {
+              if (success) {
+                if (isBatchPreview) {
+                  handleDownloadBatchFormat('pdf');
+                } else {
+                  handleDownloadIndividualFormat('pdf');
+                }
+              }
+            }}
+            amount={5.99} // You can make this dynamic based on label type
+            description="Shipping Label Purchase"
+          />
+          
           {/* Button for direct PDF Download */}
           <Button
             variant="outline"

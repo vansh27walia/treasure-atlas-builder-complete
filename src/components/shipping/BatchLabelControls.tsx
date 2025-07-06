@@ -6,6 +6,7 @@ import { ChevronDown, Download, Mail, Printer } from 'lucide-react';
 import { useBatchLabelProcessing } from '@/hooks/useBatchLabelProcessing';
 import BatchPrintPreviewModal from './BatchPrintPreviewModal';
 import EmailLabelsModal from './EmailLabelsModal';
+import PaymentMethodSelector from '../payment/PaymentMethodSelector';
 
 interface BatchLabelControlsProps {
   selectedShipments: any[];
@@ -45,11 +46,25 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
 
   return (
     <div className="flex items-center gap-2">
+      {/* Payment for Batch Labels */}
+      <PaymentMethodSelector
+        selectedPaymentMethod={null}
+        onPaymentMethodChange={() => {}}
+        onPaymentComplete={(success) => {
+          if (success) {
+            handleCreateBatchLabels();
+          }
+        }}
+        amount={selectedShipments.length * 5.99} // Calculate based on number of shipments
+        description={`Batch Label Purchase (${selectedShipments.length} labels)`}
+      />
+      
       {/* Create Batch Labels Button */}
       <Button
         onClick={handleCreateBatchLabels}
         disabled={!hasSelectedShipments || isProcessingBatch}
-        className="bg-blue-600 hover:bg-blue-700 text-white"
+        variant="outline"
+        className="border-gray-300 hover:bg-gray-50"
       >
         <Printer className="mr-2 h-4 w-4" />
         {isProcessingBatch ? 'Processing...' : 'Create Batch Labels'}

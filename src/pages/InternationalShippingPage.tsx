@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { AddressData, ParcelData, ShippingRequestData, carrierService } from '@/services/CarrierService';
 import ShippingLabel from '@/components/shipping/ShippingLabel';
+import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
 
 interface FormValues {
   fromName: string;
@@ -985,35 +986,54 @@ const InternationalShippingPage: React.FC = () => {
           </div>
           
           <div className="mt-6 flex justify-end gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              disabled={!selectedRateId || isCreatingLabel}
-              onClick={() => {
-                if (selectedRateId) {
-                  const rate = rates.find(r => r.id === selectedRateId);
-                  if (rate && rate.shipment_id) {
-                    handleCreateLabel(selectedRateId, rate.shipment_id);
-                  } else {
-                    toast.error("Missing shipment information");
+            <div className="flex gap-4">
+              <PaymentMethodSelector
+                selectedPaymentMethod={null}
+                onPaymentMethodChange={() => {}}
+                onPaymentComplete={(success) => {
+                  if (success && selectedRateId) {
+                    const rate = rates.find(r => r.id === selectedRateId);
+                    if (rate && rate.shipment_id) {
+                      handleCreateLabel(selectedRateId, rate.shipment_id);
+                    } else {
+                      toast.error("Missing shipment information");
+                    }
                   }
-                }
-              }}
-              className="border-indigo-200 hover:bg-indigo-50"
-            >
-              {isCreatingLabel ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Creating Label...
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4 mr-2" />
-                  Create & Download Label
-                </>
-              )}
-            </Button>
+                }}
+                amount={selectedRateId ? parseFloat(rates.find(r => r.id === selectedRateId)?.rate || '0') : 0}
+                description="International Shipping Label"
+              />
+              
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                disabled={!selectedRateId || isCreatingLabel}
+                onClick={() => {
+                  if (selectedRateId) {
+                    const rate = rates.find(r => r.id === selectedRateId);
+                    if (rate && rate.shipment_id) {
+                      handleCreateLabel(selectedRateId, rate.shipment_id);
+                    } else {
+                      toast.error("Missing shipment information");
+                    }
+                  }
+                }}
+                className="border-indigo-200 hover:bg-indigo-50"
+              >
+                {isCreatingLabel ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Creating Label...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Label
+                  </>
+                )}
+              </Button>
+            </div>
             <Button
               type="button"
               size="lg"
