@@ -17,6 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2 } from 'lucide-react';
 import AddressAutoComplete from '@/components/shipping/AddressAutoComplete';
 import { extractAddressComponents } from '@/utils/addressUtils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SimpleAddressFormValues {
   name: string;
@@ -46,24 +47,45 @@ const SettingsPage: React.FC = () => {
 
   // Handle Stripe success callback
   useEffect(() => {
-    const sessionId = searchParams.get('session_id');
-    const isSetup = searchParams.get('setup') === 'true';
-    const canceled = searchParams.get('canceled') === 'true';
+    const handleStripeCallback = async () => {
+      const sessionId = searchParams.get('session_id');
+      const isSetup = searchParams.get('setup') === 'true';
+      const canceled = searchParams.get('canceled') === 'true';
 
-    if (sessionId && isSetup) {
-      // Switch to payment methods tab and show success
-      setActiveTab('payment-methods');
-      toast.success('Payment method added successfully!');
-      
-      // Clean up URL
-      window.history.replaceState({}, document.title, '/settings');
-    } else if (canceled) {
-      toast.error('Payment setup was canceled');
-      setActiveTab('payment-methods');
-      
-      // Clean up URL
-      window.history.replaceState({}, document.title, '/settings');
-    }
+      if (sessionId && isSetup) {
+        // Switch to payment methods tab immediately
+        setActiveTab('payment-methods');
+        
+        try {
+          // Call backend to process the checkout success and save payment method
+          const { data, error } = await supabase.functions.invoke('handle-checkout-success', {
+            body: { session_id: sessionId }
+          });
+
+          if (error) {
+            console.error('Error processing checkout success:', error);
+            toast.error('Failed to save payment method. Please try again.');
+          } else {
+            toast.success('Payment method added successfully!');
+            // The PaymentMethodManager will automatically refresh the list
+          }
+        } catch (error) {
+          console.error('Error calling handle-checkout-success:', error);
+          toast.error('Failed to save payment method. Please try again.');
+        }
+        
+        // Clean up URL
+        window.history.replaceState({}, document.title, '/settings');
+      } else if (canceled) {
+        toast.error('Payment setup was canceled');
+        setActiveTab('payment-methods');
+        
+        // Clean up URL
+        window.history.replaceState({}, document.title, '/settings');
+      }
+    };
+
+    handleStripeCallback();
   }, [searchParams]);
 
   // Handle Google autocomplete address selection
