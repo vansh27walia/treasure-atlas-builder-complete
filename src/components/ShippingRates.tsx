@@ -13,7 +13,6 @@ import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-reac
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PrintPreview from './shipping/PrintPreview';
-import { formatWeightDisplay } from '@/utils/weightConversion';
 
 const ShippingRates: React.FC = () => {
   const {
@@ -38,6 +37,7 @@ const ShippingRates: React.FC = () => {
   const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [shipmentDetails, setShipmentDetails] = useState<{ 
     fromAddress: string; 
     toAddress: string; 
@@ -54,7 +54,7 @@ const ShippingRates: React.FC = () => {
         setShipmentDetails({
           fromAddress: "Your shipping address",
           toAddress: "Recipient address",
-          weight: "Package weight", // Weight will be formatted in display components
+          weight: "Package weight",
           service: selectedRate.service,
           carrier: selectedRate.carrier.toUpperCase(),
         });
@@ -85,7 +85,7 @@ const ShippingRates: React.FC = () => {
     
     const calculatorData = sessionStorage.getItem('calculatorData');
     if (calculatorData) {
-      toast.success("Rate selected! Click 'Proceed Forward' to continue with label creation.", {
+      toast.success("Rate selected! Complete payment to continue with label creation.", {
         duration: 5000,
       });
     }
@@ -94,6 +94,19 @@ const ShippingRates: React.FC = () => {
   const handleProceedForward = () => {
     if (selectedRateId) {
       selectRateAndProceed(selectedRateId);
+    }
+  };
+
+  const handlePaymentComplete = (success: boolean) => {
+    if (success) {
+      setPaymentCompleted(true);
+      toast.success('Payment successful! Creating label...');
+      
+      const labelOptions = {
+        label_format: "PDF",
+        label_size: selectedLabelFormat
+      };
+      handleCreateLabel(undefined, undefined, labelOptions);
     }
   };
   
@@ -126,6 +139,8 @@ const ShippingRates: React.FC = () => {
   });
 
   const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
+  const selectedRate = rates.find(rate => rate.id === selectedRateId);
+  const rateAmount = selectedRate ? parseFloat(selectedRate.rate) : 0;
 
   return (
     <div className="w-full pb-6" id="shipping-rates-section">
@@ -216,11 +231,7 @@ const ShippingRates: React.FC = () => {
                        rate={rate}
                        isSelected={selectedRateId === rate.id}
                        onSelect={handleRateSelection}
-                       onPaymentSuccess={() => {
-                         toast.success('Payment successful! Creating label...');
-                         // Navigate to label creation page or trigger label creation
-                         window.location.href = '/create-label';
-                       }}
+                       onPaymentSuccess={handlePaymentComplete}
                        isBestValue={rate.id === bestValueRateId}
                        isFastest={rate.id === fastestRateId}
                        aiRecommendation={aiRecommendation && {
@@ -233,7 +244,6 @@ const ShippingRates: React.FC = () => {
                        showPayButton={true}
                        shippingDetails={{
                          rate: rate,
-                         // Add other shipping details as needed
                        }}
                      />
                    ))}
@@ -252,6 +262,20 @@ const ShippingRates: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* Payment Section - Show when rate is selected but payment not completed */}
+              {selectedRateId && !paymentCompleted && !labelUrl && (
+                <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                  <h3 className="font-semibold text-blue-800 mb-4">Complete Payment to Create Label</h3>
+                  <PaymentMethodSelector
+                    selectedPaymentMethod={null}
+                    onPaymentMethodChange={() => {}}
+                    onPaymentComplete={handlePaymentComplete}
+                    amount={rateAmount}
+                    description="Shipping Label Purchase"
+                  />
+                </div>
+              )}
               
               <div className="mt-6 flex flex-wrap justify-end gap-3">
                 {fromCalculator && selectedRateId && (
@@ -263,49 +287,6 @@ const ShippingRates: React.FC = () => {
                     Proceed Forward
                   </Button>
                 )}
-                
-                <div className="flex gap-2">
-                  <PaymentMethodSelector
-                    selectedPaymentMethod={null}
-                    onPaymentMethodChange={() => {}}
-                    onPaymentComplete={(success) => {
-                      if (success) {
-                        const labelOptions = {
-                          label_format: "PDF",
-                          label_size: selectedLabelFormat
-                        };
-                        handleCreateLabel(undefined, undefined, labelOptions);
-                      }
-                    }}
-                    amount={selectedRateId ? parseFloat(rates.find(r => r.id === selectedRateId)?.rate || '0') : 0}
-                    description="Shipping Label Purchase"
-                  />
-                  
-                  <Button 
-                    onClick={() => {
-                      const labelOptions = {
-                        label_format: "PDF",
-                        label_size: selectedLabelFormat
-                      };
-                      handleCreateLabel(undefined, undefined, labelOptions);
-                    }}
-                    disabled={!selectedRateId || isLoading}
-                    variant="outline"
-                    className="border border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md"
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader className="h-4 w-4 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4" />
-                        Download Label
-                      </>
-                    )}
-                  </Button>
-                </div>
 
                 <Button 
                   onClick={handleProceedToPayment}

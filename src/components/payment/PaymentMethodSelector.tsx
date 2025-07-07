@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Plus, CreditCard, Building2, Smartphone, Globe } from 'lucide-react';
+import { Plus, CreditCard, Building2, Smartphone, Globe, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import FullScreenCheckoutModal from './FullScreenCheckoutModal';
+import { toast } from '@/components/ui/sonner';
 
 interface PaymentMethod {
   id: string;
@@ -47,6 +48,7 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentSelectedMethod, setCurrentSelectedMethod] = useState<string | null>(selectedPaymentMethod);
 
   const fetchPaymentMethods = async () => {
     try {
@@ -60,9 +62,10 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       const methods = data || [];
       setPaymentMethods(methods);
       
-      // Auto-select default payment method
+      // Auto-select default payment method if none selected
       const defaultMethod = methods.find(m => m.is_default);
-      if (defaultMethod && !selectedPaymentMethod) {
+      if (defaultMethod && !currentSelectedMethod) {
+        setCurrentSelectedMethod(defaultMethod.id);
         onPaymentMethodChange(defaultMethod.id);
       }
     } catch (error) {
@@ -74,9 +77,14 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
     fetchPaymentMethods();
   }, []);
 
+  const handlePaymentMethodChange = (methodId: string) => {
+    setCurrentSelectedMethod(methodId);
+    onPaymentMethodChange(methodId);
+  };
+
   const handlePayment = async () => {
-    if (!selectedPaymentMethod) {
-      alert('Please select a payment method');
+    if (!currentSelectedMethod) {
+      toast.error('Please select a payment method');
       return;
     }
 
@@ -85,8 +93,8 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
     try {
       const { data, error } = await supabase.functions.invoke('create-payment-intent', {
         body: {
-          amount,
-          payment_method_id: selectedPaymentMethod,
+          amount: Math.round(amount * 100), // Convert to cents
+          payment_method_id: currentSelectedMethod,
           description,
         },
       });
@@ -94,16 +102,18 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       if (error) throw error;
 
       if (data.requires_action) {
-        // Handle 3D Secure or other authentication
-        console.log('Payment requires additional authentication');
+        toast.error('Payment requires additional authentication');
         onPaymentComplete(false);
       } else if (data.status === 'succeeded') {
+        toast.success('Payment successful!');
         onPaymentComplete(true);
       } else {
+        toast.error('Payment failed');
         onPaymentComplete(false);
       }
     } catch (error) {
       console.error('Payment error:', error);
+      toast.error('Payment failed. Please try again.');
       onPaymentComplete(false);
     } finally {
       setIsProcessing(false);
@@ -116,7 +126,7 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
     } else if (['link', 'apple_pay', 'google_pay'].includes(method.brand?.toLowerCase())) {
       return `${method.brand} Wallet`;
     } else {
-      return `${method.brand} •••• ${method.last4}`;
+      return `${method.brand?.toUpperCase()} •••• ${method.last4}`;
     }
   };
 
@@ -124,15 +134,15 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
     <div className="space-y-6">
       <div className="flex items-center space-x-2">
         <div className="flex-1">
-          <Select value={selectedPaymentMethod || ""} onValueChange={onPaymentMethodChange}>
+          <Select value={currentSelectedMethod || ""} onValueChange={handlePaymentMethodChange}>
             <SelectTrigger className="h-12">
               <SelectValue placeholder="Select payment method">
-                {selectedPaymentMethod && (
+                {currentSelectedMethod && (
                   <div className="flex items-center space-x-2">
-                    {getPaymentMethodIcon(paymentMethods.find(m => m.id === selectedPaymentMethod)?.brand || '')}
+                    {getPaymentMethodIcon(paymentMethods.find(m => m.id === currentSelectedMethod)?.brand || '')}
                     <span>
-                      {formatPaymentMethodDisplay(paymentMethods.find(m => m.id === selectedPaymentMethod)!)}
-                      {paymentMethods.find(m => m.id === selectedPaymentMethod)?.is_default && ' (Default)'}
+                      {formatPaymentMethodDisplay(paymentMethods.find(m => m.id === currentSelectedMethod)!)}
+                      {paymentMethods.find(m => m.id === currentSelectedMethod)?.is_default && ' (Default)'}
                     </span>
                   </div>
                 )}
@@ -171,11 +181,21 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
         </div>
         <Button
           onClick={handlePayment}
-          disabled={!selectedPaymentMethod || isProcessing}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg font-medium"
+          disabled={!currentSelectedMethod || isProcessing}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg font-medium flex items-center gap-2"
           size="lg"
         >
-          {isProcessing ? 'Processing...' : `Pay $${amount.toFixed(2)}`}
+          {isProcessing ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              Processing...
+            </>
+          ) : (
+            <>
+              <CheckCircle className="w-5 h-5" />
+              Pay ${amount.toFixed(2)}
+            </>
+          )}
         </Button>
       </div>
 

@@ -36,24 +36,20 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<string>('4x6');
   const [selectedFileFormat, setSelectedFileFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
-  const downloadLinkRef = useRef<HTMLAnchorElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [paymentCompleted, setPaymentCompleted] = useState(!!labelUrl); // If labelUrl exists, payment was completed
   
-  // Update local URL when prop changes
   useEffect(() => {
     if (labelUrl !== localLabelUrl) {
       setLocalLabelUrl(labelUrl);
     }
   }, [labelUrl]);
   
-  // Handle format changes
   const handleFormatChange = async (format: string) => {
     setSelectedFormat(format);
     
     if (onFormatChange) {
       try {
         setIsRefreshing(true);
-        // Call parent component's handler
         await onFormatChange(format);
         setIsRefreshing(false);
         toast.success(`Label format changed to ${format}`);
@@ -65,7 +61,6 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
     }
   };
   
-  // Effect to fetch and cache the label as a blob when URL changes
   useEffect(() => {
     console.log("ShippingLabel component received props:", { labelUrl, trackingCode, shipmentId });
     const fetchAndCacheLabel = async () => {
@@ -99,13 +94,19 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
       fetchAndCacheLabel();
     }
     
-    // Clean up blob URL on unmount
     return () => {
       if (blobUrl) {
         URL.revokeObjectURL(blobUrl);
       }
     };
   }, [labelUrl, localLabelUrl]);
+
+  const handlePaymentComplete = (success: boolean) => {
+    if (success) {
+      setPaymentCompleted(true);
+      toast.success('Payment successful! Label is now available for download.');
+    }
+  };
   
   if (!labelUrl && !localLabelUrl) {
     console.log("No label URL available in ShippingLabel component");
@@ -125,7 +126,6 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
     setIsRefreshing(true);
     
     try {
-      // Use the Supabase edge function to fetch the stored label
       const { data, error } = await supabase.functions.invoke('get-stored-label', {
         body: { 
           shipment_id: shipmentId,
@@ -156,7 +156,6 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
   };
 
   const handleDirectDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    // If format has changed, update selectedFileFormat
     if (format !== selectedFileFormat) {
       setSelectedFileFormat(format);
     }
@@ -171,7 +170,6 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
         document.body.appendChild(link);
         link.click();
         
-        // Clean up
         setTimeout(() => {
           document.body.removeChild(link);
           toast.success(`Your ${format.toUpperCase()} label has been downloaded`);
@@ -196,13 +194,11 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
     try {
       console.log(`Trying fallback download with URL (${format}):`, url);
       
-      // Create a hidden iframe to download without navigating away
       const iframe = document.createElement('iframe');
       iframe.style.display = 'none';
       iframe.src = url;
       document.body.appendChild(iframe);
       
-      // Clean up after a moment
       setTimeout(() => {
         document.body.removeChild(iframe);
         toast.success(`Starting ${format.toUpperCase()} download through fallback method`);
@@ -246,14 +242,11 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
     try {
       toast.loading('Sending label to your email...');
       
-      // For now, we'll simulate the email sending
-      // In a real implementation, this would call a backend function
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       toast.dismiss();
       toast.success('Label sent to your registered email');
       
-      // Close the modal after emailing
       setIsLabelModalOpen(false);
     } catch (error) {
       console.error('Email label error:', error);
@@ -274,7 +267,6 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
     try {
       toast.loading('Saving label to your account...');
       
-      // Save to shipment_records table instead of creating a new table
       const { error } = await supabase
         .from('shipment_records')
         .insert({
@@ -293,7 +285,6 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
       toast.dismiss();
       toast.success('Label saved to your account');
       
-      // Close the modal after saving
       setIsLabelModalOpen(false);
     } catch (error) {
       console.error('Save label error:', error);
@@ -354,23 +345,22 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
                 <p className="text-purple-800">Regenerating label with new format...</p>
               </div>
+            ) : !paymentCompleted ? (
+              <div className="space-y-4">
+                <h4 className="text-gray-700 font-medium mb-4 text-lg">Complete Payment to Access Your Label</h4>
+                <PaymentMethodSelector
+                  selectedPaymentMethod={null}
+                  onPaymentMethodChange={() => {}}
+                  onPaymentComplete={handlePaymentComplete}
+                  amount={5.99}
+                  description="Shipping Label Access"
+                />
+              </div>
             ) : (
               <>
                 <h4 className="text-gray-700 font-medium mb-4 text-lg">Your label is ready! How would you like to receive it?</h4>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <PaymentMethodSelector
-                    selectedPaymentMethod={null}
-                    onPaymentMethodChange={() => {}}
-                    onPaymentComplete={(success) => {
-                      if (success) {
-                        setIsLabelModalOpen(true);
-                      }
-                    }}
-                    amount={5.99} // You can pass the actual shipping cost here
-                    description="Shipping Label Purchase"
-                  />
-                  
                   <Button 
                     onClick={() => setIsLabelModalOpen(true)}
                     variant="outline" 
