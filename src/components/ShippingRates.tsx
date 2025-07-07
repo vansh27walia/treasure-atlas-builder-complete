@@ -110,9 +110,9 @@ const ShippingRates: React.FC = () => {
     }
   };
 
-  const handlePaymentMethodChange = () => {
+  const handlePaymentMethodChange = (paymentMethodId: string) => {
     // Handle payment method change logic here if needed
-    console.log('Payment method changed');
+    console.log('Selected payment method:', paymentMethodId);
   };
   
   if (rates.length === 0) {

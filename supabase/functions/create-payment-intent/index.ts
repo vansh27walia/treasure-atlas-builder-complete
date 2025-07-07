@@ -34,7 +34,11 @@ serve(async (req) => {
 
     const { amount, currency = "usd", payment_method_id, description } = await req.json();
 
-    // Get payment method from database
+    if (!payment_method_id) {
+      throw new Error("Payment method ID is required");
+    }
+
+    // Get payment method from database with better error handling
     const { data: paymentMethod, error } = await supabaseClient
       .from("payment_methods")
       .select("*")
@@ -42,8 +46,28 @@ serve(async (req) => {
       .eq("user_id", user.id)
       .single();
 
-    if (error || !paymentMethod) {
-      throw new Error("Payment method not found");
+    if (error) {
+      console.error("Database error fetching payment method:", error);
+      throw new Error(`Payment method not found: ${error.message}`);
+    }
+
+    if (!paymentMethod) {
+      console.error("No payment method found for ID:", payment_method_id, "and user:", user.id);
+      throw new Error("Payment method not found for this user");
+    }
+
+    console.log("Found payment method:", paymentMethod.id, "for user:", user.id);
+
+    // Verify the Stripe payment method exists and is attached to customer
+    try {
+      const stripePaymentMethod = await stripe.paymentMethods.retrieve(paymentMethod.stripe_payment_method_id);
+      if (!stripePaymentMethod) {
+        throw new Error("Stripe payment method not found");
+      }
+      console.log("Stripe payment method verified:", stripePaymentMethod.id);
+    } catch (stripeError) {
+      console.error("Stripe payment method verification failed:", stripeError);
+      throw new Error("Payment method is no longer valid");
     }
 
     // Create payment intent
@@ -55,6 +79,10 @@ serve(async (req) => {
       confirm: true,
       return_url: `${req.headers.get("origin")}/payment-success`,
       description,
+      metadata: {
+        user_id: user.id,
+        payment_method_db_id: payment_method_id
+      }
     });
 
     return new Response(

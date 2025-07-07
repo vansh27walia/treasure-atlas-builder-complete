@@ -7,17 +7,20 @@ import { useBatchLabelProcessing } from '@/hooks/useBatchLabelProcessing';
 import BatchPrintPreviewModal from './BatchPrintPreviewModal';
 import EmailLabelsModal from './EmailLabelsModal';
 import PaymentMethodSelector from '../payment/PaymentMethodSelector';
+import BatchProgressTracker from './BatchProgressTracker';
 
 interface BatchLabelControlsProps {
   selectedShipments: any[];
   pickupAddress?: any;
   onBatchProcessed?: (result: any) => void;
+  currentStep?: 'upload' | 'mapping' | 'rates' | 'payment' | 'creation' | 'complete';
 }
 
 const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
   selectedShipments,
   pickupAddress,
-  onBatchProcessed
+  onBatchProcessed,
+  currentStep = 'payment'
 }) => {
   const {
     isProcessingBatch,
@@ -49,19 +52,29 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
     }
   };
 
+  const handlePaymentMethodChange = (paymentMethodId: string) => {
+    console.log('Selected payment method for batch:', paymentMethodId);
+  };
+
   const hasSelectedShipments = selectedShipments && selectedShipments.length > 0;
   const hasBatchResult = batchResult && batchResult.consolidatedLabelUrls;
   const batchAmount = selectedShipments.length * 5.99; // Calculate based on number of shipments
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Progress Tracker */}
+      <BatchProgressTracker 
+        currentStep={paymentCompleted ? (hasBatchResult ? 'complete' : 'creation') : currentStep}
+        isProcessing={isProcessingBatch}
+      />
+
       {/* Payment Section - Show before batch processing */}
       {hasSelectedShipments && !paymentCompleted && !hasBatchResult && (
         <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
           <h3 className="font-semibold text-blue-800 mb-4">Complete Payment to Create Batch Labels</h3>
           <PaymentMethodSelector
             selectedPaymentMethod={null}
-            onPaymentMethodChange={() => {}}
+            onPaymentMethodChange={handlePaymentMethodChange}
             onPaymentComplete={handlePaymentComplete}
             amount={batchAmount}
             description={`Batch Label Creation (${selectedShipments.length} labels)`}
@@ -70,7 +83,7 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
       )}
       
       {/* Batch Processing Controls - Show after payment */}
-      {paymentCompleted && (
+      {paymentCompleted && !hasBatchResult && (
         <div className="flex items-center gap-2">
           <Button
             onClick={handleCreateBatchLabels}
