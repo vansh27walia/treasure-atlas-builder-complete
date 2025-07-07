@@ -109,6 +109,11 @@ const ShippingRates: React.FC = () => {
       handleCreateLabel(undefined, undefined, labelOptions);
     }
   };
+
+  const handlePaymentMethodChange = (paymentMethodId: string) => {
+    // Handle payment method change logic here if needed
+    console.log('Selected payment method:', paymentMethodId);
+  };
   
   if (rates.length === 0) {
     return (
@@ -269,7 +274,7 @@ const ShippingRates: React.FC = () => {
                   <h3 className="font-semibold text-blue-800 mb-4">Complete Payment to Create Label</h3>
                   <PaymentMethodSelector
                     selectedPaymentMethod={null}
-                    onPaymentMethodChange={() => {}}
+                    onPaymentMethodChange={handlePaymentMethodChange}
                     onPaymentComplete={handlePaymentComplete}
                     amount={rateAmount}
                     description="Shipping Label Purchase"
