@@ -110,6 +110,11 @@ const ShippingRates: React.FC = () => {
     }
   };
 
+  // Fixed: Create wrapper function for onPaymentSuccess that matches expected signature
+  const handlePaymentSuccess = () => {
+    handlePaymentComplete(true);
+  };
+
   const handlePaymentMethodChange = (paymentMethodId: string) => {
     console.log('Selected payment method:', paymentMethodId);
   };
@@ -235,7 +240,7 @@ const ShippingRates: React.FC = () => {
                        rate={rate}
                        isSelected={selectedRateId === rate.id}
                        onSelect={handleRateSelection}
-                       onPaymentSuccess={handlePaymentComplete}
+                       onPaymentSuccess={handlePaymentSuccess}
                        isBestValue={rate.id === bestValueRateId}
                        isFastest={rate.id === fastestRateId}
                        aiRecommendation={aiRecommendation && {
