@@ -33,6 +33,7 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [showPaymentSelector, setShowPaymentSelector] = useState(false);
 
   const handleCreateBatchLabels = async () => {
     try {
@@ -48,6 +49,7 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
   const handlePaymentComplete = (success: boolean) => {
     if (success) {
       setPaymentCompleted(true);
+      setShowPaymentSelector(false);
       handleCreateBatchLabels();
     }
   };
@@ -69,7 +71,24 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
       />
 
       {/* Payment Section - Show before batch processing */}
-      {hasSelectedShipments && !paymentCompleted && !hasBatchResult && (
+      {hasSelectedShipments && !paymentCompleted && !hasBatchResult && !showPaymentSelector && (
+        <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+          <h3 className="font-semibold text-blue-800 mb-4">Ready to Create Batch Labels</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            {selectedShipments.length} labels ready • Total: ${batchAmount.toFixed(2)}
+          </p>
+          <Button
+            onClick={() => setShowPaymentSelector(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            size="lg"
+          >
+            Proceed to Payment
+          </Button>
+        </div>
+      )}
+
+      {/* Payment Selector Modal */}
+      {showPaymentSelector && (
         <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
           <h3 className="font-semibold text-blue-800 mb-4">Complete Payment to Create Batch Labels</h3>
           <PaymentMethodSelector
@@ -79,6 +98,15 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
             amount={batchAmount}
             description={`Batch Label Creation (${selectedShipments.length} labels)`}
           />
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowPaymentSelector(false)}
+              className="mr-2"
+            >
+              Cancel
+            </Button>
+          </div>
         </div>
       )}
       

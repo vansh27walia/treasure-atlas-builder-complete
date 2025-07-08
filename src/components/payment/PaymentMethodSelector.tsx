@@ -114,6 +114,17 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
 
       if (data.success && data.status === 'succeeded') {
         toast.success('Payment successful!');
+        
+        // Dispatch custom event to trigger label creation
+        const paymentCompleteEvent = new CustomEvent('payment-completed', {
+          detail: {
+            success: true,
+            paymentIntentId: data.payment_intent_id,
+            amount: amount
+          }
+        });
+        document.dispatchEvent(paymentCompleteEvent);
+        
         onPaymentComplete(true);
       } else if (data.requires_action) {
         toast.error('Payment requires additional authentication');

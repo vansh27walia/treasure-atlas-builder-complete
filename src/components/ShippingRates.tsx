@@ -47,6 +47,35 @@ const ShippingRates: React.FC = () => {
     carrier: string; 
   } | undefined>();
   
+  // Listen for payment completion event
+  useEffect(() => {
+    const handlePaymentCompleted = (event: CustomEvent) => {
+      console.log('Payment completed event received:', event.detail);
+      if (event.detail.success) {
+        setPaymentCompleted(true);
+        toast.success('Payment successful! Creating label...');
+        
+        // Trigger label creation after payment success
+        const labelOptions = {
+          label_format: "PDF",
+          label_size: selectedLabelFormat
+        };
+        handleCreateLabel(undefined, undefined, labelOptions);
+        
+        // Update workflow step
+        document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+          detail: { step: 'complete' }
+        }));
+      }
+    };
+
+    document.addEventListener('payment-completed', handlePaymentCompleted as EventListener);
+    
+    return () => {
+      document.removeEventListener('payment-completed', handlePaymentCompleted as EventListener);
+    };
+  }, [handleCreateLabel, selectedLabelFormat]);
+  
   useEffect(() => {
     if (selectedRateId && rates.length > 0) {
       const selectedRate = rates.find(rate => rate.id === selectedRateId);
@@ -108,11 +137,6 @@ const ShippingRates: React.FC = () => {
       };
       handleCreateLabel(undefined, undefined, labelOptions);
     }
-  };
-
-  // Fixed: Create wrapper function for onPaymentSuccess that matches expected signature
-  const handlePaymentSuccess = () => {
-    handlePaymentComplete(true);
   };
 
   const handlePaymentMethodChange = (paymentMethodId: string) => {
