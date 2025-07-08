@@ -39,6 +39,7 @@ const ShippingRates: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
   const [paymentCompleted, setPaymentCompleted] = useState(false);
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [shipmentDetails, setShipmentDetails] = useState<{ 
     fromAddress: string; 
     toAddress: string; 
@@ -54,6 +55,7 @@ const ShippingRates: React.FC = () => {
       console.log('Payment completed event received:', event.detail);
       if (event.detail.success) {
         setPaymentCompleted(true);
+        setIsCreatingLabel(true);
         toast.success('Payment successful! Creating label...');
         
         // Trigger label creation after payment success
@@ -61,12 +63,23 @@ const ShippingRates: React.FC = () => {
           label_format: "PDF",
           label_size: selectedLabelFormat
         };
-        handleCreateLabel(undefined, undefined, labelOptions);
         
-        // Update workflow step
-        document.dispatchEvent(new CustomEvent('shipping-step-change', { 
-          detail: { step: 'complete' }
-        }));
+        // Automatically create label after payment
+        setTimeout(async () => {
+          try {
+            await handleCreateLabel(undefined, undefined, labelOptions);
+            setIsCreatingLabel(false);
+            
+            // Update workflow step
+            document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+              detail: { step: 'complete' }
+            }));
+          } catch (error) {
+            console.error('Error creating label after payment:', error);
+            setIsCreatingLabel(false);
+            toast.error('Label creation failed after payment');
+          }
+        }, 1000);
       }
     };
 
@@ -130,13 +143,24 @@ const ShippingRates: React.FC = () => {
   const handlePaymentComplete = (success: boolean) => {
     if (success) {
       setPaymentCompleted(true);
+      setIsCreatingLabel(true);
       toast.success('Payment successful! Creating label...');
       
       const labelOptions = {
         label_format: "PDF",
         label_size: selectedLabelFormat
       };
-      handleCreateLabel(undefined, undefined, labelOptions);
+      
+      setTimeout(async () => {
+        try {
+          await handleCreateLabel(undefined, undefined, labelOptions);
+          setIsCreatingLabel(false);
+        } catch (error) {
+          console.error('Error creating label:', error);
+          setIsCreatingLabel(false);
+          toast.error('Failed to create label');
+        }
+      }, 1000);
     }
   };
 
@@ -175,6 +199,7 @@ const ShippingRates: React.FC = () => {
   const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
   const selectedRate = rates.find(rate => rate.id === selectedRateId);
   const rateAmount = selectedRate ? parseFloat(selectedRate.rate) : 0;
+  const showPaymentSection = selectedRateId && !paymentCompleted && !labelUrl && !isCreatingLabel;
 
   return (
     <div className="w-full pb-6" id="shipping-rates-section">
@@ -234,6 +259,19 @@ const ShippingRates: React.FC = () => {
             </div>
           </div>
           
+          {/* Label Creation Status */}
+          {isCreatingLabel && (
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <h3 className="font-semibold text-yellow-800 mb-2">Creating Your Label...</h3>
+              <p className="text-sm text-gray-600">
+                Please wait while we generate your shipping label. This usually takes a few seconds.
+              </p>
+              <div className="mt-2">
+                <div className="animate-pulse bg-yellow-200 h-2 rounded"></div>
+              </div>
+            </div>
+          )}
+          
           {labelUrl && trackingCode && (
             <div className="mb-6">
               <PrintPreview 
@@ -246,7 +284,7 @@ const ShippingRates: React.FC = () => {
             </div>
           )}
           
-          {!labelUrl ? (
+          {!labelUrl && !isCreatingLabel ? (
             <>
               {(aiRecommendation || isAiLoading) && (
                 <ShippingAIRecommendation 
@@ -297,7 +335,7 @@ const ShippingRates: React.FC = () => {
               </div>
 
               {/* Payment Section - Show when rate is selected but payment not completed */}
-              {selectedRateId && !paymentCompleted && !labelUrl && (
+              {showPaymentSection && (
                 <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
                   <h3 className="font-semibold text-blue-800 mb-4">Complete Payment to Create Label</h3>
                   <PaymentMethodSelector

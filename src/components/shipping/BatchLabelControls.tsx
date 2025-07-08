@@ -8,6 +8,8 @@ import BatchPrintPreviewModal from './BatchPrintPreviewModal';
 import EmailLabelsModal from './EmailLabelsModal';
 import PaymentMethodSelector from '../payment/PaymentMethodSelector';
 import BatchProgressTracker from './BatchProgressTracker';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/sonner';
 
 interface BatchLabelControlsProps {
   selectedShipments: any[];
@@ -34,23 +36,74 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [showPaymentSelector, setShowPaymentSelector] = useState(false);
+  const [isCreatingLabels, setIsCreatingLabels] = useState(false);
 
   const handleCreateBatchLabels = async () => {
+    if (!selectedShipments || selectedShipments.length === 0) {
+      toast.error('No shipments selected for label creation');
+      return;
+    }
+
+    setIsCreatingLabels(true);
+
     try {
-      const result = await processBatchLabels(selectedShipments, pickupAddress);
-      if (result && onBatchProcessed) {
-        onBatchProcessed(result);
+      console.log('Creating batch labels with new function...');
+      
+      // Call the new create-bulk-labels function
+      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
+        body: {
+          shipments: selectedShipments,
+          labelOptions: {
+            generateBatch: true,
+            label_format: 'PDF',
+            label_size: '4x6'
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Error creating batch labels:', error);
+        throw new Error(error.message || 'Failed to create batch labels');
       }
+
+      if (data && data.success) {
+        console.log('Batch labels created successfully:', data);
+        toast.success(`Successfully created ${data.successful} labels out of ${data.total}`);
+        
+        if (onBatchProcessed) {
+          onBatchProcessed(data);
+        }
+
+        setPaymentCompleted(true);
+
+        // Update workflow step to complete
+        document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+          detail: { step: 'complete' }
+        }));
+      } else {
+        throw new Error('No data returned from batch label creation');
+      }
+
     } catch (error) {
-      console.error('Failed to process batch labels:', error);
+      console.error('Failed to create batch labels:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create batch labels');
+    } finally {
+      setIsCreatingLabels(false);
     }
   };
 
   const handlePaymentComplete = (success: boolean) => {
     if (success) {
+      console.log('Payment completed successfully, creating batch labels...');
       setPaymentCompleted(true);
       setShowPaymentSelector(false);
-      handleCreateBatchLabels();
+      
+      // Automatically trigger label creation after payment
+      setTimeout(() => {
+        handleCreateBatchLabels();
+      }, 1000);
+    } else {
+      toast.error('Payment failed. Please try again.');
     }
   };
 
@@ -66,8 +119,12 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
     <div className="flex flex-col gap-4">
       {/* Progress Tracker */}
       <BatchProgressTracker 
-        currentStep={paymentCompleted ? (hasBatchResult ? 'complete' : 'creation') : currentStep}
-        isProcessing={isProcessingBatch}
+        currentStep={
+          isCreatingLabels ? 'creation' :
+          paymentCompleted ? (hasBatchResult ? 'complete' : 'creation') : 
+          currentStep
+        }
+        isProcessing={isProcessingBatch || isCreatingLabels}
       />
 
       {/* Payment Section - Show before batch processing */}
@@ -110,18 +167,16 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
         </div>
       )}
       
-      {/* Batch Processing Controls - Show after payment */}
-      {paymentCompleted && !hasBatchResult && (
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={handleCreateBatchLabels}
-            disabled={!hasSelectedShipments || isProcessingBatch}
-            variant="outline"
-            className="border-gray-300 hover:bg-gray-50"
-          >
-            <Printer className="mr-2 h-4 w-4" />
-            {isProcessingBatch ? 'Processing...' : 'Create Batch Labels'}
-          </Button>
+      {/* Label Creation Status - Show during creation */}
+      {isCreatingLabels && (
+        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h3 className="font-semibold text-yellow-800 mb-2">Creating Labels...</h3>
+          <p className="text-sm text-gray-600">
+            Processing {selectedShipments.length} labels. This may take a few moments.
+          </p>
+          <div className="mt-2">
+            <div className="animate-pulse bg-yellow-200 h-2 rounded"></div>
+          </div>
         </div>
       )}
 
