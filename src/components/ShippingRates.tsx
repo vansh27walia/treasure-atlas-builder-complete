@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -264,7 +265,6 @@ const ShippingRates: React.FC = () => {
                        rate={rate}
                        isSelected={selectedRateId === rate.id}
                        onSelect={handleRateSelection}
-                       onPaymentSuccess={handlePaymentSuccess}
                        isBestValue={rate.id === bestValueRateId}
                        isFastest={rate.id === fastestRateId}
                        aiRecommendation={aiRecommendation && {
