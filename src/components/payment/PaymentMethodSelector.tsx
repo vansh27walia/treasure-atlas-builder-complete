@@ -91,24 +91,38 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
     setIsProcessing(true);
 
     try {
+      console.log('Processing payment with:', {
+        amount,
+        payment_method_id: currentSelectedMethod,
+        description
+      });
+
       const { data, error } = await supabase.functions.invoke('create-payment-intent', {
         body: {
-          amount: Math.round(amount * 100), // Convert to cents
+          amount: amount,
           payment_method_id: currentSelectedMethod,
           description,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Payment error:', error);
+        throw error;
+      }
 
-      if (data.requires_action) {
-        toast.error('Payment requires additional authentication');
-        onPaymentComplete(false);
-      } else if (data.status === 'succeeded') {
+      console.log('Payment response:', data);
+
+      if (data.success && data.status === 'succeeded') {
         toast.success('Payment successful!');
         onPaymentComplete(true);
+      } else if (data.requires_action) {
+        toast.error('Payment requires additional authentication');
+        onPaymentComplete(false);
+      } else if (data.error) {
+        toast.error(data.error);
+        onPaymentComplete(false);
       } else {
-        toast.error('Payment failed');
+        toast.error('Payment failed. Please try again.');
         onPaymentComplete(false);
       }
     } catch (error) {

@@ -49,7 +49,11 @@ serve(async (req) => {
       throw new Error("Payment method ID is required");
     }
 
-    console.log("Looking for payment method:", payment_method_id, "for user:", user.id);
+    if (!amount || amount <= 0) {
+      throw new Error("Valid amount is required");
+    }
+
+    console.log("Processing payment:", { amount, currency, payment_method_id, description });
 
     // Get payment method from database with proper user authentication
     const { data: paymentMethod, error } = await supabaseClient
@@ -71,20 +75,41 @@ serve(async (req) => {
 
     console.log("Found payment method:", paymentMethod.id, "for user:", user.id);
 
-    // Get user's Stripe customer ID from user_profiles
-    const { data: userProfile, error: profileError } = await supabaseClient
+    // Get or create user's Stripe customer ID
+    let stripeCustomerId = null;
+    
+    // First, try to get existing customer ID from user_profiles
+    const { data: userProfile } = await supabaseClient
       .from("user_profiles")
       .select("stripe_customer_id")
       .eq("id", user.id)
       .single();
 
-    if (profileError || !userProfile?.stripe_customer_id) {
-      console.error("No Stripe customer ID found for user:", user.id);
-      throw new Error("User does not have a Stripe customer account");
+    if (userProfile?.stripe_customer_id) {
+      stripeCustomerId = userProfile.stripe_customer_id;
+      console.log("Using existing Stripe customer ID:", stripeCustomerId);
+    } else {
+      // Create a new Stripe customer if one doesn't exist
+      console.log("Creating new Stripe customer for user:", user.id);
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          user_id: user.id
+        }
+      });
+      
+      stripeCustomerId = customer.id;
+      
+      // Save the customer ID to user_profiles
+      await supabaseClient
+        .from("user_profiles")
+        .upsert({
+          id: user.id,
+          stripe_customer_id: stripeCustomerId
+        });
+      
+      console.log("Created new Stripe customer:", stripeCustomerId);
     }
-
-    const stripeCustomerId = userProfile.stripe_customer_id;
-    console.log("Using Stripe customer ID:", stripeCustomerId);
 
     // Verify the Stripe payment method exists and is attached to customer
     try {
@@ -98,35 +123,67 @@ serve(async (req) => {
       throw new Error("Payment method is no longer valid");
     }
 
-    // Create payment intent with customer ID
+    // Create payment intent - simplified approach
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // Convert to cents
       currency,
-      customer: stripeCustomerId, // This is the key fix - include the customer ID
+      customer: stripeCustomerId,
       payment_method: paymentMethod.stripe_payment_method_id,
-      confirmation_method: "manual",
+      confirmation_method: "automatic", // Changed from manual to automatic
       confirm: true,
-      return_url: `${req.headers.get("origin")}/payment-success`,
-      description,
+      return_url: `${req.headers.get("origin") || "http://localhost:3000"}/payment-success`,
+      description: description || "Shipping Label Purchase",
       metadata: {
         user_id: user.id,
         payment_method_db_id: payment_method_id
       }
     });
 
-    console.log("Payment intent created successfully:", paymentIntent.id);
+    console.log("Payment intent created successfully:", paymentIntent.id, "Status:", paymentIntent.status);
 
-    return new Response(
-      JSON.stringify({
-        client_secret: paymentIntent.client_secret,
-        status: paymentIntent.status,
-        requires_action: paymentIntent.status === "requires_action",
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
-    );
+    // Handle different payment statuses
+    if (paymentIntent.status === "succeeded") {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          payment_intent_id: paymentIntent.id,
+          status: paymentIntent.status,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
+    } else if (paymentIntent.status === "requires_action") {
+      return new Response(
+        JSON.stringify({
+          requires_action: true,
+          payment_intent: {
+            id: paymentIntent.id,
+            client_secret: paymentIntent.client_secret,
+          },
+          status: paymentIntent.status,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
+    } else {
+      console.error("Unexpected payment status:", paymentIntent.status);
+      return new Response(
+        JSON.stringify({ 
+          error: "Payment failed", 
+          status: paymentIntent.status,
+          payment_intent_id: paymentIntent.id 
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+        }
+      );
+    }
+
   } catch (error) {
     console.error("Error creating payment intent:", error);
     return new Response(
