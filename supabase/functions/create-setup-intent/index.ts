@@ -14,56 +14,108 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization")!;
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("Missing authorization header");
+    }
+
+    // Create Supabase client with proper authentication
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
     );
 
-    const { data: { user } } = await supabaseClient.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
-
-    if (!user) {
+    // Get the authenticated user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      console.error("Authentication error:", userError?.message);
       throw new Error("User not authenticated");
     }
+
+    console.log("Authenticated user for setup intent:", user.id);
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2023-10-16",
     });
 
-    // Check if customer exists or create one
-    let customerId;
-    const customers = await stripe.customers.list({
-      email: user.email,
-      limit: 1
-    });
+    // Get or create Stripe customer with proper long-term storage
+    let stripeCustomerId = null;
+    
+    // Check if user already has a Stripe customer ID
+    const { data: userProfile } = await supabaseClient
+      .from("user_profiles")
+      .select("stripe_customer_id")
+      .eq("id", user.id)
+      .single();
 
-    if (customers.data.length > 0) {
-      customerId = customers.data[0].id;
-    } else {
-      // Create new customer
+    if (userProfile?.stripe_customer_id) {
+      stripeCustomerId = userProfile.stripe_customer_id;
+      console.log("Using existing Stripe customer:", stripeCustomerId);
+      
+      // Verify the customer still exists in Stripe
+      try {
+        await stripe.customers.retrieve(stripeCustomerId);
+      } catch (error) {
+        console.log("Stripe customer not found, creating new one");
+        stripeCustomerId = null;
+      }
+    }
+
+    if (!stripeCustomerId) {
+      // Create new Stripe customer for long-term payment method storage
+      console.log("Creating new Stripe customer for user:", user.id);
       const customer = await stripe.customers.create({
         email: user.email,
+        name: user.user_metadata?.full_name || user.email?.split('@')[0],
         metadata: {
-          supabase_user_id: user.id
+          user_id: user.id,
+          created_at: new Date().toISOString()
         }
       });
-      customerId = customer.id;
+      
+      stripeCustomerId = customer.id;
+      
+      // Save the customer ID permanently to user_profiles
+      const { error: profileError } = await supabaseClient
+        .from("user_profiles")
+        .upsert({
+          id: user.id,
+          stripe_customer_id: stripeCustomerId,
+          updated_at: new Date().toISOString()
+        });
+
+      if (profileError) {
+        console.error("Error saving customer ID:", profileError);
+      }
+      
+      console.log("Created and saved new Stripe customer:", stripeCustomerId);
     }
 
     const { payment_method_types = ["card"] } = await req.json();
 
+    // Create setup intent for long-term payment method storage
     const setupIntent = await stripe.setupIntents.create({
-      customer: customerId,
-      usage: "off_session",
+      customer: stripeCustomerId,
+      usage: "off_session", // This ensures the payment method can be used later
       payment_method_types: payment_method_types,
+      metadata: {
+        user_id: user.id,
+        purpose: "long_term_storage"
+      }
     });
+
+    console.log("Setup intent created for long-term storage:", setupIntent.id);
 
     return new Response(
       JSON.stringify({
         client_secret: setupIntent.client_secret,
         setup_intent_id: setupIntent.id,
+        customer_id: stripeCustomerId,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -14,17 +14,23 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization")!;
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("Missing authorization header");
+    }
+
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
     );
 
-    const { data: { user } } = await supabaseClient.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
-
-    if (!user) {
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
       throw new Error("User not authenticated");
     }
 
@@ -38,13 +44,23 @@ serve(async (req) => {
     const setupIntent = await stripe.setupIntents.retrieve(setup_intent_id);
     
     if (!setupIntent.payment_method) {
-      throw new Error("No payment method found");
+      throw new Error("No payment method found in setup intent");
     }
 
-    // Get payment method details
+    // Get payment method details from Stripe
     const paymentMethod = await stripe.paymentMethods.retrieve(
       setupIntent.payment_method as string
     );
+
+    console.log("Payment method retrieved:", paymentMethod.id);
+
+    // Ensure the payment method is permanently attached to the customer
+    if (!paymentMethod.customer) {
+      console.log("Attaching payment method to customer permanently");
+      await stripe.paymentMethods.attach(paymentMethod.id, {
+        customer: setupIntent.customer as string,
+      });
+    }
 
     // Create Supabase client with service role for database operations
     const supabaseService = createClient(
@@ -60,24 +76,63 @@ serve(async (req) => {
         .eq("user_id", user.id);
     }
 
-    // Save payment method to database
+    // Prepare payment method data based on type
+    let paymentMethodData: any = {
+      user_id: user.id,
+      stripe_payment_method_id: paymentMethod.id,
+      is_default: is_default || false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Handle different payment method types
+    if (paymentMethod.card) {
+      paymentMethodData = {
+        ...paymentMethodData,
+        brand: paymentMethod.card.brand,
+        last4: paymentMethod.card.last4,
+        exp_month: paymentMethod.card.exp_month,
+        exp_year: paymentMethod.card.exp_year,
+      };
+    } else if (paymentMethod.us_bank_account) {
+      paymentMethodData = {
+        ...paymentMethodData,
+        brand: 'us_bank_account',
+        last4: paymentMethod.us_bank_account.last4,
+        exp_month: null,
+        exp_year: null,
+      };
+    } else if (paymentMethod.link) {
+      paymentMethodData = {
+        ...paymentMethodData,
+        brand: 'link',
+        last4: paymentMethod.link.email?.slice(-4) || '****',
+        exp_month: null,
+        exp_year: null,
+      };
+    } else {
+      paymentMethodData = {
+        ...paymentMethodData,
+        brand: paymentMethod.type,
+        last4: '****',
+        exp_month: null,
+        exp_year: null,
+      };
+    }
+
+    // Save payment method to database with permanent reference
     const { data, error } = await supabaseService
       .from("payment_methods")
-      .insert({
-        user_id: user.id,
-        stripe_payment_method_id: paymentMethod.id,
-        brand: paymentMethod.card?.brand,
-        last4: paymentMethod.card?.last4,
-        exp_month: paymentMethod.card?.exp_month,
-        exp_year: paymentMethod.card?.exp_year,
-        is_default: is_default || false,
-      })
+      .insert(paymentMethodData)
       .select()
       .single();
 
     if (error) {
+      console.error("Database error saving payment method:", error);
       throw error;
     }
+
+    console.log("Payment method saved permanently:", data.id);
 
     return new Response(
       JSON.stringify({ success: true, payment_method: data }),
@@ -93,7 +148,6 @@ serve(async (req) => {
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
-      }
     );
   }
 });

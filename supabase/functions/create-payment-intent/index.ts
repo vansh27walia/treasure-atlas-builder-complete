@@ -75,22 +75,17 @@ serve(async (req) => {
 
     console.log("Found payment method:", paymentMethod.id, "for user:", user.id);
 
-    // Get or create user's Stripe customer ID
-    let stripeCustomerId = null;
-    
-    // First, try to get existing customer ID from user_profiles
+    // Get user's Stripe customer ID
     const { data: userProfile } = await supabaseClient
       .from("user_profiles")
       .select("stripe_customer_id")
       .eq("id", user.id)
       .single();
 
-    if (userProfile?.stripe_customer_id) {
-      stripeCustomerId = userProfile.stripe_customer_id;
-      console.log("Using existing Stripe customer ID:", stripeCustomerId);
-    } else {
-      // Create a new Stripe customer if one doesn't exist
-      console.log("Creating new Stripe customer for user:", user.id);
+    let stripeCustomerId = userProfile?.stripe_customer_id;
+
+    if (!stripeCustomerId) {
+      console.log("No customer ID found, creating new customer");
       const customer = await stripe.customers.create({
         email: user.email,
         metadata: {
@@ -100,7 +95,7 @@ serve(async (req) => {
       
       stripeCustomerId = customer.id;
       
-      // Save the customer ID to user_profiles
+      // Save the customer ID
       await supabaseClient
         .from("user_profiles")
         .upsert({
@@ -117,25 +112,35 @@ serve(async (req) => {
       if (!stripePaymentMethod) {
         throw new Error("Stripe payment method not found");
       }
-      console.log("Stripe payment method verified:", stripePaymentMethod.id);
+      
+      // Ensure it's attached to the customer if not already
+      if (!stripePaymentMethod.customer) {
+        console.log("Attaching payment method to customer");
+        await stripe.paymentMethods.attach(paymentMethod.stripe_payment_method_id, {
+          customer: stripeCustomerId,
+        });
+      }
+      
+      console.log("Stripe payment method verified and attached:", stripePaymentMethod.id);
     } catch (stripeError) {
       console.error("Stripe payment method verification failed:", stripeError);
-      throw new Error("Payment method is no longer valid");
+      throw new Error("Payment method is no longer valid or has expired");
     }
 
-    // Create payment intent - simplified approach
+    // Create payment intent with confirmed permanent payment method
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // Convert to cents
       currency,
       customer: stripeCustomerId,
       payment_method: paymentMethod.stripe_payment_method_id,
-      confirmation_method: "automatic", // Changed from manual to automatic
+      confirmation_method: "automatic",
       confirm: true,
       return_url: `${req.headers.get("origin") || "http://localhost:3000"}/payment-success`,
       description: description || "Shipping Label Purchase",
       metadata: {
         user_id: user.id,
-        payment_method_db_id: payment_method_id
+        payment_method_db_id: payment_method_id,
+        permanent_storage: "true"
       }
     });
 
