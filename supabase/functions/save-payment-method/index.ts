@@ -40,6 +40,8 @@ serve(async (req) => {
 
     const { setup_intent_id, is_default } = await req.json();
 
+    console.log("Saving payment method permanently for user:", user.id, "setup_intent:", setup_intent_id);
+
     // Retrieve the setup intent to get the payment method
     const setupIntent = await stripe.setupIntents.retrieve(setup_intent_id);
     
@@ -52,17 +54,18 @@ serve(async (req) => {
       setupIntent.payment_method as string
     );
 
-    console.log("Payment method retrieved:", paymentMethod.id);
+    console.log("Payment method retrieved for permanent storage:", paymentMethod.id);
 
     // Ensure the payment method is permanently attached to the customer
-    if (!paymentMethod.customer) {
-      console.log("Attaching payment method to customer permanently");
+    if (!paymentMethod.customer || paymentMethod.customer !== setupIntent.customer) {
+      console.log("Permanently attaching payment method to customer");
       await stripe.paymentMethods.attach(paymentMethod.id, {
         customer: setupIntent.customer as string,
       });
+      console.log("Payment method permanently attached to customer");
     }
 
-    // Create Supabase client with service role for database operations
+    // Use service role client for database operations
     const supabaseService = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -76,7 +79,7 @@ serve(async (req) => {
         .eq("user_id", user.id);
     }
 
-    // Prepare payment method data based on type
+    // Prepare payment method data for permanent storage
     let paymentMethodData: any = {
       user_id: user.id,
       stripe_payment_method_id: paymentMethod.id,
@@ -85,7 +88,7 @@ serve(async (req) => {
       updated_at: new Date().toISOString()
     };
 
-    // Handle different payment method types
+    // Handle different payment method types for permanent storage
     if (paymentMethod.card) {
       paymentMethodData = {
         ...paymentMethodData,
@@ -132,7 +135,7 @@ serve(async (req) => {
       throw error;
     }
 
-    console.log("Payment method saved permanently:", data.id);
+    console.log("Payment method saved permanently to database:", data.id);
 
     return new Response(
       JSON.stringify({ success: true, payment_method: data }),

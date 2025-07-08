@@ -19,7 +19,6 @@ serve(async (req) => {
       throw new Error("Missing authorization header");
     }
 
-    // Create Supabase client with proper authentication
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -30,20 +29,18 @@ serve(async (req) => {
       }
     );
 
-    // Get the authenticated user
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
       console.error("Authentication error:", userError?.message);
       throw new Error("User not authenticated");
     }
 
-    console.log("Authenticated user for setup intent:", user.id);
+    console.log("Creating setup intent for permanent storage, user:", user.id);
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2023-10-16",
     });
 
-    // Get or create Stripe customer with proper long-term storage
     let stripeCustomerId = null;
     
     // Check if user already has a Stripe customer ID
@@ -67,14 +64,14 @@ serve(async (req) => {
     }
 
     if (!stripeCustomerId) {
-      // Create new Stripe customer for long-term payment method storage
-      console.log("Creating new Stripe customer for user:", user.id);
+      console.log("Creating new Stripe customer for permanent payment method storage");
       const customer = await stripe.customers.create({
         email: user.email,
         name: user.user_metadata?.full_name || user.email?.split('@')[0],
         metadata: {
           user_id: user.id,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          storage_type: "permanent"
         }
       });
       
@@ -93,23 +90,24 @@ serve(async (req) => {
         console.error("Error saving customer ID:", profileError);
       }
       
-      console.log("Created and saved new Stripe customer:", stripeCustomerId);
+      console.log("Created and saved new Stripe customer for permanent storage:", stripeCustomerId);
     }
 
     const { payment_method_types = ["card"] } = await req.json();
 
-    // Create setup intent for long-term payment method storage
+    // Create setup intent for permanent payment method storage
     const setupIntent = await stripe.setupIntents.create({
       customer: stripeCustomerId,
-      usage: "off_session", // This ensures the payment method can be used later
+      usage: "off_session", // Critical: enables permanent storage for future payments
       payment_method_types: payment_method_types,
       metadata: {
         user_id: user.id,
-        purpose: "long_term_storage"
+        purpose: "permanent_payment_method_storage",
+        created_at: new Date().toISOString()
       }
     });
 
-    console.log("Setup intent created for long-term storage:", setupIntent.id);
+    console.log("Setup intent created for permanent storage:", setupIntent.id);
 
     return new Response(
       JSON.stringify({

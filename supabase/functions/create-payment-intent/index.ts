@@ -19,7 +19,6 @@ serve(async (req) => {
       throw new Error("Missing authorization header");
     }
 
-    // Create Supabase client with proper authentication
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -30,14 +29,13 @@ serve(async (req) => {
       }
     );
 
-    // Get the authenticated user
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
     if (userError || !user) {
       console.error("Authentication error:", userError?.message);
       throw new Error("User not authenticated");
     }
 
-    console.log("Authenticated user:", user.id);
+    console.log("Processing payment with permanently stored payment method for user:", user.id);
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2023-10-16",
@@ -55,7 +53,7 @@ serve(async (req) => {
 
     console.log("Processing payment:", { amount, currency, payment_method_id, description });
 
-    // Get payment method from database with proper user authentication
+    // Get permanently stored payment method from database
     const { data: paymentMethod, error } = await supabaseClient
       .from("payment_methods")
       .select("*")
@@ -73,7 +71,7 @@ serve(async (req) => {
       throw new Error("Payment method not found for this user");
     }
 
-    console.log("Found payment method:", paymentMethod.id, "for user:", user.id);
+    console.log("Found permanently stored payment method:", paymentMethod.id, "for user:", user.id);
 
     // Get user's Stripe customer ID
     const { data: userProfile } = await supabaseClient
@@ -106,7 +104,7 @@ serve(async (req) => {
       console.log("Created new Stripe customer:", stripeCustomerId);
     }
 
-    // Verify the Stripe payment method exists and is attached to customer
+    // Verify the permanently stored Stripe payment method exists and is attached
     try {
       const stripePaymentMethod = await stripe.paymentMethods.retrieve(paymentMethod.stripe_payment_method_id);
       if (!stripePaymentMethod) {
@@ -115,19 +113,19 @@ serve(async (req) => {
       
       // Ensure it's attached to the customer if not already
       if (!stripePaymentMethod.customer) {
-        console.log("Attaching payment method to customer");
+        console.log("Re-attaching payment method to customer");
         await stripe.paymentMethods.attach(paymentMethod.stripe_payment_method_id, {
           customer: stripeCustomerId,
         });
       }
       
-      console.log("Stripe payment method verified and attached:", stripePaymentMethod.id);
+      console.log("Permanently stored payment method verified:", stripePaymentMethod.id);
     } catch (stripeError) {
       console.error("Stripe payment method verification failed:", stripeError);
       throw new Error("Payment method is no longer valid or has expired");
     }
 
-    // Create payment intent with confirmed permanent payment method
+    // Create payment intent with permanently stored payment method
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // Convert to cents
       currency,
@@ -140,11 +138,12 @@ serve(async (req) => {
       metadata: {
         user_id: user.id,
         payment_method_db_id: payment_method_id,
-        permanent_storage: "true"
+        permanent_storage: "true",
+        processed_at: new Date().toISOString()
       }
     });
 
-    console.log("Payment intent created successfully:", paymentIntent.id, "Status:", paymentIntent.status);
+    console.log("Payment intent created with permanent payment method:", paymentIntent.id, "Status:", paymentIntent.status);
 
     // Handle different payment statuses
     if (paymentIntent.status === "succeeded") {
