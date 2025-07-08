@@ -71,6 +71,21 @@ serve(async (req) => {
 
     console.log("Found payment method:", paymentMethod.id, "for user:", user.id);
 
+    // Get user's Stripe customer ID from user_profiles
+    const { data: userProfile, error: profileError } = await supabaseClient
+      .from("user_profiles")
+      .select("stripe_customer_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !userProfile?.stripe_customer_id) {
+      console.error("No Stripe customer ID found for user:", user.id);
+      throw new Error("User does not have a Stripe customer account");
+    }
+
+    const stripeCustomerId = userProfile.stripe_customer_id;
+    console.log("Using Stripe customer ID:", stripeCustomerId);
+
     // Verify the Stripe payment method exists and is attached to customer
     try {
       const stripePaymentMethod = await stripe.paymentMethods.retrieve(paymentMethod.stripe_payment_method_id);
@@ -83,10 +98,11 @@ serve(async (req) => {
       throw new Error("Payment method is no longer valid");
     }
 
-    // Create payment intent
+    // Create payment intent with customer ID
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // Convert to cents
       currency,
+      customer: stripeCustomerId, // This is the key fix - include the customer ID
       payment_method: paymentMethod.stripe_payment_method_id,
       confirmation_method: "manual",
       confirm: true,
