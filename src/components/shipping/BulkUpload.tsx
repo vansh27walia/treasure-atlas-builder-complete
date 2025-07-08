@@ -271,17 +271,17 @@ const BulkUpload: React.FC = () => {
             />
             
             <BulkShipmentsList
-              results={results}
+              shipments={filteredShipments}
+              isFetchingRates={isFetchingRates}
               onSelectRate={handleSelectRate}
               onRemoveShipment={handleRemoveShipment}
-              onEditShipment={handleEditShipmentWrapper}
-              onCreateLabels={handleCreateLabels}
-              isCreatingLabels={isCreatingLabels}
-              searchTerm={searchTerm}
-              sortField={sortField}
-              sortDirection={sortDirection}
-              selectedCarrierFilter={selectedCarrierFilter}
-              filteredShipments={filteredShipments}
+              onEditShipment={(shipmentId: string, details: any) => {
+                const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+                if (shipment) {
+                  handleEditShipment(shipment);
+                }
+              }}
+              onRefreshRates={handleRefreshRates}
             />
             
             {processedShipmentsCount > 0 && (
@@ -300,13 +300,13 @@ const BulkUpload: React.FC = () => {
                   </div>
                   
                   <div className="flex gap-3 mt-4 lg:mt-0">
-                    <Button
-                      onClick={() => setShowPrintPreview(true)}
-                      disabled={processedShipmentsCount === 0}
-                      className="px-6 bg-purple-600 hover:bg-purple-700"
+                    <Button 
+                      onClick={handleDownloadLabelsClick}
+                      disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress}
+                      className="px-6 bg-green-600 hover:bg-green-700"
                     >
-                      <PrinterIcon className="mr-1 h-4 w-4" />
-                      Print Preview
+                      <Download className="mr-1 h-4 w-4" />
+                      {isCreatingLabels ? 'Creating...' : 'Download Labels'}
                     </Button>
                     
                     <Button
@@ -315,7 +315,7 @@ const BulkUpload: React.FC = () => {
                       className="px-6 bg-blue-600 hover:bg-blue-700"
                     >
                       <CreditCard className="mr-1 h-4 w-4" />
-                      Pay & Create Labels
+                      Pay Labels
                     </Button>
                   </div>
                 </div>

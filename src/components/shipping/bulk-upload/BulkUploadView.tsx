@@ -330,19 +330,14 @@ const BulkUploadView: React.FC = () => {
             
             <Card className="shadow-lg border-0">
               <BulkShipmentsList
-                results={results}
+                shipments={filteredShipments}
+                isFetchingRates={isFetchingRates}
                 onSelectRate={handleSelectRate}
                 onRemoveShipment={handleRemoveShipment}
                 onEditShipment={(shipmentId: string, details: any) => {
                   console.log('Edit shipment:', shipmentId, details);
                 }}
-                onCreateLabels={handleCreateLabels}
-                isCreatingLabels={isCreatingLabels}
-                searchTerm={searchTerm}
-                sortField={sortField}
-                sortDirection={sortDirection}
-                selectedCarrierFilter={selectedCarrierFilter}
-                filteredShipments={filteredShipments}
+                onRefreshRates={() => {}}
               />
             </Card>
             

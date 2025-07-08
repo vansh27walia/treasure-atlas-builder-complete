@@ -1,5 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import { useShipmentUpload } from './useShipmentUpload';
+import { useShipmentManagement } from './useShipmentManagement';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,6 +27,7 @@ export const useBulkUpload = () => {
   const [selectedCarrierFilter, setSelectedCarrierFilter] = useState('');
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
   const [isFetchingRates, setIsFetchingRates] = useState(false);
+  const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
   const [batchError, setBatchError] = useState<{ packageNumber: number; error: string } | null>(null);
   const [labelGenerationProgress, setLabelGenerationProgress] = useState({
@@ -205,7 +208,7 @@ export const useBulkUpload = () => {
     setBatchPrintPreviewModalOpen(true);
   };
 
-  // Label creation - this will be called from the payment component
+  // Direct label creation without modal - goes straight to label creation
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -365,7 +368,7 @@ export const useBulkUpload = () => {
     // Upload state
     file,
     isUploading,
-    isPaying: false,
+    isPaying,
     isCreatingLabels,
     isFetchingRates,
     uploadStatus,
