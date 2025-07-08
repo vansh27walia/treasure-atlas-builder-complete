@@ -283,6 +283,44 @@ const BulkUpload: React.FC = () => {
               selectedCarrierFilter={selectedCarrierFilter}
               filteredShipments={filteredShipments}
             />
+            
+            {processedShipmentsCount > 0 && (
+              <div className="mt-8 p-4 border rounded-lg bg-gray-50">
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
+                  <div>
+                    <h3 className="font-semibold text-lg">Order Summary</h3>
+                    <p className="text-gray-600">
+                      {processedShipmentsCount} shipments selected with a total cost of ${results.totalCost?.toFixed(2) || '0.00'}
+                    </p>
+                    {pickupAddress && (
+                      <p className="text-sm text-blue-600 mt-1">
+                        <span className="font-medium">From:</span> {pickupAddress.name || pickupAddress.street1}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-3 mt-4 lg:mt-0">
+                    <Button
+                      onClick={() => setShowPrintPreview(true)}
+                      disabled={processedShipmentsCount === 0}
+                      className="px-6 bg-purple-600 hover:bg-purple-700"
+                    >
+                      <PrinterIcon className="mr-1 h-4 w-4" />
+                      Print Preview
+                    </Button>
+                    
+                    <Button
+                      onClick={() => setShowPaymentModal(true)}
+                      disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress}
+                      className="px-6 bg-blue-600 hover:bg-blue-700"
+                    >
+                      <CreditCard className="mr-1 h-4 w-4" />
+                      Pay & Create Labels
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
         
