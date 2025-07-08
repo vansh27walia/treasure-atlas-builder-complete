@@ -14,19 +14,30 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization")!;
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("Missing authorization header");
+    }
+
+    // Create Supabase client with proper authentication
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
     );
 
-    const { data: { user } } = await supabaseClient.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
-
-    if (!user) {
+    // Get the authenticated user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      console.error("Authentication error:", userError?.message);
       throw new Error("User not authenticated");
     }
+
+    console.log("Authenticated user:", user.id);
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2023-10-16",
@@ -38,7 +49,9 @@ serve(async (req) => {
       throw new Error("Payment method ID is required");
     }
 
-    // Get payment method from database with better error handling
+    console.log("Looking for payment method:", payment_method_id, "for user:", user.id);
+
+    // Get payment method from database with proper user authentication
     const { data: paymentMethod, error } = await supabaseClient
       .from("payment_methods")
       .select("*")
@@ -84,6 +97,8 @@ serve(async (req) => {
         payment_method_db_id: payment_method_id
       }
     });
+
+    console.log("Payment intent created successfully:", paymentIntent.id);
 
     return new Response(
       JSON.stringify({
