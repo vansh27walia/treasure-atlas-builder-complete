@@ -1,278 +1,13 @@
-
-import React, { useState, useEffect, useRef } from 'react';
-import * as Papa from 'papaparse';
-import { Upload, FileText, MapPin, AlertCircle, Loader2, X, Check, Brain, CheckCircle, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Upload, FileText, MapPin, AlertCircle, Loader2, Brain, CheckCircle, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from '@/hooks/use-toast';
-import { SavedAddress } from '@/services/AddressService';
-import { usePickupAddresses } from '@/hooks/usePickupAddresses';
-
-// --- CsvHeaderMapper Component ---
-interface CsvHeaderMapperProps {
-  csvContent: string;
-  onMappingComplete: (convertedCsv: string) => void;
-  onCancel: () => void;
-}
-
-const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({ csvContent, onMappingComplete, onCancel }) => {
-  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
-  const [mapping, setMapping] = useState<{ [key: string]: string }>({});
-  const [previewData, setPreviewData] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  // Define expected headers
-  const expectedHeaders = [
-    { key: 'recipientName', label: 'Recipient Name', required: true },
-    { key: 'street1', label: 'Street Address 1', required: true },
-    { key: 'street2', label: 'Street Address 2', required: false },
-    { key: 'city', label: 'City', required: true },
-    { key: 'state', label: 'State', required: true },
-    { key: 'zip', label: 'Zip Code', required: true },
-    { key: 'country', label: 'Country', required: true, defaultValue: 'USA' },
-    { key: 'email', label: 'Email', required: false },
-    { key: 'phone', label: 'Phone Number', required: false },
-    { key: 'itemDescription', label: 'Item Description', required: false },
-    { key: 'quantity', label: 'Quantity', required: false },
-    { key: 'weight', label: 'Weight (lbs)', required: false },
-  ];
-
-  useEffect(() => {
-    if (csvContent) {
-      try {
-        Papa.parse(csvContent, {
-          header: true,
-          skipEmptyLines: true,
-          preview: 5,
-          complete: (results) => {
-            if (results.errors.length > 0) {
-              console.error("CSV parsing errors:", results.errors);
-              setError("Error parsing CSV: " + results.errors[0].message);
-              return;
-            }
-            const headers = results.meta.fields || [];
-            setCsvHeaders(headers);
-            setPreviewData(results.data);
-
-            // Attempt to auto-map common headers
-            const initialMapping: { [key: string]: string } = {};
-            expectedHeaders.forEach(expHeader => {
-              const matchedCsvHeader = headers.find(csvH =>
-                csvH.toLowerCase().includes(expHeader.key.toLowerCase()) ||
-                csvH.toLowerCase().includes(expHeader.label.toLowerCase().replace(/\s/g, ''))
-              );
-              if (matchedCsvHeader) {
-                initialMapping[expHeader.key] = matchedCsvHeader;
-              }
-            });
-            setMapping(initialMapping);
-            setError(null);
-          },
-        });
-      } catch (e) {
-        setError("Failed to parse CSV content. Please check file format.");
-        console.error("CSV parse error:", e);
-      }
-    }
-  }, [csvContent]);
-
-  const handleMappingChange = (expectedKey: string, csvHeader: string) => {
-    setMapping(prev => ({ ...prev, [expectedKey]: csvHeader }));
-  };
-
-  const handleCompleteMapping = () => {
-    setError(null);
-    const missingRequired = expectedHeaders.filter(
-      (expHeader) => expHeader.required && !mapping[expHeader.key] && expHeader.defaultValue === undefined
-    );
-
-    if (missingRequired.length > 0) {
-      setError(`Please map all required fields: ${missingRequired.map(f => f.label).join(', ')}`);
-      toast({
-        title: "Missing Required Fields",
-        description: `Please map all required fields: ${missingRequired.map(f => f.label).join(', ')}`,
-        variant: "destructive"
-      });
-      return;
-    }
-
-    Papa.parse(csvContent, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        if (results.errors.length > 0) {
-          setError("Error re-parsing CSV for conversion: " + results.errors[0].message);
-          toast({
-            title: "CSV Error",
-            description: "Error re-parsing CSV for conversion: " + results.errors[0].message,
-            variant: "destructive"
-          });
-          return;
-        }
-
-        const rawData = results.data;
-        const convertedData = rawData.map(row => {
-          const newRow: { [key: string]: any } = {};
-          expectedHeaders.forEach(expHeader => {
-            const mappedCsvHeader = mapping[expHeader.key];
-            if (mappedCsvHeader && row[mappedCsvHeader] !== undefined) {
-              newRow[expHeader.key] = row[mappedCsvHeader];
-            } else if (expHeader.defaultValue !== undefined) {
-              newRow[expHeader.key] = expHeader.defaultValue;
-            } else {
-              newRow[expHeader.key] = '';
-            }
-          });
-          return newRow;
-        });
-
-        const finalCsv = Papa.unparse(convertedData, {
-          header: true,
-          columns: expectedHeaders.map(h => h.key)
-        });
-
-        onMappingComplete(finalCsv);
-      },
-    });
-  };
-
-  const handlePreviewMappedData = () => {
-    setError(null);
-    const mappedPreview = previewData.map(row => {
-      const newRow: { [key: string]: any } = {};
-      expectedHeaders.forEach(expHeader => {
-        const mappedCsvHeader = mapping[expHeader.key];
-        if (mappedCsvHeader && row[mappedCsvHeader] !== undefined) {
-          newRow[expHeader.key] = row[mappedCsvHeader];
-        } else if (expHeader.defaultValue !== undefined) {
-          newRow[expHeader.key] = expHeader.defaultValue;
-        } else {
-          newRow[expHeader.key] = '';
-        }
-      });
-      return newRow;
-    });
-    setPreviewData(mappedPreview);
-    toast({
-      title: "Preview Updated",
-      description: "Preview updated with current mapping."
-    });
-  };
-
-  return (
-    <Card className="p-6">
-      <CardContent>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <FileText className="h-6 w-6 text-blue-600" />
-            Map CSV Headers
-          </h2>
-          <Button variant="outline" onClick={onCancel} className="flex items-center gap-2">
-            <X className="h-4 w-4" /> Cancel
-          </Button>
-        </div>
-
-        {error && (
-          <Alert className="border-red-200 bg-red-50 mb-6">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800">
-              {error}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        <div className="space-y-6 mb-8">
-          <p className="text-gray-700">
-            Please map your CSV columns to the required fields below.
-            <span className="font-semibold text-blue-600"> Required fields are marked with an asterisk (*).</span>
-          </p>
-
-          {expectedHeaders.map((expHeader) => (
-            <div key={expHeader.key} className="grid grid-cols-1 md:grid-cols-3 items-center gap-4">
-              <Label htmlFor={`map-${expHeader.key}`} className="font-semibold text-gray-700">
-                {expHeader.label} {expHeader.required && <span className="text-red-500">*</span>}
-              </Label>
-              <Select
-                value={mapping[expHeader.key] || ''}
-                onValueChange={(value) => handleMappingChange(expHeader.key, value)}
-              >
-                <SelectTrigger id={`map-${expHeader.key}`} className="w-full col-span-2">
-                  <SelectValue placeholder={`Select column for ${expHeader.label}`} />
-                </SelectTrigger>
-                <SelectContent>
-                  {csvHeaders.map(csvH => (
-                    <SelectItem key={csvH} value={csvH}>
-                      {csvH}
-                    </SelectItem>
-                  ))}
-                  {expHeader.defaultValue !== undefined && (
-                    <SelectItem value="" className="italic text-gray-500">
-                      (Use default: {String(expHeader.defaultValue)})
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          ))}
-        </div>
-
-        <div className="mb-8">
-          <Button onClick={handlePreviewMappedData} className="w-full mb-4 bg-gray-200 text-gray-800 hover:bg-gray-300">
-            Preview Mapped Data
-          </Button>
-          <h3 className="text-lg font-semibold mb-2">Data Preview (First {previewData.length} rows)</h3>
-          <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  {expectedHeaders.map(header => (
-                    <th key={header.key} className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      {header.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {previewData.map((row, rowIndex) => (
-                  <tr key={rowIndex}>
-                    {expectedHeaders.map(expHeader => {
-                      const mappedValue = row[expHeader.key] !== undefined ? row[expHeader.key] : '';
-                      return (
-                        <td key={`${rowIndex}-${expHeader.key}`} className="px-4 py-2 whitespace-nowrap text-sm text-gray-800">
-                          {String(mappedValue)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-                {previewData.length === 0 && (
-                  <tr>
-                    <td colSpan={expectedHeaders.length} className="px-4 py-2 text-center text-sm text-gray-500">
-                      No data to preview.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <Button
-          onClick={handleCompleteMapping}
-          disabled={csvHeaders.length === 0 || error !== null}
-          className="w-full bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white py-3 text-lg font-bold shadow-md transform hover:scale-105 transition-all duration-200"
-        >
-          <Check className="mr-2 h-5 w-5" />
-          Complete Mapping & Proceed
-        </Button>
-      </CardContent>
-    </Card>
-  );
-};
+import { toast } from '@/components/ui/sonner';
+import { addressService, SavedAddress } from '@/services/AddressService';
+import CsvHeaderMapper from './CsvHeaderMapper';
 
 export interface BulkUploadFormProps {
   onUploadSuccess: (results: any) => void;
@@ -293,29 +28,52 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   progress = 0,
   handleUpload
 }) => {
-  const { addresses, selectedAddress, isLoading, isUpdating, addressCount, ADDRESS_LIMIT } = usePickupAddresses();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [csvContent, setCsvContent] = useState<string>('');
   const [dragActive, setDragActive] = useState(false);
+  const [availableAddresses, setAvailableAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
+  const [addressesLoaded, setAddressesLoaded] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [currentStep, setCurrentStep] = useState<UploadStep>('select');
 
   useEffect(() => {
-    if (addresses.length > 0 && !selectedAddressId) {
-      const defaultAddress = addresses.find(addr => addr.is_default_from);
-      if (defaultAddress) {
-        setSelectedAddressId(defaultAddress.id.toString());
-        onPickupAddressSelect(defaultAddress);
-      } else {
-        setSelectedAddressId(addresses[0].id.toString());
-        onPickupAddressSelect(addresses[0]);
+    const loadAddresses = async () => {
+      try {
+        console.log('Loading addresses in BulkUploadForm...');
+        const addresses = await addressService.getSavedAddresses();
+        console.log('Loaded addresses:', addresses);
+        setAvailableAddresses(addresses);
+
+        const defaultAddress = addresses.find(addr => addr.is_default_from);
+        if (defaultAddress) {
+          console.log('Found default address:', defaultAddress);
+          setSelectedAddressId(defaultAddress.id.toString());
+          onPickupAddressSelect(defaultAddress);
+        } else if (addresses.length > 0) {
+          console.log('Using first available address:', addresses[0]);
+          setSelectedAddressId(addresses[0].id.toString());
+          onPickupAddressSelect(addresses[0]);
+        } else {
+          console.log('No addresses available');
+          toast.error('No pickup addresses found. Please add a pickup address in Settings first.');
+        }
+
+        setAddressesLoaded(true);
+      } catch (error) {
+        console.error('Error loading addresses:', error);
+        toast.error('Failed to load pickup addresses. Please check your settings.');
+        setAddressesLoaded(true);
       }
-    }
-  }, [addresses, selectedAddressId, onPickupAddressSelect]);
+    };
+
+    loadAddresses();
+  }, [onPickupAddressSelect]);
 
   const handleAddressChange = (addressId: string) => {
+    console.log('Address changed to:', addressId);
     setSelectedAddressId(addressId);
-    const selectedAddress = addresses.find(addr => addr.id.toString() === addressId);
+    const selectedAddress = availableAddresses.find(addr => addr.id.toString() === addressId);
     if (selectedAddress) {
       onPickupAddressSelect(selectedAddress);
     }
@@ -323,71 +81,55 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   const validateCSVFile = (file: File): boolean => {
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      toast({
-        title: "Invalid File Type",
-        description: "Please upload a CSV file",
-        variant: "destructive"
-      });
+      toast.error('Please upload a CSV file');
       return false;
     }
+
     if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "File Too Large",
-        description: "File is too large. Maximum size is 10MB.",
-        variant: "destructive"
-      });
+      toast.error('File is too large. Maximum size is 10MB.');
       return false;
     }
+
     if (file.size === 0) {
-      toast({
-        title: "Empty File",
-        description: "The CSV file is empty. Please upload a valid CSV file.",
-        variant: "destructive"
-      });
+      toast.error('The CSV file is empty. Please upload a valid CSV file.');
       return false;
     }
+
     return true;
   };
 
   const processFile = async (file: File) => {
+    console.log('Processing file:', file.name);
+    
     if (!validateCSVFile(file)) {
       return false;
     }
 
     setSelectedFile(file);
+    
     try {
       const text = await file.text();
+      console.log('CSV content length:', text.length);
+      
       if (text.trim().length === 0) {
-        toast({
-          title: "Empty File",
-          description: "The CSV file appears to be empty.",
-          variant: "destructive"
-        });
+        toast.error('The CSV file appears to be empty.');
         return false;
       }
+
       const lines = text.split('\n').filter(line => line.trim() !== '');
       if (lines.length < 2) {
-        toast({
-          title: "Invalid CSV",
-          description: "CSV file must have at least a header row and one data row.",
-          variant: "destructive"
-        });
+        toast.error('CSV file must have at least a header row and one data row.');
         return false;
       }
+
+      console.log('CSV validation passed, lines:', lines.length);
       setCsvContent(text);
       setCurrentStep('mapping');
-      toast({
-        title: "File Loaded",
-        description: "CSV file loaded! Now let's map the headers with AI assistance."
-      });
+      toast.success('CSV file loaded! Now let\'s map the headers with AI assistance.');
       return true;
     } catch (error) {
       console.error('Error reading CSV file:', error);
-      toast({
-        title: "File Error",
-        description: "Error reading CSV file. Please make sure it's a valid CSV file.",
-        variant: "destructive"
-      });
+      toast.error('Error reading CSV file. Please make sure it\'s a valid CSV file.');
       return false;
     }
   };
@@ -406,6 +148,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
+
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       await processFile(e.dataTransfer.files[0]);
     }
@@ -418,28 +161,22 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   };
 
   const handleMappingComplete = async (convertedCsv: string) => {
+    console.log('Header mapping completed, processing CSV...');
     setCurrentStep('processing');
+    
     try {
       const blob = new Blob([convertedCsv], { type: 'text/csv' });
       const convertedFile = new File([blob], selectedFile?.name || 'converted.csv', { type: 'text/csv' });
+      
       if (handleUpload) {
         await handleUpload(convertedFile);
         onUploadSuccess({});
-        setCurrentStep('select');
-        setSelectedFile(null);
-        setCsvContent('');
-        const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
       }
     } catch (error) {
-      console.error('Upload failed after mapping:', error);
+      console.error('Upload failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Upload failed';
       onUploadFail(errorMessage);
-      toast({
-        title: "Upload Failed",
-        description: errorMessage,
-        variant: "destructive"
-      });
+      toast.error(errorMessage);
       setCurrentStep('select');
     }
   };
@@ -448,12 +185,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     setCurrentStep('select');
     setSelectedFile(null);
     setCsvContent('');
-    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
-    toast({
-      title: "Upload Cancelled",
-      description: "CSV upload cancelled. You can select a new file."
-    });
+    toast.info('CSV upload cancelled. You can select a new file.');
   };
 
   // Render header mapping step
@@ -466,7 +198,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
           </div>
           <h2 className="text-3xl font-bold text-gray-900 mb-4">AI Header Mapping</h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Our advanced AI is analyzing your CSV headers and automatically mapping them to the correct shipping format.
+            Our advanced AI is analyzing your CSV headers and automatically mapping them to the correct shipping format. 
             This ensures perfect compatibility with our shipping system.
           </p>
           <div className="flex items-center justify-center mt-6 space-x-2">
@@ -474,7 +206,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
             <span className="text-sm font-medium text-purple-600">Smart mapping in progress...</span>
           </div>
         </div>
-
+        
         <div className="bg-white rounded-xl shadow-lg border">
           <CsvHeaderMapper
             csvContent={csvContent}
@@ -498,7 +230,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
           <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-8">
             Creating shipments and fetching live rates from multiple carriers including UPS, USPS, FedEx, and DHL...
           </p>
-
+          
           {progress > 0 && (
             <div className="max-w-md mx-auto">
               <div className="flex justify-between text-sm text-gray-600 mb-2">
@@ -513,7 +245,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
               </div>
             </div>
           )}
-
+          
           <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
             <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg">
               <CheckCircle className="w-5 h-5 text-blue-600" />
@@ -552,19 +284,19 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
               <p className="text-sm text-gray-600 mb-4">
                 Choose the address where packages will be picked up from
               </p>
-
-              {isLoading ? (
+              
+              {!addressesLoaded ? (
                 <div className="flex items-center space-x-3 p-4 bg-white rounded-lg border">
                   <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                   <span className="text-sm text-gray-600">Loading your addresses...</span>
                 </div>
-              ) : addresses.length > 0 ? (
+              ) : availableAddresses.length > 0 ? (
                 <Select value={selectedAddressId} onValueChange={handleAddressChange}>
                   <SelectTrigger className="bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors">
                     <SelectValue placeholder="Select pickup address" />
                   </SelectTrigger>
                   <SelectContent>
-                    {addresses.map((address) => (
+                    {availableAddresses.map((address) => (
                       <SelectItem key={address.id} value={address.id.toString()}>
                         <div className="flex flex-col py-1">
                           <span className="font-medium text-gray-900">{address.name}</span>
@@ -614,7 +346,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
               onChange={handleFileSelect}
               className="hidden"
             />
-
+            
             <div className="space-y-6">
               {selectedFile ? (
                 <>
@@ -666,12 +398,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
             <div className="flex items-center justify-center space-x-4 mt-6">
               <Button
                 type="button"
-                onClick={() => {
-                  setSelectedFile(null);
-                  setCsvContent('');
-                  const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-                  if (fileInput) fileInput.value = '';
-                }}
+                onClick={() => document.getElementById('file-upload')?.click()}
                 variant="outline"
                 className="border-2 hover:border-blue-300"
               >
@@ -679,7 +406,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
               </Button>
               <Button
                 onClick={() => setCurrentStep('mapping')}
-                disabled={!selectedAddressId || isLoading || isUploading}
+                disabled={!selectedAddressId || !addressesLoaded}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 <Brain className="mr-2 h-4 w-4" />
