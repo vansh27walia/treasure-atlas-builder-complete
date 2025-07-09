@@ -32,7 +32,6 @@ const FullScreenBulkUpload: React.FC = () => {
   });
   
   const {
-    file,
     isUploading,
     isPaying,
     isCreatingLabels,
@@ -279,8 +278,8 @@ const FullScreenBulkUpload: React.FC = () => {
                 sortField={sortField}
                 sortDirection={sortDirection}
                 onSortChange={(field, direction) => {
-                  setSortField(field as any);
-                  setSortDirection(direction as any);
+                  setSortField(field as "recipient" | "rate" | "carrier");
+                  setSortDirection(direction as "asc" | "desc");
                 }}
                 selectedCarrier={selectedCarrierFilter}
                 onCarrierFilterChange={setSelectedCarrierFilter}

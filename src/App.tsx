@@ -1,24 +1,25 @@
+
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from '@/components/ui/sonner';
 import { AuthProvider } from './contexts/AuthContext';
-import { ProtectedRoute } from './components/ProtectedRoute';
+import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
-import Settings from './pages/Settings';
-import BillingPage from './pages/BillingPage';
+import SettingsPage from './pages/SettingsPage';
+import BulkUploadPage from './pages/BulkUploadPage';
 import OnboardingPage from './pages/OnboardingPage';
 import { OnboardingProvider } from './contexts/OnboardingContext';
 import TrackingPage from './pages/TrackingPage';
-import AddressBookPage from './pages/AddressBookPage';
-import APIKeysPage from './pages/APIKeysPage';
 import NotFound from './pages/NotFound';
-import { QueryClient } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import EnhancedBulkUploadPage from './pages/EnhancedBulkUploadPage';
+
+const queryClient = new QueryClient();
 
 function App() {
   return (
     <BrowserRouter>
-      <QueryClient>
+      <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <OnboardingProvider>
             <Toaster />
@@ -31,27 +32,17 @@ function App() {
               } />
               <Route path="/settings" element={
                 <ProtectedRoute>
-                  <Settings />
+                  <SettingsPage />
                 </ProtectedRoute>
               } />
-              <Route path="/billing" element={
+              <Route path="/bulk-upload-old" element={
                 <ProtectedRoute>
-                  <BillingPage />
+                  <BulkUploadPage />
                 </ProtectedRoute>
               } />
               <Route path="/tracking" element={
                 <ProtectedRoute>
                   <TrackingPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/address-book" element={
-                <ProtectedRoute>
-                  <AddressBookPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/api-keys" element={
-                <ProtectedRoute>
-                  <APIKeysPage />
                 </ProtectedRoute>
               } />
               
@@ -65,7 +56,7 @@ function App() {
             </Routes>
           </OnboardingProvider>
         </AuthProvider>
-      </QueryClient>
+      </QueryClientProvider>
     </BrowserRouter>
   );
 }
