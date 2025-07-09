@@ -1,13 +1,13 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Upload, FileText, MapPin, AlertCircle, Loader2 } from 'lucide-react';
+import { Upload, FileText, MapPin, AlertCircle, Loader2, Brain } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
 import { addressService, SavedAddress } from '@/services/AddressService';
+import CsvHeaderMapper from './CsvHeaderMapper';
 
 export interface BulkUploadFormProps {
   onUploadSuccess: (results: any) => void;
@@ -18,6 +18,8 @@ export interface BulkUploadFormProps {
   handleUpload?: (file: File) => Promise<any>;
 }
 
+type UploadStep = 'select' | 'mapping' | 'processing';
+
 const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   onUploadSuccess,
   onUploadFail,
@@ -27,11 +29,13 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   handleUpload
 }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [csvContent, setCsvContent] = useState<string>('');
   const [dragActive, setDragActive] = useState(false);
   const [availableAddresses, setAvailableAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [addressesLoaded, setAddressesLoaded] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [currentStep, setCurrentStep] = useState<UploadStep>('select');
 
   // Load addresses when component mounts
   useEffect(() => {
@@ -108,7 +112,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
     setSelectedFile(file);
     
-    // Read and validate CSV content
+    // Read CSV content
     try {
       const text = await file.text();
       console.log('CSV content length:', text.length);
@@ -126,7 +130,9 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       }
 
       console.log('CSV validation passed, lines:', lines.length);
-      toast.success('CSV file loaded successfully!');
+      setCsvContent(text);
+      setCurrentStep('mapping');
+      toast.success('CSV file loaded! Now let\'s map the headers with AI assistance.');
       return true;
     } catch (error) {
       console.error('Error reading CSV file:', error);
@@ -161,23 +167,17 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     }
   };
 
-  const handleUploadClick = async () => {
-    if (!selectedFile) {
-      toast.error('Please select a CSV file first');
-      return;
-    }
-
-    if (!selectedAddressId || !availableAddresses.find(addr => addr.id.toString() === selectedAddressId)) {
-      toast.error('Please select a valid pickup address');
-      return;
-    }
-
-    setUploading(true);
-    console.log('Starting upload with file:', selectedFile.name);
+  const handleMappingComplete = async (convertedCsv: string) => {
+    console.log('Header mapping completed, processing CSV...');
+    setCurrentStep('processing');
     
     try {
+      // Create a temporary file with the converted CSV content
+      const blob = new Blob([convertedCsv], { type: 'text/csv' });
+      const convertedFile = new File([blob], selectedFile?.name || 'converted.csv', { type: 'text/csv' });
+      
       if (handleUpload) {
-        await handleUpload(selectedFile);
+        await handleUpload(convertedFile);
         onUploadSuccess({});
       }
     } catch (error) {
@@ -185,11 +185,69 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
       const errorMessage = error instanceof Error ? error.message : 'Upload failed';
       onUploadFail(errorMessage);
       toast.error(errorMessage);
-    } finally {
-      setUploading(false);
+      setCurrentStep('select');
     }
   };
 
+  const handleMappingCancel = () => {
+    setCurrentStep('select');
+    setSelectedFile(null);
+    setCsvContent('');
+    toast.info('CSV upload cancelled. You can select a new file.');
+  };
+
+  const resetForm = () => {
+    setCurrentStep('select');
+    setSelectedFile(null);
+    setCsvContent('');
+    setUploading(false);
+  };
+
+  // Render header mapping step
+  if (currentStep === 'mapping' && csvContent) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <Brain className="mx-auto h-12 w-12 text-blue-600 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Header Mapping</h3>
+          <p className="text-gray-600">
+            Our AI will automatically map your CSV headers to the required shipping format
+          </p>
+        </div>
+        
+        <CsvHeaderMapper
+          csvContent={csvContent}
+          onMappingComplete={handleMappingComplete}
+          onCancel={handleMappingCancel}
+        />
+      </div>
+    );
+  }
+
+  // Render processing step
+  if (currentStep === 'processing') {
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <Loader2 className="mx-auto h-12 w-12 text-blue-600 animate-spin mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Processing Your Shipments</h3>
+          <p className="text-gray-600">
+            Creating shipments and fetching live rates from carriers...
+          </p>
+          {progress > 0 && (
+            <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Render file selection step (default)
   return (
     <div className="space-y-6">
       {/* Pickup Address Selection */}
@@ -267,7 +325,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                   {selectedFile.name}
                 </p>
                 <p className="text-xs text-green-600">
-                  {(selectedFile.size / 1024).toFixed(1)} KB
+                  {(selectedFile.size / 1024).toFixed(1)} KB - Ready for AI header mapping
                 </p>
               </>
             ) : (
@@ -299,39 +357,25 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
             >
               Choose Different File
             </Button>
+            <Button
+              onClick={() => setCurrentStep('mapping')}
+              disabled={!selectedAddressId || !addressesLoaded}
+              size="sm"
+            >
+              <Brain className="mr-2 h-4 w-4" />
+              Continue to AI Mapping
+            </Button>
           </div>
         )}
       </div>
 
-      {/* Upload Button */}
-      <Button
-        onClick={handleUploadClick}
-        disabled={!selectedFile || !selectedAddressId || uploading || isUploading || !addressesLoaded}
-        className="w-full"
-        size="lg"
-      >
-        {uploading || isUploading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Processing CSV ({progress}%)...
-          </>
-        ) : (
-          <>
-            <Upload className="mr-2 h-4 w-4" />
-            Process CSV File
-          </>
-        )}
-      </Button>
-
-      {/* Progress indicator */}
-      {(uploading || isUploading) && progress > 0 && (
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      )}
+      {/* Info about the process */}
+      <Alert className="border-blue-200 bg-blue-50">
+        <Brain className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-blue-800">
+          <strong>Smart CSV Processing:</strong> Our AI will analyze your CSV headers and automatically map them to the correct shipping format. No manual field mapping required!
+        </AlertDescription>
+      </Alert>
     </div>
   );
 };
