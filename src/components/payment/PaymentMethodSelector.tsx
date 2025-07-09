@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -5,6 +6,7 @@ import { Plus, CreditCard, Building2, Smartphone, Globe, CheckCircle, AlertCircl
 import { supabase } from '@/integrations/supabase/client';
 import FullScreenCheckoutModal from './FullScreenCheckoutModal';
 import { toast } from '@/components/ui/sonner';
+
 interface PaymentMethod {
   id: string;
   brand: string;
@@ -14,6 +16,7 @@ interface PaymentMethod {
   is_default: boolean;
   stripe_payment_method_id: string;
 }
+
 interface PaymentMethodSelectorProps {
   selectedPaymentMethod: string | null;
   onPaymentMethodChange: (paymentMethodId: string) => void;
@@ -21,6 +24,7 @@ interface PaymentMethodSelectorProps {
   amount: number;
   description?: string;
 }
+
 const getPaymentMethodIcon = (brand: string) => {
   const brandLower = brand?.toLowerCase();
   if (['visa', 'mastercard', 'amex', 'discover'].includes(brandLower)) {
@@ -33,6 +37,7 @@ const getPaymentMethodIcon = (brand: string) => {
     return <Globe className="w-4 h-4" />;
   }
 };
+
 const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   selectedPaymentMethod,
   onPaymentMethodChange,
@@ -44,6 +49,7 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentSelectedMethod, setCurrentSelectedMethod] = useState<string | null>(selectedPaymentMethod);
+
   const fetchPaymentMethods = async () => {
     try {
       const {
@@ -66,13 +72,16 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       console.error('Error fetching payment methods:', error);
     }
   };
+
   useEffect(() => {
     fetchPaymentMethods();
   }, []);
+
   const handlePaymentMethodChange = (methodId: string) => {
     setCurrentSelectedMethod(methodId);
     onPaymentMethodChange(methodId);
   };
+
   const handlePayment = async () => {
     if (!currentSelectedMethod) {
       toast.error('Please select a payment method');
@@ -131,6 +140,7 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       setIsProcessing(false);
     }
   };
+
   const formatPaymentMethodDisplay = (method: PaymentMethod) => {
     if (method.brand === 'us_bank_account') {
       return `Bank •••• ${method.last4}`;
@@ -140,6 +150,80 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       return `${method.brand?.toUpperCase()} •••• ${method.last4}`;
     }
   };
-  return;
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700">Payment Method</label>
+        <Select value={currentSelectedMethod || ''} onValueChange={handlePaymentMethodChange}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select a payment method" />
+          </SelectTrigger>
+          <SelectContent>
+            {paymentMethods.map((method) => (
+              <SelectItem key={method.id} value={method.id}>
+                <div className="flex items-center space-x-2">
+                  {getPaymentMethodIcon(method.brand)}
+                  <span>{formatPaymentMethodDisplay(method)}</span>
+                  {method.is_default && (
+                    <CheckCircle className="w-3 h-3 text-green-500" />
+                  )}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {paymentMethods.length === 0 && (
+        <div className="text-center py-4">
+          <AlertCircle className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+          <p className="text-sm text-gray-500">No payment methods found</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsModalOpen(true)}
+            className="mt-2"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Payment Method
+          </Button>
+        </div>
+      )}
+
+      <div className="flex space-x-2">
+        <Button
+          onClick={handlePayment}
+          disabled={!currentSelectedMethod || isProcessing}
+          className="flex-1"
+        >
+          {isProcessing ? (
+            <div className="flex items-center">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+              Processing...
+            </div>
+          ) : (
+            `Pay $${amount.toFixed(2)}`
+          )}
+        </Button>
+
+        {paymentMethods.length > 0 && (
+          <Button
+            variant="outline"
+            onClick={() => setIsModalOpen(true)}
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+        )}
+      </div>
+
+      <FullScreenCheckoutModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onPaymentMethodAdded={fetchPaymentMethods}
+      />
+    </div>
+  );
 };
+
 export default PaymentMethodSelector;
