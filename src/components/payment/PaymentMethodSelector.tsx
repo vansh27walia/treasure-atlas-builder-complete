@@ -152,7 +152,79 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   };
 
   return (
-    
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Select Payment Method</h3>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" />
+          Add Payment Method
+        </Button>
+      </div>
+
+      {paymentMethods.length > 0 ? (
+        <div className="space-y-3">
+          <Select value={currentSelectedMethod || ''} onValueChange={handlePaymentMethodChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Choose a payment method" />
+            </SelectTrigger>
+            <SelectContent>
+              {paymentMethods.map((method) => (
+                <SelectItem key={method.id} value={method.id}>
+                  <div className="flex items-center gap-3 w-full">
+                    {getPaymentMethodIcon(method.brand)}
+                    <span className="flex-1">{formatPaymentMethodDisplay(method)}</span>
+                    {method.is_default && (
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                    )}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button
+            onClick={handlePayment}
+            disabled={!currentSelectedMethod || isProcessing}
+            className="w-full"
+          >
+            {isProcessing ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Processing...
+              </div>
+            ) : (
+              `Pay $${amount.toFixed(2)}`
+            )}
+          </Button>
+        </div>
+      ) : (
+        <div className="text-center py-6 space-y-3">
+          <AlertCircle className="w-12 h-12 text-gray-400 mx-auto" />
+          <div className="space-y-1">
+            <p className="text-gray-600">No payment methods found</p>
+            <p className="text-sm text-gray-500">Add a payment method to continue</p>
+          </div>
+          <Button onClick={() => setIsModalOpen(true)} className="mt-4">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Payment Method
+          </Button>
+        </div>
+      )}
+
+      <FullScreenCheckoutModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={() => {
+          setIsModalOpen(false);
+          fetchPaymentMethods();
+        }}
+      />
+    </div>
   );
 };
 
