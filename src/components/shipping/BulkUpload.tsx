@@ -160,15 +160,9 @@ const BulkUpload: React.FC = () => {
             />
           </div>
         ) : (
-          // Results View Stage
+          // Results View Stage - Use BulkUploadView without props
           <div className="w-full">
-            <BulkUploadView
-              uploadResults={uploadResults}
-              onBatchProcessed={handleBatchProcessed}
-              selectedPickupAddress={selectedPickupAddress}
-              onStepComplete={completeStep}
-              onStepChange={moveToStep}
-            />
+            <BulkUploadView />
           </div>
         )}
       </div>
