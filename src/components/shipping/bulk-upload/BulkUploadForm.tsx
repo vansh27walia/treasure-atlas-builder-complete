@@ -293,7 +293,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   progress = 0,
   handleUpload
 }) => {
-  const { addresses, loading: addressesLoading } = usePickupAddresses();
+  const { addresses, selectedAddress, isLoading, isUpdating, addressCount, ADDRESS_LIMIT } = usePickupAddresses();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [csvContent, setCsvContent] = useState<string>('');
   const [dragActive, setDragActive] = useState(false);
@@ -553,7 +553,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                 Choose the address where packages will be picked up from
               </p>
 
-              {addressesLoading ? (
+              {isLoading ? (
                 <div className="flex items-center space-x-3 p-4 bg-white rounded-lg border">
                   <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
                   <span className="text-sm text-gray-600">Loading your addresses...</span>
