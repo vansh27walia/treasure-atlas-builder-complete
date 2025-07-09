@@ -7,8 +7,6 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
 import SettingsPage from './pages/SettingsPage';
 import BulkUploadPage from './pages/BulkUploadPage';
-import OnboardingPage from './pages/OnboardingPage';
-import { OnboardingProvider } from './contexts/OnboardingContext';
 import TrackingPage from './pages/TrackingPage';
 import NotFound from './pages/NotFound';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -21,40 +19,38 @@ function App() {
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <OnboardingProvider>
-            <Toaster />
-            <Routes>
-              <Route path="/" element={<OnboardingPage />} />
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/settings" element={
-                <ProtectedRoute>
-                  <SettingsPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/bulk-upload-old" element={
-                <ProtectedRoute>
-                  <BulkUploadPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/tracking" element={
-                <ProtectedRoute>
-                  <TrackingPage />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="/bulk-upload" element={
-                <ProtectedRoute>
-                  <EnhancedBulkUploadPage />
-                </ProtectedRoute>
-              } />
-              
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </OnboardingProvider>
+          <Toaster />
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/bulk-upload-old" element={
+              <ProtectedRoute>
+                <BulkUploadPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/tracking" element={
+              <ProtectedRoute>
+                <TrackingPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/bulk-upload" element={
+              <ProtectedRoute>
+                <EnhancedBulkUploadPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </AuthProvider>
       </QueryClientProvider>
     </BrowserRouter>
