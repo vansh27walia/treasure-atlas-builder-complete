@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import * as Papa from 'papaparse';
 import { Upload, FileText, MapPin, AlertCircle, Loader2, X, Check } from 'lucide-react';
@@ -281,7 +280,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   progress = 0,
   handleUpload
 }) => {
-  const { addresses: availableAddresses, loading: addressesLoading } = usePickupAddresses();
+  const { addresses: availableAddresses, isLoading: addressesLoading } = usePickupAddresses();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
