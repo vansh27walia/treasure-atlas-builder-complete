@@ -189,7 +189,7 @@ const BulkUpload: React.FC = () => {
                 </div>}
               
               {uploadStatus === 'editing' && results && <div className="space-y-8">
-                  <div className="text-center py-6">
+                  <div className="text-center py-0">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
                       <Sparkles className="w-8 h-8 text-green-600" />
                     </div>
@@ -201,32 +201,7 @@ const BulkUpload: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
-                    <div className="flex items-center space-x-3">
-                      <FileText className="w-6 h-6 text-blue-600" />
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {processedShipmentsCount} Shipments Ready
-                        </h3>
-                        {isFetchingRates && <span className="inline-flex items-center text-sm text-blue-600">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                            Fetching live rates...
-                          </span>}
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-3">
-                      <Button variant="outline" onClick={handleDownloadTemplate} className="text-sm">
-                        <UploadCloud className="mr-2 h-4 w-4" />
-                        New Template
-                      </Button>
-                      
-                      <Button onClick={() => window.location.reload()} className="text-sm bg-blue-600 hover:bg-blue-700">
-                        <UploadCloud className="mr-2 h-4 w-4" />
-                        Upload New File
-                      </Button>
-                    </div>
-                  </div>
+                  
                   
                   <Alert className="border-blue-200 bg-blue-50">
                     <AlertCircle className="h-4 w-4 text-blue-600" />
