@@ -47,8 +47,8 @@ const BulkUploadProgressBar: React.FC<BulkUploadProgressBarProps> = ({
   };
 
   return (
-    <div className="w-full py-6 px-4">
-      <div className="flex items-center justify-between max-w-4xl mx-auto">
+    <div className="w-full py-8 px-4 bg-gradient-to-r from-blue-25 via-indigo-25 to-purple-25">
+      <div className="flex items-center justify-between max-w-5xl mx-auto">
         {steps.map((step, index) => {
           const status = getStepStatus(step.id);
           const Icon = step.icon;
@@ -57,29 +57,34 @@ const BulkUploadProgressBar: React.FC<BulkUploadProgressBarProps> = ({
             <div key={step.id} className="flex items-center flex-1">
               <div className="flex flex-col items-center">
                 <div className={`
-                  relative flex items-center justify-center w-12 h-12 rounded-full border-2 transition-all duration-300
+                  relative flex items-center justify-center w-16 h-16 rounded-full border-3 transition-all duration-500 shadow-lg
                   ${status === 'completed' 
-                    ? 'bg-green-500 border-green-500 text-white' 
+                    ? 'bg-gradient-to-br from-emerald-400 to-green-500 border-emerald-400 text-white shadow-emerald-200' 
                     : status === 'current'
-                    ? 'bg-blue-500 border-blue-500 text-white animate-pulse'
-                    : 'bg-gray-100 border-gray-300 text-gray-400'
+                    ? 'bg-gradient-to-br from-blue-400 to-indigo-500 border-blue-400 text-white animate-pulse shadow-blue-200'
+                    : 'bg-white border-gray-300 text-gray-400 shadow-gray-100'
                   }
                 `}>
                   {status === 'completed' ? (
-                    <CheckCircle className="w-6 h-6" />
+                    <CheckCircle className="w-8 h-8" />
                   ) : (
-                    <Icon className="w-6 h-6" />
+                    <Icon className="w-8 h-8" />
                   )}
                 </div>
                 
-                <div className="mt-3 text-center">
+                <div className="mt-4 text-center max-w-32">
                   <div className={`
-                    text-sm font-semibold
-                    ${status === 'current' ? 'text-blue-600' : status === 'completed' ? 'text-green-600' : 'text-gray-500'}
+                    text-base font-bold mb-1
+                    ${status === 'current' 
+                      ? 'text-blue-700' 
+                      : status === 'completed' 
+                      ? 'text-emerald-700' 
+                      : 'text-gray-500'
+                    }
                   `}>
                     {step.title}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1 hidden sm:block">
+                  <div className="text-xs text-gray-600 leading-tight hidden sm:block">
                     {step.description}
                   </div>
                 </div>
@@ -87,8 +92,11 @@ const BulkUploadProgressBar: React.FC<BulkUploadProgressBarProps> = ({
               
               {index < steps.length - 1 && (
                 <div className={`
-                  flex-1 h-0.5 mx-4 mt-[-24px] transition-all duration-300
-                  ${completedSteps.includes(step.id) ? 'bg-green-500' : 'bg-gray-300'}
+                  flex-1 h-1 mx-6 mt-[-32px] transition-all duration-500 rounded-full
+                  ${completedSteps.includes(step.id) 
+                    ? 'bg-gradient-to-r from-emerald-400 to-green-500 shadow-sm' 
+                    : 'bg-gray-200'
+                  }
                 `} />
               )}
             </div>
