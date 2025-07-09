@@ -679,7 +679,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
               </Button>
               <Button
                 onClick={() => setCurrentStep('mapping')}
-                disabled={!selectedAddressId || addressesLoading || isUploading}
+                disabled={!selectedAddressId || isLoading || isUploading}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 <Brain className="mr-2 h-4 w-4" />
