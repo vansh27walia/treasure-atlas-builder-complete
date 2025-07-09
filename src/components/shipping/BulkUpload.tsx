@@ -167,7 +167,9 @@ const BulkUpload: React.FC = () => {
 
         <div className="container mx-auto px-4 py-8">
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-            
+            <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg">
+              <BulkUploadHeader onDownloadTemplate={handleDownloadTemplate} />
+            </CardHeader>
             
             <CardContent className="p-8">
               {(uploadStatus === 'idle' || uploadStatus === 'uploading') && <div className="space-y-6">
