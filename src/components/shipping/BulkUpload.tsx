@@ -260,17 +260,7 @@ const BulkUpload: React.FC = () => {
                 </div>}
               
               {uploadStatus === 'success' && results && <div className="space-y-6">
-                  <div className="text-center py-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                      <Download className="w-8 h-8 text-green-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                      Labels Generated Successfully!
-                    </h2>
-                    <p className="text-gray-600">
-                      Your shipping labels are ready for download
-                    </p>
-                  </div>
+                  
 
                   {results.bulk_label_pdf_url && <div className="flex justify-center mb-6">
                       <Button onClick={() => setShowPrintPreview(true)} variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
