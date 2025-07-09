@@ -1,11 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CreditCard, Lock, X } from 'lucide-react';
+import { CreditCard, Lock, X, Plus } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
+import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
 
 interface StripePaymentModalProps {
   isOpen: boolean;
@@ -23,20 +24,43 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
   onPaymentSuccess
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [showPaymentMethods, setShowPaymentMethods] = useState(true);
 
-  const handlePayment = async () => {
+  const handlePaymentMethodChange = (paymentMethodId: string) => {
+    console.log('Selected payment method:', paymentMethodId);
+    setSelectedPaymentMethod(paymentMethodId);
+  };
+
+  const handlePaymentComplete = async (success: boolean) => {
+    if (success) {
+      console.log('Payment completed successfully');
+      toast.success('Payment completed successfully!');
+      onPaymentSuccess();
+      onClose();
+    } else {
+      toast.error('Payment failed. Please try again.');
+    }
+  };
+
+  const handleDirectPayment = async () => {
+    if (!selectedPaymentMethod) {
+      toast.error('Please select a payment method first');
+      return;
+    }
+
     setIsProcessing(true);
     
     try {
-      // For testing purposes, simulate payment process
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('Processing payment with method:', selectedPaymentMethod);
       
-      // In real implementation, call Stripe checkout here
-      const { data, error } = await supabase.functions.invoke('create-payment', {
+      const { data, error } = await supabase.functions.invoke('process-shipping-payment', {
         body: {
           amount: Math.round(totalAmount * 100), // Convert to cents
           shipmentCount,
-          currency: 'usd'
+          currency: 'usd',
+          paymentMethodId: selectedPaymentMethod,
+          description: `Batch Label Creation (${shipmentCount} labels)`
         }
       });
 
@@ -44,29 +68,17 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
         throw error;
       }
 
-      if (data?.url) {
-        // Open Stripe checkout in a popup
-        const popup = window.open(data.url, 'stripe-checkout', 'width=600,height=700');
-        
-        // Listen for popup close
-        const checkClosed = setInterval(() => {
-          if (popup?.closed) {
-            clearInterval(checkClosed);
-            // Check payment status and call success handler
-            onPaymentSuccess();
-            onClose();
-            toast.success('Payment completed successfully!');
-          }
-        }, 1000);
-      } else {
-        // For testing, simulate successful payment
+      if (data?.success) {
+        console.log('Payment processed successfully:', data);
         toast.success('Payment completed successfully!');
         onPaymentSuccess();
         onClose();
+      } else {
+        throw new Error(data?.message || 'Payment processing failed');
       }
     } catch (error) {
       console.error('Payment error:', error);
-      toast.error('Payment failed. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Payment failed. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -101,28 +113,37 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
               </div>
             </div>
           </Card>
-          
-          <div className="text-center">
-            <CreditCard className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-            <p className="text-gray-600 text-sm mb-4">
-              You will be redirected to Stripe's secure checkout to complete your payment.
-            </p>
-          </div>
+
+          {showPaymentMethods && (
+            <div className="space-y-4">
+              <h3 className="font-medium text-gray-900">Select Payment Method</h3>
+              <PaymentMethodSelector
+                selectedPaymentMethod={selectedPaymentMethod}
+                onPaymentMethodChange={handlePaymentMethodChange}
+                onPaymentComplete={handlePaymentComplete}
+                amount={totalAmount}
+                description={`Batch Label Creation (${shipmentCount} labels)`}
+              />
+            </div>
+          )}
           
           <div className="space-y-2">
             <Button
-              onClick={handlePayment}
-              disabled={isProcessing}
+              onClick={handleDirectPayment}
+              disabled={isProcessing || !selectedPaymentMethod}
               className="w-full bg-blue-600 hover:bg-blue-700"
               size="lg"
             >
               {isProcessing ? (
                 <div className="flex items-center">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Processing...
+                  Processing Payment...
                 </div>
               ) : (
-                `Pay $${totalAmount.toFixed(2)}`
+                <>
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Pay ${totalAmount.toFixed(2)}
+                </>
               )}
             </Button>
             
