@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
@@ -407,7 +408,7 @@ export class AddressService {
 
       // First try to get a single default address
       const { data, error } = await supabase
-        .from('saved_addresses')
+        .from('addresses')
         .select('*')
         .eq('user_id', user.user.id)
         .eq('is_default_from', true)
@@ -420,7 +421,7 @@ export class AddressService {
           console.log('Multiple or no default addresses found, getting first default address');
           
           const { data: multipleData, error: multipleError } = await supabase
-            .from('saved_addresses')
+            .from('addresses')
             .select('*')
             .eq('user_id', user.user.id)
             .eq('is_default_from', true)
@@ -431,14 +432,14 @@ export class AddressService {
             return null;
           }
 
-          return multipleData && multipleData.length > 0 ? multipleData[0] : null;
+          return multipleData && multipleData.length > 0 ? multipleData[0] as SavedAddress : null;
         }
         
         console.error('Error fetching default from address:', error);
         return null;
       }
 
-      return data;
+      return data as SavedAddress;
     } catch (error) {
       console.error('Error in getDefaultFromAddress:', error);
       return null;
