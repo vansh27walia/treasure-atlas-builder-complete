@@ -2,13 +2,11 @@
 import { useState, useMemo } from 'react';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
 
-export type SortField = 'recipient' | 'rate' | 'carrier';
-
 export const useShipmentFiltering = (
   results: BulkUploadResult | null
 ) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<SortField>('recipient');
+  const [sortField, setSortField] = useState<'recipient' | 'rate' | 'carrier'>('recipient');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedCarrierFilter, setSelectedCarrierFilter] = useState<string | null>(null);
 
