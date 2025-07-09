@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -181,6 +182,7 @@ const BulkUpload: React.FC = () => {
 
   const handlePaymentSuccess = () => {
     toast.success('Payment successful! Labels are now available for download.');
+    // You can trigger automatic label download here if needed
   };
 
   return (
@@ -188,15 +190,36 @@ const BulkUpload: React.FC = () => {
       <Card className="p-6 border-2 border-gray-200 shadow-sm w-full">
         <BulkUploadHeader onDownloadTemplate={handleDownloadTemplate} />
         
-        {(uploadStatus === 'idle' || uploadStatus === 'uploading') && (
+        {uploadStatus === 'idle' && (
           <BulkUploadForm 
-            onUploadSuccess={handleUploadSuccess}
-            onUploadFail={handleUploadFail}
-            onPickupAddressSelect={handlePickupAddressSelect}
+            onUploadSuccess={() => console.log('Upload success')}
+            onUploadFail={(error) => console.error('Upload failed:', error)}
+            onPickupAddressSelect={(address) => {
+              if (address && address.id !== pickupAddress?.id) {
+                setPickupAddress(address);
+                const now = Date.now();
+                if (now - lastToastRef.current > 2000) {
+                  toast.success(`Selected pickup address: ${address.name || address.street1}`);
+                  lastToastRef.current = now;
+                }
+              }
+            }}
             isUploading={isUploading}
             progress={progress}
             handleUpload={handleUpload}
           />
+        )}
+        
+        {isUploading && (
+          <div className="my-6">
+            <h3 className="font-medium mb-2">Processing your shipments</h3>
+            <Progress value={progress} className="h-2" />
+            <p className="text-sm text-gray-500 mt-2">
+              {progress < 100 
+                ? `Processing shipments (${progress}%)...` 
+                : 'Processing complete! Preparing shipment options...'}
+            </p>
+          </div>
         )}
         
         {uploadStatus === 'editing' && results && (
@@ -227,7 +250,7 @@ const BulkUpload: React.FC = () => {
             
             <Alert className="mb-6">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Review Your Shipments</AlertTitle>
+              <AlertTitle>Important</AlertTitle>
               <AlertDescription>
                 Select carrier and service options for each shipment. You can edit address details or remove shipments before proceeding.
               </AlertDescription>

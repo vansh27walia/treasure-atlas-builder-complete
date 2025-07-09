@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SavedAddress {
@@ -395,57 +394,35 @@ export class AddressService {
       return false;
     }
   }
-
+  
   /**
    * Get the default shipping from address for the current user
    */
   public async getDefaultFromAddress(): Promise<SavedAddress | null> {
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user?.user?.id) {
-        throw new Error('User not authenticated');
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) {
+        return null;
       }
-
-      // First try to get a single default address
+      
       const { data, error } = await supabase
         .from('addresses')
         .select('*')
-        .eq('user_id', user.user.id)
+        .eq('user_id', session.session.user.id)
         .eq('is_default_from', true)
-        .limit(1)
-        .single();
-
+        .maybeSingle();
+      
       if (error) {
-        if (error.code === 'PGRST116') {
-          // Multiple or no rows found, let's handle this gracefully
-          console.log('Multiple or no default addresses found, getting first default address');
-          
-          const { data: multipleData, error: multipleError } = await supabase
-            .from('addresses')
-            .select('*')
-            .eq('user_id', user.user.id)
-            .eq('is_default_from', true)
-            .limit(1);
-
-          if (multipleError) {
-            console.error('Error fetching default addresses:', multipleError);
-            return null;
-          }
-
-          return multipleData && multipleData.length > 0 ? multipleData[0] as SavedAddress : null;
-        }
-        
-        console.error('Error fetching default from address:', error);
-        return null;
+        throw error;
       }
-
-      return data as SavedAddress;
+      
+      return data as SavedAddress | null;
     } catch (error) {
-      console.error('Error in getDefaultFromAddress:', error);
+      console.error('Error fetching default from address:', error);
       return null;
     }
   }
-
+  
   /**
    * Get the default shipping to address for the current user
    */
