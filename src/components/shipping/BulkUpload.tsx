@@ -169,7 +169,7 @@ const BulkUpload: React.FC = () => {
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             
             
-            <CardContent className="p-8">
+            <CardContent className="p-8 rounded-xl">
               {(uploadStatus === 'idle' || uploadStatus === 'uploading') && <div className="space-y-6">
                   {uploadStatus === 'idle' && <div className="text-center py-0">
                       <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
