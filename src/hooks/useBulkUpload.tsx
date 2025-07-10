@@ -434,6 +434,6 @@ export const useBulkUpload = () => {
     handleBulkApplyCarrier,
     handleClearBatchError,
     handleOpenBatchPrintPreview,
-    handlePaymentSuccess
+    handlePaymentSuccess // Add this missing function
   };
 };
