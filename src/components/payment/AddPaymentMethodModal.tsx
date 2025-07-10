@@ -2,176 +2,140 @@
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { CreditCard, Loader2 } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
+
+const stripePromise = loadStripe(process.env.NODE_ENV === 'production' 
+  ? 'pk_live_your_publishable_key_here' 
+  : 'pk_test_51Oxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+);
 
 interface AddPaymentMethodModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onPaymentMethodAdded: () => void;
+  onSuccess: () => void;
 }
 
-const AddPaymentMethodModal: React.FC<AddPaymentMethodModalProps> = ({
-  isOpen,
-  onClose,
-  onPaymentMethodAdded
-}) => {
+const PaymentMethodForm: React.FC<{ onSuccess: () => void; onClose: () => void }> = ({ onSuccess, onClose }) => {
+  const stripe = useStripe();
+  const elements = useElements();
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    cardNumber: '',
-    expiryMonth: '',
-    expiryYear: '',
-    cvc: '',
-    name: ''
-  });
+  const [isDefault, setIsDefault] = useState(false);
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    
+    if (!stripe || !elements) {
+      return;
+    }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
     setIsLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error('Please log in to add a payment method');
-        return;
+      // Create setup intent
+      const { data: setupData, error: setupError } = await supabase.functions.invoke(
+        'create-setup-intent',
+        {
+          body: { customer_id: null }, // Will be created if needed
+        }
+      );
+
+      if (setupError) throw setupError;
+
+      const cardElement = elements.getElement(CardElement);
+      if (!cardElement) throw new Error('Card element not found');
+
+      // Confirm setup intent
+      const { error: confirmError, setupIntent } = await stripe.confirmCardSetup(
+        setupData.client_secret,
+        {
+          payment_method: {
+            card: cardElement,
+          },
+        }
+      );
+
+      if (confirmError) {
+        throw new Error(confirmError.message);
       }
 
-      // Simulate payment method creation (in real app, use Stripe)
-      const { error } = await supabase
-        .from('payment_methods')
-        .insert({
-          user_id: user.id,
-          stripe_payment_method_id: `pm_${Date.now()}`, // Simulated ID
-          last4: formData.cardNumber.slice(-4),
-          brand: 'visa', // Would be determined by card number
-          exp_month: parseInt(formData.expiryMonth),
-          exp_year: parseInt(formData.expiryYear),
-          is_default: false
-        });
+      // Save payment method to database
+      const { error: saveError } = await supabase.functions.invoke(
+        'save-payment-method',
+        {
+          body: {
+            setup_intent_id: setupIntent.id,
+            is_default: isDefault,
+          },
+        }
+      );
 
-      if (error) {
-        console.error('Error adding payment method:', error);
-        toast.error('Failed to add payment method');
-        return;
-      }
+      if (saveError) throw saveError;
 
-      toast.success('Payment method added successfully');
-      onPaymentMethodAdded();
+      toast.success('Payment method added successfully!');
+      onSuccess();
       onClose();
-      setFormData({
-        cardNumber: '',
-        expiryMonth: '',
-        expiryYear: '',
-        cvc: '',
-        name: ''
-      });
     } catch (error) {
-      console.error('Error in handleSubmit:', error);
-      toast.error('Failed to add payment method');
+      console.error('Error adding payment method:', error);
+      toast.error('Failed to add payment method. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="p-4 border rounded-lg">
+        <CardElement
+          options={{
+            style: {
+              base: {
+                fontSize: '16px',
+                color: '#424770',
+                '::placeholder': {
+                  color: '#aab7c4',
+                },
+              },
+            },
+          }}
+        />
+      </div>
+      
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="is-default"
+          checked={isDefault}
+          onCheckedChange={(checked) => setIsDefault(checked as boolean)}
+        />
+        <Label htmlFor="is-default">Set as default payment method</Label>
+      </div>
+
+      <div className="flex justify-end space-x-2">
+        <Button type="button" variant="outline" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={!stripe || isLoading}>
+          {isLoading ? 'Adding...' : 'Add Payment Method'}
+        </Button>
+      </div>
+    </form>
+  );
+};
+
+const AddPaymentMethodModal: React.FC<AddPaymentMethodModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center">
-            <CreditCard className="w-5 h-5 mr-2" />
-            Add Payment Method
-          </DialogTitle>
+          <DialogTitle>Add Payment Method</DialogTitle>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="cardNumber">Card Number</Label>
-            <Input
-              id="cardNumber"
-              type="text"
-              placeholder="1234 5678 9012 3456"
-              value={formData.cardNumber}
-              onChange={(e) => handleInputChange('cardNumber', e.target.value)}
-              required
-              maxLength={19}
-            />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="expiryMonth">Month</Label>
-              <Input
-                id="expiryMonth"
-                type="text"
-                placeholder="MM"
-                value={formData.expiryMonth}
-                onChange={(e) => handleInputChange('expiryMonth', e.target.value)}
-                required
-                maxLength={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="expiryYear">Year</Label>
-              <Input
-                id="expiryYear"
-                type="text"
-                placeholder="YYYY"
-                value={formData.expiryYear}
-                onChange={(e) => handleInputChange('expiryYear', e.target.value)}
-                required
-                maxLength={4}
-              />
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="cvc">CVC</Label>
-            <Input
-              id="cvc"
-              type="text"
-              placeholder="123"
-              value={formData.cvc}
-              onChange={(e) => handleInputChange('cvc', e.target.value)}
-              required
-              maxLength={4}
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="name">Cardholder Name</Label>
-            <Input
-              id="name"
-              type="text"
-              placeholder="John Doe"
-              value={formData.name}
-              onChange={(e) => handleInputChange('name', e.target.value)}
-              required
-            />
-          </div>
-          
-          <div className="flex gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isLoading} className="flex-1">
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                'Add Payment Method'
-              )}
-            </Button>
-          </div>
-        </form>
+        <Elements stripe={stripePromise}>
+          <PaymentMethodForm onSuccess={onSuccess} onClose={onClose} />
+        </Elements>
       </DialogContent>
     </Dialog>
   );

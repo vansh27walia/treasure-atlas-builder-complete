@@ -11,18 +11,17 @@ import PaymentMethodList from './PaymentMethodList';
 interface PaymentMethod {
   id: string;
   stripe_payment_method_id: string;
-  brand: string | null;
-  last4: string | null;
-  exp_month: number | null;
-  exp_year: number | null;
-  is_default: boolean | null;
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+  is_default: boolean;
 }
 
 const PaymentMethodManager: React.FC = () => {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
 
   const fetchPaymentMethods = async () => {
     try {
@@ -51,10 +50,9 @@ const PaymentMethodManager: React.FC = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('payment_methods')
-        .delete()
-        .eq('id', paymentMethodId);
+      const { error } = await supabase.functions.invoke('delete-payment-method', {
+        body: { payment_method_id: paymentMethodId },
+      });
 
       if (error) throw error;
 
@@ -148,8 +146,9 @@ const PaymentMethodManager: React.FC = () => {
           ) : (
             <>
               <PaymentMethodList
-                selectedPaymentMethod={selectedPaymentMethod}
-                onPaymentMethodChange={setSelectedPaymentMethod}
+                paymentMethods={paymentMethods}
+                onDelete={handleDelete}
+                onSetDefault={handleSetDefault}
               />
               
               <div className="pt-4 border-t bg-gray-50 -mx-6 px-6 py-4 rounded-b-lg">
