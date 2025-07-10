@@ -22,6 +22,7 @@ export const useBulkUpload = () => {
     estimatedTimeRemaining: 0
   });
   const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
   
   const {
     file,
@@ -106,6 +107,22 @@ export const useBulkUpload = () => {
     
     loadDefaultPickupAddress();
   }, []);
+
+  // Auto-trigger label creation after payment completion
+  useEffect(() => {
+    if (paymentCompleted && !isCreatingLabels && results && results.processedShipments.length > 0) {
+      console.log('Payment completed, auto-starting label creation...');
+      handleCreateLabels();
+      setPaymentCompleted(false); // Reset flag
+    }
+  }, [paymentCompleted, isCreatingLabels, results]);
+
+  // Enhanced payment success handler
+  const handlePaymentSuccess = () => {
+    console.log('Payment successful, triggering label creation...');
+    setPaymentCompleted(true);
+    toast.success('Payment successful! Creating labels automatically...');
+  };
 
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
@@ -398,6 +415,7 @@ export const useBulkUpload = () => {
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
-    labelGenerationProgress
+    labelGenerationProgress,
+    handlePaymentSuccess
   };
 };
