@@ -8,7 +8,7 @@ import PaymentMethodList from './PaymentMethodList';
 import AddPaymentMethodModal from './AddPaymentMethodModal';
 
 interface PaymentMethodSelectorProps {
-  selectedPaymentMethod: string;
+  selectedPaymentMethod: string | null;
   onPaymentMethodChange: (methodId: string) => void;
   onPaymentComplete: (success: boolean) => void;
   amount: number;
@@ -44,6 +44,12 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handlePaymentMethodAdded = () => {
+    setShowAddPaymentModal(false);
+    toast.success('Payment method added successfully');
+    // Optionally refresh the payment methods list
   };
 
   return (
@@ -105,10 +111,7 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       <AddPaymentMethodModal
         isOpen={showAddPaymentModal}
         onClose={() => setShowAddPaymentModal(false)}
-        onPaymentMethodAdded={() => {
-          setShowAddPaymentModal(false);
-          toast.success('Payment method added successfully');
-        }}
+        onPaymentMethodAdded={handlePaymentMethodAdded}
       />
     </div>
   );
