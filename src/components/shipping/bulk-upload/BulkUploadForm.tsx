@@ -90,7 +90,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     }
   };
 
-  const handleAddressSelect = (address: SavedAddress | null) => {
+  const handleAddressSelect = (address: SavedAddress) => {
     setPickupAddress(address);
     onPickupAddressSelect(address);
   };
@@ -121,7 +121,7 @@ Jane Smith,456 Oak Ave,Los Angeles,CA,90210,US,12,8,6,4,15.50`;
           </div>
           <AddressSelector
             onAddressSelect={handleAddressSelect}
-            selectedAddress={pickupAddress}
+            selectedAddressId={pickupAddress?.id}
           />
           {pickupAddress && (
             <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">

@@ -38,6 +38,17 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     return `${address.street1 || ''}, ${address.city || ''}, ${address.state_province || ''} ${address.postal_code || ''}`.trim();
   };
 
+  // Convert Rate[] to ShippingRate[] format
+  const convertRatesToShippingRates = (rates: any[] = []) => {
+    return rates.map(rate => ({
+      ...rate,
+      rate: rate.rate?.toString() || '0', // Convert number to string
+      delivery_days: rate.delivery_days || 0,
+      delivery_date: rate.delivery_date || null,
+      delivery_date_guaranteed: rate.delivery_date_guaranteed || false
+    }));
+  };
+
   const shipmentsWithRates = shipments.filter(s => s.selectedRateId).length;
   const totalShipments = shipments.length;
 
@@ -124,7 +135,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 </div>
                 
                 <ShippingRateDropdown
-                  rates={shipment.availableRates || []}
+                  rates={convertRatesToShippingRates(shipment.availableRates)}
                   selectedRateId={shipment.selectedRateId}
                   onRateSelect={(rateId) => handleRateSelect(shipment.id, rateId)}
                   isLoading={isFetchingRates}
