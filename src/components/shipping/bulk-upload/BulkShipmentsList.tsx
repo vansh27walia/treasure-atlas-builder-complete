@@ -42,7 +42,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   const convertRatesToShippingRates = (rates: any[] = []) => {
     return rates.map(rate => ({
       ...rate,
-      rate: rate.rate?.toString() || '0', // Convert number to string
+      rate: typeof rate.rate === 'number' ? rate.rate.toString() : rate.rate?.toString() || '0',
       delivery_days: rate.delivery_days || 0,
       delivery_date: rate.delivery_date || null,
       delivery_date_guaranteed: rate.delivery_date_guaranteed || false
@@ -134,13 +134,14 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   <span className="text-sm font-medium text-gray-700">Select Shipping Rate</span>
                 </div>
                 
-                <ShippingRateDropdown
-                  rates={convertRatesToShippingRates(shipment.availableRates)}
-                  selectedRateId={shipment.selectedRateId}
-                  onSelectRate={(rateId) => handleRateSelect(shipment.id, rateId)}
-                  isLoading={isFetchingRates}
-                  className="w-full"
-                />
+                <div className="w-full">
+                  <ShippingRateDropdown
+                    rates={convertRatesToShippingRates(shipment.availableRates)}
+                    selectedRateId={shipment.selectedRateId}
+                    onSelectRate={(rateId) => handleRateSelect(shipment.id, rateId)}
+                    isLoading={isFetchingRates}
+                  />
+                </div>
               </div>
 
               {/* Expanded Details */}
