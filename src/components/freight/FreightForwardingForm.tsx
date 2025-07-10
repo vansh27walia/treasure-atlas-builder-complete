@@ -92,6 +92,11 @@ const FreightForwardingForm: React.FC = () => {
     }
   };
 
+  const handleBooking = (rate: FreightRate) => {
+    console.log('Booking initiated for rate:', rate);
+    // The booking modal will handle the booking process
+  };
+
   return (
     <div className="space-y-8">
       {/* Progress Steps */}
@@ -192,7 +197,13 @@ const FreightForwardingForm: React.FC = () => {
             </div>
             <div className="border-t border-gray-200 flex-1"></div>
           </div>
-          <FreightRatesDisplay rates={rates} onBooking={(rate) => console.log('Booking:', rate)} />
+          <FreightRatesDisplay 
+            rates={rates} 
+            onBooking={handleBooking}
+            originData={formData.origin}
+            destinationData={formData.destination}
+            loadDetails={formData.loadDetails}
+          />
         </>
       )}
     </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Upload, FileText, MapPin, AlertCircle, Loader2, Brain } from 'lucide-react';
+import { Upload, FileText, MapPin, AlertCircle, Loader2, Brain, CheckCircle, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
@@ -37,7 +37,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const [uploading, setUploading] = useState(false);
   const [currentStep, setCurrentStep] = useState<UploadStep>('select');
 
-  // Load addresses when component mounts
   useEffect(() => {
     const loadAddresses = async () => {
       try {
@@ -46,7 +45,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         console.log('Loaded addresses:', addresses);
         setAvailableAddresses(addresses);
 
-        // Find default address or use first available
         const defaultAddress = addresses.find(addr => addr.is_default_from);
         if (defaultAddress) {
           console.log('Found default address:', defaultAddress);
@@ -82,19 +80,16 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   };
 
   const validateCSVFile = (file: File): boolean => {
-    // Check file type
     if (!file.name.toLowerCase().endsWith('.csv')) {
       toast.error('Please upload a CSV file');
       return false;
     }
 
-    // Check file size (10MB limit)
     if (file.size > 10 * 1024 * 1024) {
       toast.error('File is too large. Maximum size is 10MB.');
       return false;
     }
 
-    // Check if file is not empty
     if (file.size === 0) {
       toast.error('The CSV file is empty. Please upload a valid CSV file.');
       return false;
@@ -112,7 +107,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
     setSelectedFile(file);
     
-    // Read CSV content
     try {
       const text = await file.text();
       console.log('CSV content length:', text.length);
@@ -122,7 +116,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         return false;
       }
 
-      // Basic CSV validation
       const lines = text.split('\n').filter(line => line.trim() !== '');
       if (lines.length < 2) {
         toast.error('CSV file must have at least a header row and one data row.');
@@ -172,7 +165,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     setCurrentStep('processing');
     
     try {
-      // Create a temporary file with the converted CSV content
       const blob = new Blob([convertedCsv], { type: 'text/csv' });
       const convertedFile = new File([blob], selectedFile?.name || 'converted.csv', { type: 'text/csv' });
       
@@ -196,30 +188,32 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     toast.info('CSV upload cancelled. You can select a new file.');
   };
 
-  const resetForm = () => {
-    setCurrentStep('select');
-    setSelectedFile(null);
-    setCsvContent('');
-    setUploading(false);
-  };
-
   // Render header mapping step
   if (currentStep === 'mapping' && csvContent) {
     return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <Brain className="mx-auto h-12 w-12 text-blue-600 mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">AI Header Mapping</h3>
-          <p className="text-gray-600">
-            Our AI will automatically map your CSV headers to the required shipping format
+      <div className="space-y-8">
+        <div className="text-center py-8">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full mb-6">
+            <Brain className="w-10 h-10 text-purple-600" />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">AI Header Mapping</h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Our advanced AI is analyzing your CSV headers and automatically mapping them to the correct shipping format. 
+            This ensures perfect compatibility with our shipping system.
           </p>
+          <div className="flex items-center justify-center mt-6 space-x-2">
+            <Sparkles className="w-5 h-5 text-purple-500" />
+            <span className="text-sm font-medium text-purple-600">Smart mapping in progress...</span>
+          </div>
         </div>
         
-        <CsvHeaderMapper
-          csvContent={csvContent}
-          onMappingComplete={handleMappingComplete}
-          onCancel={handleMappingCancel}
-        />
+        <div className="bg-white rounded-xl shadow-lg border">
+          <CsvHeaderMapper
+            csvContent={csvContent}
+            onMappingComplete={handleMappingComplete}
+            onCancel={handleMappingCancel}
+          />
+        </div>
       </div>
     );
   }
@@ -227,21 +221,45 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   // Render processing step
   if (currentStep === 'processing') {
     return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <Loader2 className="mx-auto h-12 w-12 text-blue-600 animate-spin mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Processing Your Shipments</h3>
-          <p className="text-gray-600">
-            Creating shipments and fetching live rates from carriers...
+      <div className="space-y-8">
+        <div className="text-center py-12">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-100 to-green-100 rounded-full mb-6">
+            <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Processing Your Shipments</h2>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-8">
+            Creating shipments and fetching live rates from multiple carriers including UPS, USPS, FedEx, and DHL...
           </p>
+          
           {progress > 0 && (
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
-              <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
+            <div className="max-w-md mx-auto">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span>Progress</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div
+                  className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
             </div>
           )}
+          
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
+            <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg">
+              <CheckCircle className="w-5 h-5 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">Creating Shipments</span>
+            </div>
+            <div className="flex items-center space-x-3 p-4 bg-purple-50 rounded-lg">
+              <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
+              <span className="text-sm font-medium text-purple-800">Fetching Rates</span>
+            </div>
+            <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
+              <div className="w-5 h-5 border-2 border-gray-300 rounded-full" />
+              <span className="text-sm font-medium text-gray-600">Finalizing</span>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -249,132 +267,168 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   // Render file selection step (default)
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Pickup Address Selection */}
-      <div className="space-y-2">
-        <Label htmlFor="pickup-address" className="text-sm font-medium">
-          <MapPin className="inline h-4 w-4 mr-1" />
-          Pickup Address (Required)
-        </Label>
-        {!addressesLoaded ? (
-          <div className="flex items-center space-x-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm text-gray-500">Loading addresses...</span>
+      <Card className="border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <CardContent className="p-6">
+          <div className="flex items-start space-x-4">
+            <div className="flex-shrink-0">
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <MapPin className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <Label htmlFor="pickup-address" className="text-base font-semibold text-gray-900 mb-2 block">
+                Select Pickup Address
+              </Label>
+              <p className="text-sm text-gray-600 mb-4">
+                Choose the address where packages will be picked up from
+              </p>
+              
+              {!addressesLoaded ? (
+                <div className="flex items-center space-x-3 p-4 bg-white rounded-lg border">
+                  <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                  <span className="text-sm text-gray-600">Loading your addresses...</span>
+                </div>
+              ) : availableAddresses.length > 0 ? (
+                <Select value={selectedAddressId} onValueChange={handleAddressChange}>
+                  <SelectTrigger className="bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors">
+                    <SelectValue placeholder="Select pickup address" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableAddresses.map((address) => (
+                      <SelectItem key={address.id} value={address.id.toString()}>
+                        <div className="flex flex-col py-1">
+                          <span className="font-medium text-gray-900">{address.name}</span>
+                          <span className="text-sm text-gray-500">
+                            {address.street1}, {address.city}, {address.state} {address.zip}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Alert className="border-amber-200 bg-amber-50">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800">
+                    <strong>No addresses found.</strong> Please add a pickup address in Settings first.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
           </div>
-        ) : availableAddresses.length > 0 ? (
-          <Select value={selectedAddressId} onValueChange={handleAddressChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select pickup address" />
-            </SelectTrigger>
-            <SelectContent>
-              {availableAddresses.map((address) => (
-                <SelectItem key={address.id} value={address.id.toString()}>
-                  <div className="flex flex-col">
-                    <span className="font-medium">{address.name}</span>
-                    <span className="text-sm text-gray-500">
-                      {address.street1}, {address.city}, {address.state} {address.zip}
-                    </span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <Alert className="border-yellow-200 bg-yellow-50">
-            <AlertCircle className="h-4 w-4 text-yellow-600" />
-            <AlertDescription className="text-yellow-800">
-              No pickup addresses found. Please add a pickup address in Settings first.
-            </AlertDescription>
-          </Alert>
-        )}
-      </div>
+        </CardContent>
+      </Card>
 
       {/* File Upload Area */}
-      <div className="space-y-4">
-        <Label className="text-sm font-medium">
-          <FileText className="inline h-4 w-4 mr-1" />
-          Upload CSV File
-        </Label>
-        
-        <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            dragActive
-              ? 'border-blue-400 bg-blue-50'
-              : selectedFile
-              ? 'border-green-400 bg-green-50'
-              : 'border-gray-300 hover:border-gray-400'
-          }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-        >
-          <input
-            id="file-upload"
-            type="file"
-            accept=".csv"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-          
-          <div className="space-y-2">
-            {selectedFile ? (
-              <>
-                <FileText className="mx-auto h-12 w-12 text-green-500" />
-                <p className="text-sm font-medium text-green-700">
-                  {selectedFile.name}
-                </p>
-                <p className="text-xs text-green-600">
-                  {(selectedFile.size / 1024).toFixed(1)} KB - Ready for AI header mapping
-                </p>
-              </>
-            ) : (
-              <>
-                <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                <p className="text-sm text-gray-600">
-                  Drag and drop your CSV file here, or{' '}
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('file-upload')?.click()}
-                    className="text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    browse
-                  </button>
-                </p>
-                <p className="text-xs text-gray-500">CSV files only, max 10MB</p>
-              </>
-            )}
+      <Card className="border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors">
+        <CardContent className="p-8">
+          <div
+            className={`
+              relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300
+              ${dragActive
+                ? 'border-blue-400 bg-blue-50 scale-105'
+                : selectedFile
+                ? 'border-green-400 bg-green-50'
+                : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+              }
+            `}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+          >
+            <input
+              id="file-upload"
+              type="file"
+              accept=".csv"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            
+            <div className="space-y-6">
+              {selectedFile ? (
+                <>
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full">
+                    <FileText className="w-8 h-8 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-semibold text-green-700 mb-2">
+                      {selectedFile.name}
+                    </p>
+                    <p className="text-sm text-green-600 mb-4">
+                      {(selectedFile.size / 1024).toFixed(1)} KB - Ready for AI processing
+                    </p>
+                    <div className="flex items-center justify-center space-x-2 text-sm text-green-600">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>File validated successfully</span>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full">
+                    <Upload className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-semibold text-gray-700 mb-2">
+                      Drop your CSV file here
+                    </p>
+                    <p className="text-gray-600 mb-4">
+                      or{' '}
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById('file-upload')?.click()}
+                        className="text-blue-600 hover:text-blue-700 font-medium underline"
+                      >
+                        browse to choose a file
+                      </button>
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Supports CSV files up to 10MB
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
 
-        {selectedFile && (
-          <div className="flex items-center space-x-2">
-            <Button
-              type="button"
-              onClick={() => document.getElementById('file-upload')?.click()}
-              variant="outline"
-              size="sm"
-            >
-              Choose Different File
-            </Button>
-            <Button
-              onClick={() => setCurrentStep('mapping')}
-              disabled={!selectedAddressId || !addressesLoaded}
-              size="sm"
-            >
-              <Brain className="mr-2 h-4 w-4" />
-              Continue to AI Mapping
-            </Button>
-          </div>
-        )}
-      </div>
+          {selectedFile && (
+            <div className="flex items-center justify-center space-x-4 mt-6">
+              <Button
+                type="button"
+                onClick={() => document.getElementById('file-upload')?.click()}
+                variant="outline"
+                className="border-2 hover:border-blue-300"
+              >
+                Choose Different File
+              </Button>
+              <Button
+                onClick={() => setCurrentStep('mapping')}
+                disabled={!selectedAddressId || !addressesLoaded}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
+              >
+                <Brain className="mr-2 h-4 w-4" />
+                Continue with AI Mapping
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Info about the process */}
-      <Alert className="border-blue-200 bg-blue-50">
-        <Brain className="h-4 w-4 text-blue-600" />
-        <AlertDescription className="text-blue-800">
-          <strong>Smart CSV Processing:</strong> Our AI will analyze your CSV headers and automatically map them to the correct shipping format. No manual field mapping required!
-        </AlertDescription>
+      <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 to-purple-50">
+        <div className="flex items-center space-x-3">
+          <div className="flex-shrink-0">
+            <Sparkles className="h-5 w-5 text-blue-600" />
+          </div>
+          <div>
+            <AlertDescription className="text-blue-800">
+              <strong className="font-semibold">Smart CSV Processing:</strong> Our AI automatically analyzes and maps your CSV headers to the correct shipping format. No manual field mapping required - just upload and let our intelligence handle the rest!
+            </AlertDescription>
+          </div>
+        </div>
       </Alert>
     </div>
   );

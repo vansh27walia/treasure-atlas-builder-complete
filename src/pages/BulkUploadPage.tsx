@@ -1,24 +1,17 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Upload, CheckCircle, Download, Info } from 'lucide-react';
+import { FileText, Upload, CheckCircle, Download, Info, Sparkles, Brain } from 'lucide-react';
 import BulkUpload from '@/components/shipping/BulkUpload';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
-
   const handleDownloadEasyPostTemplate = () => {
-    const csvContent = [
-      'to_name,to_street1,to_street2,to_city,to_state,to_zip,to_country,weight,length,width,height,reference',
-      'John Doe,123 Main St,,San Francisco,CA,94105,US,1.5,12,8,4,Order #1234',
-      'Jane Smith,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,2.0,10,6,3,Order #1235',
-      'Bob Johnson,789 Pine St,,New York,NY,10001,US,3.0,15,10,6,Order #1236'
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const csvContent = ['to_name,to_street1,to_street2,to_city,to_state,to_zip,to_country,weight,length,width,height,reference', 'John Doe,123 Main St,,San Francisco,CA,94105,US,1.5,12,8,4,Order #1234', 'Jane Smith,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,2.0,10,6,3,Order #1235', 'Bob Johnson,789 Pine St,,New York,NY,10001,US,3.0,15,10,6,Order #1236'].join('\n');
+    const blob = new Blob([csvContent], {
+      type: 'text/csv'
+    });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.setAttribute('hidden', '');
@@ -28,63 +21,98 @@ const BulkUploadPage = () => {
     a.click();
     document.body.removeChild(a);
   };
-  
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">EasyPost Bulk Shipping</h1>
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-6">
-          <TabsTrigger value="upload">
-            <Upload className="h-4 w-4 mr-2" />
-            Upload
-          </TabsTrigger>
-          <TabsTrigger value="template">
-            <FileText className="h-4 w-4 mr-2" />
-            EasyPost Template & Guide
-          </TabsTrigger>
-        </TabsList>
+  return <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="container mx-auto py-[6px] px-[5px]">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4 text-center"> Bulk Shipping</h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Upload your CSV file and let our AI handle the rest. Smart mapping, live rates, and instant label generation.
+          </p>
+        </div>
         
-        <TabsContent value="upload">
-          <BulkUpload />
-        </TabsContent>
-        
-        <TabsContent value="template">
-          <div className="space-y-8">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-6xl mx-auto px-0">
+          <TabsList className="grid w-full grid-cols-2 mb-8 bg-white shadow-lg rounded-lg p-1">
+            <TabsTrigger value="upload" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">
+              <Upload className="h-4 w-4 mr-2" />
+              Smart Upload
+            </TabsTrigger>
+            <TabsTrigger value="template" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white">
+              <FileText className="h-4 w-4 mr-2" />
+              Template & Guide
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="upload" className="space-y-0">
+            <BulkUpload />
+          </TabsContent>
+          
+          <TabsContent value="template" className="space-y-8">
             {/* EasyPost Integration Notice */}
-            <Alert className="border-green-200 bg-green-50">
-              <Info className="h-4 w-4 text-green-600" />
-              <AlertDescription className="text-green-800">
-                <strong>EasyPost Integration:</strong> This template follows EasyPost's recommended CSV format for bulk shipping. 
-                Pickup addresses are selected from your saved addresses - only recipient details go in the CSV.
-              </AlertDescription>
+            <Alert className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 shadow-sm">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <Info className="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <AlertDescription className="text-green-800">
+                    <strong className="font-semibold">EasyPost Integration:</strong> This template follows EasyPost's recommended CSV format for bulk shipping. 
+                    Pickup addresses are selected from your saved addresses - only recipient details go in the CSV.
+                  </AlertDescription>
+                </div>
+              </div>
             </Alert>
 
             {/* EasyPost Template Download */}
-            <Card className="border-2 hover:border-green-300 transition-colors">
-              <CardHeader>
-                <CardTitle className="flex items-center text-lg">
-                  <FileText className="h-5 w-5 mr-2 text-green-600" />
+            <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm hover:shadow-2xl transition-all duration-300">
+              <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
+                <CardTitle className="flex items-center text-xl">
+                  <FileText className="h-6 w-6 mr-3" />
                   EasyPost CSV Template
                 </CardTitle>
-                <CardDescription>
-                  Official EasyPost format for bulk shipping uploads
+                <CardDescription className="text-green-100">
+                  Official EasyPost format for bulk shipping uploads with AI-powered processing
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium mb-2">Includes:</h4>
-                    <ul className="text-sm space-y-1">
-                      <li>• Recipient address (to_address) fields</li>
-                      <li>• Package dimensions (length, width, height)</li>
-                      <li>• Weight in pounds</li>
-                      <li>• Reference field for order tracking</li>
-                      <li>• EasyPost API compatibility</li>
-                    </ul>
+              <CardContent className="p-6">
+                <div className="space-y-6">
+                  <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-6 rounded-xl border">
+                    <h4 className="font-semibold text-gray-900 mb-4 flex items-center">
+                      <Sparkles className="w-5 h-5 text-blue-600 mr-2" />
+                      Template Features:
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <ul className="space-y-2 text-sm">
+                        <li className="flex items-center space-x-2">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <span>Recipient address (to_address) fields</span>
+                        </li>
+                        <li className="flex items-center space-x-2">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <span>Package dimensions (L×W×H)</span>
+                        </li>
+                        <li className="flex items-center space-x-2">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <span>Weight in pounds</span>
+                        </li>
+                      </ul>
+                      <ul className="space-y-2 text-sm">
+                        <li className="flex items-center space-x-2">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <span>Reference field for tracking</span>
+                        </li>
+                        <li className="flex items-center space-x-2">
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                          <span>EasyPost API compatibility</span>
+                        </li>
+                        <li className="flex items-center space-x-2">
+                          <Brain className="w-4 h-4 text-purple-600" />
+                          <span>AI-powered header mapping</span>
+                        </li>
+                      </ul>
+                    </div>
                   </div>
-                  <Button onClick={handleDownloadEasyPostTemplate} className="w-full bg-green-600 hover:bg-green-700">
-                    <Download className="h-4 w-4 mr-2" />
+                  <Button onClick={handleDownloadEasyPostTemplate} className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all duration-200" size="lg">
+                    <Download className="h-5 w-5 mr-2" />
                     Download EasyPost Template
                   </Button>
                 </div>
@@ -92,156 +120,144 @@ const BulkUploadPage = () => {
             </Card>
 
             {/* EasyPost Workflow Guide */}
-            <Card>
+            <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="flex items-center">
-                  <CheckCircle className="h-5 w-5 mr-2 text-green-600" />
-                  EasyPost Bulk Shipping Workflow
+                <CardTitle className="flex items-center text-xl">
+                  <CheckCircle className="h-6 w-6 mr-3 text-green-600" />
+                  EasyPost Smart Workflow
                 </CardTitle>
                 <CardDescription>
-                  Follow EasyPost's recommended API workflow for optimal results
+                  Follow our AI-enhanced workflow for optimal bulk shipping results
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">1</div>
-                    <div>
-                      <h4 className="font-medium">Setup Pickup Address</h4>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Save your pickup/from address in Settings. This will be used for all shipments in the batch.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">2</div>
-                    <div>
-                      <h4 className="font-medium">Prepare CSV Data</h4>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Use our EasyPost template. Include only recipient addresses - pickup address comes from your settings.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">3</div>
-                    <div>
-                      <h4 className="font-medium">Create Shipments & Fetch Rates</h4>
-                      <p className="text-sm text-gray-600 mt-1">
-                        System creates EasyPost shipments and fetches live rates from multiple carriers (UPS, USPS, FedEx, DHL).
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">4</div>
-                    <div>
-                      <h4 className="font-medium">Select Carriers & Services</h4>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Review and select preferred carriers/services for each shipment. Change rates dynamically as needed.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-semibold text-sm">5</div>
-                    <div>
-                      <h4 className="font-medium">Purchase & Generate Labels</h4>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Confirm selections and purchase labels via EasyPost. Download labels individually or as a batch.
-                      </p>
-                    </div>
-                  </div>
+              <CardContent className="p-6">
+                <div className="space-y-8">
+                  {[{
+                  step: 1,
+                  title: "Setup Pickup Address",
+                  description: "Save your pickup/from address in Settings. This will be used for all shipments in the batch.",
+                  color: "bg-blue-100 text-blue-600"
+                }, {
+                  step: 2,
+                  title: "Upload CSV with AI",
+                  description: "Upload your CSV file and let our AI automatically map headers to the correct format. No manual mapping required!",
+                  color: "bg-purple-100 text-purple-600"
+                }, {
+                  step: 3,
+                  title: "Smart Rate Fetching",
+                  description: "System creates EasyPost shipments and fetches live rates from multiple carriers (UPS, USPS, FedEx, DHL) instantly.",
+                  color: "bg-green-100 text-green-600"
+                }, {
+                  step: 4,
+                  title: "Select & Customize",
+                  description: "Review and select preferred carriers/services for each shipment. Apply bulk changes or customize individually.",
+                  color: "bg-orange-100 text-orange-600"
+                }, {
+                  step: 5,
+                  title: "Generate & Download",
+                  description: "Confirm selections and generate all labels at once. Download individually, as batches, or in multiple formats.",
+                  color: "bg-emerald-100 text-emerald-600"
+                }].map(item => <div key={item.step} className="flex items-start space-x-6">
+                      <div className={`w-12 h-12 ${item.color} rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0`}>
+                        {item.step}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900 text-lg mb-2 text-center">{item.title}</h4>
+                        <p className="text-gray-600 leading-relaxed text-center">{item.description}</p>
+                      </div>
+                    </div>)}
                 </div>
               </CardContent>
             </Card>
 
-            {/* EasyPost CSV Field Requirements */}
-            <Card>
+            {/* CSV Field Requirements */}
+            <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle>EasyPost CSV Field Requirements</CardTitle>
+                <CardTitle className="text-xl">EasyPost CSV Field Requirements</CardTitle>
                 <CardDescription>
                   Required and optional fields following EasyPost's format
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 gap-6">
+              <CardContent className="p-6">
+                <div className="grid md:grid-cols-2 gap-8">
                   <div>
-                    <h4 className="font-semibold text-green-600 mb-3">Required Fields</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">to_name</span>
-                        <span className="text-gray-600">Recipient name</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">to_street1</span>
-                        <span className="text-gray-600">Street address</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">to_city</span>
-                        <span className="text-gray-600">City name</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">to_state</span>
-                        <span className="text-gray-600">State/Province</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">to_zip</span>
-                        <span className="text-gray-600">ZIP/Postal code</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">to_country</span>
-                        <span className="text-gray-600">Country (US)</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">weight</span>
-                        <span className="text-gray-600">Weight (pounds)</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">length</span>
-                        <span className="text-gray-600">Length (inches)</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">width</span>
-                        <span className="text-gray-600">Width (inches)</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">height</span>
-                        <span className="text-gray-600">Height (inches)</span>
-                      </div>
+                    <h4 className="font-semibold text-green-600 mb-4 text-lg flex items-center">
+                      <CheckCircle className="w-5 h-5 mr-2" />
+                      Required Fields
+                    </h4>
+                    <div className="space-y-3">
+                      {[{
+                      field: 'to_name',
+                      desc: 'Recipient name'
+                    }, {
+                      field: 'to_street1',
+                      desc: 'Street address'
+                    }, {
+                      field: 'to_city',
+                      desc: 'City name'
+                    }, {
+                      field: 'to_state',
+                      desc: 'State/Province'
+                    }, {
+                      field: 'to_zip',
+                      desc: 'ZIP/Postal code'
+                    }, {
+                      field: 'to_country',
+                      desc: 'Country (US)'
+                    }, {
+                      field: 'weight',
+                      desc: 'Weight (pounds)'
+                    }, {
+                      field: 'length',
+                      desc: 'Length (inches)'
+                    }, {
+                      field: 'width',
+                      desc: 'Width (inches)'
+                    }, {
+                      field: 'height',
+                      desc: 'Height (inches)'
+                    }].map(item => <div key={item.field} className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
+                          <span className="font-mono text-sm font-medium text-green-800">{item.field}</span>
+                          <span className="text-sm text-green-600">{item.desc}</span>
+                        </div>)}
                     </div>
                   </div>
 
                   <div>
-                    <h4 className="font-semibold text-blue-600 mb-3">Optional Fields</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">to_street2</span>
-                        <span className="text-gray-600">Apt/Suite number</span>
-                      </div>
-                      <div className="flex justify-between border-b pb-1">
-                        <span className="font-medium">reference</span>
-                        <span className="text-gray-600">Order/Reference #</span>
-                      </div>
+                    <h4 className="font-semibold text-blue-600 mb-4 text-lg flex items-center">
+                      <Info className="w-5 h-5 mr-2" />
+                      Optional Fields
+                    </h4>
+                    <div className="space-y-3 mb-6">
+                      {[{
+                      field: 'to_street2',
+                      desc: 'Apt/Suite number'
+                    }, {
+                      field: 'reference',
+                      desc: 'Order/Reference #'
+                    }].map(item => <div key={item.field} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                          <span className="font-mono text-sm font-medium text-blue-800">{item.field}</span>
+                          <span className="text-sm text-blue-600">{item.desc}</span>
+                        </div>)}
                     </div>
                     
-                    <div className="mt-6 p-3 bg-blue-50 rounded-lg">
-                      <h5 className="font-medium text-blue-800 mb-2">Note:</h5>
-                      <p className="text-sm text-blue-700">
-                        Pickup address (from_address) is selected from your saved addresses in Settings. 
-                        Do not include pickup details in the CSV file.
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
+                      <h5 className="font-semibold text-blue-800 mb-3 flex items-center">
+                        <Brain className="w-5 h-5 mr-2" />
+                        AI Magic:
+                      </h5>
+                      <p className="text-sm text-blue-700 leading-relaxed">
+                        Don't worry about exact field names! Our AI can automatically detect and map columns like "Customer Name" → "to_name" or "ZIP Code" → "to_zip". 
+                        Just upload your CSV and let our intelligence handle the mapping.
                       </p>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>;
 };
-
 export default BulkUploadPage;
