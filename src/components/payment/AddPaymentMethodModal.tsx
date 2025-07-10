@@ -48,13 +48,12 @@ const AddPaymentMethodModal: React.FC<AddPaymentMethodModalProps> = ({
         .from('payment_methods')
         .insert({
           user_id: user.id,
-          type: 'card',
-          last_four: formData.cardNumber.slice(-4),
+          stripe_payment_method_id: `pm_${Date.now()}`, // Simulated ID
+          last4: formData.cardNumber.slice(-4),
           brand: 'visa', // Would be determined by card number
           exp_month: parseInt(formData.expiryMonth),
           exp_year: parseInt(formData.expiryYear),
-          is_default: false,
-          status: 'active'
+          is_default: false
         });
 
       if (error) {

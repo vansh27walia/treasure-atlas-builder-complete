@@ -10,12 +10,12 @@ import { toast } from 'sonner';
 
 interface PaymentMethod {
   id: string;
-  type: string;
-  last_four: string;
-  brand: string;
-  exp_month: number;
-  exp_year: number;
-  is_default: boolean;
+  stripe_payment_method_id: string;
+  last4: string | null;
+  brand: string | null;
+  exp_month: number | null;
+  exp_year: number | null;
+  is_default: boolean | null;
 }
 
 interface PaymentMethodListProps {
@@ -45,8 +45,7 @@ const PaymentMethodList: React.FC<PaymentMethodListProps> = ({
       const { data, error } = await supabase
         .from('payment_methods')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'active');
+        .eq('user_id', user.id);
 
       if (error) {
         console.error('Error fetching payment methods:', error);
@@ -67,7 +66,7 @@ const PaymentMethodList: React.FC<PaymentMethodListProps> = ({
     try {
       const { error } = await supabase
         .from('payment_methods')
-        .update({ status: 'deleted' })
+        .delete()
         .eq('id', methodId);
 
       if (error) {
@@ -116,10 +115,10 @@ const PaymentMethodList: React.FC<PaymentMethodListProps> = ({
                   <CreditCard className="w-5 h-5 text-gray-600" />
                   <div>
                     <div className="font-medium">
-                      {method.brand.toUpperCase()} •••• {method.last_four}
+                      {method.brand?.toUpperCase() || 'CARD'} •••• {method.last4 || '****'}
                     </div>
                     <div className="text-sm text-gray-500">
-                      Expires {method.exp_month.toString().padStart(2, '0')}/{method.exp_year.toString().slice(-2)}
+                      Expires {method.exp_month?.toString().padStart(2, '0') || '**'}/{method.exp_year?.toString().slice(-2) || '**'}
                     </div>
                   </div>
                 </div>
