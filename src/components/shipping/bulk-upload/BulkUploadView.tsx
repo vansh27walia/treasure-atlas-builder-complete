@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Package, Download, PrinterIcon, AlertTriangle, X, Mail, CheckCircle, Clock, Truck, FileCheck, CreditCard } from 'lucide-react';
+import { Upload, FileText, Package, Download, PrinterIcon, AlertTriangle, X, Mail, CheckCircle, Clock, Truck, FileCheck, CreditCard, Sparkles, ArrowRight, Zap } from 'lucide-react';
 import BulkUploadForm from './BulkUploadForm';
 import BulkShipmentsList from './BulkShipmentsList';
 import LabelResultsTable from './LabelResultsTable';
@@ -50,6 +50,7 @@ const BulkUploadView: React.FC = () => {
     handleDownloadSingleLabel,
     handleEmailLabels,
     handleDownloadTemplate,
+    handlePaymentSuccess,
     setSearchTerm,
     setSortField,
     setSortDirection,
@@ -65,12 +66,12 @@ const BulkUploadView: React.FC = () => {
   const getProgressSteps = () => {
     const steps = [
       { id: 'upload', label: 'Upload CSV', icon: Upload, status: 'upcoming', description: 'Upload your CSV file with shipment data' },
-      { id: 'processing', label: 'Process Data', icon: FileText, status: 'upcoming', description: 'Validating and parsing shipment information' },
-      { id: 'rates', label: 'Fetch Rates', icon: Truck, status: 'upcoming', description: 'Getting shipping rates from carriers' },
-      { id: 'selection', label: 'Rate Selection', icon: CheckCircle, status: 'upcoming', description: 'Choose the best rates for your shipments' },
-      { id: 'payment', label: 'Payment Setup', icon: Package, status: 'upcoming', description: 'Configure payment method for batch processing' },
-      { id: 'labels', label: 'Create Labels', icon: FileCheck, status: 'upcoming', description: 'Generating shipping labels and batch files' },
-      { id: 'storage', label: 'Store & Download', icon: Download, status: 'upcoming', description: 'Storing labels and preparing downloads' }
+      { id: 'processing', label: 'AI Processing', icon: Sparkles, status: 'upcoming', description: 'AI analyzing and mapping your data' },
+      { id: 'rates', label: 'Fetch Rates', icon: Truck, status: 'upcoming', description: 'Getting best shipping rates from carriers' },
+      { id: 'selection', label: 'Rate Selection', icon: CheckCircle, status: 'upcoming', description: 'Choose optimal rates for shipments' },
+      { id: 'payment', label: 'Payment', icon: CreditCard, status: 'upcoming', description: 'Secure payment processing' },
+      { id: 'labels', label: 'Create Labels', icon: FileCheck, status: 'upcoming', description: 'Generating shipping labels automatically' },
+      { id: 'download', label: 'Download', icon: Download, status: 'upcoming', description: 'Labels ready for download and printing' }
     ];
 
     // Update status based on current state
@@ -89,11 +90,8 @@ const BulkUploadView: React.FC = () => {
         steps[3].status = 'active';
       }
     } else if (isCreatingLabels || labelGenerationProgress.isGenerating) {
-      steps[0].status = 'completed';
-      steps[1].status = 'completed';
-      steps[2].status = 'completed';
-      steps[3].status = 'completed';
-      steps[4].status = 'active';
+      steps.slice(0, 5).forEach(step => step.status = 'completed');
+      steps[5].status = 'active';
     } else if (uploadStatus === 'success') {
       steps.forEach(step => step.status = 'completed');
     }
@@ -105,37 +103,49 @@ const BulkUploadView: React.FC = () => {
     const steps = getProgressSteps();
     
     return (
-      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-b border-gray-200 shadow-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => {
               const StepIcon = step.icon;
               return (
                 <React.Fragment key={step.id}>
-                  <div className="flex flex-col items-center">
+                  <div className="flex flex-col items-center group">
                     <div 
-                      className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all duration-300
-                        ${step.status === 'completed' ? 'bg-green-100 text-green-600 ring-2 ring-green-400' : 
-                          step.status === 'active' ? 'bg-blue-100 text-blue-600 ring-2 ring-blue-400 animate-pulse' : 
-                          'bg-gray-100 text-gray-400'}
+                      className={`w-14 h-14 rounded-full flex items-center justify-center mb-3 transition-all duration-500 transform
+                        ${step.status === 'completed' ? 'bg-green-500 text-white ring-4 ring-green-200 scale-110' : 
+                          step.status === 'active' ? 'bg-blue-500 text-white ring-4 ring-blue-200 animate-pulse scale-110' : 
+                          'bg-gray-200 text-gray-500 hover:bg-gray-300'}
                       `}
                     >
-                      <StepIcon className="h-6 w-6" />
+                      <StepIcon className="h-7 w-7" />
                     </div>
-                    <span 
-                      className={`text-sm font-medium text-center
-                        ${step.status === 'completed' ? 'text-green-600' : 
-                          step.status === 'active' ? 'text-blue-700 font-bold' : 
-                          'text-gray-400'}
-                      `}
-                    >
-                      {step.label}
-                    </span>
+                    <div className="text-center">
+                      <span 
+                        className={`text-sm font-semibold block mb-1
+                          ${step.status === 'completed' ? 'text-green-700' : 
+                            step.status === 'active' ? 'text-blue-700' : 
+                            'text-gray-500'}
+                        `}
+                      >
+                        {step.label}
+                      </span>
+                      <span className="text-xs text-gray-600 max-w-20 leading-tight">
+                        {step.description}
+                      </span>
+                    </div>
                   </div>
                   
                   {index < steps.length - 1 && (
-                    <div className="hidden md:block flex-grow mx-4">
-                      <div className={`h-1 w-full rounded-full ${step.status === 'completed' ? 'bg-green-500' : 'bg-gray-200'}`}></div>
+                    <div className="hidden md:block flex-grow mx-6">
+                      <div className="relative">
+                        <div className="h-1 w-full bg-gray-300 rounded-full"></div>
+                        <div 
+                          className={`absolute top-0 left-0 h-1 rounded-full transition-all duration-700
+                            ${step.status === 'completed' ? 'w-full bg-gradient-to-r from-green-400 to-green-600' : 'w-0'}
+                          `}
+                        ></div>
+                      </div>
                     </div>
                   )}
                 </React.Fragment>
@@ -167,60 +177,40 @@ const BulkUploadView: React.FC = () => {
     setShowPrintPreview(true);
   };
 
-  const handleDownloadConsolidated = (format: 'pdf' | 'zpl' | 'epl', url: string) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `consolidated_labels_${Date.now()}.${format}`;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleDownloadManifest = (url: string) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `pickup_manifest_${Date.now()}.pdf`;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleDownloadIndividualLabel = (labelUrl: string, format: string) => {
-    const link = document.createElement('a');
-    link.href = labelUrl;
-    link.download = `individual_label_${Date.now()}.${format}`;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleEmailConsolidated = () => {
-    setShowEmailModal(true);
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Progress Tracking Bar - Always visible when not idle */}
-      {uploadStatus !== 'idle' && <ProgressTrackingBar />}
-
-      {/* File Upload Section - Only show when idle */}
-      {uploadStatus === 'idle' && (
+  // Enhanced file upload section with better UX
+  if (uploadStatus === 'idle') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="min-h-screen flex items-center justify-center p-6">
-          <div className="max-w-2xl w-full">
+          <div className="max-w-4xl w-full">
             <div className="text-center mb-12">
-              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Upload className="h-10 w-10 text-blue-600" />
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-xl">
+                <Upload className="h-12 w-12 text-white" />
               </div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                Bulk Shipping Upload
+              <h1 className="text-5xl font-bold text-gray-900 mb-6">
+                Bulk Shipping Made Simple
               </h1>
-              <p className="text-xl text-gray-600">Upload your CSV file to create multiple shipping labels with ease</p>
+              <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
+                Upload your CSV file and let our AI handle the complex mapping and rate fetching. 
+                Create hundreds of shipping labels in minutes, not hours.
+              </p>
+              <div className="flex items-center justify-center space-x-8 text-sm text-gray-500 mb-8">
+                <div className="flex items-center space-x-2">
+                  <Sparkles className="h-5 w-5 text-purple-500" />
+                  <span>AI-Powered Mapping</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Zap className="h-5 w-5 text-yellow-500" />
+                  <span>Instant Rate Comparison</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <span>Bulk Label Creation</span>
+                </div>
+              </div>
             </div>
             
-            <Card className="p-8 shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+            <Card className="p-8 shadow-2xl border-0 bg-white/90 backdrop-blur-sm">
               <BulkUploadForm
                 onUploadSuccess={handleUploadSuccess}
                 onUploadFail={handleUploadFail}
@@ -231,41 +221,56 @@ const BulkUploadView: React.FC = () => {
               />
             </Card>
             
-            <div className="mt-8 text-center">
+            <div className="mt-12 text-center">
               <Button
                 onClick={handleDownloadTemplate}
                 variant="outline"
-                className="bg-white/80 backdrop-blur-sm border-gray-200 hover:bg-white"
+                className="bg-white/90 backdrop-blur-sm border-gray-200 hover:bg-white hover:shadow-lg transition-all duration-200"
                 size="lg"
               >
                 <FileText className="h-5 w-5 mr-2" />
                 Download CSV Template
               </Button>
+              <p className="text-sm text-gray-500 mt-3">
+                New to bulk shipping? Download our template to get started quickly
+              </p>
             </div>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Processing Section */}
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Enhanced Progress Tracking Bar */}
+      <ProgressTrackingBar />
+
+      {/* Processing Section with better animations */}
       {(uploadStatus === 'uploading' || (uploadStatus === 'editing' && !results?.processedShipments?.length)) && (
         <div className="min-h-screen flex items-center justify-center p-6">
-          <Card className="p-12 max-w-lg w-full shadow-xl border-0 bg-white">
+          <Card className="p-16 max-w-2xl w-full shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
             <div className="text-center">
-              <div className="relative w-16 h-16 mx-auto mb-6">
-                <div className="absolute inset-0 rounded-full border-4 border-blue-200"></div>
-                <div className="absolute inset-0 rounded-full border-t-4 border-blue-600 animate-spin"></div>
+              <div className="relative w-20 h-20 mx-auto mb-8">
+                <div className="absolute inset-0 rounded-full border-4 border-blue-200 animate-spin"></div>
+                <div className="absolute inset-2 rounded-full border-4 border-t-blue-600 animate-spin"></div>
+                <div className="absolute inset-4 rounded-full bg-gradient-to-r from-blue-500 to-purple-600"></div>
               </div>
-              <h3 className="text-2xl font-semibold mb-4 text-gray-900">Processing Your Upload</h3>
-              <p className="text-gray-600 mb-6">We're analyzing your shipment data and preparing everything for you...</p>
+              <h3 className="text-3xl font-bold mb-6 text-gray-900">AI Processing Your Data</h3>
+              <p className="text-lg text-gray-600 mb-8 leading-relaxed">
+                Our advanced AI is analyzing your CSV headers, mapping fields intelligently, 
+                and preparing everything for rate fetching. This ensures perfect compatibility 
+                and optimal shipping rates.
+              </p>
               {progress > 0 && progress < 100 && (
-                <div className="space-y-3">
-                  <div className="bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div className="space-y-4">
+                  <div className="bg-gray-200 rounded-full h-4 overflow-hidden">
                     <div 
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 h-3 rounded-full transition-all duration-500 ease-out" 
+                      className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 h-4 rounded-full transition-all duration-1000 ease-out" 
                       style={{ width: `${progress}%` }}
                     ></div>
                   </div>
-                  <p className="text-sm font-medium text-blue-600">{progress}% complete</p>
+                  <p className="text-lg font-semibold text-blue-600">{progress}% complete</p>
                 </div>
               )}
             </div>
@@ -284,7 +289,7 @@ const BulkUploadView: React.FC = () => {
         estimatedTimeRemaining={labelGenerationProgress.estimatedTimeRemaining}
       />
 
-      {/* Rate Selection Full Screen */}
+      {/* Enhanced Rate Selection Screen */}
       {uploadStatus === 'editing' && results && results.processedShipments && results.processedShipments.length > 0 && (
         <div className="min-h-screen bg-white">
           {/* Batch Error Alert */}
@@ -294,8 +299,8 @@ const BulkUploadView: React.FC = () => {
                 <AlertTriangle className="h-4 w-4 text-red-600" />
                 <AlertDescription className="flex items-center justify-between">
                   <div>
-                    <strong>Batch halted.</strong> Package #{batchError.packageNumber} couldn't be processed with the selected carrier. 
-                    Please select a different carrier or fix the label details to proceed.
+                    <strong>Batch halted.</strong> Package #{batchError.packageNumber} couldn't be processed. 
+                    Please select a different carrier or fix the details to proceed.
                     <div className="mt-1 text-sm text-red-700">
                       Error: {batchError.error}
                     </div>
@@ -314,21 +319,30 @@ const BulkUploadView: React.FC = () => {
           )}
 
           <div className="max-w-7xl mx-auto p-6">
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Rate Selection & Configuration</h1>
-              <p className="text-lg text-gray-600">Review shipping rates and configure your shipments before creating labels</p>
+            <div className="mb-8 text-center">
+              <h1 className="text-4xl font-bold text-gray-900 mb-4">Rate Selection & Review</h1>
+              <p className="text-xl text-gray-600 mb-6">
+                Choose the best shipping rates for your shipments. Our AI has found competitive options from multiple carriers.
+              </p>
+              
+              {/* Enhanced rate fetching indicator */}
+              {isFetchingRates && (
+                <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl shadow-lg">
+                  <div className="flex items-center justify-center space-x-4">
+                    <div className="relative">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <div className="absolute inset-0 animate-ping rounded-full h-8 w-8 border border-blue-400 opacity-25"></div>
+                    </div>
+                    <div className="text-center">
+                      <span className="text-blue-800 font-semibold text-lg block">Fetching Latest Rates</span>
+                      <span className="text-blue-600 text-sm">Comparing prices from UPS, FedEx, USPS, and DHL...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             
-            {isFetchingRates && (
-              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
-                  <span className="text-blue-800 font-medium">Fetching latest shipping rates...</span>
-                </div>
-              </div>
-            )}
-            
-            <Card className="shadow-lg border-0">
+            <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm">
               <BulkShipmentsList
                 shipments={filteredShipments}
                 isFetchingRates={isFetchingRates}
@@ -341,99 +355,129 @@ const BulkUploadView: React.FC = () => {
               />
             </Card>
             
-            {/* Create Labels Button */}
-            <div className="mt-8 flex justify-center">
-              <div className="flex gap-6 items-center">
-                <BatchLabelControls
-                  selectedShipments={filteredShipments.filter(s => s.selectedRateId)}
-                  pickupAddress={pickupAddress}
-                  onBatchProcessed={handleBatchProcessed}
-                />
+            {/* Enhanced action buttons - PAYMENT ONLY HERE */}
+            <div className="mt-10 flex justify-center">
+              <div className="bg-white p-8 rounded-xl shadow-lg border">
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Ready to Process?</h3>
+                  <p className="text-gray-600">
+                    Complete payment to automatically generate all your shipping labels
+                  </p>
+                </div>
                 
-                <Button
-                  onClick={() => setShowPaymentModal(true)}
-                  disabled={!filteredShipments.some(s => s.selectedRateId)}
-                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-4 text-lg font-semibold shadow-lg mr-4"
-                  size="lg"
-                >
-                  <CreditCard className="mr-3 h-5 w-5" />
-                  Setup Payment
-                </Button>
-
-                <Button
-                  onClick={handleCreateLabels}
-                  disabled={isCreatingLabels || !filteredShipments.some(s => s.selectedRateId)}
-                  className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-12 py-4 text-xl font-semibold shadow-lg"
-                  size="lg"
-                >
-                  {isCreatingLabels ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                      Creating Labels...
-                    </>
-                  ) : (
-                    <>
-                      <Package className="mr-3 h-6 w-6" />
-                      Create All Labels
-                    </>
-                  )}
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
+                  <Button
+                    onClick={() => setShowPaymentModal(true)}
+                    disabled={!filteredShipments.some(s => s.selectedRateId) || isCreatingLabels}
+                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-12 py-4 text-xl font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
+                    size="lg"
+                  >
+                    {isCreatingLabels ? (
+                      <>
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
+                        Creating Labels...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="mr-3 h-6 w-6" />
+                        Pay & Create Labels
+                        <ArrowRight className="ml-3 h-5 w-5" />
+                      </>
+                    )}
+                  </Button>
+                  
+                  <div className="text-center text-sm text-gray-500">
+                    <div className="font-semibold text-lg text-gray-700">
+                      Total: ${results.totalCost?.toFixed(2) || '0.00'}
+                    </div>
+                    <div>{filteredShipments.filter(s => s.selectedRateId).length} shipments selected</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Success Screen with Enhanced Design */}
+      {/* Enhanced Success Screen - NO PAYMENT PROMPTS HERE */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50">
           <div className="max-w-7xl mx-auto p-6">
             <div className="text-center mb-12">
-              <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="h-12 w-12 text-green-600" />
+              <div className="w-32 h-32 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-8 shadow-2xl">
+                <CheckCircle className="h-16 w-16 text-white" />
               </div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                Labels Created Successfully!
+              <h1 className="text-5xl font-bold text-gray-900 mb-6">
+                🎉 Labels Created Successfully!
               </h1>
-              <p className="text-xl text-gray-600">Your shipping labels are ready for download and use</p>
+              <p className="text-2xl text-gray-600 mb-8">
+                Your shipping labels are ready for download and use
+              </p>
+              <div className="bg-green-100 border border-green-300 rounded-xl p-6 max-w-2xl mx-auto">
+                <div className="flex items-center justify-center space-x-6 text-green-800">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold">{results.processedShipments?.length || 0}</div>
+                    <div className="text-sm">Labels Created</div>
+                  </div>
+                  <div className="w-px h-12 bg-green-300"></div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold">${results.totalCost?.toFixed(2) || '0.00'}</div>
+                    <div className="text-sm">Total Shipping Cost</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Enhanced Batch Label Download Options */}
+            {/* NO PAYMENT COMPONENTS HERE - Only download options */}
             <BulkLabelDownloadOptions
               batchResult={results.batchResult}
               processedLabels={results.processedShipments || []}
-              onDownloadBatch={handleDownloadConsolidated}
-              onDownloadManifest={handleDownloadManifest}
-              onDownloadIndividual={handleDownloadIndividualLabel}
+              onDownloadBatch={(format, url) => {
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `consolidated_labels_${Date.now()}.${format}`;
+                link.target = '_blank';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              onDownloadManifest={(url) => {
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `pickup_manifest_${Date.now()}.pdf`;
+                link.target = '_blank';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+              onDownloadIndividual={handleDownloadSingleLabel}
               onPrintPreview={handlePrintPreview}
-              onEmailLabels={handleEmailConsolidated}
+              onEmailLabels={() => setShowEmailModal(true)}
             />
           </div>
         </div>
       )}
 
-      {/* Print Preview Modal */}
+      {/* Modals */}
       <BatchPrintPreviewModal
         isOpen={showPrintPreview}
         onClose={() => setShowPrintPreview(false)}
         batchResult={results?.batchResult || null}
       />
 
-      {/* Email Modal */}
       <EmailLabelsModal
         isOpen={showEmailModal}
         onClose={() => setShowEmailModal(false)}
         batchResult={results?.batchResult || null}
       />
 
-      {/* Payment Modal */}
+      {/* Payment Modal - ONLY APPEARS ON RATE SELECTION SCREEN */}
       <PaymentMethodModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         onSuccess={() => {
           setShowPaymentModal(false);
-          // Proceed with label creation after payment setup
-          handleCreateLabels();
+          handlePaymentSuccess();
         }}
       />
     </div>

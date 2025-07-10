@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Upload, FileText, MapPin, AlertCircle, Loader2, Brain, CheckCircle, Sparkles } from 'lucide-react';
+import { Upload, FileText, MapPin, AlertCircle, Loader2, Brain, CheckCircle, Sparkles, ArrowRight, Zap, FileCheck } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/components/ui/sonner';
@@ -188,26 +189,30 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     toast.info('CSV upload cancelled. You can select a new file.');
   };
 
-  // Render header mapping step
+  // Enhanced header mapping step
   if (currentStep === 'mapping' && csvContent) {
     return (
-      <div className="space-y-8">
-        <div className="text-center py-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full mb-6">
-            <Brain className="w-10 h-10 text-purple-600" />
+      <div className="space-y-10">
+        <div className="text-center py-12">
+          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-purple-500 via-blue-500 to-indigo-600 rounded-full mb-8 shadow-2xl">
+            <Brain className="w-12 h-12 text-white" />
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">AI Header Mapping</h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <h2 className="text-4xl font-bold text-gray-900 mb-6">AI Header Mapping in Progress</h2>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8 leading-relaxed">
             Our advanced AI is analyzing your CSV headers and automatically mapping them to the correct shipping format. 
-            This ensures perfect compatibility with our shipping system.
+            This intelligent process ensures perfect compatibility with our shipping system and eliminates manual errors.
           </p>
-          <div className="flex items-center justify-center mt-6 space-x-2">
-            <Sparkles className="w-5 h-5 text-purple-500" />
-            <span className="text-sm font-medium text-purple-600">Smart mapping in progress...</span>
+          <div className="flex items-center justify-center mt-8 space-x-3">
+            <div className="flex space-x-1">
+              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+              <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+            </div>
+            <span className="text-lg font-semibold text-purple-600 ml-3">Smart mapping in progress...</span>
           </div>
         </div>
         
-        <div className="bg-white rounded-xl shadow-lg border">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100">
           <CsvHeaderMapper
             csvContent={csvContent}
             onMappingComplete={handleMappingComplete}
@@ -218,46 +223,51 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     );
   }
 
-  // Render processing step
+  // Enhanced processing step
   if (currentStep === 'processing') {
     return (
-      <div className="space-y-8">
-        <div className="text-center py-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-100 to-green-100 rounded-full mb-6">
-            <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+      <div className="space-y-10">
+        <div className="text-center py-16">
+          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-blue-500 via-green-500 to-teal-600 rounded-full mb-8 shadow-2xl">
+            <Loader2 className="w-12 h-12 text-white animate-spin" />
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Processing Your Shipments</h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-8">
-            Creating shipments and fetching live rates from multiple carriers including UPS, USPS, FedEx, and DHL...
+          <h2 className="text-4xl font-bold text-gray-900 mb-6">Processing Your Shipments</h2>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-10 leading-relaxed">
+            Creating shipments and fetching live rates from multiple carriers including UPS, USPS, FedEx, and DHL. 
+            Our system is comparing thousands of rate options to find you the best deals.
           </p>
           
           {progress > 0 && (
-            <div className="max-w-md mx-auto">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>Progress</span>
-                <span>{progress}%</span>
+            <div className="max-w-lg mx-auto mb-10">
+              <div className="flex justify-between text-lg text-gray-700 mb-3">
+                <span className="font-semibold">Progress</span>
+                <span className="font-bold">{progress}%</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-3">
+              <div className="w-full bg-gray-200 rounded-full h-4 shadow-inner">
                 <div
-                  className="bg-gradient-to-r from-blue-500 to-green-500 h-3 rounded-full transition-all duration-500 ease-out"
+                  className="bg-gradient-to-r from-blue-500 via-green-500 to-teal-500 h-4 rounded-full transition-all duration-1000 ease-out shadow-lg"
                   style={{ width: `${progress}%` }}
                 />
               </div>
             </div>
           )}
           
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto">
-            <div className="flex items-center space-x-3 p-4 bg-blue-50 rounded-lg">
-              <CheckCircle className="w-5 h-5 text-blue-600" />
-              <span className="text-sm font-medium text-blue-800">Creating Shipments</span>
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+            <div className="flex flex-col items-center space-y-3 p-6 bg-blue-50 rounded-xl border border-blue-200">
+              <CheckCircle className="w-8 h-8 text-blue-600" />
+              <span className="text-sm font-semibold text-blue-800">Creating Shipments</span>
             </div>
-            <div className="flex items-center space-x-3 p-4 bg-purple-50 rounded-lg">
-              <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
-              <span className="text-sm font-medium text-purple-800">Fetching Rates</span>
+            <div className="flex flex-col items-center space-y-3 p-6 bg-purple-50 rounded-xl border border-purple-200">
+              <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+              <span className="text-sm font-semibold text-purple-800">Fetching Rates</span>
             </div>
-            <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
-              <div className="w-5 h-5 border-2 border-gray-300 rounded-full" />
-              <span className="text-sm font-medium text-gray-600">Finalizing</span>
+            <div className="flex flex-col items-center space-y-3 p-6 bg-green-50 rounded-xl border border-green-200">
+              <Zap className="w-8 h-8 text-green-600" />
+              <span className="text-sm font-semibold text-green-800">Comparing Prices</span>
+            </div>
+            <div className="flex flex-col items-center space-y-3 p-6 bg-gray-50 rounded-xl border border-gray-200">
+              <div className="w-8 h-8 border-2 border-gray-300 rounded-full" />
+              <span className="text-sm font-semibold text-gray-600">Finalizing</span>
             </div>
           </div>
         </div>
@@ -265,42 +275,42 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     );
   }
 
-  // Render file selection step (default)
+  // Enhanced file selection step
   return (
-    <div className="space-y-8">
-      {/* Pickup Address Selection */}
-      <Card className="border-2 border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50">
-        <CardContent className="p-6">
-          <div className="flex items-start space-x-4">
+    <div className="space-y-10">
+      {/* Enhanced Pickup Address Selection */}
+      <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50 shadow-lg">
+        <CardContent className="p-8">
+          <div className="flex items-start space-x-6">
             <div className="flex-shrink-0">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <MapPin className="w-6 h-6 text-blue-600" />
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+                <MapPin className="w-8 h-8 text-white" />
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <Label htmlFor="pickup-address" className="text-base font-semibold text-gray-900 mb-2 block">
+              <Label htmlFor="pickup-address" className="text-xl font-bold text-gray-900 mb-3 block">
                 Select Pickup Address
               </Label>
-              <p className="text-sm text-gray-600 mb-4">
-                Choose the address where packages will be picked up from
+              <p className="text-lg text-gray-600 mb-6 leading-relaxed">
+                Choose the address where packages will be picked up from. This will be used as the origin for all shipments.
               </p>
               
               {!addressesLoaded ? (
-                <div className="flex items-center space-x-3 p-4 bg-white rounded-lg border">
-                  <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
-                  <span className="text-sm text-gray-600">Loading your addresses...</span>
+                <div className="flex items-center space-x-4 p-6 bg-white rounded-xl border border-gray-200 shadow-sm">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                  <span className="text-lg text-gray-600">Loading your addresses...</span>
                 </div>
               ) : availableAddresses.length > 0 ? (
                 <Select value={selectedAddressId} onValueChange={handleAddressChange}>
-                  <SelectTrigger className="bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors">
+                  <SelectTrigger className="bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors p-4 text-lg">
                     <SelectValue placeholder="Select pickup address" />
                   </SelectTrigger>
                   <SelectContent>
                     {availableAddresses.map((address) => (
                       <SelectItem key={address.id} value={address.id.toString()}>
-                        <div className="flex flex-col py-1">
-                          <span className="font-medium text-gray-900">{address.name}</span>
-                          <span className="text-sm text-gray-500">
+                        <div className="flex flex-col py-2">
+                          <span className="font-semibold text-gray-900 text-lg">{address.name}</span>
+                          <span className="text-gray-500">
                             {address.street1}, {address.city}, {address.state} {address.zip}
                           </span>
                         </div>
@@ -310,8 +320,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                 </Select>
               ) : (
                 <Alert className="border-amber-200 bg-amber-50">
-                  <AlertCircle className="h-4 w-4 text-amber-600" />
-                  <AlertDescription className="text-amber-800">
+                  <AlertCircle className="h-5 w-5 text-amber-600" />
+                  <AlertDescription className="text-amber-800 text-lg">
                     <strong>No addresses found.</strong> Please add a pickup address in Settings first.
                   </AlertDescription>
                 </Alert>
@@ -321,12 +331,12 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         </CardContent>
       </Card>
 
-      {/* File Upload Area */}
-      <Card className="border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors">
-        <CardContent className="p-8">
+      {/* Enhanced File Upload Area */}
+      <Card className="border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors shadow-lg">
+        <CardContent className="p-10">
           <div
             className={`
-              relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300
+              relative border-2 border-dashed rounded-2xl p-16 text-center transition-all duration-300
               ${dragActive
                 ? 'border-blue-400 bg-blue-50 scale-105'
                 : selectedFile
@@ -347,45 +357,45 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
               className="hidden"
             />
             
-            <div className="space-y-6">
+            <div className="space-y-8">
               {selectedFile ? (
                 <>
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full">
-                    <FileText className="w-8 h-8 text-green-600" />
+                  <div className="inline-flex items-center justify-center w-20 h-20 bg-green-500 rounded-full shadow-lg">
+                    <FileCheck className="w-10 h-10 text-white" />
                   </div>
                   <div>
-                    <p className="text-xl font-semibold text-green-700 mb-2">
+                    <p className="text-2xl font-bold text-green-700 mb-3">
                       {selectedFile.name}
                     </p>
-                    <p className="text-sm text-green-600 mb-4">
+                    <p className="text-lg text-green-600 mb-6">
                       {(selectedFile.size / 1024).toFixed(1)} KB - Ready for AI processing
                     </p>
-                    <div className="flex items-center justify-center space-x-2 text-sm text-green-600">
-                      <CheckCircle className="w-4 h-4" />
-                      <span>File validated successfully</span>
+                    <div className="flex items-center justify-center space-x-3 text-lg text-green-600">
+                      <CheckCircle className="w-6 h-6" />
+                      <span className="font-semibold">File validated successfully</span>
                     </div>
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full">
-                    <Upload className="w-8 h-8 text-gray-400" />
+                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-200 rounded-full">
+                    <Upload className="w-10 h-10 text-gray-400" />
                   </div>
                   <div>
-                    <p className="text-xl font-semibold text-gray-700 mb-2">
+                    <p className="text-2xl font-bold text-gray-700 mb-3">
                       Drop your CSV file here
                     </p>
-                    <p className="text-gray-600 mb-4">
+                    <p className="text-lg text-gray-600 mb-6">
                       or{' '}
                       <button
                         type="button"
                         onClick={() => document.getElementById('file-upload')?.click()}
-                        className="text-blue-600 hover:text-blue-700 font-medium underline"
+                        className="text-blue-600 hover:text-blue-700 font-semibold underline transition-colors"
                       >
                         browse to choose a file
                       </button>
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-lg text-gray-500">
                       Supports CSV files up to 10MB
                     </p>
                   </div>
@@ -395,37 +405,41 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
           </div>
 
           {selectedFile && (
-            <div className="flex items-center justify-center space-x-4 mt-6">
+            <div className="flex items-center justify-center space-x-6 mt-8">
               <Button
                 type="button"
                 onClick={() => document.getElementById('file-upload')?.click()}
                 variant="outline"
-                className="border-2 hover:border-blue-300"
+                className="border-2 hover:border-blue-300 px-6 py-3"
+                size="lg"
               >
                 Choose Different File
               </Button>
               <Button
                 onClick={() => setCurrentStep('mapping')}
                 disabled={!selectedAddressId || !addressesLoaded}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
+                className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 px-8 py-3"
+                size="lg"
               >
-                <Brain className="mr-2 h-4 w-4" />
+                <Brain className="mr-3 h-5 w-5" />
                 Continue with AI Mapping
+                <ArrowRight className="ml-3 h-5 w-5" />
               </Button>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Info about the process */}
-      <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 to-purple-50">
-        <div className="flex items-center space-x-3">
+      {/* Enhanced info section */}
+      <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-indigo-50 p-6">
+        <div className="flex items-center space-x-4">
           <div className="flex-shrink-0">
-            <Sparkles className="h-5 w-5 text-blue-600" />
+            <Sparkles className="h-8 w-8 text-blue-600" />
           </div>
           <div>
-            <AlertDescription className="text-blue-800">
-              <strong className="font-semibold">Smart CSV Processing:</strong> Our AI automatically analyzes and maps your CSV headers to the correct shipping format. No manual field mapping required - just upload and let our intelligence handle the rest!
+            <AlertDescription className="text-blue-800 text-lg leading-relaxed">
+              <strong className="font-bold text-xl">Smart CSV Processing:</strong> Our AI automatically analyzes and maps your CSV headers to the correct shipping format. 
+              No manual field mapping required - just upload and let our intelligence handle the complex work while you focus on your business!
             </AlertDescription>
           </div>
         </div>

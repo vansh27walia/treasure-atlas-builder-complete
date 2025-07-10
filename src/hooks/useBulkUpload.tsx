@@ -40,6 +40,7 @@ export const useBulkUpload = () => {
     estimatedTimeRemaining: 0
   });
   const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
 
   // Load default pickup address
   useEffect(() => {
@@ -55,6 +56,15 @@ export const useBulkUpload = () => {
     };
     loadDefaultAddress();
   }, []);
+
+  // Auto-trigger label creation after payment completion
+  useEffect(() => {
+    if (paymentCompleted && !isCreatingLabels && results && results.processedShipments.length > 0) {
+      console.log('Payment completed, auto-starting label creation...');
+      handleCreateLabels();
+      setPaymentCompleted(false); // Reset flag
+    }
+  }, [paymentCompleted, isCreatingLabels, results]);
 
   // Filter and sort shipments
   const filteredShipments = results?.processedShipments.filter(shipment => {
@@ -208,7 +218,15 @@ export const useBulkUpload = () => {
     setBatchPrintPreviewModalOpen(true);
   };
 
-  // Direct label creation without modal - goes straight to label creation
+  // Enhanced payment success handler
+  const handlePaymentSuccess = () => {
+    console.log('Payment successful, triggering label creation...');
+    setIsPaying(false);
+    setPaymentCompleted(true);
+    toast.success('Payment successful! Creating labels automatically...');
+  };
+
+  // Direct label creation without payment prompts
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -415,6 +433,7 @@ export const useBulkUpload = () => {
     handleRefreshRates,
     handleBulkApplyCarrier,
     handleClearBatchError,
-    handleOpenBatchPrintPreview
+    handleOpenBatchPrintPreview,
+    handlePaymentSuccess
   };
 };
