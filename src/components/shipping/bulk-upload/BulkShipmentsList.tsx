@@ -137,7 +137,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 <ShippingRateDropdown
                   rates={convertRatesToShippingRates(shipment.availableRates)}
                   selectedRateId={shipment.selectedRateId}
-                  onRateSelect={(rateId) => handleRateSelect(shipment.id, rateId)}
+                  onSelectRate={(rateId) => handleRateSelect(shipment.id, rateId)}
                   isLoading={isFetchingRates}
                   className="w-full"
                 />

@@ -120,6 +120,7 @@ Jane Smith,456 Oak Ave,Los Angeles,CA,90210,US,12,8,6,4,15.50`;
             <h3 className="text-lg font-semibold">Select Pickup Address</h3>
           </div>
           <AddressSelector
+            type="from"
             onAddressSelect={handleAddressSelect}
             selectedAddressId={pickupAddress?.id}
           />
