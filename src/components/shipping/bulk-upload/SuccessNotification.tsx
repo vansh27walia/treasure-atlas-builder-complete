@@ -9,19 +9,25 @@ interface SuccessNotificationProps {
   results: BulkUploadResult;
   onDownloadAllLabels: () => void;
   onDownloadSingleLabel: (labelUrl: string) => void;
-  onCreateLabels?: () => void;
-  isPaying?: boolean;
-  isCreatingLabels?: boolean;
 }
 
 const SuccessNotification: React.FC<SuccessNotificationProps> = ({
   results,
   onDownloadAllLabels,
-  onDownloadSingleLabel,
-  isCreatingLabels = false
+  onDownloadSingleLabel
 }) => {
   const successfulLabels = results.processedShipments?.filter(s => s.label_url) || [];
   const hasLabels = successfulLabels.length > 0;
+
+  const getDisplayAddress = (shipment: any) => {
+    if (typeof shipment.customer_address === 'string') {
+      return shipment.customer_address;
+    }
+    if (shipment.customer_address && typeof shipment.customer_address === 'object') {
+      return shipment.customer_address.street1 || '';
+    }
+    return '';
+  };
 
   return (
     <div className="space-y-6">
@@ -116,9 +122,7 @@ const SuccessNotification: React.FC<SuccessNotificationProps> = ({
                         <div>
                           <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
                           <div className="text-sm text-gray-500">
-                            {typeof shipment.customer_address === 'string' 
-                              ? shipment.customer_address 
-                              : shipment.customer_address?.street1 || ''}
+                            {getDisplayAddress(shipment)}
                           </div>
                         </div>
                       </td>
