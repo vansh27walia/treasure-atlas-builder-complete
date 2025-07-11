@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { Download, PrinterIcon, Package, CheckCircle, AlertCircle, FileText, Cre
 import { BulkUploadResult } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
+import LabelCreationOverlay from '@/components/shipping/LabelCreationOverlay';
 import { toast } from 'sonner';
 
 interface BatchLabelCreationPageProps {
@@ -28,6 +28,13 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
   const [isRefreshingRates, setIsRefreshingRates] = useState(false);
   const [labelsCreated, setLabelsCreated] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
+  const [labelProgress, setLabelProgress] = useState({
+    isCreating: false,
+    progress: 0,
+    currentStep: '',
+    completed: 0,
+    failed: 0
+  });
 
   // Check if labels are already created
   useEffect(() => {
@@ -58,19 +65,42 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
       setShowPaymentModal(false);
       setIsCreatingLabels(true);
       
+      // Show label creation progress
+      setLabelProgress({
+        isCreating: true,
+        progress: 0,
+        currentStep: 'Initializing label creation...',
+        completed: 0,
+        failed: 0
+      });
+      
       toast.success('Payment successful! Creating labels automatically...', {
         duration: 3000,
       });
 
       try {
+        // Simulate progress updates
+        const totalLabels = results.processedShipments?.length || 0;
+        for (let i = 0; i <= totalLabels; i++) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          setLabelProgress(prev => ({
+            ...prev,
+            progress: (i / totalLabels) * 100,
+            currentStep: i === totalLabels ? 'Finalizing labels...' : `Processing label ${i + 1} of ${totalLabels}`,
+            completed: i
+          }));
+        }
+
         // Auto-trigger label creation
         if (onCreateLabels) {
           await onCreateLabels();
         }
         setLabelsCreated(true);
+        setLabelProgress(prev => ({ ...prev, isCreating: false }));
         toast.success('🎉 All labels created successfully!');
       } catch (error) {
         console.error('Label creation failed:', error);
+        setLabelProgress(prev => ({ ...prev, isCreating: false }));
         toast.error('Payment successful but label creation failed. Please try again.');
       } finally {
         setIsCreatingLabels(false);
@@ -109,309 +139,325 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
   const totalCost = results.totalCost || 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <div className="flex items-center justify-center mb-4">
-            <Package className="h-8 w-8 text-green-600 mr-3" />
-            <h1 className="text-3xl font-bold text-gray-900">
-              {labelsCreated ? 'Batch Labels Created Successfully' : 'Complete Your Batch Order'}
-            </h1>
+    <>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="max-w-7xl mx-auto p-6">
+          {/* Header */}
+          <div className="mb-8 text-center">
+            <div className="flex items-center justify-center mb-4">
+              <Package className="h-8 w-8 text-green-600 mr-3" />
+              <h1 className="text-3xl font-bold text-gray-900">
+                {labelsCreated ? 'Batch Labels Created Successfully' : 'Complete Your Batch Order'}
+              </h1>
+            </div>
+            <p className="text-gray-600">
+              {labelsCreated 
+                ? 'Your shipping labels have been generated and are ready for download and printing.'
+                : 'Review your order and complete payment to generate your shipping labels.'
+              }
+            </p>
           </div>
-          <p className="text-gray-600">
-            {labelsCreated 
-              ? 'Your shipping labels have been generated and are ready for download and printing.'
-              : 'Review your order and complete payment to generate your shipping labels.'
-            }
-          </p>
-        </div>
 
-        {/* Payment Section - Show if labels not created yet */}
-        {!labelsCreated && (
-          <Card className="p-6 mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-blue-900 mb-2 flex items-center">
-                  <Sparkles className="h-6 w-6 mr-2" />
-                  Ready to Ship
-                </h2>
-                <p className="text-blue-700 text-lg">Complete payment to generate your shipping labels</p>
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-blue-900">${totalCost.toFixed(2)}</div>
-                <div className="text-sm text-blue-600 font-medium">{successfulLabels.length} labels ready</div>
-              </div>
-            </div>
-            
-            <div className="flex gap-4">
-              <Button
-                onClick={handleStartPayment}
-                disabled={isCreatingLabels || successfulLabels.length === 0}
-                className="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-200"
-                size="lg"
-              >
-                {isCreatingLabels ? (
-                  <>
-                    <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
-                    Creating Labels...
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="mr-2 h-5 w-5" />
-                    Pay & Create Labels
-                  </>
-                )}
-              </Button>
-              
-              <Button
-                onClick={handleRefreshRates}
-                disabled={isRefreshingRates}
-                variant="outline"
-                className="px-6 py-4 border-2 border-blue-300 text-blue-700 hover:bg-blue-50 font-medium"
-                size="lg"
-              >
-                {isRefreshingRates ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Refreshing...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Refresh Rates
-                  </>
-                )}
-              </Button>
-            </div>
-          </Card>
-        )}
-
-        {/* Payment Modal */}
-        {showPaymentModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+          {/* Payment Section - Show if labels not created yet */}
+          {!labelsCreated && (
+            <Card className="p-6 mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 shadow-xl">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold">Complete Payment</h3>
+                <div>
+                  <h2 className="text-2xl font-bold text-blue-900 mb-2 flex items-center">
+                    <Sparkles className="h-6 w-6 mr-2" />
+                    Ready to Ship
+                  </h2>
+                  <p className="text-blue-700 text-lg">Complete payment to generate your shipping labels</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-blue-900">${totalCost.toFixed(2)}</div>
+                  <div className="text-sm text-blue-600 font-medium">{successfulLabels.length} labels ready</div>
+                </div>
+              </div>
+              
+              <div className="flex gap-4">
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowPaymentModal(false)}
-                  className="text-gray-500 hover:text-gray-700"
+                  onClick={handleStartPayment}
+                  disabled={isCreatingLabels || successfulLabels.length === 0}
+                  className="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-200"
+                  size="lg"
                 >
-                  ×
+                  {isCreatingLabels ? (
+                    <>
+                      <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+                      Creating Labels...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="mr-2 h-5 w-5" />
+                      Pay & Create Labels
+                    </>
+                  )}
+                </Button>
+                
+                <Button
+                  onClick={handleRefreshRates}
+                  disabled={isRefreshingRates}
+                  variant="outline"
+                  className="px-6 py-4 border-2 border-blue-300 text-blue-700 hover:bg-blue-50 font-medium"
+                  size="lg"
+                >
+                  {isRefreshingRates ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Refresh Rates
+                    </>
+                  )}
                 </Button>
               </div>
+            </Card>
+          )}
+
+          {/* Payment Modal */}
+          {showPaymentModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold">Complete Payment</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowPaymentModal(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    ×
+                  </Button>
+                </div>
+                
+                <PaymentMethodSelector
+                  selectedPaymentMethod={selectedPaymentMethod}
+                  onPaymentMethodChange={setSelectedPaymentMethod}
+                  onPaymentComplete={handlePaymentComplete}
+                  amount={totalCost}
+                  description={`Bulk Shipping Labels (${successfulLabels.length} labels)`}
+                  onClose={() => setShowPaymentModal(false)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Consolidated Download Section - Show only after payment */}
+          {labelsCreated && successfulLabels.length > 0 && (
+            <Card className="p-6 mb-8 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 shadow-xl">
+              <div className="flex items-center mb-4">
+                <FileText className="h-6 w-6 text-green-600 mr-3" />
+                <h2 className="text-xl font-semibold text-green-900">Download Consolidated Labels</h2>
+              </div>
+              <p className="text-green-700 mb-4">Download all labels as consolidated files in different formats:</p>
               
-              <PaymentMethodSelector
-                selectedPaymentMethod={selectedPaymentMethod}
-                onPaymentMethodChange={setSelectedPaymentMethod}
-                onPaymentComplete={handlePaymentComplete}
-                amount={totalCost}
-                description={`Bulk Shipping Labels (${successfulLabels.length} labels)`}
-                onClose={() => setShowPaymentModal(false)}
-              />
-            </div>
-          </div>
-        )}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {/* Consolidated PDF */}
+                <Button
+                  onClick={() => {
+                    const url = generateConsolidatedLabelUrl('pdf');
+                    if (url) onDownloadSingleLabel(url);
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white flex items-center justify-center h-16"
+                  size="lg"
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  <div className="text-center">
+                    <div className="font-semibold">Consolidated PDF</div>
+                    <div className="text-xs opacity-90">All Labels</div>
+                  </div>
+                </Button>
 
-        {/* Consolidated Download Section - Show only after payment */}
-        {labelsCreated && successfulLabels.length > 0 && (
-          <Card className="p-6 mb-8 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 shadow-xl">
-            <div className="flex items-center mb-4">
-              <FileText className="h-6 w-6 text-green-600 mr-3" />
-              <h2 className="text-xl font-semibold text-green-900">Download Consolidated Labels</h2>
-            </div>
-            <p className="text-green-700 mb-4">Download all labels as consolidated files in different formats:</p>
+                {/* Consolidated ZPL */}
+                <Button
+                  onClick={() => {
+                    const url = generateConsolidatedLabelUrl('zpl');
+                    if (url) onDownloadSingleLabel(url);
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center h-16"
+                  size="lg"
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  <div className="text-center">
+                    <div className="font-semibold">Consolidated ZPL</div>
+                    <div className="text-xs opacity-90">All Labels</div>
+                  </div>
+                </Button>
+
+                {/* Consolidated PNG */}
+                <Button
+                  onClick={() => {
+                    const url = generateConsolidatedLabelUrl('png');
+                    if (url) onDownloadSingleLabel(url);
+                  }}
+                  className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center h-16"
+                  size="lg"
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  <div className="text-center">
+                    <div className="font-semibold">Consolidated PNG</div>
+                    <div className="text-xs opacity-90">All Labels</div>
+                  </div>
+                </Button>
+
+                {/* Consolidated EPL */}
+                <Button
+                  onClick={() => {
+                    const url = generateConsolidatedLabelUrl('epl');
+                    if (url) onDownloadSingleLabel(url);
+                  }}
+                  className="bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center h-16"
+                  size="lg"
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  <div className="text-center">
+                    <div className="font-semibold">Consolidated EPL</div>
+                    <div className="text-xs opacity-90">All Labels</div>
+                  </div>
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <Card className="p-6 text-center shadow-lg">
+              <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-3" />
+              <h3 className="text-2xl font-bold text-green-600">{successfulLabels.length}</h3>
+              <p className="text-gray-600">Labels Ready</p>
+            </Card>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {/* Consolidated PDF */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('pdf');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-red-600 hover:bg-red-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Consolidated PDF</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
+            <Card className="p-6 text-center shadow-lg">
+              <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-3" />
+              <h3 className="text-2xl font-bold text-red-600">{failedLabels.length}</h3>
+              <p className="text-gray-600">Failed Labels</p>
+            </Card>
+            
+            <Card className="p-6 text-center shadow-lg">
+              <Package className="h-8 w-8 text-blue-600 mx-auto mb-3" />
+              <h3 className="text-2xl font-bold text-blue-600">${totalCost.toFixed(2)}</h3>
+              <p className="text-gray-600">Total Cost</p>
+            </Card>
+          </div>
 
-              {/* Consolidated ZPL */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('zpl');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Consolidated ZPL</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
+          {/* Batch Actions - Show only after payment */}
+          {labelsCreated && (
+            <Card className="p-6 mb-8 shadow-lg">
+              <h2 className="text-xl font-semibold mb-4">Batch Actions</h2>
+              <div className="flex flex-wrap gap-4">
+                <Button
+                  onClick={handleBatchPrintPreview}
+                  className="bg-purple-600 hover:bg-purple-700 text-white flex items-center shadow-lg"
+                  size="lg"
+                >
+                  <PrinterIcon className="mr-2 h-5 w-5" />
+                  Print Preview All Labels
+                </Button>
+              </div>
+            </Card>
+          )}
 
-              {/* Consolidated PNG */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('png');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Consolidated PNG</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
-
-              {/* Consolidated EPL */}
-              <Button
-                onClick={() => {
-                  const url = generateConsolidatedLabelUrl('epl');
-                  if (url) onDownloadSingleLabel(url);
-                }}
-                className="bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center h-16"
-                size="lg"
-              >
-                <Download className="mr-2 h-5 w-5" />
-                <div className="text-center">
-                  <div className="font-semibold">Consolidated EPL</div>
-                  <div className="text-xs opacity-90">All Labels</div>
-                </div>
-              </Button>
-            </div>
-          </Card>
-        )}
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="p-6 text-center shadow-lg">
-            <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-3" />
-            <h3 className="text-2xl font-bold text-green-600">{successfulLabels.length}</h3>
-            <p className="text-gray-600">Labels Ready</p>
-          </Card>
-          
-          <Card className="p-6 text-center shadow-lg">
-            <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-3" />
-            <h3 className="text-2xl font-bold text-red-600">{failedLabels.length}</h3>
-            <p className="text-gray-600">Failed Labels</p>
-          </Card>
-          
-          <Card className="p-6 text-center shadow-lg">
-            <Package className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-            <h3 className="text-2xl font-bold text-blue-600">${totalCost.toFixed(2)}</h3>
-            <p className="text-gray-600">Total Cost</p>
-          </Card>
-        </div>
-
-        {/* Batch Actions - Show only after payment */}
-        {labelsCreated && (
-          <Card className="p-6 mb-8 shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Batch Actions</h2>
-            <div className="flex flex-wrap gap-4">
-              <Button
-                onClick={handleBatchPrintPreview}
-                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center shadow-lg"
-                size="lg"
-              >
-                <PrinterIcon className="mr-2 h-5 w-5" />
-                Print Preview All Labels
-              </Button>
-            </div>
-          </Card>
-        )}
-
-        {/* Individual Labels Table - Show only after payment */}
-        {labelsCreated && successfulLabels.length > 0 && (
-          <Card className="p-6 shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Individual Labels</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b">
-                  <tr>
-                    <th className="text-left py-3 px-4">Recipient</th>
-                    <th className="text-left py-3 px-4">Tracking Number</th>
-                    <th className="text-left py-3 px-4">Carrier</th>
-                    <th className="text-left py-3 px-4">Cost</th>
-                    <th className="text-left py-3 px-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {successfulLabels.map((shipment, index) => (
-                    <tr key={shipment.id || index} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4">
-                        <div>
-                          <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
-                          <div className="text-sm text-gray-500">
-                            {getStreetAddress(shipment)}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
-                          {shipment.tracking_code || shipment.tracking_number}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div>
-                          <div className="font-medium">{shipment.carrier}</div>
-                          <div className="text-sm text-gray-500">{shipment.service}</div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="font-medium">${shipment.rate?.toFixed(2) || '0.00'}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex space-x-2">
-                          {shipment.label_url && (
-                            <Button
-                              onClick={() => onDownloadSingleLabel(shipment.label_url!)}
-                              size="sm"
-                              variant="outline"
-                              className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                            >
-                              <Download className="mr-1 h-4 w-4" />
-                              Download
-                            </Button>
-                          )}
-                        </div>
-                      </td>
+          {/* Individual Labels Table - Show only after payment */}
+          {labelsCreated && successfulLabels.length > 0 && (
+            <Card className="p-6 shadow-lg">
+              <h2 className="text-xl font-semibold mb-4">Individual Labels</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b">
+                    <tr>
+                      <th className="text-left py-3 px-4">Recipient</th>
+                      <th className="text-left py-3 px-4">Tracking Number</th>
+                      <th className="text-left py-3 px-4">Carrier</th>
+                      <th className="text-left py-3 px-4">Cost</th>
+                      <th className="text-left py-3 px-4">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        )}
+                  </thead>
+                  <tbody>
+                    {successfulLabels.map((shipment, index) => (
+                      <tr key={shipment.id || index} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-4">
+                          <div>
+                            <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
+                            <div className="text-sm text-gray-500">
+                              {getStreetAddress(shipment)}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                            {shipment.tracking_code || shipment.tracking_number}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div>
+                            <div className="font-medium">{shipment.carrier}</div>
+                            <div className="text-sm text-gray-500">{shipment.service}</div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-medium">${shipment.rate?.toFixed(2) || '0.00'}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex space-x-2">
+                            {shipment.label_url && (
+                              <Button
+                                onClick={() => onDownloadSingleLabel(shipment.label_url!)}
+                                size="sm"
+                                variant="outline"
+                                className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                              >
+                                <Download className="mr-1 h-4 w-4" />
+                                Download
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
 
-        {/* Failed Labels */}
-        {failedLabels.length > 0 && (
-          <Card className="p-6 mt-8 border-red-200 shadow-lg">
-            <h2 className="text-xl font-semibold mb-4 text-red-600">Failed Labels</h2>
-            <div className="space-y-3">
-              {failedLabels.map((shipment, index) => (
-                <div key={shipment.id || index} className="p-3 bg-red-50 border border-red-200 rounded">
-                  <div className="font-medium text-red-800">
-                    {shipment.customer_name || shipment.recipient}
+          {/* Failed Labels */}
+          {failedLabels.length > 0 && (
+            <Card className="p-6 mt-8 border-red-200 shadow-lg">
+              <h2 className="text-xl font-semibold mb-4 text-red-600">Failed Labels</h2>
+              <div className="space-y-3">
+                {failedLabels.map((shipment, index) => (
+                  <div key={shipment.id || index} className="p-3 bg-red-50 border border-red-200 rounded">
+                    <div className="font-medium text-red-800">
+                      {shipment.customer_name || shipment.recipient}
+                    </div>
+                    <div className="text-sm text-red-600 mt-1">
+                      Error: {shipment.error || 'Unknown error occurred'}
+                    </div>
                   </div>
-                  <div className="text-sm text-red-600 mt-1">
-                    Error: {shipment.error || 'Unknown error occurred'}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
       </div>
+
+      {/* Label Creation Progress Overlay */}
+      <LabelCreationOverlay 
+        isVisible={labelProgress.isCreating} 
+        progress={labelProgress.progress} 
+        currentStep={labelProgress.currentStep} 
+        totalLabels={results.processedShipments?.length || 0} 
+        completedLabels={labelProgress.completed} 
+        failedLabels={labelProgress.failed} 
+        onClose={() => setLabelProgress(prev => ({
+          ...prev,
+          isCreating: false
+        }))} 
+      />
 
       {/* Print Preview Modal */}
       {results.batchResult && (
@@ -424,7 +470,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
           isBatchPreview={true}
         />
       )}
-    </div>
+    </>
   );
 };
 

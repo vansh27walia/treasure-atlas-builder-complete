@@ -2,10 +2,17 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CreditCard, Plus, Check } from 'lucide-react';
+import { Loader2, CreditCard, Plus, Check, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import PaymentMethodList from './PaymentMethodList';
 import AddPaymentMethodModal from './AddPaymentMethodModal';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface PaymentMethodSelectorProps {
   selectedPaymentMethod: string | null;
@@ -26,6 +33,13 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
+
+  // Mock payment methods for dropdown
+  const paymentMethods = [
+    { id: 'card_1', name: 'Visa ending in 4242', type: 'visa' },
+    { id: 'card_2', name: 'Mastercard ending in 5555', type: 'mastercard' },
+    { id: 'card_3', name: 'American Express ending in 0005', type: 'amex' },
+  ];
 
   const handlePayment = async () => {
     if (!selectedPaymentMethod) {
@@ -64,7 +78,7 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
 
   return (
     <div className="w-full max-w-md mx-auto">
-      <Card className="border-2 border-blue-200 shadow-lg">
+      <Card className="border-2 border-blue-200 shadow-xl">
         <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-lg">
           <CardTitle className="flex items-center gap-2 text-blue-900">
             <CreditCard className="h-5 w-5" />
@@ -80,13 +94,32 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
             <p className="text-sm text-green-600 mt-1">{description}</p>
           </div>
 
-          {/* Payment Method Selection */}
+          {/* Payment Method Selection with Dropdown */}
           <div className="space-y-4">
             <h3 className="font-semibold text-gray-800">Select Payment Method</h3>
-            <PaymentMethodList
-              selectedPaymentMethod={selectedPaymentMethod}
-              onPaymentMethodChange={onPaymentMethodChange}
-            />
+            
+            <Select value={selectedPaymentMethod || ""} onValueChange={onPaymentMethodChange}>
+              <SelectTrigger className="w-full border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 transition-colors">
+                <SelectValue placeholder="Choose a payment method">
+                  {selectedPaymentMethod && (
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      {paymentMethods.find(m => m.id === selectedPaymentMethod)?.name}
+                    </div>
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="bg-white border-2 border-gray-200 shadow-lg">
+                {paymentMethods.map((method) => (
+                  <SelectItem key={method.id} value={method.id} className="cursor-pointer hover:bg-blue-50">
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      {method.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Action Buttons */}

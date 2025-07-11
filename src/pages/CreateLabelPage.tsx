@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ShippingRates from '@/components/ShippingRates';
@@ -11,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import BatchLabelControls from '@/components/shipping/BatchLabelControls';
+import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
+import LabelCreationOverlay from '@/components/shipping/LabelCreationOverlay';
 
 const CreateLabelPage: React.FC = () => {
   const location = useLocation();
@@ -20,6 +21,16 @@ const CreateLabelPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState(tabFromQuery || 'domestic');
   const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'label' | 'complete'>('address');
   const [selectedShipments, setSelectedShipments] = useState<any[]>([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [isCreatingLabels, setIsCreatingLabels] = useState(false);
+  const [labelProgress, setLabelProgress] = useState({
+    isCreating: false,
+    progress: 0,
+    currentStep: '',
+    completed: 0,
+    failed: 0
+  });
 
   useEffect(() => {
     if (activeTab) {
@@ -61,6 +72,48 @@ const CreateLabelPage: React.FC = () => {
       document.removeEventListener('rate-selected', handleRateSelected);
     };
   }, []);
+
+  const handlePaymentSuccess = async (success: boolean) => {
+    if (success) {
+      setShowPaymentModal(false);
+      setIsCreatingLabels(true);
+      
+      // Show label creation progress
+      setLabelProgress({
+        isCreating: true,
+        progress: 0,
+        currentStep: 'Preparing to create label...',
+        completed: 0,
+        failed: 0
+      });
+
+      try {
+        // Simulate label creation progress
+        for (let i = 0; i <= 100; i += 10) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          setLabelProgress(prev => ({
+            ...prev,
+            progress: i,
+            currentStep: i === 100 ? 'Label created successfully!' : `Creating label... ${i}%`,
+            completed: i === 100 ? 1 : 0
+          }));
+        }
+
+        // Navigate to success page or show success message
+        setCurrentStep('complete');
+        document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+          detail: { step: 'complete' }
+        }));
+        
+      } catch (error) {
+        console.error('Label creation failed:', error);
+        setLabelProgress(prev => ({ ...prev, failed: 1 }));
+      } finally {
+        setIsCreatingLabels(false);
+        setLabelProgress(prev => ({ ...prev, isCreating: false }));
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-4 px-4">
@@ -130,7 +183,29 @@ const CreateLabelPage: React.FC = () => {
                 </h2>
                 <p className="text-blue-700 text-sm">Ship packages within the country with our various carrier options.</p>
               </div>
-              <EnhancedShippingForm />
+              
+              {/* Vertical Layout for Normal Shipping */}
+              <div className="space-y-6">
+                <EnhancedShippingForm />
+                
+                {/* Payment Section - Vertical Layout */}
+                {currentStep === 'label' && (
+                  <Card className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 shadow-lg">
+                    <h3 className="text-xl font-semibold text-green-800 mb-4">Complete Payment & Create Label</h3>
+                    <p className="text-green-700 mb-6">Your shipping rate has been selected. Complete payment to generate your label.</p>
+                    
+                    <div className="flex flex-col space-y-4">
+                      <PaymentMethodSelector
+                        selectedPaymentMethod={selectedPaymentMethod}
+                        onPaymentMethodChange={setSelectedPaymentMethod}
+                        onPaymentComplete={handlePaymentSuccess}
+                        amount={15.99} // Mock amount, should come from selected rate
+                        description="Domestic Shipping Label"
+                      />
+                    </div>
+                  </Card>
+                )}
+              </div>
             </TabsContent>
             
             <TabsContent value="international" className="p-4">
@@ -201,6 +276,20 @@ const CreateLabelPage: React.FC = () => {
           <ShippingRates />
         )}
       </div>
+
+      {/* Label Creation Progress Overlay */}
+      <LabelCreationOverlay 
+        isVisible={labelProgress.isCreating} 
+        progress={labelProgress.progress} 
+        currentStep={labelProgress.currentStep} 
+        totalLabels={1} 
+        completedLabels={labelProgress.completed} 
+        failedLabels={labelProgress.failed} 
+        onClose={() => setLabelProgress(prev => ({
+          ...prev,
+          isCreating: false
+        }))} 
+      />
     </div>
   );
 };
