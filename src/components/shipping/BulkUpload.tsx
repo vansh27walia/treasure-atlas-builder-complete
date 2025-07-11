@@ -17,7 +17,6 @@ import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
-
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -29,7 +28,6 @@ const BulkUpload: React.FC = () => {
     completed: 0,
     failed: 0
   });
-
   const {
     file,
     isUploading,
@@ -160,7 +158,6 @@ const BulkUpload: React.FC = () => {
   const handlePaymentSuccess = () => {
     toast.success('Payment successful! Labels are now available for download.');
   };
-
   return <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         {/* Progress Bar */}
@@ -272,7 +269,7 @@ const BulkUpload: React.FC = () => {
                       </Button>
                     </div>}
                   
-                  <SuccessNotification results={results} onDownloadAllLabels={handleDownloadAllLabels} onDownloadSingleLabel={handleDownloadSingleLabel} />
+                  <SuccessNotification results={results} onDownloadAllLabels={handleDownloadAllLabels} onDownloadSingleLabel={handleDownloadSingleLabel} onCreateLabels={handleCreateLabels} isPaying={isPaying} isCreatingLabels={isCreatingLabels} />
                 </div>}
               
               {uploadStatus === 'error' && <div className="space-y-6">
