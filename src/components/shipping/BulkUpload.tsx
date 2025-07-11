@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -58,6 +59,7 @@ const BulkUpload: React.FC = () => {
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
+    handlePaymentSuccess,
     setSearchTerm,
     setSortField,
     setSortDirection,
@@ -157,9 +159,6 @@ const BulkUpload: React.FC = () => {
       toast.error('Failed to create labels');
     }
   };
-  const handlePaymentSuccess = () => {
-    toast.success('Payment successful! Labels are now available for download.');
-  };
 
   return <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -248,14 +247,9 @@ const BulkUpload: React.FC = () => {
                         </div>
                         
                         <div className="flex gap-3">
-                          <Button onClick={handleDownloadLabelsClick} disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress} className="px-6 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200" size="lg">
-                            <Download className="mr-2 h-5 w-5" />
-                            {isCreatingLabels ? 'Creating...' : 'Generate Labels'}
-                          </Button>
-                          
                           <Button onClick={() => setShowPaymentModal(true)} disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress} className="px-6 bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200" size="lg">
                             <CreditCard className="mr-2 h-5 w-5" />
-                            Pay & Ship
+                            Pay & Create Labels
                           </Button>
                         </div>
                       </div>
@@ -306,7 +300,10 @@ const BulkUpload: React.FC = () => {
       isCreating: false
     }))} />
 
-      <StripePaymentModal isOpen={showPaymentModal} onClose={() => setShowPaymentModal(false)} totalAmount={results?.totalCost || 0} shipmentCount={processedShipmentsCount} onPaymentSuccess={handlePaymentSuccess} />
+      <StripePaymentModal isOpen={showPaymentModal} onClose={() => setShowPaymentModal(false)} totalAmount={results?.totalCost || 0} shipmentCount={processedShipmentsCount} onPaymentSuccess={() => {
+        setShowPaymentModal(false);
+        handlePaymentSuccess();
+      }} />
 
       {results?.bulk_label_pdf_url && results.batchResult && <PrintPreview isOpenProp={showPrintPreview} onOpenChangeProp={setShowPrintPreview} labelUrl={results.bulk_label_pdf_url} trackingCode={null} isBatchPreview={true} batchResult={results.batchResult} />}
     </>;
