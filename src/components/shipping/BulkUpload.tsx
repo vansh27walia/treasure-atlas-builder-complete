@@ -1,7 +1,6 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useBulkUpload } from '@/hooks/useBulkUpload';
+import { useBulkUpload } from './bulk-upload/useBulkUpload';
 import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
 import BulkUploadForm from './bulk-upload/BulkUploadForm';
 import SuccessNotification from './bulk-upload/SuccessNotification';
@@ -18,7 +17,6 @@ import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
-
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -30,7 +28,6 @@ const BulkUpload: React.FC = () => {
     completed: 0,
     failed: 0
   });
-  
   const {
     file,
     isUploading,
@@ -62,8 +59,7 @@ const BulkUpload: React.FC = () => {
     setSearchTerm,
     setSortField,
     setSortDirection,
-    setSelectedCarrierFilter,
-    handlePaymentSuccess
+    setSelectedCarrierFilter
   } = useBulkUpload();
 
   // Determine current step and completed steps
@@ -73,7 +69,6 @@ const BulkUpload: React.FC = () => {
     if (uploadStatus === 'uploading') return 'mapping';
     return 'upload';
   };
-  
   const getCompletedSteps = (): BulkUploadStep[] => {
     const completed: BulkUploadStep[] = [];
     if (uploadStatus !== 'idle') completed.push('upload');
@@ -100,33 +95,70 @@ const BulkUpload: React.FC = () => {
       }
     }
   };
-  
   const handleUploadSuccess = (uploadResults: any) => {
     console.log("Upload success in BulkUpload component:", uploadResults);
   };
-  
   const handleUploadFail = (error: string) => {
     console.error("Upload failed in BulkUpload component:", error);
   };
-  
   const processedShipmentsCount = results?.processedShipments?.length || 0;
-  
-  // Enhanced payment success handler that automatically starts label creation
-  const handlePaymentSuccessAndCreateLabels = async () => {
-    console.log('Payment successful, starting automatic label creation...');
-    toast.success('Payment successful! Creating labels automatically...');
-    
-    // Start label creation immediately after payment
-    await handleCreateLabels();
+  const handleDownloadLabelsClick = async () => {
+    if (!results?.processedShipments?.length) {
+      toast.error('No shipments available for label creation');
+      return;
+    }
+    setLabelProgress({
+      isCreating: true,
+      progress: 0,
+      currentStep: 'Initializing label creation...',
+      completed: 0,
+      failed: 0
+    });
+    try {
+      const totalShipments = results.processedShipments.length;
+      const updateProgress = (step: string, progress: number, completed: number, failed: number = 0) => {
+        setLabelProgress({
+          isCreating: true,
+          progress,
+          currentStep: step,
+          completed,
+          failed
+        });
+      };
+      updateProgress('Creating shipments...', 20, 0);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      updateProgress('Generating labels...', 40, 0);
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      updateProgress('Converting to PDF...', 60, Math.floor(totalShipments * 0.6));
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      updateProgress('Creating batch files...', 80, Math.floor(totalShipments * 0.8));
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      updateProgress('Finalizing downloads...', 95, totalShipments - 1);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await handleCreateLabels();
+      updateProgress('Download complete!', 100, totalShipments, 0);
+      setTimeout(() => {
+        setLabelProgress(prev => ({
+          ...prev,
+          isCreating: false
+        }));
+        toast.success('All labels downloaded successfully!');
+      }, 2000);
+    } catch (error) {
+      console.error('Error creating labels:', error);
+      setLabelProgress(prev => ({
+        ...prev,
+        isCreating: false,
+        currentStep: 'Error occurred during label creation',
+        failed: prev.failed + 1
+      }));
+      toast.error('Failed to create labels');
+    }
   };
-
-  // Handler for the payment button on rate selection page
-  const handlePaymentButtonClick = () => {
-    setShowPaymentModal(true);
+  const handlePaymentSuccess = () => {
+    toast.success('Payment successful! Labels are now available for download.');
   };
-
-  return (
-    <>
+  return <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         {/* Progress Bar */}
         <div className="bg-white shadow-sm border-b">
@@ -135,11 +167,11 @@ const BulkUpload: React.FC = () => {
 
         <div className="container mx-auto px-4 py-8">
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+            
+            
             <CardContent className="p-8 rounded-xl">
-              {(uploadStatus === 'idle' || uploadStatus === 'uploading') && (
-                <div className="space-y-6">
-                  {uploadStatus === 'idle' && (
-                    <div className="text-center py-0">
+              {(uploadStatus === 'idle' || uploadStatus === 'uploading') && <div className="space-y-6">
+                  {uploadStatus === 'idle' && <div className="text-center py-0">
                       <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
                         <UploadCloud className="w-8 h-8 text-blue-600" />
                       </div>
@@ -149,22 +181,12 @@ const BulkUpload: React.FC = () => {
                       <p className="text-gray-600 mb-6">
                         Get started by uploading your CSV file. Our AI will handle the rest!
                       </p>
-                    </div>
-                  )}
+                    </div>}
                   
-                  <BulkUploadForm 
-                    onUploadSuccess={handleUploadSuccess} 
-                    onUploadFail={handleUploadFail} 
-                    onPickupAddressSelect={handlePickupAddressSelect} 
-                    isUploading={isUploading} 
-                    progress={progress} 
-                    handleUpload={handleUpload} 
-                  />
-                </div>
-              )}
+                  <BulkUploadForm onUploadSuccess={handleUploadSuccess} onUploadFail={handleUploadFail} onPickupAddressSelect={handlePickupAddressSelect} isUploading={isUploading} progress={progress} handleUpload={handleUpload} />
+                </div>}
               
-              {uploadStatus === 'editing' && results && (
-                <div className="space-y-8">
+              {uploadStatus === 'editing' && results && <div className="space-y-8">
                   <div className="text-center py-0">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
                       <Sparkles className="w-8 h-8 text-green-600" />
@@ -177,6 +199,8 @@ const BulkUpload: React.FC = () => {
                     </p>
                   </div>
 
+                  
+                  
                   <Alert className="border-blue-200 bg-blue-50">
                     <AlertCircle className="h-4 w-4 text-blue-600" />
                     <AlertTitle className="text-blue-800">Review Required</AlertTitle>
@@ -187,131 +211,68 @@ const BulkUpload: React.FC = () => {
                   
                   <div className="bg-white rounded-xl border shadow-sm">
                     <div className="p-6 border-b">
-                      <BulkShipmentFilters 
-                        searchTerm={searchTerm} 
-                        onSearchChange={setSearchTerm} 
-                        sortField={sortField} 
-                        sortDirection={sortDirection} 
-                        onSortChange={(field, direction) => {
-                          setSortField(field as any);
-                          setSortDirection(direction as any);
-                        }} 
-                        selectedCarrier={selectedCarrierFilter} 
-                        onCarrierFilterChange={setSelectedCarrierFilter} 
-                        onApplyCarrierToAll={handleBulkApplyCarrier} 
-                      />
+                      <BulkShipmentFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} sortField={sortField} sortDirection={sortDirection} onSortChange={(field, direction) => {
+                    setSortField(field as any);
+                    setSortDirection(direction as any);
+                  }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
                     </div>
                     
-                    <BulkShipmentsList 
-                      shipments={filteredShipments} 
-                      isFetchingRates={isFetchingRates} 
-                      onSelectRate={handleSelectRate} 
-                      onRemoveShipment={handleRemoveShipment} 
-                      onEditShipment={(shipmentId: string, details: any) => {
-                        const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
-                        if (shipment) {
-                          handleEditShipment(shipment);
-                        }
-                      }} 
-                      onRefreshRates={handleRefreshRates} 
-                    />
+                    <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, details: any) => {
+                  const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+                  if (shipment) {
+                    handleEditShipment(shipment);
+                  }
+                }} onRefreshRates={handleRefreshRates} />
                   </div>
                   
-                  {/* PAYMENT SECTION - Only appears on rate selection page */}
-                  {processedShipmentsCount > 0 && (
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
+                  {processedShipmentsCount > 0 && <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
                       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
                         <div className="space-y-2">
-                          <h3 className="text-xl font-bold text-gray-900">Complete Your Order</h3>
+                          <h3 className="text-xl font-bold text-gray-900">Order Summary</h3>
                           <div className="flex items-center space-x-4 text-sm text-gray-600">
                             <span className="flex items-center">
                               <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                              {processedShipmentsCount} shipments ready
+                              {processedShipmentsCount} shipments
                             </span>
                             <span className="flex items-center">
                               <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                              ${results.totalCost?.toFixed(2) || '0.00'} total cost
+                              ${results.totalCost?.toFixed(2) || '0.00'} total
                             </span>
                           </div>
-                          {pickupAddress && (
-                            <p className="text-sm text-blue-600 font-medium">
+                          {pickupAddress && <p className="text-sm text-blue-600 font-medium">
                               📍 From: {pickupAddress.name || pickupAddress.street1}
-                            </p>
-                          )}
+                            </p>}
                         </div>
                         
                         <div className="flex gap-3">
-                          <Button 
-                            onClick={handlePaymentButtonClick}
-                            disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress} 
-                            className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105" 
-                            size="lg"
-                          >
+                          <Button onClick={handleDownloadLabelsClick} disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress} className="px-6 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200" size="lg">
+                            <Download className="mr-2 h-5 w-5" />
+                            {isCreatingLabels ? 'Creating...' : 'Generate Labels'}
+                          </Button>
+                          
+                          <Button onClick={() => setShowPaymentModal(true)} disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress} className="px-6 bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200" size="lg">
                             <CreditCard className="mr-2 h-5 w-5" />
-                            {isPaying ? 'Processing Payment...' : 'Pay & Create Labels'}
+                            Pay & Ship
                           </Button>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                    </div>}
+                </div>}
               
-              {/* SUCCESS PAGE - NO PAYMENT OPTIONS HERE */}
-              {uploadStatus === 'success' && results && (
-                <div className="space-y-6">
-                  <div className="text-center py-8">
-                    <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6">
-                      <Download className="w-10 h-10 text-green-600" />
-                    </div>
-                    <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                      🎉 Labels Created Successfully!
-                    </h2>
-                    <p className="text-lg text-gray-600 mb-6">
-                      Your shipping labels are ready for download and printing
-                    </p>
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-w-md mx-auto">
-                      <div className="flex items-center justify-center space-x-6 text-green-800">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold">{processedShipmentsCount}</div>
-                          <div className="text-sm">Labels Ready</div>
-                        </div>
-                        <div className="w-px h-10 bg-green-300"></div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold">${results.totalCost?.toFixed(2) || '0.00'}</div>
-                          <div className="text-sm">Total Cost</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+              {uploadStatus === 'success' && results && <div className="space-y-6">
+                  
 
-                  {results.bulk_label_pdf_url && (
-                    <div className="flex justify-center mb-6">
-                      <Button 
-                        onClick={() => setShowPrintPreview(true)} 
-                        variant="outline" 
-                        className="shadow-md hover:shadow-lg transition-all duration-200"
-                      >
+                  {results.bulk_label_pdf_url && <div className="flex justify-center mb-6">
+                      <Button onClick={() => setShowPrintPreview(true)} variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
                         <PrinterIcon className="mr-2 h-4 w-4" />
                         Preview All Labels
                       </Button>
-                    </div>
-                  )}
+                    </div>}
                   
-                  {/* ONLY DOWNLOAD OPTIONS - NO PAYMENT HERE */}
-                  <SuccessNotification 
-                    results={results} 
-                    onDownloadAllLabels={handleDownloadAllLabels} 
-                    onDownloadSingleLabel={handleDownloadSingleLabel} 
-                    onCreateLabels={handleCreateLabels} 
-                    isPaying={false} // Always false on success page
-                    isCreatingLabels={false} // Always false on success page
-                  />
-                </div>
-              )}
+                  <SuccessNotification results={results} onDownloadAllLabels={handleDownloadAllLabels} onDownloadSingleLabel={handleDownloadSingleLabel} onCreateLabels={handleCreateLabels} isPaying={isPaying} isCreatingLabels={isCreatingLabels} />
+                </div>}
               
-              {uploadStatus === 'error' && (
-                <div className="space-y-6">
+              {uploadStatus === 'error' && <div className="space-y-6">
                   <div className="text-center py-8">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
                       <AlertCircle className="w-8 h-8 text-red-600" />
@@ -324,59 +285,27 @@ const BulkUpload: React.FC = () => {
                     </p>
                   </div>
                   
-                  <UploadError 
-                    onRetry={() => window.location.reload()} 
-                    onSelectNewFile={() => {
-                      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-                      if (fileInput) {
-                        fileInput.click();
-                      }
-                    }} 
-                    errorMessage="Upload failed. Please check your file format and try again." 
-                  />
-                </div>
-              )}
+                  <UploadError onRetry={() => window.location.reload()} onSelectNewFile={() => {
+                const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+                if (fileInput) {
+                  fileInput.click();
+                }
+              }} errorMessage="Upload failed. Please check your file format and try again." />
+                </div>}
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Label Creation Overlay */}
-      <LabelCreationOverlay 
-        isVisible={labelProgress.isCreating} 
-        progress={labelProgress.progress} 
-        currentStep={labelProgress.currentStep} 
-        totalLabels={processedShipmentsCount} 
-        completedLabels={labelProgress.completed} 
-        failedLabels={labelProgress.failed} 
-        onClose={() => setLabelProgress(prev => ({
-          ...prev,
-          isCreating: false
-        }))} 
-      />
+      {/* Modals and Overlays */}
+      <LabelCreationOverlay isVisible={labelProgress.isCreating} progress={labelProgress.progress} currentStep={labelProgress.currentStep} totalLabels={processedShipmentsCount} completedLabels={labelProgress.completed} failedLabels={labelProgress.failed} onClose={() => setLabelProgress(prev => ({
+      ...prev,
+      isCreating: false
+    }))} />
 
-      {/* Payment Modal - Only for rate selection page */}
-      <StripePaymentModal 
-        isOpen={showPaymentModal} 
-        onClose={() => setShowPaymentModal(false)} 
-        totalAmount={results?.totalCost || 0} 
-        shipmentCount={processedShipmentsCount} 
-        onPaymentSuccess={handlePaymentSuccessAndCreateLabels} 
-      />
+      <StripePaymentModal isOpen={showPaymentModal} onClose={() => setShowPaymentModal(false)} totalAmount={results?.totalCost || 0} shipmentCount={processedShipmentsCount} onPaymentSuccess={handlePaymentSuccess} />
 
-      {/* Print Preview Modal */}
-      {results?.bulk_label_pdf_url && results.batchResult && (
-        <PrintPreview 
-          isOpenProp={showPrintPreview} 
-          onOpenChangeProp={setShowPrintPreview} 
-          labelUrl={results.bulk_label_pdf_url} 
-          trackingCode={null} 
-          isBatchPreview={true} 
-          batchResult={results.batchResult} 
-        />
-      )}
-    </>
-  );
+      {results?.bulk_label_pdf_url && results.batchResult && <PrintPreview isOpenProp={showPrintPreview} onOpenChangeProp={setShowPrintPreview} labelUrl={results.bulk_label_pdf_url} trackingCode={null} isBatchPreview={true} batchResult={results.batchResult} />}
+    </>;
 };
-
 export default BulkUpload;

@@ -347,7 +347,7 @@ export const useBulkUpload = () => {
     }
   };
 
-  const handleFileUpload = async (file: File): Promise<void> => {
+  const handleFileUpload = async (file: File) => {
     console.log('handleFileUpload called with:', { file: file.name, pickupAddress });
     
     if (!pickupAddress) {
@@ -362,7 +362,7 @@ export const useBulkUpload = () => {
       throw new Error(errorMsg);
     }
     
-    await originalHandleUpload(file, pickupAddress);
+    return originalHandleUpload(file, pickupAddress);
   };
 
   const handleOpenBatchPrintPreview = () => {
@@ -387,7 +387,7 @@ export const useBulkUpload = () => {
     isPaying,
     isCreatingLabels,
     searchTerm,
-    sortField: sortField as 'recipient' | 'carrier' | 'rate',
+    sortField,
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
