@@ -383,7 +383,7 @@ export const useBulkUpload = () => {
   };
 
   const handleUploadWrapper = async (file: File): Promise<void> => {
-    await handleUpload(file);
+    await handleUpload(file, pickupAddress);
   };
 
   return {
