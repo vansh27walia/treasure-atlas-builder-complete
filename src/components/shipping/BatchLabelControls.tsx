@@ -91,14 +91,10 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
     }
   };
 
-  const handlePaymentComplete = (success: boolean) => {
-    if (success) {
-      console.log('Payment completed successfully, ready to create batch labels...');
-      setPaymentCompleted(true);
-      toast.success('Payment completed! You can now generate labels.');
-    } else {
-      toast.error('Payment failed. Please try again.');
-    }
+  const handlePaymentComplete = () => {
+    console.log('Payment completed successfully, ready to create batch labels...');
+    setPaymentCompleted(true);
+    toast.success('Payment completed! You can now generate labels.');
   };
 
   const handleRefreshRates = async () => {
