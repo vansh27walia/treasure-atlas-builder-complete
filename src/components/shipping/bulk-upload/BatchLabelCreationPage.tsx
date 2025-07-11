@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, PrinterIcon, Package, CheckCircle, AlertCircle, FileText, ArrowLeft } from 'lucide-react';
+import { Download, PrinterIcon, Package, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import { toast } from 'sonner';
@@ -71,13 +71,10 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
   };
 
   const downloadLabels = (format: 'pdf' | 'png') => {
-    if (batchResult?.consolidatedLabelUrls) {
-      const url = format === 'pdf' ? batchResult.consolidatedLabelUrls.pdf : batchResult.consolidatedLabelUrls.png;
-      if (url) {
-        window.open(url, '_blank');
-      } else {
-        toast.error(`${format.toUpperCase()} download not available`);
-      }
+    if (batchResult?.bulk_label_pdf_url) {
+      window.open(batchResult.bulk_label_pdf_url, '_blank');
+    } else {
+      toast.error(`${format.toUpperCase()} download not available`);
     }
   };
 
@@ -181,15 +178,15 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
               </Button>
             </div>
 
-            {batchResult.errors && batchResult.errors.length > 0 && (
+            {batchResult.failedShipments && batchResult.failedShipments.length > 0 && (
               <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <div className="flex items-center text-red-600 mb-2">
                   <AlertCircle className="mr-2 h-4 w-4" />
                   <span className="font-medium">Some labels failed to create</span>
                 </div>
                 <div className="text-sm text-red-700 space-y-1">
-                  {batchResult.errors.map((error, index) => (
-                    <div key={index}>• {error}</div>
+                  {batchResult.failedShipments.map((failure, index) => (
+                    <div key={index}>• Row {failure.row}: {failure.error}</div>
                   ))}
                 </div>
               </div>
@@ -201,9 +198,9 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
       {/* Print Preview Modal */}
       {showPrintPreview && batchResult && (
         <PrintPreview
-          isOpen={showPrintPreview}
-          onClose={() => setShowPrintPreview(false)}
-          labelUrl={batchResult.consolidatedLabelUrls?.pdf || ''}
+          show={showPrintPreview}
+          onHide={() => setShowPrintPreview(false)}
+          labelUrl={batchResult.bulk_label_pdf_url || ''}
           shipmentData={shipments[0]}
         />
       )}

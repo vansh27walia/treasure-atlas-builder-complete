@@ -1,11 +1,9 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Check, Zap, TrendingDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { getCarrierLogoUrl } from '@/utils/addressUtils';
-import { toast } from '@/components/ui/sonner';
-import PaymentSelectionModal from '@/components/payment/PaymentSelectionModal';
 
 interface ShippingRateCardProps {
   rate: {
@@ -24,7 +22,7 @@ interface ShippingRateCardProps {
   };
   isSelected: boolean;
   onSelect: (rateId: string) => void;
-  onPaymentSuccess?: () => void;
+  onLabelCreate?: () => void;
   isBestValue: boolean;
   isFastest: boolean;
   aiRecommendation?: {
@@ -34,7 +32,7 @@ interface ShippingRateCardProps {
   showDiscount?: boolean;
   originalRate?: string;
   isPremium?: boolean;
-  showPayButton?: boolean;
+  showCreateButton?: boolean;
   shippingDetails?: any;
 }
 
@@ -42,16 +40,15 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   rate,
   isSelected,
   onSelect,
-  onPaymentSuccess,
+  onLabelCreate,
   isBestValue,
   isFastest,
   aiRecommendation,
   showDiscount = false,
   isPremium = false,
-  showPayButton = false,
+  showCreateButton = false,
   shippingDetails,
 }) => {
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const isRecommended = aiRecommendation && aiRecommendation.rateId === rate.id;
   const deliveryDays = rate.delivery_days || rate.est_delivery_days;
   const deliveryEstimate = deliveryDays === 1 ? 'Next day' : deliveryDays ? `${deliveryDays} days` : 'N/A';
@@ -70,36 +67,14 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
     return carrier.toUpperCase();
   };
 
-  const handlePayClick = (e: React.MouseEvent) => {
+  const handleCreateClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setShowPaymentModal(true);
-  };
-
-  const handlePaymentSuccess = () => {
-    setShowPaymentModal(false);
-    toast.success('Payment successful! Creating label...');
-    
-    // Trigger label creation flow
-    if (onPaymentSuccess) {
-      onPaymentSuccess();
+    if (onLabelCreate) {
+      onLabelCreate();
     }
-    
-    // Navigate to label creation/success page
-    setTimeout(() => {
-      window.location.href = '/create-label?tab=domestic';
-    }, 1500);
   };
   
   return (
-    <div>
-      <PaymentSelectionModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        onPaymentSuccess={handlePaymentSuccess}
-        amount={parseFloat(rate.rate)}
-        description={`${getCarrierDisplayName(rate.carrier)} ${rate.service} shipping`}
-        shippingDetails={shippingDetails}
-      />
     <div
       className={`
         border rounded-lg p-4 cursor-pointer transition-all
@@ -189,17 +164,16 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
         </div>
       )}
 
-      {isSelected && showPayButton && (
+      {isSelected && showCreateButton && (
         <div className="mt-3 pt-3 border-t border-gray-200">
           <Button 
-            onClick={handlePayClick}
+            onClick={handleCreateClick}
             className="w-full bg-blue-600 hover:bg-blue-700"
           >
-            Pay ${parseFloat(rate.rate).toFixed(2)} & Create Label
+            Create Label - ${parseFloat(rate.rate).toFixed(2)}
           </Button>
         </div>
       )}
-    </div>
     </div>
   );
 };

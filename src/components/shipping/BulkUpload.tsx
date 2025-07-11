@@ -2,31 +2,29 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, Download, AlertCircle } from 'lucide-react';
-import { useBulkUpload } from '@/hooks/useBulkUpload';
+import { Upload, FileText, AlertCircle } from 'lucide-react';
+import { useBulkUpload } from './bulk-upload/useBulkUpload';
 import { toast } from 'sonner';
 import BatchLabelCreationPage from './bulk-upload/BatchLabelCreationPage';
 
 const BulkUpload: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<'upload' | 'mapping' | 'rates' | 'creation'>('upload');
   const {
-    uploadedData,
-    mappedData,
-    ratesData,
-    isLoading,
-    error,
-    handleFileUpload,
-    handleColumnMapping,
-    handleRatesFetch,
-    handleBulkLabelCreation
+    file,
+    isUploading,
+    uploadStatus,
+    results,
+    isCreatingLabels,
+    handleFileChange,
+    handleUpload
   } = useBulkUpload();
 
   const handleNextStep = () => {
-    if (currentStep === 'upload' && uploadedData) {
+    if (currentStep === 'upload' && results) {
       setCurrentStep('mapping');
-    } else if (currentStep === 'mapping' && mappedData) {
+    } else if (currentStep === 'mapping' && results) {
       setCurrentStep('rates');
-    } else if (currentStep === 'rates' && ratesData) {
+    } else if (currentStep === 'rates' && results) {
       setCurrentStep('creation');
     }
   };
@@ -41,10 +39,10 @@ const BulkUpload: React.FC = () => {
     }
   };
 
-  if (currentStep === 'creation') {
+  if (currentStep === 'creation' && results?.processedShipments) {
     return (
       <BatchLabelCreationPage
-        shipments={ratesData || []}
+        shipments={results.processedShipments}
         onBack={handleBackStep}
         onBatchProcessed={(result) => {
           console.log('Batch processed:', result);
@@ -71,10 +69,13 @@ const BulkUpload: React.FC = () => {
           </div>
           <span>Mapping</span>
         </div>
-        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-200">
-          3
+        <div className="w-8 h-px bg-gray-300"></div>
+        <div className={`flex items-center space-x-2 ${currentStep === 'rates' ? 'text-blue-600' : 'text-gray-400'}`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 'rates' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+            3
+          </div>
+          <span>Rates</span>
         </div>
-        <span>Rates</span>
         <div className="w-8 h-px bg-gray-300"></div>
         <div className={`flex items-center space-x-2 ${currentStep === 'creation' ? 'text-blue-600' : 'text-gray-400'}`}>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 'creation' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
@@ -94,7 +95,7 @@ const BulkUpload: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {!uploadedData ? (
+            {!results ? (
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                 <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <p className="text-lg font-medium text-gray-600 mb-2">
@@ -106,12 +107,7 @@ const BulkUpload: React.FC = () => {
                 <input
                   type="file"
                   accept=".csv"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      handleFileUpload(file);
-                    }
-                  }}
+                  onChange={handleFileChange}
                   className="hidden"
                   id="csv-upload"
                 />
@@ -120,12 +116,20 @@ const BulkUpload: React.FC = () => {
                     <span>Choose File</span>
                   </Button>
                 </label>
+                {file && (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-600 mb-2">Selected: {file.name}</p>
+                    <Button onClick={() => handleUpload(file)} className="w-full">
+                      Upload File
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center text-green-600">
                   <FileText className="mr-2 h-5 w-5" />
-                  <span>File uploaded successfully! {uploadedData.length} rows detected.</span>
+                  <span>File uploaded successfully! {results.total} rows detected.</span>
                 </div>
                 <Button onClick={handleNextStep} className="w-full">
                   Continue to Mapping
@@ -137,19 +141,19 @@ const BulkUpload: React.FC = () => {
       )}
 
       {/* Error Display */}
-      {error && (
+      {uploadStatus === 'error' && (
         <Card className="border-red-200 bg-red-50">
           <CardContent className="p-4">
             <div className="flex items-center text-red-600">
               <AlertCircle className="mr-2 h-5 w-5" />
-              <span>{error}</span>
+              <span>Error uploading file</span>
             </div>
           </CardContent>
         </Card>
       )}
 
       {/* Loading Indicator */}
-      {isLoading && (
+      {(isUploading || isCreatingLabels) && (
         <Card>
           <CardContent className="p-8 text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
