@@ -108,13 +108,6 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // Enhanced payment success handler
-  const handlePaymentSuccess = () => {
-    console.log('Payment successful, setting up for automatic label creation...');
-    setPaymentCompleted(true);
-    toast.success('Payment successful! Creating labels automatically...');
-  };
-
   // Auto-trigger label creation after payment completion
   useEffect(() => {
     if (paymentCompleted && !isCreatingLabels && results && results.processedShipments.length > 0) {
@@ -123,6 +116,13 @@ export const useBulkUpload = () => {
       setPaymentCompleted(false); // Reset flag
     }
   }, [paymentCompleted, isCreatingLabels, results]);
+
+  // Enhanced payment success handler
+  const handlePaymentSuccess = () => {
+    console.log('Payment successful, triggering label creation...');
+    setPaymentCompleted(true);
+    toast.success('Payment successful! Creating labels automatically...');
+  };
 
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {

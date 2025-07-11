@@ -53,66 +53,60 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Payment Method
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">Select payment method:</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAddPaymentModal(true)}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add New
-            </Button>
-          </div>
-
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <CreditCard className="h-5 w-5" />
+          Payment Method
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-3">
           <PaymentMethodList
-            selectedMethod={selectedPaymentMethod}
-            onSelectMethod={onPaymentMethodChange}
+            selectedPaymentMethod={selectedPaymentMethod}
+            onPaymentMethodChange={onPaymentMethodChange}
           />
+          
+          <Button
+            variant="outline"
+            onClick={() => setShowAddPaymentModal(true)}
+            className="w-full"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Payment Method
+          </Button>
+        </div>
 
-          <div className="pt-4 border-t">
-            <div className="flex justify-between items-center mb-4">
-              <span className="font-medium">Total Amount:</span>
-              <span className="text-lg font-bold">${amount.toFixed(2)}</span>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">{description}</p>
-            
-            <Button
-              onClick={handlePayment}
-              disabled={!selectedPaymentMethod || isProcessing}
-              className="w-full"
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Pay ${amount.toFixed(2)}
-                </>
-              )}
-            </Button>
+        <div className="border-t pt-4">
+          <div className="flex justify-between items-center mb-4">
+            <span className="font-medium">Total:</span>
+            <span className="text-lg font-bold">${amount.toFixed(2)}</span>
           </div>
-        </CardContent>
-      </Card>
+          
+          <Button
+            onClick={handlePayment}
+            disabled={!selectedPaymentMethod || isProcessing}
+            className="w-full"
+            size="lg"
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              `Pay $${amount.toFixed(2)}`
+            )}
+          </Button>
+        </div>
 
-      <AddPaymentMethodModal
-        isOpen={showAddPaymentModal}
-        onClose={() => setShowAddPaymentModal(false)}
-        onPaymentMethodAdded={handlePaymentMethodAdded}
-      />
-    </div>
+        <AddPaymentMethodModal
+          isOpen={showAddPaymentModal}
+          onClose={() => setShowAddPaymentModal(false)}
+          onPaymentMethodAdded={handlePaymentMethodAdded}
+        />
+      </CardContent>
+    </Card>
   );
 };
 
