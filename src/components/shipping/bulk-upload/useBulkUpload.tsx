@@ -387,7 +387,7 @@ export const useBulkUpload = () => {
     isPaying,
     isCreatingLabels,
     searchTerm,
-    sortField,
+    sortField: sortField as 'recipient' | 'carrier' | 'rate',
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
