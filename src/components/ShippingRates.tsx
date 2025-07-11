@@ -135,15 +135,13 @@ const ShippingRates: React.FC<ShippingRatesProps> = ({
               rate={rate}
               isSelected={selectedRateId === rate.id}
               onSelect={onRateSelect}
-              onLabelCreate={onCreateLabel}
               isBestValue={rate.id === bestValueRate?.id}
               isFastest={rate.id === fastestRate?.id}
-              showCreateButton={showCreateButton && selectedRateId === rate.id}
             />
           ))}
         </div>
         
-        {selectedRateId && showCreateButton && (
+        {selectedRateId && showCreateButton && onCreateLabel && (
           <div className="mt-6 pt-4 border-t">
             <Button 
               onClick={onCreateLabel}

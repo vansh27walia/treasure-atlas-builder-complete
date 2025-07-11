@@ -201,7 +201,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
           show={showPrintPreview}
           onHide={() => setShowPrintPreview(false)}
           labelUrl={batchResult.bulk_label_pdf_url || ''}
-          shipmentData={shipments[0]}
+          shipmentId={shipments[0]?.id || ''}
         />
       )}
     </div>

@@ -5,7 +5,20 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Star, Check } from 'lucide-react';
 import CarrierLogo from './CarrierLogo';
-import { ShippingRate } from '@/types/shipping';
+
+// Use the local ShippingRate interface from ShippingRates.tsx
+interface ShippingRate {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: string;
+  currency: string;
+  delivery_days?: number;
+  delivery_date?: string | null;
+  list_rate?: string;
+  retail_rate?: string;
+  est_delivery_days?: number;
+}
 
 interface ShippingRateCardProps {
   rate: ShippingRate;
