@@ -1,11 +1,10 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, Download, Mail, Printer, CreditCard, RefreshCw } from 'lucide-react';
+import { Download, Mail, Printer, RefreshCw, Package } from 'lucide-react';
 import { useBatchLabelProcessing } from '@/hooks/useBatchLabelProcessing';
 import BatchPrintPreviewModal from './BatchPrintPreviewModal';
 import EmailLabelsModal from './EmailLabelsModal';
-import PaymentMethodSelector from '../payment/PaymentMethodSelector';
 import BatchProgressTracker from './BatchProgressTracker';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
@@ -14,14 +13,14 @@ interface BatchLabelControlsProps {
   selectedShipments: any[];
   pickupAddress?: any;
   onBatchProcessed?: (result: any) => void;
-  currentStep?: 'upload' | 'mapping' | 'rates' | 'payment' | 'creation' | 'complete';
+  currentStep?: 'upload' | 'mapping' | 'rates' | 'creation' | 'complete';
 }
 
 const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
   selectedShipments,
   pickupAddress,
   onBatchProcessed,
-  currentStep = 'payment'
+  currentStep = 'creation'
 }) => {
   const {
     isProcessingBatch,
@@ -33,10 +32,7 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
 
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
-  const [paymentCompleted, setPaymentCompleted] = useState(false);
-  const [showPaymentSelector, setShowPaymentSelector] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
 
   const handleCreateBatchLabels = async () => {
     if (!selectedShipments || selectedShipments.length === 0) {
@@ -44,18 +40,11 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
       return;
     }
 
-    if (!paymentCompleted) {
-      toast.error('Please complete payment first');
-      setShowPaymentSelector(true);
-      return;
-    }
-
     setIsCreatingLabels(true);
 
     try {
-      console.log('Creating batch labels with enhanced function...');
+      console.log('Creating batch labels...');
       
-      // Call the enhanced create-bulk-labels function
       const { data, error } = await supabase.functions.invoke('create-enhanced-bulk-labels', {
         body: {
           shipments: selectedShipments,
@@ -79,11 +68,6 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
         if (onBatchProcessed) {
           onBatchProcessed(data);
         }
-
-        // Update workflow step to complete
-        document.dispatchEvent(new CustomEvent('shipping-step-change', { 
-          detail: { step: 'complete' }
-        }));
       } else {
         throw new Error('No data returned from batch label creation');
       }
@@ -96,26 +80,9 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
     }
   };
 
-  const handlePaymentComplete = (success: boolean) => {
-    if (success) {
-      console.log('Payment completed successfully, ready to create batch labels...');
-      setPaymentCompleted(true);
-      setShowPaymentSelector(false);
-      toast.success('Payment completed! You can now generate labels.');
-    } else {
-      toast.error('Payment failed. Please try again.');
-    }
-  };
-
-  const handlePaymentMethodChange = (paymentMethodId: string) => {
-    console.log('Selected payment method for batch:', paymentMethodId);
-    setSelectedPaymentMethod(paymentMethodId);
-  };
-
   const handleRefreshRates = async () => {
     try {
       toast.success('Refreshing rates...');
-      // Implement rate refresh logic here
       await new Promise(resolve => setTimeout(resolve, 1000));
       toast.success('Rates refreshed successfully');
     } catch (error) {
@@ -126,7 +93,6 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
 
   const hasSelectedShipments = selectedShipments && selectedShipments.length > 0;
   const hasBatchResult = batchResult && batchResult.consolidatedLabelUrls;
-  const batchAmount = selectedShipments.length * 5.99; // Calculate based on number of shipments
 
   return (
     <div className="flex flex-col gap-4">
@@ -134,18 +100,18 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
       <BatchProgressTracker 
         currentStep={
           isCreatingLabels ? 'creation' :
-          paymentCompleted ? (hasBatchResult ? 'complete' : 'creation') : 
+          hasBatchResult ? 'complete' : 
           currentStep
         }
         isProcessing={isProcessingBatch || isCreatingLabels}
       />
 
       {/* Rate Refresh Section */}
-      {hasSelectedShipments && !paymentCompleted && (
+      {hasSelectedShipments && !hasBatchResult && (
         <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
           <h3 className="font-semibold text-yellow-800 mb-2">Refresh Rates</h3>
           <p className="text-sm text-gray-600 mb-4">
-            Make sure you have the latest shipping rates before proceeding to payment.
+            Make sure you have the latest shipping rates before creating labels.
           </p>
           <Button
             onClick={handleRefreshRates}
@@ -157,59 +123,18 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
           </Button>
         </div>
       )}
-
-      {/* Payment Section - Show before batch processing */}
-      {hasSelectedShipments && !paymentCompleted && !hasBatchResult && !showPaymentSelector && (
-        <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-          <h3 className="font-semibold text-blue-800 mb-4">Ready to Create Batch Labels</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            {selectedShipments.length} labels ready • Total: ${batchAmount.toFixed(2)}
-          </p>
-          <Button
-            onClick={() => setShowPaymentSelector(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-            size="lg"
-          >
-            <CreditCard className="mr-2 h-5 w-5" />
-            Proceed to Payment
-          </Button>
-        </div>
-      )}
-
-      {/* Payment Selector Modal */}
-      {showPaymentSelector && (
-        <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-          <h3 className="font-semibold text-blue-800 mb-4">Complete Payment to Create Batch Labels</h3>
-          <PaymentMethodSelector
-            selectedPaymentMethod={selectedPaymentMethod}
-            onPaymentMethodChange={handlePaymentMethodChange}
-            onPaymentComplete={handlePaymentComplete}
-            amount={batchAmount}
-            description={`Batch Label Creation (${selectedShipments.length} labels)`}
-          />
-          <div className="mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setShowPaymentSelector(false)}
-              className="mr-2"
-            >
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
       
-      {/* Label Creation Section - Show after payment */}
-      {paymentCompleted && !hasBatchResult && (
-        <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-          <h3 className="font-semibold text-green-800 mb-4">Payment Completed - Create Labels</h3>
+      {/* Label Creation Section */}
+      {hasSelectedShipments && !hasBatchResult && (
+        <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+          <h3 className="font-semibold text-blue-800 mb-4">Create Batch Labels</h3>
           <p className="text-sm text-gray-600 mb-4">
-            Your payment has been processed. You can now generate your shipping labels.
+            Ready to create {selectedShipments.length} shipping labels
           </p>
           <Button
             onClick={handleCreateBatchLabels}
             disabled={isCreatingLabels}
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
             size="lg"
           >
             {isCreatingLabels ? (
@@ -219,7 +144,7 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
               </>
             ) : (
               <>
-                <Download className="mr-2 h-5 w-5" />
+                <Package className="mr-2 h-5 w-5" />
                 Generate Batch Labels
               </>
             )}
@@ -227,7 +152,7 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
         </div>
       )}
 
-      {/* Label Creation Status - Show during creation */}
+      {/* Label Creation Status */}
       {isCreatingLabels && (
         <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <h3 className="font-semibold text-yellow-800 mb-2">Creating Labels...</h3>
@@ -240,7 +165,7 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
         </div>
       )}
 
-      {/* Download Options - Show after batch result */}
+      {/* Download Options */}
       {hasBatchResult && (
         <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
           <h3 className="font-semibold text-green-800 mb-4">Batch Labels Ready!</h3>
