@@ -16,6 +16,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
 import { OnboardingProvider } from './contexts/OnboardingContext';
 import { Toaster } from './components/ui/sonner';
+import PaymentPage from './pages/PaymentPage';
 import InternationalShippingPage from './pages/InternationalShippingPage';
 import LabelSuccessPage from './pages/LabelSuccessPage';
 import PickupPage from './pages/PickupPage';
@@ -43,6 +44,7 @@ function App() {
                   <Route path="/instant-delivery" element={<InstantDeliveryPage />} />
                   <Route path="/international" element={<InternationalShippingPage />} />
                   <Route path="/ship-to" element={<ShipToPage />} />
+                  <Route path="/payment" element={<PaymentPage />} />
                   <Route path="/tracking" element={<TrackingPage />} />
                   <Route
                     path="/dashboard"

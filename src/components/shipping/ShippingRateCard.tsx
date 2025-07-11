@@ -1,32 +1,39 @@
 
-import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import React, { useState } from 'react';
+import { Check, Zap, TrendingDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Star, Check } from 'lucide-react';
-import CarrierLogo from './CarrierLogo';
-
-// Use the local ShippingRate interface from ShippingRates.tsx
-interface ShippingRate {
-  id: string;
-  carrier: string;
-  service: string;
-  rate: string;
-  currency: string;
-  delivery_days?: number;
-  delivery_date?: string | null;
-  list_rate?: string;
-  retail_rate?: string;
-  est_delivery_days?: number;
-}
+import { Button } from '@/components/ui/button';
+import { getCarrierLogoUrl } from '@/utils/addressUtils';
+import { toast } from '@/components/ui/sonner';
+import PaymentSelectionModal from '@/components/payment/PaymentSelectionModal';
 
 interface ShippingRateCardProps {
-  rate: ShippingRate;
+  rate: {
+    id: string;
+    carrier: string;
+    service: string;
+    rate: string;
+    currency: string;
+    delivery_days?: number;
+    delivery_date?: string | null;
+    list_rate?: string;
+    retail_rate?: string;
+    est_delivery_days?: number;
+    isPremium?: boolean;
+    original_rate?: string;
+  };
   isSelected: boolean;
   onSelect: (rateId: string) => void;
-  isBestValue?: boolean;
-  isFastest?: boolean;
+  onPaymentSuccess?: () => void;
+  isBestValue: boolean;
+  isFastest: boolean;
+  aiRecommendation?: {
+    rateId: string;
+    reason: string;
+  };
   showDiscount?: boolean;
+  originalRate?: string;
+  isPremium?: boolean;
   showPayButton?: boolean;
   shippingDetails?: any;
 }
@@ -35,87 +42,165 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   rate,
   isSelected,
   onSelect,
-  isBestValue = false,
-  isFastest = false,
+  onPaymentSuccess,
+  isBestValue,
+  isFastest,
+  aiRecommendation,
   showDiscount = false,
+  isPremium = false,
   showPayButton = false,
-  shippingDetails
+  shippingDetails,
 }) => {
-  const handleSelect = () => {
-    onSelect(rate.id);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const isRecommended = aiRecommendation && aiRecommendation.rateId === rate.id;
+  const deliveryDays = rate.delivery_days || rate.est_delivery_days;
+  const deliveryEstimate = deliveryDays === 1 ? 'Next day' : deliveryDays ? `${deliveryDays} days` : 'N/A';
+  
+  // Calculate discount percentage if available
+  const originalRate = rate.original_rate || rate.list_rate || rate.retail_rate;
+  const hasDiscount = showDiscount && originalRate && Number(originalRate) > Number(rate.rate);
+  const discountPercent = hasDiscount ? 
+    Math.round((1 - (Number(rate.rate) / Number(originalRate))) * 100) : 0;
+  
+  // Get carrier logo with fallback
+  const carrierLogo = getCarrierLogoUrl(rate.carrier);
+  
+  // Fallback for carrier display name
+  const getCarrierDisplayName = (carrier: string): string => {
+    return carrier.toUpperCase();
   };
 
-  const formatDeliveryTime = (days: number) => {
-    if (days === 1) return '1 business day';
-    if (days <= 7) return `${days} business days`;
-    return `${Math.ceil(days / 7)} weeks`;
+  const handlePayClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowPaymentModal(true);
   };
 
+  const handlePaymentSuccess = () => {
+    setShowPaymentModal(false);
+    toast.success('Payment successful! Creating label...');
+    
+    // Trigger label creation flow
+    if (onPaymentSuccess) {
+      onPaymentSuccess();
+    }
+    
+    // Navigate to label creation/success page
+    setTimeout(() => {
+      window.location.href = '/create-label?tab=domestic';
+    }, 1500);
+  };
+  
   return (
-    <Card className={`cursor-pointer transition-all duration-200 ${
-      isSelected 
-        ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50' 
-        : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-    }`}>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3 flex-1">
-            <CarrierLogo carrier={rate.carrier} size="md" />
-            
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold text-gray-900">{rate.carrier.toUpperCase()}</h3>
-                {isBestValue && (
-                  <Badge className="bg-green-100 text-green-800 border-green-200">
-                    <Star className="w-3 h-3 mr-1" />
-                    Best Value
-                  </Badge>
-                )}
-                {isFastest && (
-                  <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                    <Clock className="w-3 h-3 mr-1" />
-                    Fastest
-                  </Badge>
-                )}
-              </div>
-              
-              <p className="text-sm text-gray-600 mb-1">{rate.service}</p>
-              
-              {rate.delivery_days && (
-                <p className="text-xs text-gray-500">
-                  Estimated delivery: {formatDeliveryTime(rate.delivery_days)}
-                </p>
-              )}
+    <div>
+      <PaymentSelectionModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        onPaymentSuccess={handlePaymentSuccess}
+        amount={parseFloat(rate.rate)}
+        description={`${getCarrierDisplayName(rate.carrier)} ${rate.service} shipping`}
+        shippingDetails={shippingDetails}
+      />
+    <div
+      className={`
+        border rounded-lg p-4 cursor-pointer transition-all
+        ${isSelected ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'}
+        ${isPremium ? 'border-amber-400 bg-amber-50/50' : ''}
+      `}
+      onClick={() => onSelect(rate.id)}
+      data-testid={`rate-card-${rate.id}`}
+      data-rate-id={rate.id}
+    >
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-3">
+          {carrierLogo ? (
+            <div className="h-10 w-16 flex items-center justify-center bg-white p-1 rounded">
+              <img 
+                src={carrierLogo} 
+                alt={`${rate.carrier} logo`} 
+                className="h-8 w-auto object-contain"
+                onError={(e) => {
+                  // If image fails to load, hide the image container
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
             </div>
-          </div>
-          
-          <div className="text-right">
-            <div className="text-2xl font-bold text-gray-900">
-              ${parseFloat(rate.rate).toFixed(2)}
+          ) : (
+            <div className="h-10 w-16 flex items-center justify-center bg-gray-100 rounded">
+              <span className="text-xs font-bold text-gray-700">{getCarrierDisplayName(rate.carrier)}</span>
             </div>
-            
-            <Button
-              onClick={handleSelect}
-              variant={isSelected ? "default" : "outline"}
-              className={`mt-2 ${
-                isSelected 
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white' 
-                  : 'border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              {isSelected ? (
-                <>
-                  <Check className="w-4 h-4 mr-2" />
-                  Selected
-                </>
-              ) : (
-                'Select'
-              )}
-            </Button>
+          )}
+          <div>
+            <h3 className="font-medium text-gray-900 mb-1">{getCarrierDisplayName(rate.carrier)}</h3>
+            <p className="text-sm text-gray-600">{rate.service}</p>
           </div>
         </div>
-      </CardContent>
-    </Card>
+        
+        <div className="flex items-center">
+          {isSelected && (
+            <div className="bg-blue-500 rounded-full p-1 mr-2">
+              <Check className="h-4 w-4 text-white" />
+            </div>
+          )}
+          <div className="text-right">
+            <div className="flex items-center justify-end space-x-2">
+              {hasDiscount && (
+                <span className="text-sm text-gray-500 line-through">
+                  ${parseFloat(originalRate).toFixed(2)}
+                </span>
+              )}
+              <span className="font-bold text-lg">
+                ${parseFloat(rate.rate).toFixed(2)}
+              </span>
+            </div>
+            {hasDiscount && (
+              <span className="text-xs font-medium text-green-600">
+                Save {discountPercent}%
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      <div className="mt-3 flex justify-between items-center">
+        <div className="flex flex-wrap items-center gap-2">
+          {isBestValue && (
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+              <TrendingDown className="h-3 w-3 mr-1" /> Best Value
+            </Badge>
+          )}
+          
+          {isFastest && (
+            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+              <Zap className="h-3 w-3 mr-1" /> Fastest
+            </Badge>
+          )}
+        </div>
+        
+        <div className="flex items-center">
+          <span className="text-sm text-gray-600">
+            Est. Delivery: <span className="font-medium">{deliveryEstimate}</span>
+          </span>
+        </div>
+      </div>
+      
+      {isRecommended && (
+        <div className="mt-2 text-sm text-gray-600 border-t border-gray-200 pt-2">
+          <span className="font-medium text-blue-600">AI Recommended:</span> {aiRecommendation.reason}
+        </div>
+      )}
+
+      {isSelected && showPayButton && (
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <Button 
+            onClick={handlePayClick}
+            className="w-full bg-blue-600 hover:bg-blue-700"
+          >
+            Pay ${parseFloat(rate.rate).toFixed(2)} & Create Label
+          </Button>
+        </div>
+      )}
+    </div>
+    </div>
   );
 };
 

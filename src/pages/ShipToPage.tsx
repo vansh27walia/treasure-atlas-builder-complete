@@ -456,6 +456,11 @@ ${toAddress.country}`,
                        rate={rate}
                        isSelected={selectedRateId === rate.id}
                        onSelect={handleSelectRate}
+                       onPaymentSuccess={() => {
+                         toast.success('Payment successful! Creating label...');
+                         // Navigate to label creation page or trigger label creation
+                         window.location.href = '/create-label';
+                       }}
                        isBestValue={rate.id === bestValueRateId}
                        isFastest={rate.id === fastestRateId}
                        showDiscount={true}
@@ -463,6 +468,7 @@ ${toAddress.country}`,
                        shippingDetails={{
                          rate: rate,
                          formData: formValues,
+                         // Add other shipping details as needed
                        }}
                      />
                    ))}
@@ -573,6 +579,7 @@ ${toAddress.country}`,
               <div className="flex gap-2">
                 <PrintPreview 
                   labelUrl={labelUrl} 
+                  trackingCode={trackingCode}
                   shipmentDetails={shipmentDetails}
                   onFormatChange={handleLabelFormatChange}
                   shipmentId={shipmentId || undefined}
