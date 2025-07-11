@@ -117,18 +117,11 @@ export const useBulkUpload = () => {
     }
   }, [paymentCompleted, isCreatingLabels, results]);
 
-  // Enhanced payment success handler that triggers label creation automatically
-  const handlePaymentSuccess = async () => {
-    console.log('Payment successful, triggering label creation automatically...');
+  // Enhanced payment success handler
+  const handlePaymentSuccess = () => {
+    console.log('Payment successful, triggering label creation...');
+    setPaymentCompleted(true);
     toast.success('Payment successful! Creating labels automatically...');
-    
-    // Immediately start label creation after payment success
-    try {
-      await handleCreateLabels();
-    } catch (error) {
-      console.error('Failed to auto-create labels after payment:', error);
-      toast.error('Payment successful, but failed to create labels automatically. Please try again.');
-    }
   };
 
   const handleCreateLabels = async () => {

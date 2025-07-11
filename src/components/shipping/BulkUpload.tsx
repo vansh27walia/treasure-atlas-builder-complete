@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -18,7 +17,6 @@ import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
-
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -30,7 +28,6 @@ const BulkUpload: React.FC = () => {
     completed: 0,
     failed: 0
   });
-
   const {
     file,
     isUploading,
@@ -59,7 +56,6 @@ const BulkUpload: React.FC = () => {
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
-    handlePaymentSuccess,
     setSearchTerm,
     setSortField,
     setSortDirection,
@@ -159,7 +155,9 @@ const BulkUpload: React.FC = () => {
       toast.error('Failed to create labels');
     }
   };
-
+  const handlePaymentSuccess = () => {
+    toast.success('Payment successful! Labels are now available for download.');
+  };
   return <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         {/* Progress Bar */}
@@ -247,9 +245,14 @@ const BulkUpload: React.FC = () => {
                         </div>
                         
                         <div className="flex gap-3">
+                          <Button onClick={handleDownloadLabelsClick} disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress} className="px-6 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200" size="lg">
+                            <Download className="mr-2 h-5 w-5" />
+                            {isCreatingLabels ? 'Creating...' : 'Generate Labels'}
+                          </Button>
+                          
                           <Button onClick={() => setShowPaymentModal(true)} disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress} className="px-6 bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200" size="lg">
                             <CreditCard className="mr-2 h-5 w-5" />
-                            Pay & Create Labels
+                            Pay & Ship
                           </Button>
                         </div>
                       </div>
@@ -266,7 +269,7 @@ const BulkUpload: React.FC = () => {
                       </Button>
                     </div>}
                   
-                  <SuccessNotification results={results} onDownloadAllLabels={handleDownloadAllLabels} onDownloadSingleLabel={handleDownloadSingleLabel} />
+                  <SuccessNotification results={results} onDownloadAllLabels={handleDownloadAllLabels} onDownloadSingleLabel={handleDownloadSingleLabel} onCreateLabels={handleCreateLabels} isPaying={isPaying} isCreatingLabels={isCreatingLabels} />
                 </div>}
               
               {uploadStatus === 'error' && <div className="space-y-6">
@@ -300,10 +303,7 @@ const BulkUpload: React.FC = () => {
       isCreating: false
     }))} />
 
-      <StripePaymentModal isOpen={showPaymentModal} onClose={() => setShowPaymentModal(false)} totalAmount={results?.totalCost || 0} shipmentCount={processedShipmentsCount} onPaymentSuccess={() => {
-        setShowPaymentModal(false);
-        handlePaymentSuccess();
-      }} />
+      <StripePaymentModal isOpen={showPaymentModal} onClose={() => setShowPaymentModal(false)} totalAmount={results?.totalCost || 0} shipmentCount={processedShipmentsCount} onPaymentSuccess={handlePaymentSuccess} />
 
       {results?.bulk_label_pdf_url && results.batchResult && <PrintPreview isOpenProp={showPrintPreview} onOpenChangeProp={setShowPrintPreview} labelUrl={results.bulk_label_pdf_url} trackingCode={null} isBatchPreview={true} batchResult={results.batchResult} />}
     </>;
