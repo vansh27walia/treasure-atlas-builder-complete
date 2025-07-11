@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,8 +70,8 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
         </div>
 
         <PaymentMethodList
-          selectedMethodId={selectedPaymentMethod}
-          onMethodSelect={onPaymentMethodChange}
+          selectedPaymentMethod={selectedPaymentMethod}
+          onPaymentMethodChange={onPaymentMethodChange}
         />
 
         <div className="flex gap-2">
@@ -112,3 +113,4 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
 };
 
 export default PaymentMethodSelector;
+
