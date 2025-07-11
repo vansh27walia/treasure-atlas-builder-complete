@@ -16,8 +16,8 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({
   onCreateLabel,
   selectedRateId
 }) => {
-  const handleRatesReceived = (rates: any[]) => {
-    console.log('Rates received:', rates);
+  const handleRatesReceived = (rates: any[], shipmentType: string) => {
+    console.log('Rates received:', rates, 'Type:', shipmentType);
   };
 
   return (
@@ -28,10 +28,6 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({
       <CardContent>
         <UnifiedShippingForm 
           onRatesReceived={handleRatesReceived}
-          isInternational={isInternational}
-          onRateSelect={onRateSelect}
-          onCreateLabel={onCreateLabel}
-          selectedRateId={selectedRateId}
         />
       </CardContent>
     </Card>
