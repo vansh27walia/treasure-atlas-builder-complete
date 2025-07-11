@@ -382,6 +382,10 @@ export const useBulkUpload = () => {
     toast.success('Email functionality will be implemented soon');
   };
 
+  const handleUploadWrapper = async (file: File): Promise<void> => {
+    await handleUpload(file);
+  };
+
   return {
     // Upload state
     file,
@@ -420,7 +424,7 @@ export const useBulkUpload = () => {
     
     // Handlers
     handleFileChange,
-    handleUpload,
+    handleUpload: handleUploadWrapper,
     handleCreateLabels,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat,
@@ -434,6 +438,6 @@ export const useBulkUpload = () => {
     handleBulkApplyCarrier,
     handleClearBatchError,
     handleOpenBatchPrintPreview,
-    handlePaymentSuccess // Add this missing function
+    handlePaymentSuccess
   };
 };

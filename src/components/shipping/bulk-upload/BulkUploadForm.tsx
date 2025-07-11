@@ -31,7 +31,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const { addresses, isLoading: addressesLoading, refetch: refetchAddresses } = usePickupAddresses();
+  const { addresses, isLoading: addressesLoading, loadAddresses } = usePickupAddresses();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -143,7 +143,7 @@ Jane Smith,456 Oak Ave,Los Angeles,CA,90210,US,12,10,6,4,Another Product`;
                   {address.street1}
                 </div>
                 <div className="text-sm text-gray-500">
-                  {address.city}, {address.state} {address.postal_code}
+                  {address.city}, {address.state} {address.zip}
                 </div>
               </div>
             ))}
