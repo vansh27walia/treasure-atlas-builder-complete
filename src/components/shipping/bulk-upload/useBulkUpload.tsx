@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -347,7 +348,7 @@ export const useBulkUpload = () => {
     }
   };
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (file: File): Promise<void> => {
     console.log('handleFileUpload called with:', { file: file.name, pickupAddress });
     
     if (!pickupAddress) {
@@ -362,7 +363,7 @@ export const useBulkUpload = () => {
       throw new Error(errorMsg);
     }
     
-    return originalHandleUpload(file, pickupAddress);
+    await originalHandleUpload(file, pickupAddress);
   };
 
   const handleOpenBatchPrintPreview = () => {
