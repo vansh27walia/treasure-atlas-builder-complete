@@ -1,9 +1,8 @@
 
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CreditCard, Plus } from 'lucide-react';
+import { Loader2, CreditCard, Plus, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import PaymentMethodList from './PaymentMethodList';
 import AddPaymentMethodModal from './AddPaymentMethodModal';
@@ -14,6 +13,7 @@ interface PaymentMethodSelectorProps {
   onPaymentComplete: (success: boolean) => void;
   amount: number;
   description: string;
+  onClose?: () => void;
 }
 
 const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
@@ -21,7 +21,8 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   onPaymentMethodChange,
   onPaymentComplete,
   amount,
-  description
+  description,
+  onClose
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
@@ -34,10 +35,19 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
 
     setIsProcessing(true);
     try {
-      // Process payment logic here
-      await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate payment processing
-      toast.success('Payment processed successfully');
+      // Simulate payment processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Show success message
+      toast.success('Payment processed successfully!');
+      
+      // Call completion handler
       onPaymentComplete(true);
+      
+      // Close modal if provided
+      if (onClose) {
+        setTimeout(() => onClose(), 1000);
+      }
     } catch (error) {
       console.error('Payment failed:', error);
       toast.error('Payment failed. Please try again.');
@@ -50,67 +60,78 @@ const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   const handlePaymentMethodAdded = () => {
     setShowAddPaymentModal(false);
     toast.success('Payment method added successfully');
-    // Optionally refresh the payment methods list
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CreditCard className="h-5 w-5" />
-          Payment Method
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-primary">
-            ${amount.toFixed(2)}
+    <div className="w-full max-w-md mx-auto">
+      <Card className="border-2 border-blue-200 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-lg">
+          <CardTitle className="flex items-center gap-2 text-blue-900">
+            <CreditCard className="h-5 w-5" />
+            Complete Payment
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6 p-6">
+          {/* Amount Display */}
+          <div className="text-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+            <div className="text-3xl font-bold text-green-800">
+              ${amount.toFixed(2)}
+            </div>
+            <p className="text-sm text-green-600 mt-1">{description}</p>
           </div>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </div>
 
-        <PaymentMethodList
-          selectedPaymentMethod={selectedPaymentMethod}
-          onPaymentMethodChange={onPaymentMethodChange}
+          {/* Payment Method Selection */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-gray-800">Select Payment Method</h3>
+            <PaymentMethodList
+              selectedPaymentMethod={selectedPaymentMethod}
+              onPaymentMethodChange={onPaymentMethodChange}
+            />
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-col gap-3">
+            <Button
+              onClick={handlePayment}
+              disabled={!selectedPaymentMethod || isProcessing}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 shadow-lg hover:shadow-xl transition-all duration-200"
+              size="lg"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Processing Payment...
+                </>
+              ) : (
+                <>
+                  <Check className="h-5 w-5 mr-2" />
+                  Pay ${amount.toFixed(2)}
+                </>
+              )}
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={() => setShowAddPaymentModal(true)}
+              className="w-full border-2 border-blue-200 text-blue-600 hover:bg-blue-50 font-medium"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add New Payment Method
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Add Payment Method Modal */}
+      {showAddPaymentModal && (
+        <AddPaymentMethodModal
+          isOpen={showAddPaymentModal}
+          onClose={() => setShowAddPaymentModal(false)}
+          onPaymentMethodAdded={handlePaymentMethodAdded}
         />
-
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setShowAddPaymentModal(true)}
-            className="flex-1"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Payment Method
-          </Button>
-          
-          <Button
-            onClick={handlePayment}
-            disabled={!selectedPaymentMethod || isProcessing}
-            className="flex-1"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
-              </>
-            ) : (
-              `Pay $${amount.toFixed(2)}`
-            )}
-          </Button>
-        </div>
-
-        {showAddPaymentModal && (
-          <AddPaymentMethodModal
-            isOpen={showAddPaymentModal}
-            onClose={() => setShowAddPaymentModal(false)}
-            onPaymentMethodAdded={handlePaymentMethodAdded}
-          />
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 };
 
 export default PaymentMethodSelector;
-

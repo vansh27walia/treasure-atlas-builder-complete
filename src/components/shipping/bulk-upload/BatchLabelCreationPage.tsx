@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, PrinterIcon, Package, CheckCircle, AlertCircle, FileText, CreditCard, RefreshCw } from 'lucide-react';
+import { Download, PrinterIcon, Package, CheckCircle, AlertCircle, FileText, CreditCard, RefreshCw, Sparkles } from 'lucide-react';
 import { BulkUploadResult } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
@@ -12,18 +13,28 @@ interface BatchLabelCreationPageProps {
   onDownloadSingleLabel: (labelUrl: string) => void;
   batchPrintPreviewModalOpen: boolean;
   setBatchPrintPreviewModalOpen: (open: boolean) => void;
+  onCreateLabels?: () => void;
 }
 
 const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
   results,
   onDownloadSingleLabel,
   batchPrintPreviewModalOpen,
-  setBatchPrintPreviewModalOpen
+  setBatchPrintPreviewModalOpen,
+  onCreateLabels
 }) => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
   const [isRefreshingRates, setIsRefreshingRates] = useState(false);
   const [labelsCreated, setLabelsCreated] = useState(false);
+  const [isCreatingLabels, setIsCreatingLabels] = useState(false);
+
+  // Check if labels are already created
+  useEffect(() => {
+    if (results?.processedShipments?.some(s => s.label_url)) {
+      setLabelsCreated(true);
+    }
+  }, [results]);
 
   const handleBatchPrintPreview = () => {
     setBatchPrintPreviewModalOpen(true);
@@ -32,7 +43,6 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
   const handleRefreshRates = async () => {
     setIsRefreshingRates(true);
     try {
-      // Simulate rate refresh
       await new Promise(resolve => setTimeout(resolve, 2000));
       toast.success('Rates refreshed successfully');
     } catch (error) {
@@ -43,14 +53,35 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
     }
   };
 
-  const handlePaymentComplete = (success: boolean) => {
+  const handlePaymentComplete = async (success: boolean) => {
     if (success) {
-      setLabelsCreated(true);
       setShowPaymentModal(false);
-      toast.success('Payment successful! Labels have been created.');
+      setIsCreatingLabels(true);
+      
+      toast.success('Payment successful! Creating labels automatically...', {
+        duration: 3000,
+      });
+
+      try {
+        // Auto-trigger label creation
+        if (onCreateLabels) {
+          await onCreateLabels();
+        }
+        setLabelsCreated(true);
+        toast.success('🎉 All labels created successfully!');
+      } catch (error) {
+        console.error('Label creation failed:', error);
+        toast.error('Payment successful but label creation failed. Please try again.');
+      } finally {
+        setIsCreatingLabels(false);
+      }
     } else {
       toast.error('Payment failed. Please try again.');
     }
+  };
+
+  const handleStartPayment = () => {
+    setShowPaymentModal(true);
   };
 
   // Generate consolidated label URLs from Supabase storage
@@ -58,7 +89,6 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
     const batchId = results.batchResult?.batchId;
     if (!batchId) return null;
     
-    // Construct the Supabase storage URL for consolidated labels
     const baseUrl = 'https://adhegezdzqlnqqnymvps.supabase.co/storage/v1/object/public/batch_labels';
     return `${baseUrl}/batch_label_${batchId}.${format}`;
   };
@@ -66,7 +96,6 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
   const successfulLabels = results.processedShipments?.filter(s => s.status === 'completed' && s.label_url) || [];
   const failedLabels = results.processedShipments?.filter(s => s.status === 'failed') || [];
 
-  // Get street address safely
   const getStreetAddress = (shipment: any) => {
     if (typeof shipment.customer_address === 'string') {
       return shipment.customer_address;
@@ -77,11 +106,10 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
     return '';
   };
 
-  // Calculate total cost for payment
   const totalCost = results.totalCost || 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8 text-center">
@@ -101,33 +129,46 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
 
         {/* Payment Section - Show if labels not created yet */}
         {!labelsCreated && (
-          <Card className="p-6 mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+          <Card className="p-6 mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 shadow-xl">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-semibold text-blue-900 mb-2">Complete Payment</h2>
-                <p className="text-blue-700">Process payment to generate your shipping labels</p>
+                <h2 className="text-2xl font-bold text-blue-900 mb-2 flex items-center">
+                  <Sparkles className="h-6 w-6 mr-2" />
+                  Ready to Ship
+                </h2>
+                <p className="text-blue-700 text-lg">Complete payment to generate your shipping labels</p>
               </div>
               <div className="text-right">
-                <div className="text-2xl font-bold text-blue-900">${totalCost.toFixed(2)}</div>
-                <div className="text-sm text-blue-600">{successfulLabels.length} labels</div>
+                <div className="text-3xl font-bold text-blue-900">${totalCost.toFixed(2)}</div>
+                <div className="text-sm text-blue-600 font-medium">{successfulLabels.length} labels ready</div>
               </div>
             </div>
             
             <div className="flex gap-4">
               <Button
-                onClick={() => setShowPaymentModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3"
+                onClick={handleStartPayment}
+                disabled={isCreatingLabels || successfulLabels.length === 0}
+                className="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-200"
                 size="lg"
               >
-                <CreditCard className="mr-2 h-5 w-5" />
-                Complete Payment
+                {isCreatingLabels ? (
+                  <>
+                    <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+                    Creating Labels...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="mr-2 h-5 w-5" />
+                    Pay & Create Labels
+                  </>
+                )}
               </Button>
               
               <Button
                 onClick={handleRefreshRates}
                 disabled={isRefreshingRates}
                 variant="outline"
-                className="px-6 py-3"
+                className="px-6 py-4 border-2 border-blue-300 text-blue-700 hover:bg-blue-50 font-medium"
                 size="lg"
               >
                 {isRefreshingRates ? (
@@ -156,6 +197,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowPaymentModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
                 >
                   ×
                 </Button>
@@ -167,6 +209,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
                 onPaymentComplete={handlePaymentComplete}
                 amount={totalCost}
                 description={`Bulk Shipping Labels (${successfulLabels.length} labels)`}
+                onClose={() => setShowPaymentModal(false)}
               />
             </div>
           </div>
@@ -174,7 +217,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
 
         {/* Consolidated Download Section - Show only after payment */}
         {labelsCreated && successfulLabels.length > 0 && (
-          <Card className="p-6 mb-8 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+          <Card className="p-6 mb-8 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200 shadow-xl">
             <div className="flex items-center mb-4">
               <FileText className="h-6 w-6 text-green-600 mr-3" />
               <h2 className="text-xl font-semibold text-green-900">Download Consolidated Labels</h2>
@@ -251,19 +294,19 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="p-6 text-center">
+          <Card className="p-6 text-center shadow-lg">
             <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-3" />
             <h3 className="text-2xl font-bold text-green-600">{successfulLabels.length}</h3>
             <p className="text-gray-600">Labels Ready</p>
           </Card>
           
-          <Card className="p-6 text-center">
+          <Card className="p-6 text-center shadow-lg">
             <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-3" />
             <h3 className="text-2xl font-bold text-red-600">{failedLabels.length}</h3>
             <p className="text-gray-600">Failed Labels</p>
           </Card>
           
-          <Card className="p-6 text-center">
+          <Card className="p-6 text-center shadow-lg">
             <Package className="h-8 w-8 text-blue-600 mx-auto mb-3" />
             <h3 className="text-2xl font-bold text-blue-600">${totalCost.toFixed(2)}</h3>
             <p className="text-gray-600">Total Cost</p>
@@ -272,13 +315,12 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
 
         {/* Batch Actions - Show only after payment */}
         {labelsCreated && (
-          <Card className="p-6 mb-8">
+          <Card className="p-6 mb-8 shadow-lg">
             <h2 className="text-xl font-semibold mb-4">Batch Actions</h2>
             <div className="flex flex-wrap gap-4">
-              {/* Batch Print Preview */}
               <Button
                 onClick={handleBatchPrintPreview}
-                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center"
+                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center shadow-lg"
                 size="lg"
               >
                 <PrinterIcon className="mr-2 h-5 w-5" />
@@ -290,7 +332,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
 
         {/* Individual Labels Table - Show only after payment */}
         {labelsCreated && successfulLabels.length > 0 && (
-          <Card className="p-6">
+          <Card className="p-6 shadow-lg">
             <h2 className="text-xl font-semibold mb-4">Individual Labels</h2>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -353,7 +395,7 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
 
         {/* Failed Labels */}
         {failedLabels.length > 0 && (
-          <Card className="p-6 mt-8 border-red-200">
+          <Card className="p-6 mt-8 border-red-200 shadow-lg">
             <h2 className="text-xl font-semibold mb-4 text-red-600">Failed Labels</h2>
             <div className="space-y-3">
               {failedLabels.map((shipment, index) => (
