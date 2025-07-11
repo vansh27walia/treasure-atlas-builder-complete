@@ -7,8 +7,10 @@ import { Download, Printer, Package } from 'lucide-react';
 interface ShippingLabelProps {
   labelUrl?: string;
   trackingNumber?: string;
+  trackingCode?: string;
   carrier?: string;
   service?: string;
+  shipmentId?: string;
   onDownload?: () => void;
   onPrint?: () => void;
 }
@@ -16,11 +18,15 @@ interface ShippingLabelProps {
 const ShippingLabel: React.FC<ShippingLabelProps> = ({
   labelUrl,
   trackingNumber,
+  trackingCode,
   carrier,
   service,
+  shipmentId,
   onDownload,
   onPrint
 }) => {
+  const displayTrackingNumber = trackingNumber || trackingCode;
+
   return (
     <Card>
       <CardHeader>
@@ -30,10 +36,10 @@ const ShippingLabel: React.FC<ShippingLabelProps> = ({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {trackingNumber && (
+        {displayTrackingNumber && (
           <div>
             <p className="text-sm text-gray-600">Tracking Number</p>
-            <p className="font-mono text-lg">{trackingNumber}</p>
+            <p className="font-mono text-lg">{displayTrackingNumber}</p>
           </div>
         )}
         

@@ -1,22 +1,29 @@
 
 import React from 'react';
-import { Modal } from 'react-bootstrap';
 import { Button } from '@/components/ui/button';
 import { Download, Printer, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface PrintPreviewProps {
-  show: boolean;
-  onHide: () => void;
+  show?: boolean;
+  onHide?: () => void;
   labelUrl: string;
-  shipmentData?: any;
+  shipmentDetails?: any;
+  trackingCode?: string;
+  labelUrls?: any;
+  shipmentId?: string;
+  onFormatChange?: (format: string) => Promise<void>;
 }
 
 const PrintPreview: React.FC<PrintPreviewProps> = ({
-  show,
+  show = true,
   onHide,
   labelUrl,
-  shipmentData
+  shipmentDetails,
+  trackingCode,
+  labelUrls,
+  shipmentId,
+  onFormatChange
 }) => {
   const handlePrint = () => {
     if (labelUrl) {
@@ -42,9 +49,11 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
       <Card className="w-full max-w-4xl max-h-[90vh] overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Print Preview</CardTitle>
-          <Button variant="ghost" size="sm" onClick={onHide}>
-            <X className="h-4 w-4" />
-          </Button>
+          {onHide && (
+            <Button variant="ghost" size="sm" onClick={onHide}>
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex justify-center space-x-2">
