@@ -355,89 +355,42 @@ const BulkUploadView: React.FC = () => {
               />
             </Card>
             
-            {/* ENHANCED Payment Section - ONLY HERE */}
-            <div className="mt-12 flex justify-center">
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-10 rounded-2xl shadow-2xl border border-green-200 max-w-4xl w-full">
-                <div className="text-center mb-8">
-                  <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
-                    <CreditCard className="h-10 w-10 text-white" />
-                  </div>
-                  <h3 className="text-3xl font-bold text-gray-900 mb-4">Ready to Create Labels?</h3>
-                  <p className="text-lg text-gray-600 mb-2">
+            {/* Enhanced action buttons - PAYMENT ONLY HERE */}
+            <div className="mt-10 flex justify-center">
+              <div className="bg-white p-8 rounded-xl shadow-lg border">
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900 mb-2">Ready to Process?</h3>
+                  <p className="text-gray-600">
                     Complete payment to automatically generate all your shipping labels
                   </p>
-                  <p className="text-sm text-gray-500">
-                    Secure payment processing • Instant label generation • No hidden fees
-                  </p>
                 </div>
                 
-                <div className="bg-white p-6 rounded-xl shadow-lg border mb-8">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-                    <div className="flex flex-col items-center">
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-                        <Package className="h-6 w-6 text-blue-600" />
-                      </div>
-                      <div className="text-2xl font-bold text-gray-900">{filteredShipments.filter(s => s.selectedRateId).length}</div>
-                      <div className="text-sm text-gray-600">Shipments Ready</div>
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
-                        <Truck className="h-6 w-6 text-green-600" />
-                      </div>
-                      <div className="text-2xl font-bold text-gray-900">${results.totalCost?.toFixed(2) || '0.00'}</div>
-                      <div className="text-sm text-gray-600">Total Shipping Cost</div>
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-3">
-                        <Sparkles className="h-6 w-6 text-purple-600" />
-                      </div>
-                      <div className="text-2xl font-bold text-gray-900">75%</div>
-                      <div className="text-sm text-gray-600">Average Savings</div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col items-center space-y-4">
+                <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
                   <Button
                     onClick={() => setShowPaymentModal(true)}
                     disabled={!filteredShipments.some(s => s.selectedRateId) || isCreatingLabels}
-                    className="bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white px-16 py-6 text-2xl font-bold shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-12 py-4 text-xl font-bold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
                     size="lg"
                   >
                     {isCreatingLabels ? (
                       <>
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mr-4"></div>
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
                         Creating Labels...
                       </>
                     ) : (
                       <>
-                        <CreditCard className="mr-4 h-8 w-8" />
-                        Pay ${results.totalCost?.toFixed(2) || '0.00'} & Create Labels
-                        <ArrowRight className="ml-4 h-6 w-6" />
+                        <CreditCard className="mr-3 h-6 w-6" />
+                        Pay & Create Labels
+                        <ArrowRight className="ml-3 h-5 w-5" />
                       </>
                     )}
                   </Button>
                   
-                  {pickupAddress && (
-                    <p className="text-sm text-green-700 font-medium flex items-center">
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Shipping from: {pickupAddress.name || pickupAddress.street1}
-                    </p>
-                  )}
-                  
-                  <div className="flex items-center text-xs text-gray-500 space-x-4">
-                    <span className="flex items-center">
-                      <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                      Secure Payment
-                    </span>
-                    <span className="flex items-center">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                      Instant Processing
-                    </span>
-                    <span className="flex items-center">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
-                      Auto Label Generation
-                    </span>
+                  <div className="text-center text-sm text-gray-500">
+                    <div className="font-semibold text-lg text-gray-700">
+                      Total: ${results.totalCost?.toFixed(2) || '0.00'}
+                    </div>
+                    <div>{filteredShipments.filter(s => s.selectedRateId).length} shipments selected</div>
                   </div>
                 </div>
               </div>
@@ -446,7 +399,7 @@ const BulkUploadView: React.FC = () => {
         </div>
       )}
 
-      {/* SUCCESS SCREEN - NO PAYMENT OPTIONS HERE */}
+      {/* Enhanced Success Screen - NO PAYMENT PROMPTS HERE */}
       {uploadStatus === 'success' && results && !labelGenerationProgress.isGenerating && (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50">
           <div className="max-w-7xl mx-auto p-6">
@@ -475,7 +428,7 @@ const BulkUploadView: React.FC = () => {
               </div>
             </div>
 
-            {/* DOWNLOAD OPTIONS ONLY - NO PAYMENT HERE */}
+            {/* NO PAYMENT COMPONENTS HERE - Only download options */}
             <BulkLabelDownloadOptions
               batchResult={results.batchResult}
               processedLabels={results.processedShipments || []}
