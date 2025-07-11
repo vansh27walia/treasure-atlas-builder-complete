@@ -218,7 +218,7 @@ export const useBulkUpload = () => {
     setBatchPrintPreviewModalOpen(true);
   };
 
-  // Enhanced payment success handler
+  // Enhanced payment success handler that automatically triggers label creation
   const handlePaymentSuccess = () => {
     console.log('Payment successful, triggering label creation...');
     setIsPaying(false);
@@ -434,6 +434,6 @@ export const useBulkUpload = () => {
     handleBulkApplyCarrier,
     handleClearBatchError,
     handleOpenBatchPrintPreview,
-    handlePaymentSuccess // Add this missing function
+    handlePaymentSuccess
   };
 };
