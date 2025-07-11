@@ -49,7 +49,7 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onValueChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="space-y-4 pb-6">
           <div className="flex items-center justify-between">
