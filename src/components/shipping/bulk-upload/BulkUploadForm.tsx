@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,7 +34,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const [dragActive, setDragActive] = useState(false);
   const [availableAddresses, setAvailableAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
-  const [selectedAddressDisplay, setSelectedAddressDisplay] = useState<SavedAddress | null>(null);
   const [addressesLoaded, setAddressesLoaded] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [currentStep, setCurrentStep] = useState<UploadStep>('select');
@@ -50,12 +50,10 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         if (defaultAddress) {
           console.log('Found default address:', defaultAddress);
           setSelectedAddressId(defaultAddress.id.toString());
-          setSelectedAddressDisplay(defaultAddress);
           onPickupAddressSelect(defaultAddress);
         } else if (addresses.length > 0) {
           console.log('Using first available address:', addresses[0]);
           setSelectedAddressId(addresses[0].id.toString());
-          setSelectedAddressDisplay(addresses[0]);
           onPickupAddressSelect(addresses[0]);
         } else {
           console.log('No addresses available');
@@ -78,9 +76,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     setSelectedAddressId(addressId);
     const selectedAddress = availableAddresses.find(addr => addr.id.toString() === addressId);
     if (selectedAddress) {
-      setSelectedAddressDisplay(selectedAddress);
       onPickupAddressSelect(selectedAddress);
-      toast.success(`Selected pickup address: ${selectedAddress.name || selectedAddress.street1}`);
     }
   };
 
@@ -162,13 +158,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       await processFile(e.target.files[0]);
-    }
-  };
-
-  const handleFileInputClick = () => {
-    const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.click();
     }
   };
 
@@ -289,7 +278,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   // Enhanced file selection step
   return (
     <div className="space-y-10">
-      {/* Enhanced Pickup Address Selection - Fixed dropdown display and centering */}
+      {/* Enhanced Pickup Address Selection */}
       <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50 shadow-lg">
         <CardContent className="p-8">
           <div className="flex items-start space-x-6">
@@ -312,45 +301,23 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                   <span className="text-lg text-gray-600">Loading your addresses...</span>
                 </div>
               ) : availableAddresses.length > 0 ? (
-                <div className="space-y-4">
-                  <Select value={selectedAddressId} onValueChange={handleAddressChange}>
-                    <SelectTrigger className="bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors p-4 text-lg max-w-2xl">
-                      <SelectValue placeholder="Select pickup address">
-                        {selectedAddressDisplay && (
-                          <div className="flex flex-col items-start py-1">
-                            <span className="font-semibold text-gray-900 text-lg">{selectedAddressDisplay.name}</span>
-                            <span className="text-gray-500 text-sm">
-                              {selectedAddressDisplay.street1}, {selectedAddressDisplay.city}, {selectedAddressDisplay.state} {selectedAddressDisplay.zip}
-                            </span>
-                          </div>
-                        )}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent className="bg-white border-2 border-gray-200 shadow-xl z-50">
-                      {availableAddresses.map((address) => (
-                        <SelectItem key={address.id} value={address.id.toString()} className="p-4">
-                          <div className="flex flex-col py-2">
-                            <span className="font-semibold text-gray-900 text-lg">{address.name}</span>
-                            <span className="text-gray-500">
-                              {address.street1}, {address.city}, {address.state} {address.zip}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  
-                  {selectedAddressDisplay && (
-                    <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                      <div className="flex items-center space-x-2">
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                        <span className="text-green-800 font-medium">
-                          Selected: {selectedAddressDisplay.name || selectedAddressDisplay.street1}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <Select value={selectedAddressId} onValueChange={handleAddressChange}>
+                  <SelectTrigger className="bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors p-4 text-lg">
+                    <SelectValue placeholder="Select pickup address" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableAddresses.map((address) => (
+                      <SelectItem key={address.id} value={address.id.toString()}>
+                        <div className="flex flex-col py-2">
+                          <span className="font-semibold text-gray-900 text-lg">{address.name}</span>
+                          <span className="text-gray-500">
+                            {address.street1}, {address.city}, {address.state} {address.zip}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               ) : (
                 <Alert className="border-amber-200 bg-amber-50">
                   <AlertCircle className="h-5 w-5 text-amber-600" />
@@ -364,12 +331,12 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         </CardContent>
       </Card>
 
-      {/* Enhanced File Upload Area - Made entire area clickable */}
+      {/* Enhanced File Upload Area */}
       <Card className="border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors shadow-lg">
         <CardContent className="p-10">
           <div
             className={`
-              relative border-2 border-dashed rounded-2xl p-16 text-center transition-all duration-300 cursor-pointer
+              relative border-2 border-dashed rounded-2xl p-16 text-center transition-all duration-300
               ${dragActive
                 ? 'border-blue-400 bg-blue-50 scale-105'
                 : selectedFile
@@ -381,7 +348,6 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
-            onClick={handleFileInputClick}
           >
             <input
               id="file-upload"
@@ -417,10 +383,17 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-gray-700 mb-3">
-                      Drop your CSV file here or click to browse
+                      Drop your CSV file here
                     </p>
                     <p className="text-lg text-gray-600 mb-6">
-                      Click anywhere in this area to select a file
+                      or{' '}
+                      <button
+                        type="button"
+                        onClick={() => document.getElementById('file-upload')?.click()}
+                        className="text-blue-600 hover:text-blue-700 font-semibold underline transition-colors"
+                      >
+                        browse to choose a file
+                      </button>
                     </p>
                     <p className="text-lg text-gray-500">
                       Supports CSV files up to 10MB
@@ -435,10 +408,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
             <div className="flex items-center justify-center space-x-6 mt-8">
               <Button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleFileInputClick();
-                }}
+                onClick={() => document.getElementById('file-upload')?.click()}
                 variant="outline"
                 className="border-2 hover:border-blue-300 px-6 py-3"
                 size="lg"
@@ -446,10 +416,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                 Choose Different File
               </Button>
               <Button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCurrentStep('mapping');
-                }}
+                onClick={() => setCurrentStep('mapping')}
                 disabled={!selectedAddressId || !addressesLoaded}
                 className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 px-8 py-3"
                 size="lg"
