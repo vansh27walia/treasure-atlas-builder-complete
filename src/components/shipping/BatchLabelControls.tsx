@@ -148,6 +148,17 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
           <p className="text-sm text-gray-600 mb-4">
             {selectedShipments.length} labels ready • Total: ${batchAmount.toFixed(2)}
           </p>
+          <Button
+            onClick={handlePaymentComplete}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+            size="lg"
+          >
+            <Download className="mr-2 h-5 w-5" />
+            Complete Payment
+          </Button>
+        </div>
+      )}
+
       {/* Label Creation Section - Show after payment */}
       {paymentCompleted && !hasBatchResult && (
         <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
