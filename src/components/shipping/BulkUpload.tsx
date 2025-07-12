@@ -18,6 +18,7 @@ import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
+import CsvHeaderMapper from './bulk-upload/CsvHeaderMapper';
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
@@ -171,6 +172,11 @@ const BulkUpload: React.FC = () => {
     toast.success('Payment successful! Labels are now available for download.');
   };
 
+  const handleSortChange = (field: string, direction: string) => {
+    setSortField(field);
+    setSortDirection(direction);
+  };
+
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -200,6 +206,30 @@ const BulkUpload: React.FC = () => {
                     isUploading={isUploading} 
                     progress={progress} 
                     handleUpload={handleUpload} 
+                  />
+                </div>
+              )}
+
+              {uploadStatus === 'mapping' && results && (
+                <div className="space-y-8">
+                  <div className="text-center py-0">
+                    <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-full mb-4">
+                      <Sparkles className="w-8 h-8 text-purple-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                      Map Your CSV Headers
+                    </h2>
+                    <p className="text-gray-600">
+                      Our AI has detected your CSV structure. Please verify the field mappings below.
+                    </p>
+                  </div>
+                  
+                  <CsvHeaderMapper 
+                    csvData={results.csvData || []}
+                    onMappingComplete={(mappedData) => {
+                      console.log('Mapping completed:', mappedData);
+                      // Handle mapping completion
+                    }}
                   />
                 </div>
               )}
@@ -234,10 +264,7 @@ const BulkUpload: React.FC = () => {
                         onSearchChange={setSearchTerm} 
                         sortField={sortField} 
                         sortDirection={sortDirection} 
-                        onSortChange={(field, direction) => {
-                          setSortField(field as any);
-                          setSortDirection(direction as any);
-                        }} 
+                        onSortChange={handleSortChange}
                         selectedCarrier={selectedCarrierFilter} 
                         onCarrierFilterChange={setSelectedCarrierFilter} 
                         onApplyCarrierToAll={handleBulkApplyCarrier} 
