@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -290,10 +289,7 @@ const BulkUpload: React.FC = () => {
                             amount={results.totalCost || 0}
                             onPaymentSuccess={handlePaymentSuccess}
                             disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress}
-                            buttonText="Generate Labels"
-                            buttonIcon={<Download className="mr-2 h-5 w-5" />}
                             className="px-6 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200"
-                            size="lg"
                           />
                         </div>
                       </div>
