@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -17,7 +18,6 @@ import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
-import CsvHeaderMapper from './bulk-upload/CsvHeaderMapper';
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
@@ -64,10 +64,10 @@ const BulkUpload: React.FC = () => {
     setSelectedCarrierFilter
   } = useBulkUpload();
 
+  // Determine current step and completed steps
   const getCurrentStep = (): BulkUploadStep => {
     if (uploadStatus === 'success') return 'labels';
     if (uploadStatus === 'editing') return 'rates';
-    if (uploadStatus === 'mapping') return 'mapping';
     if (uploadStatus === 'uploading') return 'mapping';
     return 'upload';
   };
@@ -75,8 +75,8 @@ const BulkUpload: React.FC = () => {
   const getCompletedSteps = (): BulkUploadStep[] => {
     const completed: BulkUploadStep[] = [];
     if (uploadStatus !== 'idle') completed.push('upload');
-    if (uploadStatus === 'editing' || uploadStatus === 'success') completed.push('mapping', 'rates');
-    if (uploadStatus === 'success') completed.push('labels');
+    if (uploadStatus === 'editing' || uploadStatus === 'success') completed.push('mapping');
+    if (uploadStatus === 'success') completed.push('rates');
     return completed;
   };
 
@@ -85,15 +85,13 @@ const BulkUpload: React.FC = () => {
   }, [pickupAddress?.id]);
 
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
-    if (address) {
+    if (address && address.id !== pickupAddress?.id) {
       console.log("Selected pickup address in BulkUpload:", address);
       setPickupAddress(address);
 
       const now = Date.now();
       if (now - lastToastRef.current > 2000) {
-        toast.success(`Selected pickup address: ${address.name || address.street1}`, {
-          duration: 3000,
-        });
+        toast.success(`Selected pickup address: ${address.name || address.street1}`);
         lastToastRef.current = now;
       }
     }
@@ -172,25 +170,14 @@ const BulkUpload: React.FC = () => {
     toast.success('Payment successful! Labels are now available for download.');
   };
 
-  const handleSortChange = (field: string, direction: string) => {
-    setSortField(field as "recipient" | "rate" | "carrier");
-    setSortDirection(direction as "asc" | "desc");
-  };
-
-  const handleMappingComplete = (convertedCsv: string) => {
-    console.log('Mapping completed with converted CSV:', convertedCsv);
-    // This would typically trigger processing the converted CSV
-    // For now, we'll just log it
-  };
-
-  const handleMappingCancel = () => {
-    console.log('CSV mapping cancelled');
-    // Reset to initial state or go back to upload
-  };
-
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        {/* Progress Bar */}
+        <div className="bg-white shadow-sm border-b">
+          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
+        </div>
+
         <div className="container mx-auto px-4 py-8">
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             <CardContent className="p-8 rounded-xl">
@@ -220,28 +207,6 @@ const BulkUpload: React.FC = () => {
                   />
                 </div>
               )}
-
-              {uploadStatus === 'mapping' && (
-                <div className="space-y-8">
-                  <div className="text-center py-0">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-full mb-4">
-                      <Sparkles className="w-8 h-8 text-purple-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                      Map Your CSV Headers
-                    </h2>
-                    <p className="text-gray-600">
-                      Our AI has detected your CSV structure. Please verify the field mappings below.
-                    </p>
-                  </div>
-                  
-                  <CsvHeaderMapper 
-                    csvContent={""} 
-                    onMappingComplete={handleMappingComplete}
-                    onCancel={handleMappingCancel}
-                  />
-                </div>
-              )}
               
               {uploadStatus === 'editing' && results && (
                 <div className="space-y-8">
@@ -265,7 +230,6 @@ const BulkUpload: React.FC = () => {
                     </AlertDescription>
                   </Alert>
                   
-                  {/* Vertical Results Display */}
                   <div className="bg-white rounded-xl border shadow-sm">
                     <div className="p-6 border-b">
                       <BulkShipmentFilters 
@@ -273,75 +237,29 @@ const BulkUpload: React.FC = () => {
                         onSearchChange={setSearchTerm} 
                         sortField={sortField} 
                         sortDirection={sortDirection} 
-                        onSortChange={handleSortChange}
+                        onSortChange={(field, direction) => {
+                          setSortField(field as any);
+                          setSortDirection(direction as any);
+                        }} 
                         selectedCarrier={selectedCarrierFilter} 
                         onCarrierFilterChange={setSelectedCarrierFilter} 
                         onApplyCarrierToAll={handleBulkApplyCarrier} 
                       />
                     </div>
                     
-                    {/* Improved Vertical Layout for Results */}
-                    <div className="p-6 space-y-4">
-                      {filteredShipments.map((shipment, index) => (
-                        <Card key={shipment.id} className="border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
-                          <CardContent className="p-6">
-                            <div className="space-y-4">
-                              {/* Shipment Header */}
-                              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                                <div className="flex-1">
-                                  <h3 className="font-semibold text-lg text-gray-900">{shipment.recipient}</h3>
-                                  <p className="text-gray-600">{shipment.address}</p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
-                                </div>
-                              </div>
-                              
-                              {/* Rate Selection */}
-                              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Carrier</label>
-                                  <div className="p-3 bg-gray-50 rounded-lg border">
-                                    <span className="font-medium">{shipment.carrier}</span>
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Service</label>
-                                  <div className="p-3 bg-gray-50 rounded-lg border">
-                                    <span className="font-medium">{shipment.service}</span>
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-2">Rate</label>
-                                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                                    <span className="font-bold text-green-700">${shipment.rate?.toFixed(2)}</span>
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Actions */}
-                              <div className="flex justify-end gap-2 pt-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEditShipment(shipment.id, {})}
-                                >
-                                  Edit
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleRemoveShipment(shipment.id)}
-                                  className="text-red-600 hover:text-red-700"
-                                >
-                                  Remove
-                                </Button>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                    <BulkShipmentsList 
+                      shipments={filteredShipments} 
+                      isFetchingRates={isFetchingRates} 
+                      onSelectRate={handleSelectRate} 
+                      onRemoveShipment={handleRemoveShipment} 
+                      onEditShipment={(shipmentId: string, details: any) => {
+                        const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+                        if (shipment) {
+                          handleEditShipment(shipment);
+                        }
+                      }} 
+                      onRefreshRates={handleRefreshRates} 
+                    />
                   </div>
                   
                   {processedShipmentsCount > 0 && (
@@ -450,11 +368,6 @@ const BulkUpload: React.FC = () => {
               )}
             </CardContent>
           </Card>
-        </div>
-
-        {/* Progress Bar at Bottom */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t z-10">
-          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
         </div>
       </div>
 

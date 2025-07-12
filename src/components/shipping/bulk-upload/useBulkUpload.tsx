@@ -9,8 +9,6 @@ import { addressService } from '@/services/AddressService';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 
-type UploadStatus = 'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels' | 'mapping';
-
 export const useBulkUpload = () => {
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
   const [batchError, setBatchError] = useState<{ packageNumber: number; error: string; shipmentId: string } | null>(null);
@@ -45,9 +43,9 @@ export const useBulkUpload = () => {
     
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
       // Only update status if it's one of the types compatible with useShipmentUpload's state
-      const compatibleStatuses = ['idle', 'uploading', 'success', 'error', 'editing', 'creating-labels', 'mapping'];
+      const compatibleStatuses = ['idle', 'uploading', 'success', 'error', 'editing', 'creating-labels'];
       if (compatibleStatuses.includes(newResults.uploadStatus)) {
-        setUploadStatus(newResults.uploadStatus as UploadStatus);
+        setUploadStatus(newResults.uploadStatus as 'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels');
       }
     }
   };

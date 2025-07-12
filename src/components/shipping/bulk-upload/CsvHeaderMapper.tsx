@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, CheckCircle, AlertCircle, RefreshCw, ArrowLeft, Brain } from 'lucide-react';
+import { ArrowRight, CheckCircle, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -94,6 +94,7 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
   const convertCsv = async () => {
     if (!analysis) return;
 
+    // Validate required mappings
     const mappedTemplateHeaders = Object.values(userMappings);
     const missingRequired = analysis.requiredHeaders.filter(
       header => !mappedTemplateHeaders.includes(header)
@@ -135,13 +136,11 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
   if (isAnalyzing) {
     return (
       <Card className="w-full max-w-4xl mx-auto">
-        <CardContent className="p-12">
+        <CardContent className="p-8">
           <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-full mb-6 shadow-lg">
-              <Brain className="h-8 w-8 text-white animate-pulse" />
-            </div>
-            <h3 className="text-2xl font-bold mb-4 text-gray-900">AI is Analyzing Your CSV Headers</h3>
-            <p className="text-lg text-gray-600">Our AI is analyzing your CSV structure and suggesting the best mappings to our shipping template...</p>
+            <RefreshCw className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold mb-2">🧠 AI is Analyzing Your CSV Headers</h3>
+            <p className="text-gray-600">Our AI is analyzing your CSV structure and suggesting the best mappings to our shipping template...</p>
           </div>
         </CardContent>
       </Card>
@@ -171,125 +170,112 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
     .filter(header => !mappedTemplateHeaders.includes(header));
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-8">
-      <Card className="shadow-xl">
-        <CardHeader className="bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-lg">
-          <CardTitle className="flex items-center gap-3 text-2xl">
-            <Brain className="h-7 w-7" />
-            AI-Powered CSV Header Mapping
+    <div className="w-full max-w-6xl mx-auto space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ArrowRight className="h-5 w-5 text-blue-600" />
+            🎯 Map Your CSV Headers to EasyPost Template
           </CardTitle>
-          <div className="flex gap-3 flex-wrap pt-2">
-            <Badge variant={analysis.suggestions.confidence === 'high' ? 'default' : 'secondary'} className="bg-white/20 text-white">
+          <div className="flex gap-2 flex-wrap">
+            <Badge variant={analysis.suggestions.confidence === 'high' ? 'default' : 'secondary'}>
               🧠 AI Confidence: {analysis.suggestions.confidence}
             </Badge>
-            <Badge variant="outline" className="bg-white/20 text-white border-white/30">
+            <Badge variant="outline">
               📊 {analysis.detectedHeaders.length} headers detected
             </Badge>
-            <Badge variant="outline" className="bg-white/20 text-white border-white/30">
+            <Badge variant="outline">
               ✅ {Object.keys(userMappings).length} mapped
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="p-8 space-y-8">
-          <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl">
-            <h4 className="font-bold text-blue-800 mb-3 text-lg">📋 How this works:</h4>
-            <ul className="text-blue-700 space-y-2">
+        <CardContent className="space-y-6">
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="font-medium text-blue-800 mb-2">📋 How this works:</h4>
+            <ul className="text-sm text-blue-700 space-y-1">
               <li>• Review the AI-suggested mappings below</li>
               <li>• Adjust any mappings that don't look correct</li>
-              <li>• All <span className="font-bold text-red-600">REQUIRED</span> fields must be mapped</li>
+              <li>• All <span className="font-semibold text-red-600">REQUIRED</span> fields must be mapped</li>
               <li>• Click "Convert & Proceed" when ready</li>
             </ul>
           </div>
 
-          {/* Vertical Layout for Header Mappings */}
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {analysis.detectedHeaders.map((detectedHeader) => (
-              <Card key={detectedHeader} className="border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="font-semibold text-gray-900 mb-2">
-                        📝 Your CSV Header: <span className="text-blue-600 font-mono bg-blue-50 px-2 py-1 rounded">{detectedHeader}</span>
-                      </div>
-                      
-                      <Select
-                        value={userMappings[detectedHeader] || '__NONE__'}
-                        onValueChange={(value) => {
-                          if (value === '__NONE__') {
-                            const newMappings = { ...userMappings };
-                            delete newMappings[detectedHeader];
-                            setUserMappings(newMappings);
-                          } else {
-                            removeMappingForTemplate(value);
-                            handleMappingChange(detectedHeader, value);
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-full lg:w-80">
-                          <SelectValue placeholder="🎯 Select mapping..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__NONE__">
-                            <span className="text-gray-500">🚫 Don't map this field</span>
-                          </SelectItem>
-                          <div className="px-2 py-1 text-xs font-semibold text-red-600 bg-red-50">
-                            REQUIRED FIELDS
-                          </div>
-                          {analysis.requiredHeaders.map((header) => (
-                            <SelectItem 
-                              key={header} 
-                              value={header}
-                              disabled={mappedTemplateHeaders.includes(header) && userMappings[detectedHeader] !== header}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-red-600 text-xs font-bold">🔴</span>
-                                <span className="font-mono">{header}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                          <div className="px-2 py-1 text-xs font-semibold text-blue-600 bg-blue-50">
-                            OPTIONAL FIELDS
-                          </div>
-                          {analysis.optionalHeaders.map((header) => (
-                            <SelectItem 
-                              key={header} 
-                              value={header}
-                              disabled={mappedTemplateHeaders.includes(header) && userMappings[detectedHeader] !== header}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-blue-600 text-xs font-bold">🔵</span>
-                                <span className="font-mono">{header}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex-shrink-0">
-                      {userMappings[detectedHeader] && (
-                        <div className="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-2 rounded-lg">
-                          <CheckCircle className="h-4 w-4" />
-                          <span className="font-medium">Maps to: {userMappings[detectedHeader]}</span>
-                        </div>
-                      )}
-                    </div>
+              <Card key={detectedHeader} className="p-4 border-l-4 border-l-blue-500">
+                <div className="space-y-3">
+                  <div className="font-medium text-sm">
+                    📝 Your Header: <span className="text-blue-600 font-mono">{detectedHeader}</span>
                   </div>
-                </CardContent>
+                  
+                  <Select
+                    value={userMappings[detectedHeader] || ''}
+                    onValueChange={(value) => {
+                      if (value === 'unmapped') {
+                        const newMappings = { ...userMappings };
+                        delete newMappings[detectedHeader];
+                        setUserMappings(newMappings);
+                      } else {
+                        removeMappingForTemplate(value);
+                        handleMappingChange(detectedHeader, value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="🎯 Select mapping..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unmapped">
+                        <span className="text-gray-500">🚫 Don't map</span>
+                      </SelectItem>
+                      {analysis.requiredHeaders.map((header) => (
+                        <SelectItem 
+                          key={header} 
+                          value={header}
+                          disabled={mappedTemplateHeaders.includes(header) && userMappings[detectedHeader] !== header}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-red-600 text-xs font-bold">🔴 REQUIRED</span>
+                            <span className="font-mono">{header}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                      {analysis.optionalHeaders.map((header) => (
+                        <SelectItem 
+                          key={header} 
+                          value={header}
+                          disabled={mappedTemplateHeaders.includes(header) && userMappings[detectedHeader] !== header}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-blue-600 text-xs font-bold">🔵 OPTIONAL</span>
+                            <span className="font-mono">{header}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {userMappings[detectedHeader] && (
+                    <div className="flex items-center gap-1 text-green-600 text-xs">
+                      <CheckCircle className="h-3 w-3" />
+                      ✅ Maps to <span className="font-mono">{userMappings[detectedHeader]}</span>
+                    </div>
+                  )}
+                </div>
               </Card>
             ))}
           </div>
 
-          {/* Status Messages */}
+          {/* Missing Required Fields Warning */}
           {analysis.requiredHeaders.some(header => !mappedTemplateHeaders.includes(header)) && (
-            <div className="p-6 bg-red-50 border border-red-200 rounded-xl">
-              <div className="flex items-center gap-3 text-red-800 font-bold mb-3">
-                <AlertCircle className="h-5 w-5" />
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center gap-2 text-red-800 font-medium mb-2">
+                <AlertCircle className="h-4 w-4" />
                 🚨 Missing Required Mappings
               </div>
-              <div className="text-red-700">
+              <div className="text-red-700 text-sm">
                 The following required fields need to be mapped: {' '}
-                <span className="font-mono font-bold bg-red-100 px-2 py-1 rounded">
+                <span className="font-mono font-semibold">
                   {analysis.requiredHeaders
                     .filter(header => !mappedTemplateHeaders.includes(header))
                     .join(', ')}
@@ -298,44 +284,44 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
             </div>
           )}
 
+          {/* Unmapped Headers Info */}
           {analysis.detectedHeaders.filter(h => !userMappings[h]).length > 0 && (
-            <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-xl">
-              <div className="flex items-center gap-3 text-yellow-800 font-bold mb-3">
-                <AlertCircle className="h-5 w-5" />
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="flex items-center gap-2 text-yellow-800 font-medium mb-2">
+                <AlertCircle className="h-4 w-4" />
                 ⚠️ Unmapped Headers
               </div>
-              <div className="text-yellow-700">
+              <div className="text-yellow-700 text-sm">
                 These headers will be ignored: {' '}
-                <span className="font-mono bg-yellow-100 px-2 py-1 rounded">
+                <span className="font-mono">
                   {analysis.detectedHeaders.filter(h => !userMappings[h]).join(', ')}
                 </span>
               </div>
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex gap-4 pt-6">
+          <div className="flex gap-3 pt-4">
             <Button
               onClick={convertCsv}
               disabled={
                 isConverting || 
                 analysis.requiredHeaders.some(header => !mappedTemplateHeaders.includes(header))
               }
-              className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 h-12 text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+              className="flex-1 bg-green-600 hover:bg-green-700"
             >
               {isConverting ? (
                 <>
-                  <RefreshCw className="h-5 w-5 mr-2 animate-spin" />
-                  🔄 Converting CSV...
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  🔄 Converting...
                 </>
               ) : (
                 <>
-                  <CheckCircle className="h-5 w-5 mr-2" />
-                  ✅ Convert & Proceed to Rates
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  ✅ Convert & Proceed
                 </>
               )}
             </Button>
-            <Button variant="outline" onClick={onCancel} className="h-12 px-8">
+            <Button variant="outline" onClick={onCancel}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Cancel
             </Button>
