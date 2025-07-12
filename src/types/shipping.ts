@@ -1,4 +1,5 @@
 
+
 export interface PackageTypeOption {
   value: string;
   label: string;
@@ -59,6 +60,18 @@ export interface BulkShipment {
     length?: number;
     width?: number;
     height?: number;
+    // Legacy field names for backward compatibility
+    to_name?: string;
+    to_company?: string;
+    to_phone?: string;
+    to_email?: string;
+    to_street1?: string;
+    to_street2?: string;
+    to_city?: string;
+    to_state?: string;
+    to_zip?: string;
+    to_country?: string;
+    reference?: string;
   };
   carrier: string;
   service: string;
@@ -72,7 +85,7 @@ export interface BulkShipment {
     zpl?: string;
     epl?: string;
   };
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'completed' | 'failed' | 'pending_rates' | 'error';
   error?: string;
   availableRates?: any[];
   selectedRateId?: string;
@@ -84,6 +97,9 @@ export interface ConsolidatedLabelUrls {
   pdf?: string;
   zpl?: string;
   epl?: string;
+  pdfZip?: string;
+  zplZip?: string;
+  eplZip?: string;
 }
 
 export interface BatchResult {
