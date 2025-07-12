@@ -1,623 +1,430 @@
-import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Box, ArrowRight, Scale, AlertCircle, Check, Search } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useForm } from 'react-hook-form';
-import { toast } from '@/components/ui/sonner';
-import { supabase } from "@/integrations/supabase/client";
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { carrierService } from '@/services/CarrierService';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import AddressSelector from './AddressSelector';
-import { addressService, SavedAddress } from '@/services/AddressService';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { createAddressSelectHandler } from '@/utils/addressUtils';
+import { MapPin, Package, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
+import PackageTypeSelector from './PackageTypeSelector';
+import DynamicPackageFields from './DynamicPackageFields';
+import { PackageType } from '@/types/shipping';
 
-const shippingFormSchema = z.object({
-  // Address fields will be handled separately
-  packageType: z.string().min(1, "Please select a package type"),
-  weightValue: z.coerce.number().min(0, "Weight must be greater than 0"),
-  weightUnit: z.enum(["oz", "kg", "lb"]),
-  packageValue: z.coerce.number().min(0, "Value must be greater than 0"),
-  length: z.coerce.number().min(0, "Length must be greater than 0"),
-  width: z.coerce.number().min(0, "Width must be greater than 0"),
-  height: z.coerce.number().min(0, "Height must be greater than 0"),
-  signatureRequired: z.boolean().default(false),
-  insurance: z.boolean().default(false),
-  carriers: z.object({
-    usps: z.boolean().default(true),
-    ups: z.boolean().default(true),
-    fedex: z.boolean().default(true),
-    dhl: z.boolean().default(true),
-  }),
-  allCarriers: z.boolean().default(true),
-});
-
-type ShippingFormValues = z.infer<typeof shippingFormSchema>;
-
-const EnhancedShippingForm: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
-  const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
-  const [dimensionInputTimer, setDimensionInputTimer] = useState<NodeJS.Timeout | null>(null);
-
-  // Create address selection handlers using the updated utility function
-  const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
-  const handleToAddressSelect = createAddressSelectHandler(setToAddress);
-
-  // Using react-hook-form to manage form state with lb as default
-  const form = useForm<ShippingFormValues>({
-    resolver: zodResolver(shippingFormSchema),
-    defaultValues: {
-      packageType: 'custom',
-      weightValue: 0,
-      weightUnit: 'lb', // Set pounds as default
-      packageValue: 0,
-      length: 8,
-      width: 8,
-      height: 2,
-      signatureRequired: false,
-      insurance: false,
-      carriers: {
-        usps: true,
-        ups: true,
-        fedex: true,
-        dhl: true,
-      },
-      allCarriers: true,
-    }
-  });
-
-  // Handle dimension input auto-clearing
-  const handleDimensionChange = (field: any, value: number) => {
-    field.onChange(value);
-    
-    // Clear timer if it exists
-    if (dimensionInputTimer) {
-      clearTimeout(dimensionInputTimer);
-    }
-    
-    // Set new timer to clear fields after user stops typing (3 seconds)
-    const timer = setTimeout(() => {
-      // We don't actually clear fields here as that would be disruptive
-      // Instead we could highlight fields or validate them
-      console.log('User finished entering dimensions');
-    }, 3000);
-    
-    setDimensionInputTimer(timer);
+// Form schema with dynamic validation
+const createFormSchema = (packageType: PackageType) => {
+  const baseSchema = {
+    fromName: z.string().min(1, 'From name is required'),
+    fromAddress1: z.string().min(1, 'From address is required'),
+    fromCity: z.string().min(1, 'From city is required'),
+    fromState: z.string().min(1, 'From state is required'),
+    fromZip: z.string().min(5, 'Valid ZIP code required'),
+    fromCountry: z.string().default('US'),
+    toName: z.string().min(1, 'To name is required'),
+    toAddress1: z.string().min(1, 'To address is required'),
+    toCity: z.string().min(1, 'To city is required'),
+    toState: z.string().min(1, 'To state is required'),
+    toZip: z.string().min(5, 'Valid ZIP code required'),
+    toCountry: z.string().default('US'),
+    packageType: z.enum(['custom', 'envelope', 'flat-rate']),
+    weight: z.number().min(0.1, 'Weight must be greater than 0'),
   };
 
-  // Cleanup timer when component unmounts
-  useEffect(() => {
-    return () => {
-      if (dimensionInputTimer) {
-        clearTimeout(dimensionInputTimer);
-      }
-    };
-  }, [dimensionInputTimer]);
-
-  // Update carrier checkboxes when allCarriers changes
-  const watchAllCarriers = form.watch("allCarriers");
-  
-  useEffect(() => {
-    const carriers = ['usps', 'ups', 'fedex', 'dhl'] as const;
-    carriers.forEach(carrier => {
-      form.setValue(`carriers.${carrier}`, watchAllCarriers);
+  // Add conditional fields based on package type
+  if (packageType === 'custom') {
+    return z.object({
+      ...baseSchema,
+      length: z.number().min(0.1, 'Length required'),
+      width: z.number().min(0.1, 'Width required'),
+      height: z.number().min(0.1, 'Height required'),
     });
-  }, [watchAllCarriers, form]);
-  
-  // Update allCarriers checkbox based on individual carrier selections
-  const watchCarriers = form.watch("carriers");
-  
-  useEffect(() => {
-    const allSelected = Object.values(watchCarriers).every(selected => selected === true);
-    form.setValue("allCarriers", allSelected);
-  }, [watchCarriers, form]);
+  } else if (packageType === 'envelope') {
+    return z.object({
+      ...baseSchema,
+      length: z.number().min(0.1, 'Length required'),
+      width: z.number().min(0.1, 'Width required'),
+    });
+  } else {
+    return z.object({
+      ...baseSchema,
+      carrier: z.string().min(1, 'Carrier selection required'),
+      predefinedPackage: z.string().min(1, 'Package selection required'),
+    });
+  }
+};
 
-  const handleGetRates = async (values: ShippingFormValues) => {
-    if (!fromAddress || !toAddress) {
-      toast.error("Please provide both origin and destination addresses");
-      return;
+const EnhancedShippingForm: React.FC = () => {
+  const [packageType, setPackageType] = useState<PackageType>('custom');
+  const [carrier, setCarrier] = useState<string>('');
+  const [predefinedPackage, setPredefinedPackage] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const form = useForm({
+    resolver: zodResolver(createFormSchema(packageType)),
+    defaultValues: {
+      fromName: '',
+      fromAddress1: '',
+      fromCity: '',
+      fromState: '',
+      fromZip: '',
+      fromCountry: 'US',
+      toName: '',
+      toAddress1: '',
+      toCity: '',
+      toState: '',
+      toZip: '',
+      toCountry: 'US',
+      packageType: 'custom' as PackageType,
+      weight: 1,
+      length: 8,
+      width: 8,
+      height: 4,
+    },
+  });
+
+  const buildParcelPayload = () => {
+    const formData = form.getValues();
+    
+    if (packageType === 'custom') {
+      return {
+        length: formData.length,
+        width: formData.width,
+        height: formData.height,
+        weight: formData.weight,
+      };
+    } else if (packageType === 'envelope') {
+      return {
+        length: formData.length,
+        width: formData.width,
+        weight: formData.weight,
+      };
+    } else {
+      return {
+        predefined_package: predefinedPackage,
+        weight: formData.weight,
+      };
     }
+  };
 
+  const onSubmit = async (data: any) => {
     setIsLoading(true);
+    
     try {
-      // Convert weight to ounces for backend processing
-      let weightOz = values.weightValue;
-      if (values.weightUnit === 'kg') {
-        // Convert kg to oz (1 kg = 35.274 oz)
-        weightOz = values.weightValue * 35.274;
-      } else if (values.weightUnit === 'lb') {
-        // Convert lb to oz (1 lb = 16 oz)
-        weightOz = values.weightValue * 16;
-      }
+      const parcelPayload = buildParcelPayload();
       
-      // Get selected carriers
-      const selectedCarriers = Object.entries(values.carriers)
-        .filter(([_, selected]) => selected)
-        .map(([carrier]) => carrier);
-      
-      if (selectedCarriers.length === 0) {
-        throw new Error("Please select at least one carrier");
-      }
-      
-      // Prepare the request payload for EasyPost API
-      const payload = {
+      const requestData = {
         fromAddress: {
-          name: fromAddress.name,
-          company: fromAddress.company,
-          street1: fromAddress.street1,
-          street2: fromAddress.street2,
-          city: fromAddress.city,
-          state: fromAddress.state,
-          zip: fromAddress.zip,
-          country: fromAddress.country || 'US',
+          name: data.fromName,
+          street1: data.fromAddress1,
+          city: data.fromCity,
+          state: data.fromState,
+          zip: data.fromZip,
+          country: data.fromCountry,
         },
         toAddress: {
-          name: toAddress.name,
-          company: toAddress.company,
-          street1: toAddress.street1,
-          street2: toAddress.street2,
-          city: toAddress.city,
-          state: toAddress.state,
-          zip: toAddress.zip,
-          country: toAddress.country || 'US',
+          name: data.toName,
+          street1: data.toAddress1,
+          city: data.toCity,
+          state: data.toState,
+          zip: data.toZip,
+          country: data.toCountry,
         },
-        parcel: {
-          length: values.length,
-          width: values.width,
-          height: values.height,
-          weight: weightOz,
-        },
-        options: {
-          signature_confirmation: values.signatureRequired,
-          insurance: values.insurance ? (values.packageValue * 100) : undefined, // EasyPost expects cents
-        },
-        carriers: selectedCarriers
+        parcel: parcelPayload,
       };
 
-      // Call the Edge Function to get shipping rates
-      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: payload,
+      console.log('Sending rate request:', requestData);
+
+      const { data: responseData, error } = await supabase.functions.invoke('get-shipping-rates', {
+        body: requestData,
       });
 
       if (error) {
-        throw new Error(`Error fetching rates: ${error.message}`);
-      }
-
-      // Add original rates for price comparison display
-      if (data.rates && Array.isArray(data.rates)) {
-        // Add original prices to rates that don't have them
-        const ratesWithOriginalPrices = data.rates.map(rate => {
-          if (!rate.original_rate && (rate.list_rate || rate.retail_rate)) {
-            return {
-              ...rate,
-              original_rate: rate.list_rate || rate.retail_rate
-            };
-          }
-          return rate;
+        console.error('Error fetching rates:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch shipping rates. Please try again.',
+          variant: 'destructive',
         });
-        
-        // Publish the updated rates to be displayed in the ShippingRates component
-        document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
-          detail: { rates: ratesWithOriginalPrices, shipmentId: data.shipmentId } 
-        }));
-      } else {
-        // Publish the rates as is
-        document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
-          detail: { rates: data.rates, shipmentId: data.shipmentId } 
-        }));
+        return;
       }
 
-      toast.success("Shipping rates retrieved successfully");
-      
-      // Scroll to the rates section
-      const ratesSection = document.getElementById('shipping-rates-section');
-      if (ratesSection) {
-        ratesSection.scrollIntoView({ behavior: 'smooth' });
-      }
+      console.log('Received rates:', responseData);
+
+      // Dispatch rates to the rates component
+      document.dispatchEvent(
+        new CustomEvent('easypost-rates-received', {
+          detail: {
+            rates: responseData.rates || [],
+            shipmentId: responseData.shipmentId,
+          },
+        })
+      );
+
+      toast({
+        title: 'Success',
+        description: `Found ${responseData.rates?.length || 0} shipping rates!`,
+      });
+
     } catch (error) {
-      console.error('Error fetching shipping rates:', error);
-      toast.error(error instanceof Error ? error.message : "Failed to get shipping rates");
+      console.error('Error in form submission:', error);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handlePackageTypeChange = (type: PackageType) => {
+    setPackageType(type);
+    form.setValue('packageType', type);
+    
+    // Reset carrier-specific fields when package type changes
+    if (type !== 'flat-rate') {
+      setCarrier('');
+      setPredefinedPackage('');
+    }
+  };
+
+  const handleFieldChange = (field: string, value: number) => {
+    form.setValue(field as any, value);
+  };
+
   return (
-    <div className="w-full mb-6">
-      <Card className="border border-gray-200 w-full">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-gray-200 w-full">
-            {/* Addresses Section - Moved to the top */}
-            <div className="p-4">
-              <h2 className="text-lg font-semibold mb-4 text-blue-700">Shipping Addresses</h2>
+    <div className="max-w-4xl mx-auto space-y-6">
+      <Card className="border border-gray-200 shadow-lg">
+        <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+          <CardTitle className="text-2xl font-bold flex items-center gap-2">
+            <Package className="h-6 w-6" />
+            Create Shipping Label
+          </CardTitle>
+        </CardHeader>
+
+        <CardContent className="p-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                {/* Origin Address Section */}
-                <div className="space-y-3 w-full">
-                  <div className="bg-blue-50 p-3 rounded-lg w-full">
-                    <h3 className="text-base font-medium text-blue-700 mb-2">Origin</h3>
-                    <AddressSelector 
-                      type="from"
-                      onAddressSelect={handleFromAddressSelect}
-                      useGoogleAutocomplete={true}
-                    />
-                  </div>
-                </div>
+              {/* Origin Address */}
+              <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                <h3 className="text-lg font-semibold text-green-800 mb-4 flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  From Address
+                </h3>
                 
-                {/* Destination Address Section */}
-                <div className="space-y-3 w-full">
-                  <div className="bg-blue-50 p-3 rounded-lg w-full">
-                    <h3 className="text-base font-medium text-blue-700 mb-2">Destination</h3>
-                    <AddressSelector 
-                      type="to"
-                      onAddressSelect={handleToAddressSelect}
-                      useGoogleAutocomplete={true}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Package Dimensions Section - Now placed directly below addresses */}
-            <div className="p-4 w-full">
-              <h2 className="text-lg font-semibold mb-4 text-blue-700">Package Dimensions</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-3">
-                    <FormField
-                      control={form.control}
-                      name="length"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm">Length (in)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              min="0"
-                              onChange={(e) => handleDimensionChange(field, Number(e.target.value))}
-                              value={field.value}
-                              placeholder="0" 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="width"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm">Width (in)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              min="0"
-                              onChange={(e) => handleDimensionChange(field, Number(e.target.value))}
-                              value={field.value}
-                              placeholder="0" 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="height"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm">Height (in)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              min="0"
-                              onChange={(e) => handleDimensionChange(field, Number(e.target.value))}
-                              value={field.value}
-                              placeholder="0" 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-3">
-                    <FormField
-                      control={form.control}
-                      name="weightValue"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm">Weight</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              min="0"
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              value={field.value}
-                              placeholder="0" 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="weightUnit"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm">Unit</FormLabel>
-                          <Select 
-                            onValueChange={field.onChange}
-                            value={field.value}
-                            defaultValue="lb" // Set pounds as default
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select unit" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="lb">Pounds (lb)</SelectItem>
-                              <SelectItem value="oz">Ounces (oz)</SelectItem>
-                              <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="packageValue"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm">Value ($)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              value={field.value}
-                              placeholder="0.00" 
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="packageType"
+                    name="fromName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-sm">Package Type</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select Package Type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="custom">Custom Package</SelectItem>
-                            <SelectItem value="usps_medium_flat_rate_box">USPS Medium Flat Rate Box</SelectItem>
-                            <SelectItem value="usps_small_flat_rate_box">USPS Small Flat Rate Box</SelectItem>
-                            <SelectItem value="usps_flat_rate_envelope">USPS Flat Rate Envelope</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Your name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div></div>
+
+                  <FormField
+                    control={form.control}
+                    name="fromAddress1"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Street address" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="fromCity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="fromState"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State</FormLabel>
+                        <FormControl>
+                          <Input placeholder="State" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="fromZip"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ZIP Code</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ZIP Code" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
+              </div>
+
+              {/* Destination Address */}
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  To Address
+                </h3>
                 
-                <div className="space-y-4">
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <FormLabel className="text-base font-medium text-blue-700 mb-2">Shipping Carriers</FormLabel>
-                    
-                    <div className="space-y-2 mt-3">
-                      <div className="flex items-center">
-                        <FormField
-                          control={form.control}
-                          name="allCarriers"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <Checkbox 
-                                  checked={field.value} 
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <FormLabel className="font-medium">
-                                All Carriers
-                              </FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        <FormField
-                          control={form.control}
-                          name="carriers.usps"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <Checkbox 
-                                  checked={field.value} 
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <FormLabel>
-                                USPS
-                              </FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="carriers.ups"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <Checkbox 
-                                  checked={field.value} 
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <FormLabel>
-                                UPS
-                              </FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="carriers.fedex"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <Checkbox 
-                                  checked={field.value} 
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <FormLabel>
-                                FedEx
-                              </FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="carriers.dhl"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                              <FormControl>
-                                <Checkbox 
-                                  checked={field.value} 
-                                  onCheckedChange={field.onChange}
-                                />
-                              </FormControl>
-                              <FormLabel>
-                                DHL
-                              </FormLabel>
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <FormLabel className="text-base font-medium text-blue-700 mb-2">Additional Options</FormLabel>
-                    
-                    <div className="space-y-3 mt-2">
-                      <FormField
-                        control={form.control}
-                        name="signatureRequired"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                            <FormControl>
-                              <Checkbox 
-                                checked={field.value} 
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                            <div className="space-y-0.5">
-                              <FormLabel>
-                                Signature Required
-                              </FormLabel>
-                              <p className="text-xs text-gray-500">
-                                Delivery person will collect a signature
-                              </p>
-                            </div>
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="insurance"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                            <FormControl>
-                              <Checkbox 
-                                checked={field.value} 
-                                onCheckedChange={field.onChange}
-                              />
-                            </FormControl>
-                            <div className="space-y-0.5">
-                              <FormLabel>
-                                Add Insurance
-                              </FormLabel>
-                              <p className="text-xs text-gray-500">
-                                Protect your package against loss or damage
-                              </p>
-                            </div>
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="toName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Recipient name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div></div>
+
+                  <FormField
+                    control={form.control}
+                    name="toAddress1"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Street address" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="toCity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="toState"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State</FormLabel>
+                        <FormControl>
+                          <Input placeholder="State" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="toZip"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>ZIP Code</FormLabel>
+                        <FormControl>
+                          <Input placeholder="ZIP Code" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </div>
-            </div>
-            
-            {/* Action Button Section */}
-            <div className="p-4 bg-gray-50 w-full">
-              <div className="flex justify-end">
-                <Button 
-                  type="submit" 
-                  size="lg" 
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+
+              <Separator />
+
+              {/* Package Information */}
+              <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
+                <h3 className="text-lg font-semibold text-amber-800 mb-4 flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Package Information
+                </h3>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <PackageTypeSelector
+                    packageType={packageType}
+                    carrier={carrier}
+                    predefinedPackage={predefinedPackage}
+                    onPackageTypeChange={handlePackageTypeChange}
+                    onCarrierChange={setCarrier}
+                    onPredefinedPackageChange={setPredefinedPackage}
+                  />
+                  
+                  <DynamicPackageFields
+                    packageType={packageType}
+                    length={form.watch('length')}
+                    width={form.watch('width')}
+                    height={form.watch('height')}
+                    weight={form.watch('weight')}
+                    onFieldChange={handleFieldChange}
+                  />
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex justify-center pt-4">
+                <Button
+                  type="submit"
                   disabled={isLoading}
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-3 text-lg font-semibold rounded-lg shadow-lg"
                 >
                   {isLoading ? (
                     <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Getting Rates...
                     </>
                   ) : (
-                    <>
-                      <Search className="h-5 w-5" />
-                      Show Shipping Rates
-                    </>
+                    'Get Shipping Rates'
                   )}
                 </Button>
               </div>
-            </div>
-          </form>
-        </Form>
+            </form>
+          </Form>
+        </CardContent>
       </Card>
     </div>
   );

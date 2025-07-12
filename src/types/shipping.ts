@@ -1,242 +1,84 @@
-import { z } from "zod";
-
-export type ShippingAddressType = "from" | "to";
-
-export type ShippingStep = 'address' | 'package' | 'rates' | 'label' | 'complete';
-
-export type ShippingWorkflowStep = {
-  id: ShippingStep;
+export interface PackageTypeOption {
+  value: string;
   label: string;
-  status: 'completed' | 'active' | 'upcoming';
-};
-
-export interface GoogleApiKeyResponse {
-  apiKey: string;
+  icon?: string;
 }
 
-export interface ShippingAddress {
-  name: string;
-  company?: string;
-  street1: string;
-  street2?: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  phone?: string;
-  email?: string;
-  residential?: boolean;
-  addressType?: ShippingAddressType;
+export interface CarrierPackageOption {
+  value: string;
+  label: string;
+  description?: string;
+  imageUrl?: string;
 }
 
-export interface Parcel {
-  length: number;
-  width: number;
-  height: number;
-  weight: number;
+export interface CarrierPackages {
+  [carrier: string]: CarrierPackageOption[];
+}
+
+export type PackageType = 'custom' | 'envelope' | 'flat-rate';
+
+export interface ShippingFormData {
+  packageType: PackageType;
+  carrier?: string;
   predefinedPackage?: string;
-}
-
-export interface ShippingOption {
-  id: string;
-  carrier: string;
-  service: string;
-  rate: number;
-  currency: string;
-  delivery_days: number;
-  estimated_delivery_date?: string;
-  listRate?: number;
-  retailRate?: number;
-}
-
-export interface ShippingLabelFormat {
-  format: 'pdf' | 'png' | 'zpl';
-  size: '4x6' | '8.5x11';
-}
-
-export interface AddressValidationResult {
-  original: ShippingAddress;
-  normalized: ShippingAddress;
-  status: 'valid' | 'invalid' | 'warning';
-  messages: string[];
-}
-
-export interface ParcelDetails {
-  length: number;
-  width: number;
-  height: number;
+  length?: number;
+  width?: number;
+  height?: number;
   weight: number;
-  predefined_package?: string | null; 
 }
 
-export interface AddressDetails {
-  name?: string;
-  company?: string;
-  street1: string;
-  street2?: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  phone?: string;
-  email?: string;
-  is_residential?: boolean;
-}
-
-export interface ShipmentDetails {
-  from_address?: AddressDetails; // Optional if using saved pickup
-  to_address: AddressDetails;
-  parcel: ParcelDetails;
-  customs_info?: CustomsInfo; // For international
-  options?: Record<string, any>; 
-  [key: string]: any; // Allow other fields like to_name, to_company, etc.
-}
-
-export interface Rate {
-  id: string; // Corresponds to selectedRateId in BulkShipment
-  easypost_rate_id?: string; // EasyPost specific rate ID
-  carrier: string;
-  service: string;
-  rate: number;
-  formattedRate?: string;
-  delivery_days?: number | null;
-  est_delivery_days?: number | null;
-  shipment_id?: string; // EasyPost shipment ID this rate belongs to
-  carrier_account_id?: string;
-  retail_rate?: string;
-  list_rate?: string;
-  [key: string]: any; // For any other properties from the API
-}
-
-export interface CustomsItem {
-  description: string;
-  quantity: number;
-  value: number;
-  weight: number; // Weight in ounces
-  hs_tariff_number?: string;
-  origin_country?: string;
-}
-
-export interface CustomsInfo {
-  eel_pfc?: string; // E.g., "NOEEI 30.37(a)"
-  customs_certify?: boolean;
-  customs_signer?: string;
-  contents_type?: 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other';
-  restriction_type?: 'none' | 'other' | 'quarantine' | 'sanitary_phytosanitary_inspection';
-  non_delivery_option?: 'return' | 'abandon';
-  customs_items: CustomsItem[];
-}
-
-export interface BulkShipment {
-  id: string; // Unique ID for this row/entry in the bulk upload
-  row?: number; // Original row number from CSV
-  easypost_id?: string; // EasyPost shipment ID, populated after rate fetching
-  recipient?: string; // For display
-  customer_name?: string;
-  customer_address?: string;
-  customer_phone?: string;
-  customer_email?: string;
-  customer_company?: string;
-  details: ShipmentDetails;
-  availableRates?: Rate[];
-  selectedRateId?: string | null;
-  status: 'pending_rates' | 'rates_fetched' | 'rate_selected' | 'label_purchased' | 'error' | 'completed' | 'failed';
-  error?: string | null;
-  tracking_code?: string;
-  tracking_number?: string;
-  label_url?: string; // Primary PNG URL
-  label_urls?: { // All available individual label URLs
-    png?: string;
-    pdf?: string;
-    zpl?: string;
-  };
-  rate?: number; // Populated after rate selection
-  carrier?: string; // Populated after rate selection
-  service?: string; // Populated after rate selection
-  [key: string]: any; // Allow other dynamic fields
-}
-
-export interface ConsolidatedLabelUrls {
-  pdf?: string;       // Direct URL to consolidated PDF
-  png?: string;       // Direct URL to consolidated PNG
-  zpl?: string;       // Direct URL to consolidated ZPL
-  epl?: string;       // Direct URL to consolidated EPL
-  pdfZip?: string;    // URL to ZIP of PDFs (legacy or alternative)
-  zplZip?: string;    // URL to ZIP of ZPLs (legacy or alternative)
-  eplZip?: string;    // URL to ZIP of EPLs (new)
-}
-
-export interface BatchResult {
-  batchId: string;
-  consolidatedLabelUrls: ConsolidatedLabelUrls;
-  scanFormUrl: string | null;
-  // Potentially other batch-related info like number of labels in batch, etc.
-}
-
-export interface FailedShipmentInfo {
-  shipmentId: string; // original shipment ID that failed
-  row?: number;
-  error: string;
-  details?: string; // more detailed error or context
-}
-
-export interface BulkUploadResult {
-  total: number;
-  successful: number;
-  failed: number;
-  totalCost?: number;
-  processedShipments: BulkShipment[];
-  failedShipments?: FailedShipmentInfo[]; // More structured info for failed ones
-  uploadStatus?: 'idle' | 'uploading' | 'editing' | 'rates_fetching' | 'rate_selection' | 'paying' | 'creating-labels' | 'success' | 'error';
-  pickupAddress?: any; // Consider using SavedAddress type
-  batchResult?: BatchResult | null;
-  // Deprecated fields, prefer them inside batchResult or processedShipments
-  bulk_label_png_url?: string | null;
-  bulk_label_pdf_url?: string | null; 
-}
+export const PACKAGE_TYPES: PackageTypeOption[] = [
+  { value: 'custom', label: 'Custom Box', icon: '📦' },
+  { value: 'envelope', label: 'Envelope', icon: '✉️' },
+  { value: 'flat-rate', label: 'Flat Rate Packaging', icon: '📮' }
+];
 
 export const CARRIER_OPTIONS = [
-  {
-    id: 'usps',
-    name: 'USPS',
-    logo: '/carriers/usps.svg',
-    services: [
-      { id: 'priority', name: 'Priority' },
-      { id: 'priority_express', name: 'Priority Express' },
-      { id: 'first_class', name: 'First Class' },
-      { id: 'ground', name: 'Ground' }
-    ]
-  },
-  {
-    id: 'ups',
-    name: 'UPS',
-    logo: '/carriers/ups.svg',
-    services: [
-      { id: 'ground', name: 'Ground' },
-      { id: '3day_select', name: '3-Day Select' },
-      { id: '2day_air', name: '2nd Day Air' },
-      { id: 'next_day_air', name: 'Next Day Air' }
-    ]
-  },
-  {
-    id: 'fedex',
-    name: 'FedEx',
-    logo: '/carriers/fedex.svg',
-    services: [
-      { id: 'ground', name: 'Ground' },
-      { id: 'express_saver', name: 'Express Saver' },
-      { id: '2day', name: '2Day' },
-      { id: 'overnight', name: 'Overnight' }
-    ]
-  },
-  {
-    id: 'dhl',
-    name: 'DHL',
-    logo: '/carriers/dhl.svg',
-    services: [
-      { id: 'express', name: 'Express' },
-      { id: 'express_worldwide', name: 'Express Worldwide' },
-      { id: 'express_economy', name: 'Express Economy' }
-    ]
-  }
+  { value: 'usps', label: 'USPS' },
+  { value: 'ups', label: 'UPS' },
+  { value: 'fedex', label: 'FedEx' },
+  { value: 'dhl', label: 'DHL Express' }
 ];
+
+export const CARRIER_PACKAGES: CarrierPackages = {
+  usps: [
+    { value: 'FlatRateEnvelope', label: 'Flat Rate Envelope', description: 'Up to 70 lbs' },
+    { value: 'FlatRateLegalEnvelope', label: 'Legal Flat Rate Envelope', description: 'Legal size, up to 70 lbs' },
+    { value: 'FlatRatePaddedEnvelope', label: 'Padded Flat Rate Envelope', description: 'Extra protection, up to 70 lbs' },
+    { value: 'SmallFlatRateBox', label: 'Small Flat Rate Box', description: '8.6" x 5.4" x 1.6"' },
+    { value: 'MediumFlatRateBox', label: 'Medium Flat Rate Box', description: '11" x 8.5" x 5.5"' },
+    { value: 'LargeFlatRateBox', label: 'Large Flat Rate Box', description: '12" x 12" x 5.5"' },
+    { value: 'RegionalRateBoxA', label: 'Regional Rate Box A', description: '10" x 7" x 4.75"' },
+    { value: 'RegionalRateBoxB', label: 'Regional Rate Box B', description: '12" x 10.25" x 5"' }
+  ],
+  ups: [
+    { value: 'UPSLetter', label: 'UPS Letter', description: 'Document envelope' },
+    { value: 'UPSExpressBox', label: 'UPS Express Box', description: 'Small express package' },
+    { value: 'UPS25kgBox', label: 'UPS 25kg Box', description: 'Up to 25kg capacity' },
+    { value: 'UPS10kgBox', label: 'UPS 10kg Box', description: 'Up to 10kg capacity' },
+    { value: 'Tube', label: 'UPS Tube', description: 'Cylindrical packaging' },
+    { value: 'Pak', label: 'UPS Pak', description: 'Padded envelope' },
+    { value: 'SmallExpressBox', label: 'Small Express Box', description: 'Compact shipping box' },
+    { value: 'MediumExpressBox', label: 'Medium Express Box', description: 'Medium-sized box' },
+    { value: 'LargeExpressBox', label: 'Large Express Box', description: 'Large capacity box' }
+  ],
+  fedex: [
+    { value: 'FedExEnvelope', label: 'FedEx Envelope', description: 'Standard document envelope' },
+    { value: 'FedExBox', label: 'FedEx Box', description: 'Standard shipping box' },
+    { value: 'FedExSmallBox', label: 'FedEx Small Box', description: '12.4" x 10.7" x 1.5"' },
+    { value: 'FedExMediumBox', label: 'FedEx Medium Box', description: '11.5" x 8.2" x 4"' },
+    { value: 'FedExLargeBox', label: 'FedEx Large Box', description: '17.5" x 12.4" x 3"' },
+    { value: 'FedExPak', label: 'FedEx Pak', description: 'Padded shipping envelope' },
+    { value: 'FedExTube', label: 'FedEx Tube', description: 'Cylindrical container' }
+  ],
+  dhl: [
+    { value: 'DHLEnvelope', label: 'DHL Envelope', description: 'Document envelope' },
+    { value: 'DHLFlyer', label: 'DHL Flyer', description: 'Lightweight documents' },
+    { value: 'DHLExpressBox', label: 'DHL Express Box', description: 'Standard express box' },
+    { value: 'DHLJumboBox', label: 'DHL Jumbo Box', description: 'Large capacity box' },
+    { value: 'DHLSmallBox', label: 'DHL Small Box', description: 'Compact shipping box' },
+    { value: 'DHLLargeBox', label: 'DHL Large Box', description: 'Large shipping box' },
+    { value: 'DHLPak', label: 'DHL Pak', description: 'Padded envelope' },
+    { value: 'DHLTube', label: 'DHL Tube', description: 'Cylindrical packaging' }
+  ]
+};

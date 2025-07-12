@@ -14,6 +14,9 @@ import { Input } from '@/components/ui/input';
 import CountrySelector from '../freight/CountrySelector';
 import { GeocodingService } from '@/services/GeocodingService';
 import { toast } from '@/components/ui/sonner';
+import PackageTypeSelector from './PackageTypeSelector';
+import DynamicPackageFields from './DynamicPackageFields';
+import { PackageType } from '@/types/shipping';
 
 const rateFormSchema = z.object({
   fromZip: z.string().min(3, { message: 'ZIP/Postal code must be at least 3 characters' }),
@@ -21,12 +24,15 @@ const rateFormSchema = z.object({
   fromCountry: z.string().min(2, { message: 'Please select origin country' }),
   toCountry: z.string().min(2, { message: 'Please select destination country' }),
   weight: z.coerce.number().min(0.1, { message: 'Weight must be greater than 0' }),
-  length: z.coerce.number().min(0.1, { message: 'Length must be greater than 0' }),
-  width: z.coerce.number().min(0.1, { message: 'Width must be greater than 0' }),
-  height: z.coerce.number().min(0.1, { message: 'Height must be greater than 0' }),
+  length: z.coerce.number().min(0.1, { message: 'Length must be greater than 0' }).optional(),
+  width: z.coerce.number().min(0.1, { message: 'Width must be greater than 0' }).optional(),
+  height: z.coerce.number().min(0.1, { message: 'Height must be greater than 0' }).optional(),
   weightUnit: z.enum(['lb', 'kg']),
   dimensionUnit: z.enum(['in', 'cm']),
   carrierFilter: z.string(),
+  packageType: z.enum(['custom', 'envelope', 'flat-rate']),
+  carrier: z.string().optional(),
+  predefinedPackage: z.string().optional(),
 });
 
 type RateFormValues = z.infer<typeof rateFormSchema>;
@@ -43,6 +49,9 @@ const CARRIER_OPTIONS = [
 
 const RateCalculator: React.FC = () => {
   const [isGeneratingAddress, setIsGeneratingAddress] = useState(false);
+  const [packageType, setPackageType] = useState<PackageType>('custom');
+  const [carrier, setCarrier] = useState<string>('');
+  const [predefinedPackage, setPredefinedPackage] = useState<string>('');
   const { fetchRates, isLoading } = useRateCalculator();
   
   const form = useForm<RateFormValues>({
@@ -59,8 +68,37 @@ const RateCalculator: React.FC = () => {
       weightUnit: 'lb',
       dimensionUnit: 'in',
       carrierFilter: 'all',
+      packageType: 'custom',
     },
   });
+
+  const buildParcelPayload = (data: RateFormValues) => {
+    const weightInOz = data.weightUnit === 'lb' 
+      ? data.weight * 16
+      : data.weight * 35.274;
+    
+    const conversionFactor = data.dimensionUnit === 'cm' ? 0.393701 : 1;
+    
+    if (packageType === 'custom') {
+      return {
+        length: (data.length || 0) * conversionFactor,
+        width: (data.width || 0) * conversionFactor,
+        height: (data.height || 0) * conversionFactor,
+        weight: weightInOz,
+      };
+    } else if (packageType === 'envelope') {
+      return {
+        length: (data.length || 0) * conversionFactor,
+        width: (data.width || 0) * conversionFactor,
+        weight: weightInOz,
+      };
+    } else {
+      return {
+        predefined_package: predefinedPackage,
+        weight: weightInOz,
+      };
+    }
+  };
 
   const onSubmit = async (data: RateFormValues) => {
     try {
@@ -76,12 +114,6 @@ const RateCalculator: React.FC = () => {
       
       console.log('Generated addresses:', { fromAddress, toAddress });
       
-      const weightInOz = data.weightUnit === 'lb' 
-        ? data.weight * 16
-        : data.weight * 35.274;
-      
-      const conversionFactor = data.dimensionUnit === 'cm' ? 0.393701 : 1;
-      
       let selectedCarriers: string[] = [];
       if (data.carrierFilter === 'all') {
         selectedCarriers = ['usps', 'ups', 'fedex', 'dhl', 'canadapost', 'royalmail'];
@@ -89,15 +121,12 @@ const RateCalculator: React.FC = () => {
         selectedCarriers = [data.carrierFilter];
       }
       
+      const parcelPayload = buildParcelPayload(data);
+      
       const requestData = {
         fromAddress,
         toAddress,
-        parcel: {
-          weight: weightInOz,
-          length: data.length * conversionFactor,
-          width: data.width * conversionFactor,
-          height: data.height * conversionFactor,
-        },
+        parcel: parcelPayload,
         carriers: selectedCarriers
       };
       
@@ -122,6 +151,21 @@ const RateCalculator: React.FC = () => {
     } finally {
       setIsGeneratingAddress(false);
     }
+  };
+
+  const handlePackageTypeChange = (type: PackageType) => {
+    setPackageType(type);
+    form.setValue('packageType', type);
+    
+    // Reset carrier-specific fields when package type changes
+    if (type !== 'flat-rate') {
+      setCarrier('');
+      setPredefinedPackage('');
+    }
+  };
+
+  const handleFieldChange = (field: string, value: number) => {
+    form.setValue(field as any, value);
   };
 
   return (
@@ -276,6 +320,15 @@ const RateCalculator: React.FC = () => {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <PackageTypeSelector
+                    packageType={packageType}
+                    carrier={carrier}
+                    predefinedPackage={predefinedPackage}
+                    onPackageTypeChange={handlePackageTypeChange}
+                    onCarrierChange={setCarrier}
+                    onPredefinedPackageChange={setPredefinedPackage}
+                  />
+                  
                   <div className="space-y-4">
                     <div className="flex items-end gap-4">
                       <FormField
@@ -319,92 +372,96 @@ const RateCalculator: React.FC = () => {
                         )}
                       />
                     </div>
-                  </div>
 
-                  <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="dimensionUnit"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm font-medium">Dimension Unit</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger className="h-9 text-sm border border-amber-300 focus:border-amber-500">
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent className="bg-white border border-amber-200 shadow-lg z-[9999]">
-                              <SelectItem value="in" className="text-sm">inches</SelectItem>
-                              <SelectItem value="cm" className="text-sm">centimeters</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <div className="grid grid-cols-3 gap-3">
-                      <FormField
-                        control={form.control}
-                        name="length"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium">Length</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                step="0.1" 
-                                min="0.1" 
-                                className="h-9 text-sm border border-amber-300 focus:border-amber-500" 
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="width"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium">Width</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                step="0.1" 
-                                min="0.1" 
-                                className="h-9 text-sm border border-amber-300 focus:border-amber-500" 
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="height"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-sm font-medium">Height</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                step="0.1" 
-                                min="0.1" 
-                                className="h-9 text-sm border border-amber-300 focus:border-amber-500" 
-                                {...field} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                    {(packageType === 'custom' || packageType === 'envelope') && (
+                      <>
+                        <FormField
+                          control={form.control}
+                          name="dimensionUnit"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-medium">Dimension Unit</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger className="h-9 text-sm border border-amber-300 focus:border-amber-500">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent className="bg-white border border-amber-200 shadow-lg z-[9999]">
+                                  <SelectItem value="in" className="text-sm">inches</SelectItem>
+                                  <SelectItem value="cm" className="text-sm">centimeters</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className={`grid gap-3 ${packageType === 'custom' ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                          <FormField
+                            control={form.control}
+                            name="length"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-sm font-medium">Length</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="number" 
+                                    step="0.1" 
+                                    min="0.1" 
+                                    className="h-9 text-sm border border-amber-300 focus:border-amber-500" 
+                                    {...field} 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          <FormField
+                            control={form.control}
+                            name="width"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-sm font-medium">Width</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="number" 
+                                    step="0.1" 
+                                    min="0.1" 
+                                    className="h-9 text-sm border border-amber-300 focus:border-amber-500" 
+                                    {...field} 
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          
+                          {packageType === 'custom' && (
+                            <FormField
+                              control={form.control}
+                              name="height"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-sm font-medium">Height</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="number" 
+                                      step="0.1" 
+                                      min="0.1" 
+                                      className="h-9 text-sm border border-amber-300 focus:border-amber-500" 
+                                      {...field} 
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
