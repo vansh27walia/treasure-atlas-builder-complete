@@ -17,6 +17,7 @@ import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
+import PaymentDropdown from '@/components/payment/PaymentDropdown';
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
@@ -167,6 +168,7 @@ const BulkUpload: React.FC = () => {
 
   const handlePaymentSuccess = () => {
     toast.success('Payment successful! Labels are now available for download.');
+    handleDownloadLabelsClick();
   };
 
   return (
@@ -284,16 +286,22 @@ const BulkUpload: React.FC = () => {
                         </div>
                         
                         <div className="flex gap-3">
-                          <Button 
-                            onClick={handleDownloadLabelsClick} 
-                            disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress} 
-                            className="px-6 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200" 
+                          <PaymentDropdown
+                            amount={results.totalCost || 0}
+                            onPaymentSuccess={handlePaymentSuccess}
+                            disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress}
+                            buttonText="Generate Labels"
+                            buttonIcon={<Download className="mr-2 h-5 w-5" />}
+                            className="px-6 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200"
                             size="lg"
-                          >
-                            <Download className="mr-2 h-5 w-5" />
-                            {isCreatingLabels ? 'Creating...' : 'Generate Labels'}
-                          </Button>
-      
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
               {uploadStatus === 'success' && results && (
                 <div className="space-y-6">
                   {results.bulk_label_pdf_url && (
