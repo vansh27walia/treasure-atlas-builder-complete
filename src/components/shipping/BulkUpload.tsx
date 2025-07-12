@@ -85,13 +85,14 @@ const BulkUpload: React.FC = () => {
   }, [pickupAddress?.id]);
 
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
-    if (address && address.id !== pickupAddress?.id) {
-      console.log("Selected pickup address in BulkUpload:", address);
+    console.log("Address selection triggered:", address);
+    if (address) {
+      console.log("Setting new pickup address:", address);
       setPickupAddress(address);
-
+      
       const now = Date.now();
       if (now - lastToastRef.current > 2000) {
-        toast.success(`Selected pickup address: ${address.name || address.street1}`);
+        toast.success(`Pickup address updated: ${address.name || address.street1}`);
         lastToastRef.current = now;
       }
     }
@@ -182,7 +183,7 @@ const BulkUpload: React.FC = () => {
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             <CardContent className="p-8 rounded-xl">
               {(uploadStatus === 'idle' || uploadStatus === 'uploading') && (
-                <div className="space-y-6">
+                <div className="space-y-6 w-full">
                   {uploadStatus === 'idle' && (
                     <div className="text-center py-0">
                       <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
@@ -197,14 +198,16 @@ const BulkUpload: React.FC = () => {
                     </div>
                   )}
                   
-                  <BulkUploadForm 
-                    onUploadSuccess={handleUploadSuccess} 
-                    onUploadFail={handleUploadFail} 
-                    onPickupAddressSelect={handlePickupAddressSelect} 
-                    isUploading={isUploading} 
-                    progress={progress} 
-                    handleUpload={handleUpload} 
-                  />
+                  <div className="w-full">
+                    <BulkUploadForm 
+                      onUploadSuccess={handleUploadSuccess} 
+                      onUploadFail={handleUploadFail} 
+                      onPickupAddressSelect={handlePickupAddressSelect}
+                      isUploading={isUploading} 
+                      progress={progress} 
+                      handleUpload={handleUpload} 
+                    />
+                  </div>
                 </div>
               )}
               
@@ -263,35 +266,35 @@ const BulkUpload: React.FC = () => {
                   </div>
                   
                   {processedShipmentsCount > 0 && (
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
-                      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-                        <div className="space-y-2">
-                          <h3 className="text-xl font-bold text-gray-900">Order Summary</h3>
-                          <div className="flex items-center space-x-4 text-sm text-gray-600">
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-8 border border-green-200">
+                      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-8">
+                        <div className="space-y-3">
+                          <h3 className="text-2xl font-bold text-gray-900">Order Summary</h3>
+                          <div className="flex items-center space-x-6 text-base text-gray-600">
                             <span className="flex items-center">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                              <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
                               {processedShipmentsCount} shipments
                             </span>
                             <span className="flex items-center">
-                              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                              <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
                               ${results.totalCost?.toFixed(2) || '0.00'} total
                             </span>
                           </div>
                           {pickupAddress && (
-                            <p className="text-sm text-blue-600 font-medium">
+                            <p className="text-base text-blue-600 font-medium bg-blue-100 px-4 py-2 rounded-lg inline-block">
                               📍 From: {pickupAddress.name || pickupAddress.street1}
                             </p>
                           )}
                         </div>
                         
-                        <div className="flex flex-col gap-4 w-full lg:w-auto">
+                        <div className="flex flex-col gap-6 w-full lg:w-auto lg:min-w-[320px]">
                           <Button 
                             onClick={handleDownloadLabelsClick} 
                             disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress} 
-                            className="w-full lg:w-64 h-12 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200" 
+                            className="w-full h-14 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200 text-lg font-semibold" 
                             size="lg"
                           >
-                            <Download className="mr-2 h-5 w-5" />
+                            <Download className="mr-3 h-6 w-6" />
                             {isCreatingLabels ? 'Creating...' : 'Generate Labels'}
                           </Button>
                           
@@ -305,7 +308,7 @@ const BulkUpload: React.FC = () => {
                             }}
                             onPaymentSuccess={handlePaymentSuccess}
                             disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress}
-                            className="w-full lg:w-64"
+                            className="w-full"
                           />
                         </div>
                       </div>
