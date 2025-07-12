@@ -86,7 +86,7 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
   const handleMappingChange = (easypostField: string, csvHeader: string) => {
     setMappings(prev => prev.map(mapping => 
       mapping.easypostField === easypostField 
-        ? { ...mapping, csvHeader }
+        ? { ...mapping, csvHeader: csvHeader === '__NONE__' ? '' : csvHeader }
         : mapping
     ));
   };
@@ -208,14 +208,14 @@ const CsvHeaderMapper: React.FC<CsvHeaderMapperProps> = ({
                         </div>
                         
                         <Select
-                          value={mapping.csvHeader}
+                          value={mapping.csvHeader || '__NONE__'}
                           onValueChange={(value) => handleMappingChange(mapping.easypostField, value)}
                         >
                           <SelectTrigger className="bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors">
                             <SelectValue placeholder="Select CSV column" />
                           </SelectTrigger>
                           <SelectContent className="bg-white border shadow-lg z-50">
-                            <SelectItem value="">
+                            <SelectItem value="__NONE__">
                               <span className="text-gray-500">No mapping</span>
                             </SelectItem>
                             {csvHeaders.map((header) => (
