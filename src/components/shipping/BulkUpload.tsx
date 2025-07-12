@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -9,6 +10,7 @@ import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
 import BulkUploadProgressBar, { BulkUploadStep } from './bulk-upload/BulkUploadProgressBar';
 import LabelCreationOverlay from './LabelCreationOverlay';
+import PaymentDropdown from '../payment/PaymentDropdown';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FileText, UploadCloud, AlertCircle, Download, PrinterIcon, Sparkles } from 'lucide-react';
@@ -16,7 +18,6 @@ import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
-import PaymentDropdown from '@/components/payment/PaymentDropdown';
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
@@ -167,7 +168,6 @@ const BulkUpload: React.FC = () => {
 
   const handlePaymentSuccess = () => {
     toast.success('Payment successful! Labels are now available for download.');
-    handleDownloadLabelsClick();
   };
 
   return (
@@ -285,11 +285,27 @@ const BulkUpload: React.FC = () => {
                         </div>
                         
                         <div className="flex gap-3">
+                          <Button 
+                            onClick={handleDownloadLabelsClick} 
+                            disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress} 
+                            className="px-6 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200" 
+                            size="lg"
+                          >
+                            <Download className="mr-2 h-5 w-5" />
+                            {isCreatingLabels ? 'Creating...' : 'Generate Labels'}
+                          </Button>
+                          
                           <PaymentDropdown
                             amount={results.totalCost || 0}
+                            description={`Bulk Shipping (${processedShipmentsCount} shipments)`}
+                            shippingDetails={{
+                              shipmentCount: processedShipmentsCount,
+                              pickupAddress: pickupAddress,
+                              shipments: results.processedShipments
+                            }}
                             onPaymentSuccess={handlePaymentSuccess}
-                            disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress}
-                            className="px-6 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200"
+                            disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress}
+                            className="px-6 shadow-lg hover:shadow-xl transition-all duration-200"
                           />
                         </div>
                       </div>
