@@ -3,10 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Printer, Download, File, FileArchive, X, FileImage, FileText, Eye, Package, Briefcase, Loader2, Files, Mail } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from 'sonner'; // FIX: Changed import path for toast
+import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConsolidatedLabelUrls } from '@/types/shipping';
-import PaymentMethodSelector from '../payment/PaymentMethodSelector';
 
 const labelFormats = [
   { value: '4x6', label: '4x6" Shipping Label', description: 'Formatted for Thermal Label Printers' },
@@ -281,26 +280,8 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {/* Replaced the single defaultTrigger with two buttons at the top level */}
       {triggerButton ? triggerButton : (
         <div className="flex gap-2">
-          {/* Payment Button for Label Purchase */}
-          <PaymentMethodSelector
-            selectedPaymentMethod={null}
-            onPaymentMethodChange={() => {}}
-            onPaymentComplete={(success) => {
-              if (success) {
-                if (isBatchPreview) {
-                  handleDownloadBatchFormat('pdf');
-                } else {
-                  handleDownloadIndividualFormat('pdf');
-                }
-              }
-            }}
-            amount={5.99} // You can make this dynamic based on label type
-            description="Shipping Label Purchase"
-          />
-          
           {/* Button for direct PDF Download */}
           <Button
             variant="outline"
@@ -490,9 +471,9 @@ const PrintPreview: React.FC<PrintPreviewProps> = ({
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                   <h4 className="font-medium text-blue-800 mb-2">Format Recommendations:</h4>
                   <ul className="text-sm text-blue-700 space-y-1">
-                    <li>• <strong>PNG:</strong> Best for standard office printers and sharing via email</li>
-                    <li>• <strong>PDF:</strong> Professional format for documentation and multi-page printing</li>
-                    <li>• <strong>ZPL:</strong> Required for Zebra thermal printers and warehouse operations</li>
+                    <li>• **PNG:** Best for standard office printers and sharing via email</li>
+                    <li>• **PDF:** Professional format for documentation and multi-page printing</li>
+                    <li>• **ZPL:** Required for Zebra thermal printers and warehouse operations</li>
                   </ul>
                 </div>
               </div>
