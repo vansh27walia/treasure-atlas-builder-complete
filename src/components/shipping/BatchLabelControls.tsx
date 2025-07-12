@@ -5,7 +5,6 @@ import { ChevronDown, Download, Mail, Printer, RefreshCw } from 'lucide-react';
 import { useBatchLabelProcessing } from '@/hooks/useBatchLabelProcessing';
 import BatchPrintPreviewModal from './BatchPrintPreviewModal';
 import EmailLabelsModal from './EmailLabelsModal';
-import PaymentDropdown from '../payment/PaymentDropdown';
 import BatchProgressTracker from './BatchProgressTracker';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
@@ -149,19 +148,6 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
           <p className="text-sm text-gray-600 mb-4">
             {selectedShipments.length} labels ready • Total: ${batchAmount.toFixed(2)}
           </p>
-          <PaymentDropdown
-            amount={batchAmount}
-            description={`Batch Label Creation (${selectedShipments.length} labels)`}
-            shippingDetails={{ 
-              shipmentCount: selectedShipments.length,
-              pickupAddress: pickupAddress 
-            }}
-            onPaymentSuccess={handlePaymentComplete}
-            className="w-full"
-          />
-        </div>
-      )}
-      
       {/* Label Creation Section - Show after payment */}
       {paymentCompleted && !hasBatchResult && (
         <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
