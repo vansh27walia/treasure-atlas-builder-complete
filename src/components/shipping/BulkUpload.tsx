@@ -68,6 +68,7 @@ const BulkUpload: React.FC = () => {
   const getCurrentStep = (): BulkUploadStep => {
     if (uploadStatus === 'success') return 'labels';
     if (uploadStatus === 'editing') return 'rates';
+    if (uploadStatus === 'mapping') return 'mapping';
     if (uploadStatus === 'uploading') return 'mapping';
     return 'upload';
   };
@@ -75,8 +76,8 @@ const BulkUpload: React.FC = () => {
   const getCompletedSteps = (): BulkUploadStep[] => {
     const completed: BulkUploadStep[] = [];
     if (uploadStatus !== 'idle') completed.push('upload');
-    if (uploadStatus === 'editing' || uploadStatus === 'success') completed.push('mapping');
-    if (uploadStatus === 'success') completed.push('rates');
+    if (uploadStatus === 'editing' || uploadStatus === 'success') completed.push('mapping', 'rates');
+    if (uploadStatus === 'success') completed.push('labels');
     return completed;
   };
 
@@ -173,8 +174,19 @@ const BulkUpload: React.FC = () => {
   };
 
   const handleSortChange = (field: string, direction: string) => {
-    setSortField(field);
-    setSortDirection(direction);
+    setSortField(field as "recipient" | "rate" | "carrier");
+    setSortDirection(direction as "asc" | "desc");
+  };
+
+  const handleMappingComplete = (convertedCsv: string) => {
+    console.log('Mapping completed with converted CSV:', convertedCsv);
+    // This would typically trigger processing the converted CSV
+    // For now, we'll just log it
+  };
+
+  const handleMappingCancel = () => {
+    console.log('CSV mapping cancelled');
+    // Reset to initial state or go back to upload
   };
 
   return (
@@ -210,7 +222,7 @@ const BulkUpload: React.FC = () => {
                 </div>
               )}
 
-              {uploadStatus === 'mapping' && results && (
+              {uploadStatus === 'mapping' && (
                 <div className="space-y-8">
                   <div className="text-center py-0">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-full mb-4">
@@ -225,11 +237,9 @@ const BulkUpload: React.FC = () => {
                   </div>
                   
                   <CsvHeaderMapper 
-                    csvData={results.csvData || []}
-                    onMappingComplete={(mappedData) => {
-                      console.log('Mapping completed:', mappedData);
-                      // Handle mapping completion
-                    }}
+                    csvContent={""} 
+                    onMappingComplete={handleMappingComplete}
+                    onCancel={handleMappingCancel}
                   />
                 </div>
               )}

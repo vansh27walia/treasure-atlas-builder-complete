@@ -43,9 +43,9 @@ export const useBulkUpload = () => {
     
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
       // Only update status if it's one of the types compatible with useShipmentUpload's state
-      const compatibleStatuses = ['idle', 'uploading', 'success', 'error', 'editing', 'creating-labels'];
+      const compatibleStatuses = ['idle', 'uploading', 'success', 'error', 'editing', 'creating-labels', 'mapping'];
       if (compatibleStatuses.includes(newResults.uploadStatus)) {
-        setUploadStatus(newResults.uploadStatus as 'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels');
+        setUploadStatus(newResults.uploadStatus as 'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels' | 'mapping');
       }
     }
   };
