@@ -60,6 +60,14 @@ export interface BulkShipment {
     length?: number;
     width?: number;
     height?: number;
+    // Insurance and declared value fields
+    insurance_enabled?: boolean;
+    declared_value?: number;
+    // Parcel dimension fields used in bulk processing
+    parcel_length?: number;
+    parcel_width?: number;
+    parcel_height?: number;
+    parcel_weight?: number;
     // Legacy field names for backward compatibility
     to_name?: string;
     to_company?: string;
@@ -105,7 +113,7 @@ export interface ConsolidatedLabelUrls {
 export interface BatchResult {
   batchId: string;
   consolidatedLabelUrls: ConsolidatedLabelUrls;
-  scanFormUrl?: string;
+  scanFormUrl?: string; // Make this optional to match usage
 }
 
 export interface BulkUploadResult {
@@ -118,6 +126,7 @@ export interface BulkUploadResult {
     shipmentId: string;
     error: string;
     row?: number;
+    details?: string; // Add details property for failed shipments
   }>;
   batchResult?: BatchResult;
   bulk_label_pdf_url?: string;
