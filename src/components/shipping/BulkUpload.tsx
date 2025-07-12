@@ -64,7 +64,6 @@ const BulkUpload: React.FC = () => {
     setSelectedCarrierFilter
   } = useBulkUpload();
 
-  // Determine current step and completed steps
   const getCurrentStep = (): BulkUploadStep => {
     if (uploadStatus === 'success') return 'labels';
     if (uploadStatus === 'editing') return 'rates';
@@ -85,13 +84,15 @@ const BulkUpload: React.FC = () => {
   }, [pickupAddress?.id]);
 
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
-    if (address && address.id !== pickupAddress?.id) {
+    if (address) {
       console.log("Selected pickup address in BulkUpload:", address);
       setPickupAddress(address);
 
       const now = Date.now();
       if (now - lastToastRef.current > 2000) {
-        toast.success(`Selected pickup address: ${address.name || address.street1}`);
+        toast.success(`Selected pickup address: ${address.name || address.street1}`, {
+          duration: 3000,
+        });
         lastToastRef.current = now;
       }
     }
@@ -173,11 +174,6 @@ const BulkUpload: React.FC = () => {
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        {/* Progress Bar */}
-        <div className="bg-white shadow-sm border-b">
-          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
-        </div>
-
         <div className="container mx-auto px-4 py-8">
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             <CardContent className="p-8 rounded-xl">
@@ -230,6 +226,7 @@ const BulkUpload: React.FC = () => {
                     </AlertDescription>
                   </Alert>
                   
+                  {/* Vertical Results Display */}
                   <div className="bg-white rounded-xl border shadow-sm">
                     <div className="p-6 border-b">
                       <BulkShipmentFilters 
@@ -247,19 +244,68 @@ const BulkUpload: React.FC = () => {
                       />
                     </div>
                     
-                    <BulkShipmentsList 
-                      shipments={filteredShipments} 
-                      isFetchingRates={isFetchingRates} 
-                      onSelectRate={handleSelectRate} 
-                      onRemoveShipment={handleRemoveShipment} 
-                      onEditShipment={(shipmentId: string, details: any) => {
-                        const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
-                        if (shipment) {
-                          handleEditShipment(shipment);
-                        }
-                      }} 
-                      onRefreshRates={handleRefreshRates} 
-                    />
+                    {/* Improved Vertical Layout for Results */}
+                    <div className="p-6 space-y-4">
+                      {filteredShipments.map((shipment, index) => (
+                        <Card key={shipment.id} className="border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
+                          <CardContent className="p-6">
+                            <div className="space-y-4">
+                              {/* Shipment Header */}
+                              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                                <div className="flex-1">
+                                  <h3 className="font-semibold text-lg text-gray-900">{shipment.recipient}</h3>
+                                  <p className="text-gray-600">{shipment.address}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                                </div>
+                              </div>
+                              
+                              {/* Rate Selection */}
+                              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Carrier</label>
+                                  <div className="p-3 bg-gray-50 rounded-lg border">
+                                    <span className="font-medium">{shipment.carrier}</span>
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Service</label>
+                                  <div className="p-3 bg-gray-50 rounded-lg border">
+                                    <span className="font-medium">{shipment.service}</span>
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">Rate</label>
+                                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                                    <span className="font-bold text-green-700">${shipment.rate?.toFixed(2)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Actions */}
+                              <div className="flex justify-end gap-2 pt-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEditShipment(shipment.id, {})}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleRemoveShipment(shipment.id)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
                   </div>
                   
                   {processedShipmentsCount > 0 && (
@@ -368,6 +414,11 @@ const BulkUpload: React.FC = () => {
               )}
             </CardContent>
           </Card>
+        </div>
+
+        {/* Progress Bar at Bottom */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white shadow-lg border-t z-10">
+          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
         </div>
       </div>
 

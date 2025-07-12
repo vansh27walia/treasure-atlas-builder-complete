@@ -35,8 +35,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   const [availableAddresses, setAvailableAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [addressesLoaded, setAddressesLoaded] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [currentStep, setCurrentStep] = useState<UploadStep>('select');
+  const [persistedAddress, setPersistedAddress] = useState<SavedAddress | null>(null);
 
   useEffect(() => {
     const loadAddresses = async () => {
@@ -46,15 +46,17 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         console.log('Loaded addresses:', addresses);
         setAvailableAddresses(addresses);
 
-        const defaultAddress = addresses.find(addr => addr.is_default_from);
-        if (defaultAddress) {
-          console.log('Found default address:', defaultAddress);
-          setSelectedAddressId(defaultAddress.id.toString());
-          onPickupAddressSelect(defaultAddress);
-        } else if (addresses.length > 0) {
-          console.log('Using first available address:', addresses[0]);
-          setSelectedAddressId(addresses[0].id.toString());
-          onPickupAddressSelect(addresses[0]);
+        // Find default address or use first available
+        let addressToSelect = addresses.find(addr => addr.is_default_from);
+        if (!addressToSelect && addresses.length > 0) {
+          addressToSelect = addresses[0];
+        }
+
+        if (addressToSelect) {
+          console.log('Setting default address:', addressToSelect);
+          setSelectedAddressId(addressToSelect.id.toString());
+          setPersistedAddress(addressToSelect);
+          onPickupAddressSelect(addressToSelect);
         } else {
           console.log('No addresses available');
           toast.error('No pickup addresses found. Please add a pickup address in Settings first.');
@@ -72,11 +74,12 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
   }, [onPickupAddressSelect]);
 
   const handleAddressChange = (addressId: string) => {
-    console.log('Address changed to:', addressId);
+    console.log('Address selection changed to:', addressId);
     setSelectedAddressId(addressId);
     const selectedAddress = availableAddresses.find(addr => addr.id.toString() === addressId);
     if (selectedAddress) {
-      console.log('Selecting address:', selectedAddress);
+      console.log('Persisting selected address:', selectedAddress);
+      setPersistedAddress(selectedAddress);
       onPickupAddressSelect(selectedAddress);
       toast.success(`Selected pickup address: ${selectedAddress.name || selectedAddress.street1}`);
     }
@@ -168,6 +171,10 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     setCurrentStep('processing');
     
     try {
+      if (!persistedAddress) {
+        throw new Error('No pickup address selected');
+      }
+
       const blob = new Blob([convertedCsv], { type: 'text/csv' });
       const convertedFile = new File([blob], selectedFile?.name || 'converted.csv', { type: 'text/csv' });
       
@@ -195,20 +202,26 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     document.getElementById('file-upload')?.click();
   };
 
-  // Enhanced header mapping step - only show the mapper, no upload UI
+  // Clean CSV header mapping screen - no uploader interface
   if (currentStep === 'mapping' && csvContent) {
     return (
-      <div className="space-y-6">
-        <CsvHeaderMapper
-          csvContent={csvContent}
-          onMappingComplete={handleMappingComplete}
-          onCancel={handleMappingCancel}
-        />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
+        <div className="container mx-auto px-4">
+          <div className="mb-8 text-center">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">AI-Powered CSV Header Mapping</h2>
+            <p className="text-lg text-gray-600">Our AI has analyzed your CSV and suggests the best field mappings</p>
+          </div>
+          <CsvHeaderMapper
+            csvContent={csvContent}
+            onMappingComplete={handleMappingComplete}
+            onCancel={handleMappingCancel}
+          />
+        </div>
       </div>
     );
   }
 
-  // Enhanced processing step
+  // Processing step
   if (currentStep === 'processing') {
     return (
       <div className="space-y-10">
@@ -241,10 +254,10 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     );
   }
 
-  // Enhanced file selection step
+  // File selection step with persistent address selection
   return (
     <div className="space-y-8">
-      {/* Enhanced Pickup Address Selection */}
+      {/* Persistent Address Selection */}
       <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 via-white to-indigo-50 shadow-lg">
         <CardContent className="p-6">
           <div className="flex items-start space-x-4">
@@ -267,23 +280,33 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                   <span className="text-gray-600">Loading addresses...</span>
                 </div>
               ) : availableAddresses.length > 0 ? (
-                <Select value={selectedAddressId} onValueChange={handleAddressChange}>
-                  <SelectTrigger className="bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors p-3">
-                    <SelectValue placeholder="Select pickup address" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border shadow-lg z-50">
-                    {availableAddresses.map((address) => (
-                      <SelectItem key={address.id} value={address.id.toString()}>
-                        <div className="flex flex-col py-1">
-                          <span className="font-semibold text-gray-900">{address.name}</span>
-                          <span className="text-sm text-gray-500">
-                            {address.street1}, {address.city}, {address.state} {address.zip}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-3">
+                  <Select value={selectedAddressId} onValueChange={handleAddressChange}>
+                    <SelectTrigger className="bg-white border-2 border-gray-200 hover:border-blue-300 transition-colors p-3">
+                      <SelectValue placeholder="Select pickup address" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border shadow-lg z-50">
+                      {availableAddresses.map((address) => (
+                        <SelectItem key={address.id} value={address.id.toString()}>
+                          <div className="flex flex-col py-1">
+                            <span className="font-semibold text-gray-900">{address.name}</span>
+                            <span className="text-sm text-gray-500">
+                              {address.street1}, {address.city}, {address.state} {address.zip}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {persistedAddress && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center space-x-2 text-green-700">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="font-medium">Selected: {persistedAddress.name || persistedAddress.street1}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <Alert className="border-amber-200 bg-amber-50">
                   <AlertCircle className="h-4 w-4 text-amber-600" />
@@ -297,7 +320,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         </CardContent>
       </Card>
 
-      {/* Enhanced File Upload Area - Make entire area clickable */}
+      {/* File Upload Area */}
       <Card className="border-2 border-dashed border-gray-300 hover:border-blue-400 transition-colors shadow-lg">
         <CardContent className="p-8">
           <div
@@ -382,7 +405,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
                   e.stopPropagation();
                   setCurrentStep('mapping');
                 }}
-                disabled={!selectedAddressId || !addressesLoaded}
+                disabled={!selectedAddressId || !addressesLoaded || !persistedAddress}
                 className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 px-6 py-2"
               >
                 <Brain className="mr-2 h-4 w-4" />
@@ -394,7 +417,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
         </CardContent>
       </Card>
 
-      {/* Enhanced info section */}
+      {/* Info section */}
       <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 via-purple-50 to-indigo-50 p-4">
         <div className="flex items-center space-x-3">
           <div className="flex-shrink-0">
