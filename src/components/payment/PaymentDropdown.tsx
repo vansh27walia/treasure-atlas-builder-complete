@@ -123,8 +123,8 @@ const PaymentDropdown: React.FC<PaymentDropdownProps> = ({
 
   if (loading) {
     return (
-      <div className={`${className} w-full`}>
-        <Button disabled className="w-full h-16 text-lg bg-gray-100">
+      <div className={`${className} w-full max-w-md`}>
+        <Button disabled className="w-full h-14 text-lg">
           <Loader2 className="w-5 h-5 mr-3 animate-spin" />
           Loading Payment Methods...
         </Button>
@@ -133,98 +133,90 @@ const PaymentDropdown: React.FC<PaymentDropdownProps> = ({
   }
 
   return (
-    <div className={`${className} w-full`}>
+    <div className={`${className} w-full max-w-md`}>
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
           <Button 
             disabled={disabled || processing} 
-            className="w-full h-16 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-between px-8"
+            className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-medium flex items-center justify-between px-6"
             size="lg"
           >
-            <div className="flex items-center space-x-4">
-              <CreditCard className="w-6 h-6" />
-              <div className="text-left">
-                <div className="text-lg font-bold">Pay with Card</div>
-                <div className="text-sm opacity-90">{paymentMethods.length} cards available</div>
-              </div>
+            <div className="flex items-center">
+              <CreditCard className="w-5 h-5 mr-3" />
+              <span>Pay with Card</span>
             </div>
             
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-3">
               <div className="text-right">
-                <div className="text-2xl font-bold">${amount.toFixed(2)}</div>
-                <div className="text-sm opacity-90">Total Amount</div>
+                <div className="text-xl font-bold">${amount.toFixed(2)}</div>
+                <div className="text-xs opacity-90">{paymentMethods.length} cards</div>
               </div>
-              <ChevronDown className="w-6 h-6" />
+              <ChevronDown className="w-5 h-5" />
             </div>
           </Button>
         </DropdownMenuTrigger>
         
-        <DropdownMenuContent align="end" className="w-96 bg-white border shadow-2xl rounded-xl z-50">
-          <DropdownMenuLabel className="font-bold text-xl px-6 py-4 border-b">
-            <div className="flex items-center justify-between">
-              <span>Select Payment Method</span>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-blue-600">${amount.toFixed(2)}</div>
-                <div className="text-sm text-gray-600 font-normal">{description}</div>
-              </div>
-            </div>
+        <DropdownMenuContent align="end" className="w-80 bg-white border shadow-xl rounded-lg">
+          <DropdownMenuLabel className="font-semibold text-lg px-4 py-3">
+            Select Payment Method
           </DropdownMenuLabel>
+          <div className="px-4 pb-2">
+            <div className="text-2xl font-bold text-blue-600">${amount.toFixed(2)}</div>
+            <div className="text-sm text-gray-600">{description}</div>
+          </div>
+          <DropdownMenuSeparator />
           
           {paymentMethods.length === 0 ? (
-            <div className="p-8 text-center">
-              <Plus className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-              <p className="text-gray-600 mb-6 text-lg">No payment methods saved</p>
+            <div className="p-6 text-center">
+              <Plus className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+              <p className="text-gray-600 mb-4">No payment methods saved</p>
               <Button 
                 onClick={handleAddPaymentMethod}
-                className="w-full h-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold"
+                variant="outline" 
+                size="sm"
+                className="w-full h-10"
               >
-                <Plus className="mr-2 h-5 w-5" />
                 Add Payment Method
               </Button>
             </div>
           ) : (
             <>
-              <div className="max-h-80 overflow-y-auto">
-                {paymentMethods.map((method) => (
-                  <DropdownMenuItem
-                    key={method.id}
-                    onClick={() => handlePayment(method.id)}
-                    className="cursor-pointer p-6 hover:bg-blue-50 border-b last:border-b-0 transition-colors duration-200"
-                  >
-                    <div className="flex items-center space-x-5 w-full">
-                      <div className="flex-shrink-0 p-2 bg-gray-100 rounded-lg">
-                        {getPaymentMethodIcon(method.brand)}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-semibold text-lg text-gray-900">
-                          {formatPaymentMethod(method)}
-                        </div>
-                        {method.exp_month && method.exp_year && (
-                          <div className="text-sm text-gray-500 mt-1">
-                            Expires {method.exp_month.toString().padStart(2, '0')}/{method.exp_year}
-                          </div>
-                        )}
-                        {method.is_default && (
-                          <div className="text-xs text-blue-700 font-semibold bg-blue-100 px-3 py-1 rounded-full inline-block mt-2">
-                            Default Payment Method
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-green-600">${amount.toFixed(2)}</div>
-                      </div>
+              {paymentMethods.map((method) => (
+                <DropdownMenuItem
+                  key={method.id}
+                  onClick={() => handlePayment(method.id)}
+                  className="cursor-pointer p-4 hover:bg-gray-50 border-b last:border-b-0"
+                >
+                  <div className="flex items-center space-x-4 w-full">
+                    <div className="flex-shrink-0">
+                      {getPaymentMethodIcon(method.brand)}
                     </div>
-                  </DropdownMenuItem>
-                ))}
-              </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-base">
+                        {formatPaymentMethod(method)}
+                      </div>
+                      {method.exp_month && method.exp_year && (
+                        <div className="text-sm text-gray-500">
+                          Expires {method.exp_month.toString().padStart(2, '0')}/{method.exp_year}
+                        </div>
+                      )}
+                      {method.is_default && (
+                        <div className="text-xs text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded inline-block mt-1">
+                          Default
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+              ))}
               
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleAddPaymentMethod}
-                className="cursor-pointer p-6 hover:bg-green-50 text-green-700 font-semibold transition-colors duration-200"
+                className="cursor-pointer p-4 hover:bg-gray-50 text-blue-600"
               >
                 <Plus className="w-5 h-5 mr-3" />
-                <span className="text-lg">Add New Payment Method</span>
+                <span className="font-medium">Add New Payment Method</span>
               </DropdownMenuItem>
             </>
           )}
