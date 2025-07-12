@@ -1,3 +1,4 @@
+
 export interface PackageTypeOption {
   value: string;
   label: string;
@@ -26,6 +27,96 @@ export interface ShippingFormData {
   height?: number;
   weight: number;
 }
+
+// ParcelData interface that supports different package types
+export interface ParcelData {
+  weight: number;
+  length?: number;
+  width?: number;
+  height?: number;
+  predefined_package?: string;
+}
+
+// Bulk shipping types
+export interface BulkShipment {
+  id: string;
+  row: number;
+  recipient: string;
+  customer_name?: string;
+  customer_address?: string;
+  details: {
+    name?: string;
+    company?: string;
+    street1: string;
+    street2?: string;
+    city: string;
+    state: string;
+    zip: string;
+    country: string;
+    phone?: string;
+    email?: string;
+    weight?: number;
+    length?: number;
+    width?: number;
+    height?: number;
+  };
+  carrier: string;
+  service: string;
+  rate: number;
+  tracking_code?: string;
+  tracking_number?: string;
+  label_url?: string;
+  label_urls?: {
+    png?: string;
+    pdf?: string;
+    zpl?: string;
+    epl?: string;
+  };
+  status: 'pending' | 'completed' | 'failed';
+  error?: string;
+  availableRates?: any[];
+  selectedRateId?: string;
+  easypost_id?: string;
+  shipment_id?: string;
+}
+
+export interface ConsolidatedLabelUrls {
+  pdf?: string;
+  zpl?: string;
+  epl?: string;
+}
+
+export interface BatchResult {
+  batchId: string;
+  consolidatedLabelUrls: ConsolidatedLabelUrls;
+  scanFormUrl?: string;
+}
+
+export interface BulkUploadResult {
+  total: number;
+  successful: number;
+  failed: number;
+  totalCost: number;
+  processedShipments: BulkShipment[];
+  failedShipments: Array<{
+    shipmentId: string;
+    error: string;
+    row?: number;
+  }>;
+  batchResult?: BatchResult;
+  bulk_label_pdf_url?: string;
+  uploadStatus?: string;
+  pickupAddress?: any;
+}
+
+// Workflow types
+export interface ShippingWorkflowStep {
+  id: string;
+  label: string;
+  status: 'completed' | 'active' | 'upcoming';
+}
+
+export type ShippingStep = 'address' | 'package' | 'rates' | 'label' | 'complete';
 
 export const PACKAGE_TYPES: PackageTypeOption[] = [
   { value: 'custom', label: 'Custom Box', icon: '📦' },
