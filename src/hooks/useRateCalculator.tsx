@@ -8,10 +8,9 @@ import { GeneratedAddress } from '@/services/GeocodingService';
 
 interface ParcelData {
   weight: number;
-  length?: number;
-  width?: number;
-  height?: number;
-  predefined_package?: string;
+  length: number;
+  width: number;
+  height: number;
 }
 
 interface RateRequestData {

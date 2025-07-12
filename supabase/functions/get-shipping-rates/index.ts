@@ -21,11 +21,10 @@ interface AddressData {
 }
 
 interface ParcelData {
-  length?: number;
-  width?: number;
-  height?: number;
+  length: number;
+  width: number;
+  height: number;
   weight: number;
-  predefined_package?: string;
 }
 
 interface ShippingRequestData {
@@ -129,32 +128,6 @@ serve(async (req) => {
       );
     }
     
-    // Build the parcel object based on the type of package
-    let parcelData: any;
-    
-    if (requestData.parcel.predefined_package) {
-      // Flat-rate package
-      parcelData = {
-        predefined_package: requestData.parcel.predefined_package,
-        weight: requestData.parcel.weight
-      };
-      console.log('Using predefined package:', requestData.parcel.predefined_package);
-    } else {
-      // Custom dimensions
-      parcelData = {
-        length: requestData.parcel.length,
-        width: requestData.parcel.width,
-        weight: requestData.parcel.weight
-      };
-      
-      // Only include height if provided (for custom boxes)
-      if (requestData.parcel.height) {
-        parcelData.height = requestData.parcel.height;
-      }
-      
-      console.log('Using custom dimensions:', parcelData);
-    }
-    
     // Set up carrier account options for EasyPost
     let carrierAccounts: any[] = [];
     const specificCarriers: string[] = [];
@@ -198,7 +171,12 @@ serve(async (req) => {
           country: requestData.toAddress.country,
           phone: requestData.toAddress.phone || ''
         },
-        parcel: parcelData,
+        parcel: {
+          length: requestData.parcel.length,
+          width: requestData.parcel.width,
+          height: requestData.parcel.height,
+          weight: requestData.parcel.weight
+        },
         options: requestData.options || {}
       }
     };

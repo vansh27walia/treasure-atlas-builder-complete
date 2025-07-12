@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { FileText, UploadCloud, AlertCircle, Download, PrinterIcon, Sparkles } from 'lucide-react';
 import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
+import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
 
 const BulkUpload: React.FC = () => {
@@ -391,11 +392,7 @@ const BulkUpload: React.FC = () => {
           labelUrl={results.bulk_label_pdf_url} 
           trackingCode={null} 
           isBatchPreview={true} 
-          batchResult={{
-            batchId: results.batchResult.batchId,
-            consolidatedLabelUrls: results.batchResult.consolidatedLabelUrls,
-            scanFormUrl: results.batchResult.scanFormUrl || ''
-          }}
+          batchResult={results.batchResult} 
         />
       )}
     </>
