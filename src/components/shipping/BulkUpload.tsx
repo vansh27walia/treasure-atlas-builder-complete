@@ -293,6 +293,12 @@ const BulkUpload: React.FC = () => {
                             <Download className="mr-2 h-5 w-5" />
                             {isCreatingLabels ? 'Creating...' : 'Generate Labels'}
                           </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               
               {uploadStatus === 'success' && results && (
                 <div className="space-y-6">
