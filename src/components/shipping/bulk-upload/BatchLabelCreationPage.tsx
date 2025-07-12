@@ -378,7 +378,11 @@ const BatchLabelCreationPage: React.FC<BatchLabelCreationPageProps> = ({
           onOpenChangeProp={setBatchPrintPreviewModalOpen}
           labelUrl=""
           trackingCode={null}
-          batchResult={results.batchResult}
+          batchResult={{
+            batchId: results.batchResult.batchId,
+            consolidatedLabelUrls: results.batchResult.consolidatedLabelUrls,
+            scanFormUrl: results.batchResult.scanFormUrl || ''
+          }}
           isBatchPreview={true}
         />
       )}
