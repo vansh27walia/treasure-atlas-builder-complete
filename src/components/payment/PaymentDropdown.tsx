@@ -104,9 +104,9 @@ const PaymentDropdown: React.FC<PaymentDropdownProps> = ({
 
   const getPaymentMethodIcon = (brand: string) => {
     if (brand === 'bank_account') {
-      return <Building2 className="w-4 h-4" />;
+      return <Building2 className="w-5 h-5" />;
     }
-    return <CreditCard className="w-4 h-4" />;
+    return <CreditCard className="w-5 h-5" />;
   };
 
   const formatPaymentMethod = (method: PaymentMethod) => {
@@ -123,92 +123,106 @@ const PaymentDropdown: React.FC<PaymentDropdownProps> = ({
 
   if (loading) {
     return (
-      <Button disabled className={className}>
-        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-        Loading...
-      </Button>
+      <div className={`${className} w-full max-w-md`}>
+        <Button disabled className="w-full h-14 text-lg">
+          <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+          Loading Payment Methods...
+        </Button>
+      </div>
     );
   }
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenuTrigger asChild>
-        <Button 
-          disabled={disabled || processing} 
-          className={`${className} bg-blue-600 hover:bg-blue-700`}
-        >
-          {processing ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Processing...
-            </>
+    <div className={`${className} w-full max-w-md`}>
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button 
+            disabled={disabled || processing} 
+            className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white text-lg font-medium flex items-center justify-between px-6"
+            size="lg"
+          >
+            <div className="flex items-center">
+              <CreditCard className="w-5 h-5 mr-3" />
+              <span>Pay with Card</span>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <div className="text-right">
+                <div className="text-xl font-bold">${amount.toFixed(2)}</div>
+                <div className="text-xs opacity-90">{paymentMethods.length} cards</div>
+              </div>
+              <ChevronDown className="w-5 h-5" />
+            </div>
+          </Button>
+        </DropdownMenuTrigger>
+        
+        <DropdownMenuContent align="end" className="w-80 bg-white border shadow-xl rounded-lg">
+          <DropdownMenuLabel className="font-semibold text-lg px-4 py-3">
+            Select Payment Method
+          </DropdownMenuLabel>
+          <div className="px-4 pb-2">
+            <div className="text-2xl font-bold text-blue-600">${amount.toFixed(2)}</div>
+            <div className="text-sm text-gray-600">{description}</div>
+          </div>
+          <DropdownMenuSeparator />
+          
+          {paymentMethods.length === 0 ? (
+            <div className="p-6 text-center">
+              <Plus className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+              <p className="text-gray-600 mb-4">No payment methods saved</p>
+              <Button 
+                onClick={handleAddPaymentMethod}
+                variant="outline" 
+                size="sm"
+                className="w-full h-10"
+              >
+                Add Payment Method
+              </Button>
+            </div>
           ) : (
             <>
-              <CreditCard className="w-4 h-4 mr-2" />
-              Pay ${amount.toFixed(2)}
-              <ChevronDown className="w-4 h-4 ml-2" />
+              {paymentMethods.map((method) => (
+                <DropdownMenuItem
+                  key={method.id}
+                  onClick={() => handlePayment(method.id)}
+                  className="cursor-pointer p-4 hover:bg-gray-50 border-b last:border-b-0"
+                >
+                  <div className="flex items-center space-x-4 w-full">
+                    <div className="flex-shrink-0">
+                      {getPaymentMethodIcon(method.brand)}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-base">
+                        {formatPaymentMethod(method)}
+                      </div>
+                      {method.exp_month && method.exp_year && (
+                        <div className="text-sm text-gray-500">
+                          Expires {method.exp_month.toString().padStart(2, '0')}/{method.exp_year}
+                        </div>
+                      )}
+                      {method.is_default && (
+                        <div className="text-xs text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded inline-block mt-1">
+                          Default
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+              
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleAddPaymentMethod}
+                className="cursor-pointer p-4 hover:bg-gray-50 text-blue-600"
+              >
+                <Plus className="w-5 h-5 mr-3" />
+                <span className="font-medium">Add New Payment Method</span>
+              </DropdownMenuItem>
             </>
           )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64 bg-white border shadow-lg">
-        <DropdownMenuLabel className="font-semibold">
-          Select Payment Method
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        
-        {paymentMethods.length === 0 ? (
-          <div className="p-4 text-center">
-            <Plus className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-            <p className="text-sm text-gray-600 mb-2">No payment methods saved</p>
-            <Button 
-              onClick={handleAddPaymentMethod}
-              variant="outline" 
-              size="sm"
-              className="w-full"
-            >
-              Add Payment Method
-            </Button>
-          </div>
-        ) : (
-          <>
-            {paymentMethods.map((method) => (
-              <DropdownMenuItem
-                key={method.id}
-                onClick={() => handlePayment(method.id)}
-                className="cursor-pointer p-3 hover:bg-gray-50"
-              >
-                <div className="flex items-center space-x-3 w-full">
-                  {getPaymentMethodIcon(method.brand)}
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">
-                      {formatPaymentMethod(method)}
-                    </div>
-                    {method.exp_month && method.exp_year && (
-                      <div className="text-xs text-gray-500">
-                        Expires {method.exp_month.toString().padStart(2, '0')}/{method.exp_year}
-                      </div>
-                    )}
-                    {method.is_default && (
-                      <div className="text-xs text-blue-600 font-medium">Default</div>
-                    )}
-                  </div>
-                </div>
-              </DropdownMenuItem>
-            ))}
-            
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={handleAddPaymentMethod}
-              className="cursor-pointer p-3 hover:bg-gray-50"
-            >
-              <Plus className="w-4 h-4 mr-3" />
-              <span className="text-sm">Add New Payment Method</span>
-            </DropdownMenuItem>
-          </>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 };
 

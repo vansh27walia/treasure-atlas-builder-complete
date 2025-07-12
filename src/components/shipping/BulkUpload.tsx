@@ -284,11 +284,11 @@ const BulkUpload: React.FC = () => {
                           )}
                         </div>
                         
-                        <div className="flex gap-3">
+                        <div className="flex flex-col gap-4 w-full lg:w-auto">
                           <Button 
                             onClick={handleDownloadLabelsClick} 
                             disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress} 
-                            className="px-6 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200" 
+                            className="w-full lg:w-64 h-12 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200" 
                             size="lg"
                           >
                             <Download className="mr-2 h-5 w-5" />
@@ -305,7 +305,7 @@ const BulkUpload: React.FC = () => {
                             }}
                             onPaymentSuccess={handlePaymentSuccess}
                             disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress}
-                            className="px-6 shadow-lg hover:shadow-xl transition-all duration-200"
+                            className="w-full lg:w-64"
                           />
                         </div>
                       </div>
