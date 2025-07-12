@@ -16,6 +16,7 @@ import { formatWeightDisplay } from '@/utils/weightConversion';
 import InsuranceOptions from './InsuranceOptions';
 import AIRatePicker from './AIRatePicker';
 import RateDisplay from './RateDisplay';
+
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
   isFetchingRates: boolean;
@@ -24,6 +25,7 @@ interface BulkShipmentsListProps {
   onEditShipment: (shipmentId: string, details: BulkShipment['details']) => void;
   onRefreshRates: (shipmentId: string) => void;
 }
+
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   shipments,
   isFetchingRates,
@@ -33,22 +35,22 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   onRefreshRates
 }) => {
   const [openDialogs, setOpenDialogs] = useState<Record<string, boolean>>({});
-  const [insuranceSettings, setInsuranceSettings] = useState<Record<string, {
-    enabled: boolean;
-    value: number;
-  }>>({});
+  const [insuranceSettings, setInsuranceSettings] = useState<Record<string, { enabled: boolean; value: number }>>({});
+
   const handleOpenEditDialog = (shipmentId: string) => {
     setOpenDialogs({
       ...openDialogs,
       [shipmentId]: true
     });
   };
+
   const handleCloseEditDialog = (shipmentId: string) => {
     setOpenDialogs({
       ...openDialogs,
       [shipmentId]: false
     });
   };
+
   const handleInsuranceToggle = (shipmentId: string, enabled: boolean) => {
     setInsuranceSettings(prev => ({
       ...prev,
@@ -59,6 +61,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       }
     }));
   };
+
   const handleDeclaredValueChange = (shipmentId: string, value: number) => {
     setInsuranceSettings(prev => ({
       ...prev,
@@ -69,6 +72,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       }
     }));
   };
+
   const handleAIRateSelection = (shipmentId: string, rateId: string) => {
     onSelectRate(shipmentId, rateId);
   };
@@ -82,18 +86,23 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
   // Helper function to get insurance settings with defaults
   const getInsuranceSettings = (shipmentId: string) => {
-    return insuranceSettings[shipmentId] || {
-      enabled: true,
-      value: 200
-    };
+    return insuranceSettings[shipmentId] || { enabled: true, value: 200 };
   };
-  return <div className="space-y-4">
-      {/* AI Rate Picker */}
-      <AIRatePicker shipments={shipments} onApplyAISelection={handleAIRateSelection} />
 
-      {shipments.length === 0 ? <Card className="p-6 text-center">
+  return (
+    <div className="space-y-4">
+      {/* AI Rate Picker */}
+      <AIRatePicker 
+        shipments={shipments}
+        onApplyAISelection={handleAIRateSelection}
+      />
+
+      {shipments.length === 0 ? (
+        <Card className="p-6 text-center">
           <p className="text-gray-500">No shipments found.</p>
-        </Card> : <div className="overflow-x-auto">
+        </Card>
+      ) : (
+        <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -104,28 +113,40 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 <TableHead className="w-2/12">Insurance</TableHead>
                 <TableHead className="w-1/12">Rate</TableHead>
                 <TableHead className="w-1/12">Status</TableHead>
-                
+                <TableHead className="w-1/12 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {shipments.map(shipment => {
-            const insurance = getInsuranceSettings(shipment.id);
-            const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
-            return <TableRow key={shipment.id}>
+              {shipments.map((shipment) => {
+                const insurance = getInsuranceSettings(shipment.id);
+                const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
+                
+                return (
+                  <TableRow key={shipment.id}>
                     <TableCell>{shipment.row}</TableCell>
                     <TableCell>
                       <div className="space-y-1">
                         <div className="font-medium">{shipment.details.to_name}</div>
-                        {shipment.details.to_company && <div className="text-xs text-gray-500">{shipment.details.to_company}</div>}
-                        {shipment.details.to_phone && <div className="text-xs text-blue-600">{shipment.details.to_phone}</div>}
-                        {shipment.details.to_email && <div className="text-xs text-green-600">{shipment.details.to_email}</div>}
-                        {shipment.details.reference && <div className="text-xs text-gray-500">Ref: {shipment.details.reference}</div>}
+                        {shipment.details.to_company && (
+                          <div className="text-xs text-gray-500">{shipment.details.to_company}</div>
+                        )}
+                        {shipment.details.to_phone && (
+                          <div className="text-xs text-blue-600">{shipment.details.to_phone}</div>
+                        )}
+                        {shipment.details.to_email && (
+                          <div className="text-xs text-green-600">{shipment.details.to_email}</div>
+                        )}
+                        {shipment.details.reference && (
+                          <div className="text-xs text-gray-500">Ref: {shipment.details.reference}</div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
                         <div className="text-sm">{shipment.details.to_street1}</div>
-                        {shipment.details.to_street2 && <div className="text-sm text-gray-500">{shipment.details.to_street2}</div>}
+                        {shipment.details.to_street2 && (
+                          <div className="text-sm text-gray-500">{shipment.details.to_street2}</div>
+                        )}
                         <div className="text-sm">
                           {shipment.details.to_city}, {shipment.details.to_state} {shipment.details.to_zip}
                         </div>
@@ -136,44 +157,94 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {shipment.status !== 'failed' && shipment.status !== 'error' ? <div className="space-y-2">
-                          <Select value={shipment.selectedRateId} onValueChange={value => onSelectRate(shipment.id, value)} disabled={shipment.status === 'pending_rates'}>
+                      {shipment.status !== 'failed' && shipment.status !== 'error' ? (
+                        <div className="space-y-2">
+                          <Select 
+                            value={shipment.selectedRateId}
+                            onValueChange={(value) => onSelectRate(shipment.id, value)}
+                            disabled={shipment.status === 'pending_rates'}
+                          >
                             <SelectTrigger className="min-w-[180px]">
                               <SelectValue placeholder={shipment.status === 'pending_rates' ? "Fetching rates..." : "Select a carrier"} />
                             </SelectTrigger>
                             <SelectContent>
-                              {(shipment.availableRates || []).map(rate => <SelectItem key={rate.id} value={rate.id}>
+                              {(shipment.availableRates || []).map((rate) => (
+                                <SelectItem key={rate.id} value={rate.id}>
                                   <div className="w-full">
-                                    <RateDisplay actualRate={rate.rate} carrier={rate.carrier} service={rate.service} deliveryDays={rate.delivery_days} />
+                                    <RateDisplay
+                                      actualRate={rate.rate}
+                                      carrier={rate.carrier}
+                                      service={rate.service}
+                                      deliveryDays={rate.delivery_days}
+                                    />
                                   </div>
-                                </SelectItem>)}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
-                        </div> : <Badge variant="outline" className="bg-red-50 text-red-700">
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="bg-red-50 text-red-700">
                           {shipment.error || 'Error loading rates'}
-                        </Badge>}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
-                      <InsuranceOptions shipmentId={shipment.id} insuranceEnabled={insurance.enabled} declaredValue={insurance.value} onInsuranceToggle={handleInsuranceToggle} onDeclaredValueChange={handleDeclaredValueChange} />
+                      <InsuranceOptions
+                        shipmentId={shipment.id}
+                        insuranceEnabled={insurance.enabled}
+                        declaredValue={insurance.value}
+                        onInsuranceToggle={handleInsuranceToggle}
+                        onDeclaredValueChange={handleDeclaredValueChange}
+                      />
                     </TableCell>
                     <TableCell>
-                      {shipment.status !== 'pending_rates' && shipment.selectedRateId && selectedRate ? <div className="space-y-1">
+                      {shipment.status !== 'pending_rates' && shipment.selectedRateId && selectedRate ? (
+                        <div className="space-y-1">
                           <div className="font-semibold">
                             ${formatRate(selectedRate.rate)}
                           </div>
-                          {insurance.enabled && <div className="text-xs text-blue-600">
+                          {insurance.enabled && (
+                            <div className="text-xs text-blue-600">
                               +${(insurance.value * 0.02).toFixed(2)} ins.
-                            </div>}
-                        </div> : shipment.status === 'pending_rates' ? <Skeleton className="h-6 w-16" /> : <span className="text-gray-500">-</span>}
+                            </div>
+                          )}
+                        </div>
+                      ) : shipment.status === 'pending_rates' ? (
+                        <Skeleton className="h-6 w-16" />
+                      ) : (
+                        <span className="text-gray-500">-</span>
+                      )}
                     </TableCell>
-                    
+                    <TableCell>
+                      {['completed', 'rate_selected', 'rates_fetched', 'label_purchased'].includes(shipment.status) ? (
+                        <Badge className="bg-green-100 text-green-700 border-green-200">
+                          <PackageCheck className="mr-1 h-3 w-3" />
+                          Ready
+                        </Badge>
+                      ) : shipment.status === 'pending_rates' ? (
+                        <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                          <Package className="mr-1 h-3 w-3 animate-pulse" />
+                          Processing
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-red-100 text-red-700 border-red-200">
+                          <X className="mr-1 h-3 w-3" />
+                          Error
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
-                        <Dialog open={openDialogs[shipment.id]} onOpenChange={open => {
-                    if (!open) handleCloseEditDialog(shipment.id);
-                  }}>
+                        <Dialog open={openDialogs[shipment.id]} onOpenChange={(open) => {
+                          if (!open) handleCloseEditDialog(shipment.id);
+                        }}>
                           <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(shipment.id)}>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleOpenEditDialog(shipment.id)}
+                            >
                               <Edit className="h-4 w-4 mr-1" />
                               Edit
                             </Button>
@@ -182,38 +253,56 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                             <DialogHeader>
                               <DialogTitle>Edit Customer & Shipment Details</DialogTitle>
                             </DialogHeader>
-                            <ShipmentEditForm shipment={shipment} onSubmit={data => {
-                        onEditShipment(shipment.id, data);
-                        handleCloseEditDialog(shipment.id);
-                      }} onCancel={() => handleCloseEditDialog(shipment.id)} />
+                            <ShipmentEditForm
+                              shipment={shipment}
+                              onSubmit={(data) => {
+                                onEditShipment(shipment.id, data);
+                                handleCloseEditDialog(shipment.id);
+                              }}
+                              onCancel={() => handleCloseEditDialog(shipment.id)}
+                            />
                           </DialogContent>
                         </Dialog>
 
-                        
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => onRefreshRates(shipment.id)}
+                          disabled={shipment.status === 'pending_rates'}
+                        >
+                          <RefreshCcw className={`h-4 w-4 mr-1 ${shipment.status === 'pending_rates' ? 'animate-spin' : ''}`} />
+                          Rates
+                        </Button>
 
-                        <Button variant="outline" size="sm" onClick={() => onRemoveShipment(shipment.id)} className="text-red-500 border-red-200 hover:bg-red-50">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => onRemoveShipment(shipment.id)}
+                          className="text-red-500 border-red-200 hover:bg-red-50"
+                        >
                           <X className="h-4 w-4 mr-1" />
                           Remove
                         </Button>
                       </div>
                     </TableCell>
-                  </TableRow>;
-          })}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
-        </div>}
-    </div>;
+        </div>
+      )}
+    </div>
+  );
 };
+
 interface ShipmentEditFormProps {
   shipment: BulkShipment;
   onSubmit: (data: BulkShipment['details']) => void;
   onCancel: () => void;
 }
-const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({
-  shipment,
-  onSubmit,
-  onCancel
-}) => {
+
+const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({ shipment, onSubmit, onCancel }) => {
   const form = useForm({
     defaultValues: {
       to_name: shipment.details.to_name,
@@ -233,10 +322,13 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({
       reference: shipment.details.reference || ''
     }
   });
+
   const handleFormSubmit = (data: any) => {
     onSubmit(data);
   };
-  return <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+
+  return (
+    <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="to_name">Customer Name *</Label>
@@ -301,30 +393,46 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({
       <div className="grid grid-cols-4 gap-4">
         <div className="space-y-2">
           <Label htmlFor="weight">Weight (oz) *</Label>
-          <Input id="weight" type="number" step="0.1" {...form.register('weight', {
-          valueAsNumber: true
-        })} required />
+          <Input 
+            id="weight" 
+            type="number" 
+            step="0.1"
+            {...form.register('weight', { valueAsNumber: true })} 
+            required
+          />
         </div>
         
         <div className="space-y-2">
           <Label htmlFor="length">Length (in) *</Label>
-          <Input id="length" type="number" step="0.1" {...form.register('length', {
-          valueAsNumber: true
-        })} required />
+          <Input 
+            id="length" 
+            type="number" 
+            step="0.1"
+            {...form.register('length', { valueAsNumber: true })} 
+            required
+          />
         </div>
         
         <div className="space-y-2">
           <Label htmlFor="width">Width (in) *</Label>
-          <Input id="width" type="number" step="0.1" {...form.register('width', {
-          valueAsNumber: true
-        })} required />
+          <Input 
+            id="width"
+            type="number" 
+            step="0.1"
+            {...form.register('width', { valueAsNumber: true })} 
+            required
+          />
         </div>
         
         <div className="space-y-2">
           <Label htmlFor="height">Height (in) *</Label>
-          <Input id="height" type="number" step="0.1" {...form.register('height', {
-          valueAsNumber: true
-        })} required />
+          <Input 
+            id="height"
+            type="number"
+            step="0.1"
+            {...form.register('height', { valueAsNumber: true })} 
+            required
+          />
         </div>
       </div>
 
@@ -337,6 +445,8 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({
           Save Customer Details
         </Button>
       </div>
-    </form>;
+    </form>
+  );
 };
+
 export default BulkShipmentsList;
