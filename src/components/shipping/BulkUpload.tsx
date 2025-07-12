@@ -10,7 +10,6 @@ import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
 import BulkUploadProgressBar, { BulkUploadStep } from './bulk-upload/BulkUploadProgressBar';
 import LabelCreationOverlay from './LabelCreationOverlay';
-import PaymentDropdown from '../payment/PaymentDropdown';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FileText, UploadCloud, AlertCircle, Download, PrinterIcon, Sparkles } from 'lucide-react';
@@ -294,26 +293,7 @@ const BulkUpload: React.FC = () => {
                             <Download className="mr-2 h-5 w-5" />
                             {isCreatingLabels ? 'Creating...' : 'Generate Labels'}
                           </Button>
-                          
-                          <PaymentDropdown
-                            amount={results.totalCost || 0}
-                            description={`Bulk Shipping (${processedShipmentsCount} shipments)`}
-                            shippingDetails={{
-                              shipmentCount: processedShipmentsCount,
-                              pickupAddress: pickupAddress,
-                              shipments: results.processedShipments
-                            }}
-                            onPaymentSuccess={handlePaymentSuccess}
-                            disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress}
-                            className="px-6 shadow-lg hover:shadow-xl transition-all duration-200"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              
+      
               {uploadStatus === 'success' && results && (
                 <div className="space-y-6">
                   {results.bulk_label_pdf_url && (
