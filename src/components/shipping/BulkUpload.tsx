@@ -85,13 +85,13 @@ const BulkUpload: React.FC = () => {
   }, [pickupAddress?.id]);
 
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
-    if (address && (!pickupAddress || address.id !== pickupAddress.id)) {
+    if (address && address.id !== pickupAddress?.id) {
       console.log("Selected pickup address in BulkUpload:", address);
       setPickupAddress(address);
 
       const now = Date.now();
       if (now - lastToastRef.current > 2000) {
-        toast.success(`Pickup address updated: ${address.name || address.street1}`);
+        toast.success(`Selected pickup address: ${address.name || address.street1}`);
         lastToastRef.current = now;
       }
     }
@@ -173,6 +173,11 @@ const BulkUpload: React.FC = () => {
   return (
     <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        {/* Progress Bar */}
+        <div className="bg-white shadow-sm border-b">
+          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
+        </div>
+
         <div className="container mx-auto px-4 py-8">
           <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
             <CardContent className="p-8 rounded-xl">
@@ -363,11 +368,6 @@ const BulkUpload: React.FC = () => {
               )}
             </CardContent>
           </Card>
-        </div>
-
-        {/* Progress Bar at Bottom */}
-        <div className="fixed bottom-0 left-0 right-0 z-40">
-          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
         </div>
       </div>
 
