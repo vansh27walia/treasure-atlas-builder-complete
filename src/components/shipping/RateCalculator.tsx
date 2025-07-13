@@ -60,18 +60,15 @@ const RateCalculator: React.FC = () => {
     setIsCalculating(true);
     
     try {
-      // Create address objects for geocoding
-      const fromAddressString = `${values.fromStreet}, ${values.fromCity}, ${values.fromState} ${values.fromZip}`;
-      const toAddressString = `${values.toStreet}, ${values.toCity}, ${values.toState} ${values.toZip}`;
-      
-      // Generate addresses using geocoding service
+      // Create address objects for geocoding with required phone field
       const fromAddress: GeneratedAddress = {
         name: 'Sender',
         street1: values.fromStreet,
         city: values.fromCity,
         state: values.fromState,
         zip: values.fromZip,
-        country: 'US'
+        country: 'US',
+        phone: '555-555-5555'
       };
 
       const toAddress: GeneratedAddress = {
@@ -80,7 +77,8 @@ const RateCalculator: React.FC = () => {
         city: values.toCity,
         state: values.toState,
         zip: values.toZip,
-        country: 'US'
+        country: 'US',
+        phone: '555-555-5555'
       };
 
       // Convert weight to ounces for consistent processing
