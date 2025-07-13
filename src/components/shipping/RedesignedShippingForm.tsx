@@ -10,19 +10,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Package, Shield, AlertTriangle, Search, Loader2, DollarSign, Info } from 'lucide-react';
+import { MapPin, Package, Shield, AlertTriangle, Search, Loader2, DollarSign, Info, Sparkles } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import AddressSelector from './AddressSelector';
-import CarrierSelector from './CarrierSelector';
-import PackageTypeCard from './PackageTypeCard';
+import PackageDropdown from './PackageDropdown';
+import CarrierDropdown from './CarrierDropdown';
 import { SavedAddress } from '@/services/AddressService';
 import { createAddressSelectHandler } from '@/utils/addressUtils';
 
 const packageOptions = [
   { 
     value: 'box', 
-    label: 'Boxes', 
+    label: 'Custom Box', 
     type: 'custom',
     icon: '📦',
     description: 'Custom sized boxes',
@@ -31,7 +31,7 @@ const packageOptions = [
   },
   { 
     value: 'envelope', 
-    label: 'Envelopes', 
+    label: 'Custom Envelope', 
     type: 'custom',
     icon: '📮',
     description: 'Documents & flat items',
@@ -105,7 +105,6 @@ const RedesignedShippingForm: React.FC = () => {
   const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
   const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
   const [selectedCarrier, setSelectedCarrier] = useState('all');
-  const [currentStep, setCurrentStep] = useState(1);
 
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
@@ -143,8 +142,11 @@ const RedesignedShippingForm: React.FC = () => {
     return (
       <div className="space-y-6">
         {showDimensions && (
-          <div>
-            <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Dimensions</Label>
+          <div className="p-6 bg-gradient-to-r from-blue-50/50 to-purple-50/50 rounded-2xl border border-blue-100/50 backdrop-blur-sm">
+            <Label className="text-base font-semibold text-gray-900 mb-4 block flex items-center">
+              <Package className="w-5 h-5 mr-2 text-blue-600" />
+              Package Dimensions
+            </Label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <FormField
                 control={form.control}
@@ -158,7 +160,7 @@ const RedesignedShippingForm: React.FC = () => {
                         min="0"
                         step="0.1"
                         placeholder="8"
-                        className="h-11"
+                        className="h-12 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl"
                         {...field}
                         value={field.value || ''}
                         onChange={(e) => field.onChange(Number(e.target.value))}
@@ -181,7 +183,7 @@ const RedesignedShippingForm: React.FC = () => {
                         min="0" 
                         step="0.1"
                         placeholder="8"
-                        className="h-11"
+                        className="h-12 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl"
                         {...field}
                         value={field.value || ''}
                         onChange={(e) => field.onChange(Number(e.target.value))}
@@ -205,7 +207,7 @@ const RedesignedShippingForm: React.FC = () => {
                           min="0"
                           step="0.1"
                           placeholder="2"
-                          className="h-11"
+                          className="h-12 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl"
                           {...field}
                           value={field.value || ''}
                           onChange={(e) => field.onChange(Number(e.target.value))}
@@ -220,8 +222,11 @@ const RedesignedShippingForm: React.FC = () => {
           </div>
         )}
         
-        <div>
-          <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Weight</Label>
+        <div className="p-6 bg-gradient-to-r from-green-50/50 to-blue-50/50 rounded-2xl border border-green-100/50 backdrop-blur-sm">
+          <Label className="text-base font-semibold text-gray-900 mb-4 block flex items-center">
+            <Package className="w-5 h-5 mr-2 text-green-600" />
+            Package Weight
+          </Label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
@@ -235,7 +240,7 @@ const RedesignedShippingForm: React.FC = () => {
                       min="0"
                       step="0.1"
                       placeholder="1"
-                      className="h-11"
+                      className="h-12 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl"
                       {...field}
                       onChange={(e) => field.onChange(Number(e.target.value))}
                     />
@@ -253,11 +258,11 @@ const RedesignedShippingForm: React.FC = () => {
                   <FormLabel className="text-sm font-medium">Unit</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger className="h-11">
+                      <SelectTrigger className="h-12 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl">
                         <SelectValue />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent>
+                    <SelectContent className="bg-white/95 backdrop-blur-md border border-gray-200 shadow-xl rounded-xl">
                       <SelectItem value="oz">Ounces (oz)</SelectItem>
                       <SelectItem value="lb">Pounds (lb)</SelectItem>
                       <SelectItem value="kg">Kilograms (kg)</SelectItem>
@@ -271,14 +276,6 @@ const RedesignedShippingForm: React.FC = () => {
         </div>
       </div>
     );
-  };
-
-  const groupedPackages = {
-    custom: packageOptions.filter(p => p.type === 'custom'),
-    USPS: packageOptions.filter(p => p.category === 'USPS'),
-    UPS: packageOptions.filter(p => p.category === 'UPS'),
-    FedEx: packageOptions.filter(p => p.category === 'FedEx'),
-    DHL: packageOptions.filter(p => p.category === 'DHL'),
   };
 
   const handleGetRates = async (values: ShippingFormValues) => {
@@ -410,287 +407,228 @@ const RedesignedShippingForm: React.FC = () => {
   };
 
   return (
-    <div className="w-full space-y-8">
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-        {/* Main Form - 3 columns */}
-        <div className="xl:col-span-3 space-y-8">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-8">
-              
-              {/* Step 1: Addresses */}
-              <div className="space-y-6">
-                <Card className="overflow-hidden border-2 border-blue-100 shadow-lg">
-                  <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-                    <CardTitle className="flex items-center text-xl">
-                      <div className="w-8 h-8 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold text-sm mr-3">1</div>
-                      <MapPin className="mr-3 h-6 w-6" />
-                      Pickup Address
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6 bg-blue-50">
+    <div className="w-full max-w-5xl mx-auto space-y-8 p-6">
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-8">
+          
+          {/* Step 1: Addresses */}
+          <div className="space-y-6">
+            <Card className="overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-white/90 to-blue-50/50 backdrop-blur-lg">
+              <CardHeader className="bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 text-white p-8">
+                <CardTitle className="flex items-center text-2xl font-bold">
+                  <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm text-blue-600 flex items-center justify-center font-bold text-lg mr-4">1</div>
+                  <MapPin className="mr-3 h-7 w-7" />
+                  Shipping Addresses
+                  <Sparkles className="ml-auto h-6 w-6" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-8 space-y-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <Label className="text-lg font-semibold text-gray-900 flex items-center">
+                      <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mr-2">F</div>
+                      From Address
+                    </Label>
                     <AddressSelector 
                       type="from"
                       onAddressSelect={handleFromAddressSelect}
                       useGoogleAutocomplete={true}
                     />
-                  </CardContent>
-                </Card>
-
-                <Card className="overflow-hidden border-2 border-green-100 shadow-lg">
-                  <CardHeader className="bg-gradient-to-r from-green-600 to-green-700 text-white">
-                    <CardTitle className="flex items-center text-xl">
-                      <div className="w-8 h-8 rounded-full bg-white text-green-600 flex items-center justify-center font-bold text-sm mr-3">2</div>
-                      <MapPin className="mr-3 h-6 w-6" />
-                      Drop-Off Address
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6 bg-green-50">
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-lg font-semibold text-gray-900 flex items-center">
+                      <div className="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold mr-2">T</div>
+                      To Address
+                    </Label>
                     <AddressSelector 
                       type="to"
                       onAddressSelect={handleToAddressSelect}
                       useGoogleAutocomplete={true}
                     />
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Step 2: Package Selection */}
-              <Card className="overflow-hidden border-2 border-purple-100 shadow-lg">
-                <CardHeader className="bg-gradient-to-r from-purple-600 to-purple-700 text-white">
-                  <CardTitle className="flex items-center text-xl">
-                    <div className="w-8 h-8 rounded-full bg-white text-purple-600 flex items-center justify-center font-bold text-sm mr-3">3</div>
-                    <Package className="mr-3 h-6 w-6" />
-                    Select Your Package
-                  </CardTitle>
-                </CardHeader>
-                
-                <CardContent className="p-6 space-y-6">
-                  {/* Custom Packages */}
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-800">Custom Packages</h3>
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-700">Most Popular</Badge>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {groupedPackages.custom.map((pkg) => (
-                        <PackageTypeCard
-                          key={pkg.value}
-                          icon={pkg.icon}
-                          title={pkg.label}
-                          description={pkg.description}
-                          isSelected={selectedPackageType === pkg.value}
-                          onClick={() => form.setValue('packageType', pkg.value)}
-                          image={pkg.image}
-                          isRecommended={pkg.value === 'box'}
-                        />
-                      ))}
-                    </div>
                   </div>
-
-                  {/* Carrier Packages */}
-                  {Object.entries(groupedPackages).filter(([key]) => key !== 'custom').map(([carrier, packages]) => (
-                    <div key={carrier}>
-                      <h3 className="text-lg font-semibold text-gray-800 flex items-center mb-4">
-                        <span className="mr-3 text-2xl">
-                          {carrier === 'USPS' && '🇺🇸'}
-                          {carrier === 'UPS' && '🤎'}
-                          {carrier === 'FedEx' && '💜'}
-                          {carrier === 'DHL' && '🟡'}
-                        </span>
-                        {carrier} Standard Packages
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {packages.map((pkg) => (
-                          <PackageTypeCard
-                            key={pkg.value}
-                            icon={pkg.icon}
-                            title={pkg.label.replace(`${carrier} - `, '')}
-                            description={pkg.description}
-                            isSelected={selectedPackageType === pkg.value}
-                            onClick={() => form.setValue('packageType', pkg.value)}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Package Details */}
-                  {selectedPackage && (
-                    <div className="mt-8 p-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                        <Package className="mr-3 h-5 w-5 text-gray-600" />
-                        Package Details
-                      </h3>
-                      {getInputFields()}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Step 3: Additional Options */}
-              <Card className="overflow-hidden border-2 border-orange-100 shadow-lg">
-                <CardHeader className="bg-gradient-to-r from-orange-600 to-orange-700 text-white">
-                  <CardTitle className="flex items-center text-xl">
-                    <div className="w-8 h-8 rounded-full bg-white text-orange-600 flex items-center justify-center font-bold text-sm mr-3">4</div>
-                    <Shield className="mr-3 h-6 w-6" />
-                    Protection & Special Options
-                  </CardTitle>
-                </CardHeader>
-                
-                <CardContent className="p-6 space-y-6">
-                  {/* HAZMAT Option */}
-                  <div className="p-4 bg-yellow-50 border-2 border-yellow-200 rounded-xl">
-                    <FormField
-                      control={form.control}
-                      name="hazmat"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-4 space-y-0">
-                          <FormControl>
-                            <Checkbox 
-                              checked={field.value} 
-                              onCheckedChange={field.onChange}
-                              className="w-5 h-5"
-                            />
-                          </FormControl>
-                          <div className="space-y-2 leading-none flex-1">
-                            <FormLabel className="text-base font-semibold flex items-center text-yellow-800">
-                              <AlertTriangle className="w-5 h-5 mr-2 text-yellow-600" />
-                              Hazardous Materials (HAZMAT)
-                            </FormLabel>
-                            <p className="text-sm text-yellow-700">
-                              Contains lithium batteries, chemicals, or other hazardous materials. This may limit available services and require special handling.
-                            </p>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* Insurance Option */}
-                  <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="insurance"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-4 space-y-0">
-                          <FormControl>
-                            <Checkbox 
-                              checked={field.value} 
-                              onCheckedChange={field.onChange}
-                              className="w-5 h-5"
-                            />
-                          </FormControl>
-                          <div className="space-y-2 leading-none flex-1">
-                            <FormLabel className="text-base font-semibold flex items-center text-gray-900">
-                              <Shield className="w-5 h-5 mr-2 text-blue-600" />
-                              Package Insurance Protection
-                            </FormLabel>
-                            <p className="text-sm text-gray-600">
-                              Protect your shipment against loss, theft, or damage. Only $4 per $100 of declared value.
-                            </p>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-
-                    {insuranceEnabled && (
-                      <div className="ml-9 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <FormField
-                          control={form.control}
-                          name="declaredValue"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm font-semibold flex items-center">
-                                <DollarSign className="w-4 h-4 mr-1" />
-                                Declared Value (USD)
-                              </FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  placeholder="100.00"
-                                  className="h-11"
-                                  {...field}
-                                  onChange={(e) => field.onChange(Number(e.target.value))}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <div className="mt-4 p-3 bg-white border border-blue-300 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-blue-800">Insurance Cost:</span>
-                            <span className="text-lg font-bold text-blue-900">${insuranceCost}</span>
-                          </div>
-                          <p className="text-xs text-blue-600 mt-1">
-                            Based on ${declaredValue} declared value
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Submit Button */}
-              <Card className="overflow-hidden border-2 border-green-200 shadow-lg bg-gradient-to-r from-green-50 to-blue-50">
-                <CardContent className="p-6">
-                  <Button 
-                    type="submit" 
-                    size="lg" 
-                    className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="h-6 w-6 animate-spin mr-3" />
-                        Getting Your Best Rates...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="h-6 w-6 mr-3" />
-                        Get Shipping Rates from All Carriers
-                      </>
-                    )}
-                  </Button>
-                  {!isLoading && (
-                    <p className="text-center text-sm text-gray-600 mt-3">
-                      Compare rates from USPS, UPS, FedEx, and DHL instantly
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-
-            </form>
-          </Form>
-        </div>
-
-        {/* Carrier Selection Sidebar - 1 column */}
-        <div className="xl:col-span-1 space-y-6">
-          <div className="sticky top-32">
-            <CarrierSelector 
-              selectedCarrier={selectedCarrier}
-              onCarrierChange={setSelectedCarrier}
-            />
-            
-            {/* Help Card */}
-            <Card className="mt-6 p-4 bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
-              <div className="flex items-start space-x-3">
-                <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h4 className="font-semibold text-blue-900 text-sm">Need Help?</h4>
-                  <p className="text-xs text-blue-700 mt-1">
-                    Select a specific carrier to see only their rates, or choose "All Carriers" to compare all options.
-                  </p>
                 </div>
-              </div>
+              </CardContent>
             </Card>
           </div>
-        </div>
-      </div>
+
+          {/* Step 2: Package & Carrier Selection */}
+          <Card className="overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-white/90 to-purple-50/50 backdrop-blur-lg">
+            <CardHeader className="bg-gradient-to-r from-purple-600 via-purple-700 to-pink-600 text-white p-8">
+              <CardTitle className="flex items-center text-2xl font-bold">
+                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm text-purple-600 flex items-center justify-center font-bold text-lg mr-4">2</div>
+                <Package className="mr-3 h-7 w-7" />
+                Package & Carrier
+                <Sparkles className="ml-auto h-6 w-6" />
+              </CardTitle>
+            </CardHeader>
+            
+            <CardContent className="p-8 space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <PackageDropdown
+                  options={packageOptions}
+                  value={selectedPackageType}
+                  onValueChange={(value) => form.setValue('packageType', value)}
+                />
+                
+                <CarrierDropdown
+                  value={selectedCarrier}
+                  onValueChange={setSelectedCarrier}
+                />
+              </div>
+
+              {/* Package Details */}
+              {selectedPackage && (
+                <div className="mt-8">
+                  {getInputFields()}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Step 3: Additional Options */}
+          <Card className="overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-white/90 to-orange-50/50 backdrop-blur-lg">
+            <CardHeader className="bg-gradient-to-r from-orange-600 via-orange-700 to-red-600 text-white p-8">
+              <CardTitle className="flex items-center text-2xl font-bold">
+                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm text-orange-600 flex items-center justify-center font-bold text-lg mr-4">3</div>
+                <Shield className="mr-3 h-7 w-7" />
+                Protection & Options
+                <Sparkles className="ml-auto h-6 w-6" />
+              </CardTitle>
+            </CardHeader>
+            
+            <CardContent className="p-8 space-y-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* HAZMAT Option */}
+                <div className="p-6 bg-gradient-to-r from-yellow-50/80 to-orange-50/80 border-2 border-yellow-200/50 rounded-2xl backdrop-blur-sm">
+                  <FormField
+                    control={form.control}
+                    name="hazmat"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-4 space-y-0">
+                        <FormControl>
+                          <Checkbox 
+                            checked={field.value} 
+                            onCheckedChange={field.onChange}
+                            className="w-6 h-6 border-2"
+                          />
+                        </FormControl>
+                        <div className="space-y-2 leading-none flex-1">
+                          <FormLabel className="text-lg font-bold flex items-center text-yellow-800">
+                            <AlertTriangle className="w-6 h-6 mr-2 text-yellow-600" />
+                            Hazardous Materials (HAZMAT)
+                          </FormLabel>
+                          <p className="text-sm text-yellow-700">
+                            Contains lithium batteries, chemicals, or other hazardous materials. This may limit available services and require special handling.
+                          </p>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Insurance Option */}
+                <div className="p-6 bg-gradient-to-r from-blue-50/80 to-green-50/80 border-2 border-blue-200/50 rounded-2xl backdrop-blur-sm">
+                  <FormField
+                    control={form.control}
+                    name="insurance"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-4 space-y-0">
+                        <FormControl>
+                          <Checkbox 
+                            checked={field.value} 
+                            onCheckedChange={field.onChange}
+                            className="w-6 h-6 border-2"
+                          />
+                        </FormControl>
+                        <div className="space-y-2 leading-none flex-1">
+                          <FormLabel className="text-lg font-bold flex items-center text-gray-900">
+                            <Shield className="w-6 h-6 mr-2 text-blue-600" />
+                            Package Insurance Protection
+                          </FormLabel>
+                          <p className="text-sm text-gray-600">
+                            Protect your shipment against loss, theft, or damage. Only $4 per $100 of declared value.
+                          </p>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {insuranceEnabled && (
+                <div className="p-6 bg-gradient-to-r from-green-50/80 to-blue-50/80 border-2 border-green-200/50 rounded-2xl backdrop-blur-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                    <FormField
+                      control={form.control}
+                      name="declaredValue"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-lg font-semibold flex items-center">
+                            <DollarSign className="w-5 h-5 mr-1" />
+                            Declared Value (USD)
+                          </FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              placeholder="100.00"
+                              className="h-12 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl text-lg"
+                              {...field}
+                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <div className="p-4 bg-white/80 backdrop-blur-sm border-2 border-green-300 rounded-xl">
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-semibold text-green-800">Insurance Cost:</span>
+                        <span className="text-2xl font-bold text-green-900">${insuranceCost}</span>
+                      </div>
+                      <p className="text-sm text-green-600 mt-1">
+                        Based on ${declaredValue} declared value
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Submit Button */}
+          <Card className="overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-green-50/80 to-blue-50/80 backdrop-blur-lg">
+            <CardContent className="p-8">
+              <Button 
+                type="submit" 
+                size="lg" 
+                className="w-full h-16 text-xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 hover:from-blue-700 hover:via-purple-700 hover:to-green-700 text-white shadow-2xl hover:shadow-3xl transition-all duration-500 rounded-2xl"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-7 w-7 animate-spin mr-4" />
+                    Fetching Your Best Rates...
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-7 w-7 mr-4" />
+                    Compare Shipping Rates from All Carriers
+                  </>
+                )}
+              </Button>
+              {!isLoading && (
+                <p className="text-center text-lg text-gray-600 mt-4 font-medium">
+                  🚀 Get instant quotes from USPS, UPS, FedEx, and DHL
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+        </form>
+      </Form>
     </div>
   );
 };
