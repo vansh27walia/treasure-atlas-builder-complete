@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ShippingRates from '@/components/ShippingRates';
@@ -7,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Package, Globe, Upload, Truck, Calculator } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import RedesignedShippingForm from '@/components/shipping/RedesignedShippingForm';
+import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import BatchLabelControls from '@/components/shipping/BatchLabelControls';
 
@@ -125,11 +126,11 @@ const CreateLabelPage: React.FC = () => {
               <div className="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg mb-4 border border-blue-100">
                 <h2 className="text-lg font-semibold text-blue-800 flex items-center mb-2">
                   <Truck className="h-5 w-5 mr-2 text-blue-600" />
-                  Domestic Shipping - Redesigned Experience
+                  Domestic Shipping
                 </h2>
-                <p className="text-blue-700 text-sm">Enhanced vertical layout with comprehensive package selection and custom insurance options.</p>
+                <p className="text-blue-700 text-sm">Ship packages within the country with our various carrier options.</p>
               </div>
-              <RedesignedShippingForm />
+              <EnhancedShippingForm />
             </TabsContent>
             
             <TabsContent value="international" className="p-4">
