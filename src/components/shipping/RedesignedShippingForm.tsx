@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -71,7 +72,7 @@ const shippingFormSchema = z.object({
   width: z.coerce.number().min(0, "Width must be greater than 0").optional(),
   height: z.coerce.number().min(0, "Height must be greater than 0").optional(),
   insurance: z.boolean().default(true),
-  declaredValue: z.coerce.number().min(0, "Declared value must be greater than 0").default(100),
+  declaredValue: z.coerce.number().min(0, "Declared value must be greater than 0").default(0),
   hazmat: z.boolean().default(false),
   hazmatType: z.string().optional(),
 });
@@ -96,11 +97,11 @@ const RedesignedShippingForm: React.FC = () => {
       carrier: 'all',
       weightValue: 0,
       weightUnit: 'oz',
-      length: 8,
-      width: 8,
-      height: 2,
+      length: 0,
+      width: 0,
+      height: 0,
       insurance: true,
-      declaredValue: 100,
+      declaredValue: 0,
       hazmat: false,
       hazmatType: '',
     }
@@ -333,110 +334,129 @@ const RedesignedShippingForm: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Package & Shipping Details */}
+            {/* Package Selection - Separate Vertical Section */}
             {fromAddress && toAddress && (
+              <Card className="overflow-hidden border border-purple-200/50 shadow-lg bg-gradient-to-br from-purple-50/80 to-white/80 backdrop-blur-sm">
+                <CardHeader className="bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+                  <CardTitle className="flex items-center text-xl">
+                    <Package className="mr-3 h-6 w-6" />
+                    Package Selection
+                  </CardTitle>
+                </CardHeader>
+                
+                <CardContent className="p-6">
+                  <FormField
+                    control={form.control}
+                    name="packageType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-base font-semibold flex items-center gap-2">
+                          <Box className="w-5 h-5" />
+                          Select Package Type
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="h-16 text-base border-2 border-purple-200 focus:border-purple-500 bg-white/90 backdrop-blur-sm">
+                              <SelectValue placeholder="Choose your package type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="max-h-80 bg-white/95 backdrop-blur-md border-purple-200">
+                            {Object.entries(groupedPackages).map(([category, packages]) => (
+                              <div key={category}>
+                                <div className="px-3 py-2 text-sm font-semibold text-purple-700 bg-purple-50/80 border-b border-purple-200">
+                                  {category}
+                                </div>
+                                {packages.map((pkg) => (
+                                  <SelectItem key={pkg.value} value={pkg.value} className="pl-4 py-3 hover:bg-purple-50">
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-xl">{pkg.icon}</span>
+                                      <div>
+                                        <div className="font-medium">{pkg.label}</div>
+                                        <div className="text-xs text-gray-500">{pkg.description}</div>
+                                      </div>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </div>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Carrier Selection - Separate Section */}
+            {selectedPackageType && (
+              <Card className="overflow-hidden border border-green-200/50 shadow-lg bg-gradient-to-br from-green-50/80 to-white/80 backdrop-blur-sm">
+                <CardHeader className="bg-gradient-to-r from-green-600 to-green-700 text-white">
+                  <CardTitle className="flex items-center text-xl">
+                    <Package className="mr-3 h-6 w-6" />
+                    Carrier Selection
+                  </CardTitle>
+                </CardHeader>
+                
+                <CardContent className="p-6">
+                  <FormField
+                    control={form.control}
+                    name="carrier"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-base font-semibold">Select Carrier</FormLabel>
+                        <div className="grid grid-cols-3 gap-4">
+                          {carrierOptions.map((carrier) => (
+                            <div
+                              key={carrier.value}
+                              className={`
+                                relative p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md
+                                ${field.value === carrier.value 
+                                  ? 'border-green-500 bg-green-50 shadow-lg ring-2 ring-green-200' 
+                                  : 'border-gray-200 bg-white hover:border-green-300 hover:bg-green-50'
+                                }
+                              `}
+                              onClick={() => field.onChange(carrier.value)}
+                            >
+                              <div className="flex flex-col items-center text-center space-y-2">
+                                <span className="text-3xl">{carrier.logo}</span>
+                                <span className={`text-sm font-semibold ${
+                                  field.value === carrier.value ? 'text-green-700' : 'text-gray-700'
+                                }`}>
+                                  {carrier.label}
+                                </span>
+                              </div>
+                              {field.value === carrier.value && (
+                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                                  <div className="w-2 h-2 rounded-full bg-white"></div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Package Details & Additional Options */}
+            {selectedCarrier && (
               <Card className="overflow-hidden border border-blue-200/50 shadow-lg bg-gradient-to-br from-blue-50/80 to-white/80 backdrop-blur-sm">
                 <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
                   <CardTitle className="flex items-center text-xl">
                     <Package className="mr-3 h-6 w-6" />
-                    Package & Shipping Details
+                    Package Details
                   </CardTitle>
                 </CardHeader>
                 
                 <CardContent className="p-6 space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     
-                    {/* Left Column - Package Selection */}
-                    <div className="space-y-6">
-                      {/* Enhanced Package Type Dropdown */}
-                      <div>
-                        <FormField
-                          control={form.control}
-                          name="packageType"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-base font-semibold flex items-center gap-2">
-                                <Box className="w-5 h-5" />
-                                Select Package Type
-                              </FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger className="h-14 text-base border-2 border-blue-200 focus:border-blue-500 bg-white/80 backdrop-blur-sm">
-                                    <SelectValue placeholder="Choose your package type" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent className="max-h-80 bg-white/95 backdrop-blur-md border-blue-200">
-                                  {Object.entries(groupedPackages).map(([category, packages]) => (
-                                    <div key={category}>
-                                      <div className="px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50/80 border-b border-blue-200">
-                                        {category}
-                                      </div>
-                                      {packages.map((pkg) => (
-                                        <SelectItem key={pkg.value} value={pkg.value} className="pl-4 py-3 hover:bg-blue-50">
-                                          <div className="flex items-center gap-3">
-                                            <span className="text-xl">{pkg.icon}</span>
-                                            <div>
-                                              <div className="font-medium">{pkg.label}</div>
-                                              <div className="text-xs text-gray-500">{pkg.description}</div>
-                                            </div>
-                                          </div>
-                                        </SelectItem>
-                                      ))}
-                                    </div>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      {/* Enhanced Carrier Selection */}
-                      <div>
-                        <FormField
-                          control={form.control}
-                          name="carrier"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-base font-semibold">Select Carrier</FormLabel>
-                              <div className="grid grid-cols-2 gap-3">
-                                {carrierOptions.map((carrier) => (
-                                  <div
-                                    key={carrier.value}
-                                    className={`
-                                      relative p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md
-                                      ${field.value === carrier.value 
-                                        ? 'border-blue-500 bg-blue-50 shadow-lg ring-2 ring-blue-200' 
-                                        : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
-                                      }
-                                    `}
-                                    onClick={() => field.onChange(carrier.value)}
-                                  >
-                                    <div className="flex flex-col items-center text-center space-y-2">
-                                      <span className="text-2xl">{carrier.logo}</span>
-                                      <span className={`text-sm font-semibold ${
-                                        field.value === carrier.value ? 'text-blue-700' : 'text-gray-700'
-                                      }`}>
-                                        {carrier.label}
-                                      </span>
-                                    </div>
-                                    {field.value === carrier.value && (
-                                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                                        <div className="w-2 h-2 rounded-full bg-white"></div>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Right Column - Package Details */}
+                    {/* Left Column - Package Details */}
                     <div className="space-y-6">
                       {/* Package Dimensions (for custom packages) */}
                       {showDimensions && (
@@ -454,7 +474,7 @@ const RedesignedShippingForm: React.FC = () => {
                                       type="number"
                                       min="0"
                                       step="0.1"
-                                      placeholder="8"
+                                      placeholder="0"
                                       className="h-11"
                                       {...field}
                                       value={field.value || ''}
@@ -477,7 +497,7 @@ const RedesignedShippingForm: React.FC = () => {
                                       type="number"
                                       min="0" 
                                       step="0.1"
-                                      placeholder="8"
+                                      placeholder="0"
                                       className="h-11"
                                       {...field}
                                       value={field.value || ''}
@@ -501,7 +521,7 @@ const RedesignedShippingForm: React.FC = () => {
                                         type="number"
                                         min="0"
                                         step="0.1"
-                                        placeholder="2"
+                                        placeholder="0"
                                         className="h-11"
                                         {...field}
                                         value={field.value || ''}
@@ -532,7 +552,7 @@ const RedesignedShippingForm: React.FC = () => {
                                     type="number"
                                     min="0"
                                     step="0.1"
-                                    placeholder="1"
+                                    placeholder="0"
                                     className="h-11"
                                     {...field}
                                     onChange={(e) => field.onChange(Number(e.target.value))}
@@ -568,130 +588,133 @@ const RedesignedShippingForm: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* HAZMAT Section - Enhanced Design */}
-                  <div className="p-5 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200/70 rounded-xl shadow-sm">
-                    <FormField
-                      control={form.control}
-                      name="hazmat"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-4 space-y-0">
-                          <FormControl>
-                            <Checkbox 
-                              checked={field.value} 
-                              onCheckedChange={field.onChange}
-                              className="w-5 h-5 border-2 border-yellow-400 data-[state=checked]:bg-yellow-500"
-                            />
-                          </FormControl>
-                          <div className="space-y-2 leading-none flex-1">
-                            <FormLabel className="text-base font-semibold flex items-center text-yellow-800">
-                              <AlertTriangle className="w-5 h-5 mr-2 text-yellow-600" />
-                              Contains Hazardous Materials (HAZMAT)
-                            </FormLabel>
-                            <p className="text-sm text-yellow-700">
-                              Check this if your package contains lithium batteries, chemicals, or other hazardous materials.
-                            </p>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-
-                    {hazmatEnabled && (
-                      <div className="mt-4">
+                    {/* Right Column - Additional Options */}
+                    <div className="space-y-6">
+                      {/* HAZMAT Section */}
+                      <div className="p-5 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200/70 rounded-xl shadow-sm">
                         <FormField
                           control={form.control}
-                          name="hazmatType"
+                          name="hazmat"
                           render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-yellow-800 font-medium">HAZMAT Type</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger className="h-11 border-yellow-300 bg-white">
-                                    <SelectValue placeholder="Select HAZMAT type" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {hazmatTypes.map((type) => (
-                                    <SelectItem key={type.value} value={type.value}>
-                                      {type.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Insurance Section - Enhanced Design */}
-                  <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200/70 rounded-xl shadow-sm">
-                    <FormField
-                      control={form.control}
-                      name="insurance"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-4 space-y-0">
-                          <FormControl>
-                            <Checkbox 
-                              checked={field.value} 
-                              onCheckedChange={field.onChange}
-                              className="w-5 h-5 border-2 border-green-400 data-[state=checked]:bg-green-500"
-                            />
-                          </FormControl>
-                          <div className="space-y-2 leading-none flex-1">
-                            <FormLabel className="text-base font-semibold flex items-center text-green-800">
-                              <Shield className="w-5 h-5 mr-2 text-green-600" />
-                              Add $4 insurance per $100 shipment value
-                            </FormLabel>
-                            <p className="text-sm text-green-700">
-                              Protect your shipment against loss, theft, or damage. Recommended for all shipments.
-                            </p>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-
-                    {insuranceEnabled && (
-                      <div className="mt-4 space-y-4">
-                        <FormField
-                          control={form.control}
-                          name="declaredValue"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="flex items-center text-green-800 font-medium">
-                                <DollarSign className="w-4 h-4 mr-1" />
-                                Declared Value (USD)
-                              </FormLabel>
+                            <FormItem className="flex flex-row items-center space-x-4 space-y-0">
                               <FormControl>
-                                <Input 
-                                  type="number"
-                                  min="0"
-                                  step="0.01"
-                                  placeholder="100.00"
-                                  className="h-11 border-green-300 bg-white"
-                                  {...field}
-                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                <Checkbox 
+                                  checked={field.value} 
+                                  onCheckedChange={field.onChange}
+                                  className="w-5 h-5 border-2 border-yellow-400 data-[state=checked]:bg-yellow-500"
                                 />
                               </FormControl>
-                              <FormMessage />
+                              <div className="space-y-2 leading-none flex-1">
+                                <FormLabel className="text-base font-semibold flex items-center text-yellow-800">
+                                  <AlertTriangle className="w-5 h-5 mr-2 text-yellow-600" />
+                                  Contains Hazardous Materials (HAZMAT)
+                                </FormLabel>
+                                <p className="text-sm text-yellow-700">
+                                  Check this if your package contains lithium batteries, chemicals, or other hazardous materials.
+                                </p>
+                              </div>
                             </FormItem>
                           )}
                         />
-                        
-                        <div className="p-4 bg-white/80 border-2 border-green-300/50 rounded-lg">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-green-800">Insurance Cost:</span>
-                            <span className="text-xl font-bold text-green-900">${insuranceCost}</span>
+
+                        {hazmatEnabled && (
+                          <div className="mt-4">
+                            <FormField
+                              control={form.control}
+                              name="hazmatType"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="text-yellow-800 font-medium">HAZMAT Type</FormLabel>
+                                  <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger className="h-11 border-yellow-300 bg-white">
+                                        <SelectValue placeholder="Select HAZMAT type" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {hazmatTypes.map((type) => (
+                                        <SelectItem key={type.value} value={type.value}>
+                                          {type.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
                           </div>
-                          <p className="text-xs text-green-600 mt-1">
-                            Based on ${declaredValue} declared value
-                          </p>
-                        </div>
+                        )}
                       </div>
-                    )}
+
+                      {/* Insurance Section */}
+                      <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200/70 rounded-xl shadow-sm">
+                        <FormField
+                          control={form.control}
+                          name="insurance"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center space-x-4 space-y-0">
+                              <FormControl>
+                                <Checkbox 
+                                  checked={field.value} 
+                                  onCheckedChange={field.onChange}
+                                  className="w-5 h-5 border-2 border-green-400 data-[state=checked]:bg-green-500"
+                                />
+                              </FormControl>
+                              <div className="space-y-2 leading-none flex-1">
+                                <FormLabel className="text-base font-semibold flex items-center text-green-800">
+                                  <Shield className="w-5 h-5 mr-2 text-green-600" />
+                                  Add $4 insurance per $100 shipment value
+                                </FormLabel>
+                                <p className="text-sm text-green-700">
+                                  Protect your shipment against loss, theft, or damage. Recommended for all shipments.
+                                </p>
+                              </div>
+                            </FormItem>
+                          )}
+                        />
+
+                        {insuranceEnabled && (
+                          <div className="mt-4 space-y-4">
+                            <FormField
+                              control={form.control}
+                              name="declaredValue"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel className="flex items-center text-green-800 font-medium">
+                                    <DollarSign className="w-4 h-4 mr-1" />
+                                    Declared Value (USD)
+                                  </FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      placeholder="0.00"
+                                      className="h-11 border-green-300 bg-white"
+                                      {...field}
+                                      onChange={(e) => field.onChange(Number(e.target.value))}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <div className="p-4 bg-white/80 border-2 border-green-300/50 rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-green-800">Insurance Cost:</span>
+                                <span className="text-xl font-bold text-green-900">${insuranceCost}</span>
+                              </div>
+                              <p className="text-xs text-green-600 mt-1">
+                                Based on ${declaredValue} declared value
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* International Badge */}

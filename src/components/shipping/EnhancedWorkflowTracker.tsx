@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { MapPin, Package, Search, CreditCard, FileText, CheckCircle } from 'lucide-react';
+import { MapPin, Package, Search } from 'lucide-react';
 
 interface EnhancedWorkflowTrackerProps {
-  currentStep: 'address' | 'package' | 'rates' | 'review' | 'payment' | 'complete';
+  currentStep: 'address' | 'package' | 'rates';
 }
 
 const steps = [
@@ -24,24 +24,6 @@ const steps = [
     name: 'Rates',
     description: 'Compare Options',
     icon: Search,
-  },
-  {
-    id: 'review',
-    name: 'Review',
-    description: 'Confirm Details',
-    icon: FileText,
-  },
-  {
-    id: 'payment',
-    name: 'Payment',
-    description: 'Secure Checkout',
-    icon: CreditCard,
-  },
-  {
-    id: 'complete',
-    name: 'Complete',
-    description: 'Label Ready',
-    icon: CheckCircle,
   }
 ];
 
@@ -62,11 +44,11 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({ curre
       <div 
         className="mx-auto max-w-5xl p-4 mb-6"
         style={{
-          background: 'rgba(255, 255, 255, 0.85)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.2)',
-          borderRadius: '16px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+          background: 'rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(25px)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          borderRadius: '20px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
         }}
       >
         <div className="flex items-center justify-between">
@@ -79,36 +61,32 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({ curre
                 <div className="flex flex-col items-center">
                   {/* Step Circle */}
                   <div className={`
-                    w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all duration-300 relative
+                    w-14 h-14 rounded-full border-2 flex items-center justify-center transition-all duration-300 relative
                     ${status === 'completed' 
-                      ? 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-500/30' 
+                      ? 'bg-blue-500/80 border-blue-400 text-white shadow-lg shadow-blue-500/30 backdrop-blur-sm' 
                       : status === 'current'
-                      ? 'bg-blue-100 border-blue-500 text-blue-600 shadow-lg shadow-blue-500/20 ring-4 ring-blue-100'
-                      : 'bg-gray-100 border-gray-300 text-gray-400'
+                      ? 'bg-blue-100/30 border-blue-500 text-blue-600 shadow-lg shadow-blue-500/20 ring-4 ring-blue-100/20 backdrop-blur-sm'
+                      : 'bg-gray-100/20 border-gray-300/50 text-gray-400 backdrop-blur-sm'
                     }
                   `}>
-                    {status === 'completed' ? (
-                      <CheckCircle className="w-6 h-6" />
-                    ) : (
-                      <Icon className="w-6 h-6" />
-                    )}
+                    <Icon className="w-7 h-7" />
                     
                     {status === 'current' && (
-                      <div className="absolute -inset-1 rounded-full bg-blue-500 opacity-20 animate-pulse" />
+                      <div className="absolute -inset-1 rounded-full bg-blue-500/20 animate-pulse backdrop-blur-sm" />
                     )}
                   </div>
                   
                   {/* Step Text */}
-                  <div className="text-center mt-3">
-                    <div className={`text-sm font-semibold ${
-                      status === 'current' ? 'text-blue-600' : 
+                  <div className="text-center mt-4">
+                    <div className={`text-base font-bold ${
+                      status === 'current' ? 'text-blue-700' : 
                       status === 'completed' ? 'text-blue-600' : 
-                      'text-gray-400'
+                      'text-gray-500'
                     }`}>
                       {step.name}
                     </div>
-                    <div className={`text-xs mt-1 ${
-                      status === 'current' ? 'text-blue-500' : 
+                    <div className={`text-sm mt-1 ${
+                      status === 'current' ? 'text-blue-600' : 
                       status === 'completed' ? 'text-blue-500' : 
                       'text-gray-400'
                     }`}>
@@ -119,8 +97,8 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({ curre
                 
                 {/* Connector Line */}
                 {index < steps.length - 1 && (
-                  <div className={`flex-1 h-0.5 mx-4 transition-all duration-300 ${
-                    status === 'completed' ? 'bg-blue-500' : 'bg-gray-300'
+                  <div className={`flex-1 h-1 mx-6 rounded-full transition-all duration-300 backdrop-blur-sm ${
+                    status === 'completed' ? 'bg-blue-500/60' : 'bg-gray-300/30'
                   }`} />
                 )}
               </div>
