@@ -9,20 +9,20 @@ interface EnhancedWorkflowTrackerProps {
 const steps = [
   {
     id: 'address',
-    name: 'Address',
+    name: 'Addresses',
     description: 'Pickup & Drop-off',
     icon: MapPin,
   },
   {
     id: 'package',
     name: 'Package',
-    description: 'Type & Details',
+    description: 'Details & Options',
     icon: Package,
   },
   {
     id: 'rates',
     name: 'Rates',
-    description: 'Compare Options',
+    description: 'Compare & Select',
     icon: Search,
   }
 ];
@@ -42,13 +42,14 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({ curre
   return (
     <div className="sticky top-0 z-50 w-full">
       <div 
-        className="mx-auto max-w-5xl p-4 mb-6"
+        className="mx-auto max-w-4xl p-6 mb-8"
         style={{
-          background: 'rgba(255, 255, 255, 0.1)',
-          backdropFilter: 'blur(25px)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
-          borderRadius: '20px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(40px)',
+          WebkitBackdropFilter: 'blur(40px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '24px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.15)',
         }}
       >
         <div className="flex items-center justify-between">
@@ -61,34 +62,34 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({ curre
                 <div className="flex flex-col items-center">
                   {/* Step Circle */}
                   <div className={`
-                    w-14 h-14 rounded-full border-2 flex items-center justify-center transition-all duration-300 relative
+                    w-16 h-16 rounded-full border-2 flex items-center justify-center transition-all duration-500 relative
                     ${status === 'completed' 
-                      ? 'bg-blue-500/80 border-blue-400 text-white shadow-lg shadow-blue-500/30 backdrop-blur-sm' 
+                      ? 'bg-emerald-500/90 border-emerald-400 text-white shadow-lg shadow-emerald-500/30 backdrop-blur-sm' 
                       : status === 'current'
-                      ? 'bg-blue-100/30 border-blue-500 text-blue-600 shadow-lg shadow-blue-500/20 ring-4 ring-blue-100/20 backdrop-blur-sm'
-                      : 'bg-gray-100/20 border-gray-300/50 text-gray-400 backdrop-blur-sm'
+                      ? 'bg-blue-500/90 border-blue-400 text-white shadow-xl shadow-blue-500/40 ring-4 ring-blue-100/30 backdrop-blur-sm scale-110'
+                      : 'bg-gray-100/30 border-gray-300/40 text-gray-500 backdrop-blur-sm'
                     }
                   `}>
-                    <Icon className="w-7 h-7" />
+                    <Icon className="w-8 h-8" />
                     
                     {status === 'current' && (
-                      <div className="absolute -inset-1 rounded-full bg-blue-500/20 animate-pulse backdrop-blur-sm" />
+                      <div className="absolute -inset-2 rounded-full bg-blue-500/20 animate-pulse backdrop-blur-sm" />
                     )}
                   </div>
                   
                   {/* Step Text */}
                   <div className="text-center mt-4">
-                    <div className={`text-base font-bold ${
-                      status === 'current' ? 'text-blue-700' : 
-                      status === 'completed' ? 'text-blue-600' : 
-                      'text-gray-500'
+                    <div className={`text-lg font-bold ${
+                      status === 'current' ? 'text-blue-800' : 
+                      status === 'completed' ? 'text-emerald-700' : 
+                      'text-gray-600'
                     }`}>
                       {step.name}
                     </div>
                     <div className={`text-sm mt-1 ${
                       status === 'current' ? 'text-blue-600' : 
-                      status === 'completed' ? 'text-blue-500' : 
-                      'text-gray-400'
+                      status === 'completed' ? 'text-emerald-600' : 
+                      'text-gray-500'
                     }`}>
                       {step.description}
                     </div>
@@ -97,8 +98,8 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({ curre
                 
                 {/* Connector Line */}
                 {index < steps.length - 1 && (
-                  <div className={`flex-1 h-1 mx-6 rounded-full transition-all duration-300 backdrop-blur-sm ${
-                    status === 'completed' ? 'bg-blue-500/60' : 'bg-gray-300/30'
+                  <div className={`flex-1 h-1 mx-8 rounded-full transition-all duration-500 backdrop-blur-sm ${
+                    status === 'completed' ? 'bg-emerald-500/70' : 'bg-gray-300/40'
                   }`} />
                 )}
               </div>
