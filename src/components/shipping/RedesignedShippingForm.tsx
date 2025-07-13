@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,12 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Package, Shield, AlertTriangle, Search, Loader2, DollarSign, Info, Sparkles } from 'lucide-react';
+import { MapPin, Package, Shield, AlertTriangle, Search, Loader2, DollarSign, Info, Sparkles, Truck } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import AddressSelector from './AddressSelector';
-import PackageDropdown from './PackageDropdown';
-import CarrierDropdown from './CarrierDropdown';
 import { SavedAddress } from '@/services/AddressService';
 import { createAddressSelectHandler } from '@/utils/addressUtils';
 
@@ -84,6 +83,44 @@ const packageOptions = [
   { value: 'DHLLargeBox', label: 'DHL - Large Box', type: 'predefined' as const, icon: '🟡', description: 'Large package', category: 'DHL' },
   { value: 'DHLPak', label: 'DHL - Pak', type: 'predefined' as const, icon: '🟡', description: 'Document pak', category: 'DHL' },
   { value: 'DHLTube', label: 'DHL - Tube', type: 'predefined' as const, icon: '🟡', description: 'Tube container', category: 'DHL' },
+];
+
+const carriers = [
+  { 
+    value: 'all', 
+    label: 'All Carriers', 
+    logo: '📦',
+    color: 'from-blue-500 to-purple-500',
+    description: 'Compare all available options'
+  },
+  { 
+    value: 'usps', 
+    label: 'USPS', 
+    logo: '🇺🇸',
+    color: 'from-red-500 to-blue-500',
+    description: 'US Postal Service'
+  },
+  { 
+    value: 'ups', 
+    label: 'UPS', 
+    logo: '🤎',
+    color: 'from-yellow-600 to-yellow-800',
+    description: 'United Parcel Service'
+  },
+  { 
+    value: 'fedex', 
+    label: 'FedEx', 
+    logo: '💜',
+    color: 'from-purple-600 to-orange-500',
+    description: 'Federal Express'
+  },
+  { 
+    value: 'dhl', 
+    label: 'DHL', 
+    logo: '🟡',
+    color: 'from-yellow-400 to-red-500',
+    description: 'International Express'
+  },
 ];
 
 const shippingFormSchema = z.object({
@@ -362,7 +399,7 @@ const RedesignedShippingForm: React.FC = () => {
 
       console.log('Shipping payload:', JSON.stringify(payload, null, 2));
 
-      // Call the Edge Function to get shipping rates
+      // Call the Edge Function to get shipping rates - RESTORE ORIGINAL FUNCTIONALITY
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
         body: payload,
       });
@@ -371,32 +408,36 @@ const RedesignedShippingForm: React.FC = () => {
         throw new Error(`Error fetching rates: ${error.message}`);
       }
 
-      // Process rates and add insurance cost
+      // RESTORE ORIGINAL RATES HANDLING - DO NOT MODIFY
       if (data.rates && Array.isArray(data.rates)) {
-        const ratesWithInsurance = data.rates.map((rate: any) => ({
-          ...rate,
-          insurance_cost: insuranceCost,
-          total_with_insurance: parseFloat(rate.rate) + insuranceCost,
-        }));
-
-        // Dispatch rates to be displayed
-        document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
-          detail: { 
-            rates: ratesWithInsurance, 
-            shipmentId: data.shipmentId,
-            insuranceCost 
-          } 
-        }));
-
-        toast.success("Shipping rates retrieved successfully");
+        // Add original rates for price comparison display
+        const ratesWithOriginalPrices = data.rates.map(rate => {
+          if (!rate.original_rate && (rate.list_rate || rate.retail_rate)) {
+            return {
+              ...rate,
+              original_rate: rate.list_rate || rate.retail_rate
+            };
+          }
+          return rate;
+        });
         
-        // Scroll to the rates section
-        const ratesSection = document.getElementById('shipping-rates-section');
-        if (ratesSection) {
-          ratesSection.scrollIntoView({ behavior: 'smooth' });
-        }
+        // Publish the updated rates to be displayed in the ShippingRates component
+        document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
+          detail: { rates: ratesWithOriginalPrices, shipmentId: data.shipmentId } 
+        }));
       } else {
-        toast.info('No rates available for this shipment');
+        // Publish the rates as is
+        document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
+          detail: { rates: data.rates, shipmentId: data.shipmentId } 
+        }));
+      }
+
+      toast.success("Shipping rates retrieved successfully");
+      
+      // Scroll to the rates section
+      const ratesSection = document.getElementById('shipping-rates-section');
+      if (ratesSection) {
+        ratesSection.scrollIntoView({ behavior: 'smooth' });
       }
     } catch (error) {
       console.error('Error fetching shipping rates:', error);
@@ -411,18 +452,18 @@ const RedesignedShippingForm: React.FC = () => {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-8">
           
-          {/* Step 1: Addresses */}
+          {/* Step 1: Addresses - Glass Format */}
           <div className="space-y-6">
-            <Card className="overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-white/90 to-blue-50/50 backdrop-blur-lg">
-              <CardHeader className="bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 text-white p-8">
+            <Card className="overflow-hidden border-0 shadow-2xl bg-white/70 backdrop-blur-xl rounded-3xl">
+              <CardHeader className="bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 text-white p-8 rounded-t-3xl">
                 <CardTitle className="flex items-center text-2xl font-bold">
-                  <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm text-blue-600 flex items-center justify-center font-bold text-lg mr-4">1</div>
+                  <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center font-bold text-lg mr-4">1</div>
                   <MapPin className="mr-3 h-7 w-7" />
                   Shipping Addresses
                   <Sparkles className="ml-auto h-6 w-6" />
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-8 space-y-8">
+              <CardContent className="p-8 space-y-8 bg-white/80 backdrop-blur-sm">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                   <div className="space-y-2">
                     <Label className="text-lg font-semibold text-gray-900 flex items-center">
@@ -451,29 +492,174 @@ const RedesignedShippingForm: React.FC = () => {
             </Card>
           </div>
 
-          {/* Step 2: Package & Carrier Selection */}
-          <Card className="overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-white/90 to-purple-50/50 backdrop-blur-lg">
-            <CardHeader className="bg-gradient-to-r from-purple-600 via-purple-700 to-pink-600 text-white p-8">
+          {/* Step 2: Package Selection & Carrier - Glass Format */}
+          <Card className="overflow-hidden border-0 shadow-2xl bg-white/70 backdrop-blur-xl rounded-3xl">
+            <CardHeader className="bg-gradient-to-r from-purple-600 via-purple-700 to-pink-600 text-white p-8 rounded-t-3xl">
               <CardTitle className="flex items-center text-2xl font-bold">
-                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm text-purple-600 flex items-center justify-center font-bold text-lg mr-4">2</div>
+                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center font-bold text-lg mr-4">2</div>
                 <Package className="mr-3 h-7 w-7" />
-                Package & Carrier
+                Package & Carrier Selection
                 <Sparkles className="ml-auto h-6 w-6" />
               </CardTitle>
             </CardHeader>
             
-            <CardContent className="p-8 space-y-8">
+            <CardContent className="p-8 space-y-8 bg-white/80 backdrop-blur-sm">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <PackageDropdown
-                  options={packageOptions}
-                  value={selectedPackageType}
-                  onValueChange={(value) => form.setValue('packageType', value)}
-                />
+                {/* Enhanced Package Selection */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-900 flex items-center">
+                    <Package className="w-4 h-4 mr-2 text-blue-600" />
+                    Package Type
+                  </Label>
+                  <FormField
+                    control={form.control}
+                    name="packageType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="w-full h-16 bg-white/80 backdrop-blur-sm border-2 border-gray-200 hover:border-blue-300 rounded-xl shadow-sm">
+                              <SelectValue>
+                                {selectedPackage && (
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                                      <span className="text-lg">{selectedPackage.icon}</span>
+                                    </div>
+                                    <div className="text-left">
+                                      <div className="font-medium text-gray-900 flex items-center">
+                                        {selectedPackage.label}
+                                        {selectedPackage.isRecommended && (
+                                          <Badge className="ml-2 bg-green-100 text-green-700 text-xs">Recommended</Badge>
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-gray-500">{selectedPackage.description}</div>
+                                    </div>
+                                  </div>
+                                )}
+                              </SelectValue>
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="max-h-96 bg-white/95 backdrop-blur-md border border-gray-200 shadow-xl rounded-xl">
+                            {/* Custom Packages */}
+                            <div className="p-2">
+                              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2 py-1">
+                                Custom Packages
+                              </div>
+                              {packageOptions.filter(opt => opt.type === 'custom').map((option) => (
+                                <SelectItem 
+                                  key={option.value} 
+                                  value={option.value}
+                                  className="p-4 rounded-lg hover:bg-blue-50 cursor-pointer"
+                                >
+                                  <div className="flex items-center space-x-4">
+                                    <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                                      <span className="text-xl">{option.icon}</span>
+                                    </div>
+                                    <div>
+                                      <div className="font-medium text-gray-900 flex items-center">
+                                        {option.label}
+                                        {option.isRecommended && (
+                                          <Badge className="ml-2 bg-green-100 text-green-700 text-xs">Recommended</Badge>
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-gray-500">{option.description}</div>
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </div>
+
+                            {/* Carrier Packages */}
+                            {['USPS', 'UPS', 'FedEx', 'DHL'].map(carrier => {
+                              const carrierOptions = packageOptions.filter(opt => opt.category === carrier);
+                              if (carrierOptions.length === 0) return null;
+                              
+                              return (
+                                <div key={carrier} className="p-2 border-t border-gray-100">
+                                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2 py-1 flex items-center">
+                                    <span className="mr-2">
+                                      {carrier === 'USPS' && '🇺🇸'}
+                                      {carrier === 'UPS' && '🤎'}
+                                      {carrier === 'FedEx' && '💜'}
+                                      {carrier === 'DHL' && '🟡'}
+                                    </span>
+                                    {carrier} Packages
+                                  </div>
+                                  <div className="space-y-1">
+                                    {carrierOptions.map((option) => (
+                                      <SelectItem 
+                                        key={option.value} 
+                                        value={option.value}
+                                        className="p-3 rounded-lg hover:bg-blue-50 cursor-pointer"
+                                      >
+                                        <div className="flex items-center space-x-3">
+                                          <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+                                            <span className="text-sm">{option.icon}</span>
+                                          </div>
+                                          <div>
+                                            <div className="font-medium text-gray-900 text-sm">
+                                              {option.label.replace(`${carrier} - `, '')}
+                                            </div>
+                                            <div className="text-xs text-gray-500">{option.description}</div>
+                                          </div>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 
-                <CarrierDropdown
-                  value={selectedCarrier}
-                  onValueChange={setSelectedCarrier}
-                />
+                {/* Enhanced Carrier Selection */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold text-gray-900 flex items-center">
+                    <Truck className="w-4 h-4 mr-2 text-blue-600" />
+                    Preferred Carrier
+                  </Label>
+                  <Select value={selectedCarrier} onValueChange={setSelectedCarrier}>
+                    <SelectTrigger className="w-full h-16 bg-white/80 backdrop-blur-sm border-2 border-gray-200 hover:border-blue-300 rounded-xl shadow-sm">
+                      <SelectValue>
+                        {carriers.find(c => c.value === selectedCarrier) && (
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${carriers.find(c => c.value === selectedCarrier)?.color} flex items-center justify-center shadow-md`}>
+                              <span className="text-xl">{carriers.find(c => c.value === selectedCarrier)?.logo}</span>
+                            </div>
+                            <div className="text-left">
+                              <div className="font-semibold text-gray-900">{carriers.find(c => c.value === selectedCarrier)?.label}</div>
+                              <div className="text-xs text-gray-500">{carriers.find(c => c.value === selectedCarrier)?.description}</div>
+                            </div>
+                          </div>
+                        )}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="bg-white/95 backdrop-blur-md border border-gray-200 shadow-xl rounded-xl">
+                      {carriers.map((carrier) => (
+                        <SelectItem 
+                          key={carrier.value} 
+                          value={carrier.value}
+                          className="p-4 rounded-lg hover:bg-blue-50 cursor-pointer"
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${carrier.color} flex items-center justify-center shadow-md`}>
+                              <span className="text-2xl">{carrier.logo}</span>
+                            </div>
+                            <div>
+                              <div className="font-semibold text-gray-900">{carrier.label}</div>
+                              <div className="text-sm text-gray-500">{carrier.description}</div>
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Package Details */}
@@ -485,18 +671,18 @@ const RedesignedShippingForm: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Step 3: Additional Options */}
-          <Card className="overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-white/90 to-orange-50/50 backdrop-blur-lg">
-            <CardHeader className="bg-gradient-to-r from-orange-600 via-orange-700 to-red-600 text-white p-8">
+          {/* Step 3: Additional Options - Glass Format */}
+          <Card className="overflow-hidden border-0 shadow-2xl bg-white/70 backdrop-blur-xl rounded-3xl">
+            <CardHeader className="bg-gradient-to-r from-orange-600 via-orange-700 to-red-600 text-white p-8 rounded-t-3xl">
               <CardTitle className="flex items-center text-2xl font-bold">
-                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm text-orange-600 flex items-center justify-center font-bold text-lg mr-4">3</div>
+                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center font-bold text-lg mr-4">3</div>
                 <Shield className="mr-3 h-7 w-7" />
                 Protection & Options
                 <Sparkles className="ml-auto h-6 w-6" />
               </CardTitle>
             </CardHeader>
             
-            <CardContent className="p-8 space-y-8">
+            <CardContent className="p-8 space-y-8 bg-white/80 backdrop-blur-sm">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* HAZMAT Option */}
                 <div className="p-6 bg-gradient-to-r from-yellow-50/80 to-orange-50/80 border-2 border-yellow-200/50 rounded-2xl backdrop-blur-sm">
@@ -599,7 +785,7 @@ const RedesignedShippingForm: React.FC = () => {
           </Card>
 
           {/* Submit Button */}
-          <Card className="overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-green-50/80 to-blue-50/80 backdrop-blur-lg">
+          <Card className="overflow-hidden border-0 shadow-2xl bg-white/70 backdrop-blur-xl rounded-3xl">
             <CardContent className="p-8">
               <Button 
                 type="submit" 
