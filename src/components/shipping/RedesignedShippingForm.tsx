@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Package, Shield, AlertTriangle, Loader2, DollarSign } from 'lucide-react';
+import { MapPin, Package, Shield, AlertTriangle, Loader2, DollarSign, Box, Mail } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import AddressSelector from './AddressSelector';
@@ -22,40 +21,34 @@ import { createAddressSelectHandler } from '@/utils/addressUtils';
 
 const packageOptions = [
   // Custom packages
-  { value: 'box', label: 'Standard Box', type: 'custom', category: 'Custom' },
-  { value: 'envelope', label: 'Envelope', type: 'custom', category: 'Custom' },
+  { value: 'box', label: 'Standard Box', type: 'custom' as const, category: 'Custom', icon: '📦', description: 'Custom sized box' },
+  { value: 'envelope', label: 'Envelope', type: 'custom' as const, category: 'Custom', icon: '✉️', description: 'Standard envelope' },
   
   // USPS options
-  { value: 'FlatRateEnvelope', label: 'Flat Rate Envelope', type: 'predefined', category: 'USPS' },
-  { value: 'LegalFlatRateEnvelope', label: 'Legal Flat Rate Envelope', type: 'predefined', category: 'USPS' },
-  { value: 'PaddedFlatRateEnvelope', label: 'Padded Flat Rate Envelope', type: 'predefined', category: 'USPS' },
-  { value: 'SmallFlatRateBox', label: 'Small Flat Rate Box', type: 'predefined', category: 'USPS' },
-  { value: 'MediumFlatRateBox', label: 'Medium Flat Rate Box', type: 'predefined', category: 'USPS' },
-  { value: 'LargeFlatRateBox', label: 'Large Flat Rate Box', type: 'predefined', category: 'USPS' },
-  { value: 'RegionalRateBoxA', label: 'Regional Rate Box A', type: 'predefined', category: 'USPS' },
-  { value: 'RegionalRateBoxB', label: 'Regional Rate Box B', type: 'predefined', category: 'USPS' },
+  { value: 'FlatRateEnvelope', label: 'Flat Rate Envelope', type: 'predefined' as const, category: 'USPS', icon: '📮', description: 'USPS Priority Mail Express' },
+  { value: 'LegalFlatRateEnvelope', label: 'Legal Flat Rate Envelope', type: 'predefined' as const, category: 'USPS', icon: '📋', description: 'Legal size documents' },
+  { value: 'PaddedFlatRateEnvelope', label: 'Padded Flat Rate Envelope', type: 'predefined' as const, category: 'USPS', icon: '📪', description: 'Extra protection' },
+  { value: 'SmallFlatRateBox', label: 'Small Flat Rate Box', type: 'predefined' as const, category: 'USPS', icon: '📦', description: '8.5" x 5.5" x 1.625"' },
+  { value: 'MediumFlatRateBox', label: 'Medium Flat Rate Box', type: 'predefined' as const, category: 'USPS', icon: '📦', description: '11" x 8.5" x 5.5"' },
+  { value: 'LargeFlatRateBox', label: 'Large Flat Rate Box', type: 'predefined' as const, category: 'USPS', icon: '📦', description: '12" x 12" x 5.5"' },
   
   // UPS options
-  { value: 'UPSLetter', label: 'Letter', type: 'predefined', category: 'UPS' },
-  { value: 'UPSExpressBox', label: 'Express Box', type: 'predefined', category: 'UPS' },
-  { value: 'UPS25kgBox', label: '25kg Box', type: 'predefined', category: 'UPS' },
-  { value: 'UPS10kgBox', label: '10kg Box', type: 'predefined', category: 'UPS' },
+  { value: 'UPSLetter', label: 'Letter', type: 'predefined' as const, category: 'UPS', icon: '✉️', description: 'Documents only' },
+  { value: 'UPSExpressBox', label: 'Express Box', type: 'predefined' as const, category: 'UPS', icon: '📦', description: 'Small package' },
+  { value: 'UPS25kgBox', label: '25kg Box', type: 'predefined' as const, category: 'UPS', icon: '📦', description: 'Large items' },
   
   // FedEx options
-  { value: 'FedExEnvelope', label: 'Envelope', type: 'predefined', category: 'FedEx' },
-  { value: 'FedExBox', label: 'Box', type: 'predefined', category: 'FedEx' },
-  { value: 'FedExPak', label: 'Pak', type: 'predefined', category: 'FedEx' },
-  { value: 'FedEx10kgBox', label: '10kg Box', type: 'predefined', category: 'FedEx' },
-  { value: 'FedEx25kgBox', label: '25kg Box', type: 'predefined', category: 'FedEx' },
+  { value: 'FedExEnvelope', label: 'Envelope', type: 'predefined' as const, category: 'FedEx', icon: '✉️', description: 'Documents' },
+  { value: 'FedExBox', label: 'Box', type: 'predefined' as const, category: 'FedEx', icon: '📦', description: 'Standard box' },
+  { value: 'FedExPak', label: 'Pak', type: 'predefined' as const, category: 'FedEx', icon: '📄', description: 'Flat items' },
   
   // DHL options
-  { value: 'DHLExpressEnvelope', label: 'Express Envelope', type: 'predefined', category: 'DHL' },
-  { value: 'DHLFlyer', label: 'Flyer', type: 'predefined', category: 'DHL' },
-  { value: 'DHLExpressBox', label: 'Express Box', type: 'predefined', category: 'DHL' },
+  { value: 'DHLExpressEnvelope', label: 'Express Envelope', type: 'predefined' as const, category: 'DHL', icon: '✉️', description: 'Documents' },
+  { value: 'DHLExpressBox', label: 'Express Box', type: 'predefined' as const, category: 'DHL', icon: '📦', description: 'Standard package' },
 ];
 
 const carrierOptions = [
-  { value: 'all', label: 'All Carriers', logo: null },
+  { value: 'all', label: 'All Carriers', logo: '🌐' },
   { value: 'usps', label: 'USPS', logo: '🇺🇸' },
   { value: 'ups', label: 'UPS', logo: '🤎' },
   { value: 'fedex', label: 'FedEx', logo: '💜' },
@@ -118,7 +111,6 @@ const RedesignedShippingForm: React.FC = () => {
   const declaredValue = form.watch('declaredValue');
   const insuranceEnabled = form.watch('insurance');
   const hazmatEnabled = form.watch('hazmat');
-  const selectedHazmatType = form.watch('hazmatType');
 
   // Calculate insurance cost - $4 per $100 of declared value
   const insuranceCost = insuranceEnabled ? Math.ceil(declaredValue / 100) * 4 : 0;
@@ -296,45 +288,50 @@ const RedesignedShippingForm: React.FC = () => {
   };
 
   return (
-    <div className="w-full space-y-8">
-      {/* Enhanced Step Tracker */}
+    <div className="w-full">
+      {/* Enhanced Step Tracker - Now Sticky */}
       <EnhancedWorkflowTracker currentStep={currentStep} />
 
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto px-4">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-8">
+          <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-6">
             
-            {/* Address Section */}
-            <div className="space-y-6">
-              <Card className="overflow-hidden border border-blue-200/50 shadow-lg bg-gradient-to-br from-blue-50/80 to-white/80 backdrop-blur-sm">
-                <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-                  <CardTitle className="flex items-center text-xl">
-                    <MapPin className="mr-3 h-6 w-6" />
-                    Shipping Addresses
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="text-lg font-medium mb-4 text-blue-800">Pickup Address</h3>
-                      <AddressSelector 
-                        type="from"
-                        onAddressSelect={handleFromAddressSelect}
-                        useGoogleAutocomplete={true}
-                      />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-medium mb-4 text-blue-800">Drop-Off Address</h3>
-                      <AddressSelector 
-                        type="to"
-                        onAddressSelect={handleToAddressSelect}
-                        useGoogleAutocomplete={true}
-                      />
-                    </div>
+            {/* Address Section - Pickup on Top, Drop-off Below */}
+            <Card className="overflow-hidden border border-blue-200/50 shadow-lg bg-gradient-to-br from-blue-50/80 to-white/80 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+                <CardTitle className="flex items-center text-xl">
+                  <MapPin className="mr-3 h-6 w-6" />
+                  Shipping Addresses
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                {/* Pickup Address - Top */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <h3 className="text-lg font-semibold text-blue-800">Pickup Address</h3>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                  <AddressSelector 
+                    type="from"
+                    onAddressSelect={handleFromAddressSelect}
+                    useGoogleAutocomplete={true}
+                  />
+                </div>
+                
+                {/* Drop-off Address - Bottom */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <h3 className="text-lg font-semibold text-blue-800">Drop-Off Address</h3>
+                  </div>
+                  <AddressSelector 
+                    type="to"
+                    onAddressSelect={handleToAddressSelect}
+                    useGoogleAutocomplete={true}
+                  />
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Package & Shipping Details */}
             {fromAddress && toAddress && (
@@ -347,139 +344,197 @@ const RedesignedShippingForm: React.FC = () => {
                 </CardHeader>
                 
                 <CardContent className="p-6 space-y-6">
-                  {/* Package Type Dropdown */}
-                  <div>
-                    <FormField
-                      control={form.control}
-                      name="packageType"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-base font-semibold">Select Package Type</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger className="h-12 text-base">
-                                <SelectValue placeholder="Choose your package type" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent className="max-h-80">
-                              {Object.entries(groupedPackages).map(([category, packages]) => (
-                                <div key={category}>
-                                  <div className="px-2 py-1.5 text-sm font-semibold text-gray-600 bg-gray-50">
-                                    {category}
-                                  </div>
-                                  {packages.map((pkg) => (
-                                    <SelectItem key={pkg.value} value={pkg.value} className="pl-4">
-                                      {pkg.label}
-                                    </SelectItem>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    {/* Left Column - Package Selection */}
+                    <div className="space-y-6">
+                      {/* Enhanced Package Type Dropdown */}
+                      <div>
+                        <FormField
+                          control={form.control}
+                          name="packageType"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-base font-semibold flex items-center gap-2">
+                                <Box className="w-5 h-5" />
+                                Select Package Type
+                              </FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger className="h-14 text-base border-2 border-blue-200 focus:border-blue-500 bg-white/80 backdrop-blur-sm">
+                                    <SelectValue placeholder="Choose your package type" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent className="max-h-80 bg-white/95 backdrop-blur-md border-blue-200">
+                                  {Object.entries(groupedPackages).map(([category, packages]) => (
+                                    <div key={category}>
+                                      <div className="px-3 py-2 text-sm font-semibold text-blue-700 bg-blue-50/80 border-b border-blue-200">
+                                        {category}
+                                      </div>
+                                      {packages.map((pkg) => (
+                                        <SelectItem key={pkg.value} value={pkg.value} className="pl-4 py-3 hover:bg-blue-50">
+                                          <div className="flex items-center gap-3">
+                                            <span className="text-xl">{pkg.icon}</span>
+                                            <div>
+                                              <div className="font-medium">{pkg.label}</div>
+                                              <div className="text-xs text-gray-500">{pkg.description}</div>
+                                            </div>
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </div>
                                   ))}
-                                </div>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
-                  {/* Carrier Selection Dropdown */}
-                  <div>
-                    <FormField
-                      control={form.control}
-                      name="carrier"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-base font-semibold">Select Carrier</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl>
-                              <SelectTrigger className="h-12 text-base">
-                                <SelectValue placeholder="Choose carrier preference" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {carrierOptions.map((carrier) => (
-                                <SelectItem key={carrier.value} value={carrier.value}>
-                                  <div className="flex items-center gap-2">
-                                    {carrier.logo && <span className="text-lg">{carrier.logo}</span>}
-                                    <span>{carrier.label}</span>
+                      {/* Enhanced Carrier Selection */}
+                      <div>
+                        <FormField
+                          control={form.control}
+                          name="carrier"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-base font-semibold">Select Carrier</FormLabel>
+                              <div className="grid grid-cols-2 gap-3">
+                                {carrierOptions.map((carrier) => (
+                                  <div
+                                    key={carrier.value}
+                                    className={`
+                                      relative p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md
+                                      ${field.value === carrier.value 
+                                        ? 'border-blue-500 bg-blue-50 shadow-lg ring-2 ring-blue-200' 
+                                        : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
+                                      }
+                                    `}
+                                    onClick={() => field.onChange(carrier.value)}
+                                  >
+                                    <div className="flex flex-col items-center text-center space-y-2">
+                                      <span className="text-2xl">{carrier.logo}</span>
+                                      <span className={`text-sm font-semibold ${
+                                        field.value === carrier.value ? 'text-blue-700' : 'text-gray-700'
+                                      }`}>
+                                        {carrier.label}
+                                      </span>
+                                    </div>
+                                    {field.value === carrier.value && (
+                                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                                        <div className="w-2 h-2 rounded-full bg-white"></div>
+                                      </div>
+                                    )}
                                   </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                                ))}
+                              </div>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
 
-                  {/* Package Dimensions (for custom packages) */}
-                  {showDimensions && (
-                    <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-200/50">
-                      <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Dimensions</Label>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="length"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Length (inches)</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number"
-                                  min="0"
-                                  step="0.1"
-                                  placeholder="8"
-                                  className="h-11"
-                                  {...field}
-                                  value={field.value || ''}
-                                  onChange={(e) => field.onChange(Number(e.target.value))}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        <FormField
-                          control={form.control}
-                          name="width"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Width (inches)</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number"
-                                  min="0" 
-                                  step="0.1"
-                                  placeholder="8"
-                                  className="h-11"
-                                  {...field}
-                                  value={field.value || ''}
-                                  onChange={(e) => field.onChange(Number(e.target.value))}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        {!isEnvelope && (
+                    {/* Right Column - Package Details */}
+                    <div className="space-y-6">
+                      {/* Package Dimensions (for custom packages) */}
+                      {showDimensions && (
+                        <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-200/50">
+                          <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Dimensions</Label>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="length"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Length (inches)</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="number"
+                                      min="0"
+                                      step="0.1"
+                                      placeholder="8"
+                                      className="h-11"
+                                      {...field}
+                                      value={field.value || ''}
+                                      onChange={(e) => field.onChange(Number(e.target.value))}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="width"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Width (inches)</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="number"
+                                      min="0" 
+                                      step="0.1"
+                                      placeholder="8"
+                                      className="h-11"
+                                      {...field}
+                                      value={field.value || ''}
+                                      onChange={(e) => field.onChange(Number(e.target.value))}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            {!isEnvelope && (
+                              <FormField
+                                control={form.control}
+                                name="height"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Height (inches)</FormLabel>
+                                    <FormControl>
+                                      <Input 
+                                        type="number"
+                                        min="0"
+                                        step="0.1"
+                                        placeholder="2"
+                                        className="h-11"
+                                        {...field}
+                                        value={field.value || ''}
+                                        onChange={(e) => field.onChange(Number(e.target.value))}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Package Weight */}
+                      <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-200/50">
+                        <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Weight</Label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
-                            name="height"
+                            name="weightValue"
                             render={({ field }) => (
                               <FormItem>
-                                <FormLabel>Height (inches)</FormLabel>
+                                <FormLabel>Weight</FormLabel>
                                 <FormControl>
                                   <Input 
                                     type="number"
                                     min="0"
                                     step="0.1"
-                                    placeholder="2"
+                                    placeholder="1"
                                     className="h-11"
                                     {...field}
-                                    value={field.value || ''}
                                     onChange={(e) => field.onChange(Number(e.target.value))}
                                   />
                                 </FormControl>
@@ -487,64 +542,36 @@ const RedesignedShippingForm: React.FC = () => {
                               </FormItem>
                             )}
                           />
-                        )}
+                          
+                          <FormField
+                            control={form.control}
+                            name="weightUnit"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Unit</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger className="h-11">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="oz">Ounces (oz)</SelectItem>
+                                    <SelectItem value="lb">Pounds (lb)</SelectItem>
+                                    <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  )}
-
-                  {/* Package Weight */}
-                  <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-200/50">
-                    <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Weight</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="weightValue"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Weight</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number"
-                                min="0"
-                                step="0.1"
-                                placeholder="1"
-                                className="h-11"
-                                {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="weightUnit"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Unit</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger className="h-11">
-                                  <SelectValue />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="oz">Ounces (oz)</SelectItem>
-                                <SelectItem value="lb">Pounds (lb)</SelectItem>
-                                <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
                     </div>
                   </div>
 
-                  {/* HAZMAT Section - Always Visible */}
-                  <div className="p-4 bg-yellow-50/80 border border-yellow-200/50 rounded-lg">
+                  {/* HAZMAT Section - Enhanced Design */}
+                  <div className="p-5 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200/70 rounded-xl shadow-sm">
                     <FormField
                       control={form.control}
                       name="hazmat"
@@ -554,7 +581,7 @@ const RedesignedShippingForm: React.FC = () => {
                             <Checkbox 
                               checked={field.value} 
                               onCheckedChange={field.onChange}
-                              className="w-5 h-5"
+                              className="w-5 h-5 border-2 border-yellow-400 data-[state=checked]:bg-yellow-500"
                             />
                           </FormControl>
                           <div className="space-y-2 leading-none flex-1">
@@ -577,10 +604,10 @@ const RedesignedShippingForm: React.FC = () => {
                           name="hazmatType"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>HAZMAT Type</FormLabel>
+                              <FormLabel className="text-yellow-800 font-medium">HAZMAT Type</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
-                                  <SelectTrigger className="h-11">
+                                  <SelectTrigger className="h-11 border-yellow-300 bg-white">
                                     <SelectValue placeholder="Select HAZMAT type" />
                                   </SelectTrigger>
                                 </FormControl>
@@ -600,8 +627,8 @@ const RedesignedShippingForm: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Insurance Section - Always Auto-Applied */}
-                  <div className="p-4 bg-green-50/80 border border-green-200/50 rounded-lg">
+                  {/* Insurance Section - Enhanced Design */}
+                  <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200/70 rounded-xl shadow-sm">
                     <FormField
                       control={form.control}
                       name="insurance"
@@ -611,7 +638,7 @@ const RedesignedShippingForm: React.FC = () => {
                             <Checkbox 
                               checked={field.value} 
                               onCheckedChange={field.onChange}
-                              className="w-5 h-5"
+                              className="w-5 h-5 border-2 border-green-400 data-[state=checked]:bg-green-500"
                             />
                           </FormControl>
                           <div className="space-y-2 leading-none flex-1">
@@ -634,7 +661,7 @@ const RedesignedShippingForm: React.FC = () => {
                           name="declaredValue"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="flex items-center">
+                              <FormLabel className="flex items-center text-green-800 font-medium">
                                 <DollarSign className="w-4 h-4 mr-1" />
                                 Declared Value (USD)
                               </FormLabel>
@@ -644,7 +671,7 @@ const RedesignedShippingForm: React.FC = () => {
                                   min="0"
                                   step="0.01"
                                   placeholder="100.00"
-                                  className="h-11"
+                                  className="h-11 border-green-300 bg-white"
                                   {...field}
                                   onChange={(e) => field.onChange(Number(e.target.value))}
                                 />
@@ -654,10 +681,10 @@ const RedesignedShippingForm: React.FC = () => {
                           )}
                         />
                         
-                        <div className="p-3 bg-white/80 border border-green-300/50 rounded-lg">
+                        <div className="p-4 bg-white/80 border-2 border-green-300/50 rounded-lg">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium text-green-800">Insurance Cost:</span>
-                            <span className="text-lg font-bold text-green-900">${insuranceCost}</span>
+                            <span className="text-xl font-bold text-green-900">${insuranceCost}</span>
                           </div>
                           <p className="text-xs text-green-600 mt-1">
                             Based on ${declaredValue} declared value
@@ -686,7 +713,7 @@ const RedesignedShippingForm: React.FC = () => {
                     <Button 
                       type="submit" 
                       size="lg" 
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-lg"
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                       disabled={isLoading}
                     >
                       {isLoading ? (

@@ -58,68 +58,75 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({ curre
   };
 
   return (
-    <div className="w-full bg-white/80 backdrop-blur-md shadow-lg border border-white/20 rounded-2xl p-6 mb-8 mx-auto max-w-4xl" 
-         style={{
-           background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%)',
-           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8)'
-         }}>
-      <div className="flex items-center justify-between">
-        {steps.map((step, index) => {
-          const status = getStepStatus(index);
-          const Icon = step.icon;
-          
-          return (
-            <div key={step.id} className="flex items-center flex-1">
-              <div className="flex flex-col items-center">
-                {/* Step Circle */}
-                <div className={`
-                  w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all duration-300 relative
-                  ${status === 'completed' 
-                    ? 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-500/30' 
-                    : status === 'current'
-                    ? 'bg-blue-100 border-blue-500 text-blue-600 shadow-lg shadow-blue-500/20 ring-4 ring-blue-100'
-                    : 'bg-gray-100 border-gray-300 text-gray-400'
-                  }
-                `}>
-                  {status === 'completed' ? (
-                    <CheckCircle className="w-6 h-6" />
-                  ) : (
-                    <Icon className="w-6 h-6" />
-                  )}
+    <div className="sticky top-0 z-50 w-full">
+      <div 
+        className="mx-auto max-w-5xl p-4 mb-6"
+        style={{
+          background: 'rgba(255, 255, 255, 0.85)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          borderRadius: '16px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+        }}
+      >
+        <div className="flex items-center justify-between">
+          {steps.map((step, index) => {
+            const status = getStepStatus(index);
+            const Icon = step.icon;
+            
+            return (
+              <div key={step.id} className="flex items-center flex-1">
+                <div className="flex flex-col items-center">
+                  {/* Step Circle */}
+                  <div className={`
+                    w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all duration-300 relative
+                    ${status === 'completed' 
+                      ? 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-500/30' 
+                      : status === 'current'
+                      ? 'bg-blue-100 border-blue-500 text-blue-600 shadow-lg shadow-blue-500/20 ring-4 ring-blue-100'
+                      : 'bg-gray-100 border-gray-300 text-gray-400'
+                    }
+                  `}>
+                    {status === 'completed' ? (
+                      <CheckCircle className="w-6 h-6" />
+                    ) : (
+                      <Icon className="w-6 h-6" />
+                    )}
+                    
+                    {status === 'current' && (
+                      <div className="absolute -inset-1 rounded-full bg-blue-500 opacity-20 animate-pulse" />
+                    )}
+                  </div>
                   
-                  {status === 'current' && (
-                    <div className="absolute -inset-1 rounded-full bg-blue-500 opacity-20 animate-pulse" />
-                  )}
+                  {/* Step Text */}
+                  <div className="text-center mt-3">
+                    <div className={`text-sm font-semibold ${
+                      status === 'current' ? 'text-blue-600' : 
+                      status === 'completed' ? 'text-blue-600' : 
+                      'text-gray-400'
+                    }`}>
+                      {step.name}
+                    </div>
+                    <div className={`text-xs mt-1 ${
+                      status === 'current' ? 'text-blue-500' : 
+                      status === 'completed' ? 'text-blue-500' : 
+                      'text-gray-400'
+                    }`}>
+                      {step.description}
+                    </div>
+                  </div>
                 </div>
                 
-                {/* Step Text */}
-                <div className="text-center mt-3">
-                  <div className={`text-sm font-semibold ${
-                    status === 'current' ? 'text-blue-600' : 
-                    status === 'completed' ? 'text-blue-600' : 
-                    'text-gray-400'
-                  }`}>
-                    {step.name}
-                  </div>
-                  <div className={`text-xs mt-1 ${
-                    status === 'current' ? 'text-blue-500' : 
-                    status === 'completed' ? 'text-blue-500' : 
-                    'text-gray-400'
-                  }`}>
-                    {step.description}
-                  </div>
-                </div>
+                {/* Connector Line */}
+                {index < steps.length - 1 && (
+                  <div className={`flex-1 h-0.5 mx-4 transition-all duration-300 ${
+                    status === 'completed' ? 'bg-blue-500' : 'bg-gray-300'
+                  }`} />
+                )}
               </div>
-              
-              {/* Connector Line */}
-              {index < steps.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-4 transition-all duration-300 ${
-                  status === 'completed' ? 'bg-blue-500' : 'bg-gray-300'
-                }`} />
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
