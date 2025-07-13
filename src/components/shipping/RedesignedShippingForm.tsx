@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Package, Shield, AlertTriangle, Loader2, DollarSign, Box, Mail } from 'lucide-react';
+import { MapPin, Package, Shield, AlertTriangle, Loader2, DollarSign, Box, Scale, Truck } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import AddressSelector from './AddressSelector';
@@ -67,14 +67,15 @@ const shippingFormSchema = z.object({
   packageType: z.string().min(1, "Please select a package type"),
   carrier: z.string().min(1, "Please select a carrier"),
   weightValue: z.coerce.number().min(0, "Weight must be greater than 0"),
-  weightUnit: z.enum(["oz", "kg", "lb"]),
+  weightUnit: z.enum(["lb", "kg", "oz"]),
   length: z.coerce.number().min(0, "Length must be greater than 0").optional(),
   width: z.coerce.number().min(0, "Width must be greater than 0").optional(),
   height: z.coerce.number().min(0, "Height must be greater than 0").optional(),
   insurance: z.boolean().default(true),
-  declaredValue: z.coerce.number().min(0, "Declared value must be greater than 0").default(0),
+  declaredValue: z.coerce.number().min(0, "Declared value must be greater than 0").default(100),
   hazmat: z.boolean().default(false),
   hazmatType: z.string().optional(),
+  tracking: z.boolean().default(true),
 });
 
 type ShippingFormValues = z.infer<typeof shippingFormSchema>;
@@ -83,7 +84,7 @@ const RedesignedShippingForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
   const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
-  const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates'>('address');
+  const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'payment' | 'complete'>('address');
   const [customsInfo, setCustomsInfo] = useState<CustomsInfo | null>(null);
   const [showCustomsModal, setShowCustomsModal] = useState(false);
 
@@ -96,14 +97,15 @@ const RedesignedShippingForm: React.FC = () => {
       packageType: '',
       carrier: 'all',
       weightValue: 0,
-      weightUnit: 'oz',
+      weightUnit: 'lb',
       length: 0,
       width: 0,
       height: 0,
       insurance: true,
-      declaredValue: 0,
+      declaredValue: 100,
       hazmat: false,
       hazmatType: '',
+      tracking: true,
     }
   });
 
@@ -112,6 +114,7 @@ const RedesignedShippingForm: React.FC = () => {
   const declaredValue = form.watch('declaredValue');
   const insuranceEnabled = form.watch('insurance');
   const hazmatEnabled = form.watch('hazmat');
+  const trackingEnabled = form.watch('tracking');
 
   // Calculate insurance cost - $4 per $100 of declared value
   const insuranceCost = insuranceEnabled ? Math.ceil(declaredValue / 100) * 4 : 0;
@@ -122,12 +125,14 @@ const RedesignedShippingForm: React.FC = () => {
 
   // Update current step based on form completion
   useEffect(() => {
-    if (fromAddress && toAddress) {
+    if (fromAddress && toAddress && selectedPackageType) {
       setCurrentStep('package');
+    } else if (fromAddress && toAddress) {
+      setCurrentStep('address');
     } else {
       setCurrentStep('address');
     }
-  }, [fromAddress, toAddress]);
+  }, [fromAddress, toAddress, selectedPackageType]);
 
   const selectedPackage = packageOptions.find(p => p.value === selectedPackageType);
   const showDimensions = selectedPackage?.type === 'custom';
@@ -232,6 +237,11 @@ const RedesignedShippingForm: React.FC = () => {
         payload.insurance = values.declaredValue;
       }
 
+      // Add tracking if enabled
+      if (values.tracking) {
+        payload.options.tracking = true;
+      }
+
       // Add HAZMAT if enabled
       if (values.hazmat && values.hazmatType) {
         payload.options.hazmat = values.hazmatType;
@@ -290,14 +300,14 @@ const RedesignedShippingForm: React.FC = () => {
 
   return (
     <div className="w-full">
-      {/* Enhanced Step Tracker - Now Sticky */}
+      {/* Enhanced Step Tracker - Sticky */}
       <EnhancedWorkflowTracker currentStep={currentStep} />
 
       <div className="max-w-4xl mx-auto px-4">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-6">
             
-            {/* Address Section - Pickup on Top, Drop-off Below */}
+            {/* Address Section */}
             <Card className="overflow-hidden border border-blue-200/50 shadow-lg bg-gradient-to-br from-blue-50/80 to-white/80 backdrop-blur-sm">
               <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
                 <CardTitle className="flex items-center text-xl">
@@ -306,7 +316,7 @@ const RedesignedShippingForm: React.FC = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
-                {/* Pickup Address - Top */}
+                {/* Pickup Address */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-3 h-3 rounded-full bg-green-500"></div>
@@ -319,7 +329,7 @@ const RedesignedShippingForm: React.FC = () => {
                   />
                 </div>
                 
-                {/* Drop-off Address - Bottom */}
+                {/* Drop-off Address */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-3 h-3 rounded-full bg-red-500"></div>
@@ -334,67 +344,364 @@ const RedesignedShippingForm: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Package Selection - Separate Vertical Section */}
-            {fromAddress && toAddress && (
-              <Card className="overflow-hidden border border-purple-200/50 shadow-lg bg-gradient-to-br from-purple-50/80 to-white/80 backdrop-blur-sm">
-                <CardHeader className="bg-gradient-to-r from-purple-600 to-purple-700 text-white">
-                  <CardTitle className="flex items-center text-xl">
-                    <Package className="mr-3 h-6 w-6" />
-                    Package Selection
-                  </CardTitle>
-                </CardHeader>
-                
-                <CardContent className="p-6">
-                  <FormField
-                    control={form.control}
-                    name="packageType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-base font-semibold flex items-center gap-2">
-                          <Box className="w-5 h-5" />
-                          Select Package Type
-                        </FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-16 text-base border-2 border-purple-200 focus:border-purple-500 bg-white/90 backdrop-blur-sm">
-                              <SelectValue placeholder="Choose your package type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent className="max-h-80 bg-white/95 backdrop-blur-md border-purple-200">
-                            {Object.entries(groupedPackages).map(([category, packages]) => (
-                              <div key={category}>
-                                <div className="px-3 py-2 text-sm font-semibold text-purple-700 bg-purple-50/80 border-b border-purple-200">
-                                  {category}
-                                </div>
-                                {packages.map((pkg) => (
-                                  <SelectItem key={pkg.value} value={pkg.value} className="pl-4 py-3 hover:bg-purple-50">
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-xl">{pkg.icon}</span>
-                                      <div>
-                                        <div className="font-medium">{pkg.label}</div>
-                                        <div className="text-xs text-gray-500">{pkg.description}</div>
-                                      </div>
-                                    </div>
-                                  </SelectItem>
-                                ))}
+            {/* Package Selection - Always Visible */}
+            <Card className="overflow-hidden border border-purple-200/50 shadow-lg bg-gradient-to-br from-purple-50/80 to-white/80 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+                <CardTitle className="flex items-center text-xl">
+                  <Package className="mr-3 h-6 w-6" />
+                  Package Selection
+                </CardTitle>
+              </CardHeader>
+              
+              <CardContent className="p-6">
+                <FormField
+                  control={form.control}
+                  name="packageType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-base font-semibold flex items-center gap-2">
+                        <Box className="w-5 h-5" />
+                        Select Package Type
+                      </FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="h-16 text-base border-2 border-purple-200 focus:border-purple-500 bg-white/90 backdrop-blur-sm">
+                            <SelectValue placeholder="Choose your package type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="max-h-80 bg-white/95 backdrop-blur-md border-purple-200">
+                          {Object.entries(groupedPackages).map(([category, packages]) => (
+                            <div key={category}>
+                              <div className="px-3 py-2 text-sm font-semibold text-purple-700 bg-purple-50/80 border-b border-purple-200">
+                                {category}
                               </div>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-            )}
+                              {packages.map((pkg) => (
+                                <SelectItem key={pkg.value} value={pkg.value} className="pl-4 py-3 hover:bg-purple-50">
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-xl">{pkg.icon}</span>
+                                    <div>
+                                      <div className="font-medium">{pkg.label}</div>
+                                      <div className="text-xs text-gray-500">{pkg.description}</div>
+                                    </div>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </div>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
 
-            {/* Carrier Selection - Separate Section */}
+            {/* Package Details - Independent Section */}
             {selectedPackageType && (
               <Card className="overflow-hidden border border-green-200/50 shadow-lg bg-gradient-to-br from-green-50/80 to-white/80 backdrop-blur-sm">
                 <CardHeader className="bg-gradient-to-r from-green-600 to-green-700 text-white">
                   <CardTitle className="flex items-center text-xl">
-                    <Package className="mr-3 h-6 w-6" />
+                    <Scale className="mr-3 h-6 w-6" />
+                    Package Details & Weight
+                  </CardTitle>
+                </CardHeader>
+                
+                <CardContent className="p-6 space-y-6">
+                  {/* Package Dimensions (for custom packages) */}
+                  {showDimensions && (
+                    <div className="p-4 bg-green-50/50 rounded-lg border border-green-200/50">
+                      <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Dimensions</Label>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="length"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Length (inches)</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number"
+                                  min="0"
+                                  step="0.1"
+                                  placeholder="0"
+                                  className="h-11"
+                                  {...field}
+                                  value={field.value || ''}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="width"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Width (inches)</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number"
+                                  min="0" 
+                                  step="0.1"
+                                  placeholder="0"
+                                  className="h-11"
+                                  {...field}
+                                  value={field.value || ''}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        {!isEnvelope && (
+                          <FormField
+                            control={form.control}
+                            name="height"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Height (inches)</FormLabel>
+                                <FormControl>
+                                  <Input 
+                                    type="number"
+                                    min="0"
+                                    step="0.1"
+                                    placeholder="0"
+                                    className="h-11"
+                                    {...field}
+                                    value={field.value || ''}
+                                    onChange={(e) => field.onChange(Number(e.target.value))}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Package Weight with Unit Toggle */}
+                  <div className="p-4 bg-green-50/50 rounded-lg border border-green-200/50">
+                    <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Weight</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="weightValue"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Weight</FormLabel>
+                            <FormControl>
+                              <Input 
+                                type="number"
+                                min="0"
+                                step="0.1"
+                                placeholder="0"
+                                className="h-11"
+                                {...field}
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="weightUnit"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Unit</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="h-11">
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="lb">Pounds (lb)</SelectItem>
+                                <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                                <SelectItem value="oz">Ounces (oz)</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Additional Options */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Tracking Section */}
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200/70 rounded-xl shadow-sm">
+                      <FormField
+                        control={form.control}
+                        name="tracking"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox 
+                                checked={field.value} 
+                                onCheckedChange={field.onChange}
+                                className="w-5 h-5 border-2 border-blue-400 data-[state=checked]:bg-blue-500"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none flex-1">
+                              <FormLabel className="text-base font-semibold flex items-center text-blue-800">
+                                <Truck className="w-5 h-5 mr-2 text-blue-600" />
+                                Enable Tracking
+                              </FormLabel>
+                              <p className="text-sm text-blue-700">
+                                Track your package throughout delivery.
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* HAZMAT Section */}
+                    <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200/70 rounded-xl shadow-sm">
+                      <FormField
+                        control={form.control}
+                        name="hazmat"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox 
+                                checked={field.value} 
+                                onCheckedChange={field.onChange}
+                                className="w-5 h-5 border-2 border-yellow-400 data-[state=checked]:bg-yellow-500"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none flex-1">
+                              <FormLabel className="text-base font-semibold flex items-center text-yellow-800">
+                                <AlertTriangle className="w-5 h-5 mr-2 text-yellow-600" />
+                                Hazardous Materials
+                              </FormLabel>
+                              <p className="text-xs text-yellow-700">
+                                Contains hazardous materials.
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      {hazmatEnabled && (
+                        <div className="mt-3">
+                          <FormField
+                            control={form.control}
+                            name="hazmatType"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-yellow-800 font-medium text-sm">HAZMAT Type</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger className="h-10 border-yellow-300 bg-white text-sm">
+                                      <SelectValue placeholder="Select HAZMAT type" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {hazmatTypes.map((type) => (
+                                      <SelectItem key={type.value} value={type.value}>
+                                        {type.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Insurance Section */}
+                  <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200/70 rounded-xl shadow-sm">
+                    <FormField
+                      control={form.control}
+                      name="insurance"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-4 space-y-0">
+                          <FormControl>
+                            <Checkbox 
+                              checked={field.value} 
+                              onCheckedChange={field.onChange}
+                              className="w-5 h-5 border-2 border-green-400 data-[state=checked]:bg-green-500"
+                            />
+                          </FormControl>
+                          <div className="space-y-2 leading-none flex-1">
+                            <FormLabel className="text-base font-semibold flex items-center text-green-800">
+                              <Shield className="w-5 h-5 mr-2 text-green-600" />
+                              Package Insurance ($100 Default)
+                            </FormLabel>
+                            <p className="text-sm text-green-700">
+                              Protect your shipment against loss, theft, or damage.
+                            </p>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+
+                    {insuranceEnabled && (
+                      <div className="mt-4 space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="declaredValue"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="flex items-center text-green-800 font-medium">
+                                <DollarSign className="w-4 h-4 mr-1" />
+                                Declared Value (USD)
+                              </FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  placeholder="100.00"
+                                  className="h-11 border-green-300 bg-white"
+                                  {...field}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="p-4 bg-white/80 border-2 border-green-300/50 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-green-800">Insurance Cost:</span>
+                            <span className="text-xl font-bold text-green-900">${insuranceCost}</span>
+                          </div>
+                          <p className="text-xs text-green-600 mt-1">
+                            Based on ${declaredValue} declared value
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Carrier Selection */}
+            {selectedPackageType && (
+              <Card className="overflow-hidden border border-orange-200/50 shadow-lg bg-gradient-to-br from-orange-50/80 to-white/80 backdrop-blur-sm">
+                <CardHeader className="bg-gradient-to-r from-orange-600 to-orange-700 text-white">
+                  <CardTitle className="flex items-center text-xl">
+                    <Truck className="mr-3 h-6 w-6" />
                     Carrier Selection
                   </CardTitle>
                 </CardHeader>
@@ -413,8 +720,8 @@ const RedesignedShippingForm: React.FC = () => {
                               className={`
                                 relative p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md
                                 ${field.value === carrier.value 
-                                  ? 'border-green-500 bg-green-50 shadow-lg ring-2 ring-green-200' 
-                                  : 'border-gray-200 bg-white hover:border-green-300 hover:bg-green-50'
+                                  ? 'border-orange-500 bg-orange-50 shadow-lg ring-2 ring-orange-200' 
+                                  : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50'
                                 }
                               `}
                               onClick={() => field.onChange(carrier.value)}
@@ -422,13 +729,13 @@ const RedesignedShippingForm: React.FC = () => {
                               <div className="flex flex-col items-center text-center space-y-2">
                                 <span className="text-3xl">{carrier.logo}</span>
                                 <span className={`text-sm font-semibold ${
-                                  field.value === carrier.value ? 'text-green-700' : 'text-gray-700'
+                                  field.value === carrier.value ? 'text-orange-700' : 'text-gray-700'
                                 }`}>
                                   {carrier.label}
                                 </span>
                               </div>
                               {field.value === carrier.value && (
-                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
                                   <div className="w-2 h-2 rounded-full bg-white"></div>
                                 </div>
                               )}
@@ -439,287 +746,10 @@ const RedesignedShippingForm: React.FC = () => {
                       </FormItem>
                     )}
                   />
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Package Details & Additional Options */}
-            {selectedCarrier && (
-              <Card className="overflow-hidden border border-blue-200/50 shadow-lg bg-gradient-to-br from-blue-50/80 to-white/80 backdrop-blur-sm">
-                <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-                  <CardTitle className="flex items-center text-xl">
-                    <Package className="mr-3 h-6 w-6" />
-                    Package Details
-                  </CardTitle>
-                </CardHeader>
-                
-                <CardContent className="p-6 space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    
-                    {/* Left Column - Package Details */}
-                    <div className="space-y-6">
-                      {/* Package Dimensions (for custom packages) */}
-                      {showDimensions && (
-                        <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-200/50">
-                          <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Dimensions</Label>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <FormField
-                              control={form.control}
-                              name="length"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Length (inches)</FormLabel>
-                                  <FormControl>
-                                    <Input 
-                                      type="number"
-                                      min="0"
-                                      step="0.1"
-                                      placeholder="0"
-                                      className="h-11"
-                                      {...field}
-                                      value={field.value || ''}
-                                      onChange={(e) => field.onChange(Number(e.target.value))}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            
-                            <FormField
-                              control={form.control}
-                              name="width"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Width (inches)</FormLabel>
-                                  <FormControl>
-                                    <Input 
-                                      type="number"
-                                      min="0" 
-                                      step="0.1"
-                                      placeholder="0"
-                                      className="h-11"
-                                      {...field}
-                                      value={field.value || ''}
-                                      onChange={(e) => field.onChange(Number(e.target.value))}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            
-                            {!isEnvelope && (
-                              <FormField
-                                control={form.control}
-                                name="height"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Height (inches)</FormLabel>
-                                    <FormControl>
-                                      <Input 
-                                        type="number"
-                                        min="0"
-                                        step="0.1"
-                                        placeholder="0"
-                                        className="h-11"
-                                        {...field}
-                                        value={field.value || ''}
-                                        onChange={(e) => field.onChange(Number(e.target.value))}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Package Weight */}
-                      <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-200/50">
-                        <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Weight</Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormField
-                            control={form.control}
-                            name="weightValue"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Weight</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    type="number"
-                                    min="0"
-                                    step="0.1"
-                                    placeholder="0"
-                                    className="h-11"
-                                    {...field}
-                                    onChange={(e) => field.onChange(Number(e.target.value))}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          
-                          <FormField
-                            control={form.control}
-                            name="weightUnit"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Unit</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                  <FormControl>
-                                    <SelectTrigger className="h-11">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    <SelectItem value="oz">Ounces (oz)</SelectItem>
-                                    <SelectItem value="lb">Pounds (lb)</SelectItem>
-                                    <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Right Column - Additional Options */}
-                    <div className="space-y-6">
-                      {/* HAZMAT Section */}
-                      <div className="p-5 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200/70 rounded-xl shadow-sm">
-                        <FormField
-                          control={form.control}
-                          name="hazmat"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-4 space-y-0">
-                              <FormControl>
-                                <Checkbox 
-                                  checked={field.value} 
-                                  onCheckedChange={field.onChange}
-                                  className="w-5 h-5 border-2 border-yellow-400 data-[state=checked]:bg-yellow-500"
-                                />
-                              </FormControl>
-                              <div className="space-y-2 leading-none flex-1">
-                                <FormLabel className="text-base font-semibold flex items-center text-yellow-800">
-                                  <AlertTriangle className="w-5 h-5 mr-2 text-yellow-600" />
-                                  Contains Hazardous Materials (HAZMAT)
-                                </FormLabel>
-                                <p className="text-sm text-yellow-700">
-                                  Check this if your package contains lithium batteries, chemicals, or other hazardous materials.
-                                </p>
-                              </div>
-                            </FormItem>
-                          )}
-                        />
-
-                        {hazmatEnabled && (
-                          <div className="mt-4">
-                            <FormField
-                              control={form.control}
-                              name="hazmatType"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="text-yellow-800 font-medium">HAZMAT Type</FormLabel>
-                                  <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                      <SelectTrigger className="h-11 border-yellow-300 bg-white">
-                                        <SelectValue placeholder="Select HAZMAT type" />
-                                      </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                      {hazmatTypes.map((type) => (
-                                        <SelectItem key={type.value} value={type.value}>
-                                          {type.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Insurance Section */}
-                      <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200/70 rounded-xl shadow-sm">
-                        <FormField
-                          control={form.control}
-                          name="insurance"
-                          render={({ field }) => (
-                            <FormItem className="flex flex-row items-center space-x-4 space-y-0">
-                              <FormControl>
-                                <Checkbox 
-                                  checked={field.value} 
-                                  onCheckedChange={field.onChange}
-                                  className="w-5 h-5 border-2 border-green-400 data-[state=checked]:bg-green-500"
-                                />
-                              </FormControl>
-                              <div className="space-y-2 leading-none flex-1">
-                                <FormLabel className="text-base font-semibold flex items-center text-green-800">
-                                  <Shield className="w-5 h-5 mr-2 text-green-600" />
-                                  Add $4 insurance per $100 shipment value
-                                </FormLabel>
-                                <p className="text-sm text-green-700">
-                                  Protect your shipment against loss, theft, or damage. Recommended for all shipments.
-                                </p>
-                              </div>
-                            </FormItem>
-                          )}
-                        />
-
-                        {insuranceEnabled && (
-                          <div className="mt-4 space-y-4">
-                            <FormField
-                              control={form.control}
-                              name="declaredValue"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel className="flex items-center text-green-800 font-medium">
-                                    <DollarSign className="w-4 h-4 mr-1" />
-                                    Declared Value (USD)
-                                  </FormLabel>
-                                  <FormControl>
-                                    <Input 
-                                      type="number"
-                                      min="0"
-                                      step="0.01"
-                                      placeholder="0.00"
-                                      className="h-11 border-green-300 bg-white"
-                                      {...field}
-                                      onChange={(e) => field.onChange(Number(e.target.value))}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            
-                            <div className="p-4 bg-white/80 border-2 border-green-300/50 rounded-lg">
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-green-800">Insurance Cost:</span>
-                                <span className="text-xl font-bold text-green-900">${insuranceCost}</span>
-                              </div>
-                              <p className="text-xs text-green-600 mt-1">
-                                Based on ${declaredValue} declared value
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
 
                   {/* International Badge */}
                   {isInternational && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mt-4">
                       <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-300">
                         International Shipment
                       </Badge>
@@ -732,7 +762,7 @@ const RedesignedShippingForm: React.FC = () => {
                   )}
 
                   {/* Submit Button */}
-                  <div className="pt-4">
+                  <div className="pt-6">
                     <Button 
                       type="submit" 
                       size="lg" 
