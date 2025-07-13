@@ -1,7 +1,7 @@
 
 import React from 'react';
 import RedesignedShippingForm from '@/components/shipping/RedesignedShippingForm';
-import { ShippingRates } from '@/components/ShippingRates';
+import ShippingRates from '@/components/ShippingRates';
 import { useShippingRates } from '@/hooks/useShippingRates';
 
 const CreateLabelPage = () => {
