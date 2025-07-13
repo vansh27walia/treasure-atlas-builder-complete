@@ -6,24 +6,27 @@ import ShippingWorkflowTracker from '@/components/shipping/ShippingWorkflowTrack
 
 const CreateLabelPage = () => {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Workflow Tracker */}
-      <ShippingWorkflowTracker currentStep="package" />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+      {/* Fixed Workflow Tracker */}
+      <div className="sticky top-0 z-50 bg-white shadow-sm border-b">
+        <ShippingWorkflowTracker currentStep="package" />
+      </div>
       
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-6">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Shipping Label</h1>
-            <p className="text-gray-600">
-              Enter your shipping details to get rates and create labels from multiple carriers.
+          {/* Header Section */}
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-gray-900 mb-3">Create Shipping Label</h1>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Get competitive rates from multiple carriers and create professional shipping labels in minutes.
             </p>
           </div>
 
-          {/* Redesigned Shipping Form */}
+          {/* Main Content */}
           <RedesignedShippingForm />
 
           {/* Shipping Rates Section */}
-          <div id="shipping-rates-section">
+          <div id="shipping-rates-section" className="mt-8">
             <ShippingRates />
           </div>
         </div>
