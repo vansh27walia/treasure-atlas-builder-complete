@@ -62,13 +62,22 @@ class CarrierService {
    */
   public async getShippingRates(requestData: ShippingRequestData): Promise<ShippingOption[]> {
     try {
+      // Ensure tracking is always enabled in the request
+      const enhancedRequestData = {
+        ...requestData,
+        options: {
+          ...requestData.options,
+          tracking: true, // Always enable tracking in backend
+        }
+      };
+
       // First get EasyPost rates
-      const easyPostRates = await this.getEasyPostRates(requestData);
+      const easyPostRates = await this.getEasyPostRates(enhancedRequestData);
       
       // Try to get UPS rates if available
       let upsRates: ShippingOption[] = [];
       try {
-        upsRates = await this.getUPSRates(requestData);
+        upsRates = await this.getUPSRates(enhancedRequestData);
       } catch (error) {
         console.log('UPS API may not be configured yet:', error);
       }
@@ -76,7 +85,7 @@ class CarrierService {
       // Try to get DHL rates if available
       let dhlRates: ShippingOption[] = [];
       try {
-        dhlRates = await this.getDHLRates(requestData);
+        dhlRates = await this.getDHLRates(enhancedRequestData);
       } catch (error) {
         console.log('DHL API may not be configured yet:', error);
       }
@@ -153,16 +162,28 @@ class CarrierService {
   
   /**
    * Creates a shipping label and automatically saves tracking data with user association
+   * Tracking is automatically enabled for all shipments
    */
   public async createLabel(shipmentId: string, rateId: string, carrier: CarrierType = 'easypost'): Promise<{
     labelUrl: string;
     trackingCode: string;
   }> {
     try {
+      // Always include tracking options
+      const labelOptions = {
+        shipmentId, 
+        rateId, 
+        carrier,
+        options: {
+          tracking: true, // Always enable tracking
+          insurance: 100, // Default $100 insurance
+        }
+      };
+
       // Handle different carrier APIs
       if (carrier === 'easypost') {
         const { data, error } = await supabase.functions.invoke('create-label', {
-          body: { shipmentId, rateId, carrier: 'easypost' }
+          body: labelOptions
         });
 
         if (error) {
@@ -176,7 +197,7 @@ class CarrierService {
         };
       } else if (carrier === 'ups') {
         const { data, error } = await supabase.functions.invoke('create-label', {
-          body: { shipmentId, rateId, carrier: 'ups' }
+          body: labelOptions
         });
 
         if (error) {
@@ -189,7 +210,7 @@ class CarrierService {
         };
       } else if (carrier === 'dhl') {
         const { data, error } = await supabase.functions.invoke('create-label', {
-          body: { shipmentId, rateId, carrier: 'dhl' }
+          body: labelOptions
         });
 
         if (error) {

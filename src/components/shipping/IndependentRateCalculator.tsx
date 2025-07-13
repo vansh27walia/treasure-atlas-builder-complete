@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { toast } from '@/components/ui/sonner';
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from 'react-router-dom';
+import CarrierLogo from './CarrierLogo';
 
 const calculatorSchema = z.object({
   fromCountry: z.string().min(1, "From country is required"),
@@ -22,9 +23,9 @@ const calculatorSchema = z.object({
   packageType: z.string().min(1, "Package type is required"),
   weight: z.coerce.number().min(0.1, "Weight must be greater than 0"),
   weightUnit: z.enum(["lb", "kg", "oz"]),
-  length: z.coerce.number().min(0.1, "Length must be greater than 0"),
-  width: z.coerce.number().min(0.1, "Width must be greater than 0"),
-  height: z.coerce.number().min(0.1, "Height must be greater than 0"),
+  length: z.coerce.number().optional(),
+  width: z.coerce.number().optional(),
+  height: z.coerce.number().optional(),
 });
 
 type CalculatorFormValues = z.infer<typeof calculatorSchema>;
@@ -41,16 +42,20 @@ const countries = [
 ];
 
 const packageTypes = [
-  { value: 'box', label: 'Standard Box', icon: '📦' },
-  { value: 'envelope', label: 'Envelope', icon: '✉️' },
-  { value: 'FlatRateEnvelope', label: 'USPS Flat Rate Envelope', icon: '📮' },
-  { value: 'SmallFlatRateBox', label: 'USPS Small Flat Rate Box', icon: '📦' },
-  { value: 'MediumFlatRateBox', label: 'USPS Medium Flat Rate Box', icon: '📦' },
+  { value: 'envelope', label: 'Standard Envelope', icon: '✉️', requiresDimensions: true },
+  { value: 'large-envelope', label: 'Large Envelope', icon: '📨', requiresDimensions: true },
+  { value: 'small-box', label: 'Small Box', icon: '📦', requiresDimensions: true },
+  { value: 'medium-box', label: 'Medium Box', icon: '📦', requiresDimensions: true },
+  { value: 'large-box', label: 'Large Box', icon: '📦', requiresDimensions: true },
+  { value: 'usps-flat-envelope', label: 'USPS Flat Rate Envelope', icon: '📮', requiresDimensions: false },
+  { value: 'usps-small-flat-box', label: 'USPS Small Flat Rate Box', icon: '📦', requiresDimensions: false },
+  { value: 'usps-medium-flat-box', label: 'USPS Medium Flat Rate Box', icon: '📦', requiresDimensions: false },
 ];
 
 const IndependentRateCalculator: React.FC = () => {
   const [isCalculating, setIsCalculating] = useState(false);
   const [rates, setRates] = useState<any[]>([]);
+  const [selectedPackageType, setSelectedPackageType] = useState<string>('');
   const navigate = useNavigate();
 
   const form = useForm<CalculatorFormValues>({
@@ -68,6 +73,9 @@ const IndependentRateCalculator: React.FC = () => {
       height: 0,
     }
   });
+
+  const selectedPackage = packageTypes.find(pkg => pkg.value === selectedPackageType);
+  const requiresDimensions = selectedPackage?.requiresDimensions ?? true;
 
   const handleCalculateRates = async (values: CalculatorFormValues) => {
     setIsCalculating(true);
@@ -125,13 +133,24 @@ const IndependentRateCalculator: React.FC = () => {
         weightOz = values.weight * 16;
       }
 
-      // Build parcel object
-      const parcel = {
-        length: values.length,
-        width: values.width,
-        height: values.height,
-        weight: weightOz,
-      };
+      // Build parcel object based on package type
+      let parcel;
+      if (requiresDimensions) {
+        parcel = {
+          length: values.length || 1,
+          width: values.width || 1,
+          height: values.height || 1,
+          weight: weightOz,
+        };
+      } else {
+        // For flat rate packages, use predefined dimensions
+        parcel = {
+          length: 12,
+          width: 9,
+          height: 1,
+          weight: weightOz,
+        };
+      }
 
       // Prepare the request payload
       const payload = {
@@ -191,358 +210,392 @@ const IndependentRateCalculator: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <Calculator className="h-8 w-8 text-blue-600" />
-          <h1 className="text-3xl font-bold text-gray-900">Independent Rate Calculator</h1>
-        </div>
-        <p className="text-lg text-gray-600">
-          Get instant shipping rate estimates using just country and ZIP code
-        </p>
-      </div>
-
-      {/* Calculator Form */}
-      <Card className="shadow-lg border-blue-200/50">
-        <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-          <CardTitle className="text-xl flex items-center gap-2">
-            <Calculator className="h-5 w-5" />
-            Rate Calculator
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleCalculateRates)} className="space-y-6">
-              
-              {/* From Location */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Globe className="h-5 w-5 text-green-600" />
-                  <h3 className="text-lg font-semibold text-gray-800">From Location</h3>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="fromCountry"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Country</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select country" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {countries.map((country) => (
-                              <SelectItem key={country.value} value={country.value}>
-                                {country.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="fromZip"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ZIP Code</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter ZIP code" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              {/* To Location */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <MapPin className="h-5 w-5 text-red-600" />
-                  <h3 className="text-lg font-semibold text-gray-800">To Location</h3>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="toCountry"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Country</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select country" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {countries.map((country) => (
-                              <SelectItem key={country.value} value={country.value}>
-                                {country.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="toZip"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ZIP Code</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter ZIP code" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              {/* Package Type */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Package className="h-5 w-5 text-purple-600" />
-                  <h3 className="text-lg font-semibold text-gray-800">Package Type</h3>
-                </div>
-                
-                <FormField
-                  control={form.control}
-                  name="packageType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Select Package Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Choose package type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {packageTypes.map((pkg) => (
-                            <SelectItem key={pkg.value} value={pkg.value}>
-                              <div className="flex items-center gap-2">
-                                <span>{pkg.icon}</span>
-                                <span>{pkg.label}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Dimensions and Weight */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800">Dimensions & Weight</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Dimensions */}
-                  <div className="space-y-4">
-                    <Label className="text-base font-medium">Dimensions (inches)</Label>
-                    <div className="grid grid-cols-3 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="length"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Length</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                min="0" 
-                                step="0.1" 
-                                placeholder="0"
-                                {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="width"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Width</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                min="0" 
-                                step="0.1" 
-                                placeholder="0"
-                                {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="height"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Height</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                min="0" 
-                                step="0.1" 
-                                placeholder="0"
-                                {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Weight */}
-                  <div className="space-y-4">
-                    <Label className="text-base font-medium">Weight</Label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="weight"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Weight</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number" 
-                                min="0" 
-                                step="0.1" 
-                                placeholder="0"
-                                {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="weightUnit"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Unit</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="lb">Pounds (lb)</SelectItem>
-                                <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                                <SelectItem value="oz">Ounces (oz)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Calculate Button */}
-              <div className="pt-4">
-                <Button 
-                  type="submit" 
-                  size="lg" 
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-lg font-semibold"
-                  disabled={isCalculating}
-                >
-                  {isCalculating ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                      Calculating Rates...
-                    </>
-                  ) : (
-                    <>
-                      <Calculator className="h-5 w-5 mr-2" />
-                      Calculate Shipping Rates
-                    </>
-                  )}
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-
-      {/* Rate Results */}
-      {rates.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-gray-900">Available Rates</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {rates.map((rate, index) => (
-              <Card key={index} className="shadow-lg hover:shadow-xl transition-shadow duration-200">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{rate.carrier?.toUpperCase()}</CardTitle>
-                    <div className="text-2xl font-bold text-blue-600">
-                      ${parseFloat(rate.rate).toFixed(2)}
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600">{rate.service}</p>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="space-y-2 mb-4">
-                    {rate.delivery_days && (
-                      <p className="text-sm text-gray-600">
-                        Delivery: {rate.delivery_days} business days
-                      </p>
-                    )}
-                    {rate.est_delivery_date && (
-                      <p className="text-sm text-gray-600">
-                        Est. Delivery: {new Date(rate.est_delivery_date).toLocaleDateString()}
-                      </p>
-                    )}
-                  </div>
-                  <Button 
-                    onClick={() => handleShipThis(rate)}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    Ship This
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      <div className="container mx-auto px-4 py-6">
+        <div className="max-w-6xl mx-auto space-y-6">
+          
+          {/* Header */}
+          <div className="text-center space-y-2">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Calculator className="h-8 w-8 text-blue-600" />
+              <h1 className="text-3xl font-bold text-gray-900">Independent Rate Calculator</h1>
+            </div>
+            <p className="text-lg text-gray-600">
+              Get instant shipping rate estimates using just country and ZIP code
+            </p>
           </div>
+
+          {/* Calculator Form */}
+          <Card className="shadow-lg border-blue-200/50 bg-white/90 backdrop-blur-sm">
+            <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <Calculator className="h-5 w-5" />
+                Rate Calculator
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleCalculateRates)} className="space-y-8">
+                  
+                  {/* Location Section */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    
+                    {/* From Location */}
+                    <Card className="border-green-200">
+                      <CardHeader className="bg-green-50">
+                        <CardTitle className="text-lg flex items-center gap-2 text-green-800">
+                          <Globe className="h-5 w-5" />
+                          From Location
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="fromCountry"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Country</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select country" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {countries.map((country) => (
+                                    <SelectItem key={country.value} value={country.value}>
+                                      {country.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="fromZip"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>ZIP Code</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter ZIP code" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </CardContent>
+                    </Card>
+
+                    {/* To Location */}
+                    <Card className="border-red-200">
+                      <CardHeader className="bg-red-50">
+                        <CardTitle className="text-lg flex items-center gap-2 text-red-800">
+                          <MapPin className="h-5 w-5" />
+                          To Location
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="toCountry"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Country</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select country" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {countries.map((country) => (
+                                    <SelectItem key={country.value} value={country.value}>
+                                      {country.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="toZip"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>ZIP Code</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Enter ZIP code" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Package Details Section */}
+                  <Card className="border-purple-200">
+                    <CardHeader className="bg-purple-50">
+                      <CardTitle className="text-lg flex items-center gap-2 text-purple-800">
+                        <Package className="h-5 w-5" />
+                        Package Details
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-6">
+                      
+                      {/* Package Type Selection */}
+                      <FormField
+                        control={form.control}
+                        name="packageType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-base font-medium">Select Package Type</FormLabel>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              {packageTypes.map((pkg) => (
+                                <div 
+                                  key={pkg.value}
+                                  className={`flex items-center space-x-2 p-3 border rounded-lg cursor-pointer transition-colors ${
+                                    field.value === pkg.value ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'
+                                  }`}
+                                  onClick={() => {
+                                    field.onChange(pkg.value);
+                                    setSelectedPackageType(pkg.value);
+                                  }}
+                                >
+                                  <input 
+                                    type="radio" 
+                                    name="packageType" 
+                                    value={pkg.value} 
+                                    checked={field.value === pkg.value}
+                                    onChange={() => {}}
+                                    className="text-blue-600" 
+                                  />
+                                  <span className="text-lg">{pkg.icon}</span>
+                                  <span className="text-xs text-center">{pkg.label}</span>
+                                </div>
+                              ))}
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Weight Section - Always visible */}
+                      <div className="space-y-4">
+                        <Label className="text-base font-medium">Weight</Label>
+                        <div className="flex gap-2 mb-3">
+                          <Button 
+                            type="button" 
+                            variant={form.getValues('weightUnit') === 'lb' ? 'default' : 'outline'} 
+                            size="sm"
+                            onClick={() => form.setValue('weightUnit', 'lb')}
+                          >
+                            Pounds
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant={form.getValues('weightUnit') === 'kg' ? 'default' : 'outline'} 
+                            size="sm"
+                            onClick={() => form.setValue('weightUnit', 'kg')}
+                          >
+                            Kilograms
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant={form.getValues('weightUnit') === 'oz' ? 'default' : 'outline'} 
+                            size="sm"
+                            onClick={() => form.setValue('weightUnit', 'oz')}
+                          >
+                            Ounces
+                          </Button>
+                        </div>
+                        <FormField
+                          control={form.control}
+                          name="weight"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input 
+                                  type="number" 
+                                  min="0" 
+                                  step="0.1" 
+                                  placeholder={`Weight in ${form.getValues('weightUnit')}`}
+                                  {...field}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Dimensions Section - Only for non-flat rate packages */}
+                      {requiresDimensions && (
+                        <div className="space-y-4">
+                          <Label className="text-base font-medium">Dimensions (inches)</Label>
+                          <div className="grid grid-cols-3 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="length"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Length</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="number" 
+                                      min="0" 
+                                      step="0.1" 
+                                      placeholder="0"
+                                      {...field}
+                                      onChange={(e) => field.onChange(Number(e.target.value))}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="width"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Width</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="number" 
+                                      min="0" 
+                                      step="0.1" 
+                                      placeholder="0"
+                                      {...field}
+                                      onChange={(e) => field.onChange(Number(e.target.value))}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            
+                            <FormField
+                              control={form.control}
+                              name="height"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Height</FormLabel>
+                                  <FormControl>
+                                    <Input 
+                                      type="number" 
+                                      min="0" 
+                                      step="0.1" 
+                                      placeholder="0"
+                                      {...field}
+                                      onChange={(e) => field.onChange(Number(e.target.value))}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Calculate Button */}
+                  <div className="text-center">
+                    <Button 
+                      type="submit" 
+                      size="lg" 
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg font-semibold"
+                      disabled={isCalculating}
+                    >
+                      {isCalculating ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                          Calculating Rates...
+                        </>
+                      ) : (
+                        <>
+                          <Calculator className="h-5 w-5 mr-2" />
+                          Calculate Shipping Rates
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+
+          {/* Rate Results */}
+          {rates.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-2xl font-bold text-gray-900">Available Rates</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {rates.map((rate, index) => (
+                  <Card key={index} className="shadow-lg hover:shadow-xl transition-shadow duration-200 bg-white/90 backdrop-blur-sm">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CarrierLogo carrier={rate.carrier} size="sm" />
+                          <CardTitle className="text-lg">{rate.carrier?.toUpperCase()}</CardTitle>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-blue-600">
+                            ${parseFloat(rate.rate).toFixed(2)}
+                          </div>
+                          {rate.list_rate && rate.list_rate !== rate.rate && (
+                            <div className="text-sm text-gray-500 line-through">
+                              ${parseFloat(rate.list_rate).toFixed(2)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-600">{rate.service}</p>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-2 mb-4">
+                        {rate.delivery_days && (
+                          <p className="text-sm text-gray-600">
+                            <strong>Delivery:</strong> {rate.delivery_days} business days
+                          </p>
+                        )}
+                        {rate.est_delivery_date && (
+                          <p className="text-sm text-gray-600">
+                            <strong>Est. Delivery:</strong> {new Date(rate.est_delivery_date).toLocaleDateString()}
+                          </p>
+                        )}
+                        {rate.list_rate && rate.list_rate !== rate.rate && (
+                          <p className="text-sm text-green-600">
+                            <strong>You Save:</strong> ${(parseFloat(rate.list_rate) - parseFloat(rate.rate)).toFixed(2)}
+                          </p>
+                        )}
+                      </div>
+                      <Button 
+                        onClick={() => handleShipThis(rate)}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        Ship This
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };
