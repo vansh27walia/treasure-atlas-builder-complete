@@ -2,25 +2,8 @@
 import React from 'react';
 import RedesignedShippingForm from '@/components/shipping/RedesignedShippingForm';
 import ShippingRates from '@/components/ShippingRates';
-import { useShippingRates } from '@/hooks/useShippingRates';
 
 const CreateLabelPage = () => {
-  const {
-    rates,
-    isLoading,
-    selectedRateId,
-    handleSelectRate,
-    handleCreateLabel,
-    handleProceedToPayment,
-    labelUrl,
-    trackingCode,
-    uniqueCarriers,
-    activeCarrierFilter,
-    handleFilterByCarrier,
-    bestValueRateId,
-    fastestRateId
-  } = useShippingRates();
-
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
@@ -37,21 +20,7 @@ const CreateLabelPage = () => {
 
           {/* Shipping Rates Section */}
           <div id="shipping-rates-section">
-            <ShippingRates
-              rates={rates}
-              isLoading={isLoading}
-              selectedRateId={selectedRateId}
-              onSelectRate={handleSelectRate}
-              onCreateLabel={handleCreateLabel}
-              onProceedToPayment={handleProceedToPayment}
-              labelUrl={labelUrl}
-              trackingCode={trackingCode}
-              uniqueCarriers={uniqueCarriers}
-              activeCarrierFilter={activeCarrierFilter}
-              onFilterByCarrier={handleFilterByCarrier}
-              bestValueRateId={bestValueRateId}
-              fastestRateId={fastestRateId}
-            />
+            <ShippingRates />
           </div>
         </div>
       </div>
