@@ -21,10 +21,11 @@ interface AddressData {
 }
 
 interface ParcelData {
-  length: number;
-  width: number;
-  height: number;
+  length?: number;
+  width?: number;
+  height?: number;
   weight: number;
+  predefined_package?: string;
 }
 
 interface ShippingRequestData {
@@ -33,6 +34,7 @@ interface ShippingRequestData {
   parcel: ParcelData;
   options?: Record<string, any>;
   carriers?: string[];
+  insurance?: number; // declared value in USD
 }
 
 // Get markup percentage from environment variable or use default value
@@ -146,8 +148,25 @@ serve(async (req) => {
     
     console.log(`Filtered carriers for API request: ${specificCarriers.join(', ')}`);
     
+    // Build parcel object for EasyPost
+    const parcelData: any = {
+      weight: requestData.parcel.weight
+    };
+
+    // Add dimensions or predefined package
+    if (requestData.parcel.predefined_package) {
+      parcelData.predefined_package = requestData.parcel.predefined_package;
+      console.log(`Using predefined package: ${requestData.parcel.predefined_package}`);
+    } else {
+      // Custom dimensions
+      if (requestData.parcel.length) parcelData.length = requestData.parcel.length;
+      if (requestData.parcel.width) parcelData.width = requestData.parcel.width;
+      if (requestData.parcel.height) parcelData.height = requestData.parcel.height;
+      console.log('Using custom dimensions');
+    }
+    
     // Create shipment request for EasyPost API
-    const shipmentRequest = {
+    const shipmentRequest: any = {
       shipment: {
         from_address: {
           name: requestData.fromAddress.name,
@@ -171,15 +190,16 @@ serve(async (req) => {
           country: requestData.toAddress.country,
           phone: requestData.toAddress.phone || ''
         },
-        parcel: {
-          length: requestData.parcel.length,
-          width: requestData.parcel.width,
-          height: requestData.parcel.height,
-          weight: requestData.parcel.weight
-        },
+        parcel: parcelData,
         options: requestData.options || {}
       }
     };
+
+    // Add insurance if provided
+    if (requestData.insurance && requestData.insurance > 0) {
+      shipmentRequest.shipment.insurance = requestData.insurance;
+      console.log(`Adding insurance for $${requestData.insurance}`);
+    }
     
     console.log("Sending request to EasyPost API:", JSON.stringify(shipmentRequest, null, 2));
     
