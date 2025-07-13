@@ -2,12 +2,16 @@
 import React from 'react';
 import RedesignedShippingForm from '@/components/shipping/RedesignedShippingForm';
 import ShippingRates from '@/components/ShippingRates';
+import ShippingWorkflowTracker from '@/components/shipping/ShippingWorkflowTracker';
 
 const CreateLabelPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Workflow Tracker */}
+      <ShippingWorkflowTracker currentStep="package" />
+      
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Shipping Label</h1>
             <p className="text-gray-600">
