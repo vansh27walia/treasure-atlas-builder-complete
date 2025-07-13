@@ -77,7 +77,7 @@ const RedesignedShippingForm: React.FC = () => {
         <div className="max-w-4xl mx-auto space-y-6">
           
           {/* Workflow Tracker */}
-          <EnhancedWorkflowTracker currentStep="addresses" />
+          <EnhancedWorkflowTracker currentStep="address" />
 
           {/* Pickup Address Section */}
           <Card className="shadow-lg border-green-200/50 bg-white/90 backdrop-blur-sm">
