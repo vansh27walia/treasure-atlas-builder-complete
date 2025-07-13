@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,18 +10,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Package, Shield, AlertTriangle, Search, Loader2, DollarSign, Info, Sparkles, Truck } from 'lucide-react';
+import { MapPin, Package, Shield, AlertTriangle, Search, Loader2, DollarSign, Info } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import AddressSelector from './AddressSelector';
+import CarrierSelector from './CarrierSelector';
+import PackageTypeCard from './PackageTypeCard';
 import { SavedAddress } from '@/services/AddressService';
 import { createAddressSelectHandler } from '@/utils/addressUtils';
 
 const packageOptions = [
   { 
     value: 'box', 
-    label: 'Custom Box', 
-    type: 'custom' as const,
+    label: 'Boxes', 
+    type: 'custom',
     icon: '📦',
     description: 'Custom sized boxes',
     image: '/package-images/box.png',
@@ -30,97 +31,59 @@ const packageOptions = [
   },
   { 
     value: 'envelope', 
-    label: 'Custom Envelope', 
-    type: 'custom' as const,
+    label: 'Envelopes', 
+    type: 'custom',
     icon: '📮',
     description: 'Documents & flat items',
     image: '/package-images/envelope.png'
   },
   
   // USPS Flat Rate Packages
-  { value: 'FlatRateEnvelope', label: 'USPS - Flat Rate Envelope', type: 'predefined' as const, icon: '🇺🇸', description: 'USPS standard envelope', category: 'USPS' },
-  { value: 'LegalFlatRateEnvelope', label: 'USPS - Legal Flat Rate Envelope', type: 'predefined' as const, icon: '🇺🇸', description: 'Legal size envelope', category: 'USPS' },
-  { value: 'PaddedFlatRateEnvelope', label: 'USPS - Padded Flat Rate Envelope', type: 'predefined' as const, icon: '🇺🇸', description: 'Padded protection', category: 'USPS' },
-  { value: 'FlatRateWindowEnvelope', label: 'USPS - Flat Rate Window Envelope', type: 'predefined' as const, icon: '🇺🇸', description: 'With address window', category: 'USPS' },
-  { value: 'FlatRateCardboardEnvelope', label: 'USPS - Flat Rate Cardboard Envelope', type: 'predefined' as const, icon: '🇺🇸', description: 'Rigid cardboard', category: 'USPS' },
-  { value: 'SmallFlatRateEnvelope', label: 'USPS - Small Flat Rate Envelope', type: 'predefined' as const, icon: '🇺🇸', description: 'Compact size', category: 'USPS' },
-  { value: 'SmallFlatRateBox', label: 'USPS - Small Flat Rate Box', type: 'predefined' as const, icon: '🇺🇸', description: 'Small box', category: 'USPS' },
-  { value: 'MediumFlatRateBox', label: 'USPS - Medium Flat Rate Box', type: 'predefined' as const, icon: '🇺🇸', description: 'Medium box', category: 'USPS' },
-  { value: 'LargeFlatRateBox', label: 'USPS - Large Flat Rate Box', type: 'predefined' as const, icon: '🇺🇸', description: 'Large box', category: 'USPS' },
-  { value: 'LargeFlatRateBoxAPOFPO', label: 'USPS - Large Flat Rate Box APO/FPO', type: 'predefined' as const, icon: '🇺🇸', description: 'Military addresses', category: 'USPS' },
-  { value: 'RegionalRateBoxA', label: 'USPS - Regional Rate Box A', type: 'predefined' as const, icon: '🇺🇸', description: 'Regional pricing', category: 'USPS' },
-  { value: 'RegionalRateBoxB', label: 'USPS - Regional Rate Box B', type: 'predefined' as const, icon: '🇺🇸', description: 'Regional pricing', category: 'USPS' },
+  { value: 'FlatRateEnvelope', label: 'USPS - Flat Rate Envelope', type: 'predefined', icon: '🇺🇸', description: 'USPS standard envelope', category: 'USPS' },
+  { value: 'LegalFlatRateEnvelope', label: 'USPS - Legal Flat Rate Envelope', type: 'predefined', icon: '🇺🇸', description: 'Legal size envelope', category: 'USPS' },
+  { value: 'PaddedFlatRateEnvelope', label: 'USPS - Padded Flat Rate Envelope', type: 'predefined', icon: '🇺🇸', description: 'Padded protection', category: 'USPS' },
+  { value: 'FlatRateWindowEnvelope', label: 'USPS - Flat Rate Window Envelope', type: 'predefined', icon: '🇺🇸', description: 'With address window', category: 'USPS' },
+  { value: 'FlatRateCardboardEnvelope', label: 'USPS - Flat Rate Cardboard Envelope', type: 'predefined', icon: '🇺🇸', description: 'Rigid cardboard', category: 'USPS' },
+  { value: 'SmallFlatRateEnvelope', label: 'USPS - Small Flat Rate Envelope', type: 'predefined', icon: '🇺🇸', description: 'Compact size', category: 'USPS' },
+  { value: 'SmallFlatRateBox', label: 'USPS - Small Flat Rate Box', type: 'predefined', icon: '🇺🇸', description: 'Small box', category: 'USPS' },
+  { value: 'MediumFlatRateBox', label: 'USPS - Medium Flat Rate Box', type: 'predefined', icon: '🇺🇸', description: 'Medium box', category: 'USPS' },
+  { value: 'LargeFlatRateBox', label: 'USPS - Large Flat Rate Box', type: 'predefined', icon: '🇺🇸', description: 'Large box', category: 'USPS' },
+  { value: 'LargeFlatRateBoxAPOFPO', label: 'USPS - Large Flat Rate Box APO/FPO', type: 'predefined', icon: '🇺🇸', description: 'Military addresses', category: 'USPS' },
+  { value: 'RegionalRateBoxA', label: 'USPS - Regional Rate Box A', type: 'predefined', icon: '🇺🇸', description: 'Regional pricing', category: 'USPS' },
+  { value: 'RegionalRateBoxB', label: 'USPS - Regional Rate Box B', type: 'predefined', icon: '🇺🇸', description: 'Regional pricing', category: 'USPS' },
   
   // UPS Predefined Packages
-  { value: 'UPSLetter', label: 'UPS - Letter', type: 'predefined' as const, icon: '🤎', description: 'Document envelope', category: 'UPS' },
-  { value: 'UPSExpressBox', label: 'UPS - Express Box', type: 'predefined' as const, icon: '🤎', description: 'Express service', category: 'UPS' },
-  { value: 'UPS25kgBox', label: 'UPS - 25kg Box', type: 'predefined' as const, icon: '🤎', description: 'Heavy items', category: 'UPS' },
-  { value: 'UPS10kgBox', label: 'UPS - 10kg Box', type: 'predefined' as const, icon: '🤎', description: 'Medium weight', category: 'UPS' },
-  { value: 'Tube', label: 'UPS - Tube', type: 'predefined' as const, icon: '🤎', description: 'Cylindrical items', category: 'UPS' },
-  { value: 'Pak', label: 'UPS - Pak', type: 'predefined' as const, icon: '🤎', description: 'Flat documents', category: 'UPS' },
-  { value: 'SmallExpressBox', label: 'UPS - Small Express Box', type: 'predefined' as const, icon: '🤎', description: 'Small express', category: 'UPS' },
-  { value: 'MediumExpressBox', label: 'UPS - Medium Express Box', type: 'predefined' as const, icon: '🤎', description: 'Medium express', category: 'UPS' },
-  { value: 'LargeExpressBox', label: 'UPS - Large Express Box', type: 'predefined' as const, icon: '🤎', description: 'Large express', category: 'UPS' },
+  { value: 'UPSLetter', label: 'UPS - Letter', type: 'predefined', icon: '🤎', description: 'Document envelope', category: 'UPS' },
+  { value: 'UPSExpressBox', label: 'UPS - Express Box', type: 'predefined', icon: '🤎', description: 'Express service', category: 'UPS' },
+  { value: 'UPS25kgBox', label: 'UPS - 25kg Box', type: 'predefined', icon: '🤎', description: 'Heavy items', category: 'UPS' },
+  { value: 'UPS10kgBox', label: 'UPS - 10kg Box', type: 'predefined', icon: '🤎', description: 'Medium weight', category: 'UPS' },
+  { value: 'Tube', label: 'UPS - Tube', type: 'predefined', icon: '🤎', description: 'Cylindrical items', category: 'UPS' },
+  { value: 'Pak', label: 'UPS - Pak', type: 'predefined', icon: '🤎', description: 'Flat documents', category: 'UPS' },
+  { value: 'SmallExpressBox', label: 'UPS - Small Express Box', type: 'predefined', icon: '🤎', description: 'Small express', category: 'UPS' },
+  { value: 'MediumExpressBox', label: 'UPS - Medium Express Box', type: 'predefined', icon: '🤎', description: 'Medium express', category: 'UPS' },
+  { value: 'LargeExpressBox', label: 'UPS - Large Express Box', type: 'predefined', icon: '🤎', description: 'Large express', category: 'UPS' },
   
   // FedEx Predefined Packages
-  { value: 'FedExEnvelope', label: 'FedEx - Envelope', type: 'predefined' as const, icon: '💜', description: 'Standard envelope', category: 'FedEx' },
-  { value: 'FedExBox', label: 'FedEx - Box', type: 'predefined' as const, icon: '💜', description: 'Standard box', category: 'FedEx' },
-  { value: 'FedExPak', label: 'FedEx - Pak', type: 'predefined' as const, icon: '💜', description: 'Document pak', category: 'FedEx' },
-  { value: 'FedExTube', label: 'FedEx - Tube', type: 'predefined' as const, icon: '💜', description: 'Tube container', category: 'FedEx' },
-  { value: 'FedEx10kgBox', label: 'FedEx - 10kg Box', type: 'predefined' as const, icon: '💜', description: '10kg capacity', category: 'FedEx' },
-  { value: 'FedEx25kgBox', label: 'FedEx - 25kg Box', type: 'predefined' as const, icon: '💜', description: '25kg capacity', category: 'FedEx' },
-  { value: 'FedExSmallBox', label: 'FedEx - Small Box', type: 'predefined' as const, icon: '💜', description: 'Small package', category: 'FedEx' },
-  { value: 'FedExMediumBox', label: 'FedEx - Medium Box', type: 'predefined' as const, icon: '💜', description: 'Medium package', category: 'FedEx' },
-  { value: 'FedExLargeBox', label: 'FedEx - Large Box', type: 'predefined' as const, icon: '💜', description: 'Large package', category: 'FedEx' },
-  { value: 'FedExExtraLargeBox', label: 'FedEx - Extra Large Box', type: 'predefined' as const, icon: '💜', description: 'Extra large', category: 'FedEx' },
+  { value: 'FedExEnvelope', label: 'FedEx - Envelope', type: 'predefined', icon: '💜', description: 'Standard envelope', category: 'FedEx' },
+  { value: 'FedExBox', label: 'FedEx - Box', type: 'predefined', icon: '💜', description: 'Standard box', category: 'FedEx' },
+  { value: 'FedExPak', label: 'FedEx - Pak', type: 'predefined', icon: '💜', description: 'Document pak', category: 'FedEx' },
+  { value: 'FedExTube', label: 'FedEx - Tube', type: 'predefined', icon: '💜', description: 'Tube container', category: 'FedEx' },
+  { value: 'FedEx10kgBox', label: 'FedEx - 10kg Box', type: 'predefined', icon: '💜', description: '10kg capacity', category: 'FedEx' },
+  { value: 'FedEx25kgBox', label: 'FedEx - 25kg Box', type: 'predefined', icon: '💜', description: '25kg capacity', category: 'FedEx' },
+  { value: 'FedExSmallBox', label: 'FedEx - Small Box', type: 'predefined', icon: '💜', description: 'Small package', category: 'FedEx' },
+  { value: 'FedExMediumBox', label: 'FedEx - Medium Box', type: 'predefined', icon: '💜', description: 'Medium package', category: 'FedEx' },
+  { value: 'FedExLargeBox', label: 'FedEx - Large Box', type: 'predefined', icon: '💜', description: 'Large package', category: 'FedEx' },
+  { value: 'FedExExtraLargeBox', label: 'FedEx - Extra Large Box', type: 'predefined', icon: '💜', description: 'Extra large', category: 'FedEx' },
   
   // DHL Predefined Packages
-  { value: 'DHLExpressEnvelope', label: 'DHL - Express Envelope', type: 'predefined' as const, icon: '🟡', description: 'Express delivery', category: 'DHL' },
-  { value: 'DHLFlyer', label: 'DHL - Flyer', type: 'predefined' as const, icon: '🟡', description: 'Lightweight docs', category: 'DHL' },
-  { value: 'DHLExpressBox', label: 'DHL - Express Box', type: 'predefined' as const, icon: '🟡', description: 'Express package', category: 'DHL' },
-  { value: 'DHLJumboBox', label: 'DHL - Jumbo Box', type: 'predefined' as const, icon: '🟡', description: 'Extra large box', category: 'DHL' },
-  { value: 'DHLSmallBox', label: 'DHL - Small Box', type: 'predefined' as const, icon: '🟡', description: 'Small package', category: 'DHL' },
-  { value: 'DHLLargeBox', label: 'DHL - Large Box', type: 'predefined' as const, icon: '🟡', description: 'Large package', category: 'DHL' },
-  { value: 'DHLPak', label: 'DHL - Pak', type: 'predefined' as const, icon: '🟡', description: 'Document pak', category: 'DHL' },
-  { value: 'DHLTube', label: 'DHL - Tube', type: 'predefined' as const, icon: '🟡', description: 'Tube container', category: 'DHL' },
-];
-
-const carriers = [
-  { 
-    value: 'all', 
-    label: 'All Carriers', 
-    logo: '📦',
-    color: 'from-blue-500 to-purple-500',
-    description: 'Compare all available options'
-  },
-  { 
-    value: 'usps', 
-    label: 'USPS', 
-    logo: '🇺🇸',
-    color: 'from-red-500 to-blue-500',
-    description: 'US Postal Service'
-  },
-  { 
-    value: 'ups', 
-    label: 'UPS', 
-    logo: '🤎',
-    color: 'from-yellow-600 to-yellow-800',
-    description: 'United Parcel Service'
-  },
-  { 
-    value: 'fedex', 
-    label: 'FedEx', 
-    logo: '💜',
-    color: 'from-purple-600 to-orange-500',
-    description: 'Federal Express'
-  },
-  { 
-    value: 'dhl', 
-    label: 'DHL', 
-    logo: '🟡',
-    color: 'from-yellow-400 to-red-500',
-    description: 'International Express'
-  },
+  { value: 'DHLExpressEnvelope', label: 'DHL - Express Envelope', type: 'predefined', icon: '🟡', description: 'Express delivery', category: 'DHL' },
+  { value: 'DHLFlyer', label: 'DHL - Flyer', type: 'predefined', icon: '🟡', description: 'Lightweight docs', category: 'DHL' },
+  { value: 'DHLExpressBox', label: 'DHL - Express Box', type: 'predefined', icon: '🟡', description: 'Express package', category: 'DHL' },
+  { value: 'DHLJumboBox', label: 'DHL - Jumbo Box', type: 'predefined', icon: '🟡', description: 'Extra large box', category: 'DHL' },
+  { value: 'DHLSmallBox', label: 'DHL - Small Box', type: 'predefined', icon: '🟡', description: 'Small package', category: 'DHL' },
+  { value: 'DHLLargeBox', label: 'DHL - Large Box', type: 'predefined', icon: '🟡', description: 'Large package', category: 'DHL' },
+  { value: 'DHLPak', label: 'DHL - Pak', type: 'predefined', icon: '🟡', description: 'Document pak', category: 'DHL' },
+  { value: 'DHLTube', label: 'DHL - Tube', type: 'predefined', icon: '🟡', description: 'Tube container', category: 'DHL' },
 ];
 
 const shippingFormSchema = z.object({
@@ -142,6 +105,7 @@ const RedesignedShippingForm: React.FC = () => {
   const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
   const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
   const [selectedCarrier, setSelectedCarrier] = useState('all');
+  const [currentStep, setCurrentStep] = useState(1);
 
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
@@ -179,11 +143,8 @@ const RedesignedShippingForm: React.FC = () => {
     return (
       <div className="space-y-6">
         {showDimensions && (
-          <div className="p-6 bg-gradient-to-r from-blue-50/50 to-purple-50/50 rounded-2xl border border-blue-100/50 backdrop-blur-sm">
-            <Label className="text-base font-semibold text-gray-900 mb-4 block flex items-center">
-              <Package className="w-5 h-5 mr-2 text-blue-600" />
-              Package Dimensions
-            </Label>
+          <div>
+            <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Dimensions</Label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <FormField
                 control={form.control}
@@ -197,7 +158,7 @@ const RedesignedShippingForm: React.FC = () => {
                         min="0"
                         step="0.1"
                         placeholder="8"
-                        className="h-12 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl"
+                        className="h-11"
                         {...field}
                         value={field.value || ''}
                         onChange={(e) => field.onChange(Number(e.target.value))}
@@ -220,7 +181,7 @@ const RedesignedShippingForm: React.FC = () => {
                         min="0" 
                         step="0.1"
                         placeholder="8"
-                        className="h-12 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl"
+                        className="h-11"
                         {...field}
                         value={field.value || ''}
                         onChange={(e) => field.onChange(Number(e.target.value))}
@@ -244,7 +205,7 @@ const RedesignedShippingForm: React.FC = () => {
                           min="0"
                           step="0.1"
                           placeholder="2"
-                          className="h-12 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl"
+                          className="h-11"
                           {...field}
                           value={field.value || ''}
                           onChange={(e) => field.onChange(Number(e.target.value))}
@@ -259,11 +220,8 @@ const RedesignedShippingForm: React.FC = () => {
           </div>
         )}
         
-        <div className="p-6 bg-gradient-to-r from-green-50/50 to-blue-50/50 rounded-2xl border border-green-100/50 backdrop-blur-sm">
-          <Label className="text-base font-semibold text-gray-900 mb-4 block flex items-center">
-            <Package className="w-5 h-5 mr-2 text-green-600" />
-            Package Weight
-          </Label>
+        <div>
+          <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Weight</Label>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
@@ -277,7 +235,7 @@ const RedesignedShippingForm: React.FC = () => {
                       min="0"
                       step="0.1"
                       placeholder="1"
-                      className="h-12 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl"
+                      className="h-11"
                       {...field}
                       onChange={(e) => field.onChange(Number(e.target.value))}
                     />
@@ -295,11 +253,11 @@ const RedesignedShippingForm: React.FC = () => {
                   <FormLabel className="text-sm font-medium">Unit</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger className="h-12 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl">
+                      <SelectTrigger className="h-11">
                         <SelectValue />
                       </SelectTrigger>
                     </FormControl>
-                    <SelectContent className="bg-white/95 backdrop-blur-md border border-gray-200 shadow-xl rounded-xl">
+                    <SelectContent>
                       <SelectItem value="oz">Ounces (oz)</SelectItem>
                       <SelectItem value="lb">Pounds (lb)</SelectItem>
                       <SelectItem value="kg">Kilograms (kg)</SelectItem>
@@ -313,6 +271,14 @@ const RedesignedShippingForm: React.FC = () => {
         </div>
       </div>
     );
+  };
+
+  const groupedPackages = {
+    custom: packageOptions.filter(p => p.type === 'custom'),
+    USPS: packageOptions.filter(p => p.category === 'USPS'),
+    UPS: packageOptions.filter(p => p.category === 'UPS'),
+    FedEx: packageOptions.filter(p => p.category === 'FedEx'),
+    DHL: packageOptions.filter(p => p.category === 'DHL'),
   };
 
   const handleGetRates = async (values: ShippingFormValues) => {
@@ -399,7 +365,7 @@ const RedesignedShippingForm: React.FC = () => {
 
       console.log('Shipping payload:', JSON.stringify(payload, null, 2));
 
-      // Call the Edge Function to get shipping rates - RESTORE ORIGINAL FUNCTIONALITY
+      // Call the Edge Function to get shipping rates
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
         body: payload,
       });
@@ -408,36 +374,32 @@ const RedesignedShippingForm: React.FC = () => {
         throw new Error(`Error fetching rates: ${error.message}`);
       }
 
-      // RESTORE ORIGINAL RATES HANDLING - DO NOT MODIFY
+      // Process rates and add insurance cost
       if (data.rates && Array.isArray(data.rates)) {
-        // Add original rates for price comparison display
-        const ratesWithOriginalPrices = data.rates.map(rate => {
-          if (!rate.original_rate && (rate.list_rate || rate.retail_rate)) {
-            return {
-              ...rate,
-              original_rate: rate.list_rate || rate.retail_rate
-            };
-          }
-          return rate;
-        });
-        
-        // Publish the updated rates to be displayed in the ShippingRates component
-        document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
-          detail: { rates: ratesWithOriginalPrices, shipmentId: data.shipmentId } 
+        const ratesWithInsurance = data.rates.map((rate: any) => ({
+          ...rate,
+          insurance_cost: insuranceCost,
+          total_with_insurance: parseFloat(rate.rate) + insuranceCost,
         }));
-      } else {
-        // Publish the rates as is
-        document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
-          detail: { rates: data.rates, shipmentId: data.shipmentId } 
-        }));
-      }
 
-      toast.success("Shipping rates retrieved successfully");
-      
-      // Scroll to the rates section
-      const ratesSection = document.getElementById('shipping-rates-section');
-      if (ratesSection) {
-        ratesSection.scrollIntoView({ behavior: 'smooth' });
+        // Dispatch rates to be displayed
+        document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
+          detail: { 
+            rates: ratesWithInsurance, 
+            shipmentId: data.shipmentId,
+            insuranceCost 
+          } 
+        }));
+
+        toast.success("Shipping rates retrieved successfully");
+        
+        // Scroll to the rates section
+        const ratesSection = document.getElementById('shipping-rates-section');
+        if (ratesSection) {
+          ratesSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      } else {
+        toast.info('No rates available for this shipment');
       }
     } catch (error) {
       console.error('Error fetching shipping rates:', error);
@@ -448,373 +410,287 @@ const RedesignedShippingForm: React.FC = () => {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-8 p-6">
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-8">
-          
-          {/* Step 1: Addresses - Glass Format */}
-          <div className="space-y-6">
-            <Card className="overflow-hidden border-0 shadow-2xl bg-white/70 backdrop-blur-xl rounded-3xl">
-              <CardHeader className="bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 text-white p-8 rounded-t-3xl">
-                <CardTitle className="flex items-center text-2xl font-bold">
-                  <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center font-bold text-lg mr-4">1</div>
-                  <MapPin className="mr-3 h-7 w-7" />
-                  Shipping Addresses
-                  <Sparkles className="ml-auto h-6 w-6" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-8 space-y-8 bg-white/80 backdrop-blur-sm">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <div className="space-y-2">
-                    <Label className="text-lg font-semibold text-gray-900 flex items-center">
-                      <div className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold mr-2">F</div>
-                      From Address
-                    </Label>
+    <div className="w-full space-y-8">
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+        {/* Main Form - 3 columns */}
+        <div className="xl:col-span-3 space-y-8">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-8">
+              
+              {/* Step 1: Addresses */}
+              <div className="space-y-6">
+                <Card className="overflow-hidden border-2 border-blue-100 shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+                    <CardTitle className="flex items-center text-xl">
+                      <div className="w-8 h-8 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold text-sm mr-3">1</div>
+                      <MapPin className="mr-3 h-6 w-6" />
+                      Pickup Address
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 bg-blue-50">
                     <AddressSelector 
                       type="from"
                       onAddressSelect={handleFromAddressSelect}
                       useGoogleAutocomplete={true}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-lg font-semibold text-gray-900 flex items-center">
-                      <div className="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold mr-2">T</div>
-                      To Address
-                    </Label>
+                  </CardContent>
+                </Card>
+
+                <Card className="overflow-hidden border-2 border-green-100 shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-green-600 to-green-700 text-white">
+                    <CardTitle className="flex items-center text-xl">
+                      <div className="w-8 h-8 rounded-full bg-white text-green-600 flex items-center justify-center font-bold text-sm mr-3">2</div>
+                      <MapPin className="mr-3 h-6 w-6" />
+                      Drop-Off Address
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 bg-green-50">
                     <AddressSelector 
                       type="to"
                       onAddressSelect={handleToAddressSelect}
                       useGoogleAutocomplete={true}
                     />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                  </CardContent>
+                </Card>
+              </div>
 
-          {/* Step 2: Package Selection & Carrier - Glass Format */}
-          <Card className="overflow-hidden border-0 shadow-2xl bg-white/70 backdrop-blur-xl rounded-3xl">
-            <CardHeader className="bg-gradient-to-r from-purple-600 via-purple-700 to-pink-600 text-white p-8 rounded-t-3xl">
-              <CardTitle className="flex items-center text-2xl font-bold">
-                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center font-bold text-lg mr-4">2</div>
-                <Package className="mr-3 h-7 w-7" />
-                Package & Carrier Selection
-                <Sparkles className="ml-auto h-6 w-6" />
-              </CardTitle>
-            </CardHeader>
-            
-            <CardContent className="p-8 space-y-8 bg-white/80 backdrop-blur-sm">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Enhanced Package Selection */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold text-gray-900 flex items-center">
-                    <Package className="w-4 h-4 mr-2 text-blue-600" />
-                    Package Type
-                  </Label>
-                  <FormField
-                    control={form.control}
-                    name="packageType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="w-full h-16 bg-white/80 backdrop-blur-sm border-2 border-gray-200 hover:border-blue-300 rounded-xl shadow-sm">
-                              <SelectValue>
-                                {selectedPackage && (
-                                  <div className="flex items-center space-x-3">
-                                    <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                                      <span className="text-lg">{selectedPackage.icon}</span>
-                                    </div>
-                                    <div className="text-left">
-                                      <div className="font-medium text-gray-900 flex items-center">
-                                        {selectedPackage.label}
-                                        {selectedPackage.isRecommended && (
-                                          <Badge className="ml-2 bg-green-100 text-green-700 text-xs">Recommended</Badge>
-                                        )}
-                                      </div>
-                                      <div className="text-xs text-gray-500">{selectedPackage.description}</div>
-                                    </div>
-                                  </div>
-                                )}
-                              </SelectValue>
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent className="max-h-96 bg-white/95 backdrop-blur-md border border-gray-200 shadow-xl rounded-xl">
-                            {/* Custom Packages */}
-                            <div className="p-2">
-                              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2 py-1">
-                                Custom Packages
-                              </div>
-                              {packageOptions.filter(opt => opt.type === 'custom').map((option) => (
-                                <SelectItem 
-                                  key={option.value} 
-                                  value={option.value}
-                                  className="p-4 rounded-lg hover:bg-blue-50 cursor-pointer"
-                                >
-                                  <div className="flex items-center space-x-4">
-                                    <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                                      <span className="text-xl">{option.icon}</span>
-                                    </div>
-                                    <div>
-                                      <div className="font-medium text-gray-900 flex items-center">
-                                        {option.label}
-                                        {option.isRecommended && (
-                                          <Badge className="ml-2 bg-green-100 text-green-700 text-xs">Recommended</Badge>
-                                        )}
-                                      </div>
-                                      <div className="text-xs text-gray-500">{option.description}</div>
-                                    </div>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </div>
-
-                            {/* Carrier Packages */}
-                            {['USPS', 'UPS', 'FedEx', 'DHL'].map(carrier => {
-                              const carrierOptions = packageOptions.filter(opt => opt.category === carrier);
-                              if (carrierOptions.length === 0) return null;
-                              
-                              return (
-                                <div key={carrier} className="p-2 border-t border-gray-100">
-                                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-2 py-1 flex items-center">
-                                    <span className="mr-2">
-                                      {carrier === 'USPS' && '🇺🇸'}
-                                      {carrier === 'UPS' && '🤎'}
-                                      {carrier === 'FedEx' && '💜'}
-                                      {carrier === 'DHL' && '🟡'}
-                                    </span>
-                                    {carrier} Packages
-                                  </div>
-                                  <div className="space-y-1">
-                                    {carrierOptions.map((option) => (
-                                      <SelectItem 
-                                        key={option.value} 
-                                        value={option.value}
-                                        className="p-3 rounded-lg hover:bg-blue-50 cursor-pointer"
-                                      >
-                                        <div className="flex items-center space-x-3">
-                                          <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                                            <span className="text-sm">{option.icon}</span>
-                                          </div>
-                                          <div>
-                                            <div className="font-medium text-gray-900 text-sm">
-                                              {option.label.replace(`${carrier} - `, '')}
-                                            </div>
-                                            <div className="text-xs text-gray-500">{option.description}</div>
-                                          </div>
-                                        </div>
-                                      </SelectItem>
-                                    ))}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+              {/* Step 2: Package Selection */}
+              <Card className="overflow-hidden border-2 border-purple-100 shadow-lg">
+                <CardHeader className="bg-gradient-to-r from-purple-600 to-purple-700 text-white">
+                  <CardTitle className="flex items-center text-xl">
+                    <div className="w-8 h-8 rounded-full bg-white text-purple-600 flex items-center justify-center font-bold text-sm mr-3">3</div>
+                    <Package className="mr-3 h-6 w-6" />
+                    Select Your Package
+                  </CardTitle>
+                </CardHeader>
                 
-                {/* Enhanced Carrier Selection */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-semibold text-gray-900 flex items-center">
-                    <Truck className="w-4 h-4 mr-2 text-blue-600" />
-                    Preferred Carrier
-                  </Label>
-                  <Select value={selectedCarrier} onValueChange={setSelectedCarrier}>
-                    <SelectTrigger className="w-full h-16 bg-white/80 backdrop-blur-sm border-2 border-gray-200 hover:border-blue-300 rounded-xl shadow-sm">
-                      <SelectValue>
-                        {carriers.find(c => c.value === selectedCarrier) && (
-                          <div className="flex items-center space-x-3">
-                            <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${carriers.find(c => c.value === selectedCarrier)?.color} flex items-center justify-center shadow-md`}>
-                              <span className="text-xl">{carriers.find(c => c.value === selectedCarrier)?.logo}</span>
-                            </div>
-                            <div className="text-left">
-                              <div className="font-semibold text-gray-900">{carriers.find(c => c.value === selectedCarrier)?.label}</div>
-                              <div className="text-xs text-gray-500">{carriers.find(c => c.value === selectedCarrier)?.description}</div>
-                            </div>
-                          </div>
-                        )}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent className="bg-white/95 backdrop-blur-md border border-gray-200 shadow-xl rounded-xl">
-                      {carriers.map((carrier) => (
-                        <SelectItem 
-                          key={carrier.value} 
-                          value={carrier.value}
-                          className="p-4 rounded-lg hover:bg-blue-50 cursor-pointer"
-                        >
-                          <div className="flex items-center space-x-4">
-                            <div className={`w-12 h-12 rounded-xl bg-gradient-to-r ${carrier.color} flex items-center justify-center shadow-md`}>
-                              <span className="text-2xl">{carrier.logo}</span>
-                            </div>
-                            <div>
-                              <div className="font-semibold text-gray-900">{carrier.label}</div>
-                              <div className="text-sm text-gray-500">{carrier.description}</div>
-                            </div>
-                          </div>
-                        </SelectItem>
+                <CardContent className="p-6 space-y-6">
+                  {/* Custom Packages */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-800">Custom Packages</h3>
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700">Most Popular</Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {groupedPackages.custom.map((pkg) => (
+                        <PackageTypeCard
+                          key={pkg.value}
+                          icon={pkg.icon}
+                          title={pkg.label}
+                          description={pkg.description}
+                          isSelected={selectedPackageType === pkg.value}
+                          onClick={() => form.setValue('packageType', pkg.value)}
+                          image={pkg.image}
+                          isRecommended={pkg.value === 'box'}
+                        />
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                    </div>
+                  </div>
 
-              {/* Package Details */}
-              {selectedPackage && (
-                <div className="mt-8">
-                  {getInputFields()}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Step 3: Additional Options - Glass Format */}
-          <Card className="overflow-hidden border-0 shadow-2xl bg-white/70 backdrop-blur-xl rounded-3xl">
-            <CardHeader className="bg-gradient-to-r from-orange-600 via-orange-700 to-red-600 text-white p-8 rounded-t-3xl">
-              <CardTitle className="flex items-center text-2xl font-bold">
-                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center font-bold text-lg mr-4">3</div>
-                <Shield className="mr-3 h-7 w-7" />
-                Protection & Options
-                <Sparkles className="ml-auto h-6 w-6" />
-              </CardTitle>
-            </CardHeader>
-            
-            <CardContent className="p-8 space-y-8 bg-white/80 backdrop-blur-sm">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* HAZMAT Option */}
-                <div className="p-6 bg-gradient-to-r from-yellow-50/80 to-orange-50/80 border-2 border-yellow-200/50 rounded-2xl backdrop-blur-sm">
-                  <FormField
-                    control={form.control}
-                    name="hazmat"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center space-x-4 space-y-0">
-                        <FormControl>
-                          <Checkbox 
-                            checked={field.value} 
-                            onCheckedChange={field.onChange}
-                            className="w-6 h-6 border-2"
+                  {/* Carrier Packages */}
+                  {Object.entries(groupedPackages).filter(([key]) => key !== 'custom').map(([carrier, packages]) => (
+                    <div key={carrier}>
+                      <h3 className="text-lg font-semibold text-gray-800 flex items-center mb-4">
+                        <span className="mr-3 text-2xl">
+                          {carrier === 'USPS' && '🇺🇸'}
+                          {carrier === 'UPS' && '🤎'}
+                          {carrier === 'FedEx' && '💜'}
+                          {carrier === 'DHL' && '🟡'}
+                        </span>
+                        {carrier} Standard Packages
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {packages.map((pkg) => (
+                          <PackageTypeCard
+                            key={pkg.value}
+                            icon={pkg.icon}
+                            title={pkg.label.replace(`${carrier} - `, '')}
+                            description={pkg.description}
+                            isSelected={selectedPackageType === pkg.value}
+                            onClick={() => form.setValue('packageType', pkg.value)}
                           />
-                        </FormControl>
-                        <div className="space-y-2 leading-none flex-1">
-                          <FormLabel className="text-lg font-bold flex items-center text-yellow-800">
-                            <AlertTriangle className="w-6 h-6 mr-2 text-yellow-600" />
-                            Hazardous Materials (HAZMAT)
-                          </FormLabel>
-                          <p className="text-sm text-yellow-700">
-                            Contains lithium batteries, chemicals, or other hazardous materials. This may limit available services and require special handling.
-                          </p>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
 
-                {/* Insurance Option */}
-                <div className="p-6 bg-gradient-to-r from-blue-50/80 to-green-50/80 border-2 border-blue-200/50 rounded-2xl backdrop-blur-sm">
-                  <FormField
-                    control={form.control}
-                    name="insurance"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center space-x-4 space-y-0">
-                        <FormControl>
-                          <Checkbox 
-                            checked={field.value} 
-                            onCheckedChange={field.onChange}
-                            className="w-6 h-6 border-2"
-                          />
-                        </FormControl>
-                        <div className="space-y-2 leading-none flex-1">
-                          <FormLabel className="text-lg font-bold flex items-center text-gray-900">
-                            <Shield className="w-6 h-6 mr-2 text-blue-600" />
-                            Package Insurance Protection
-                          </FormLabel>
-                          <p className="text-sm text-gray-600">
-                            Protect your shipment against loss, theft, or damage. Only $4 per $100 of declared value.
-                          </p>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
+                  {/* Package Details */}
+                  {selectedPackage && (
+                    <div className="mt-8 p-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <Package className="mr-3 h-5 w-5 text-gray-600" />
+                        Package Details
+                      </h3>
+                      {getInputFields()}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-              {insuranceEnabled && (
-                <div className="p-6 bg-gradient-to-r from-green-50/80 to-blue-50/80 border-2 border-green-200/50 rounded-2xl backdrop-blur-sm">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+              {/* Step 3: Additional Options */}
+              <Card className="overflow-hidden border-2 border-orange-100 shadow-lg">
+                <CardHeader className="bg-gradient-to-r from-orange-600 to-orange-700 text-white">
+                  <CardTitle className="flex items-center text-xl">
+                    <div className="w-8 h-8 rounded-full bg-white text-orange-600 flex items-center justify-center font-bold text-sm mr-3">4</div>
+                    <Shield className="mr-3 h-6 w-6" />
+                    Protection & Special Options
+                  </CardTitle>
+                </CardHeader>
+                
+                <CardContent className="p-6 space-y-6">
+                  {/* HAZMAT Option */}
+                  <div className="p-4 bg-yellow-50 border-2 border-yellow-200 rounded-xl">
                     <FormField
                       control={form.control}
-                      name="declaredValue"
+                      name="hazmat"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-lg font-semibold flex items-center">
-                            <DollarSign className="w-5 h-5 mr-1" />
-                            Declared Value (USD)
-                          </FormLabel>
+                        <FormItem className="flex flex-row items-center space-x-4 space-y-0">
                           <FormControl>
-                            <Input 
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              placeholder="100.00"
-                              className="h-12 bg-white/80 backdrop-blur-sm border-2 border-gray-200 rounded-xl text-lg"
-                              {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
+                            <Checkbox 
+                              checked={field.value} 
+                              onCheckedChange={field.onChange}
+                              className="w-5 h-5"
                             />
                           </FormControl>
-                          <FormMessage />
+                          <div className="space-y-2 leading-none flex-1">
+                            <FormLabel className="text-base font-semibold flex items-center text-yellow-800">
+                              <AlertTriangle className="w-5 h-5 mr-2 text-yellow-600" />
+                              Hazardous Materials (HAZMAT)
+                            </FormLabel>
+                            <p className="text-sm text-yellow-700">
+                              Contains lithium batteries, chemicals, or other hazardous materials. This may limit available services and require special handling.
+                            </p>
+                          </div>
                         </FormItem>
                       )}
                     />
-                    
-                    <div className="p-4 bg-white/80 backdrop-blur-sm border-2 border-green-300 rounded-xl">
-                      <div className="flex items-center justify-between">
-                        <span className="text-lg font-semibold text-green-800">Insurance Cost:</span>
-                        <span className="text-2xl font-bold text-green-900">${insuranceCost}</span>
-                      </div>
-                      <p className="text-sm text-green-600 mt-1">
-                        Based on ${declaredValue} declared value
-                      </p>
-                    </div>
                   </div>
+
+                  {/* Insurance Option */}
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="insurance"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-4 space-y-0">
+                          <FormControl>
+                            <Checkbox 
+                              checked={field.value} 
+                              onCheckedChange={field.onChange}
+                              className="w-5 h-5"
+                            />
+                          </FormControl>
+                          <div className="space-y-2 leading-none flex-1">
+                            <FormLabel className="text-base font-semibold flex items-center text-gray-900">
+                              <Shield className="w-5 h-5 mr-2 text-blue-600" />
+                              Package Insurance Protection
+                            </FormLabel>
+                            <p className="text-sm text-gray-600">
+                              Protect your shipment against loss, theft, or damage. Only $4 per $100 of declared value.
+                            </p>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+
+                    {insuranceEnabled && (
+                      <div className="ml-9 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <FormField
+                          control={form.control}
+                          name="declaredValue"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-sm font-semibold flex items-center">
+                                <DollarSign className="w-4 h-4 mr-1" />
+                                Declared Value (USD)
+                              </FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  placeholder="100.00"
+                                  className="h-11"
+                                  {...field}
+                                  onChange={(e) => field.onChange(Number(e.target.value))}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <div className="mt-4 p-3 bg-white border border-blue-300 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-blue-800">Insurance Cost:</span>
+                            <span className="text-lg font-bold text-blue-900">${insuranceCost}</span>
+                          </div>
+                          <p className="text-xs text-blue-600 mt-1">
+                            Based on ${declaredValue} declared value
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Submit Button */}
+              <Card className="overflow-hidden border-2 border-green-200 shadow-lg bg-gradient-to-r from-green-50 to-blue-50">
+                <CardContent className="p-6">
+                  <Button 
+                    type="submit" 
+                    size="lg" 
+                    className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-6 w-6 animate-spin mr-3" />
+                        Getting Your Best Rates...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="h-6 w-6 mr-3" />
+                        Get Shipping Rates from All Carriers
+                      </>
+                    )}
+                  </Button>
+                  {!isLoading && (
+                    <p className="text-center text-sm text-gray-600 mt-3">
+                      Compare rates from USPS, UPS, FedEx, and DHL instantly
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+            </form>
+          </Form>
+        </div>
+
+        {/* Carrier Selection Sidebar - 1 column */}
+        <div className="xl:col-span-1 space-y-6">
+          <div className="sticky top-32">
+            <CarrierSelector 
+              selectedCarrier={selectedCarrier}
+              onCarrierChange={setSelectedCarrier}
+            />
+            
+            {/* Help Card */}
+            <Card className="mt-6 p-4 bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
+              <div className="flex items-start space-x-3">
+                <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="font-semibold text-blue-900 text-sm">Need Help?</h4>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Select a specific carrier to see only their rates, or choose "All Carriers" to compare all options.
+                  </p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Submit Button */}
-          <Card className="overflow-hidden border-0 shadow-2xl bg-white/70 backdrop-blur-xl rounded-3xl">
-            <CardContent className="p-8">
-              <Button 
-                type="submit" 
-                size="lg" 
-                className="w-full h-16 text-xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 hover:from-blue-700 hover:via-purple-700 hover:to-green-700 text-white shadow-2xl hover:shadow-3xl transition-all duration-500 rounded-2xl"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-7 w-7 animate-spin mr-4" />
-                    Fetching Your Best Rates...
-                  </>
-                ) : (
-                  <>
-                    <Search className="h-7 w-7 mr-4" />
-                    Compare Shipping Rates from All Carriers
-                  </>
-                )}
-              </Button>
-              {!isLoading && (
-                <p className="text-center text-lg text-gray-600 mt-4 font-medium">
-                  🚀 Get instant quotes from USPS, UPS, FedEx, and DHL
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-        </form>
-      </Form>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
