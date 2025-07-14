@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
 
-interface ShippingRate {
+export interface ShippingRate {
   id: string;
   carrier: string;
   service: string;

@@ -6,7 +6,7 @@ import ShippingLabel from './shipping/ShippingLabel';
 import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import PaymentMethodSelector from './payment/PaymentMethodSelector';
-import { useShippingRates } from '@/hooks/useShippingRates';
+import { useShippingRates, ShippingRate } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
 import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
