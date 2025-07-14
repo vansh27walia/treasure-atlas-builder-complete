@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,72 +10,92 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Package, Shield, AlertTriangle, Loader2, DollarSign, Box, Scale, Truck, Home, Building2 } from 'lucide-react';
+import { MapPin, Package, Shield, AlertTriangle, Search, Loader2, DollarSign, Info } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import AddressSelector from './AddressSelector';
-import EnhancedWorkflowTracker from './EnhancedWorkflowTracker';
-import CustomsDocumentationModal, { CustomsInfo } from './CustomsDocumentationModal';
-import CarrierLogo from './CarrierLogo';
+import CarrierSelector from './CarrierSelector';
+import PackageTypeCard from './PackageTypeCard';
 import { SavedAddress } from '@/services/AddressService';
 import { createAddressSelectHandler } from '@/utils/addressUtils';
 
 const packageOptions = [
-  // Custom packages
-  { value: 'box', label: 'Standard Box', type: 'custom' as const, category: 'Custom', icon: '📦', description: 'Custom sized box' },
-  { value: 'envelope', label: 'Envelope', type: 'custom' as const, category: 'Custom', icon: '✉️', description: 'Standard envelope' },
+  { 
+    value: 'box', 
+    label: 'Boxes', 
+    type: 'custom',
+    icon: '📦',
+    description: 'Custom sized boxes',
+    image: '/package-images/box.png',
+    isRecommended: true
+  },
+  { 
+    value: 'envelope', 
+    label: 'Envelopes', 
+    type: 'custom',
+    icon: '📮',
+    description: 'Documents & flat items',
+    image: '/package-images/envelope.png'
+  },
   
-  // USPS options
-  { value: 'FlatRateEnvelope', label: 'Flat Rate Envelope', type: 'predefined' as const, category: 'USPS', icon: '📮', description: 'USPS Priority Mail Express' },
-  { value: 'LegalFlatRateEnvelope', label: 'Legal Flat Rate Envelope', type: 'predefined' as const, category: 'USPS', icon: '📋', description: 'Legal size documents' },
-  { value: 'PaddedFlatRateEnvelope', label: 'Padded Flat Rate Envelope', type: 'predefined' as const, category: 'USPS', icon: '📪', description: 'Extra protection' },
-  { value: 'SmallFlatRateBox', label: 'Small Flat Rate Box', type: 'predefined' as const, category: 'USPS', icon: '📦', description: '8.5" x 5.5" x 1.625"' },
-  { value: 'MediumFlatRateBox', label: 'Medium Flat Rate Box', type: 'predefined' as const, category: 'USPS', icon: '📦', description: '11" x 8.5" x 5.5"' },
-  { value: 'LargeFlatRateBox', label: 'Large Flat Rate Box', type: 'predefined' as const, category: 'USPS', icon: '📦', description: '12" x 12" x 5.5"' },
+  // USPS Flat Rate Packages
+  { value: 'FlatRateEnvelope', label: 'USPS - Flat Rate Envelope', type: 'predefined', icon: '🇺🇸', description: 'USPS standard envelope', category: 'USPS' },
+  { value: 'LegalFlatRateEnvelope', label: 'USPS - Legal Flat Rate Envelope', type: 'predefined', icon: '🇺🇸', description: 'Legal size envelope', category: 'USPS' },
+  { value: 'PaddedFlatRateEnvelope', label: 'USPS - Padded Flat Rate Envelope', type: 'predefined', icon: '🇺🇸', description: 'Padded protection', category: 'USPS' },
+  { value: 'FlatRateWindowEnvelope', label: 'USPS - Flat Rate Window Envelope', type: 'predefined', icon: '🇺🇸', description: 'With address window', category: 'USPS' },
+  { value: 'FlatRateCardboardEnvelope', label: 'USPS - Flat Rate Cardboard Envelope', type: 'predefined', icon: '🇺🇸', description: 'Rigid cardboard', category: 'USPS' },
+  { value: 'SmallFlatRateEnvelope', label: 'USPS - Small Flat Rate Envelope', type: 'predefined', icon: '🇺🇸', description: 'Compact size', category: 'USPS' },
+  { value: 'SmallFlatRateBox', label: 'USPS - Small Flat Rate Box', type: 'predefined', icon: '🇺🇸', description: 'Small box', category: 'USPS' },
+  { value: 'MediumFlatRateBox', label: 'USPS - Medium Flat Rate Box', type: 'predefined', icon: '🇺🇸', description: 'Medium box', category: 'USPS' },
+  { value: 'LargeFlatRateBox', label: 'USPS - Large Flat Rate Box', type: 'predefined', icon: '🇺🇸', description: 'Large box', category: 'USPS' },
+  { value: 'LargeFlatRateBoxAPOFPO', label: 'USPS - Large Flat Rate Box APO/FPO', type: 'predefined', icon: '🇺🇸', description: 'Military addresses', category: 'USPS' },
+  { value: 'RegionalRateBoxA', label: 'USPS - Regional Rate Box A', type: 'predefined', icon: '🇺🇸', description: 'Regional pricing', category: 'USPS' },
+  { value: 'RegionalRateBoxB', label: 'USPS - Regional Rate Box B', type: 'predefined', icon: '🇺🇸', description: 'Regional pricing', category: 'USPS' },
   
-  // UPS options
-  { value: 'UPSLetter', label: 'Letter', type: 'predefined' as const, category: 'UPS', icon: '✉️', description: 'Documents only' },
-  { value: 'UPSExpressBox', label: 'Express Box', type: 'predefined' as const, category: 'UPS', icon: '📦', description: 'Small package' },
-  { value: 'UPS25kgBox', label: '25kg Box', type: 'predefined' as const, category: 'UPS', icon: '📦', description: 'Large items' },
+  // UPS Predefined Packages
+  { value: 'UPSLetter', label: 'UPS - Letter', type: 'predefined', icon: '🤎', description: 'Document envelope', category: 'UPS' },
+  { value: 'UPSExpressBox', label: 'UPS - Express Box', type: 'predefined', icon: '🤎', description: 'Express service', category: 'UPS' },
+  { value: 'UPS25kgBox', label: 'UPS - 25kg Box', type: 'predefined', icon: '🤎', description: 'Heavy items', category: 'UPS' },
+  { value: 'UPS10kgBox', label: 'UPS - 10kg Box', type: 'predefined', icon: '🤎', description: 'Medium weight', category: 'UPS' },
+  { value: 'Tube', label: 'UPS - Tube', type: 'predefined', icon: '🤎', description: 'Cylindrical items', category: 'UPS' },
+  { value: 'Pak', label: 'UPS - Pak', type: 'predefined', icon: '🤎', description: 'Flat documents', category: 'UPS' },
+  { value: 'SmallExpressBox', label: 'UPS - Small Express Box', type: 'predefined', icon: '🤎', description: 'Small express', category: 'UPS' },
+  { value: 'MediumExpressBox', label: 'UPS - Medium Express Box', type: 'predefined', icon: '🤎', description: 'Medium express', category: 'UPS' },
+  { value: 'LargeExpressBox', label: 'UPS - Large Express Box', type: 'predefined', icon: '🤎', description: 'Large express', category: 'UPS' },
   
-  // FedEx options
-  { value: 'FedExEnvelope', label: 'Envelope', type: 'predefined' as const, category: 'FedEx', icon: '✉️', description: 'Documents' },
-  { value: 'FedExBox', label: 'Box', type: 'predefined' as const, category: 'FedEx', icon: '📦', description: 'Standard box' },
-  { value: 'FedExPak', label: 'Pak', type: 'predefined' as const, category: 'FedEx', icon: '📄', description: 'Flat items' },
+  // FedEx Predefined Packages
+  { value: 'FedExEnvelope', label: 'FedEx - Envelope', type: 'predefined', icon: '💜', description: 'Standard envelope', category: 'FedEx' },
+  { value: 'FedExBox', label: 'FedEx - Box', type: 'predefined', icon: '💜', description: 'Standard box', category: 'FedEx' },
+  { value: 'FedExPak', label: 'FedEx - Pak', type: 'predefined', icon: '💜', description: 'Document pak', category: 'FedEx' },
+  { value: 'FedExTube', label: 'FedEx - Tube', type: 'predefined', icon: '💜', description: 'Tube container', category: 'FedEx' },
+  { value: 'FedEx10kgBox', label: 'FedEx - 10kg Box', type: 'predefined', icon: '💜', description: '10kg capacity', category: 'FedEx' },
+  { value: 'FedEx25kgBox', label: 'FedEx - 25kg Box', type: 'predefined', icon: '💜', description: '25kg capacity', category: 'FedEx' },
+  { value: 'FedExSmallBox', label: 'FedEx - Small Box', type: 'predefined', icon: '💜', description: 'Small package', category: 'FedEx' },
+  { value: 'FedExMediumBox', label: 'FedEx - Medium Box', type: 'predefined', icon: '💜', description: 'Medium package', category: 'FedEx' },
+  { value: 'FedExLargeBox', label: 'FedEx - Large Box', type: 'predefined', icon: '💜', description: 'Large package', category: 'FedEx' },
+  { value: 'FedExExtraLargeBox', label: 'FedEx - Extra Large Box', type: 'predefined', icon: '💜', description: 'Extra large', category: 'FedEx' },
   
-  // DHL options
-  { value: 'DHLExpressEnvelope', label: 'Express Envelope', type: 'predefined' as const, category: 'DHL', icon: '✉️', description: 'Documents' },
-  { value: 'DHLExpressBox', label: 'Express Box', type: 'predefined' as const, category: 'DHL', icon: '📦', description: 'Standard package' },
-];
-
-const carrierOptions = [
-  { value: 'all', label: 'All Carriers', logo: '🌐' },
-  { value: 'usps', label: 'USPS', logo: '🇺🇸' },
-  { value: 'ups', label: 'UPS', logo: '🤎' },
-  { value: 'fedex', label: 'FedEx', logo: '💜' },
-  { value: 'dhl', label: 'DHL', logo: '🟡' },
-];
-
-const hazmatTypes = [
-  { value: 'LITHIUM', label: 'Lithium Batteries' },
-  { value: 'CLASS_8_CORROSIVE', label: 'Corrosive Materials' },
-  { value: 'CLASS_3_FLAMMABLE', label: 'Flammable Liquids' },
-  { value: 'CLASS_9_MISCELLANEOUS', label: 'Miscellaneous Dangerous Goods' },
+  // DHL Predefined Packages
+  { value: 'DHLExpressEnvelope', label: 'DHL - Express Envelope', type: 'predefined', icon: '🟡', description: 'Express delivery', category: 'DHL' },
+  { value: 'DHLFlyer', label: 'DHL - Flyer', type: 'predefined', icon: '🟡', description: 'Lightweight docs', category: 'DHL' },
+  { value: 'DHLExpressBox', label: 'DHL - Express Box', type: 'predefined', icon: '🟡', description: 'Express package', category: 'DHL' },
+  { value: 'DHLJumboBox', label: 'DHL - Jumbo Box', type: 'predefined', icon: '🟡', description: 'Extra large box', category: 'DHL' },
+  { value: 'DHLSmallBox', label: 'DHL - Small Box', type: 'predefined', icon: '🟡', description: 'Small package', category: 'DHL' },
+  { value: 'DHLLargeBox', label: 'DHL - Large Box', type: 'predefined', icon: '🟡', description: 'Large package', category: 'DHL' },
+  { value: 'DHLPak', label: 'DHL - Pak', type: 'predefined', icon: '🟡', description: 'Document pak', category: 'DHL' },
+  { value: 'DHLTube', label: 'DHL - Tube', type: 'predefined', icon: '🟡', description: 'Tube container', category: 'DHL' },
 ];
 
 const shippingFormSchema = z.object({
   packageType: z.string().min(1, "Please select a package type"),
-  carrier: z.string().min(1, "Please select a carrier"),
   weightValue: z.coerce.number().min(0, "Weight must be greater than 0"),
-  weightUnit: z.enum(["lb", "kg", "oz"]),
+  weightUnit: z.enum(["oz", "kg", "lb"]),
   length: z.coerce.number().min(0, "Length must be greater than 0").optional(),
   width: z.coerce.number().min(0, "Width must be greater than 0").optional(),
   height: z.coerce.number().min(0, "Height must be greater than 0").optional(),
   insurance: z.boolean().default(true),
   declaredValue: z.coerce.number().min(0, "Declared value must be greater than 0").default(100),
   hazmat: z.boolean().default(false),
-  hazmatType: z.string().optional(),
-  // tracking removed from frontend - automatically enabled in backend
 });
 
 type ShippingFormValues = z.infer<typeof shippingFormSchema>;
@@ -85,9 +104,8 @@ const RedesignedShippingForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
   const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
-  const [currentStep, setCurrentStep] = useState<'address' | 'package' | 'rates' | 'payment' | 'complete'>('address');
-  const [customsInfo, setCustomsInfo] = useState<CustomsInfo | null>(null);
-  const [showCustomsModal, setShowCustomsModal] = useState(false);
+  const [selectedCarrier, setSelectedCarrier] = useState('all');
+  const [currentStep, setCurrentStep] = useState(1);
 
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
@@ -95,63 +113,172 @@ const RedesignedShippingForm: React.FC = () => {
   const form = useForm<ShippingFormValues>({
     resolver: zodResolver(shippingFormSchema),
     defaultValues: {
-      packageType: '',
-      carrier: 'all',
+      packageType: 'box',
       weightValue: 0,
-      weightUnit: 'lb',
-      length: 0,
-      width: 0,
-      height: 0,
+      weightUnit: 'oz',
+      length: 8,
+      width: 8,
+      height: 2,
       insurance: true,
       declaredValue: 100,
       hazmat: false,
-      hazmatType: '',
-      // tracking removed from frontend
     }
   });
 
   const selectedPackageType = form.watch('packageType');
-  const selectedCarrier = form.watch('carrier');
+  const selectedPackage = packageOptions.find(p => p.value === selectedPackageType);
   const declaredValue = form.watch('declaredValue');
   const insuranceEnabled = form.watch('insurance');
   const hazmatEnabled = form.watch('hazmat');
-  // tracking always enabled in backend
 
-  // Calculate insurance cost - $4 per $100 of declared value
+  // Calculate insurance cost
   const insuranceCost = insuranceEnabled ? Math.ceil(declaredValue / 100) * 4 : 0;
 
-  // Check if international shipping is needed
-  const isInternational = fromAddress && toAddress && 
-    (fromAddress.country || 'US') !== (toAddress.country || 'US');
+  const getInputFields = () => {
+    if (!selectedPackage) return null;
 
-  // Update current step based on form completion
-  useEffect(() => {
-    if (fromAddress && toAddress && selectedPackageType) {
-      setCurrentStep('package');
-    } else if (fromAddress && toAddress) {
-      setCurrentStep('address');
-    } else {
-      setCurrentStep('address');
-    }
-  }, [fromAddress, toAddress, selectedPackageType]);
+    const showDimensions = selectedPackage.type === 'custom';
+    const isEnvelope = selectedPackageType === 'envelope';
 
-  const selectedPackage = packageOptions.find(p => p.value === selectedPackageType);
-  const showDimensions = selectedPackage?.type === 'custom';
-  const isEnvelope = selectedPackageType === 'envelope' || selectedPackageType.includes('Envelope');
+    return (
+      <div className="space-y-6">
+        {showDimensions && (
+          <div>
+            <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Dimensions</Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FormField
+                control={form.control}
+                name="length"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Length (inches)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        placeholder="8"
+                        className="h-11"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="width"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-sm font-medium">Width (inches)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number"
+                        min="0" 
+                        step="0.1"
+                        placeholder="8"
+                        className="h-11"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              {!isEnvelope && (
+                <FormField
+                  control={form.control}
+                  name="height"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Height (inches)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          placeholder="2"
+                          className="h-11"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+          </div>
+        )}
+        
+        <div>
+          <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Weight</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="weightValue"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium">Weight</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      placeholder="1"
+                      className="h-11"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="weightUnit"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm font-medium">Unit</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="oz">Ounces (oz)</SelectItem>
+                      <SelectItem value="lb">Pounds (lb)</SelectItem>
+                      <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
 
-  // Group packages by category for dropdown
-  const groupedPackages = packageOptions.reduce((acc, pkg) => {
-    if (!acc[pkg.category]) {
-      acc[pkg.category] = [];
-    }
-    acc[pkg.category].push(pkg);
-    return acc;
-  }, {} as Record<string, typeof packageOptions>);
-
-  const handleCustomsComplete = (customs: CustomsInfo) => {
-    setCustomsInfo(customs);
-    setShowCustomsModal(false);
-    toast.success("Customs documentation completed");
+  const groupedPackages = {
+    custom: packageOptions.filter(p => p.type === 'custom'),
+    USPS: packageOptions.filter(p => p.category === 'USPS'),
+    UPS: packageOptions.filter(p => p.category === 'UPS'),
+    FedEx: packageOptions.filter(p => p.category === 'FedEx'),
+    DHL: packageOptions.filter(p => p.category === 'DHL'),
   };
 
   const handleGetRates = async (values: ShippingFormValues) => {
@@ -160,15 +287,7 @@ const RedesignedShippingForm: React.FC = () => {
       return;
     }
 
-    // Check if international shipping requires customs documentation
-    if (isInternational && !customsInfo) {
-      setShowCustomsModal(true);
-      return;
-    }
-
     setIsLoading(true);
-    setCurrentStep('rates');
-    
     try {
       // Convert weight to ounces for backend processing
       let weightOz = values.weightValue;
@@ -179,10 +298,11 @@ const RedesignedShippingForm: React.FC = () => {
       }
 
       // Build parcel object based on package type
+      const selectedPackage = packageOptions.find(p => p.value === values.packageType);
       let parcel: any = {};
 
       if (selectedPackage?.type === 'custom') {
-        if (isEnvelope) {
+        if (values.packageType === 'envelope') {
           parcel = {
             length: values.length,
             width: values.width,
@@ -230,7 +350,7 @@ const RedesignedShippingForm: React.FC = () => {
         },
         parcel,
         options: {},
-        carriers: values.carrier === 'all' ? ['usps', 'ups', 'fedex', 'dhl'] : [values.carrier]
+        carriers: selectedCarrier === 'all' ? ['usps', 'ups', 'fedex', 'dhl'] : [selectedCarrier]
       };
 
       // Add insurance if enabled
@@ -238,17 +358,9 @@ const RedesignedShippingForm: React.FC = () => {
         payload.insurance = values.declaredValue;
       }
 
-      // Tracking always enabled in backend
-      payload.options.tracking = true;
-
       // Add HAZMAT if enabled
-      if (values.hazmat && values.hazmatType) {
-        payload.options.hazmat = values.hazmatType;
-      }
-
-      // Add customs info for international shipments
-      if (isInternational && customsInfo) {
-        payload.customs_info = customsInfo;
+      if (values.hazmat) {
+        payload.options.hazmat = 'LITHIUM'; // Default HAZMAT code
       }
 
       console.log('Shipping payload:', JSON.stringify(payload, null, 2));
@@ -298,365 +410,164 @@ const RedesignedShippingForm: React.FC = () => {
   };
 
   return (
-    <div className="w-full">
-      {/* Enhanced Header Section */}
-      <div className="mb-8 text-center bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 text-white py-8 px-6 rounded-xl shadow-xl">
-        <h1 className="text-4xl font-bold mb-4 tracking-tight">Create Shipping Label</h1>
-        <p className="text-xl text-blue-100 max-w-3xl mx-auto leading-relaxed">
-          Get competitive rates from multiple carriers and create professional shipping labels in minutes.
-        </p>
-        <div className="flex justify-center items-center gap-4 mt-6">
-          <div className="flex items-center gap-2 text-blue-100">
-            <div className="w-2 h-2 rounded-full bg-green-400"></div>
-            <span className="text-sm">Secure & Fast</span>
-          </div>
-          <div className="flex items-center gap-2 text-blue-100">
-            <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
-            <span className="text-sm">Multi-Carrier</span>
-          </div>
-          <div className="flex items-center gap-2 text-blue-100">
-            <div className="w-2 h-2 rounded-full bg-purple-400"></div>
-            <span className="text-sm">Best Rates</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Enhanced Step Tracker - Sticky */}
-      <EnhancedWorkflowTracker currentStep={currentStep} />
-
-      <div className="max-w-5xl mx-auto px-4">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-6">
-            
-            {/* Pickup Address Section */}
-            <Card className="overflow-hidden border border-green-200/50 shadow-lg bg-gradient-to-br from-green-50/80 to-white/80 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-green-600 to-green-700 text-white">
-                <CardTitle className="flex items-center text-xl">
-                  <Home className="mr-3 h-6 w-6" />
-                  Pickup Location
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-4 h-4 rounded-full bg-green-500 shadow-lg"></div>
-                  <h3 className="text-lg font-semibold text-green-800">From Address</h3>
-                  <Badge className="bg-green-100 text-green-800 border-green-300">Origin</Badge>
-                </div>
-                <AddressSelector 
-                  type="from"
-                  onAddressSelect={handleFromAddressSelect}
-                  useGoogleAutocomplete={true}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Visual Separator */}
-            <div className="flex items-center justify-center py-4">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-              <div className="px-4">
-                <div className="w-8 h-8 rounded-full bg-blue-100 border-2 border-blue-300 flex items-center justify-center">
-                  <Package className="w-4 h-4 text-blue-600" />
-                </div>
-              </div>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-            </div>
-
-            {/* Drop-off Address Section - Separate */}
-            <Card className="overflow-hidden border border-red-200/50 shadow-lg bg-gradient-to-br from-red-50/80 to-white/80 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-red-600 to-red-700 text-white">
-                <CardTitle className="flex items-center text-xl">
-                  <Building2 className="mr-3 h-6 w-6" />
-                  Delivery Location
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-4 h-4 rounded-full bg-red-500 shadow-lg"></div>
-                  <h3 className="text-lg font-semibold text-red-800">To Address</h3>
-                  <Badge className="bg-red-100 text-red-800 border-red-300">Destination</Badge>
-                </div>
-                <AddressSelector 
-                  type="to"
-                  onAddressSelect={handleToAddressSelect}
-                  useGoogleAutocomplete={true}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Package Selection - Always Visible */}
-            <Card className="overflow-hidden border border-purple-200/50 shadow-lg bg-gradient-to-br from-purple-50/80 to-white/80 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-purple-600 to-purple-700 text-white">
-                <CardTitle className="flex items-center text-xl">
-                  <Package className="mr-3 h-6 w-6" />
-                  Package Selection
-                </CardTitle>
-              </CardHeader>
+    <div className="w-full space-y-8">
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+        {/* Main Form - 3 columns */}
+        <div className="xl:col-span-3 space-y-8">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-8">
               
-              <CardContent className="p-6">
-                <FormField
-                  control={form.control}
-                  name="packageType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-base font-semibold flex items-center gap-2">
-                        <Box className="w-5 h-5" />
-                        Select Package Type
-                      </FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="h-16 text-base border-2 border-purple-200 focus:border-purple-500 bg-white/90 backdrop-blur-sm">
-                            <SelectValue placeholder="Choose your package type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent className="max-h-80 bg-white/95 backdrop-blur-md border-purple-200">
-                          {Object.entries(groupedPackages).map(([category, packages]) => (
-                            <div key={category}>
-                              <div className="px-3 py-2 text-sm font-semibold text-purple-700 bg-purple-50/80 border-b border-purple-200">
-                                {category}
-                              </div>
-                              {packages.map((pkg) => (
-                                <SelectItem key={pkg.value} value={pkg.value} className="pl-4 py-3 hover:bg-purple-50">
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-xl">{pkg.icon}</span>
-                                    <div>
-                                      <div className="font-medium">{pkg.label}</div>
-                                      <div className="text-xs text-gray-500">{pkg.description}</div>
-                                    </div>
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </div>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
+              {/* Step 1: Addresses */}
+              <div className="space-y-6">
+                <Card className="overflow-hidden border-2 border-blue-100 shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+                    <CardTitle className="flex items-center text-xl">
+                      <div className="w-8 h-8 rounded-full bg-white text-blue-600 flex items-center justify-center font-bold text-sm mr-3">1</div>
+                      <MapPin className="mr-3 h-6 w-6" />
+                      Pickup Address
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 bg-blue-50">
+                    <AddressSelector 
+                      type="from"
+                      onAddressSelect={handleFromAddressSelect}
+                      useGoogleAutocomplete={true}
+                    />
+                  </CardContent>
+                </Card>
 
-            {/* Package Details - Independent Section */}
-            {selectedPackageType && (
-              <Card className="overflow-hidden border border-green-200/50 shadow-lg bg-gradient-to-br from-green-50/80 to-white/80 backdrop-blur-sm">
-                <CardHeader className="bg-gradient-to-r from-green-600 to-green-700 text-white">
+                <Card className="overflow-hidden border-2 border-green-100 shadow-lg">
+                  <CardHeader className="bg-gradient-to-r from-green-600 to-green-700 text-white">
+                    <CardTitle className="flex items-center text-xl">
+                      <div className="w-8 h-8 rounded-full bg-white text-green-600 flex items-center justify-center font-bold text-sm mr-3">2</div>
+                      <MapPin className="mr-3 h-6 w-6" />
+                      Drop-Off Address
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 bg-green-50">
+                    <AddressSelector 
+                      type="to"
+                      onAddressSelect={handleToAddressSelect}
+                      useGoogleAutocomplete={true}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Step 2: Package Selection */}
+              <Card className="overflow-hidden border-2 border-purple-100 shadow-lg">
+                <CardHeader className="bg-gradient-to-r from-purple-600 to-purple-700 text-white">
                   <CardTitle className="flex items-center text-xl">
-                    <Scale className="mr-3 h-6 w-6" />
-                    Package Details & Weight
+                    <div className="w-8 h-8 rounded-full bg-white text-purple-600 flex items-center justify-center font-bold text-sm mr-3">3</div>
+                    <Package className="mr-3 h-6 w-6" />
+                    Select Your Package
                   </CardTitle>
                 </CardHeader>
                 
                 <CardContent className="p-6 space-y-6">
-                  {/* Package Dimensions (for custom packages) */}
-                  {showDimensions && (
-                    <div className="p-4 bg-green-50/50 rounded-lg border border-green-200/50">
-                      <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Dimensions</Label>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="length"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Length (inches)</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number"
-                                  min="0"
-                                  step="0.1"
-                                  placeholder="0"
-                                  className="h-11"
-                                  {...field}
-                                  value={field.value || ''}
-                                  onChange={(e) => field.onChange(Number(e.target.value))}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
+                  {/* Custom Packages */}
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-gray-800">Custom Packages</h3>
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700">Most Popular</Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {groupedPackages.custom.map((pkg) => (
+                        <PackageTypeCard
+                          key={pkg.value}
+                          icon={pkg.icon}
+                          title={pkg.label}
+                          description={pkg.description}
+                          isSelected={selectedPackageType === pkg.value}
+                          onClick={() => form.setValue('packageType', pkg.value)}
+                          image={pkg.image}
+                          isRecommended={pkg.value === 'box'}
                         />
-                        
-                        <FormField
-                          control={form.control}
-                          name="width"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Width (inches)</FormLabel>
-                              <FormControl>
-                                <Input 
-                                  type="number"
-                                  min="0" 
-                                  step="0.1"
-                                  placeholder="0"
-                                  className="h-11"
-                                  {...field}
-                                  value={field.value || ''}
-                                  onChange={(e) => field.onChange(Number(e.target.value))}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        
-                        {!isEnvelope && (
-                          <FormField
-                            control={form.control}
-                            name="height"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Height (inches)</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    type="number"
-                                    min="0"
-                                    step="0.1"
-                                    placeholder="0"
-                                    className="h-11"
-                                    {...field}
-                                    value={field.value || ''}
-                                    onChange={(e) => field.onChange(Number(e.target.value))}
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Carrier Packages */}
+                  {Object.entries(groupedPackages).filter(([key]) => key !== 'custom').map(([carrier, packages]) => (
+                    <div key={carrier}>
+                      <h3 className="text-lg font-semibold text-gray-800 flex items-center mb-4">
+                        <span className="mr-3 text-2xl">
+                          {carrier === 'USPS' && '🇺🇸'}
+                          {carrier === 'UPS' && '🤎'}
+                          {carrier === 'FedEx' && '💜'}
+                          {carrier === 'DHL' && '🟡'}
+                        </span>
+                        {carrier} Standard Packages
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {packages.map((pkg) => (
+                          <PackageTypeCard
+                            key={pkg.value}
+                            icon={pkg.icon}
+                            title={pkg.label.replace(`${carrier} - `, '')}
+                            description={pkg.description}
+                            isSelected={selectedPackageType === pkg.value}
+                            onClick={() => form.setValue('packageType', pkg.value)}
                           />
-                        )}
+                        ))}
                       </div>
+                    </div>
+                  ))}
+
+                  {/* Package Details */}
+                  {selectedPackage && (
+                    <div className="mt-8 p-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <Package className="mr-3 h-5 w-5 text-gray-600" />
+                        Package Details
+                      </h3>
+                      {getInputFields()}
                     </div>
                   )}
+                </CardContent>
+              </Card>
 
-                  {/* Package Weight with Unit Toggle */}
-                  <div className="p-4 bg-green-50/50 rounded-lg border border-green-200/50">
-                    <Label className="text-base font-semibold text-gray-900 mb-3 block">Package Weight</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="weightValue"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Weight</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number"
-                                min="0"
-                                step="0.1"
-                                placeholder="0"
-                                className="h-11"
-                                {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="weightUnit"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Unit</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger className="h-11">
-                                  <SelectValue />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="lb">Pounds (lb)</SelectItem>
-                                <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                                <SelectItem value="oz">Ounces (oz)</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Additional Options */}
-                  <div className="grid grid-cols-1 gap-6">
-                    {/* Tracking Auto-Enabled Notice */}
-                    <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200/70 rounded-xl shadow-sm">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                          <div className="w-2 h-2 rounded-full bg-white"></div>
-                        </div>
-                        <div className="space-y-1 leading-none flex-1">
-                          <div className="text-base font-semibold flex items-center text-blue-800">
-                            <Truck className="w-5 h-5 mr-2 text-blue-600" />
-                            Package Tracking Enabled
+              {/* Step 3: Additional Options */}
+              <Card className="overflow-hidden border-2 border-orange-100 shadow-lg">
+                <CardHeader className="bg-gradient-to-r from-orange-600 to-orange-700 text-white">
+                  <CardTitle className="flex items-center text-xl">
+                    <div className="w-8 h-8 rounded-full bg-white text-orange-600 flex items-center justify-center font-bold text-sm mr-3">4</div>
+                    <Shield className="mr-3 h-6 w-6" />
+                    Protection & Special Options
+                  </CardTitle>
+                </CardHeader>
+                
+                <CardContent className="p-6 space-y-6">
+                  {/* HAZMAT Option */}
+                  <div className="p-4 bg-yellow-50 border-2 border-yellow-200 rounded-xl">
+                    <FormField
+                      control={form.control}
+                      name="hazmat"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-4 space-y-0">
+                          <FormControl>
+                            <Checkbox 
+                              checked={field.value} 
+                              onCheckedChange={field.onChange}
+                              className="w-5 h-5"
+                            />
+                          </FormControl>
+                          <div className="space-y-2 leading-none flex-1">
+                            <FormLabel className="text-base font-semibold flex items-center text-yellow-800">
+                              <AlertTriangle className="w-5 h-5 mr-2 text-yellow-600" />
+                              Hazardous Materials (HAZMAT)
+                            </FormLabel>
+                            <p className="text-sm text-yellow-700">
+                              Contains lithium batteries, chemicals, or other hazardous materials. This may limit available services and require special handling.
+                            </p>
                           </div>
-                          <p className="text-sm text-blue-700">
-                            All shipments include automatic tracking at no extra cost.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* HAZMAT Section */}
-                    <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200/70 rounded-xl shadow-sm">
-                      <FormField
-                        control={form.control}
-                        name="hazmat"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                            <FormControl>
-                              <Checkbox 
-                                checked={field.value} 
-                                onCheckedChange={field.onChange}
-                                className="w-5 h-5 border-2 border-yellow-400 data-[state=checked]:bg-yellow-500"
-                              />
-                            </FormControl>
-                            <div className="space-y-1 leading-none flex-1">
-                              <FormLabel className="text-base font-semibold flex items-center text-yellow-800">
-                                <AlertTriangle className="w-5 h-5 mr-2 text-yellow-600" />
-                                Hazardous Materials
-                              </FormLabel>
-                              <p className="text-xs text-yellow-700">
-                                Contains hazardous materials.
-                              </p>
-                            </div>
-                          </FormItem>
-                        )}
-                      />
-
-                      {hazmatEnabled && (
-                        <div className="mt-3">
-                          <FormField
-                            control={form.control}
-                            name="hazmatType"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel className="text-yellow-800 font-medium text-sm">HAZMAT Type</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                  <FormControl>
-                                    <SelectTrigger className="h-10 border-yellow-300 bg-white text-sm">
-                                      <SelectValue placeholder="Select HAZMAT type" />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    {hazmatTypes.map((type) => (
-                                      <SelectItem key={type.value} value={type.value}>
-                                        {type.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
+                        </FormItem>
                       )}
-                    </div>
+                    />
                   </div>
 
-                  {/* Insurance Section */}
-                  <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200/70 rounded-xl shadow-sm">
+                  {/* Insurance Option */}
+                  <div className="space-y-4">
                     <FormField
                       control={form.control}
                       name="insurance"
@@ -666,16 +577,16 @@ const RedesignedShippingForm: React.FC = () => {
                             <Checkbox 
                               checked={field.value} 
                               onCheckedChange={field.onChange}
-                              className="w-5 h-5 border-2 border-green-400 data-[state=checked]:bg-green-500"
+                              className="w-5 h-5"
                             />
                           </FormControl>
                           <div className="space-y-2 leading-none flex-1">
-                            <FormLabel className="text-base font-semibold flex items-center text-green-800">
-                              <Shield className="w-5 h-5 mr-2 text-green-600" />
-                              Package Insurance ($100 Default)
+                            <FormLabel className="text-base font-semibold flex items-center text-gray-900">
+                              <Shield className="w-5 h-5 mr-2 text-blue-600" />
+                              Package Insurance Protection
                             </FormLabel>
-                            <p className="text-sm text-green-700">
-                              Protect your shipment against loss, theft, or damage.
+                            <p className="text-sm text-gray-600">
+                              Protect your shipment against loss, theft, or damage. Only $4 per $100 of declared value.
                             </p>
                           </div>
                         </FormItem>
@@ -683,13 +594,13 @@ const RedesignedShippingForm: React.FC = () => {
                     />
 
                     {insuranceEnabled && (
-                      <div className="mt-4 space-y-4">
+                      <div className="ml-9 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                         <FormField
                           control={form.control}
                           name="declaredValue"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="flex items-center text-green-800 font-medium">
+                              <FormLabel className="text-sm font-semibold flex items-center">
                                 <DollarSign className="w-4 h-4 mr-1" />
                                 Declared Value (USD)
                               </FormLabel>
@@ -699,7 +610,7 @@ const RedesignedShippingForm: React.FC = () => {
                                   min="0"
                                   step="0.01"
                                   placeholder="100.00"
-                                  className="h-11 border-green-300 bg-white"
+                                  className="h-11"
                                   {...field}
                                   onChange={(e) => field.onChange(Number(e.target.value))}
                                 />
@@ -709,12 +620,12 @@ const RedesignedShippingForm: React.FC = () => {
                           )}
                         />
                         
-                        <div className="p-4 bg-white/80 border-2 border-green-300/50 rounded-lg">
+                        <div className="mt-4 p-3 bg-white border border-blue-300 rounded-lg">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-green-800">Insurance Cost:</span>
-                            <span className="text-xl font-bold text-green-900">${insuranceCost}</span>
+                            <span className="text-sm font-medium text-blue-800">Insurance Cost:</span>
+                            <span className="text-lg font-bold text-blue-900">${insuranceCost}</span>
                           </div>
-                          <p className="text-xs text-green-600 mt-1">
+                          <p className="text-xs text-blue-600 mt-1">
                             Based on ${declaredValue} declared value
                           </p>
                         </div>
@@ -723,112 +634,63 @@ const RedesignedShippingForm: React.FC = () => {
                   </div>
                 </CardContent>
               </Card>
-            )}
 
-            {/* Carrier Selection */}
-            {selectedPackageType && (
-              <Card className="overflow-hidden border border-orange-200/50 shadow-lg bg-gradient-to-br from-orange-50/80 to-white/80 backdrop-blur-sm">
-                <CardHeader className="bg-gradient-to-r from-orange-600 to-orange-700 text-white">
-                  <CardTitle className="flex items-center text-xl">
-                    <Truck className="mr-3 h-6 w-6" />
-                    Carrier Selection
-                  </CardTitle>
-                </CardHeader>
-                
+              {/* Submit Button */}
+              <Card className="overflow-hidden border-2 border-green-200 shadow-lg bg-gradient-to-r from-green-50 to-blue-50">
                 <CardContent className="p-6">
-                  <FormField
-                    control={form.control}
-                    name="carrier"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-base font-semibold mb-4 block">Select Shipping Carrier</FormLabel>
-                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                          {carrierOptions.map((carrier) => (
-                            <div
-                              key={carrier.value}
-                              className={`
-                                relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105
-                                ${field.value === carrier.value 
-                                  ? 'border-orange-500 bg-orange-50 shadow-xl ring-2 ring-orange-200 scale-105' 
-                                  : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50'
-                                }
-                              `}
-                              onClick={() => field.onChange(carrier.value)}
-                            >
-                              <div className="flex flex-col items-center text-center space-y-3">
-                                {carrier.value === 'all' ? (
-                                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                                    <span className="text-white text-lg font-bold">ALL</span>
-                                  </div>
-                                ) : (
-                                  <CarrierLogo carrier={carrier.label} size="lg" className="w-12 h-12" />
-                                )}
-                                <span className={`text-sm font-semibold ${
-                                  field.value === carrier.value ? 'text-orange-700' : 'text-gray-700'
-                                }`}>
-                                  {carrier.label}
-                                </span>
-                              </div>
-                              {field.value === carrier.value && (
-                                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-orange-500 border-2 border-white flex items-center justify-center shadow-lg">
-                                  <div className="w-2 h-2 rounded-full bg-white"></div>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                        <FormMessage />
-                      </FormItem>
+                  <Button 
+                    type="submit" 
+                    size="lg" 
+                    className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-6 w-6 animate-spin mr-3" />
+                        Getting Your Best Rates...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="h-6 w-6 mr-3" />
+                        Get Shipping Rates from All Carriers
+                      </>
                     )}
-                  />
-
-                  {/* International Badge */}
-                  {isInternational && (
-                    <div className="flex items-center gap-2 mt-4">
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-300">
-                        International Shipment
-                      </Badge>
-                      {customsInfo && (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-300">
-                          Customs Documentation Complete
-                        </Badge>
-                      )}
-                    </div>
+                  </Button>
+                  {!isLoading && (
+                    <p className="text-center text-sm text-gray-600 mt-3">
+                      Compare rates from USPS, UPS, FedEx, and DHL instantly
+                    </p>
                   )}
-
-                  {/* Submit Button */}
-                  <div className="pt-6">
-                    <Button 
-                      type="submit" 
-                      size="lg" 
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                          Getting Rates...
-                        </>
-                      ) : (
-                        'Get Shipping Rates'
-                      )}
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
-            )}
-          </form>
-        </Form>
-      </div>
 
-      {/* Customs Documentation Modal */}
-      <CustomsDocumentationModal
-        isOpen={showCustomsModal}
-        onClose={() => setShowCustomsModal(false)}
-        onComplete={handleCustomsComplete}
-        fromCountry={fromAddress?.country || 'US'}
-        toCountry={toAddress?.country || 'US'}
-      />
+            </form>
+          </Form>
+        </div>
+
+        {/* Carrier Selection Sidebar - 1 column */}
+        <div className="xl:col-span-1 space-y-6">
+          <div className="sticky top-32">
+            <CarrierSelector 
+              selectedCarrier={selectedCarrier}
+              onCarrierChange={setSelectedCarrier}
+            />
+            
+            {/* Help Card */}
+            <Card className="mt-6 p-4 bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
+              <div className="flex items-start space-x-3">
+                <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h4 className="font-semibold text-blue-900 text-sm">Need Help?</h4>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Select a specific carrier to see only their rates, or choose "All Carriers" to compare all options.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

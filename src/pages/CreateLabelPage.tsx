@@ -1,32 +1,28 @@
 
 import React from 'react';
-import { useLocation } from 'react-router-dom';
 import RedesignedShippingForm from '@/components/shipping/RedesignedShippingForm';
-import IndependentRateCalculator from '@/components/shipping/IndependentRateCalculator';
 import ShippingRates from '@/components/ShippingRates';
+import ShippingWorkflowTracker from '@/components/shipping/ShippingWorkflowTracker';
 
 const CreateLabelPage = () => {
-  const location = useLocation();
-  const searchParams = new URLSearchParams(location.search);
-  const tab = searchParams.get('tab');
-
-  // Show Independent Rate Calculator if tab=calculator
-  if (tab === 'calculator') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-        <div className="container mx-auto px-4 py-6">
-          <IndependentRateCalculator />
-        </div>
-      </div>
-    );
-  }
-
-  // Default shipping form
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+      {/* Fixed Workflow Tracker */}
+      <div className="sticky top-0 z-50 bg-white shadow-sm border-b">
+        <ShippingWorkflowTracker currentStep="package" />
+      </div>
+      
       <div className="container mx-auto px-4 py-6">
         <div className="max-w-7xl mx-auto">
-          {/* Main Content - Header now included in RedesignedShippingForm */}
+          {/* Header Section */}
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-gray-900 mb-3">Create Shipping Label</h1>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Get competitive rates from multiple carriers and create professional shipping labels in minutes.
+            </p>
+          </div>
+
+          {/* Main Content */}
           <RedesignedShippingForm />
 
           {/* Shipping Rates Section */}
