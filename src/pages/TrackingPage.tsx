@@ -44,32 +44,11 @@ const TrackingPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-8 w-full">
-        {/* Enhanced Header */}
-        <div className="mb-8 text-center bg-gradient-to-r from-blue-600 via-teal-600 to-blue-800 text-white py-8 px-6 rounded-xl shadow-xl">
-          <h1 className="text-4xl font-bold mb-4 tracking-tight flex items-center justify-center">
-            <Truck className="mr-3 h-10 w-10" />
-            Package Tracking Center
-          </h1>
-          <p className="text-xl text-blue-100 max-w-3xl mx-auto leading-relaxed">
-            Track all your shipments in real-time with detailed updates and delivery information.
-          </p>
-          <div className="flex justify-center items-center gap-4 mt-6">
-            <div className="flex items-center gap-2 text-blue-100">
-              <div className="w-2 h-2 rounded-full bg-green-400"></div>
-              <span className="text-sm">Real-time Updates</span>
-            </div>
-            <div className="flex items-center gap-2 text-blue-100">
-              <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
-              <span className="text-sm">Multi-Carrier Support</span>
-            </div>
-            <div className="flex items-center gap-2 text-blue-100">
-              <div className="w-2 h-2 rounded-full bg-purple-400"></div>
-              <span className="text-sm">Detailed History</span>
-            </div>
-          </div>
-        </div>
+    <div className="container mx-auto px-4 py-8 w-full">
+      <h1 className="text-3xl font-bold mb-6 text-blue-800 flex items-center">
+        <Truck className="mr-3 h-8 w-8" />
+        Track Your Shipment
+      </h1>
 
       <div className="grid grid-cols-1 gap-6 mb-8">
         <Card className="border-2 border-gray-200 shadow-lg">
@@ -159,7 +138,6 @@ const TrackingPage = () => {
         
         <TrackingDashboard />
       </div>
-    </div>
     </div>
   );
 };

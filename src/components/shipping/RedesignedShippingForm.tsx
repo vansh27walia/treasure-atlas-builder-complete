@@ -11,13 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Package, Shield, AlertTriangle, Loader2, DollarSign, Box, Scale, Truck, Home, Building2 } from 'lucide-react';
+import { MapPin, Package, Shield, AlertTriangle, Loader2, DollarSign, Box, Scale, Truck } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import AddressSelector from './AddressSelector';
 import EnhancedWorkflowTracker from './EnhancedWorkflowTracker';
 import CustomsDocumentationModal, { CustomsInfo } from './CustomsDocumentationModal';
-import CarrierLogo from './CarrierLogo';
 import { SavedAddress } from '@/services/AddressService';
 import { createAddressSelectHandler } from '@/utils/addressUtils';
 
@@ -76,7 +75,7 @@ const shippingFormSchema = z.object({
   declaredValue: z.coerce.number().min(0, "Declared value must be greater than 0").default(100),
   hazmat: z.boolean().default(false),
   hazmatType: z.string().optional(),
-  // tracking removed from frontend - automatically enabled in backend
+  tracking: z.boolean().default(true),
 });
 
 type ShippingFormValues = z.infer<typeof shippingFormSchema>;
@@ -106,7 +105,7 @@ const RedesignedShippingForm: React.FC = () => {
       declaredValue: 100,
       hazmat: false,
       hazmatType: '',
-      // tracking removed from frontend
+      tracking: true,
     }
   });
 
@@ -115,7 +114,7 @@ const RedesignedShippingForm: React.FC = () => {
   const declaredValue = form.watch('declaredValue');
   const insuranceEnabled = form.watch('insurance');
   const hazmatEnabled = form.watch('hazmat');
-  // tracking always enabled in backend
+  const trackingEnabled = form.watch('tracking');
 
   // Calculate insurance cost - $4 per $100 of declared value
   const insuranceCost = insuranceEnabled ? Math.ceil(declaredValue / 100) * 4 : 0;
@@ -238,8 +237,10 @@ const RedesignedShippingForm: React.FC = () => {
         payload.insurance = values.declaredValue;
       }
 
-      // Tracking always enabled in backend
-      payload.options.tracking = true;
+      // Add tracking if enabled
+      if (values.tracking) {
+        payload.options.tracking = true;
+      }
 
       // Add HAZMAT if enabled
       if (values.hazmat && values.hazmatType) {
@@ -299,87 +300,47 @@ const RedesignedShippingForm: React.FC = () => {
 
   return (
     <div className="w-full">
-      {/* Enhanced Header Section */}
-      <div className="mb-8 text-center bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 text-white py-8 px-6 rounded-xl shadow-xl">
-        <h1 className="text-4xl font-bold mb-4 tracking-tight">Create Shipping Label</h1>
-        <p className="text-xl text-blue-100 max-w-3xl mx-auto leading-relaxed">
-          Get competitive rates from multiple carriers and create professional shipping labels in minutes.
-        </p>
-        <div className="flex justify-center items-center gap-4 mt-6">
-          <div className="flex items-center gap-2 text-blue-100">
-            <div className="w-2 h-2 rounded-full bg-green-400"></div>
-            <span className="text-sm">Secure & Fast</span>
-          </div>
-          <div className="flex items-center gap-2 text-blue-100">
-            <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
-            <span className="text-sm">Multi-Carrier</span>
-          </div>
-          <div className="flex items-center gap-2 text-blue-100">
-            <div className="w-2 h-2 rounded-full bg-purple-400"></div>
-            <span className="text-sm">Best Rates</span>
-          </div>
-        </div>
-      </div>
-
       {/* Enhanced Step Tracker - Sticky */}
       <EnhancedWorkflowTracker currentStep={currentStep} />
 
-      <div className="max-w-5xl mx-auto px-4">
+      <div className="max-w-4xl mx-auto px-4">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleGetRates)} className="space-y-6">
             
-            {/* Pickup Address Section */}
-            <Card className="overflow-hidden border border-green-200/50 shadow-lg bg-gradient-to-br from-green-50/80 to-white/80 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-green-600 to-green-700 text-white">
+            {/* Address Section */}
+            <Card className="overflow-hidden border border-blue-200/50 shadow-lg bg-gradient-to-br from-blue-50/80 to-white/80 backdrop-blur-sm">
+              <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
                 <CardTitle className="flex items-center text-xl">
-                  <Home className="mr-3 h-6 w-6" />
-                  Pickup Location
+                  <MapPin className="mr-3 h-6 w-6" />
+                  Shipping Addresses
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-4 h-4 rounded-full bg-green-500 shadow-lg"></div>
-                  <h3 className="text-lg font-semibold text-green-800">From Address</h3>
-                  <Badge className="bg-green-100 text-green-800 border-green-300">Origin</Badge>
+              <CardContent className="p-6 space-y-6">
+                {/* Pickup Address */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <h3 className="text-lg font-semibold text-blue-800">Pickup Address</h3>
+                  </div>
+                  <AddressSelector 
+                    type="from"
+                    onAddressSelect={handleFromAddressSelect}
+                    useGoogleAutocomplete={true}
+                  />
                 </div>
-                <AddressSelector 
-                  type="from"
-                  onAddressSelect={handleFromAddressSelect}
-                  useGoogleAutocomplete={true}
-                />
-              </CardContent>
-            </Card>
-
-            {/* Visual Separator */}
-            <div className="flex items-center justify-center py-4">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-              <div className="px-4">
-                <div className="w-8 h-8 rounded-full bg-blue-100 border-2 border-blue-300 flex items-center justify-center">
-                  <Package className="w-4 h-4 text-blue-600" />
+                
+                {/* Drop-off Address */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <h3 className="text-lg font-semibold text-blue-800">Drop-Off Address</h3>
+                  </div>
+                  <AddressSelector 
+                    type="to"
+                    onAddressSelect={handleToAddressSelect}
+                    useGoogleAutocomplete={true}
+                  />
                 </div>
-              </div>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-            </div>
-
-            {/* Drop-off Address Section - Separate */}
-            <Card className="overflow-hidden border border-red-200/50 shadow-lg bg-gradient-to-br from-red-50/80 to-white/80 backdrop-blur-sm">
-              <CardHeader className="bg-gradient-to-r from-red-600 to-red-700 text-white">
-                <CardTitle className="flex items-center text-xl">
-                  <Building2 className="mr-3 h-6 w-6" />
-                  Delivery Location
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-4 h-4 rounded-full bg-red-500 shadow-lg"></div>
-                  <h3 className="text-lg font-semibold text-red-800">To Address</h3>
-                  <Badge className="bg-red-100 text-red-800 border-red-300">Destination</Badge>
-                </div>
-                <AddressSelector 
-                  type="to"
-                  onAddressSelect={handleToAddressSelect}
-                  useGoogleAutocomplete={true}
-                />
               </CardContent>
             </Card>
 
@@ -578,23 +539,33 @@ const RedesignedShippingForm: React.FC = () => {
                   </div>
 
                   {/* Additional Options */}
-                  <div className="grid grid-cols-1 gap-6">
-                    {/* Tracking Auto-Enabled Notice */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Tracking Section */}
                     <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200/70 rounded-xl shadow-sm">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                          <div className="w-2 h-2 rounded-full bg-white"></div>
-                        </div>
-                        <div className="space-y-1 leading-none flex-1">
-                          <div className="text-base font-semibold flex items-center text-blue-800">
-                            <Truck className="w-5 h-5 mr-2 text-blue-600" />
-                            Package Tracking Enabled
-                          </div>
-                          <p className="text-sm text-blue-700">
-                            All shipments include automatic tracking at no extra cost.
-                          </p>
-                        </div>
-                      </div>
+                      <FormField
+                        control={form.control}
+                        name="tracking"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox 
+                                checked={field.value} 
+                                onCheckedChange={field.onChange}
+                                className="w-5 h-5 border-2 border-blue-400 data-[state=checked]:bg-blue-500"
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none flex-1">
+                              <FormLabel className="text-base font-semibold flex items-center text-blue-800">
+                                <Truck className="w-5 h-5 mr-2 text-blue-600" />
+                                Enable Tracking
+                              </FormLabel>
+                              <p className="text-sm text-blue-700">
+                                Track your package throughout delivery.
+                              </p>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
                     </div>
 
                     {/* HAZMAT Section */}
@@ -741,28 +712,22 @@ const RedesignedShippingForm: React.FC = () => {
                     name="carrier"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-base font-semibold mb-4 block">Select Shipping Carrier</FormLabel>
-                        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                        <FormLabel className="text-base font-semibold">Select Carrier</FormLabel>
+                        <div className="grid grid-cols-3 gap-4">
                           {carrierOptions.map((carrier) => (
                             <div
                               key={carrier.value}
                               className={`
-                                relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105
+                                relative p-4 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md
                                 ${field.value === carrier.value 
-                                  ? 'border-orange-500 bg-orange-50 shadow-xl ring-2 ring-orange-200 scale-105' 
+                                  ? 'border-orange-500 bg-orange-50 shadow-lg ring-2 ring-orange-200' 
                                   : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50'
                                 }
                               `}
                               onClick={() => field.onChange(carrier.value)}
                             >
-                              <div className="flex flex-col items-center text-center space-y-3">
-                                {carrier.value === 'all' ? (
-                                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                                    <span className="text-white text-lg font-bold">ALL</span>
-                                  </div>
-                                ) : (
-                                  <CarrierLogo carrier={carrier.label} size="lg" className="w-12 h-12" />
-                                )}
+                              <div className="flex flex-col items-center text-center space-y-2">
+                                <span className="text-3xl">{carrier.logo}</span>
                                 <span className={`text-sm font-semibold ${
                                   field.value === carrier.value ? 'text-orange-700' : 'text-gray-700'
                                 }`}>
@@ -770,7 +735,7 @@ const RedesignedShippingForm: React.FC = () => {
                                 </span>
                               </div>
                               {field.value === carrier.value && (
-                                <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-orange-500 border-2 border-white flex items-center justify-center shadow-lg">
+                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
                                   <div className="w-2 h-2 rounded-full bg-white"></div>
                                 </div>
                               )}
