@@ -18,6 +18,8 @@ export interface ShippingRate {
   shipment_id?: string; 
   original_rate?: string;
   isPremium?: boolean;
+  insurance_cost?: number;
+  total_cost?: number;
 }
 
 interface LabelOptions {
