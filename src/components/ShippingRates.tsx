@@ -214,6 +214,12 @@ const ShippingRates: React.FC = () => {
   const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
   const selectedRate = rates.find(rate => rate.id === selectedRateId);
   const rateAmount = selectedRate ? parseFloat(selectedRate.rate) : 0;
+  
+  // Calculate insurance cost
+  const packageValue = sessionStorage.getItem('packageValue') ? parseFloat(sessionStorage.getItem('packageValue') || '0') : 0;
+  const insuranceEnabled = sessionStorage.getItem('insuranceEnabled') === 'true';
+  const insuranceCost = insuranceEnabled ? Math.max(4, Math.ceil((packageValue * 0.04) / 4) * 4) : 0;
+  const totalAmount = rateAmount + insuranceCost;
   const showPaymentSection = selectedRateId && !paymentCompleted && !labelUrl && !isCreatingLabel;
 
   return (
@@ -225,64 +231,11 @@ const ShippingRates: React.FC = () => {
               <Truck className="mr-2 h-5 w-5 text-blue-600" />
               Available Shipping Rates
             </h2>
-            <div className="flex flex-wrap gap-3">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
-                    <Filter className="h-4 w-4" />
-                    {activeCarrierFilter === 'all' ? 'All Carriers' : activeCarrierFilter.toUpperCase()}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999] max-h-60 overflow-y-auto">
-                  <DropdownMenuItem onClick={() => handleFilterByCarrier('all')} className="py-2">
-                    All Carriers
-                  </DropdownMenuItem>
-                  {uniqueCarriers.map((carrier) => (
-                    <DropdownMenuItem 
-                      key={carrier} 
-                      onClick={() => handleFilterByCarrier(carrier)}
-                      className="py-2"
-                    >
-                      {carrier.toUpperCase()}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
-                    Sort by: {
-                      sortOrder === 'price' ? 'Price' : 
-                      sortOrder === 'speed' ? 'Speed' : 
-                      'Carrier'
-                    }
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999]">
-                  <DropdownMenuItem onClick={() => setSortOrder('speed')} className="py-2">
-                    Speed (Fastest First)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('price')} className="py-2">
-                    Price (Lowest First)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('carrier')} className="py-2">
-                    Carrier (A-Z)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+             <div className="text-sm text-gray-600">
+               Compare shipping rates and select the best option for your package
+             </div>
           </div>
 
-          {/* AI Rate Assistant */}
-          <div className="mb-6">
-            <AIRateAssistant
-              rates={sortedRates}
-              onRatesReorder={handleRatesReorder}
-              onCarrierFilter={handleCarrierFilter}
-              availableCarriers={uniqueCarriers}
-            />
-          </div>
           
           {/* Label Creation Status */}
           {isCreatingLabel && (
@@ -363,13 +316,32 @@ const ShippingRates: React.FC = () => {
               {showPaymentSection && (
                 <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
                   <h3 className="font-semibold text-blue-800 mb-4">Complete Payment to Create Label</h3>
-                  <PaymentMethodSelector
-                    selectedPaymentMethod={null}
-                    onPaymentMethodChange={handlePaymentMethodChange}
-                    onPaymentComplete={handlePaymentComplete}
-                    amount={rateAmount}
-                    description="Shipping Label Purchase"
-                  />
+                   {insuranceEnabled && insuranceCost > 0 && (
+                     <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                       <h4 className="text-sm font-medium text-blue-900 mb-1">Price Breakdown</h4>
+                       <div className="text-sm text-blue-800 space-y-1">
+                         <div className="flex justify-between">
+                           <span>Shipping Rate:</span>
+                           <span>${rateAmount.toFixed(2)}</span>
+                         </div>
+                         <div className="flex justify-between">
+                           <span>Insurance (${packageValue.toFixed(2)} @ $4 per $100):</span>
+                           <span>${insuranceCost.toFixed(2)}</span>
+                         </div>
+                         <div className="flex justify-between font-medium border-t pt-1">
+                           <span>Total:</span>
+                           <span>${totalAmount.toFixed(2)}</span>
+                         </div>
+                       </div>
+                     </div>
+                   )}
+                   <PaymentMethodSelector
+                     selectedPaymentMethod={null}
+                     onPaymentMethodChange={handlePaymentMethodChange}
+                     onPaymentComplete={handlePaymentComplete}
+                     amount={totalAmount}
+                     description="Shipping Label Purchase"
+                   />
                 </div>
               )}
               
