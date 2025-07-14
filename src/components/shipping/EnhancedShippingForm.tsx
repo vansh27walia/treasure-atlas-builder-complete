@@ -130,10 +130,6 @@ const EnhancedShippingForm: React.FC = () => {
       return;
     }
 
-    // Save insurance and package value to session storage for payment calculation
-    sessionStorage.setItem('insuranceEnabled', values.insurance.toString());
-    sessionStorage.setItem('packageValue', values.packageValue.toString());
-
     setIsLoading(true);
     try {
       // Convert weight to ounces for backend processing
@@ -239,7 +235,7 @@ const EnhancedShippingForm: React.FC = () => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
       {/* Main Form - Left Side */}
-      <div className="lg:col-span-9">
+      <div className="lg:col-span-8">
         <Card className="border border-gray-200 shadow-sm">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-gray-100">
@@ -306,6 +302,44 @@ const EnhancedShippingForm: React.FC = () => {
                   />
                 </div>
 
+                {/* Carriers Selection */}
+                <div className="mb-4">
+                  <FormLabel className="text-base font-medium mb-2 block">Carriers</FormLabel>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="carrier-usps"
+                        checked={form.watch('carriers.usps')}
+                        onCheckedChange={(checked) => form.setValue('carriers.usps', checked as boolean)}
+                      />
+                      <label htmlFor="carrier-usps" className="text-sm font-medium">USPS</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="carrier-fedex"
+                        checked={form.watch('carriers.fedex')}
+                        onCheckedChange={(checked) => form.setValue('carriers.fedex', checked as boolean)}
+                      />
+                      <label htmlFor="carrier-fedex" className="text-sm font-medium">FedEx</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="carrier-ups"
+                        checked={form.watch('carriers.ups')}
+                        onCheckedChange={(checked) => form.setValue('carriers.ups', checked as boolean)}
+                      />
+                      <label htmlFor="carrier-ups" className="text-sm font-medium">UPS</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="carrier-dhl"
+                        checked={form.watch('carriers.dhl')}
+                        onCheckedChange={(checked) => form.setValue('carriers.dhl', checked as boolean)}
+                      />
+                      <label htmlFor="carrier-dhl" className="text-sm font-medium">DHL</label>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Package Dimensions - Show based on package type */}
                 {(form.watch('packageType') === 'box' || form.watch('packageType') === 'envelope') && (
@@ -557,82 +591,43 @@ const EnhancedShippingForm: React.FC = () => {
         </Card>
       </div>
 
-      {/* Right Side - Carrier Selection & AI Assistant */}
-      <div className="lg:col-span-3">
-        <div className="sticky top-24 space-y-4">
-          {/* Carrier Selection */}
+      {/* Right Side - AI Assistant */}
+      <div className="lg:col-span-4">
+        <div className="sticky top-20">
           <Card className="border border-gray-200 shadow-sm">
-            <div className="p-4">
-              <h4 className="text-base font-semibold text-gray-700 mb-3">📦 Choose Carriers</h4>
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="carrier-usps"
-                    checked={form.watch('carriers.usps')}
-                    onCheckedChange={(checked) => form.setValue('carriers.usps', checked as boolean)}
-                  />
-                  <label htmlFor="carrier-usps" className="text-sm font-medium">🇺🇸 USPS</label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="carrier-fedex"
-                    checked={form.watch('carriers.fedex')}
-                    onCheckedChange={(checked) => form.setValue('carriers.fedex', checked as boolean)}
-                  />
-                  <label htmlFor="carrier-fedex" className="text-sm font-medium">📦 FedEx</label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="carrier-ups"
-                    checked={form.watch('carriers.ups')}
-                    onCheckedChange={(checked) => form.setValue('carriers.ups', checked as boolean)}
-                  />
-                  <label htmlFor="carrier-ups" className="text-sm font-medium">🚚 UPS</label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="carrier-dhl"
-                    checked={form.watch('carriers.dhl')}
-                    onCheckedChange={(checked) => form.setValue('carriers.dhl', checked as boolean)}
-                  />
-                  <label htmlFor="carrier-dhl" className="text-sm font-medium">✈️ DHL</label>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* AI Assistant */}
-          <Card className="border border-gray-200 shadow-sm">
-            <div className="p-4">
-              <h4 className="text-base font-semibold text-gray-700 mb-3">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">
                 🤖 AI Shipping Assistant
-              </h4>
-              <div className="space-y-3">
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg">
-                  <p className="text-xs text-gray-600 mb-2">
-                    Get smart recommendations:
+              </h3>
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-3">
+                    Get smart recommendations for your shipping needs:
                   </p>
-                  <div className="space-y-1">
-                    <Button variant="outline" size="sm" className="w-full text-left justify-start text-xs">
-                      💨 Fastest Options
+                  <div className="space-y-2">
+                    <Button variant="outline" size="sm" className="w-full text-left justify-start">
+                      💨 Show Fastest Options
                     </Button>
-                    <Button variant="outline" size="sm" className="w-full text-left justify-start text-xs">
-                      💰 Cheapest Rates
+                    <Button variant="outline" size="sm" className="w-full text-left justify-start">
+                      💰 Find Cheapest Rates
                     </Button>
-                    <Button variant="outline" size="sm" className="w-full text-left justify-start text-xs">
-                      🛡️ Most Reliable
+                    <Button variant="outline" size="sm" className="w-full text-left justify-start">
+                      🛡️ Most Reliable Service
+                    </Button>
+                    <Button variant="outline" size="sm" className="w-full text-left justify-start">
+                      🌱 Eco-Friendly Options
                     </Button>
                   </div>
                 </div>
                 
-                <div className="border-t pt-3">
-                  <Label className="text-xs font-medium mb-2 block">Ask me anything:</Label>
+                <div className="border-t pt-4">
+                  <Label className="text-sm font-medium mb-2 block">Ask me anything:</Label>
                   <div className="space-y-2">
                     <Input 
-                      placeholder="e.g., UPS vs FedEx?"
-                      className="bg-white text-xs"
+                      placeholder="e.g., What's the difference between UPS and FedEx?"
+                      className="bg-white"
                     />
-                    <Button size="sm" className="w-full text-xs">
+                    <Button size="sm" className="w-full">
                       Send Question
                     </Button>
                   </div>
