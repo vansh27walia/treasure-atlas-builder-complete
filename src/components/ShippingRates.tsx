@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +13,7 @@ import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-reac
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PrintPreview from './shipping/PrintPreview';
+import AIRateAssistant from './shipping/AIRateAssistant';
 
 const ShippingRates: React.FC = () => {
   const {
@@ -48,6 +48,30 @@ const ShippingRates: React.FC = () => {
     service: string; 
     carrier: string; 
   } | undefined>();
+
+  const [sortedRates, setSortedRates] = useState<ShippingRate[]>([]);
+  const [filteredByCarrier, setFilteredByCarrier] = useState<ShippingRate[]>([]);
+
+  // Update sorted rates when rates change
+  useEffect(() => {
+    setSortedRates(rates);
+    setFilteredByCarrier(rates);
+  }, [rates]);
+
+  const handleRatesReorder = (reorderedRates: ShippingRate[]) => {
+    setSortedRates(reorderedRates);
+  };
+
+  const handleCarrierFilter = (carrier: string) => {
+    if (carrier === 'all') {
+      setFilteredByCarrier(sortedRates);
+    } else {
+      const filtered = sortedRates.filter(rate => 
+        rate.carrier.toLowerCase() === carrier.toLowerCase()
+      );
+      setFilteredByCarrier(filtered);
+    }
+  };
   
   // Listen for payment completion event
   useEffect(() => {
@@ -184,17 +208,8 @@ const ShippingRates: React.FC = () => {
     );
   }
 
-  const sortedRates = [...rates].sort((a, b) => {
-    if (sortOrder === 'price') {
-      return parseFloat(a.rate) - parseFloat(b.rate);
-    } else if (sortOrder === 'speed') {
-      const aDays = a.delivery_days || 999;
-      const bDays = b.delivery_days || 999;
-      return aDays - bDays;
-    } else {
-      return a.carrier.localeCompare(b.carrier);
-    }
-  });
+  // Use filtered rates for display
+  const displayRates = filteredByCarrier.length > 0 ? filteredByCarrier : sortedRates;
 
   const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
   const selectedRate = rates.find(rate => rate.id === selectedRateId);
@@ -258,6 +273,16 @@ const ShippingRates: React.FC = () => {
               </DropdownMenu>
             </div>
           </div>
+
+          {/* AI Rate Assistant */}
+          <div className="mb-6">
+            <AIRateAssistant
+              rates={sortedRates}
+              onRatesReorder={handleRatesReorder}
+              onCarrierFilter={handleCarrierFilter}
+              availableCarriers={uniqueCarriers}
+            />
+          </div>
           
           {/* Label Creation Status */}
           {isCreatingLabel && (
@@ -297,7 +322,7 @@ const ShippingRates: React.FC = () => {
               <div className="space-y-4 mt-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                   {sortedRates.map((rate) => (
+                   {displayRates.map((rate) => (
                      <ShippingRateCard
                        key={rate.id}
                        rate={rate}
@@ -320,12 +345,12 @@ const ShippingRates: React.FC = () => {
                    ))}
                 </div>
 
-                {sortedRates.length === 0 && (
+                {displayRates.length === 0 && (
                   <div className="p-6 text-center bg-gray-50 rounded-lg">
                     <p className="text-base text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
                     <Button 
                       variant="outline" 
-                      onClick={() => handleFilterByCarrier('all')} 
+                      onClick={() => handleCarrierFilter('all')} 
                       className="mt-4 h-9 px-4 text-sm"
                     >
                       Clear Filters
