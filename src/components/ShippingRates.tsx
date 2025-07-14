@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -215,9 +216,8 @@ const ShippingRates: React.FC = () => {
   const selectedRate = rates.find(rate => rate.id === selectedRateId);
   const rateAmount = selectedRate ? parseFloat(selectedRate.rate) : 0;
   
-  // Calculate insurance cost for total pricing
-  const packageValue = parseFloat(sessionStorage.getItem('packageValue') || '0');
-  const insuranceCost = packageValue > 0 ? Math.max(2, Math.ceil((packageValue / 100) * 2)) : 0;
+  // Calculate insurance cost and total for payment
+  const insuranceCost = selectedRate?.insurance_cost || 0;
   const totalAmount = rateAmount + insuranceCost;
   
   const showPaymentSection = selectedRateId && !paymentCompleted && !labelUrl && !isCreatingLabel;
@@ -254,40 +254,7 @@ const ShippingRates: React.FC = () => {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
-                    Sort by: {
-                      sortOrder === 'price' ? 'Price' : 
-                      sortOrder === 'speed' ? 'Speed' : 
-                      'Carrier'
-                    }
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999]">
-                  <DropdownMenuItem onClick={() => setSortOrder('speed')} className="py-2">
-                    Speed (Fastest First)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('price')} className="py-2">
-                    Price (Lowest First)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('carrier')} className="py-2">
-                    Carrier (A-Z)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
-          </div>
-
-          {/* AI Rate Assistant */}
-          <div className="mb-6">
-            <AIRateAssistant
-              rates={sortedRates}
-              onRatesReorder={handleRatesReorder}
-              onCarrierFilter={handleCarrierFilter}
-              availableCarriers={uniqueCarriers}
-            />
           </div>
           
           {/* Label Creation Status */}
@@ -327,7 +294,7 @@ const ShippingRates: React.FC = () => {
               
               <div className="space-y-4 mt-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                    {displayRates.map((rate) => (
                      <ShippingRateCard
                        key={rate.id}
@@ -369,6 +336,25 @@ const ShippingRates: React.FC = () => {
               {showPaymentSection && (
                 <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
                   <h3 className="font-semibold text-blue-800 mb-4">Complete Payment to Create Label</h3>
+                  
+                  {/* Show cost breakdown */}
+                  <div className="mb-4 p-3 bg-white rounded border">
+                    <div className="flex justify-between items-center text-sm">
+                      <span>Shipping Rate:</span>
+                      <span className="font-medium">${rateAmount.toFixed(2)}</span>
+                    </div>
+                    {insuranceCost > 0 && (
+                      <div className="flex justify-between items-center text-sm">
+                        <span>Insurance:</span>
+                        <span className="font-medium">${insuranceCost.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center text-base font-bold border-t pt-2 mt-2">
+                      <span>Total:</span>
+                      <span>${totalAmount.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  
                   <PaymentMethodSelector
                     selectedPaymentMethod={null}
                     onPaymentMethodChange={handlePaymentMethodChange}
@@ -427,7 +413,7 @@ const ShippingRates: React.FC = () => {
           )}
           
           <div className="mt-4 text-center text-xs text-gray-500">
-            <p>* All rates include handling fees and applicable taxes</p>
+            <p>* All rates include handling fees and applicable taxes. Insurance charges calculated separately.</p>
           </div>
         </div>
       </Card>
