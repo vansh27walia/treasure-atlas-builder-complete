@@ -1,9 +1,8 @@
 
 import React from 'react';
-import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
+import RedesignedShippingForm from '@/components/shipping/RedesignedShippingForm';
 import ShippingRates from '@/components/ShippingRates';
 import ShippingWorkflowTracker from '@/components/shipping/ShippingWorkflowTracker';
-import ChatAssistant from '@/components/shipping/ChatAssistant';
 
 const CreateLabelPage = () => {
   return (
@@ -24,7 +23,7 @@ const CreateLabelPage = () => {
           </div>
 
           {/* Main Content */}
-          <EnhancedShippingForm />
+          <RedesignedShippingForm />
 
           {/* Shipping Rates Section */}
           <div id="shipping-rates-section" className="mt-8">
@@ -32,9 +31,6 @@ const CreateLabelPage = () => {
           </div>
         </div>
       </div>
-      
-      {/* Chat Assistant */}
-      <ChatAssistant />
     </div>
   );
 };

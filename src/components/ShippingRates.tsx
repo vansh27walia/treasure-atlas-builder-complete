@@ -7,7 +7,6 @@ import ShippingLabel from './shipping/ShippingLabel';
 import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import PaymentMethodSelector from './payment/PaymentMethodSelector';
-import AIRateAssistant from './shipping/AIRateAssistant';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
@@ -39,7 +38,6 @@ const ShippingRates: React.FC = () => {
   const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
-  const [aiSortCriteria, setAiSortCriteria] = useState<string>('');
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [shipmentDetails, setShipmentDetails] = useState<{ 
@@ -169,26 +167,6 @@ const ShippingRates: React.FC = () => {
   const handlePaymentMethodChange = (paymentMethodId: string) => {
     console.log('Selected payment method:', paymentMethodId);
   };
-
-  const handleAISort = (criteria: string) => {
-    setAiSortCriteria(criteria);
-    
-    switch (criteria) {
-      case 'fastest':
-        setSortOrder('speed');
-        break;
-      case 'cheapest':
-        setSortOrder('price');
-        break;
-      case 'reliable':
-      case 'balanced':
-      case 'premium':
-        setSortOrder('carrier');
-        break;
-      default:
-        setSortOrder('price');
-    }
-  };
   
   if (rates.length === 0) {
     return (
@@ -233,31 +211,51 @@ const ShippingRates: React.FC = () => {
               Available Shipping Rates
             </h2>
             <div className="flex flex-wrap gap-3">
-              {/* Carrier Filter - Right Aligned */}
-              <div className="ml-auto">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex items-center gap-2 border border-primary/20 hover:bg-primary/5 h-9 px-3 text-sm">
-                      <Filter className="h-4 w-4" />
-                      {activeCarrierFilter === 'all' ? 'All Carriers' : activeCarrierFilter.toUpperCase()}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-white border border-primary/20 shadow-lg z-[9999] max-h-60 overflow-y-auto">
-                    <DropdownMenuItem onClick={() => handleFilterByCarrier('all')} className="py-2">
-                      All Carriers
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
+                    <Filter className="h-4 w-4" />
+                    {activeCarrierFilter === 'all' ? 'All Carriers' : activeCarrierFilter.toUpperCase()}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999] max-h-60 overflow-y-auto">
+                  <DropdownMenuItem onClick={() => handleFilterByCarrier('all')} className="py-2">
+                    All Carriers
+                  </DropdownMenuItem>
+                  {uniqueCarriers.map((carrier) => (
+                    <DropdownMenuItem 
+                      key={carrier} 
+                      onClick={() => handleFilterByCarrier(carrier)}
+                      className="py-2"
+                    >
+                      {carrier.toUpperCase()}
                     </DropdownMenuItem>
-                    {uniqueCarriers.map((carrier) => (
-                      <DropdownMenuItem 
-                        key={carrier} 
-                        onClick={() => handleFilterByCarrier(carrier)}
-                        className="py-2"
-                      >
-                        {carrier.toUpperCase()}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
+                    Sort by: {
+                      sortOrder === 'price' ? 'Price' : 
+                      sortOrder === 'speed' ? 'Speed' : 
+                      'Carrier'
+                    }
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999]">
+                  <DropdownMenuItem onClick={() => setSortOrder('speed')} className="py-2">
+                    Speed (Fastest First)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder('price')} className="py-2">
+                    Price (Lowest First)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSortOrder('carrier')} className="py-2">
+                    Carrier (A-Z)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
           
@@ -288,13 +286,6 @@ const ShippingRates: React.FC = () => {
           
           {!labelUrl && !isCreatingLabel ? (
             <>
-              {/* AI Rate Assistant */}
-              <AIRateAssistant 
-                rates={rates}
-                onSort={handleAISort}
-                activeCriteria={aiSortCriteria}
-              />
-
               {(aiRecommendation || isAiLoading) && (
                 <ShippingAIRecommendation 
                   aiRecommendation={aiRecommendation}
