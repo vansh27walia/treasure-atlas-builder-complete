@@ -6,6 +6,8 @@ import ShippingRateCard from './shipping/ShippingRateCard';
 import ShippingLabel from './shipping/ShippingLabel';
 import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
+import AIRateAssistant from './shipping/AIRateAssistant';
+import ChatAssistant from './shipping/ChatAssistant';
 import PaymentMethodSelector from './payment/PaymentMethodSelector';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
@@ -203,61 +205,25 @@ const ShippingRates: React.FC = () => {
 
   return (
     <div className="w-full pb-6" id="shipping-rates-section">
-      <Card className="border border-gray-200 shadow-lg bg-white">
-        <div className="p-6">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6">
-            <h2 className="text-xl font-bold text-blue-800 flex items-center mb-4 lg:mb-0">
-              <Truck className="mr-2 h-5 w-5 text-blue-600" />
-              Available Shipping Rates
-            </h2>
-            <div className="flex flex-wrap gap-3">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
-                    <Filter className="h-4 w-4" />
-                    {activeCarrierFilter === 'all' ? 'All Carriers' : activeCarrierFilter.toUpperCase()}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999] max-h-60 overflow-y-auto">
-                  <DropdownMenuItem onClick={() => handleFilterByCarrier('all')} className="py-2">
-                    All Carriers
-                  </DropdownMenuItem>
-                  {uniqueCarriers.map((carrier) => (
-                    <DropdownMenuItem 
-                      key={carrier} 
-                      onClick={() => handleFilterByCarrier(carrier)}
-                      className="py-2"
-                    >
-                      {carrier.toUpperCase()}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+      <div className="flex gap-6">
+        {/* Main Rates Section */}
+        <div className="flex-1">
+          <Card className="border border-gray-200 shadow-lg bg-white">
+            <div className="p-6">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6">
+                <h2 className="text-xl font-bold text-blue-800 flex items-center mb-4 lg:mb-0">
+                  <Truck className="mr-2 h-5 w-5 text-blue-600" />
+                  Available Shipping Rates
+                </h2>
+              </div>
               
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
-                    Sort by: {
-                      sortOrder === 'price' ? 'Price' : 
-                      sortOrder === 'speed' ? 'Speed' : 
-                      'Carrier'
-                    }
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999]">
-                  <DropdownMenuItem onClick={() => setSortOrder('speed')} className="py-2">
-                    Speed (Fastest First)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('price')} className="py-2">
-                    Price (Lowest First)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('carrier')} className="py-2">
-                    Carrier (A-Z)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
+              {/* AI Rate Assistant */}
+              <div className="mb-6">
+                <AIRateAssistant 
+                  rates={rates}
+                  onRateRecommendation={handleRateSelection}
+                />
+              </div>
           
           {/* Label Creation Status */}
           {isCreatingLabel && (
@@ -395,11 +361,113 @@ const ShippingRates: React.FC = () => {
             </div>
           )}
           
-          <div className="mt-4 text-center text-xs text-gray-500">
-            <p>* All rates include handling fees and applicable taxes</p>
-          </div>
+              <div className="mt-4 text-center text-xs text-gray-500">
+                <p>* All rates include handling fees and applicable taxes</p>
+              </div>
+            </div>
+          </Card>
         </div>
-      </Card>
+        
+        {/* Right Sidebar - Carrier Selection */}
+        <div className="w-80">
+          <Card className="border border-gray-200 shadow-lg bg-white sticky top-4">
+            <div className="p-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Filter & Sort</h3>
+              
+              {/* Carrier Filter */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Carrier Selection
+                </label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between border border-blue-200 hover:bg-blue-50">
+                      <span className="flex items-center gap-2">
+                        <Filter className="h-4 w-4" />
+                        {activeCarrierFilter === 'all' ? 'All Carriers' : activeCarrierFilter.toUpperCase()}
+                      </span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-full bg-white border border-blue-200 shadow-lg z-[9999] max-h-60 overflow-y-auto">
+                    <DropdownMenuItem onClick={() => handleFilterByCarrier('all')} className="py-2">
+                      🌐 All Carriers
+                    </DropdownMenuItem>
+                    {uniqueCarriers.map((carrier) => (
+                      <DropdownMenuItem 
+                        key={carrier} 
+                        onClick={() => handleFilterByCarrier(carrier)}
+                        className="py-2"
+                      >
+                        {carrier === 'usps' && '🇺🇸'} 
+                        {carrier === 'ups' && '🤎'} 
+                        {carrier === 'fedex' && '💜'} 
+                        {carrier === 'dhl' && '🟡'} 
+                        {' '}{carrier.toUpperCase()}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              
+              {/* Sort Options */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sort Options
+                </label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between border border-blue-200 hover:bg-blue-50">
+                      Sort by: {
+                        sortOrder === 'price' ? 'Price' : 
+                        sortOrder === 'speed' ? 'Speed' : 
+                        'Carrier'
+                      }
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-full bg-white border border-blue-200 shadow-lg z-[9999]">
+                    <DropdownMenuItem onClick={() => setSortOrder('speed')} className="py-2">
+                      ⚡ Speed (Fastest First)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortOrder('price')} className="py-2">
+                      💰 Price (Lowest First)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortOrder('carrier')} className="py-2">
+                      🏢 Carrier (A-Z)
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              
+              {/* Rate Statistics */}
+              <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                <div className="flex justify-between mb-2">
+                  <span className="text-gray-600">Total Rates:</span>
+                  <span className="font-medium">{rates.length}</span>
+                </div>
+                {rates.length > 0 && (
+                  <>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-gray-600">Lowest Price:</span>
+                      <span className="font-medium text-green-600">
+                        ${Math.min(...rates.map(r => parseFloat(r.rate))).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Fastest:</span>
+                      <span className="font-medium text-blue-600">
+                        {Math.min(...rates.map(r => r.delivery_days || 999))} days
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+      
+      {/* Chat Assistant */}
+      <ChatAssistant />
     </div>
   );
 };

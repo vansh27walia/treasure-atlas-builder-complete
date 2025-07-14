@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import RedesignedShippingForm from '@/components/shipping/RedesignedShippingForm';
+import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import IndependentRateCalculator from '@/components/shipping/IndependentRateCalculator';
 import ShippingRates from '@/components/ShippingRates';
 
@@ -27,7 +27,7 @@ const CreateLabelPage = () => {
       <div className="container mx-auto px-4 py-6">
         <div className="max-w-7xl mx-auto">
           {/* Main Content - Header now included in RedesignedShippingForm */}
-          <RedesignedShippingForm />
+          <EnhancedShippingForm />
 
           {/* Shipping Rates Section */}
           <div id="shipping-rates-section" className="mt-8">
