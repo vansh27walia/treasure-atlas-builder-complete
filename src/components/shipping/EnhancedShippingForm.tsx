@@ -57,9 +57,9 @@ const EnhancedShippingForm: React.FC = () => {
       weightValue: 0,
       weightUnit: 'lb',
       packageValue: 0,
-      length: 8,
-      width: 8,
-      height: 4,
+      length: 0,
+      width: 0,
+      height: 0,
       signatureRequired: false,
       insurance: true,
       hazmat: false,
@@ -102,8 +102,8 @@ const EnhancedShippingForm: React.FC = () => {
     form.setValue("allCarriers", allSelected);
   }, [watchCarriers, form]);
 
-  // Calculate insurance cost
-  const insuranceCost = watchInsurance ? Math.max(4, Math.ceil((watchPackageValue * 0.04) / 4) * 4) : 0;
+  // Calculate insurance cost - $2 per $100 declared value
+  const insuranceCost = watchInsurance ? Math.max(2, Math.ceil((watchPackageValue / 100) * 2)) : 0;
 
   const hazmatTypes = [
     { value: 'LITHIUM', label: 'Lithium Batteries' },
@@ -233,39 +233,40 @@ const EnhancedShippingForm: React.FC = () => {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
-      {/* Main Form - Left Side */}
-      <div className="lg:col-span-8">
-        <Card className="border border-gray-200 shadow-sm">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-gray-100">
-              {/* Pickup Address */}
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                  📍 Pickup Address
-                </h3>
-                <AddressSelector 
-                  type="from"
-                  onAddressSelect={handleFromAddressSelect}
-                  useGoogleAutocomplete={true}
-                />
-              </div>
+    <div className="w-full">
+      <Card className="border shadow-sm">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-border">
+            {/* Pickup Address */}
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                📍 Pickup Address
+              </h3>
+              <AddressSelector 
+                type="from"
+                onAddressSelect={handleFromAddressSelect}
+                useGoogleAutocomplete={true}
+              />
+            </div>
 
-              {/* Drop-off Address */}
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                  🎯 Drop-off Address
-                </h3>
-                <AddressSelector 
-                  type="to"
-                  onAddressSelect={handleToAddressSelect}
-                  useGoogleAutocomplete={true}
-                />
-              </div>
+            {/* Drop-off Address */}
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                🎯 Drop-off Address
+              </h3>
+              <AddressSelector 
+                type="to"
+                onAddressSelect={handleToAddressSelect}
+                useGoogleAutocomplete={true}
+              />
+            </div>
             
-              {/* Package Type & Carriers */}
-              <div className="p-6">
-                <h3 className="text-lg font-semibold text-gray-700 mb-4">📦 Package & Carrier Options</h3>
+            {/* Package Details */}
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                Package Details
+              </h3>
                 
                 {/* Package Type */}
                 <div className="mb-4">
@@ -496,7 +497,7 @@ const EnhancedShippingForm: React.FC = () => {
                         </FormControl>
                         <div className="space-y-1 leading-none">
                           <FormLabel className="text-sm font-medium">
-                            Add $4 insurance per $100 declared value
+                            Add $2 insurance per $100 declared value
                           </FormLabel>
                           {watchInsurance && watchPackageValue > 0 && (
                             <p className="text-xs text-blue-600 font-medium">
@@ -571,72 +572,24 @@ const EnhancedShippingForm: React.FC = () => {
                 </div>
               </div>
               
-              {/* Submit Section */}
-              <div className="p-6 bg-gray-50">
-                <Button 
-                  type="submit" 
-                  className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <Search className="w-5 h-5 mr-2 animate-spin" />
-                  ) : (
-                    <Search className="w-5 h-5 mr-2" />
-                  )}
-                  Get Shipping Rates
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </Card>
-      </div>
-
-      {/* Right Side - AI Assistant */}
-      <div className="lg:col-span-4">
-        <div className="sticky top-20">
-          <Card className="border border-gray-200 shadow-sm">
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                🤖 AI Shipping Assistant
-              </h3>
-              <div className="space-y-4">
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-3">
-                    Get smart recommendations for your shipping needs:
-                  </p>
-                  <div className="space-y-2">
-                    <Button variant="outline" size="sm" className="w-full text-left justify-start">
-                      💨 Show Fastest Options
-                    </Button>
-                    <Button variant="outline" size="sm" className="w-full text-left justify-start">
-                      💰 Find Cheapest Rates
-                    </Button>
-                    <Button variant="outline" size="sm" className="w-full text-left justify-start">
-                      🛡️ Most Reliable Service
-                    </Button>
-                    <Button variant="outline" size="sm" className="w-full text-left justify-start">
-                      🌱 Eco-Friendly Options
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="border-t pt-4">
-                  <Label className="text-sm font-medium mb-2 block">Ask me anything:</Label>
-                  <div className="space-y-2">
-                    <Input 
-                      placeholder="e.g., What's the difference between UPS and FedEx?"
-                      className="bg-white"
-                    />
-                    <Button size="sm" className="w-full">
-                      Send Question
-                    </Button>
-                  </div>
-                </div>
-              </div>
+            {/* Submit Section */}
+            <div className="p-6 bg-muted/50">
+              <Button 
+                type="submit" 
+                className="w-full h-12 text-lg font-semibold" 
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Search className="w-5 h-5 mr-2 animate-spin" />
+                ) : (
+                  <Search className="w-5 h-5 mr-2" />
+                )}
+                Get Shipping Rates
+              </Button>
             </div>
-          </Card>
-        </div>
-      </div>
+          </form>
+        </Form>
+      </Card>
 
       {/* Customs Documentation Modal */}
       <CustomsDocumentationModal

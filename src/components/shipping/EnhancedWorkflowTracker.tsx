@@ -52,9 +52,9 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({ curre
   };
 
   return (
-    <div className="sticky top-0 z-50 w-full">
+    <div className="sticky top-4 z-50 w-full">
       <div 
-        className="mx-auto max-w-6xl p-3 mb-4"
+        className="mx-auto max-w-6xl p-3 mb-6 mt-4"
         style={{
           background: 'rgba(255, 255, 255, 0.1)',
           backdropFilter: 'blur(25px)',

@@ -214,6 +214,12 @@ const ShippingRates: React.FC = () => {
   const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
   const selectedRate = rates.find(rate => rate.id === selectedRateId);
   const rateAmount = selectedRate ? parseFloat(selectedRate.rate) : 0;
+  
+  // Calculate insurance cost for total pricing
+  const packageValue = parseFloat(sessionStorage.getItem('packageValue') || '0');
+  const insuranceCost = packageValue > 0 ? Math.max(2, Math.ceil((packageValue / 100) * 2)) : 0;
+  const totalAmount = rateAmount + insuranceCost;
+  
   const showPaymentSection = selectedRateId && !paymentCompleted && !labelUrl && !isCreatingLabel;
 
   return (
@@ -367,7 +373,7 @@ const ShippingRates: React.FC = () => {
                     selectedPaymentMethod={null}
                     onPaymentMethodChange={handlePaymentMethodChange}
                     onPaymentComplete={handlePaymentComplete}
-                    amount={rateAmount}
+                    amount={totalAmount}
                     description="Shipping Label Purchase"
                   />
                 </div>
