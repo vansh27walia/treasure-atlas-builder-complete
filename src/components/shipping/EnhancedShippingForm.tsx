@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -234,55 +233,42 @@ const EnhancedShippingForm: React.FC = () => {
   };
 
   return (
-    <div className="w-full mb-6">
-      <Card className="border border-gray-200 shadow-sm w-full">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-gray-100 w-full">
-            {/* Addresses Section */}
-            <div className="p-6 bg-gradient-to-r from-slate-50 to-gray-50">
-              <h2 className="text-xl font-bold mb-6 text-gray-800 flex items-center gap-2">
-                <Package className="w-5 h-5 text-blue-600" />
-                Shipping Addresses
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-                {/* Origin Address */}
-                <div className="space-y-3 w-full">
-                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm w-full">
-                    <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-100 pb-2">
-                      📍 Origin Address
-                    </h3>
-                    <AddressSelector 
-                      type="from"
-                      onAddressSelect={handleFromAddressSelect}
-                      useGoogleAutocomplete={true}
-                    />
-                  </div>
-                </div>
-                
-                {/* Destination Address */}
-                <div className="space-y-3 w-full">
-                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm w-full">
-                    <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b border-gray-100 pb-2">
-                      🎯 Destination Address
-                    </h3>
-                    <AddressSelector 
-                      type="to"
-                      onAddressSelect={handleToAddressSelect}
-                      useGoogleAutocomplete={true}
-                    />
-                  </div>
-                </div>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
+      {/* Main Form - Left Side */}
+      <div className="lg:col-span-8">
+        <Card className="border border-gray-200 shadow-sm">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-gray-100">
+              {/* Pickup Address */}
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                  📍 Pickup Address
+                </h3>
+                <AddressSelector 
+                  type="from"
+                  onAddressSelect={handleFromAddressSelect}
+                  useGoogleAutocomplete={true}
+                />
               </div>
-            </div>
+
+              {/* Drop-off Address */}
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                  🎯 Drop-off Address
+                </h3>
+                <AddressSelector 
+                  type="to"
+                  onAddressSelect={handleToAddressSelect}
+                  useGoogleAutocomplete={true}
+                />
+              </div>
             
-            {/* Package Details Section */}
-            <div className="p-6 w-full">
-              <h2 className="text-xl font-bold mb-6 text-gray-800">📦 Package Details</h2>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
-                <div className="space-y-4">
-                  {/* Package Type */}
+              {/* Package Type & Carriers */}
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4">📦 Package & Carrier Options</h3>
+                
+                {/* Package Type */}
+                <div className="mb-4">
                   <FormField
                     control={form.control}
                     name="packageType"
@@ -302,15 +288,62 @@ const EnhancedShippingForm: React.FC = () => {
                             <SelectItem value="usps_small_flat_rate_box">📮 USPS Small Flat Rate Box</SelectItem>
                             <SelectItem value="usps_flat_rate_envelope">📮 USPS Flat Rate Envelope</SelectItem>
                             <SelectItem value="usps_first_class">📮 USPS First Class</SelectItem>
+                            <SelectItem value="fedex_envelope">📦 FedEx Envelope</SelectItem>
+                            <SelectItem value="fedex_box">📦 FedEx Box</SelectItem>
+                            <SelectItem value="ups_letter">📦 UPS Letter</SelectItem>
+                            <SelectItem value="ups_box">📦 UPS Box</SelectItem>
+                            <SelectItem value="dhl_flyer">📦 DHL Flyer</SelectItem>
+                            <SelectItem value="dhl_express_envelope">📦 DHL Express Envelope</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                </div>
 
-                  {/* Dimensions */}
-                  <div className="grid grid-cols-3 gap-3">
+                {/* Carriers Selection */}
+                <div className="mb-4">
+                  <FormLabel className="text-base font-medium mb-2 block">Carriers</FormLabel>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="carrier-usps"
+                        checked={form.watch('carriers.usps')}
+                        onCheckedChange={(checked) => form.setValue('carriers.usps', checked as boolean)}
+                      />
+                      <label htmlFor="carrier-usps" className="text-sm font-medium">USPS</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="carrier-fedex"
+                        checked={form.watch('carriers.fedex')}
+                        onCheckedChange={(checked) => form.setValue('carriers.fedex', checked as boolean)}
+                      />
+                      <label htmlFor="carrier-fedex" className="text-sm font-medium">FedEx</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="carrier-ups"
+                        checked={form.watch('carriers.ups')}
+                        onCheckedChange={(checked) => form.setValue('carriers.ups', checked as boolean)}
+                      />
+                      <label htmlFor="carrier-ups" className="text-sm font-medium">UPS</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="carrier-dhl"
+                        checked={form.watch('carriers.dhl')}
+                        onCheckedChange={(checked) => form.setValue('carriers.dhl', checked as boolean)}
+                      />
+                      <label htmlFor="carrier-dhl" className="text-sm font-medium">DHL</label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Package Dimensions - Show based on package type */}
+                {(form.watch('packageType') === 'box' || form.watch('packageType') === 'envelope') && (
+                  <div className="grid grid-cols-3 gap-3 mb-4">
                     <FormField
                       control={form.control}
                       name="length"
@@ -331,7 +364,6 @@ const EnhancedShippingForm: React.FC = () => {
                         </FormItem>
                       )}
                     />
-                    
                     <FormField
                       control={form.control}
                       name="width"
@@ -352,234 +384,259 @@ const EnhancedShippingForm: React.FC = () => {
                         </FormItem>
                       )}
                     />
-                    
-                    <FormField
-                      control={form.control}
-                      name="height"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm">Height (in)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              min="0"
-                              step="0.1"
-                              {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              className="bg-white"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  {/* Weight and Value */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <FormField
-                      control={form.control}
-                      name="weightValue"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm">Weight</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              min="0"
-                              step="0.1"
-                              {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              className="bg-white"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="weightUnit"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm">Unit</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                    {form.watch('packageType') === 'box' && (
+                      <FormField
+                        control={form.control}
+                        name="height"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm">Height (in)</FormLabel>
                             <FormControl>
-                              <SelectTrigger className="bg-white">
-                                <SelectValue />
-                              </SelectTrigger>
+                              <Input 
+                                type="number"
+                                min="0"
+                                step="0.1"
+                                {...field}
+                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                className="bg-white"
+                              />
                             </FormControl>
-                            <SelectContent>
-                              <SelectItem value="lb">Pounds (lb)</SelectItem>
-                              <SelectItem value="oz">Ounces (oz)</SelectItem>
-                              <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="packageValue"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm">Value ($)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
-                              className="bg-white"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  {/* HAZMAT Section */}
-                  <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                    <FormField
-                      control={form.control}
-                      name="hazmat"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                          <FormControl>
-                            <Checkbox 
-                              checked={field.value} 
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel className="font-medium text-orange-800 flex items-center gap-2">
-                              <AlertTriangle className="w-4 h-4" />
-                              Hazardous Material?
-                            </FormLabel>
-                            <p className="text-xs text-orange-700">
-                              Check if package contains dangerous goods
-                            </p>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                    
-                    {watchHazmat && (
-                      <div className="mt-3">
-                        <FormField
-                          control={form.control}
-                          name="hazmatType"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-sm">HAZMAT Type</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger className="bg-white">
-                                    <SelectValue placeholder="Select HAZMAT type" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {hazmatTypes.map(type => (
-                                    <SelectItem key={type.value} value={type.value}>
-                                      {type.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
                   </div>
+                )}
 
-                  {/* Insurance Section */}
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                    <FormField
-                      control={form.control}
-                      name="insurance"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                {/* Weight and Value */}
+                <div className="grid grid-cols-3 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="weightValue"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">Weight</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            className="bg-white"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="weightUnit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">Unit</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
-                            <Checkbox 
-                              checked={field.value} 
-                              onCheckedChange={field.onChange}
-                            />
+                            <SelectTrigger className="bg-white">
+                              <SelectValue />
+                            </SelectTrigger>
                           </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel className="font-medium text-blue-800 flex items-center gap-2">
-                              <Shield className="w-4 h-4" />
-                              Add Package Insurance
-                            </FormLabel>
-                            <p className="text-xs text-blue-700">
-                              ${insuranceCost} insurance for ${watchPackageValue.toFixed(2)} declared value
-                            </p>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* Additional Options */}
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <FormLabel className="text-base font-medium text-gray-700 mb-3 block">Additional Options</FormLabel>
-                    
-                    <FormField
-                      control={form.control}
-                      name="signatureRequired"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                          <FormControl>
-                            <Checkbox 
-                              checked={field.value} 
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                          <FormLabel className="text-sm font-normal">
-                            Signature Required
-                          </FormLabel>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                          <SelectContent>
+                            <SelectItem value="lb">Pounds (lb)</SelectItem>
+                            <SelectItem value="oz">Ounces (oz)</SelectItem>
+                            <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="packageValue"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">Value ($)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            className="bg-white"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </div>
-            </div>
-            
-            {/* Action Button Section */}
-            <div className="p-6 bg-gray-50 w-full">
-              <div className="flex justify-end">
+
+              {/* Insurance */}
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                  Insurance Options
+                </h3>
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <FormField
+                    control={form.control}
+                    name="insurance"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="text-sm font-medium">
+                            Add $4 insurance per $100 declared value
+                          </FormLabel>
+                          {watchInsurance && watchPackageValue > 0 && (
+                            <p className="text-xs text-blue-600 font-medium">
+                              Insurance cost: +${insuranceCost.toFixed(2)}
+                            </p>
+                          )}
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* HAZMAT */}
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-orange-600" />
+                  Hazardous Materials
+                </h3>
+                <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                  <FormField
+                    control={form.control}
+                    name="hazmat"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel className="text-sm font-medium">
+                            Hazardous Material?
+                          </FormLabel>
+                          <p className="text-xs text-gray-600">
+                            Check if your package contains hazardous materials
+                          </p>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {watchHazmat && (
+                    <div className="mt-3">
+                      <FormField
+                        control={form.control}
+                        name="hazmatType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm">HAZMAT Type</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="bg-white">
+                                  <SelectValue placeholder="Select HAZMAT type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                {hazmatTypes.map((type) => (
+                                  <SelectItem key={type.value} value={type.value}>
+                                    {type.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Submit Section */}
+              <div className="p-6 bg-gray-50">
                 <Button 
                   type="submit" 
-                  size="lg" 
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                  className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700 text-white" 
                   disabled={isLoading}
                 >
                   {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                      Getting Rates...
-                    </>
+                    <Search className="w-5 h-5 mr-2 animate-spin" />
                   ) : (
-                    <>
-                      <Search className="h-5 w-5" />
-                      Get Shipping Rates
-                    </>
+                    <Search className="w-5 h-5 mr-2" />
                   )}
+                  Get Shipping Rates
                 </Button>
               </div>
+            </form>
+          </Form>
+        </Card>
+      </div>
+
+      {/* Right Side - AI Assistant */}
+      <div className="lg:col-span-4">
+        <div className="sticky top-20">
+          <Card className="border border-gray-200 shadow-sm">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                🤖 AI Shipping Assistant
+              </h3>
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-600 mb-3">
+                    Get smart recommendations for your shipping needs:
+                  </p>
+                  <div className="space-y-2">
+                    <Button variant="outline" size="sm" className="w-full text-left justify-start">
+                      💨 Show Fastest Options
+                    </Button>
+                    <Button variant="outline" size="sm" className="w-full text-left justify-start">
+                      💰 Find Cheapest Rates
+                    </Button>
+                    <Button variant="outline" size="sm" className="w-full text-left justify-start">
+                      🛡️ Most Reliable Service
+                    </Button>
+                    <Button variant="outline" size="sm" className="w-full text-left justify-start">
+                      🌱 Eco-Friendly Options
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="border-t pt-4">
+                  <Label className="text-sm font-medium mb-2 block">Ask me anything:</Label>
+                  <div className="space-y-2">
+                    <Input 
+                      placeholder="e.g., What's the difference between UPS and FedEx?"
+                      className="bg-white"
+                    />
+                    <Button size="sm" className="w-full">
+                      Send Question
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
-          </form>
-        </Form>
-      </Card>
+          </Card>
+        </div>
+      </div>
 
       {/* Customs Documentation Modal */}
       <CustomsDocumentationModal

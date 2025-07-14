@@ -7,8 +7,10 @@ import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 const CreateLabelPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Enhanced Workflow Tracker */}
-      <EnhancedWorkflowTracker currentStep="package" />
+      <div className="pt-6">
+        {/* Enhanced Workflow Tracker */}
+        <EnhancedWorkflowTracker currentStep="package" />
+      </div>
       
       <div className="container mx-auto px-4 py-6">
         <div className="max-w-7xl mx-auto">
