@@ -36,7 +36,7 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
   };
 
   const handleValueChange = (value: string) => {
-    const numValue = Math.max(0, parseFloat(value) || 100);
+    const numValue = Math.max(0, parseFloat(value) || 0);
     setDeclaredValue(numValue);
   };
 

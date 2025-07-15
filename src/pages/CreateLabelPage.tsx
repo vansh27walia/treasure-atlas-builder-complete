@@ -10,12 +10,13 @@ const CreateLabelPage = () => {
   const { rates, handleSelectRate, handleFilterByCarrier } = useShippingRates();
 
   const handleRatesReorder = (reorderedRates: any[]) => {
+    // This will be handled by the side panel to reorder rates
     console.log('Reordering rates:', reorderedRates);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Enhanced Workflow Tracker with glassy effect */}
+    <div className="min-h-screen bg-background">
+      {/* Workflow Tracker - positioned slightly lower */}
       <div className="pt-4">
         <EnhancedWorkflowTracker currentStep="package" />
       </div>
@@ -24,11 +25,9 @@ const CreateLabelPage = () => {
         <div className="max-w-7xl mx-auto">
           {/* Header Section */}
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-3">
-              Create Shipping Label
-            </h1>
-            <p className="text-gray-600 max-w-2xl mx-auto text-lg">
-              Get competitive rates from multiple carriers with AI-powered assistance and smart recommendations.
+            <h1 className="text-3xl font-bold text-foreground mb-3">Create Shipping Label</h1>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Get competitive rates from multiple carriers and create professional shipping labels with AI-powered assistance.
             </p>
           </div>
 
@@ -38,8 +37,8 @@ const CreateLabelPage = () => {
             <div className="lg:col-span-3 space-y-8">
               <EnhancedShippingForm />
               
-              {/* Shipping Rates Section with Full Screen Display */}
-              <div id="shipping-rates-section" className="w-full">
+              {/* Shipping Rates Section */}
+              <div id="shipping-rates-section">
                 <ShippingRates />
               </div>
             </div>
