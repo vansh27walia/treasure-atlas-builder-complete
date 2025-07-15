@@ -1,76 +1,79 @@
 
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Index from './pages/Index';
-import CreateLabelPage from './pages/CreateLabelPage';
-import LtlShippingPage from './pages/LtlShippingPage';
-import FtlShippingPage from './pages/FtlShippingPage';
-import InstantDeliveryPage from './pages/InstantDeliveryPage';
-import AuthPage from './pages/AuthPage';
-import SidebarNavigation from './components/SidebarNavigation';
-import './App.css';
-import NotFound from './pages/NotFound';
-import Dashboard from './pages/Dashboard';
-import SettingsPage from './pages/SettingsPage';
-import ProtectedRoute from './components/ProtectedRoute';
-import { AuthProvider } from './contexts/AuthContext';
-import { OnboardingProvider } from './contexts/OnboardingContext';
-import { Toaster } from './components/ui/sonner';
-import PaymentPage from './pages/PaymentPage';
-import InternationalShippingPage from './pages/InternationalShippingPage';
-import LabelSuccessPage from './pages/LabelSuccessPage';
-import PickupPage from './pages/PickupPage';
-import BulkUploadPage from './pages/BulkUploadPage';
-import TrackingPage from './pages/TrackingPage';
-import ShipToPage from './pages/ShipToPage';
-import FreightForwardingPage from './pages/FreightForwardingPage';
-import PaymentSuccessPage from './pages/PaymentSuccessPage';
+import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import { OnboardingProvider } from "./contexts/OnboardingContext";
+import SidebarNavigation from "./components/SidebarNavigation";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Index from "./pages/Index";
+import CreateLabelPage from "./pages/CreateLabelPage";
+import RateCalculatorPage from "./pages/RateCalculatorPage";
+import Dashboard from "./pages/Dashboard";
+import AuthPage from "./pages/AuthPage";
+import TrackingPage from "./pages/TrackingPage";
+import SettingsPage from "./pages/SettingsPage";
+import PaymentPage from "./pages/PaymentPage";
+import PaymentSuccessPage from "./pages/PaymentSuccessPage";
+import LabelSuccessPage from "./pages/LabelSuccessPage";
+import BulkUploadPage from "./pages/BulkUploadPage";
+import InternationalShippingPage from "./pages/InternationalShippingPage";
+import FreightForwardingPage from "./pages/FreightForwardingPage";
+import LtlShippingPage from "./pages/LtlShippingPage";
+import FtlShippingPage from "./pages/FtlShippingPage";
+import InstantDeliveryPage from "./pages/InstantDeliveryPage";
+import PickupPage from "./pages/PickupPage";
+import UnifiedShippingPage from "./pages/UnifiedShippingPage";
+import ShipToPage from "./pages/ShipToPage";
+import NotFound from "./pages/NotFound";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
-function App() {
-  return (
-    <BrowserRouter>
-      <AuthProvider>
-        <OnboardingProvider>
-          <div className="w-full h-screen overflow-hidden">
-            <SidebarNavigation>
-              <div className="w-full h-full overflow-y-auto">
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/auth" element={<AuthPage />} />
-                  <Route path="/create-label" element={<CreateLabelPage />} />
-                  <Route path="/freight-forwarding" element={<FreightForwardingPage />} />
-                  <Route path="/ltl-shipping" element={<LtlShippingPage />} />
-                  <Route path="/ftl-shipping" element={<FtlShippingPage />} />
-                  <Route path="/instant-delivery" element={<InstantDeliveryPage />} />
-                  <Route path="/international" element={<InternationalShippingPage />} />
-                  <Route path="/ship-to" element={<ShipToPage />} />
-                  <Route path="/payment" element={<PaymentPage />} />
-                  <Route path="/tracking" element={<TrackingPage />} />
-                  <Route
-                    path="/dashboard"
-                    element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
-                  />
-                  <Route
-                    path="/settings"
-                    element={<ProtectedRoute><SettingsPage /></ProtectedRoute>}
-                  />
-                  <Route path="/label-success" element={<LabelSuccessPage />} />
-                  <Route path="/payment-success" element={<PaymentSuccessPage />} />
-                  <Route path="/pickup" element={<PickupPage />} />
-                  <Route
-                    path="/bulk-upload"
-                    element={<ProtectedRoute><BulkUploadPage /></ProtectedRoute>}
-                  />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </div>
-            </SidebarNavigation>
-          </div>
+const queryClient = new QueryClient();
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <OnboardingProvider>
+        <TooltipProvider>
           <Toaster />
-        </OnboardingProvider>
-      </AuthProvider>
-    </BrowserRouter>
-  );
-}
+          <BrowserRouter>
+            <Routes>
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/rate-calculator" element={<RateCalculatorPage />} />
+              <Route path="/*" element={
+                <ProtectedRoute>
+                  <SidebarNavigation>
+                    <Routes>
+                      <Route path="/" element={<Index />} />
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/create-label" element={<CreateLabelPage />} />
+                      <Route path="/tracking" element={<TrackingPage />} />
+                      <Route path="/settings" element={<SettingsPage />} />
+                      <Route path="/payment" element={<PaymentPage />} />
+                      <Route path="/payment-success" element={<PaymentSuccessPage />} />
+                      <Route path="/label-success" element={<LabelSuccessPage />} />
+                      <Route path="/bulk-upload" element={<BulkUploadPage />} />
+                      <Route path="/international-shipping" element={<InternationalShippingPage />} />
+                      <Route path="/freight-forwarding" element={<FreightForwardingPage />} />
+                      <Route path="/ltl-shipping" element={<LtlShippingPage />} />
+                      <Route path="/ftl-shipping" element={<FtlShippingPage />} />
+                      <Route path="/instant-delivery" element={<InstantDeliveryPage />} />
+                      <Route path="/pickup" element={<PickupPage />} />
+                      <Route path="/unified-shipping" element={<UnifiedShippingPage />} />
+                      <Route path="/ship-to" element={<ShipToPage />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </SidebarNavigation>
+                </ProtectedRoute>
+              } />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </OnboardingProvider>
+    </AuthProvider>
+  </QueryClientProvider>
+);
 
 export default App;
