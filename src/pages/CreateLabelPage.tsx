@@ -38,8 +38,8 @@ const CreateLabelPage = () => {
             <div className="lg:col-span-3 space-y-8">
               <EnhancedShippingForm />
               
-              {/* Shipping Rates Section with Enhanced Dropdown */}
-              <div id="shipping-rates-section">
+              {/* Shipping Rates Section with Full Screen Display */}
+              <div id="shipping-rates-section" className="w-full">
                 <ShippingRates />
               </div>
             </div>

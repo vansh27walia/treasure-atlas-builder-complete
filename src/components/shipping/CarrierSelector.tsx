@@ -9,7 +9,7 @@ interface CarrierSelectorProps {
 }
 
 const carriers = [
-  { value: 'usps', label: 'USPS', logo: '📮' },
+  { value: 'usps', label: 'USPS', logo: '🇺🇸' },
   { value: 'fedex', label: 'FedEx', logo: '📦' },
   { value: 'ups', label: 'UPS', logo: '🚛' },
   { value: 'dhl', label: 'DHL', logo: '✈️' },
@@ -31,11 +31,16 @@ const CarrierSelector: React.FC<CarrierSelectorProps> = ({
     <div className="space-y-2">
       <Label className="text-sm font-medium">Preferred Carrier</Label>
       <Select onValueChange={handleCarrierSelect} defaultValue="all">
-        <SelectTrigger className="w-full">
+        <SelectTrigger className="w-full bg-white">
           <SelectValue placeholder="Select carrier" />
         </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">🌐 All Carriers</SelectItem>
+        <SelectContent className="bg-white border shadow-lg">
+          <SelectItem value="all">
+            <div className="flex items-center gap-2">
+              <span>🌐</span>
+              <span>All Carriers</span>
+            </div>
+          </SelectItem>
           {carriers.map((carrier) => (
             <SelectItem key={carrier.value} value={carrier.value}>
               <div className="flex items-center gap-2">
