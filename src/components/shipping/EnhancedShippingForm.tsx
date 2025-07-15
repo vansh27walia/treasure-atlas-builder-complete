@@ -87,6 +87,11 @@ const EnhancedShippingForm: React.FC = () => {
     toast.success("Customs documentation completed");
   };
 
+  const handleInsuranceChange = (enabled: boolean, amount: number, cost: number) => {
+    form.setValue('insurance', enabled);
+    form.setValue('declaredValue', amount);
+  };
+
   const handleGetRates = async (values: ShippingFormValues) => {
     if (!fromAddress || !toAddress) {
       toast.error("Please provide both origin and destination addresses");
@@ -362,20 +367,10 @@ const EnhancedShippingForm: React.FC = () => {
 
             {/* Insurance */}
             <div className="p-6">
-              <FormField
-                control={form.control}
-                name="insurance"
-                render={({ field }) => (
-                  <FormItem>
-                    <InsuranceCalculator
-                      declaredValue={watchDeclaredValue}
-                      onDeclaredValueChange={(value) => form.setValue('declaredValue', value)}
-                      insuranceEnabled={field.value}
-                      onInsuranceToggle={field.onChange}
-                    />
-                    <FormMessage />
-                  </FormItem>
-                )}
+              <InsuranceCalculator
+                defaultValue={watchDeclaredValue}
+                isEnabled={watchInsurance}
+                onInsuranceChange={handleInsuranceChange}
               />
             </div>
 
