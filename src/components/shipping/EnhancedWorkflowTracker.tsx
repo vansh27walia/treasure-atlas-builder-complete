@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Circle, Package, CreditCard, FileText, Truck, MapPin } from 'lucide-react';
+import { MapPin, Package, Search, CreditCard, CheckCircle } from 'lucide-react';
 
 interface EnhancedWorkflowTrackerProps {
   currentStep: 'address' | 'package' | 'rates' | 'payment' | 'complete';
@@ -24,7 +24,7 @@ const steps = [
     id: 'rates',
     name: 'Rates',
     description: 'Compare Options',
-    icon: Truck,
+    icon: Search,
   },
   {
     id: 'payment',

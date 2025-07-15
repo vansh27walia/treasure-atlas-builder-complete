@@ -10,7 +10,7 @@ import PaymentMethodSelector from './payment/PaymentMethodSelector';
 import { useShippingRates, ShippingRate } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
-import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
+import { CreditCard, Loader, Download, Upload, Truck, Filter, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PrintPreview from './shipping/PrintPreview';
@@ -335,8 +335,11 @@ const ShippingRates: React.FC = () => {
               {/* Enhanced Payment Section */}
               {showPaymentSection && (
                 <div className="mt-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xl font-bold text-blue-900">Complete Your Payment</h3>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
+                      <CheckCircle className="w-6 h-6 text-green-600" />
+                      Complete Your Payment
+                    </h3>
                     <div className="flex items-center gap-2 text-blue-600">
                       <CreditCard className="w-5 h-5" />
                       <span className="text-sm font-medium">Secure Checkout</span>
@@ -364,7 +367,18 @@ const ShippingRates: React.FC = () => {
                   </div>
                   
                   {/* Enhanced Payment Method Selector */}
-                  <div className="bg-white rounded-lg p-4 border">
+                  <div className="bg-white rounded-lg p-6 border shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-lg font-semibold text-gray-900">Payment Method</h4>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                      >
+                        Change Card
+                      </Button>
+                    </div>
+                    
                     <PaymentMethodSelector
                       selectedPaymentMethod={null}
                       onPaymentMethodChange={handlePaymentMethodChange}
@@ -372,6 +386,16 @@ const ShippingRates: React.FC = () => {
                       amount={totalAmount}
                       description="Shipping Label Purchase"
                     />
+                    
+                    <div className="mt-4 flex gap-3">
+                      <Button 
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3"
+                        onClick={() => handlePaymentComplete(true)}
+                      >
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Accept Payment
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}

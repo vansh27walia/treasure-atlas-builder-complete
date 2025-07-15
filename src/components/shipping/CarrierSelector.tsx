@@ -1,8 +1,8 @@
 
-import React from 'react';
+import React, { useState } from 'react';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Truck } from 'lucide-react';
 
 interface CarrierSelectorProps {
@@ -15,25 +15,25 @@ const carriers = [
     id: 'usps', 
     name: 'USPS', 
     color: 'bg-blue-600',
-    logo: '📮'
+    description: 'US Postal Service'
   },
   { 
     id: 'ups', 
     name: 'UPS', 
-    color: 'bg-amber-600',
-    logo: '📦'
+    color: 'bg-yellow-600',
+    description: 'United Parcel Service'
   },
   { 
     id: 'fedex', 
     name: 'FedEx', 
     color: 'bg-purple-600',
-    logo: '✈️'
+    description: 'Federal Express'
   },
   { 
     id: 'dhl', 
     name: 'DHL', 
-    color: 'bg-yellow-500',
-    logo: '🚚'
+    color: 'bg-red-600',
+    description: 'DHL Express'
   }
 ];
 
@@ -41,80 +41,63 @@ const CarrierSelector: React.FC<CarrierSelectorProps> = ({
   selectedCarriers,
   onCarrierChange,
 }) => {
-  const handleCarrierToggle = (carrierId: string) => {
-    if (selectedCarriers.includes(carrierId)) {
-      onCarrierChange(selectedCarriers.filter(id => id !== carrierId));
-    } else {
-      onCarrierChange([...selectedCarriers, carrierId]);
-    }
-  };
+  const [selected, setSelected] = useState<string[]>(selectedCarriers);
 
-  const handleSelectAll = () => {
-    if (selectedCarriers.length === carriers.length) {
-      onCarrierChange([]);
-    } else {
-      onCarrierChange(carriers.map(c => c.id));
-    }
+  const handleCarrierToggle = (carrierId: string) => {
+    const newSelected = selected.includes(carrierId)
+      ? selected.filter(id => id !== carrierId)
+      : [...selected, carrierId];
+    
+    setSelected(newSelected);
+    onCarrierChange(newSelected);
   };
 
   return (
-    <Card className="border-blue-200">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Truck className="w-4 h-4 text-blue-600" />
-            <span className="font-medium text-sm">Filter by Carrier</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSelectAll}
-            className="text-xs h-6 px-2"
-          >
-            {selectedCarriers.length === carriers.length ? 'Clear All' : 'Select All'}
-          </Button>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-2">
-          {carriers.map((carrier) => {
-            const isSelected = selectedCarriers.includes(carrier.id);
-            return (
-              <button
-                key={carrier.id}
-                onClick={() => handleCarrierToggle(carrier.id)}
-                className={`
-                  flex items-center gap-2 p-2 rounded-lg border transition-all text-left
-                  ${isSelected 
-                    ? 'border-blue-500 bg-blue-50 shadow-sm' 
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                  }
-                `}
-              >
-                <div className="text-lg">{carrier.logo}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium truncate">{carrier.name}</div>
-                  {isSelected && (
-                    <Badge variant="secondary" className="text-xs mt-1 bg-blue-100 text-blue-700">
-                      Active
-                    </Badge>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-        
-        {selectedCarriers.length > 0 && (
-          <div className="mt-3 pt-3 border-t">
-            <div className="text-xs text-gray-600">
-              Filtering by: {selectedCarriers.map(id => 
-                carriers.find(c => c.id === id)?.name
-              ).join(', ')}
+    <div className="space-y-3">
+      <Label className="text-sm font-medium flex items-center gap-2">
+        <Truck className="w-4 h-4" />
+        Select Carriers
+      </Label>
+      
+      <div className="space-y-2">
+        {carriers.map((carrier) => (
+          <div key={carrier.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50">
+            <Checkbox
+              id={carrier.id}
+              checked={selected.includes(carrier.id)}
+              onCheckedChange={() => handleCarrierToggle(carrier.id)}
+            />
+            
+            <div className="flex items-center gap-2 flex-1">
+              <div className={`w-4 h-4 rounded ${carrier.color} flex items-center justify-center`}>
+                <Truck className="w-2 h-2 text-white" />
+              </div>
+              
+              <div className="flex-1">
+                <Label htmlFor={carrier.id} className="text-sm font-medium cursor-pointer">
+                  {carrier.name}
+                </Label>
+                <p className="text-xs text-gray-500">{carrier.description}</p>
+              </div>
+              
+              {selected.includes(carrier.id) && (
+                <Badge variant="secondary" className="text-xs">
+                  Selected
+                </Badge>
+              )}
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        ))}
+      </div>
+      
+      {selected.length > 0 && (
+        <div className="mt-3 p-2 bg-blue-50 rounded-lg">
+          <p className="text-xs text-blue-700">
+            {selected.length} carrier{selected.length > 1 ? 's' : ''} selected
+          </p>
+        </div>
+      )}
+    </div>
   );
 };
 
