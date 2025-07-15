@@ -1,28 +1,20 @@
-
-import React, { useState } from 'react';
+import React from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import AIPoweredSidePanel from '@/components/shipping/AIPoweredSidePanel';
-import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
+import IndependentRateCalculator from '@/components/shipping/IndependentRateCalculator';
 import { useShippingRates } from '@/hooks/useShippingRates';
-import { Button } from '@/components/ui/button';
-import { Calculator } from 'lucide-react';
-
 const CreateLabelPage = () => {
-  const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
   const {
     rates,
     handleSelectRate,
     handleFilterByCarrier
   } = useShippingRates();
-
   const handleRatesReorder = (reorderedRates: any[]) => {
     console.log('Reordering rates:', reorderedRates);
   };
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       {/* Workflow Tracker - positioned slightly lower */}
       <div className="pt-4">
         <EnhancedWorkflowTracker currentStep="package" />
@@ -38,21 +30,10 @@ const CreateLabelPage = () => {
             </p>
           </div>
 
-          {/* Main Layout: Rate Calculator Button (Left), Form (Center), AI Panel (Right) */}
+          {/* Main Layout: Rate Calculator (Left), Form (Center), AI Panel (Right) */}
           <div className="grid grid-cols-1 lg:grid-cols-6 gap-8">
-            {/* Rate Calculator Button - Left Side (1/6 width) */}
-            <div className="lg:col-span-1">
-              <div className="sticky top-32">
-                <Button
-                  onClick={() => setIsRateCalculatorOpen(true)}
-                  className="w-full h-12 flex items-center gap-2"
-                  variant="outline"
-                >
-                  <Calculator className="h-4 w-4" />
-                  Rate Calculator
-                </Button>
-              </div>
-            </div>
+            {/* Independent Rate Calculator - Left Side (1/6 width) */}
+            
 
             {/* Main Form - Center (4/6 width) */}
             <div className="lg:col-span-4 space-y-8">
@@ -66,24 +47,11 @@ const CreateLabelPage = () => {
 
             {/* AI-Powered Side Panel - Right Side (1/6 width) */}
             <div className="lg:col-span-1">
-              <AIPoweredSidePanel 
-                rates={rates} 
-                onRatesReorder={handleRatesReorder} 
-                onCarrierFilter={handleFilterByCarrier} 
-                onRateSelect={handleSelectRate} 
-              />
+              <AIPoweredSidePanel rates={rates} onRatesReorder={handleRatesReorder} onCarrierFilter={handleFilterByCarrier} onRateSelect={handleSelectRate} />
             </div>
           </div>
         </div>
       </div>
-
-      {/* Rate Calculator Modal */}
-      <RateCalculatorModal 
-        isOpen={isRateCalculatorOpen}
-        onClose={() => setIsRateCalculatorOpen(false)}
-      />
-    </div>
-  );
+    </div>;
 };
-
 export default CreateLabelPage;
