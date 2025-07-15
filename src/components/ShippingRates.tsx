@@ -10,10 +10,10 @@ import CarrierDropdown from './shipping/CarrierDropdown';
 import { useShippingRates, ShippingRate } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
-import { CreditCard, Loader, Download, Upload, Truck, CheckCircle } from 'lucide-react';
+import { CreditCard, Loader, Download, Upload, Truck, CheckCircle, Package, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import PrintPreview from './shipping/PrintPreview';
-import AIRateAssistant from './shipping/AIRateAssistant';
+
 const ShippingRates: React.FC = () => {
   const {
     rates,
@@ -35,7 +35,6 @@ const ShippingRates: React.FC = () => {
   } = useShippingRates();
   
   const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
-  const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
@@ -49,28 +48,26 @@ const ShippingRates: React.FC = () => {
   } | undefined>();
 
   const [sortedRates, setSortedRates] = useState<ShippingRate[]>([]);
-  const [filteredByCarrier, setFilteredByCarrier] = useState<ShippingRate[]>([]);
 
   // Update sorted rates when rates change
   useEffect(() => {
     setSortedRates(rates);
-    setFilteredByCarrier(rates);
   }, [rates]);
+
+  // Filter rates based on carrier selection
+  const filteredRates = React.useMemo(() => {
+    if (activeCarrierFilter === 'all') {
+      return sortedRates;
+    }
+    return sortedRates.filter(rate => 
+      rate.carrier && rate.carrier.toLowerCase().includes(activeCarrierFilter.toLowerCase())
+    );
+  }, [sortedRates, activeCarrierFilter]);
 
   const handleRatesReorder = (reorderedRates: ShippingRate[]) => {
     setSortedRates(reorderedRates);
   };
-
-  const handleCarrierFilter = (carrier: string) => {
-    if (carrier === 'all') {
-      setFilteredByCarrier(sortedRates);
-    } else {
-      const filtered = sortedRates.filter(rate => 
-        rate.carrier.toLowerCase() === carrier.toLowerCase()
-      );
-      setFilteredByCarrier(filtered);
-    }
-  };
+  
   
   useEffect(() => {
     const handlePaymentCompleted = (event: CustomEvent) => {
@@ -124,69 +121,8 @@ const ShippingRates: React.FC = () => {
     }
   }, [selectedRateId, rates]);
 
-  const handleLabelFormatChange = async (format: string): Promise<void> => {
-    setSelectedLabelFormat(format);
-    
-    if (selectedRateId && shipmentId && labelUrl) {
-      try {
-        console.log("Regenerating label with new format:", format);
-        await handleCreateLabel(selectedRateId, shipmentId, {
-          label_format: "PDF",
-          label_size: format
-        });
-      } catch (error) {
-        console.error("Error updating label format:", error);
-        toast.error("Failed to update label format");
-        throw error;
-      }
-    }
-  };
-
-  const handleRateSelection = (rateId: string) => {
-    handleSelectRate(rateId);
-    
-    const calculatorData = sessionStorage.getItem('calculatorData');
-    if (calculatorData) {
-      toast.success("Rate selected! Complete payment to continue with label creation.", {
-        duration: 5000,
-      });
-    }
-  };
-
-  const handleProceedForward = () => {
-    if (selectedRateId) {
-      selectRateAndProceed(selectedRateId);
-    }
-  };
-
-  const handlePaymentComplete = (success: boolean) => {
-    if (success) {
-      setPaymentCompleted(true);
-      setIsCreatingLabel(true);
-      toast.success('Payment successful! Creating label...');
-      
-      const labelOptions = {
-        label_format: "PDF",
-        label_size: selectedLabelFormat
-      };
-      
-      setTimeout(async () => {
-        try {
-          await handleCreateLabel(undefined, undefined, labelOptions);
-          setIsCreatingLabel(false);
-        } catch (error) {
-          console.error('Error creating label:', error);
-          setIsCreatingLabel(false);
-          toast.error('Failed to create label');
-        }
-      }, 1000);
-    }
-  };
-
-  const handlePaymentMethodChange = (paymentMethodId: string) => {
-    console.log('Selected payment method:', paymentMethodId);
-  };
   
+
   if (rates.length === 0) {
     return (
       <div className="w-full" id="shipping-rates-section">
@@ -203,9 +139,6 @@ const ShippingRates: React.FC = () => {
     );
   }
 
-  // Use filtered rates for display
-  const displayRates = filteredByCarrier.length > 0 ? filteredByCarrier : sortedRates;
-
   const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
   const selectedRate = rates.find(rate => rate.id === selectedRateId);
   const rateAmount = selectedRate ? parseFloat(selectedRate.rate) : 0;
@@ -215,6 +148,69 @@ const ShippingRates: React.FC = () => {
   const totalAmount = rateAmount + insuranceCost;
   
   const showPaymentSection = selectedRateId && !paymentCompleted && !labelUrl && !isCreatingLabel;
+
+  // Create label creation page similar to international shipping
+  if (labelUrl && trackingCode) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          {/* Header similar to international shipping */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Label Created Successfully!</h1>
+            <p className="text-gray-600">Your shipping label has been generated and is ready for use.</p>
+          </div>
+
+          {/* Label preview card */}
+          <Card className="p-6 mb-6 bg-white shadow-lg">
+            <PrintPreview 
+              labelUrl={labelUrl} 
+              trackingCode={trackingCode} 
+              shipmentId={shipmentId}
+              shipmentDetails={shipmentDetails}
+              onFormatChange={async (format: string) => {
+                setSelectedLabelFormat(format);
+                try {
+                  await handleCreateLabel(selectedRateId, shipmentId, {
+                    label_format: "PDF",
+                    label_size: format
+                  });
+                } catch (error) {
+                  console.error("Error updating label format:", error);
+                  toast.error("Failed to update label format");
+                }
+              }}
+            />
+          </Card>
+
+          {/* Action buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              variant="outline"
+              onClick={() => {
+                sessionStorage.removeItem('calculatorData');
+                sessionStorage.removeItem('transferToShipping');
+                window.location.reload();
+              }}
+              className="flex items-center gap-2"
+            >
+              <Package className="w-4 h-4" />
+              Ship Another Package
+            </Button>
+            <Button
+              onClick={() => window.print()}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+            >
+              <Download className="w-4 h-4" />
+              Print Label
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full pb-6" id="shipping-rates-section">
@@ -229,7 +225,7 @@ const ShippingRates: React.FC = () => {
               <CarrierDropdown
                 selectedCarrier={activeCarrierFilter}
                 onCarrierChange={handleFilterByCarrier}
-                availableCarriers={uniqueCarriers}
+                availableCarriers={['ups', 'usps']}
               />
             </div>
           </div>
@@ -247,37 +243,25 @@ const ShippingRates: React.FC = () => {
             </div>
           )}
           
-          {labelUrl && trackingCode && (
-            <div className="mb-6">
-              <PrintPreview 
-                labelUrl={labelUrl} 
-                trackingCode={trackingCode} 
-                shipmentId={shipmentId}
-                shipmentDetails={shipmentDetails}
-                onFormatChange={handleLabelFormatChange}
-              />
-            </div>
-          )}
-          
-          {!labelUrl && !isCreatingLabel ? (
+          {!isCreatingLabel && (
             <>
               {(aiRecommendation || isAiLoading) && (
                 <ShippingAIRecommendation 
                   aiRecommendation={aiRecommendation}
                   isLoading={isAiLoading}
-                  onSelectRecommendation={handleRateSelection}
+                  onSelectRecommendation={handleSelectRate}
                 />
               )}
               
               <div className="space-y-4 mt-6">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
                 <div className="grid grid-cols-1 gap-4">
-                   {displayRates.map((rate) => (
+                   {filteredRates.map((rate) => (
                      <ShippingRateCard
                        key={rate.id}
                        rate={rate}
                        isSelected={selectedRateId === rate.id}
-                       onSelect={handleRateSelection}
+                       onSelect={handleSelectRate}
                        isBestValue={rate.id === bestValueRateId}
                        isFastest={rate.id === fastestRateId}
                        aiRecommendation={aiRecommendation && {
@@ -295,12 +279,12 @@ const ShippingRates: React.FC = () => {
                    ))}
                 </div>
 
-                {displayRates.length === 0 && (
+                {filteredRates.length === 0 && (
                   <div className="p-6 text-center bg-gray-50 rounded-lg">
                     <p className="text-base text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
                     <Button 
                       variant="outline" 
-                      onClick={() => handleCarrierFilter('all')} 
+                      onClick={() => handleFilterByCarrier('all')} 
                       className="mt-4 h-9 px-4 text-sm"
                     >
                       Clear Filters
@@ -358,8 +342,13 @@ const ShippingRates: React.FC = () => {
                     
                     <PaymentMethodSelector
                       selectedPaymentMethod={null}
-                      onPaymentMethodChange={handlePaymentMethodChange}
-                      onPaymentComplete={handlePaymentComplete}
+                      onPaymentMethodChange={() => {}}
+                      onPaymentComplete={(success: boolean) => {
+                        if (success) {
+                          setPaymentCompleted(true);
+                          setIsCreatingLabel(true);
+                        }
+                      }}
                       amount={totalAmount}
                       description="Shipping Label Purchase"
                     />
@@ -367,61 +356,19 @@ const ShippingRates: React.FC = () => {
                     <div className="mt-4 flex gap-3">
                       <Button 
                         className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3"
-                        onClick={() => handlePaymentComplete(true)}
+                        onClick={() => {
+                          setPaymentCompleted(true);
+                          setIsCreatingLabel(true);
+                        }}
                       >
                         <CreditCard className="w-4 h-4 mr-2" />
-                        Accept Payment
+                        Complete Payment
                       </Button>
                     </div>
                   </div>
                 </div>
               )}
-              
-              <div className="mt-6 flex flex-wrap justify-end gap-3">
-                {fromCalculator && selectedRateId && (
-                  <Button 
-                    onClick={handleProceedForward}
-                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md shadow-md"
-                  >
-                    <Download className="h-4 w-4" />
-                    Proceed Forward
-                  </Button>
-                )}
-
-                <Button 
-                  onClick={handleProceedToPayment}
-                  disabled={!selectedRateId || isProcessingPayment}
-                  variant="outline"
-                  className="border border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md"
-                >
-                  {isProcessingPayment ? (
-                    <>
-                      <Loader className="h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="h-4 w-4" />
-                      Proceed to Payment
-                    </>
-                  )}
-                </Button>
-              </div>
             </>
-          ) : (
-            <div className="mt-6 flex justify-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  sessionStorage.removeItem('calculatorData');
-                  sessionStorage.removeItem('transferToShipping');
-                  document.dispatchEvent(new Event('shipping-form-completed'));
-                }}
-                className="border border-blue-200 hover:bg-blue-50 h-9 px-4 text-sm"
-              >
-                Ship Another Package
-              </Button>
-            </div>
           )}
           
           <div className="mt-4 text-center text-xs text-gray-500">

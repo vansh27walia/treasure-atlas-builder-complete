@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import CarrierDropdown from './CarrierDropdown';
+import ShippingChatbot from './ShippingChatbot';
 import { 
   Brain, 
   Sparkles, 
@@ -47,20 +48,19 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentOptimization, setCurrentOptimization] = useState<string>('');
   const [lastAction, setLastAction] = useState<string>('');
-  const [isCustomFormOpen, setIsCustomFormOpen] = useState(false);
   const [selectedCarrier, setSelectedCarrier] = useState('all');
 
-  // Get unique carriers from rates
-  const uniqueCarriers = [...new Set(rates.map(rate => rate.carrier.toLowerCase()))];
+  // Get unique carriers from rates - only show UPS and USPS as requested
+  const availableCarriers = ['ups', 'usps'];
 
-  // Handle carrier selection
+  // Handle carrier selection with proper filtering
   const handleCarrierChange = (carrier: string) => {
     setSelectedCarrier(carrier);
     onCarrierFilter(carrier);
     toast.success(`Filtered by ${carrier === 'all' ? 'All Carriers' : carrier.toUpperCase()}`);
   };
 
-  // AI-powered rate optimization
+  // AI-powered rate optimization with proper rate reordering
   const optimizeRates = async (type: 'cost' | 'speed' | 'balance') => {
     if (rates.length === 0) {
       toast.error('No rates available to optimize');
@@ -140,19 +140,20 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
 
   const stats = getStatsInsights();
 
-  // Fixed custom form handlers - prevent auto-reopening
-  const handleCustomFormToggle = () => {
-    setIsCustomFormOpen(prev => !prev);
-  };
-
-  const handleCustomFormSave = () => {
-    setIsCustomFormOpen(false);
-    toast.success('Custom settings saved successfully');
-  };
-
-  const handleCustomFormCancel = () => {
-    setIsCustomFormOpen(false);
-    toast.info('Custom form cancelled');
+  // Handle rate adjustment from chatbot
+  const handleRateAdjustment = (instruction: string) => {
+    console.log('Rate adjustment instruction:', instruction);
+    const input = instruction.toLowerCase();
+    
+    if (input.includes('fastest') || input.includes('quick')) {
+      optimizeRates('speed');
+    } else if (input.includes('cheap') || input.includes('lowest')) {
+      optimizeRates('cost');
+    } else if (input.includes('ups')) {
+      handleCarrierChange('ups');
+    } else if (input.includes('usps')) {
+      handleCarrierChange('usps');
+    }
   };
 
   return (
@@ -168,7 +169,7 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         </Button>
       </Card>
 
-      {/* Carrier Selection */}
+      {/* Carrier Selection - Only UPS and USPS */}
       <Card className="p-4">
         <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
           <Filter className="w-4 h-4 text-blue-500" />
@@ -177,7 +178,7 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         <CarrierDropdown
           selectedCarrier={selectedCarrier}
           onCarrierChange={handleCarrierChange}
-          availableCarriers={uniqueCarriers}
+          availableCarriers={availableCarriers}
         />
       </Card>
 
@@ -267,51 +268,10 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         )}
       </Card>
 
-      {/* Fixed Custom Form Section */}
-      <Card className="p-4">
-        <h4 className="font-semibold text-gray-900 mb-3">Custom Settings</h4>
-        
-        <Button
-          onClick={handleCustomFormToggle}
-          variant="outline"
-          className="w-full mb-3"
-        >
-          {isCustomFormOpen ? 'Close' : 'Open'} Custom Form
-        </Button>
-
-        {isCustomFormOpen && (
-          <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
-            <h5 className="text-sm font-medium">Custom Preferences</h5>
-            <div className="space-y-2">
-              <label className="flex items-center space-x-2">
-                <input type="checkbox" className="rounded" />
-                <span className="text-sm">Priority notifications</span>
-              </label>
-              <label className="flex items-center space-x-2">
-                <input type="checkbox" className="rounded" />
-                <span className="text-sm">Auto-select best rate</span>
-              </label>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={handleCustomFormSave}
-                size="sm"
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-              >
-                Save
-              </Button>
-              <Button
-                onClick={handleCustomFormCancel}
-                size="sm"
-                variant="outline"
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
-      </Card>
+      {/* Shipping Chatbot - Added below filters */}
+      <div className="mt-6">
+        <ShippingChatbot onRateAdjustment={handleRateAdjustment} />
+      </div>
 
       {/* Processing Indicator */}
       {isProcessing && (

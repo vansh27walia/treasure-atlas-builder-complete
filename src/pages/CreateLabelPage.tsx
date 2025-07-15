@@ -22,8 +22,8 @@ const CreateLabelPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sticky Workflow Tracker with transparency */}
-      <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b">
+      {/* Sticky Workflow Tracker with curved floating design */}
+      <div className="sticky top-0 z-50 bg-transparent">
         <EnhancedWorkflowTracker currentStep="package" />
       </div>
       
