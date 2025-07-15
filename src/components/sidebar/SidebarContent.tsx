@@ -1,141 +1,84 @@
 
 import React from 'react';
-import { 
-  Home, Package, CreditCard, Settings, ShoppingBag, Truck, MapPin, 
-  BarChart3, Globe, HelpCircle, Tag, Upload, Calculator, Clock, Search, Ship
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Home, Package, Truck, Plane, Ship, Calculator, Settings, BarChart } from 'lucide-react';
 import SidebarNavSection from './SidebarNavSection';
-import SidebarNavItem from './SidebarNavItem';
-import SidebarUserProfile from './SidebarUserProfile';
-import SidebarAuthButton from './SidebarAuthButton';
 
-interface SidebarContentProps {
-  collapsed: boolean;
-}
+const SidebarContent = () => {
+  const shippingItems = [
+    {
+      name: 'Create Label',
+      href: '/create-label',
+      icon: Package
+    },
+    {
+      name: 'Rate Calculator',
+      href: '/rate-calculator',
+      icon: Calculator
+    },
+    {
+      name: 'Freight Forwarding',
+      href: '/freight-forwarding',
+      icon: Ship
+    },
+    {
+      name: 'International',
+      href: '/international',
+      icon: Plane
+    },
+    {
+      name: 'LTL Shipping',
+      href: '/ltl-shipping',
+      icon: Truck
+    },
+    {
+      name: 'FTL Shipping',
+      href: '/ftl-shipping',
+      icon: Truck
+    },
+    {
+      name: 'Instant Delivery',
+      href: '/instant-delivery',
+      icon: Package
+    }
+  ];
 
-const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
+  const managementItems = [
+    {
+      name: 'Dashboard',
+      href: '/dashboard',
+      icon: BarChart
+    },
+    {
+      name: 'Tracking',
+      href: '/tracking',
+      icon: Package
+    },
+    {
+      name: 'Settings',
+      href: '/settings',
+      icon: Settings
+    }
+  ];
+
   return (
-    <div className="flex flex-col flex-1 overflow-y-auto py-4">
-      {/* User Profile */}
-      <SidebarUserProfile collapsed={collapsed} />
-
-      {/* Main Navigation */}
-      <div className="mt-8 flex-1">
-        <SidebarNavSection title="Main" collapsed={collapsed}>
-          <SidebarNavItem
-            icon={<Home size={18} />}
-            title="Dashboard"
-            to="/"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Package size={18} />}
-            title="Standard Shipping"
-            to="/create-label"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Ship size={18} />}
-            title="Freight Forwarding"
-            to="/freight-forwarding"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Calculator size={18} />}
-            title="Rate Calculator"
-            to="/create-label?tab=calculator"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Globe size={18} />}
-            title="International"
-            to="/international"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Truck size={18} />}
-            title="Ship To"
-            to="/ship-to"
-            collapsed={collapsed}
-          />
-        </SidebarNavSection>
-
-        <SidebarNavSection title="Shipping" collapsed={collapsed}>
-          <SidebarNavItem
-            icon={<MapPin size={18} />}
-            title="Pickup Service"
-            to="/pickup"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Truck size={18} />}
-            title="Tracking"
-            to="/tracking" 
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Upload size={18} />}
-            title="Bulk Upload"
-            to="/bulk-upload"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Truck size={18} />}
-            title="LTL Shipping"
-            to="/ltl-shipping"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Truck size={18} />}
-            title="Full Truckload"
-            to="/ftl-shipping"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Clock size={18} />}
-            title="Instant Delivery"
-            to="/instant-delivery"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<BarChart3 size={18} />}
-            title="Reports"
-            to="/dashboard?tab=history"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<CreditCard size={18} />}
-            title="Payment"
-            to="/payment"
-            collapsed={collapsed}
-          />
-        </SidebarNavSection>
-        
-        <SidebarNavSection title="More" collapsed={collapsed}>
-          <SidebarNavItem
-            icon={<Settings size={18} />}
-            title="Settings"
-            to="/settings"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<HelpCircle size={18} />}
-            title="Help Center"
-            to="/help"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Tag size={18} />}
-            title="Pricing"
-            to="/pricing"
-            collapsed={collapsed}
-          />
-        </SidebarNavSection>
+    <div className="flex flex-col h-full">
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-8">
+          <Home className="w-6 h-6 text-primary" />
+          <span className="font-bold text-lg">ShipFlow</span>
+        </div>
       </div>
 
-      {/* Authentication Button */}
-      <SidebarAuthButton collapsed={collapsed} />
+      <nav className="flex-1 px-4">
+        <SidebarNavSection 
+          title="Shipping" 
+          items={shippingItems}
+        />
+        <SidebarNavSection 
+          title="Management" 
+          items={managementItems}
+        />
+      </nav>
     </div>
   );
 };

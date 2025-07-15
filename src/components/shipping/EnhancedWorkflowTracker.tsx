@@ -71,10 +71,12 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({
   };
 
   return (
-    <div className="w-full py-6">
-      <div className="mx-auto max-w-6xl px-6">
-        {/* Curved floating container */}
-        <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-lg border border-gray-200/50 p-6">
+    <div className="w-full py-4">
+      <div className="mx-auto max-w-4xl px-4">
+        {/* Glass effect container with reduced width */}
+        <div className="bg-white/20 backdrop-blur-md rounded-2xl shadow-lg border border-white/30 p-4 
+                        bg-gradient-to-r from-white/10 to-white/5 
+                        supports-[backdrop-filter]:bg-white/10">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => {
               const status = getStepStatus(index);
@@ -85,15 +87,15 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({
                   <div className="flex flex-col items-center">
                     {/* Step Circle */}
                     <div className={`
-                      w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all duration-500 relative shadow-lg
+                      w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-500 relative shadow-md
                       ${status === 'completed' 
-                        ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/30' 
+                        ? 'bg-blue-600/90 border-blue-500 text-white shadow-blue-500/30 backdrop-blur-sm' 
                         : status === 'current'
-                        ? 'bg-blue-100 border-blue-600 text-blue-700 ring-4 ring-blue-100/50 shadow-blue-500/20'
-                        : 'bg-white border-gray-300 text-gray-400 shadow-gray-200/50'
+                        ? 'bg-blue-100/80 border-blue-600 text-blue-700 ring-3 ring-blue-100/40 shadow-blue-500/20 backdrop-blur-sm'
+                        : 'bg-white/60 border-gray-300 text-gray-400 shadow-gray-200/40 backdrop-blur-sm'
                       }
                     `}>
-                      <Icon className="w-6 h-6" />
+                      <Icon className="w-5 h-5" />
                       
                       {status === 'current' && (
                         <div className="absolute -inset-1 rounded-full bg-blue-500/10 animate-pulse" />
@@ -101,15 +103,15 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({
                     </div>
                     
                     {/* Step Text */}
-                    <div className="text-center mt-3">
-                      <div className={`text-sm font-bold transition-colors duration-300 ${
+                    <div className="text-center mt-2">
+                      <div className={`text-xs font-bold transition-colors duration-300 ${
                         status === 'current' ? 'text-blue-700' : 
                         status === 'completed' ? 'text-blue-600' : 
                         'text-gray-500'
                       }`}>
                         {step.name}
                       </div>
-                      <div className={`text-xs mt-1 transition-colors duration-300 ${
+                      <div className={`text-xs mt-0.5 transition-colors duration-300 ${
                         status === 'current' ? 'text-blue-600' : 
                         status === 'completed' ? 'text-blue-500' : 
                         'text-gray-400'
@@ -121,8 +123,8 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({
                   
                   {/* Connector Line */}
                   {index < steps.length - 1 && (
-                    <div className={`flex-1 h-1 mx-6 rounded-full transition-all duration-500 ${
-                      status === 'completed' ? 'bg-blue-500' : 'bg-gray-200'
+                    <div className={`flex-1 h-0.5 mx-4 rounded-full transition-all duration-500 ${
+                      status === 'completed' ? 'bg-blue-500/80' : 'bg-gray-200/60'
                     }`} />
                   )}
                 </div>
