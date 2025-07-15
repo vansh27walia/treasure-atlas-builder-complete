@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,15 +6,14 @@ import ShippingLabel from './shipping/ShippingLabel';
 import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import PaymentMethodSelector from './payment/PaymentMethodSelector';
+import CarrierDropdown from './shipping/CarrierDropdown';
 import { useShippingRates, ShippingRate } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import { toast } from '@/components/ui/sonner';
-import { CreditCard, Loader, Download, Upload, Truck, Filter, CheckCircle } from 'lucide-react';
+import { CreditCard, Loader, Download, Upload, Truck, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import PrintPreview from './shipping/PrintPreview';
 import AIRateAssistant from './shipping/AIRateAssistant';
-
 const ShippingRates: React.FC = () => {
   const {
     rates,
@@ -74,7 +72,6 @@ const ShippingRates: React.FC = () => {
     }
   };
   
-  // Listen for payment completion event
   useEffect(() => {
     const handlePaymentCompleted = (event: CustomEvent) => {
       console.log('Payment completed event received:', event.detail);
@@ -83,19 +80,16 @@ const ShippingRates: React.FC = () => {
         setIsCreatingLabel(true);
         toast.success('Payment successful! Creating label...');
         
-        // Trigger label creation after payment success
         const labelOptions = {
           label_format: "PDF",
           label_size: selectedLabelFormat
         };
         
-        // Automatically create label after payment
         setTimeout(async () => {
           try {
             await handleCreateLabel(undefined, undefined, labelOptions);
             setIsCreatingLabel(false);
             
-            // Update workflow step
             document.dispatchEvent(new CustomEvent('shipping-step-change', { 
               detail: { step: 'complete' }
             }));
@@ -129,7 +123,7 @@ const ShippingRates: React.FC = () => {
       }
     }
   }, [selectedRateId, rates]);
-  
+
   const handleLabelFormatChange = async (format: string): Promise<void> => {
     setSelectedLabelFormat(format);
     
@@ -232,28 +226,11 @@ const ShippingRates: React.FC = () => {
               Available Shipping Rates
             </h2>
             <div className="flex flex-wrap gap-3">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
-                    <Filter className="h-4 w-4" />
-                    {activeCarrierFilter === 'all' ? 'All Carriers' : activeCarrierFilter.toUpperCase()}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999] max-h-60 overflow-y-auto">
-                  <DropdownMenuItem onClick={() => handleFilterByCarrier('all')} className="py-2">
-                    All Carriers
-                  </DropdownMenuItem>
-                  {uniqueCarriers.map((carrier) => (
-                    <DropdownMenuItem 
-                      key={carrier} 
-                      onClick={() => handleFilterByCarrier(carrier)}
-                      className="py-2"
-                    >
-                      {carrier.toUpperCase()}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <CarrierDropdown
+                selectedCarrier={activeCarrierFilter}
+                onCarrierChange={handleFilterByCarrier}
+                availableCarriers={uniqueCarriers}
+              />
             </div>
           </div>
           

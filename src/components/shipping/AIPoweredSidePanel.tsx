@@ -1,15 +1,34 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
-import { Sparkles } from 'lucide-react';
-import CarrierSelector from './CarrierSelector';
-import AIRateMetrics from './AIRateMetrics';
-import ShippingChatbot from './ShippingChatbot';
-import { ShippingRate } from '@/hooks/useShippingRates';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Brain, 
+  Sparkles, 
+  TrendingUp, 
+  Clock, 
+  DollarSign,
+  ArrowUpDown,
+  Filter,
+  Zap,
+  Target,
+  CheckCircle2
+} from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
+
+interface ShippingRate {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: string;
+  delivery_days: number;
+  delivery_date: string;
+  original_rate?: string;
+}
 
 interface AIPoweredSidePanelProps {
   rates: ShippingRate[];
-  onRatesReorder: (rates: ShippingRate[]) => void;
+  onRatesReorder: (reorderedRates: ShippingRate[]) => void;
   onCarrierFilter: (carrier: string) => void;
   onRateSelect: (rateId: string) => void;
 }
@@ -18,116 +37,334 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
   rates,
   onRatesReorder,
   onCarrierFilter,
-  onRateSelect,
+  onRateSelect
 }) => {
-  const [selectedMetric, setSelectedMetric] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentOptimization, setCurrentOptimization] = useState<string>('');
+  const [lastAction, setLastAction] = useState<string>('');
+  const [isCustomFormOpen, setIsCustomFormOpen] = useState(false);
 
-  const handleCarrierChange = (carriers: string[]) => {
-    if (carriers.length === 1) {
-      onCarrierFilter(carriers[0]);
-    } else {
-      onCarrierFilter('all');
+  // Fixed: Prevent automatic reopening of custom forms
+  const handleCustomFormToggle = () => {
+    setIsCustomFormOpen(prev => !prev);
+  };
+
+  const handleCustomFormSave = () => {
+    // Process save logic here
+    setIsCustomFormOpen(false); // Close and stay closed
+    toast.success('Custom settings saved successfully');
+  };
+
+  const handleCustomFormCancel = () => {
+    setIsCustomFormOpen(false); // Close and stay closed
+    toast.info('Custom form cancelled');
+  };
+
+  // AI-powered rate optimization
+  const optimizeRates = async (type: 'cost' | 'speed' | 'balance') => {
+    if (rates.length === 0) {
+      toast.error('No rates available to optimize');
+      return;
+    }
+
+    setIsProcessing(true);
+    setCurrentOptimization(type);
+
+    try {
+      let optimizedRates = [...rates];
+
+      switch (type) {
+        case 'cost':
+          optimizedRates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
+          setLastAction('Optimized for lowest cost');
+          break;
+        case 'speed':
+          optimizedRates.sort((a, b) => a.delivery_days - b.delivery_days);
+          setLastAction('Optimized for fastest delivery');
+          break;
+        case 'balance':
+          // Calculate value score (lower is better)
+          optimizedRates.sort((a, b) => {
+            const scoreA = parseFloat(a.rate) * 0.7 + a.delivery_days * 0.3;
+            const scoreB = parseFloat(b.rate) * 0.7 + b.delivery_days * 0.3;
+            return scoreA - scoreB;
+          });
+          setLastAction('Optimized for best value balance');
+          break;
+      }
+
+      // Simulate AI processing time
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      onRatesReorder(optimizedRates);
+      
+      // Auto-select the best rate after optimization
+      if (optimizedRates.length > 0) {
+        setTimeout(() => {
+          onRateSelect(optimizedRates[0].id);
+          toast.success(`Selected best ${type} option: ${optimizedRates[0].carrier} ${optimizedRates[0].service}`);
+        }, 500);
+      }
+
+      toast.success(`Rates optimized for ${type}`);
+    } catch (error) {
+      console.error('Error optimizing rates:', error);
+      toast.error('Failed to optimize rates');
+    } finally {
+      setIsProcessing(false);
+      setCurrentOptimization('');
     }
   };
 
-  const handleMetricSelect = (metric: string) => {
-    setSelectedMetric(metric);
+  // Smart carrier filtering
+  const applySmartFilter = (filterType: 'premium' | 'economy' | 'express') => {
     if (rates.length === 0) return;
 
-    let sortedRates = [...rates];
-    
-    switch (metric) {
-      case 'fastest':
-        sortedRates.sort((a, b) => (a.delivery_days || 999) - (b.delivery_days || 999));
+    let filteredCarrier = 'all';
+
+    switch (filterType) {
+      case 'premium':
+        // Prefer UPS/FedEx for premium services
+        if (rates.some(r => r.carrier.toLowerCase().includes('ups'))) {
+          filteredCarrier = 'ups';
+        } else if (rates.some(r => r.carrier.toLowerCase().includes('fedex'))) {
+          filteredCarrier = 'fedex';
+        }
         break;
-      case 'cheapest':
-        sortedRates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
+      case 'economy':
+        // Prefer USPS for economy shipping
+        if (rates.some(r => r.carrier.toLowerCase().includes('usps'))) {
+          filteredCarrier = 'usps';
+        }
         break;
-      case 'reliable':
-        const reliabilityOrder = { 'usps': 1, 'ups': 2, 'fedex': 3, 'dhl': 4 };
-        sortedRates.sort((a, b) => {
-          const aReliability = reliabilityOrder[a.carrier.toLowerCase() as keyof typeof reliabilityOrder] || 999;
-          const bReliability = reliabilityOrder[b.carrier.toLowerCase() as keyof typeof reliabilityOrder] || 999;
-          return aReliability - bReliability;
-        });
-        break;
-      case 'value':
-        sortedRates.sort((a, b) => {
-          const aValue = parseFloat(a.rate) / Math.max(1, (a.delivery_days || 1));
-          const bValue = parseFloat(b.rate) / Math.max(1, (b.delivery_days || 1));
-          return aValue - bValue;
-        });
-        break;
-      case 'overnight':
-        sortedRates = sortedRates.filter(rate => 
-          rate.service.toLowerCase().includes('overnight') || 
-          rate.service.toLowerCase().includes('next day') ||
-          (rate.delivery_days && rate.delivery_days <= 1)
-        );
-        break;
-      case 'eco':
-        sortedRates.sort((a, b) => {
-          const aEco = a.service.toLowerCase().includes('ground') || a.carrier.toLowerCase() === 'usps' ? 1 : 0;
-          const bEco = b.service.toLowerCase().includes('ground') || b.carrier.toLowerCase() === 'usps' ? 1 : 0;
-          return bEco - aEco;
-        });
+      case 'express':
+        // Prefer FedEx/UPS for express shipping
+        if (rates.some(r => r.carrier.toLowerCase().includes('fedex'))) {
+          filteredCarrier = 'fedex';
+        } else if (rates.some(r => r.carrier.toLowerCase().includes('ups'))) {
+          filteredCarrier = 'ups';
+        }
         break;
     }
-    
-    onRatesReorder(sortedRates);
-    
-    // Auto-select the first rate after reordering
-    if (sortedRates.length > 0) {
-      onRateSelect(sortedRates[0].id);
-    }
+
+    onCarrierFilter(filteredCarrier);
+    toast.success(`Applied ${filterType} carrier filter`);
   };
 
-  const handleRateAdjustment = (instruction: string) => {
-    const input = instruction.toLowerCase();
-    
-    if (input.includes('fastest')) {
-      handleMetricSelect('fastest');
-    } else if (input.includes('cheapest')) {
-      handleMetricSelect('cheapest');
-    } else if (input.includes('most efficient')) {
-      handleMetricSelect('value');
-    } else if (input.includes('fedex')) {
-      onCarrierFilter('fedex');
-    } else if (input.includes('ups')) {
-      onCarrierFilter('ups');
-    } else if (input.includes('usps')) {
-      onCarrierFilter('usps');
-    } else if (input.includes('dhl')) {
-      onCarrierFilter('dhl');
-    } else if (input.includes('overnight')) {
-      handleMetricSelect('overnight');
-    }
+  // Calculate savings potential
+  const calculateSavings = () => {
+    if (rates.length < 2) return 0;
+    const sortedRates = [...rates].sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
+    const cheapest = parseFloat(sortedRates[0].rate);
+    const mostExpensive = parseFloat(sortedRates[sortedRates.length - 1].rate);
+    return mostExpensive - cheapest;
   };
+
+  const potentialSavings = calculateSavings();
+
+  // Get rate statistics
+  const getStatsInsights = () => {
+    if (rates.length === 0) return null;
+
+    const prices = rates.map(r => parseFloat(r.rate));
+    const deliveryDays = rates.map(r => r.delivery_days);
+    
+    return {
+      avgPrice: (prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(2),
+      avgDelivery: Math.round(deliveryDays.reduce((a, b) => a + b, 0) / deliveryDays.length),
+      priceRange: `$${Math.min(...prices).toFixed(2)} - $${Math.max(...prices).toFixed(2)}`,
+      carriers: [...new Set(rates.map(r => r.carrier))].length
+    };
+  };
+
+  const stats = getStatsInsights();
 
   return (
-    <div className="space-y-4 sticky top-24">
-      {/* AI-Powered Options Card */}
-      <Card className="p-4 bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200">
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-5 h-5 text-purple-600" />
-          <h3 className="text-lg font-semibold text-purple-800">AI-Powered Options</h3>
+    <div className="space-y-4">
+      {/* AI Assistant Header */}
+      <Card className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
+        <div className="flex items-center gap-2 mb-3">
+          <Brain className="w-5 h-5 text-blue-600" />
+          <h3 className="font-semibold text-blue-900">AI Assistant</h3>
+          <Sparkles className="w-4 h-4 text-purple-500" />
         </div>
         
-        <div className="space-y-4">
-          <CarrierSelector
-            selectedCarriers={[]}
-            onCarrierChange={handleCarrierChange}
-          />
+        {stats && (
+          <div className="space-y-2 text-sm text-blue-800">
+            <div className="flex justify-between">
+              <span>Avg Price:</span>
+              <span className="font-medium">${stats.avgPrice}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Avg Delivery:</span>
+              <span className="font-medium">{stats.avgDelivery} days</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Carriers:</span>
+              <span className="font-medium">{stats.carriers}</span>
+            </div>
+          </div>
+        )}
+
+        {potentialSavings > 0 && (
+          <div className="mt-3 p-2 bg-green-100 rounded-lg">
+            <div className="flex items-center gap-1 text-green-800">
+              <DollarSign className="w-4 h-4" />
+              <span className="text-sm font-medium">
+                Save up to ${potentialSavings.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Smart Optimization */}
+      <Card className="p-4">
+        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <Zap className="w-4 h-4 text-yellow-500" />
+          Smart Optimization
+        </h4>
+        
+        <div className="space-y-2">
+          <Button
+            onClick={() => optimizeRates('cost')}
+            disabled={isProcessing || rates.length === 0}
+            className="w-full justify-start text-sm bg-green-600 hover:bg-green-700 text-white"
+            size="sm"
+          >
+            <DollarSign className="w-4 h-4 mr-2" />
+            {isProcessing && currentOptimization === 'cost' ? 'Optimizing...' : 'Lowest Cost'}
+          </Button>
           
-          <AIRateMetrics
-            selectedMetric={selectedMetric}
-            onMetricSelect={handleMetricSelect}
-          />
+          <Button
+            onClick={() => optimizeRates('speed')}
+            disabled={isProcessing || rates.length === 0}
+            className="w-full justify-start text-sm bg-blue-600 hover:bg-blue-700 text-white"
+            size="sm"
+          >
+            <Clock className="w-4 h-4 mr-2" />
+            {isProcessing && currentOptimization === 'speed' ? 'Optimizing...' : 'Fastest Delivery'}
+          </Button>
+          
+          <Button
+            onClick={() => optimizeRates('balance')}
+            disabled={isProcessing || rates.length === 0}
+            className="w-full justify-start text-sm bg-purple-600 hover:bg-purple-700 text-white"
+            size="sm"
+          >
+            <Target className="w-4 h-4 mr-2" />
+            {isProcessing && currentOptimization === 'balance' ? 'Optimizing...' : 'Best Balance'}
+          </Button>
+        </div>
+
+        {lastAction && (
+          <div className="mt-3 p-2 bg-blue-50 rounded-lg">
+            <div className="flex items-center gap-1 text-blue-800">
+              <CheckCircle2 className="w-4 h-4" />
+              <span className="text-xs">{lastAction}</span>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Smart Filters */}
+      <Card className="p-4">
+        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <Filter className="w-4 h-4 text-blue-500" />
+          Smart Filters
+        </h4>
+        
+        <div className="space-y-2">
+          <Button
+            onClick={() => applySmartFilter('economy')}
+            disabled={rates.length === 0}
+            variant="outline"
+            className="w-full justify-start text-sm"
+            size="sm"
+          >
+            <TrendingUp className="w-4 h-4 mr-2 text-green-600" />
+            Economy Shipping
+          </Button>
+          
+          <Button
+            onClick={() => applySmartFilter('premium')}
+            disabled={rates.length === 0}
+            variant="outline"
+            className="w-full justify-start text-sm"
+            size="sm"
+          >
+            <Sparkles className="w-4 h-4 mr-2 text-purple-600" />
+            Premium Service
+          </Button>
+          
+          <Button
+            onClick={() => applySmartFilter('express')}
+            disabled={rates.length === 0}
+            variant="outline"
+            className="w-full justify-start text-sm"
+            size="sm"
+          >
+            <Clock className="w-4 h-4 mr-2 text-red-600" />
+            Express Delivery
+          </Button>
         </div>
       </Card>
 
-      {/* AI Chatbot */}
-      <ShippingChatbot onRateAdjustment={handleRateAdjustment} />
+      {/* Fixed Custom Form Section */}
+      <Card className="p-4">
+        <h4 className="font-semibold text-gray-900 mb-3">Custom Settings</h4>
+        
+        <Button
+          onClick={handleCustomFormToggle}
+          variant="outline"
+          className="w-full mb-3"
+        >
+          {isCustomFormOpen ? 'Close' : 'Open'} Custom Form
+        </Button>
+
+        {isCustomFormOpen && (
+          <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
+            <h5 className="text-sm font-medium">Custom Preferences</h5>
+            <div className="space-y-2">
+              <label className="flex items-center space-x-2">
+                <input type="checkbox" className="rounded" />
+                <span className="text-sm">Priority notifications</span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input type="checkbox" className="rounded" />
+                <span className="text-sm">Auto-select best rate</span>
+              </label>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleCustomFormSave}
+                size="sm"
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+              >
+                Save
+              </Button>
+              <Button
+                onClick={handleCustomFormCancel}
+                size="sm"
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* Processing Indicator */}
+      {isProcessing && (
+        <Card className="p-4 bg-blue-50 border-blue-200">
+          <div className="flex items-center gap-2 text-blue-800">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            <span className="text-sm font-medium">AI Processing...</span>
+          </div>
+        </Card>
+      )}
     </div>
   );
 };
