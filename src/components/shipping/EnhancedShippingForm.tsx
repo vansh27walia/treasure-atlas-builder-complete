@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -87,7 +86,7 @@ const EnhancedShippingForm: React.FC = () => {
     toast.success("Customs documentation completed");
   };
 
-  const handleInsuranceChange = (enabled: boolean, amount: number, cost: number) => {
+  const handleInsuranceChange = (enabled: boolean, amount: number) => {
     form.setValue('insurance', enabled);
     form.setValue('declaredValue', amount);
   };
