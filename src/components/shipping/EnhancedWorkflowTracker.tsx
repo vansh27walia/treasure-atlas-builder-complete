@@ -4,15 +4,15 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Circle, Package, CreditCard, FileText, Truck, MapPin } from 'lucide-react';
 
 interface EnhancedWorkflowTrackerProps {
-  currentStep: 'package' | 'rates' | 'payment' | 'label' | 'complete';
+  currentStep: 'address' | 'package' | 'rates' | 'payment' | 'complete';
 }
 
 const steps = [
-  { id: 'package', label: 'Package Info', icon: Package },
-  { id: 'rates', label: 'Choose Rate', icon: Truck },
-  { id: 'payment', label: 'Payment', icon: CreditCard },
-  { id: 'label', label: 'Create Label', icon: FileText },
-  { id: 'complete', label: 'Complete', icon: CheckCircle },
+  { id: 'address', label: 'Address', icon: MapPin, description: 'Pickup & Drop-off' },
+  { id: 'package', label: 'Package', icon: Package, description: 'Type & Details' },
+  { id: 'rates', label: 'Rates', icon: Truck, description: 'Compare Options' },
+  { id: 'payment', label: 'Payment', icon: CreditCard, description: 'Secure Checkout' },
+  { id: 'complete', label: 'Complete', icon: CheckCircle, description: 'Label Ready' },
 ];
 
 const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({ 
@@ -45,67 +45,94 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({
     return 'upcoming';
   };
 
+  const getCompletionPercentage = () => {
+    const currentIndex = getCurrentStepIndex();
+    return ((currentIndex + 1) / steps.length) * 100;
+  };
+
   return (
-    <div className="bg-white/95 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-40 shadow-sm">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-center">
-          <div className="flex items-center space-x-4 md:space-x-8">
-            {steps.map((step, index) => {
-              const status = getStepStatus(index);
-              const Icon = step.icon;
-              
-              return (
-                <div key={step.id} className="flex items-center">
-                  <div className="flex flex-col items-center space-y-2">
-                    <div className={`
-                      flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-300
-                      ${status === 'completed' 
-                        ? 'bg-green-500 border-green-500 text-white' 
-                        : status === 'current'
-                        ? 'bg-blue-500 border-blue-500 text-white animate-pulse'
-                        : 'bg-gray-100 border-gray-300 text-gray-400'
-                      }
-                    `}>
-                      {status === 'completed' ? (
-                        <CheckCircle className="w-5 h-5" />
-                      ) : (
-                        <Icon className="w-5 h-5" />
-                      )}
-                    </div>
+    <div className="sticky top-0 z-50 w-full">
+      <div 
+        className="mx-auto max-w-6xl p-4 mb-4"
+        style={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          borderRadius: '16px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+        }}
+      >
+        {/* Progress Bar */}
+        <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
+          <div 
+            className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${getCompletionPercentage()}%` }}
+          />
+        </div>
+        
+        <div className="flex items-center justify-between">
+          {steps.map((step, index) => {
+            const status = getStepStatus(index);
+            const Icon = step.icon;
+            
+            return (
+              <div key={step.id} className="flex items-center flex-1">
+                <div className="flex flex-col items-center">
+                  {/* Step Circle */}
+                  <div className={`
+                    w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all duration-300 relative
+                    ${status === 'completed' 
+                      ? 'bg-green-500 border-green-500 text-white shadow-lg shadow-green-500/30' 
+                      : status === 'current'
+                      ? 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-500/30 ring-4 ring-blue-100'
+                      : 'bg-gray-100 border-gray-300 text-gray-400'
+                    }
+                  `}>
+                    {status === 'completed' ? (
+                      <CheckCircle className="w-6 h-6" />
+                    ) : (
+                      <Icon className="w-6 h-6" />
+                    )}
                     
-                    <div className="text-center">
-                      <div className={`
-                        text-xs font-medium transition-colors duration-300
-                        ${status === 'current' 
-                          ? 'text-blue-600' 
-                          : status === 'completed'
-                          ? 'text-green-600'
-                          : 'text-gray-500'
-                        }
-                      `}>
-                        {step.label}
-                      </div>
-                      {status === 'current' && (
-                        <Badge variant="secondary" className="mt-1 text-xs bg-blue-100 text-blue-800">
-                          Current
-                        </Badge>
-                      )}
-                    </div>
+                    {status === 'current' && (
+                      <div className="absolute -inset-1 rounded-full bg-blue-500/20 animate-pulse" />
+                    )}
                   </div>
                   
-                  {index < steps.length - 1 && (
-                    <div className={`
-                      w-8 md:w-16 h-0.5 mx-2 md:mx-4 transition-colors duration-300
-                      ${getStepStatus(index + 1) !== 'upcoming' 
-                        ? 'bg-green-300' 
-                        : 'bg-gray-200'
-                      }
-                    `} />
-                  )}
+                  {/* Step Text */}
+                  <div className="text-center mt-3">
+                    <div className={`text-sm font-bold ${
+                      status === 'current' ? 'text-blue-600' : 
+                      status === 'completed' ? 'text-green-600' : 
+                      'text-gray-500'
+                    }`}>
+                      {step.label}
+                    </div>
+                    <div className={`text-xs mt-1 ${
+                      status === 'current' ? 'text-blue-500' : 
+                      status === 'completed' ? 'text-green-500' : 
+                      'text-gray-400'
+                    }`}>
+                      {step.description}
+                    </div>
+                    {status === 'current' && (
+                      <Badge variant="secondary" className="mt-2 text-xs bg-blue-100 text-blue-800 border-blue-200">
+                        Current
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+                
+                {/* Connector Line */}
+                {index < steps.length - 1 && (
+                  <div className={`
+                    flex-1 h-1 mx-4 rounded-full transition-all duration-300
+                    ${status === 'completed' ? 'bg-green-400' : 'bg-gray-200'}
+                  `} />
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
