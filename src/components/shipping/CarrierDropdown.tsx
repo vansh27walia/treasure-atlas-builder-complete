@@ -20,11 +20,15 @@ const CarrierDropdown: React.FC<CarrierDropdownProps> = ({
     { code: 'ups', name: 'UPS' },
     { code: 'fedex', name: 'FedEx' },
     { code: 'dhl', name: 'DHL' }
-  ];
+  ].filter(carrier => 
+    carrier.code === 'all' || availableCarriers.some(ac => 
+      ac.toLowerCase().includes(carrier.code)
+    )
+  );
 
   return (
     <Select value={selectedCarrier} onValueChange={onCarrierChange}>
-      <SelectTrigger className="w-48 border border-blue-200 hover:bg-blue-50 bg-white">
+      <SelectTrigger className="w-48 border border-blue-200 hover:bg-blue-50">
         <SelectValue placeholder="Select Carrier" />
       </SelectTrigger>
       <SelectContent className="bg-white border border-blue-200 shadow-lg z-[9999]">
