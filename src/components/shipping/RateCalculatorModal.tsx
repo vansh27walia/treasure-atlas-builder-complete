@@ -353,7 +353,7 @@ const RateCalculatorModal: React.FC<RateCalculatorModalProps> = ({ isOpen, onClo
             <Card className="p-4">
               <h3 className="font-semibold text-lg mb-4">Available Rates</h3>
               <div className="space-y-3">
-                {rates.map((rate) => (
+                {rates.map((rate, index) => (
                   <ShippingRateCard
                     key={rate.id}
                     rate={rate}
@@ -362,6 +362,8 @@ const RateCalculatorModal: React.FC<RateCalculatorModalProps> = ({ isOpen, onClo
                     showDiscount={true}
                     originalRate={rate.original_rate}
                     showPayButton={false}
+                    isBestValue={index === 0}
+                    isFastest={false}
                   />
                 ))}
               </div>

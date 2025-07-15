@@ -87,7 +87,7 @@ const EnhancedShippingForm: React.FC = () => {
     toast.success("Customs documentation completed");
   };
 
-  const handleInsuranceChange = (enabled: boolean, amount: number, cost: number) => {
+  const handleInsuranceChange = (enabled: boolean, amount: number) => {
     form.setValue('insurance', enabled);
     form.setValue('declaredValue', amount);
   };
@@ -368,8 +368,6 @@ const EnhancedShippingForm: React.FC = () => {
             {/* Insurance */}
             <div className="p-6">
               <InsuranceCalculator
-                defaultValue={watchDeclaredValue}
-                isEnabled={watchInsurance}
                 onInsuranceChange={handleInsuranceChange}
               />
             </div>
