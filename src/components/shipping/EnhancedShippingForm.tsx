@@ -367,8 +367,6 @@ const EnhancedShippingForm: React.FC = () => {
             {/* Insurance */}
             <div className="p-6">
               <InsuranceCalculator
-                defaultValue={watchDeclaredValue}
-                isEnabled={watchInsurance}
                 onInsuranceChange={handleInsuranceChange}
               />
             </div>
