@@ -1,33 +1,22 @@
-
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { Plus, Trash2 } from 'lucide-react';
 
 interface CustomsItem {
   description: string;
   quantity: number;
-  weight: number;
   value: number;
-  hsTariffNumber?: string;
-  originCountry: string;
-}
-
-interface CustomsInfo {
-  contentsType: 'gift' | 'merchandise' | 'documents' | 'returned_goods' | 'sample' | 'other';
-  customsSigner: string;
-  nonDeliveryOption: 'return' | 'abandon';
-  eelPfc: string;
-  customsItems: CustomsItem[];
+  weight: number;
+  origin_country: string;
 }
 
 interface CustomsDocumentationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (customsInfo: CustomsInfo) => void;
+  onSubmit: (data: any) => void;
   fromCountry: string;
   toCountry: string;
 }
@@ -39,226 +28,223 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
   fromCountry,
   toCountry
 }) => {
-  const [customsItems, setCustomsItems] = useState<CustomsItem[]>([
-    { description: '', quantity: 1, weight: 0, value: 0, originCountry: fromCountry }
+  const [items, setItems] = useState<CustomsItem[]>([
+    { description: '', quantity: 1, value: 0, weight: 0, origin_country: fromCountry }
   ]);
-  const [contentsType, setContentsType] = useState<CustomsInfo['contentsType']>('merchandise');
-  const [customsSigner, setCustomsSigner] = useState('');
-  const [nonDeliveryOption, setNonDeliveryOption] = useState<'return' | 'abandon'>('return');
+  const [contentsType, setContentsType] = useState<string>('merchandise');
+  const [restrictionType, setRestrictionType] = useState<string>('none');
 
-  const totalValue = customsItems.reduce((sum, item) => sum + (item.value * item.quantity), 0);
-  const eelPfc = totalValue < 2500 ? 'NOEEI 30.37(a)' : '';
-
-  const addItem = () => {
-    setCustomsItems([...customsItems, { 
-      description: '', 
-      quantity: 1, 
-      weight: 0, 
-      value: 0, 
-      originCountry: fromCountry 
-    }]);
-  };
-
-  const removeItem = (index: number) => {
-    if (customsItems.length > 1) {
-      setCustomsItems(customsItems.filter((_, i) => i !== index));
-    }
-  };
-
-  const updateItem = (index: number, field: keyof CustomsItem, value: any) => {
-    const updatedItems = [...customsItems];
-    updatedItems[index] = { ...updatedItems[index], [field]: value };
-    setCustomsItems(updatedItems);
-  };
-
-  const handleSubmit = () => {
-    const customsInfo: CustomsInfo = {
-      contentsType,
-      customsSigner,
-      nonDeliveryOption,
-      eelPfc: eelPfc || 'AES ITN Required',
-      customsItems
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const customsData = {
+      contents_type: contentsType,
+      contents_explanation: '',
+      customs_certify: true,
+      customs_signer: 'Shipper',
+      non_delivery_option: 'return',
+      restriction_type: restrictionType,
+      restriction_comments: '',
+      customs_items: items.map(item => ({
+        description: item.description,
+        quantity: item.quantity,
+        value: item.value,
+        weight: item.weight,
+        origin_country: item.origin_country,
+        hs_tariff_number: '',
+        code: 'other'
+      }))
     };
-    onSubmit(customsInfo);
+
+    onSubmit(customsData);
+    // Modal will be closed by parent component
   };
 
-  const isValid = customsItems.every(item => 
-    item.description && item.quantity > 0 && item.value > 0
-  ) && customsSigner.trim() !== '';
+  const handleClose = () => {
+    // Reset form state
+    setItems([{ description: '', quantity: 1, value: 0, weight: 0, origin_country: fromCountry }]);
+    setContentsType('merchandise');
+    setRestrictionType('none');
+    onClose();
+  };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-white">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold text-gray-800">
-            International Shipping - Customs Documentation
+          <DialogTitle className="text-xl font-semibold">
+            International Customs Documentation
           </DialogTitle>
-          <p className="text-sm text-gray-600">
-            Shipping from {fromCountry} to {toCountry} requires customs documentation
-          </p>
+          <DialogDescription>
+            Required for shipments from {fromCountry} to {toCountry}
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Customs Items */}
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <Label className="text-base font-medium">Customs Items</Label>
-              <Button onClick={addItem} size="sm" variant="outline" className="gap-2">
-                <Plus className="w-4 h-4" />
-                Add Item
-              </Button>
-            </div>
+            <Label htmlFor="contentsType" className="block text-sm font-medium text-gray-700">
+              Contents Type
+            </Label>
+            <select
+              id="contentsType"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              value={contentsType}
+              onChange={(e) => setContentsType(e.target.value)}
+            >
+              <option value="merchandise">Merchandise</option>
+              <option value="documents">Documents</option>
+              <option value="gift">Gift</option>
+              <option value="returned_goods">Returned Goods</option>
+            </select>
+          </div>
 
-            <div className="space-y-4">
-              {customsItems.map((item, index) => (
-                <div key={index} className="p-4 border rounded-lg bg-gray-50">
-                  <div className="flex justify-between items-start mb-3">
-                    <h4 className="font-medium">Item {index + 1}</h4>
-                    {customsItems.length > 1 && (
-                      <Button
-                        onClick={() => removeItem(index)}
-                        size="sm"
-                        variant="ghost"
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
+          <div>
+            <Label htmlFor="restrictionType" className="block text-sm font-medium text-gray-700">
+              Restriction Type
+            </Label>
+            <select
+              id="restrictionType"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+              value={restrictionType}
+              onChange={(e) => setRestrictionType(e.target.value)}
+            >
+              <option value="none">None</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor={`description-${index}`}>Description *</Label>
-                      <Input
-                        id={`description-${index}`}
-                        value={item.description}
-                        onChange={(e) => updateItem(index, 'description', e.target.value)}
-                        placeholder="e.g., Electronics, Clothing"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`quantity-${index}`}>Quantity *</Label>
-                      <Input
-                        id={`quantity-${index}`}
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`weight-${index}`}>Weight (oz) *</Label>
-                      <Input
-                        id={`weight-${index}`}
-                        type="number"
-                        min="0"
-                        step="0.1"
-                        value={item.weight}
-                        onChange={(e) => updateItem(index, 'weight', parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`value-${index}`}>Value (USD) *</Label>
-                      <Input
-                        id={`value-${index}`}
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.value}
-                        onChange={(e) => updateItem(index, 'value', parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`hs-${index}`}>HS Tariff Number</Label>
-                      <Input
-                        id={`hs-${index}`}
-                        value={item.hsTariffNumber || ''}
-                        onChange={(e) => updateItem(index, 'hsTariffNumber', e.target.value)}
-                        placeholder="Optional"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`origin-${index}`}>Origin Country</Label>
-                      <Input
-                        id={`origin-${index}`}
-                        value={item.originCountry}
-                        onChange={(e) => updateItem(index, 'originCountry', e.target.value)}
-                      />
-                    </div>
-                  </div>
+          <div className="space-y-4">
+            <h4 className="text-lg font-semibold">Customs Items</h4>
+            {items.map((item, index) => (
+              <div key={index} className="grid grid-cols-6 gap-4">
+                <div>
+                  <Label htmlFor={`description-${index}`} className="block text-sm font-medium text-gray-700">
+                    Description
+                  </Label>
+                  <Input
+                    type="text"
+                    id={`description-${index}`}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    value={item.description}
+                    onChange={(e) => {
+                      const newItems = [...items];
+                      newItems[index] = { ...item, description: e.target.value };
+                      setItems(newItems);
+                    }}
+                  />
                 </div>
-              ))}
-            </div>
+                <div>
+                  <Label htmlFor={`quantity-${index}`} className="block text-sm font-medium text-gray-700">
+                    Quantity
+                  </Label>
+                  <Input
+                    type="number"
+                    id={`quantity-${index}`}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    value={item.quantity}
+                    onChange={(e) => {
+                      const newItems = [...items];
+                      newItems[index] = { ...item, quantity: parseInt(e.target.value) };
+                      setItems(newItems);
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor={`value-${index}`} className="block text-sm font-medium text-gray-700">
+                    Value
+                  </Label>
+                  <Input
+                    type="number"
+                    id={`value-${index}`}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    value={item.value}
+                    onChange={(e) => {
+                      const newItems = [...items];
+                      newItems[index] = { ...item, value: parseFloat(e.target.value) };
+                      setItems(newItems);
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor={`weight-${index}`} className="block text-sm font-medium text-gray-700">
+                    Weight
+                  </Label>
+                  <Input
+                    type="number"
+                    id={`weight-${index}`}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    value={item.weight}
+                    onChange={(e) => {
+                      const newItems = [...items];
+                      newItems[index] = { ...item, weight: parseFloat(e.target.value) };
+                      setItems(newItems);
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor={`origin_country-${index}`} className="block text-sm font-medium text-gray-700">
+                    Origin Country
+                  </Label>
+                  <Input
+                    type="text"
+                    id={`origin_country-${index}`}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    value={item.origin_country}
+                    onChange={(e) => {
+                      const newItems = [...items];
+                      newItems[index] = { ...item, origin_country: e.target.value };
+                      setItems(newItems);
+                    }}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      const newItems = [...items];
+                      newItems.splice(index, 1);
+                      setItems(newItems);
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setItems([
+                  ...items,
+                  { description: '', quantity: 1, value: 0, weight: 0, origin_country: fromCountry }
+                ]);
+              }}
+              className="w-full"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Item
+            </Button>
           </div>
 
-          {/* Contents Type */}
-          <div>
-            <Label htmlFor="contents-type">Contents Type *</Label>
-            <Select value={contentsType} onValueChange={(value: any) => setContentsType(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="merchandise">Merchandise</SelectItem>
-                <SelectItem value="gift">Gift</SelectItem>
-                <SelectItem value="documents">Documents</SelectItem>
-                <SelectItem value="returned_goods">Returned Goods</SelectItem>
-                <SelectItem value="sample">Sample</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Customs Signer */}
-          <div>
-            <Label htmlFor="customs-signer">Customs Signer *</Label>
-            <Input
-              id="customs-signer"
-              value={customsSigner}
-              onChange={(e) => setCustomsSigner(e.target.value)}
-              placeholder="Full name of person certifying"
-            />
-          </div>
-
-          {/* Non-delivery Option */}
-          <div>
-            <Label htmlFor="non-delivery">Non-delivery Option</Label>
-            <Select value={nonDeliveryOption} onValueChange={(value: any) => setNonDeliveryOption(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="return">Return to Sender</SelectItem>
-                <SelectItem value="abandon">Abandon</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* EEL/PFC Code */}
-          <div>
-            <Label>EEL/PFC Code</Label>
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                Total declared value: ${totalValue.toFixed(2)}
-              </p>
-              <p className="text-sm text-blue-700">
-                {totalValue < 2500 
-                  ? `Automatically set to: ${eelPfc}`
-                  : 'AES ITN required for shipments over $2,500'
-                }
-              </p>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button onClick={onClose} variant="outline">
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              className="px-6"
+            >
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={!isValid}>
+            <Button
+              type="submit"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+            >
               Complete Customs Documentation
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

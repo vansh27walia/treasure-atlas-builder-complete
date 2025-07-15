@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,7 +12,7 @@ import * as z from 'zod';
 import AddressSelector from './AddressSelector';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { createAddressSelectHandler } from '@/utils/addressUtils';
-import { Search, Package, MapPin } from 'lucide-react';
+import { Search, Package, MapPin, Sparkles } from 'lucide-react';
 import CustomsDocumentationModal from './CustomsDocumentationModal';
 import PackageTypeSelector from './PackageTypeSelector';
 import InsuranceCalculator from './InsuranceCalculator';
@@ -41,6 +40,7 @@ const EnhancedShippingForm: React.FC = () => {
   const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
   const [showCustomsModal, setShowCustomsModal] = useState(false);
   const [customsInfo, setCustomsInfo] = useState<any>(null);
+  const [carrierFilter, setCarrierFilter] = useState('all');
 
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
@@ -62,19 +62,29 @@ const EnhancedShippingForm: React.FC = () => {
     }
   });
 
-  // Watch for package type changes to show/hide dimensions
   const watchPackageType = form.watch("packageType");
   const watchInsurance = form.watch("insurance");
   const watchDeclaredValue = form.watch("declaredValue");
   const watchHazmat = form.watch("hazmat");
 
-  // Calculate insurance cost
   const insuranceCost = watchInsurance ? Math.max(2, Math.ceil((watchDeclaredValue / 100) * 2)) : 0;
-
-  // Show dimensions for custom packages
   const showDimensions = ['box', 'envelope'].includes(watchPackageType);
 
-  // Watch for address changes to trigger customs modal
+  // Listen for carrier filter changes from sidebar
+  React.useEffect(() => {
+    const handleCarrierFilterChange = (event: CustomEvent) => {
+      if (event.detail && event.detail.carrier) {
+        setCarrierFilter(event.detail.carrier);
+      }
+    };
+
+    document.addEventListener('carrier-filter-change', handleCarrierFilterChange as EventListener);
+    
+    return () => {
+      document.removeEventListener('carrier-filter-change', handleCarrierFilterChange as EventListener);
+    };
+  }, []);
+
   useEffect(() => {
     if (fromAddress && toAddress && fromAddress.country !== toAddress.country) {
       setShowCustomsModal(true);
@@ -98,7 +108,6 @@ const EnhancedShippingForm: React.FC = () => {
       return;
     }
 
-    // Check if international shipping requires customs and it's not completed
     if (fromAddress.country !== toAddress.country && !customsInfo) {
       setShowCustomsModal(true);
       return;
@@ -106,7 +115,6 @@ const EnhancedShippingForm: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Convert weight to ounces for backend processing
       let weightOz = values.weightValue;
       if (values.weightUnit === 'kg') {
         weightOz = values.weightValue * 35.274;
@@ -114,7 +122,11 @@ const EnhancedShippingForm: React.FC = () => {
         weightOz = values.weightValue * 16;
       }
       
-      // Prepare the request payload for EasyPost API
+      // Apply carrier filter
+      const carriersToUse = carrierFilter === 'all' ? 
+        ['usps', 'ups', 'fedex', 'dhl'] : 
+        [carrierFilter];
+
       const payload = {
         fromAddress: {
           name: fromAddress.name,
@@ -145,18 +157,14 @@ const EnhancedShippingForm: React.FC = () => {
         options: {
           hazmat: values.hazmat ? values.hazmatType : undefined,
         },
-        carriers: values.carriers,
+        carriers: carriersToUse,
         customs_info: customsInfo,
-        // Store insurance info for later use in label creation
         insurance_info: values.insurance ? {
           amount: values.declaredValue,
           cost: insuranceCost
         } : null
       };
 
-      console.log('Submitting payload:', payload);
-
-      // Call the Edge Function to get shipping rates
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
         body: payload,
       });
@@ -165,7 +173,6 @@ const EnhancedShippingForm: React.FC = () => {
         throw new Error(`Error fetching rates: ${error.message}`);
       }
 
-      // Process and dispatch rates
       if (data.rates && Array.isArray(data.rates)) {
         const ratesWithInsurance = data.rates.map(rate => ({
           ...rate,
@@ -180,7 +187,6 @@ const EnhancedShippingForm: React.FC = () => {
 
       toast.success("Shipping rates retrieved successfully");
       
-      // Scroll to the rates section
       const ratesSection = document.getElementById('shipping-rates-section');
       if (ratesSection) {
         ratesSection.scrollIntoView({ behavior: 'smooth' });
@@ -394,29 +400,54 @@ const EnhancedShippingForm: React.FC = () => {
             </div>
               
             {/* Submit Section */}
-            <div className="p-6 bg-muted/50">
+            <div className="p-6 bg-gradient-to-r from-blue-50 to-green-50">
               <Button 
                 type="submit" 
-                className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700" 
+                className="w-full h-16 text-xl font-bold bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 hover:from-green-700 hover:via-blue-700 hover:to-purple-700 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]" 
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <Search className="w-5 h-5 mr-2 animate-spin" />
+                  <>
+                    <Search className="w-6 h-6 mr-3 animate-spin" />
+                    <span className="bg-gradient-to-r from-white to-yellow-200 bg-clip-text text-transparent">
+                      Finding Your Best Rates...
+                    </span>
+                  </>
                 ) : (
-                  <Search className="w-5 h-5 mr-2" />
+                  <>
+                    <Sparkles className="w-6 h-6 mr-3" />
+                    <span className="bg-gradient-to-r from-white to-yellow-200 bg-clip-text text-transparent">
+                      Get AI-Powered Shipping Rates
+                    </span>
+                  </>
                 )}
-                Get Shipping Rates
               </Button>
+              {!isLoading && (
+                <div className="text-center mt-3">
+                  <p className="text-sm text-gray-600 font-medium">
+                    🚀 Smart AI compares all carriers instantly
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    USPS • UPS • FedEx • DHL
+                  </p>
+                </div>
+              )}
             </div>
           </form>
         </Form>
       </Card>
 
-      {/* Customs Documentation Modal */}
+      {/* Enhanced Customs Documentation Modal */}
       <CustomsDocumentationModal
         isOpen={showCustomsModal}
-        onClose={() => setShowCustomsModal(false)}
-        onSubmit={handleCustomsSubmit}
+        onClose={() => {
+          setShowCustomsModal(false);
+          setCustomsInfo(null);
+        }}
+        onSubmit={(customs) => {
+          handleCustomsSubmit(customs);
+          setShowCustomsModal(false); // Ensure modal closes
+        }}
         fromCountry={fromAddress?.country || ''}
         toCountry={toAddress?.country || ''}
       />
