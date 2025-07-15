@@ -332,36 +332,47 @@ const ShippingRates: React.FC = () => {
                 )}
               </div>
 
-              {/* Payment Section - Show when rate is selected but payment not completed */}
+              {/* Enhanced Payment Section */}
               {showPaymentSection && (
-                <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                  <h3 className="font-semibold text-blue-800 mb-4">Complete Payment to Create Label</h3>
-                  
-                  {/* Show cost breakdown */}
-                  <div className="mb-4 p-3 bg-white rounded border">
-                    <div className="flex justify-between items-center text-sm">
-                      <span>Shipping Rate:</span>
-                      <span className="font-medium">${rateAmount.toFixed(2)}</span>
-                    </div>
-                    {insuranceCost > 0 && (
-                      <div className="flex justify-between items-center text-sm">
-                        <span>Insurance:</span>
-                        <span className="font-medium">${insuranceCost.toFixed(2)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center text-base font-bold border-t pt-2 mt-2">
-                      <span>Total:</span>
-                      <span>${totalAmount.toFixed(2)}</span>
+                <div className="mt-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold text-blue-900">Complete Your Payment</h3>
+                    <div className="flex items-center gap-2 text-blue-600">
+                      <CreditCard className="w-5 h-5" />
+                      <span className="text-sm font-medium">Secure Checkout</span>
                     </div>
                   </div>
                   
-                  <PaymentMethodSelector
-                    selectedPaymentMethod={null}
-                    onPaymentMethodChange={handlePaymentMethodChange}
-                    onPaymentComplete={handlePaymentComplete}
-                    amount={totalAmount}
-                    description="Shipping Label Purchase"
-                  />
+                  {/* Cost breakdown with better styling */}
+                  <div className="mb-6 p-4 bg-white rounded-lg border shadow-sm">
+                    <div className="flex justify-between items-center text-sm mb-2">
+                      <span className="text-gray-600">Shipping Rate:</span>
+                      <span className="font-medium text-gray-900">${rateAmount.toFixed(2)}</span>
+                    </div>
+                    {insuranceCost > 0 && (
+                      <div className="flex justify-between items-center text-sm mb-2">
+                        <span className="text-gray-600">Insurance:</span>
+                        <span className="font-medium text-gray-900">${insuranceCost.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="border-t pt-3 mt-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg font-bold text-gray-900">Total Amount:</span>
+                        <span className="text-2xl font-bold text-blue-600">${totalAmount.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Enhanced Payment Method Selector */}
+                  <div className="bg-white rounded-lg p-4 border">
+                    <PaymentMethodSelector
+                      selectedPaymentMethod={null}
+                      onPaymentMethodChange={handlePaymentMethodChange}
+                      onPaymentComplete={handlePaymentComplete}
+                      amount={totalAmount}
+                      description="Shipping Label Purchase"
+                    />
+                  </div>
                 </div>
               )}
               

@@ -1,12 +1,10 @@
 
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { Sparkles, Calculator } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Sparkles } from 'lucide-react';
 import CarrierSelector from './CarrierSelector';
 import AIRateMetrics from './AIRateMetrics';
 import ShippingChatbot from './ShippingChatbot';
-import RateCalculatorWidget from './RateCalculatorWidget';
 import { ShippingRate } from '@/hooks/useShippingRates';
 
 interface AIPoweredSidePanelProps {
@@ -23,7 +21,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
   onRateSelect,
 }) => {
   const [selectedMetric, setSelectedMetric] = useState<string>('');
-  const [showCalculator, setShowCalculator] = useState(false);
 
   const handleCarrierChange = (carriers: string[]) => {
     if (carriers.length === 1) {
@@ -69,7 +66,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         );
         break;
       case 'eco':
-        // Prioritize USPS Ground and other eco-friendly options
         sortedRates.sort((a, b) => {
           const aEco = a.service.toLowerCase().includes('ground') || a.carrier.toLowerCase() === 'usps' ? 1 : 0;
           const bEco = b.service.toLowerCase().includes('ground') || b.carrier.toLowerCase() === 'usps' ? 1 : 0;
@@ -80,6 +76,7 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
     
     onRatesReorder(sortedRates);
     
+    // Auto-select the first rate after reordering
     if (sortedRates.length > 0) {
       onRateSelect(sortedRates[0].id);
     }
@@ -92,10 +89,16 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
       handleMetricSelect('fastest');
     } else if (input.includes('cheapest')) {
       handleMetricSelect('cheapest');
+    } else if (input.includes('most efficient')) {
+      handleMetricSelect('value');
     } else if (input.includes('fedex')) {
       onCarrierFilter('fedex');
     } else if (input.includes('ups')) {
       onCarrierFilter('ups');
+    } else if (input.includes('usps')) {
+      onCarrierFilter('usps');
+    } else if (input.includes('dhl')) {
+      onCarrierFilter('dhl');
     } else if (input.includes('overnight')) {
       handleMetricSelect('overnight');
     }
@@ -121,26 +124,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
             onMetricSelect={handleMetricSelect}
           />
         </div>
-      </Card>
-
-      {/* Rate Calculator */}
-      <Card className="p-4 bg-gradient-to-br from-green-50 to-blue-50 border-green-200">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Calculator className="w-5 h-5 text-green-600" />
-            <h3 className="text-lg font-semibold text-green-800">Rate Calculator</h3>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowCalculator(!showCalculator)}
-            className="border-green-300 text-green-700 hover:bg-green-100"
-          >
-            {showCalculator ? 'Hide' : 'Show'}
-          </Button>
-        </div>
-        
-        {showCalculator && <RateCalculatorWidget />}
       </Card>
 
       {/* AI Chatbot */}

@@ -19,7 +19,7 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
   isEnabled = true,
 }) => {
   const [insuranceEnabled, setInsuranceEnabled] = useState(isEnabled);
-  const [declaredValue, setDeclaredValue] = useState(defaultValue);
+  const [declaredValue, setDeclaredValue] = useState(100); // Always default to 100
   const [insuranceCost, setInsuranceCost] = useState(0);
 
   useEffect(() => {
@@ -36,7 +36,7 @@ const InsuranceCalculator: React.FC<InsuranceCalculatorProps> = ({
   };
 
   const handleValueChange = (value: string) => {
-    const numValue = Math.max(0, parseFloat(value) || 0);
+    const numValue = Math.max(0, parseFloat(value) || 100);
     setDeclaredValue(numValue);
   };
 
