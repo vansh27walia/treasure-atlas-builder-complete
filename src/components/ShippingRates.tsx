@@ -5,7 +5,7 @@ import { Truck } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from "@/integrations/supabase/client";
 import { ShippingRate } from '@/hooks/useShippingRates';
-import RateDropdownSelector from './RateDropdownSelector';
+import RateDropdownSelector from './shipping/RateDropdownSelector';
 
 interface ShippingRatesProps {
   // Add any props you need here
