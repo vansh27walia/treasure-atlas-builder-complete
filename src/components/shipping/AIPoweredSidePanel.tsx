@@ -50,7 +50,7 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
   const [lastAction, setLastAction] = useState<string>('');
   const [selectedCarrier, setSelectedCarrier] = useState('all');
 
-  // Only show UPS and USPS as requested
+  // Get unique carriers from rates - only show UPS and USPS as requested
   const availableCarriers = ['ups', 'usps'];
 
   // Handle carrier selection with proper filtering
@@ -158,6 +158,17 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Rate Calculator Button */}
+      <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+        <Button
+          onClick={onOpenRateCalculator}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 p-4 h-auto"
+        >
+          <Calculator className="w-5 h-5" />
+          <span className="font-medium">Rate Calculator</span>
+        </Button>
+      </Card>
+
       {/* Carrier Selection - Only UPS and USPS */}
       <Card className="p-4">
         <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
@@ -257,7 +268,7 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         )}
       </Card>
 
-      {/* Shipping Chatbot */}
+      {/* Shipping Chatbot - Added below filters */}
       <div className="mt-6">
         <ShippingChatbot onRateAdjustment={handleRateAdjustment} />
       </div>
