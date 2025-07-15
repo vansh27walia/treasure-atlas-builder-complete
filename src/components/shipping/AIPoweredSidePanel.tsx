@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import CarrierDropdown from './CarrierDropdown';
 import { 
   Brain, 
   Sparkles, 
@@ -12,7 +14,8 @@ import {
   Filter,
   Zap,
   Target,
-  CheckCircle2
+  CheckCircle2,
+  Calculator
 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
@@ -31,33 +34,30 @@ interface AIPoweredSidePanelProps {
   onRatesReorder: (reorderedRates: ShippingRate[]) => void;
   onCarrierFilter: (carrier: string) => void;
   onRateSelect: (rateId: string) => void;
+  onOpenRateCalculator: () => void;
 }
 
 const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
   rates,
   onRatesReorder,
   onCarrierFilter,
-  onRateSelect
+  onRateSelect,
+  onOpenRateCalculator
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentOptimization, setCurrentOptimization] = useState<string>('');
   const [lastAction, setLastAction] = useState<string>('');
   const [isCustomFormOpen, setIsCustomFormOpen] = useState(false);
+  const [selectedCarrier, setSelectedCarrier] = useState('all');
 
-  // Fixed: Prevent automatic reopening of custom forms
-  const handleCustomFormToggle = () => {
-    setIsCustomFormOpen(prev => !prev);
-  };
+  // Get unique carriers from rates
+  const uniqueCarriers = [...new Set(rates.map(rate => rate.carrier.toLowerCase()))];
 
-  const handleCustomFormSave = () => {
-    // Process save logic here
-    setIsCustomFormOpen(false); // Close and stay closed
-    toast.success('Custom settings saved successfully');
-  };
-
-  const handleCustomFormCancel = () => {
-    setIsCustomFormOpen(false); // Close and stay closed
-    toast.info('Custom form cancelled');
+  // Handle carrier selection
+  const handleCarrierChange = (carrier: string) => {
+    setSelectedCarrier(carrier);
+    onCarrierFilter(carrier);
+    toast.success(`Filtered by ${carrier === 'all' ? 'All Carriers' : carrier.toUpperCase()}`);
   };
 
   // AI-powered rate optimization
@@ -83,7 +83,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
           setLastAction('Optimized for fastest delivery');
           break;
         case 'balance':
-          // Calculate value score (lower is better)
           optimizedRates.sort((a, b) => {
             const scoreA = parseFloat(a.rate) * 0.7 + a.delivery_days * 0.3;
             const scoreB = parseFloat(b.rate) * 0.7 + b.delivery_days * 0.3;
@@ -93,12 +92,9 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
           break;
       }
 
-      // Simulate AI processing time
       await new Promise(resolve => setTimeout(resolve, 1500));
-
       onRatesReorder(optimizedRates);
       
-      // Auto-select the best rate after optimization
       if (optimizedRates.length > 0) {
         setTimeout(() => {
           onRateSelect(optimizedRates[0].id);
@@ -114,41 +110,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
       setIsProcessing(false);
       setCurrentOptimization('');
     }
-  };
-
-  // Smart carrier filtering
-  const applySmartFilter = (filterType: 'premium' | 'economy' | 'express') => {
-    if (rates.length === 0) return;
-
-    let filteredCarrier = 'all';
-
-    switch (filterType) {
-      case 'premium':
-        // Prefer UPS/FedEx for premium services
-        if (rates.some(r => r.carrier.toLowerCase().includes('ups'))) {
-          filteredCarrier = 'ups';
-        } else if (rates.some(r => r.carrier.toLowerCase().includes('fedex'))) {
-          filteredCarrier = 'fedex';
-        }
-        break;
-      case 'economy':
-        // Prefer USPS for economy shipping
-        if (rates.some(r => r.carrier.toLowerCase().includes('usps'))) {
-          filteredCarrier = 'usps';
-        }
-        break;
-      case 'express':
-        // Prefer FedEx/UPS for express shipping
-        if (rates.some(r => r.carrier.toLowerCase().includes('fedex'))) {
-          filteredCarrier = 'fedex';
-        } else if (rates.some(r => r.carrier.toLowerCase().includes('ups'))) {
-          filteredCarrier = 'ups';
-        }
-        break;
-    }
-
-    onCarrierFilter(filteredCarrier);
-    toast.success(`Applied ${filterType} carrier filter`);
   };
 
   // Calculate savings potential
@@ -179,8 +140,47 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
 
   const stats = getStatsInsights();
 
+  // Fixed custom form handlers - prevent auto-reopening
+  const handleCustomFormToggle = () => {
+    setIsCustomFormOpen(prev => !prev);
+  };
+
+  const handleCustomFormSave = () => {
+    setIsCustomFormOpen(false);
+    toast.success('Custom settings saved successfully');
+  };
+
+  const handleCustomFormCancel = () => {
+    setIsCustomFormOpen(false);
+    toast.info('Custom form cancelled');
+  };
+
   return (
     <div className="space-y-4">
+      {/* Rate Calculator Button */}
+      <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+        <Button
+          onClick={onOpenRateCalculator}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 p-4 h-auto"
+        >
+          <Calculator className="w-5 h-5" />
+          <span className="font-medium">Rate Calculator</span>
+        </Button>
+      </Card>
+
+      {/* Carrier Selection */}
+      <Card className="p-4">
+        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <Filter className="w-4 h-4 text-blue-500" />
+          Select Carrier
+        </h4>
+        <CarrierDropdown
+          selectedCarrier={selectedCarrier}
+          onCarrierChange={handleCarrierChange}
+          availableCarriers={uniqueCarriers}
+        />
+      </Card>
+
       {/* AI Assistant Header */}
       <Card className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
         <div className="flex items-center gap-2 mb-3">
@@ -265,49 +265,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
             </div>
           </div>
         )}
-      </Card>
-
-      {/* Smart Filters */}
-      <Card className="p-4">
-        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-          <Filter className="w-4 h-4 text-blue-500" />
-          Smart Filters
-        </h4>
-        
-        <div className="space-y-2">
-          <Button
-            onClick={() => applySmartFilter('economy')}
-            disabled={rates.length === 0}
-            variant="outline"
-            className="w-full justify-start text-sm"
-            size="sm"
-          >
-            <TrendingUp className="w-4 h-4 mr-2 text-green-600" />
-            Economy Shipping
-          </Button>
-          
-          <Button
-            onClick={() => applySmartFilter('premium')}
-            disabled={rates.length === 0}
-            variant="outline"
-            className="w-full justify-start text-sm"
-            size="sm"
-          >
-            <Sparkles className="w-4 h-4 mr-2 text-purple-600" />
-            Premium Service
-          </Button>
-          
-          <Button
-            onClick={() => applySmartFilter('express')}
-            disabled={rates.length === 0}
-            variant="outline"
-            className="w-full justify-start text-sm"
-            size="sm"
-          >
-            <Clock className="w-4 h-4 mr-2 text-red-600" />
-            Express Delivery
-          </Button>
-        </div>
       </Card>
 
       {/* Fixed Custom Form Section */}
