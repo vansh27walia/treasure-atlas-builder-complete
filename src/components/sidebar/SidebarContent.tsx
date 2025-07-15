@@ -1,19 +1,19 @@
 
 import React from 'react';
-import { Home, Package, Truck, Plane, Ship, Calculator, Settings, BarChart } from 'lucide-react';
+import { Home, Package, Truck, Plane, Ship, Settings, BarChart } from 'lucide-react';
 import SidebarNavSection from './SidebarNavSection';
+import SidebarNavItem from './SidebarNavItem';
 
-const SidebarContent = () => {
+interface SidebarContentProps {
+  collapsed: boolean;
+}
+
+const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
   const shippingItems = [
     {
       name: 'Create Label',
       href: '/create-label',
       icon: Package
-    },
-    {
-      name: 'Rate Calculator',
-      href: '/rate-calculator',
-      icon: Calculator
     },
     {
       name: 'Freight Forwarding',
@@ -65,19 +65,34 @@ const SidebarContent = () => {
       <div className="p-4">
         <div className="flex items-center gap-2 mb-8">
           <Home className="w-6 h-6 text-primary" />
-          <span className="font-bold text-lg">ShipFlow</span>
+          {!collapsed && <span className="font-bold text-lg">ShipFlow</span>}
         </div>
       </div>
 
       <nav className="flex-1 px-4">
-        <SidebarNavSection 
-          title="Shipping" 
-          items={shippingItems}
-        />
-        <SidebarNavSection 
-          title="Management" 
-          items={managementItems}
-        />
+        <SidebarNavSection title="Shipping" collapsed={collapsed}>
+          {shippingItems.map((item) => (
+            <SidebarNavItem
+              key={item.name}
+              icon={<item.icon />}
+              title={item.name}
+              to={item.href}
+              collapsed={collapsed}
+            />
+          ))}
+        </SidebarNavSection>
+        
+        <SidebarNavSection title="Management" collapsed={collapsed}>
+          {managementItems.map((item) => (
+            <SidebarNavItem
+              key={item.name}
+              icon={<item.icon />}
+              title={item.name}
+              to={item.href}
+              collapsed={collapsed}
+            />
+          ))}
+        </SidebarNavSection>
       </nav>
     </div>
   );
