@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
@@ -6,16 +5,16 @@ import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import AIPoweredSidePanel from '@/components/shipping/AIPoweredSidePanel';
 import IndependentRateCalculator from '@/components/shipping/IndependentRateCalculator';
 import { useShippingRates } from '@/hooks/useShippingRates';
-
 const CreateLabelPage = () => {
-  const { rates, handleSelectRate, handleFilterByCarrier } = useShippingRates();
-
+  const {
+    rates,
+    handleSelectRate,
+    handleFilterByCarrier
+  } = useShippingRates();
   const handleRatesReorder = (reorderedRates: any[]) => {
     console.log('Reordering rates:', reorderedRates);
   };
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       {/* Workflow Tracker - positioned slightly lower */}
       <div className="pt-4">
         <EnhancedWorkflowTracker currentStep="package" />
@@ -34,11 +33,7 @@ const CreateLabelPage = () => {
           {/* Main Layout: Rate Calculator (Left), Form (Center), AI Panel (Right) */}
           <div className="grid grid-cols-1 lg:grid-cols-6 gap-8">
             {/* Independent Rate Calculator - Left Side (1/6 width) */}
-            <div className="lg:col-span-1">
-              <div className="sticky top-24">
-                <IndependentRateCalculator />
-              </div>
-            </div>
+            
 
             {/* Main Form - Center (4/6 width) */}
             <div className="lg:col-span-4 space-y-8">
@@ -52,18 +47,11 @@ const CreateLabelPage = () => {
 
             {/* AI-Powered Side Panel - Right Side (1/6 width) */}
             <div className="lg:col-span-1">
-              <AIPoweredSidePanel 
-                rates={rates}
-                onRatesReorder={handleRatesReorder}
-                onCarrierFilter={handleFilterByCarrier}
-                onRateSelect={handleSelectRate}
-              />
+              <AIPoweredSidePanel rates={rates} onRatesReorder={handleRatesReorder} onCarrierFilter={handleFilterByCarrier} onRateSelect={handleSelectRate} />
             </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default CreateLabelPage;
