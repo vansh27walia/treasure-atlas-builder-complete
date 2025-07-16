@@ -311,7 +311,85 @@ const ShippingRates: React.FC = () => {
                 </div>
               )}
               
-              <
+              <div className="p-6 space-y-4">
+                {sortedRates.map((rate, index) => (
+                  <div 
+                    key={rate.id}
+                    className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                      selectedRateId === rate.id 
+                        ? 'border-blue-500 bg-blue-50 shadow-md' 
+                        : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                    }`}
+                    onClick={() => handleSelectRateLocal(rate)}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex flex-col">
+                          <Badge className={`w-fit mb-2 ${getCarrierColor(rate.carrier)}`}>
+                            {rate.carrier.toUpperCase()}
+                          </Badge>
+                          <div className="flex items-center space-x-2">
+                            {getServiceIcon(rate.service)}
+                            <span className="font-medium text-gray-900">{rate.service}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="text-right">
+                        <div className="flex flex-col items-end space-y-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500 line-through">
+                              ${getInflatedRate(parseFloat(rate.rate)).toFixed(2)}
+                            </span>
+                            <span className="text-sm font-medium text-gray-700">
+                              Our Price: ${parseFloat(rate.rate).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="text-lg font-bold text-green-600">
+                            You Pay: ${getHyperDiscountedRate(parseFloat(rate.rate)).toFixed(2)}
+                          </div>
+                          <span className="text-xs text-green-600 font-medium">
+                            Save {Math.round((1 - getHyperDiscountedRate(parseFloat(rate.rate)) / getInflatedRate(parseFloat(rate.rate))) * 100)}%
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3 flex justify-between items-center">
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-1">
+                          <Clock className="w-4 h-4 text-gray-500" />
+                          <span className="text-sm text-gray-600">
+                            {rate.delivery_days === 1 ? 'Next day' : `${rate.delivery_days} days`}
+                          </span>
+                        </div>
+                        
+                        {rate.id === bestValueRateId && (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                            Best Value
+                          </Badge>
+                        )}
+                        
+                        {rate.id === fastestRateId && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+                            Fastest
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <Button 
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectRateLocal(rate);
+                        }}
+                      >
+                        Ship It
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
               {showPaymentSection && (
                 <div className="p-6 border-t bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -327,115 +405,8 @@ const ShippingRates: React.FC = () => {
                       }
                     }}
                     amount={rateAmount}
-            <div className="space-y-4 mt-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                   {sortedRates.map((rate) => (
-                     <ShippingRateCard
-                       key={rate.id}
-                       rate={rate}
-                       isSelected={selectedRateId === rate.id}
-                       onSelect={handleRateSelection}
-                       isBestValue={rate.id === bestValueRateId}
-                       isFastest={rate.id === fastestRateId}
-                       aiRecommendation={aiRecommendation && {
-                         rateId: aiRecommendation.bestOverall || '',
-                         reason: aiRecommendation.analysisText || ''
-                       }}
-                       showDiscount={true}
-                       originalRate={rate.original_rate}
-                       isPremium={false}
-                       showPayButton={true}
-                       shippingDetails={{
-                         rate: rate,
-                       }}
-                     />
-                   ))}
-                </div>
-
-                {sortedRates.length === 0 && (
-                  <div className="p-6 text-center bg-gray-50 rounded-lg">
-                    <p className="text-base text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => handleFilterByCarrier('all')} 
-                      className="mt-4 h-9 px-4 text-sm"
-                    >
-                      Clear Filters
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {/* Payment Section - Show when rate is selected but payment not completed */}
-              {showPaymentSection && (
-                <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                  <h3 className="font-semibold text-blue-800 mb-4">Complete Payment to Create Label</h3>
-                  <PaymentMethodSelector
-                    selectedPaymentMethod={null}
-                    onPaymentMethodChange={handlePaymentMethodChange}
-                    onPaymentComplete={handlePaymentComplete}
-                    amount={rateAmount}
                     description="Shipping Label Purchase"
                   />
-                </div>
-              )}
-              
-              <div className="mt-6 flex flex-wrap justify-end gap-3">
-                {fromCalculator && selectedRateId && (
-                  <Button 
-                    onClick={handleProceedForward}
-                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md shadow-md"
-                  >
-                    <Download className="h-4 w-4" />
-                    Proceed Forward
-                  </Button>
-                )}
-
-                <Button 
-                  onClick={handleProceedToPayment}
-                  disabled={!selectedRateId || isProcessingPayment}
-                  variant="outline"
-                  className="border border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md"
-                >
-                  {isProcessingPayment ? (
-                    <>
-                      <Loader className="h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="h-4 w-4" />
-                      Proceed to Payment
-                    </>
-                  )}
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="mt-6 flex justify-end">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  sessionStorage.removeItem('calculatorData');
-                  sessionStorage.removeItem('transferToShipping');
-                  document.dispatchEvent(new Event('shipping-form-completed'));
-                }}
-                className="border border-blue-200 hover:bg-blue-50 h-9 px-4 text-sm"
-              >
-                Ship Another Package
-              </Button>
-            </div>
-          )}
-          
-          <div className="mt-4 text-center text-xs text-gray-500">
-            <p>* All rates include handling fees and applicable taxes</p>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
-};                  />
                 </div>
               )}
 
