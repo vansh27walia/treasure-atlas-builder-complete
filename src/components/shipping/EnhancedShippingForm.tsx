@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,12 +10,12 @@ import { toast } from '@/components/ui/sonner';
 import { supabase } from "@/integrations/supabase/client";
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AddressSelector from './AddressSelector';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { createAddressSelectHandler } from '@/utils/addressUtils';
-import { Search, Package, MapPin } from 'lucide-react';
+import { Search, Package, MapPin, FileText, Shield, AlertTriangle } from 'lucide-react';
 import CustomsDocumentationModal from './CustomsDocumentationModal';
+import LabelCreationModal from './LabelCreationModal';
 import PackageTypeSelector from './PackageTypeSelector';
 import InsuranceCalculator from './InsuranceCalculator';
 import HazmatSelector from './HazmatSelector';
@@ -24,9 +25,9 @@ const shippingFormSchema = z.object({
   weightValue: z.coerce.number().min(0, "Weight must be greater than 0"),
   weightUnit: z.enum(["oz", "kg", "lb"]),
   declaredValue: z.coerce.number().min(0, "Value must be greater than 0"),
-  length: z.coerce.number().min(0, "Length must be greater than 0"),
-  width: z.coerce.number().min(0, "Width must be greater than 0"),
-  height: z.coerce.number().min(0, "Height must be greater than 0"),
+  length: z.coerce.number().min(0, "Length must be greater than 0").optional(),
+  width: z.coerce.number().min(0, "Width must be greater than 0").optional(),
+  height: z.coerce.number().min(0, "Height must be greater than 0").optional(),
   insurance: z.boolean().default(true),
   hazmat: z.boolean().default(false),
   hazmatType: z.string().optional(),
@@ -41,7 +42,8 @@ const EnhancedShippingForm: React.FC = () => {
   const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
   const [showCustomsModal, setShowCustomsModal] = useState(false);
   const [customsInfo, setCustomsInfo] = useState<any>(null);
-  const [showInternationalLabelModal, setShowInternationalLabelModal] = useState(false);
+  const [showLabelCreationModal, setShowLabelCreationModal] = useState(false);
+  const [labelCreationData, setLabelCreationData] = useState<any>(null);
 
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
@@ -50,12 +52,12 @@ const EnhancedShippingForm: React.FC = () => {
     resolver: zodResolver(shippingFormSchema),
     defaultValues: {
       packageType: 'box',
-      weightValue: 0,
+      weightValue: undefined,
       weightUnit: 'lb',
-      declaredValue: 0,
-      length: 0,
-      width: 0,
-      height: 0,
+      declaredValue: undefined,
+      length: undefined,
+      width: undefined,
+      height: undefined,
       insurance: true,
       hazmat: false,
       hazmatType: '',
@@ -63,40 +65,25 @@ const EnhancedShippingForm: React.FC = () => {
     }
   });
 
-  // Watch for package type changes to show/hide dimensions
+  // Watch for package type changes
   const watchPackageType = form.watch("packageType");
   const watchInsurance = form.watch("insurance");
   const watchDeclaredValue = form.watch("declaredValue");
   const watchHazmat = form.watch("hazmat");
 
   // Calculate insurance cost
-  const insuranceCost = watchInsurance ? Math.max(2, Math.ceil((watchDeclaredValue / 100) * 2)) : 0;
+  const insuranceCost = watchInsurance && watchDeclaredValue ? Math.max(2, Math.ceil((watchDeclaredValue / 100) * 2)) : 0;
 
   // Show dimensions for custom packages
   const showDimensions = ['box', 'envelope'].includes(watchPackageType);
 
-  // Enhanced address change handler for international flow
-  useEffect(() => {
-    if (fromAddress && toAddress && fromAddress.country !== toAddress.country) {
-      // Show customs modal first
-      setShowCustomsModal(true);
-    }
-  }, [fromAddress, toAddress]);
+  // Check if international shipping
+  const isInternational = fromAddress && toAddress && fromAddress.country !== toAddress.country;
 
   const handleCustomsSubmit = (customs: any) => {
     setCustomsInfo(customs);
     setShowCustomsModal(false);
-    
-    // Show international label creation modal after customs
-    setTimeout(() => {
-      setShowInternationalLabelModal(true);
-    }, 300);
-  };
-
-  const handleInternationalLabelComplete = () => {
-    setShowInternationalLabelModal(false);
-    // Show success notification
-    toast.success("International shipping label created successfully!");
+    toast.success("Customs documentation saved successfully");
   };
 
   const handleInsuranceChange = (enabled: boolean, amount: number) => {
@@ -111,7 +98,8 @@ const EnhancedShippingForm: React.FC = () => {
     }
 
     // Check if international shipping requires customs and it's not completed
-    if (fromAddress.country !== toAddress.country && !customsInfo) {
+    if (isInternational && !customsInfo) {
+      toast.error("Please complete customs documentation for international shipments");
       setShowCustomsModal(true);
       return;
     }
@@ -119,11 +107,11 @@ const EnhancedShippingForm: React.FC = () => {
     setIsLoading(true);
     try {
       // Convert weight to ounces for backend processing
-      let weightOz = values.weightValue;
+      let weightOz = values.weightValue || 0;
       if (values.weightUnit === 'kg') {
-        weightOz = values.weightValue * 35.274;
+        weightOz = weightOz * 35.274;
       } else if (values.weightUnit === 'lb') {
-        weightOz = values.weightValue * 16;
+        weightOz = weightOz * 16;
       }
       
       // Prepare the request payload for EasyPost API
@@ -149,9 +137,9 @@ const EnhancedShippingForm: React.FC = () => {
           country: toAddress.country || 'US',
         },
         parcel: {
-          length: values.length,
-          width: values.width,
-          height: values.height,
+          length: values.length || 8,
+          width: values.width || 8,
+          height: values.height || 2,
           weight: weightOz,
         },
         options: {
@@ -159,7 +147,6 @@ const EnhancedShippingForm: React.FC = () => {
         },
         carriers: values.carriers,
         customs_info: customsInfo,
-        // Store insurance info for later use in label creation
         insurance_info: values.insurance ? {
           amount: values.declaredValue,
           cost: insuranceCost
@@ -168,7 +155,6 @@ const EnhancedShippingForm: React.FC = () => {
 
       console.log('Submitting payload:', payload);
 
-      // Call the Edge Function to get shipping rates
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
         body: payload,
       });
@@ -177,7 +163,6 @@ const EnhancedShippingForm: React.FC = () => {
         throw new Error(`Error fetching rates: ${error.message}`);
       }
 
-      // Process and dispatch rates
       if (data.rates && Array.isArray(data.rates)) {
         const ratesWithInsurance = data.rates.map(rate => ({
           ...rate,
@@ -204,6 +189,23 @@ const EnhancedShippingForm: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // Listen for label creation events
+  useEffect(() => {
+    const handleLabelCreated = (event: any) => {
+      const { labelData } = event.detail;
+      setLabelCreationData({
+        ...labelData,
+        fromAddress,
+        toAddress,
+        isInternational
+      });
+      setShowLabelCreationModal(true);
+    };
+
+    document.addEventListener('label-created', handleLabelCreated);
+    return () => document.removeEventListener('label-created', handleLabelCreated);
+  }, [fromAddress, toAddress, isInternational]);
 
   return (
     <div className="w-full">
@@ -243,7 +245,6 @@ const EnhancedShippingForm: React.FC = () => {
                 Package Details
               </h3>
                 
-              {/* Package Type */}
               <div className="mb-4">
                 <FormField
                   control={form.control}
@@ -260,7 +261,7 @@ const EnhancedShippingForm: React.FC = () => {
                 />
               </div>
 
-              {/* Package Dimensions - Show based on package type */}
+              {/* Package Dimensions */}
               {showDimensions && (
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <FormField
@@ -275,9 +276,10 @@ const EnhancedShippingForm: React.FC = () => {
                             min="0"
                             step="0.1"
                             {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
                             className="bg-white"
-                            placeholder="0"
+                            placeholder="Length"
                           />
                         </FormControl>
                         <FormMessage />
@@ -296,9 +298,10 @@ const EnhancedShippingForm: React.FC = () => {
                             min="0"
                             step="0.1"
                             {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
                             className="bg-white"
-                            placeholder="0"
+                            placeholder="Width"
                           />
                         </FormControl>
                         <FormMessage />
@@ -318,9 +321,10 @@ const EnhancedShippingForm: React.FC = () => {
                               min="0"
                               step="0.1"
                               {...field}
-                              onChange={(e) => field.onChange(Number(e.target.value))}
+                              value={field.value || ''}
+                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
                               className="bg-white"
-                              placeholder="0"
+                              placeholder="Height"
                             />
                           </FormControl>
                           <FormMessage />
@@ -345,9 +349,10 @@ const EnhancedShippingForm: React.FC = () => {
                           min="0"
                           step="0.1"
                           {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
                           className="bg-white"
-                          placeholder="0"
+                          placeholder="Weight"
                         />
                       </FormControl>
                       <FormMessage />
@@ -440,6 +445,61 @@ const EnhancedShippingForm: React.FC = () => {
                 )}
               />
             </div>
+
+            {/* Customs Documentation Section */}
+            {isInternational && (
+              <div className="p-6 bg-blue-50 border-l-4 border-blue-400">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    Customs Documentation
+                    <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">Required</span>
+                  </h3>
+                  <Button
+                    type="button"
+                    onClick={() => setShowCustomsModal(true)}
+                    variant="outline"
+                    className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                  >
+                    {customsInfo ? 'Edit Customs Info' : 'Add Customs Info'}
+                  </Button>
+                </div>
+                
+                {customsInfo ? (
+                  <div className="bg-white p-4 rounded-lg border border-blue-200">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">Contents Type:</span>
+                        <span className="ml-2 capitalize">{customsInfo.contents_type}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">Signer:</span>
+                        <span className="ml-2">{customsInfo.customs_signer}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">Items:</span>
+                        <span className="ml-2">{customsInfo.customs_items?.length || 0} item(s)</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">Total Value:</span>
+                        <span className="ml-2">
+                          ${customsInfo.customs_items?.reduce((sum: number, item: any) => sum + (item.value * item.quantity), 0).toFixed(2) || '0.00'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-yellow-800">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span className="text-sm font-medium">
+                        Customs documentation is required for international shipments
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
               
             {/* Submit Section */}
             <div className="p-6 bg-muted/50">
@@ -467,37 +527,15 @@ const EnhancedShippingForm: React.FC = () => {
         onSubmit={handleCustomsSubmit}
         fromCountry={fromAddress?.country || ''}
         toCountry={toAddress?.country || ''}
+        initialData={customsInfo}
       />
 
-      {/* International Label Creation Modal */}
-      {showInternationalLabelModal && (
-        <Dialog open={showInternationalLabelModal} onOpenChange={setShowInternationalLabelModal}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create International Shipping Label</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p className="text-gray-600">
-                Creating your international shipping label with customs documentation...
-              </p>
-              <div className="flex justify-end gap-3">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowInternationalLabelModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleInternationalLabelComplete}
-                  className="bg-green-600 hover:bg-green-700"
-                >
-                  Create Label
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      {/* Label Creation Modal */}
+      <LabelCreationModal
+        isOpen={showLabelCreationModal}
+        onClose={() => setShowLabelCreationModal(false)}
+        labelData={labelCreationData}
+      />
     </div>
   );
 };

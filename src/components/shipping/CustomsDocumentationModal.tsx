@@ -1,34 +1,41 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2 } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { X, FileText, Package } from 'lucide-react';
 
 interface CustomsItem {
   description: string;
   quantity: number;
-  weight: number;
   value: number;
-  hsTariffNumber?: string;
-  originCountry: string;
+  weight: number;
+  hs_tariff_number?: string;
+  origin_country: string;
 }
 
 interface CustomsInfo {
-  contentsType: 'gift' | 'merchandise' | 'documents' | 'returned_goods' | 'sample' | 'other';
-  customsSigner: string;
-  nonDeliveryOption: 'return' | 'abandon';
-  eelPfc: string;
-  customsItems: CustomsItem[];
+  contents_type: string;
+  contents_explanation?: string;
+  customs_certify: boolean;
+  customs_signer: string;
+  non_delivery_option: string;
+  restriction_type?: string;
+  restriction_comments?: string;
+  customs_items: CustomsItem[];
+  eel_pfc?: string;
 }
 
 interface CustomsDocumentationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (customsInfo: CustomsInfo) => void;
+  onSubmit: (customs: CustomsInfo) => void;
   fromCountry: string;
   toCountry: string;
+  initialData?: CustomsInfo;
 }
 
 const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
@@ -36,241 +43,299 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
   onClose,
   onSubmit,
   fromCountry,
-  toCountry
+  toCountry,
+  initialData
 }) => {
-  const [customsItems, setCustomsItems] = useState<CustomsItem[]>([
-    { description: '', quantity: 1, weight: 0, value: 0, originCountry: fromCountry }
-  ]);
-  const [contentsType, setContentsType] = useState<CustomsInfo['contentsType']>('merchandise');
-  const [customsSigner, setCustomsSigner] = useState('');
-  const [nonDeliveryOption, setNonDeliveryOption] = useState<'return' | 'abandon'>('return');
+  const [customsData, setCustomsData] = useState<CustomsInfo>({
+    contents_type: 'merchandise',
+    contents_explanation: '',
+    customs_certify: true,
+    customs_signer: '',
+    non_delivery_option: 'return',
+    restriction_type: 'none',
+    restriction_comments: '',
+    customs_items: [{
+      description: '',
+      quantity: 1,
+      value: 0,
+      weight: 0,
+      hs_tariff_number: '',
+      origin_country: fromCountry || 'US'
+    }],
+    eel_pfc: ''
+  });
 
-  const totalValue = customsItems.reduce((sum, item) => sum + (item.value * item.quantity), 0);
-  const eelPfc = totalValue < 2500 ? 'NOEEI 30.37(a)' : '';
-
-  const addItem = () => {
-    setCustomsItems([...customsItems, { 
-      description: '', 
-      quantity: 1, 
-      weight: 0, 
-      value: 0, 
-      originCountry: fromCountry 
-    }]);
-  };
-
-  const removeItem = (index: number) => {
-    if (customsItems.length > 1) {
-      setCustomsItems(customsItems.filter((_, i) => i !== index));
+  // Initialize with existing data when modal opens
+  useEffect(() => {
+    if (isOpen && initialData) {
+      setCustomsData(initialData);
+    } else if (isOpen && !initialData) {
+      // Reset to default when opening without initial data
+      setCustomsData({
+        contents_type: 'merchandise',
+        contents_explanation: '',
+        customs_certify: true,
+        customs_signer: '',
+        non_delivery_option: 'return',
+        restriction_type: 'none',
+        restriction_comments: '',
+        customs_items: [{
+          description: '',
+          quantity: 1,
+          value: 0,
+          weight: 0,
+          hs_tariff_number: '',
+          origin_country: fromCountry || 'US'
+        }],
+        eel_pfc: ''
+      });
     }
-  };
+  }, [isOpen, initialData, fromCountry]);
 
-  const updateItem = (index: number, field: keyof CustomsItem, value: any) => {
-    const updatedItems = [...customsItems];
-    updatedItems[index] = { ...updatedItems[index], [field]: value };
-    setCustomsItems(updatedItems);
-  };
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Validate required fields
+    if (!customsData.customs_signer.trim()) {
+      alert('Please enter the customs signer name');
+      return;
+    }
 
-  const handleSubmit = () => {
-    const customsInfo: CustomsInfo = {
-      contentsType,
-      customsSigner,
-      nonDeliveryOption,
-      eelPfc: eelPfc || 'AES ITN Required',
-      customsItems
-    };
+    if (customsData.customs_items.some(item => !item.description.trim() || item.value <= 0)) {
+      alert('Please fill in all item descriptions and values');
+      return;
+    }
+
+    console.log('Submitting customs data:', customsData);
+    onSubmit(customsData);
     
-    onSubmit(customsInfo);
-    
+    // Close modal after successful submission
     setTimeout(() => {
       onClose();
     }, 100);
   };
 
-  const handleClose = () => {
+  const handleCancel = () => {
+    console.log('Canceling customs modal');
     onClose();
   };
 
-  const isValid = customsItems.every(item => 
-    item.description && item.quantity > 0 && item.value > 0
-  ) && customsSigner.trim() !== '';
+  const addCustomsItem = () => {
+    setCustomsData(prev => ({
+      ...prev,
+      customs_items: [...prev.customs_items, {
+        description: '',
+        quantity: 1,
+        value: 0,
+        weight: 0,
+        hs_tariff_number: '',
+        origin_country: fromCountry || 'US'
+      }]
+    }));
+  };
+
+  const removeCustomsItem = (index: number) => {
+    if (customsData.customs_items.length > 1) {
+      setCustomsData(prev => ({
+        ...prev,
+        customs_items: prev.customs_items.filter((_, i) => i !== index)
+      }));
+    }
+  };
+
+  const updateCustomsItem = (index: number, field: keyof CustomsItem, value: any) => {
+    setCustomsData(prev => ({
+      ...prev,
+      customs_items: prev.customs_items.map((item, i) => 
+        i === index ? { ...item, [field]: value } : item
+      )
+    }));
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold text-gray-800">
-            International Shipping - Customs Documentation
-          </DialogTitle>
-          <p className="text-sm text-gray-600">
-            Shipping from {fromCountry} to {toCountry} requires customs documentation
-          </p>
+    <Dialog open={isOpen} onOpenChange={() => {}}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <FileText className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl font-semibold">Customs Documentation</DialogTitle>
+              <p className="text-sm text-gray-600">International shipping from {fromCountry} to {toCountry}</p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCancel}
+            className="h-6 w-6 p-0 hover:bg-gray-100"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Contents Type */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm font-medium">Contents Type</Label>
+              <Select 
+                value={customsData.contents_type} 
+                onValueChange={(value) => setCustomsData(prev => ({ ...prev, contents_type: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="merchandise">Merchandise</SelectItem>
+                  <SelectItem value="documents">Documents</SelectItem>
+                  <SelectItem value="gift">Gift</SelectItem>
+                  <SelectItem value="returned_goods">Returned Goods</SelectItem>
+                  <SelectItem value="sample">Sample</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="space-y-6">
+            <div>
+              <Label className="text-sm font-medium">Non-Delivery Option</Label>
+              <Select 
+                value={customsData.non_delivery_option} 
+                onValueChange={(value) => setCustomsData(prev => ({ ...prev, non_delivery_option: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="return">Return to Sender</SelectItem>
+                  <SelectItem value="abandon">Abandon</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Contents Explanation */}
+          {customsData.contents_type === 'other' && (
+            <div>
+              <Label className="text-sm font-medium">Contents Explanation</Label>
+              <Input
+                value={customsData.contents_explanation || ''}
+                onChange={(e) => setCustomsData(prev => ({ ...prev, contents_explanation: e.target.value }))}
+                placeholder="Explain the contents"
+              />
+            </div>
+          )}
+
+          {/* Customs Signer */}
+          <div>
+            <Label className="text-sm font-medium">Customs Signer *</Label>
+            <Input
+              value={customsData.customs_signer}
+              onChange={(e) => setCustomsData(prev => ({ ...prev, customs_signer: e.target.value }))}
+              placeholder="Full name of person signing customs declaration"
+              required
+            />
+          </div>
+
           {/* Customs Items */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <Label className="text-base font-medium">Customs Items</Label>
-              <Button onClick={addItem} size="sm" variant="outline" className="gap-2">
-                <Plus className="w-4 h-4" />
+            <div className="flex items-center justify-between mb-4">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Customs Items
+              </Label>
+              <Button type="button" onClick={addCustomsItem} variant="outline" size="sm">
                 Add Item
               </Button>
             </div>
 
-            <div className="space-y-4">
-              {customsItems.map((item, index) => (
-                <div key={index} className="p-4 border rounded-lg bg-gray-50">
-                  <div className="flex justify-between items-start mb-3">
-                    <h4 className="font-medium">Item {index + 1}</h4>
-                    {customsItems.length > 1 && (
-                      <Button
-                        onClick={() => removeItem(index)}
-                        size="sm"
-                        variant="ghost"
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
+            {customsData.customs_items.map((item, index) => (
+              <div key={index} className="p-4 border rounded-lg space-y-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Item {index + 1}</h4>
+                  {customsData.customs_items.length > 1 && (
+                    <Button
+                      type="button"
+                      onClick={() => removeCustomsItem(index)}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor={`description-${index}`}>Description *</Label>
-                      <Input
-                        id={`description-${index}`}
-                        value={item.description}
-                        onChange={(e) => updateItem(index, 'description', e.target.value)}
-                        placeholder="e.g., Electronics, Clothing"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`quantity-${index}`}>Quantity *</Label>
-                      <Input
-                        id={`quantity-${index}`}
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`weight-${index}`}>Weight (oz) *</Label>
-                      <Input
-                        id={`weight-${index}`}
-                        type="number"
-                        min="0"
-                        step="0.1"
-                        value={item.weight}
-                        onChange={(e) => updateItem(index, 'weight', parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`value-${index}`}>Value (USD) *</Label>
-                      <Input
-                        id={`value-${index}`}
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.value}
-                        onChange={(e) => updateItem(index, 'value', parseFloat(e.target.value) || 0)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`hs-${index}`}>HS Tariff Number</Label>
-                      <Input
-                        id={`hs-${index}`}
-                        value={item.hsTariffNumber || ''}
-                        onChange={(e) => updateItem(index, 'hsTariffNumber', e.target.value)}
-                        placeholder="Optional"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`origin-${index}`}>Origin Country</Label>
-                      <Input
-                        id={`origin-${index}`}
-                        value={item.originCountry}
-                        onChange={(e) => updateItem(index, 'originCountry', e.target.value)}
-                      />
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-sm">Description *</Label>
+                    <Input
+                      value={item.description}
+                      onChange={(e) => updateCustomsItem(index, 'description', e.target.value)}
+                      placeholder="Item description"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">HS Tariff Number</Label>
+                    <Input
+                      value={item.hs_tariff_number || ''}
+                      onChange={(e) => updateCustomsItem(index, 'hs_tariff_number', e.target.value)}
+                      placeholder="Optional tariff code"
+                    />
                   </div>
                 </div>
-              ))}
-            </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm">Quantity *</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={item.quantity}
+                      onChange={(e) => updateCustomsItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">Value (USD) *</Label>
+                    <Input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={item.value}
+                      onChange={(e) => updateCustomsItem(index, 'value', parseFloat(e.target.value) || 0)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm">Weight (oz)</Label>
+                    <Input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={item.weight}
+                      onChange={(e) => updateCustomsItem(index, 'weight', parseFloat(e.target.value) || 0)}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
-          {/* Contents Type */}
-          <div>
-            <Label htmlFor="contents-type">Contents Type *</Label>
-            <Select value={contentsType} onValueChange={(value: any) => setContentsType(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="merchandise">Merchandise</SelectItem>
-                <SelectItem value="gift">Gift</SelectItem>
-                <SelectItem value="documents">Documents</SelectItem>
-                <SelectItem value="returned_goods">Returned Goods</SelectItem>
-                <SelectItem value="sample">Sample</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Customs Signer */}
-          <div>
-            <Label htmlFor="customs-signer">Customs Signer *</Label>
-            <Input
-              id="customs-signer"
-              value={customsSigner}
-              onChange={(e) => setCustomsSigner(e.target.value)}
-              placeholder="Full name of person certifying"
-            />
-          </div>
-
-          {/* Non-delivery Option */}
-          <div>
-            <Label htmlFor="non-delivery">Non-delivery Option</Label>
-            <Select value={nonDeliveryOption} onValueChange={(value: any) => setNonDeliveryOption(value)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="return">Return to Sender</SelectItem>
-                <SelectItem value="abandon">Abandon</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* EEL/PFC Code */}
-          <div>
-            <Label>EEL/PFC Code</Label>
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                Total declared value: ${totalValue.toFixed(2)}
-              </p>
-              <p className="text-sm text-blue-700">
-                {totalValue < 2500 
-                  ? `Automatically set to: ${eelPfc}`
-                  : 'AES ITN required for shipments over $2,500'
-                }
-              </p>
-            </div>
-          </div>
-
+          {/* Submit/Cancel Buttons */}
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button onClick={handleClose} variant="outline">
+            <Button type="button" variant="outline" onClick={handleCancel}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleSubmit} 
-              disabled={!isValid}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              Save & Continue
+            <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+              Save Customs Documentation
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
