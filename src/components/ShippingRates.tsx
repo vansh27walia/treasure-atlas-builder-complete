@@ -1,40 +1,37 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Truck, DollarSign, Shield, Star } from 'lucide-react';
+import { Clock, Truck, DollarSign, Shield, Star, Award, Zap } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
+import { useShippingRates } from '@/hooks/useShippingRates';
 import StripePaymentModal from './shipping/StripePaymentModal';
 
-interface ShippingRate {
-  id: string;
-  carrier: string;
-  service: string;
-  rate: string;
-  delivery_days: number;
-  delivery_date?: string;
-  insurance_cost?: number;
-  total_cost?: number;
-}
-
 const ShippingRates: React.FC = () => {
-  const [rates, setRates] = useState<ShippingRate[]>([]);
-  const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
-  const [shipmentId, setShipmentId] = useState<string | null>(null);
+  const {
+    rates,
+    isLoading,
+    selectedRateId,
+    handleSelectRate,
+    bestValueRateId,
+    fastestRateId,
+    uniqueCarriers,
+    activeCarrierFilter,
+    handleFilterByCarrier
+  } = useShippingRates();
+
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [selectedRate, setSelectedRate] = useState<any>(null);
+  const [shipmentId, setShipmentId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleRatesReceived = (event: any) => {
       console.log('Received rates:', event.detail);
-      const { rates: newRates, shipmentId: newShipmentId } = event.detail;
+      const { shipmentId: newShipmentId } = event.detail;
       
-      if (newRates && Array.isArray(newRates)) {
-        setRates(newRates);
+      if (newShipmentId) {
         setShipmentId(newShipmentId);
-      } else {
-        console.warn('Invalid rates data received:', event.detail);
-        setRates([]);
       }
     };
 
@@ -42,10 +39,11 @@ const ShippingRates: React.FC = () => {
     return () => document.removeEventListener('easypost-rates-received', handleRatesReceived);
   }, []);
 
-  const handleSelectRate = (rate: ShippingRate) => {
+  const handleSelectRateForPayment = (rate: any) => {
     setSelectedRate(rate);
+    handleSelectRate(rate.id);
     setShowPaymentModal(true);
-    console.log('Selected rate:', rate);
+    console.log('Selected rate for payment:', rate);
   };
 
   const handlePaymentSuccess = () => {
@@ -82,9 +80,29 @@ const ShippingRates: React.FC = () => {
 
   const getServiceIcon = (service: string) => {
     if (service.toLowerCase().includes('express') || service.toLowerCase().includes('overnight')) {
-      return <Star className="w-4 h-4 text-yellow-500" />;
+      return <Zap className="w-4 h-4 text-yellow-500" />;
     }
     return <Truck className="w-4 h-4 text-gray-500" />;
+  };
+
+  const getBadgeForRate = (rateId: string) => {
+    if (rateId === bestValueRateId) {
+      return (
+        <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
+          <Award className="w-3 h-3 mr-1" />
+          Best Value
+        </Badge>
+      );
+    }
+    if (rateId === fastestRateId) {
+      return (
+        <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
+          <Zap className="w-3 h-3 mr-1" />
+          Fastest
+        </Badge>
+      );
+    }
+    return null;
   };
 
   if (rates.length === 0) {
@@ -92,7 +110,7 @@ const ShippingRates: React.FC = () => {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full" id="shipping-rates-section">
       <Card className="border shadow-sm">
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2">
@@ -102,6 +120,29 @@ const ShippingRates: React.FC = () => {
           <p className="text-sm text-gray-600">
             Choose the best shipping option for your package
           </p>
+          
+          {/* Carrier Filter */}
+          {uniqueCarriers.length > 1 && (
+            <div className="flex flex-wrap gap-2 mt-4">
+              <Button
+                variant={activeCarrierFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleFilterByCarrier('all')}
+              >
+                All Carriers
+              </Button>
+              {uniqueCarriers.map((carrier) => (
+                <Button
+                  key={carrier}
+                  variant={activeCarrierFilter === carrier ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => handleFilterByCarrier(carrier)}
+                >
+                  {carrier}
+                </Button>
+              ))}
+            </div>
+          )}
         </CardHeader>
         
         <CardContent className="p-0">
@@ -110,11 +151,14 @@ const ShippingRates: React.FC = () => {
               {rates.map((rate, index) => (
                 <div
                   key={rate.id || index}
-                  className="group border rounded-xl p-4 hover:border-blue-300 hover:shadow-md transition-all duration-200 cursor-pointer"
-                  onClick={() => handleSelectRate(rate)}
+                  data-rate-id={rate.id}
+                  className={`group border rounded-xl p-4 hover:border-blue-300 hover:shadow-md transition-all duration-200 cursor-pointer ${
+                    selectedRateId === rate.id ? 'border-blue-500 bg-blue-50' : ''
+                  }`}
+                  onClick={() => handleSelectRateForPayment(rate)}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 flex-1">
                       <div className="flex items-center gap-2">
                         {getServiceIcon(rate.service)}
                         <Badge 
@@ -123,6 +167,7 @@ const ShippingRates: React.FC = () => {
                         >
                           {rate.carrier.toUpperCase()}
                         </Badge>
+                        {getBadgeForRate(rate.id)}
                       </div>
                       
                       <div className="flex-1">
@@ -148,11 +193,28 @@ const ShippingRates: React.FC = () => {
                     </div>
 
                     <div className="text-right">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="w-4 h-4 text-green-600" />
-                        <span className="text-xl font-bold text-green-600">
-                          ${(rate.total_cost || parseFloat(rate.rate)).toFixed(2)}
-                        </span>
+                      <div className="flex flex-col items-end gap-1">
+                        {/* Original Rate (Inflated) */}
+                        {rate.original_rate && (
+                          <div className="text-sm text-gray-500 line-through">
+                            ${parseFloat(rate.original_rate).toFixed(2)}
+                          </div>
+                        )}
+                        
+                        {/* Discounted Rate */}
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="w-4 h-4 text-green-600" />
+                          <span className="text-xl font-bold text-green-600">
+                            ${parseFloat(rate.rate).toFixed(2)}
+                          </span>
+                        </div>
+                        
+                        {/* Discount Badge */}
+                        {rate.original_rate && (
+                          <div className="text-xs text-green-600 font-medium">
+                            Save ${(parseFloat(rate.original_rate) - parseFloat(rate.rate)).toFixed(2)}
+                          </div>
+                        )}
                       </div>
                       
                       {rate.insurance_cost && rate.insurance_cost > 0 && (
@@ -169,7 +231,7 @@ const ShippingRates: React.FC = () => {
                         className="mt-2 bg-blue-600 hover:bg-blue-700 group-hover:bg-blue-700"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleSelectRate(rate);
+                          handleSelectRateForPayment(rate);
                         }}
                       >
                         Select & Pay

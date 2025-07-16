@@ -6,9 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Package, Search, Loader2, ExternalLink } from 'lucide-react';
+import { MapPin, Package, Search, Loader2, ExternalLink, Award, Zap, DollarSign, Clock, Shield } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from 'react-router-dom';
+import useRateCalculator from '@/hooks/useRateCalculator';
 
 interface RateResult {
   id: string;
@@ -16,8 +18,33 @@ interface RateResult {
   service: string;
   rate: string;
   delivery_days: number;
+  original_rate?: string;
   discount?: number;
+  isPremium?: boolean;
 }
+
+const countries = [
+  { code: 'US', name: 'United States' },
+  { code: 'CA', name: 'Canada' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'FR', name: 'France' },
+  { code: 'IT', name: 'Italy' },
+  { code: 'ES', name: 'Spain' },
+  { code: 'AU', name: 'Australia' },
+  { code: 'JP', name: 'Japan' },
+  { code: 'CN', name: 'China' },
+  { code: 'IN', name: 'India' },
+  { code: 'BR', name: 'Brazil' },
+  { code: 'MX', name: 'Mexico' },
+  { code: 'RU', name: 'Russia' },
+  { code: 'KR', name: 'South Korea' },
+  { code: 'SG', name: 'Singapore' },
+  { code: 'NL', name: 'Netherlands' },
+  { code: 'BE', name: 'Belgium' },
+  { code: 'CH', name: 'Switzerland' },
+  { code: 'AT', name: 'Austria' }
+];
 
 const packageTypes = [
   { value: 'box', label: 'Box', requiresHeight: true },
@@ -34,6 +61,9 @@ const packageTypes = [
 ];
 
 const RateCalculator: React.FC = () => {
+  const navigate = useNavigate();
+  const { fetchRates, aiRecommendation, isLoading, isAiLoading, selectRateAndProceed } = useRateCalculator();
+  
   const [fromZip, setFromZip] = useState('');
   const [fromCountry, setFromCountry] = useState('US');
   const [toZip, setToZip] = useState('');
@@ -46,7 +76,6 @@ const RateCalculator: React.FC = () => {
     weight: ''
   });
   const [weightUnit, setWeightUnit] = useState('lb');
-  const [isLoading, setIsLoading] = useState(false);
   const [rates, setRates] = useState<RateResult[]>([]);
   const [resolvedAddresses, setResolvedAddresses] = useState<any>({});
 
@@ -78,6 +107,7 @@ const RateCalculator: React.FC = () => {
         };
         
         return {
+          name: 'Rate Calculator',
           street1: getComponent(['street_number', 'route']) || zip,
           city: getComponent(['locality', 'administrative_area_level_2']),
           state: getComponent(['administrative_area_level_1']),
@@ -89,6 +119,7 @@ const RateCalculator: React.FC = () => {
       
       // Fallback if geocoding fails
       return {
+        name: 'Rate Calculator',
         street1: zip,
         city: 'Unknown',
         state: country === 'US' ? 'NY' : 'Unknown',
@@ -98,6 +129,7 @@ const RateCalculator: React.FC = () => {
     } catch (error) {
       console.error('Error resolving address:', error);
       return {
+        name: 'Rate Calculator',
         street1: zip,
         city: 'Unknown',
         state: country === 'US' ? 'NY' : 'Unknown',
@@ -123,9 +155,8 @@ const RateCalculator: React.FC = () => {
       return;
     }
 
-    setIsLoading(true);
     try {
-      // Resolve addresses from zip codes
+      // Resolve addresses from zip codes using Google Maps API
       const [fromAddress, toAddress] = await Promise.all([
         resolveAddress(fromZip, fromCountry),
         resolveAddress(toZip, toCountry)
@@ -154,76 +185,98 @@ const RateCalculator: React.FC = () => {
         parcel.predefined_package = packageType;
       }
 
-      const payload = {
-        fromAddress: {
-          name: 'Rate Calculator',
-          street1: fromAddress.street1,
-          city: fromAddress.city,
-          state: fromAddress.state,
-          zip: fromAddress.zip,
-          country: fromAddress.country,
-        },
-        toAddress: {
-          name: 'Recipient',
-          street1: toAddress.street1,
-          city: toAddress.city,
-          state: toAddress.state,
-          zip: toAddress.zip,
-          country: toAddress.country,
-        },
+      const requestData = {
+        fromAddress,
+        toAddress,
         parcel,
         carriers: ['usps', 'ups', 'fedex', 'dhl']
       };
 
-      console.log('Rate calculator payload:', payload);
+      console.log('Rate calculator request:', requestData);
 
-      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: payload,
-      });
-
-      if (error) {
-        throw new Error(`Error fetching rates: ${error.message}`);
-      }
-
-      if (data.rates && Array.isArray(data.rates)) {
-        setRates(data.rates);
-        toast.success(`Found ${data.rates.length} shipping options`);
-      } else {
-        setRates([]);
-        toast.info('No rates available for this route');
-      }
+      // Use the hook to fetch rates
+      await fetchRates(requestData);
+      
     } catch (error) {
       console.error('Error calculating rates:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to calculate rates');
       setRates([]);
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const handleShipWithRate = (rate: RateResult) => {
-    // Prepare data for the main shipping form
-    const shippingData = {
-      fromAddress: resolvedAddresses.from,
-      toAddress: resolvedAddresses.to,
-      parcel: {
-        type: packageType,
-        dimensions: dimensions,
-        weightUnit: weightUnit
-      },
-      selectedRate: rate
+  const getCarrierColor = (carrier: string) => {
+    switch (carrier.toLowerCase()) {
+      case 'usps': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'ups': return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'fedex': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'dhl': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getBadgeForRate = (rateId: string) => {
+    if (!aiRecommendation) return null;
+    
+    if (rateId === aiRecommendation.bestOverall) {
+      return (
+        <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-xs">
+          <Award className="w-3 h-3 mr-1" />
+          AI Pick
+        </Badge>
+      );
+    }
+    if (rateId === aiRecommendation.bestValue) {
+      return (
+        <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
+          <Award className="w-3 h-3 mr-1" />
+          Best Value
+        </Badge>
+      );
+    }
+    if (rateId === aiRecommendation.fastest) {
+      return (
+        <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
+          <Zap className="w-3 h-3 mr-1" />
+          Fastest
+        </Badge>
+      );
+    }
+    return null;
+  };
+
+  // Listen for rates from the rate calculator hook
+  React.useEffect(() => {
+    const handleRatesReceived = (event: any) => {
+      if (event.detail && event.detail.rates) {
+        // Process rates with original pricing logic
+        const processedRates = event.detail.rates.map((rate: any) => {
+          const discountPercentage = Math.random() * (90 - 85) + 85;
+          const actualRate = parseFloat(rate.rate);
+          const inflatedRate = (actualRate * (100 / (100 - discountPercentage))).toFixed(2);
+          
+          const isPremium = 
+            rate.service.toLowerCase().includes('express') || 
+            rate.service.toLowerCase().includes('priority') || 
+            rate.service.toLowerCase().includes('overnight') ||
+            rate.service.toLowerCase().includes('next day') ||
+            rate.service.toLowerCase().includes('same day') ||
+            (rate.delivery_days === 1) ||
+            actualRate > 20;
+          
+          return {
+            ...rate,
+            original_rate: inflatedRate,
+            isPremium
+          };
+        });
+        
+        setRates(processedRates);
+      }
     };
 
-    // Dispatch event to pre-fill main shipping form
-    document.dispatchEvent(new CustomEvent('prefill-shipping-form', {
-      detail: shippingData
-    }));
-
-    toast.success('Shipping form pre-filled with rate calculator data');
-    
-    // Navigate to main shipping form (if needed)
-    // You can add navigation logic here
-  };
+    document.addEventListener('easypost-rates-received', handleRatesReceived);
+    return () => document.removeEventListener('easypost-rates-received', handleRatesReceived);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -247,15 +300,15 @@ const RateCalculator: React.FC = () => {
                   className="flex-1"
                 />
                 <Select value={fromCountry} onValueChange={setFromCountry}>
-                  <SelectTrigger className="w-20">
+                  <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="US">US</SelectItem>
-                    <SelectItem value="CA">CA</SelectItem>
-                    <SelectItem value="GB">UK</SelectItem>
-                    <SelectItem value="DE">DE</SelectItem>
-                    <SelectItem value="FR">FR</SelectItem>
+                    {countries.map((country) => (
+                      <SelectItem key={country.code} value={country.code}>
+                        {country.code}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -271,15 +324,15 @@ const RateCalculator: React.FC = () => {
                   className="flex-1"
                 />
                 <Select value={toCountry} onValueChange={setToCountry}>
-                  <SelectTrigger className="w-20">
+                  <SelectTrigger className="w-32">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="US">US</SelectItem>
-                    <SelectItem value="CA">CA</SelectItem>
-                    <SelectItem value="GB">UK</SelectItem>
-                    <SelectItem value="DE">DE</SelectItem>
-                    <SelectItem value="FR">FR</SelectItem>
+                    {countries.map((country) => (
+                      <SelectItem key={country.code} value={country.code}>
+                        {country.code}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -367,61 +420,116 @@ const RateCalculator: React.FC = () => {
           </div>
 
           <Button 
-            onClick={calculateRates}
+            onClick={calculateRates} 
             disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700"
+            className="w-full"
+            size="lg"
           >
             {isLoading ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Calculating Rates...
               </>
             ) : (
               <>
-                <Search className="w-4 h-4 mr-2" />
-                Get Shipping Rates
+                <Search className="mr-2 h-4 w-4" />
+                Calculate Shipping Rates
               </>
             )}
           </Button>
         </CardContent>
       </Card>
 
+      {/* AI Recommendations */}
+      {aiRecommendation && (
+        <Card className="border-purple-200 bg-purple-50">
+          <CardHeader>
+            <CardTitle className="text-purple-800">AI Shipping Recommendations</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-purple-700 mb-4">{aiRecommendation.analysisText}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Results */}
       {rates.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Available Shipping Options</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Search className="w-5 h-5 text-blue-600" />
+              Shipping Options ({rates.length} found)
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {rates.map((rate) => (
+          <CardContent className="p-0">
+            <div className="space-y-3 p-6">
+              {rates.map((rate, index) => (
                 <div
-                  key={rate.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                  key={rate.id || index}
+                  className="group border rounded-xl p-4 hover:border-blue-300 hover:shadow-md transition-all duration-200"
                 >
-                  <div className="flex items-center gap-3">
-                    <Badge variant="secondary">
-                      {rate.carrier.toUpperCase()}
-                    </Badge>
-                    <div>
-                      <p className="font-medium">{rate.service}</p>
-                      <p className="text-sm text-gray-600">
-                        {rate.delivery_days} business day{rate.delivery_days !== 1 ? 's' : ''}
-                      </p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant="outline" 
+                          className={`${getCarrierColor(rate.carrier)} font-semibold`}
+                        >
+                          {rate.carrier.toUpperCase()}
+                        </Badge>
+                        {getBadgeForRate(rate.id)}
+                      </div>
+                      
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 group-hover:text-blue-700">
+                          {rate.service}
+                        </h3>
+                        
+                        <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>
+                              {rate.delivery_days} business day{rate.delivery_days !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-green-600">
-                      ${parseFloat(rate.rate).toFixed(2)}
-                    </p>
-                    <Button
-                      size="sm"
-                      onClick={() => handleShipWithRate(rate)}
-                      className="mt-1"
-                    >
-                      <ExternalLink className="w-3 h-3 mr-1" />
-                      Ship This
-                    </Button>
+
+                    <div className="text-right">
+                      <div className="flex flex-col items-end gap-1">
+                        {/* Original Rate (Inflated) */}
+                        {rate.original_rate && (
+                          <div className="text-sm text-gray-500 line-through">
+                            ${parseFloat(rate.original_rate).toFixed(2)}
+                          </div>
+                        )}
+                        
+                        {/* Discounted Rate */}
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="w-4 h-4 text-green-600" />
+                          <span className="text-xl font-bold text-green-600">
+                            ${parseFloat(rate.rate).toFixed(2)}
+                          </span>
+                        </div>
+                        
+                        {/* Discount Badge */}
+                        {rate.original_rate && (
+                          <div className="text-xs text-green-600 font-medium">
+                            Save ${(parseFloat(rate.original_rate) - parseFloat(rate.rate)).toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <Button
+                        size="sm"
+                        className="mt-2 bg-blue-600 hover:bg-blue-700"
+                        onClick={() => selectRateAndProceed(rate.id)}
+                      >
+                        <ExternalLink className="w-3 h-3 mr-1" />
+                        Ship with This Rate
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))}
