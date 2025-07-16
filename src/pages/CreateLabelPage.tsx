@@ -41,19 +41,19 @@ const CreateLabelPage = () => {
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
             {/* Main Form Section - Takes up most of the space */}
             <div className="lg:col-span-4 space-y-8">
-              <div className="bg-white rounded-xl shadow-lg border">
+              <div className="bg-white rounded-xl shadow-lg border overflow-hidden">
                 <EnhancedShippingForm />
               </div>
               
               {/* Shipping Rates Section */}
-              <div id="shipping-rates-section">
+              <div id="shipping-rates-section" className="overflow-hidden">
                 <ShippingRates />
               </div>
             </div>
 
             {/* AI-Powered Side Panel - Right Side */}
             <div className="lg:col-span-1">
-              <div className="sticky top-32">
+              <div className="sticky top-32 overflow-hidden">
                 <AIPoweredSidePanel 
                   rates={rates} 
                   onRatesReorder={handleRatesReorder} 

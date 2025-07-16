@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
   const [contentsType, setContentsType] = useState<CustomsInfo['contentsType']>('merchandise');
   const [customsSigner, setCustomsSigner] = useState('');
   const [nonDeliveryOption, setNonDeliveryOption] = useState<'return' | 'abandon'>('return');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const totalValue = customsItems.reduce((sum, item) => sum + (item.value * item.quantity), 0);
   const eelPfc = totalValue < 2500 ? 'NOEEI 30.37(a)' : '';
@@ -70,7 +72,14 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
     setCustomsItems(updatedItems);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
+    
     const customsInfo: CustomsInfo = {
       contentsType,
       customsSigner,
@@ -79,15 +88,24 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
       customsItems
     };
     
-    onSubmit(customsInfo);
-    
-    setTimeout(() => {
-      onClose();
-    }, 100);
+    try {
+      await onSubmit(customsInfo);
+      // Don't close here - let parent handle closing
+    } catch (error) {
+      console.error('Error submitting customs info:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleClose = () => {
-    onClose();
+  const handleClose = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!isSubmitting) {
+      onClose();
+    }
   };
 
   const isValid = customsItems.every(item => 
@@ -95,8 +113,12 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
   ) && customsSigner.trim() !== '';
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && !isSubmitting && onClose()}>
+      <DialogContent 
+        className="max-w-4xl max-h-[90vh] overflow-y-auto"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => !isSubmitting && e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold text-gray-800">
             International Shipping - Customs Documentation
@@ -106,12 +128,12 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
           </p>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Customs Items */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <Label className="text-base font-medium">Customs Items</Label>
-              <Button onClick={addItem} size="sm" variant="outline" className="gap-2">
+              <Button type="button" onClick={addItem} size="sm" variant="outline" className="gap-2">
                 <Plus className="w-4 h-4" />
                 Add Item
               </Button>
@@ -124,6 +146,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
                     <h4 className="font-medium">Item {index + 1}</h4>
                     {customsItems.length > 1 && (
                       <Button
+                        type="button"
                         onClick={() => removeItem(index)}
                         size="sm"
                         variant="ghost"
@@ -142,6 +165,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
                         value={item.description}
                         onChange={(e) => updateItem(index, 'description', e.target.value)}
                         placeholder="e.g., Electronics, Clothing"
+                        required
                       />
                     </div>
                     <div>
@@ -152,6 +176,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
                         min="1"
                         value={item.quantity}
                         onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                        required
                       />
                     </div>
                     <div>
@@ -163,6 +188,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
                         step="0.1"
                         value={item.weight}
                         onChange={(e) => updateItem(index, 'weight', parseFloat(e.target.value) || 0)}
+                        required
                       />
                     </div>
                     <div>
@@ -174,6 +200,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
                         step="0.01"
                         value={item.value}
                         onChange={(e) => updateItem(index, 'value', parseFloat(e.target.value) || 0)}
+                        required
                       />
                     </div>
                     <div>
@@ -225,6 +252,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
               value={customsSigner}
               onChange={(e) => setCustomsSigner(e.target.value)}
               placeholder="Full name of person certifying"
+              required
             />
           </div>
 
@@ -259,18 +287,23 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button onClick={handleClose} variant="outline">
+            <Button 
+              type="button" 
+              onClick={handleClose} 
+              variant="outline"
+              disabled={isSubmitting}
+            >
               Cancel
             </Button>
             <Button 
-              onClick={handleSubmit} 
-              disabled={!isValid}
+              type="submit"
+              disabled={!isValid || isSubmitting}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              Save & Continue
+              {isSubmitting ? 'Saving...' : 'Save & Continue'}
             </Button>
           </div>
-        </div>
+        </form>
       </DialogContent>
     </Dialog>
   );

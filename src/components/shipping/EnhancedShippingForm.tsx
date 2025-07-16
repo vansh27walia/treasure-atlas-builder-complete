@@ -42,6 +42,7 @@ const EnhancedShippingForm: React.FC = () => {
   const [showCustomsModal, setShowCustomsModal] = useState(false);
   const [customsInfo, setCustomsInfo] = useState<any>(null);
   const [showInternationalLabelModal, setShowInternationalLabelModal] = useState(false);
+  const [showInsuranceSection, setShowInsuranceSection] = useState(false);
 
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
@@ -77,25 +78,39 @@ const EnhancedShippingForm: React.FC = () => {
 
   // Enhanced address change handler for international flow
   useEffect(() => {
-    if (fromAddress && toAddress && fromAddress.country !== toAddress.country) {
-      // Show customs modal first
-      setShowCustomsModal(true);
+    if (fromAddress && toAddress) {
+      const isInternational = fromAddress.country !== toAddress.country;
+      setShowInsuranceSection(isInternational);
+      
+      // Reset modals when addresses change
+      setShowCustomsModal(false);
+      setShowInternationalLabelModal(false);
+      setCustomsInfo(null);
     }
   }, [fromAddress, toAddress]);
 
-  const handleCustomsSubmit = (customs: any) => {
-    setCustomsInfo(customs);
-    setShowCustomsModal(false);
-    
-    // Show international label creation modal after customs
-    setTimeout(() => {
-      setShowInternationalLabelModal(true);
-    }, 300);
+  const handleCustomsSubmit = async (customs: any) => {
+    try {
+      setCustomsInfo(customs);
+      setShowCustomsModal(false);
+      
+      // Show international label creation modal after customs
+      setTimeout(() => {
+        setShowInternationalLabelModal(true);
+      }, 500);
+    } catch (error) {
+      console.error('Error handling customs submission:', error);
+    }
+  };
+
+  const handleShowCustomsModal = () => {
+    if (fromAddress && toAddress && fromAddress.country !== toAddress.country) {
+      setShowCustomsModal(true);
+    }
   };
 
   const handleInternationalLabelComplete = () => {
     setShowInternationalLabelModal(false);
-    // Show success notification
     toast.success("International shipping label created successfully!");
   };
 
@@ -415,31 +430,49 @@ const EnhancedShippingForm: React.FC = () => {
               </div>
             </div>
 
-            {/* Insurance */}
-            <div className="p-6">
-              <InsuranceCalculator
-                onInsuranceChange={handleInsuranceChange}
-              />
-            </div>
+            {/* Insurance Section - Show for international only */}
+            {showInsuranceSection && (
+              <div className="p-6">
+                <InsuranceCalculator
+                  onInsuranceChange={handleInsuranceChange}
+                />
+                
+                {/* Customs Documentation Button */}
+                <div className="mt-4 pt-4 border-t">
+                  <Button
+                    type="button"
+                    onClick={handleShowCustomsModal}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    Complete Customs Documentation
+                  </Button>
+                  <p className="text-sm text-gray-600 mt-2">
+                    Required for international shipping
+                  </p>
+                </div>
+              </div>
+            )}
 
-            {/* HAZMAT */}
-            <div className="p-6">
-              <FormField
-                control={form.control}
-                name="hazmat"
-                render={({ field }) => (
-                  <FormItem>
-                    <HazmatSelector
-                      isHazmat={field.value}
-                      hazmatType={form.watch('hazmatType') || ''}
-                      onHazmatChange={field.onChange}
-                      onHazmatTypeChange={(type) => form.setValue('hazmatType', type)}
-                    />
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            {/* HAZMAT - Only for domestic shipping */}
+            {!showInsuranceSection && (
+              <div className="p-6">
+                <FormField
+                  control={form.control}
+                  name="hazmat"
+                  render={({ field }) => (
+                    <FormItem>
+                      <HazmatSelector
+                        isHazmat={field.value}
+                        hazmatType={form.watch('hazmatType') || ''}
+                        onHazmatChange={field.onChange}
+                        onHazmatTypeChange={(type) => form.setValue('hazmatType', type)}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            )}
               
             {/* Submit Section */}
             <div className="p-6 bg-muted/50">
