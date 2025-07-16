@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -65,20 +64,22 @@ const EnhancedShippingForm: React.FC = () => {
     }
   });
 
-  // Watch for package type changes
   const watchPackageType = form.watch("packageType");
   const watchInsurance = form.watch("insurance");
   const watchDeclaredValue = form.watch("declaredValue");
   const watchHazmat = form.watch("hazmat");
 
-  // Calculate insurance cost
   const insuranceCost = watchInsurance && watchDeclaredValue ? Math.max(2, Math.ceil((watchDeclaredValue / 100) * 2)) : 0;
-
-  // Show dimensions for custom packages
   const showDimensions = ['box', 'envelope'].includes(watchPackageType);
-
-  // Check if international shipping
   const isInternational = fromAddress && toAddress && fromAddress.country !== toAddress.country;
+
+  // Auto-trigger customs modal when international shipping is detected
+  useEffect(() => {
+    if (isInternational && !customsInfo && toAddress && fromAddress) {
+      console.log('International shipping detected, opening customs modal');
+      setShowCustomsModal(true);
+    }
+  }, [isInternational, customsInfo, toAddress, fromAddress]);
 
   const handleCustomsSubmit = (customs: any) => {
     setCustomsInfo(customs);
@@ -97,7 +98,7 @@ const EnhancedShippingForm: React.FC = () => {
       return;
     }
 
-    // Check if international shipping requires customs and it's not completed
+    // For international shipping, customs info is required
     if (isInternational && !customsInfo) {
       toast.error("Please complete customs documentation for international shipments");
       setShowCustomsModal(true);
@@ -114,7 +115,7 @@ const EnhancedShippingForm: React.FC = () => {
         weightOz = weightOz * 16;
       }
       
-      // Prepare the request payload for EasyPost API
+      // Prepare the request payload for EasyPost API - same format for both domestic and international
       const payload = {
         fromAddress: {
           name: fromAddress.name,
@@ -125,6 +126,7 @@ const EnhancedShippingForm: React.FC = () => {
           state: fromAddress.state,
           zip: fromAddress.zip,
           country: fromAddress.country || 'US',
+          phone: fromAddress.phone || '',
         },
         toAddress: {
           name: toAddress.name,
@@ -135,6 +137,7 @@ const EnhancedShippingForm: React.FC = () => {
           state: toAddress.state,
           zip: toAddress.zip,
           country: toAddress.country || 'US',
+          phone: toAddress.phone || '',
         },
         parcel: {
           length: values.length || 8,
@@ -155,6 +158,7 @@ const EnhancedShippingForm: React.FC = () => {
 
       console.log('Submitting payload:', payload);
 
+      // Use the same endpoint for both domestic and international
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
         body: payload,
       });
@@ -164,14 +168,20 @@ const EnhancedShippingForm: React.FC = () => {
       }
 
       if (data.rates && Array.isArray(data.rates)) {
+        // Process rates with insurance cost and apply same formatting as domestic
         const ratesWithInsurance = data.rates.map(rate => ({
           ...rate,
           insurance_cost: insuranceCost,
           total_cost: parseFloat(rate.rate) + insuranceCost
         }));
         
+        // Dispatch the same event format for both domestic and international
         document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
-          detail: { rates: ratesWithInsurance, shipmentId: data.shipmentId } 
+          detail: { 
+            rates: ratesWithInsurance, 
+            shipmentId: data.shipmentId,
+            isInternational: isInternational
+          } 
         }));
       }
 
@@ -198,14 +208,15 @@ const EnhancedShippingForm: React.FC = () => {
         ...labelData,
         fromAddress,
         toAddress,
-        isInternational
+        isInternational,
+        customsInfo
       });
       setShowLabelCreationModal(true);
     };
 
     document.addEventListener('label-created', handleLabelCreated);
     return () => document.removeEventListener('label-created', handleLabelCreated);
-  }, [fromAddress, toAddress, isInternational]);
+  }, [fromAddress, toAddress, isInternational, customsInfo]);
 
   return (
     <div className="w-full">
@@ -261,7 +272,6 @@ const EnhancedShippingForm: React.FC = () => {
                 />
               </div>
 
-              {/* Package Dimensions */}
               {showDimensions && (
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <FormField
@@ -335,7 +345,6 @@ const EnhancedShippingForm: React.FC = () => {
                 </div>
               )}
 
-              {/* Weight */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <FormField
                   control={form.control}
@@ -381,7 +390,6 @@ const EnhancedShippingForm: React.FC = () => {
                 />
               </div>
 
-              {/* Enhanced Carrier Selection */}
               <div className="mb-4">
                 <FormField
                   control={form.control}
