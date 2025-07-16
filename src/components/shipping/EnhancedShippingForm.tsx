@@ -9,6 +9,7 @@ import { toast } from '@/components/ui/sonner';
 import { supabase } from "@/integrations/supabase/client";
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import AddressSelector from './AddressSelector';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { createAddressSelectHandler } from '@/utils/addressUtils';
