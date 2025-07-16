@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -5,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, Truck, DollarSign, Shield, Star } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import StripePaymentModal from './shipping/StripePaymentModal';
+import LabelCreationModal from './shipping/LabelCreationModal';
 
 interface ShippingRate {
   id: string;
@@ -15,6 +17,8 @@ interface ShippingRate {
   delivery_date?: string;
   insurance_cost?: number;
   total_cost?: number;
+  original_rate?: string;
+  isPremium?: boolean;
 }
 
 const ShippingRates: React.FC = () => {
@@ -22,7 +26,39 @@ const ShippingRates: React.FC = () => {
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showLabelModal, setShowLabelModal] = useState(false);
+  const [labelData, setLabelData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Process rates to add premium flag and original rates for display
+  const processRates = (incomingRates: ShippingRate[]) => {
+    return incomingRates.map(rate => {
+      // Generate a random discount percentage between 85% and 90%
+      const discountPercentage = Math.random() * (90 - 85) + 85;
+      
+      // Calculate inflated original rate (actual rate + discount percentage)
+      const actualRate = parseFloat(rate.rate);
+      // Calculate what the "original" price would be before our massive discount
+      const inflatedRate = (actualRate * (100 / (100 - discountPercentage))).toFixed(2);
+      
+      // Generate premium flag - typically express, overnight, or most expensive services
+      const isPremium = 
+        rate.service.toLowerCase().includes('express') || 
+        rate.service.toLowerCase().includes('priority') || 
+        rate.service.toLowerCase().includes('overnight') ||
+        rate.service.toLowerCase().includes('next day') ||
+        rate.service.toLowerCase().includes('same day') ||
+        (rate.delivery_days === 1) ||
+        actualRate > 20; // If rate is above $20, consider it a premium service
+      
+      return {
+        ...rate,
+        original_rate: inflatedRate,
+        isPremium,
+        total_cost: actualRate
+      };
+    });
+  };
 
   useEffect(() => {
     const handleRatesReceived = (event: any) => {
@@ -30,16 +66,38 @@ const ShippingRates: React.FC = () => {
       const { rates: newRates, shipmentId: newShipmentId } = event.detail;
       
       if (newRates && Array.isArray(newRates)) {
-        setRates(newRates);
+        // Process rates to add discount display and premium flags
+        const processedRates = processRates(newRates).map(rate => ({
+          ...rate,
+          shipment_id: newShipmentId
+        }));
+        
+        setRates(processedRates);
         setShipmentId(newShipmentId);
+        console.log('Processed rates:', processedRates);
       } else {
         console.warn('Invalid rates data received:', event.detail);
         setRates([]);
       }
     };
 
+    // Listen for label creation success
+    const handleLabelCreated = (event: any) => {
+      console.log('Label created:', event.detail);
+      if (event.detail && event.detail.labelData) {
+        setLabelData(event.detail.labelData);
+        setShowLabelModal(true);
+        setShowPaymentModal(false);
+      }
+    };
+
     document.addEventListener('easypost-rates-received', handleRatesReceived);
-    return () => document.removeEventListener('easypost-rates-received', handleRatesReceived);
+    document.addEventListener('label-created', handleLabelCreated);
+    
+    return () => {
+      document.removeEventListener('easypost-rates-received', handleRatesReceived);
+      document.removeEventListener('label-created', handleLabelCreated);
+    };
   }, []);
 
   const handleSelectRate = (rate: ShippingRate) => {
@@ -49,25 +107,29 @@ const ShippingRates: React.FC = () => {
   };
 
   const handlePaymentSuccess = () => {
-    console.log('Payment successful');
+    console.log('Payment successful, creating label...');
     setShowPaymentModal(false);
     
-    // Dispatch label creation event
-    document.dispatchEvent(new CustomEvent('label-created', {
-      detail: {
-        labelData: {
-          labelUrl: 'https://example.com/label.pdf',
-          trackingCode: 'TEST123456789',
-          shipmentId: shipmentId,
-          carrier: selectedRate?.carrier,
-          service: selectedRate?.service,
-          cost: selectedRate?.total_cost || parseFloat(selectedRate?.rate || '0'),
-          estimatedDelivery: selectedRate?.delivery_date
-        }
-      }
-    }));
-    
-    toast.success('Shipping label created successfully!');
+    // Simulate label creation - in real app this would be handled by payment processing
+    setTimeout(() => {
+      const mockLabelData = {
+        labelUrl: 'https://example.com/label.pdf',
+        trackingCode: 'TEST123456789',
+        shipmentId: shipmentId,
+        carrier: selectedRate?.carrier,
+        service: selectedRate?.service,
+        cost: selectedRate?.total_cost || parseFloat(selectedRate?.rate || '0'),
+        estimatedDelivery: selectedRate?.delivery_date
+      };
+      
+      setLabelData(mockLabelData);
+      setShowLabelModal(true);
+      
+      // Dispatch event for other components
+      document.dispatchEvent(new CustomEvent('label-created', {
+        detail: { labelData: mockLabelData }
+      }));
+    }, 1000);
   };
 
   const getCarrierColor = (carrier: string) => {
@@ -149,10 +211,19 @@ const ShippingRates: React.FC = () => {
 
                     <div className="text-right">
                       <div className="flex items-center gap-2">
-                        <DollarSign className="w-4 h-4 text-green-600" />
-                        <span className="text-xl font-bold text-green-600">
-                          ${(rate.total_cost || parseFloat(rate.rate)).toFixed(2)}
-                        </span>
+                        <div className="text-right">
+                          {rate.original_rate && (
+                            <div className="text-xs text-gray-500 line-through">
+                              ${parseFloat(rate.original_rate).toFixed(2)}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1">
+                            <DollarSign className="w-4 h-4 text-green-600" />
+                            <span className="text-xl font-bold text-green-600">
+                              ${(rate.total_cost || parseFloat(rate.rate)).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                       
                       {rate.insurance_cost && rate.insurance_cost > 0 && (
@@ -190,6 +261,13 @@ const ShippingRates: React.FC = () => {
         rate={selectedRate}
         shipmentId={shipmentId}
         onPaymentSuccess={handlePaymentSuccess}
+      />
+
+      {/* Label Creation Modal */}
+      <LabelCreationModal
+        isOpen={showLabelModal}
+        onClose={() => setShowLabelModal(false)}
+        labelData={labelData}
       />
     </div>
   );

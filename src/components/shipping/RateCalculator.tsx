@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Package, Search, Loader2, ExternalLink } from 'lucide-react';
+import { MapPin, Package, Search, Loader2, ExternalLink, Clock, Truck, DollarSign, Shield, Star } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from "@/integrations/supabase/client";
 
@@ -16,7 +16,11 @@ interface RateResult {
   service: string;
   rate: string;
   delivery_days: number;
-  discount?: number;
+  delivery_date?: string;
+  original_rate?: string;
+  isPremium?: boolean;
+  insurance_cost?: number;
+  total_cost?: number;
 }
 
 const packageTypes = [
@@ -56,8 +60,17 @@ const RateCalculator: React.FC = () => {
 
   const resolveAddress = async (zip: string, country: string) => {
     try {
+      console.log('Resolving address for:', zip, country);
+      
+      // Get Google API key from edge function
+      const { data: keyData, error: keyError } = await supabase.functions.invoke('get-google-api-key');
+      
+      if (keyError || !keyData?.apiKey) {
+        throw new Error('Google Maps API key not available');
+      }
+      
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${zip},${country}&key=${process.env.GOOGLE_PLACES_API_KEY}`
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${zip},${country}&key=${keyData.apiKey}`
       );
       
       if (!response.ok) {
@@ -77,14 +90,17 @@ const RateCalculator: React.FC = () => {
           return component?.long_name || component?.short_name || '';
         };
         
-        return {
-          street1: getComponent(['street_number', 'route']) || zip,
+        const resolvedAddress = {
+          street1: getComponent(['street_number']) + ' ' + getComponent(['route']) || zip,
           city: getComponent(['locality', 'administrative_area_level_2']),
           state: getComponent(['administrative_area_level_1']),
           zip: getComponent(['postal_code']) || zip,
           country: country,
           formatted_address: result.formatted_address
         };
+        
+        console.log('Resolved address:', resolvedAddress);
+        return resolvedAddress;
       }
       
       // Fallback if geocoding fails
@@ -125,11 +141,16 @@ const RateCalculator: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Resolve addresses from zip codes
+      console.log('Starting rate calculation...');
+      
+      // Resolve addresses from zip codes using Google API
       const [fromAddress, toAddress] = await Promise.all([
         resolveAddress(fromZip, fromCountry),
         resolveAddress(toZip, toCountry)
       ]);
+
+      console.log('Resolved from address:', fromAddress);
+      console.log('Resolved to address:', toAddress);
 
       setResolvedAddresses({ from: fromAddress, to: toAddress });
 
@@ -172,7 +193,7 @@ const RateCalculator: React.FC = () => {
           country: toAddress.country,
         },
         parcel,
-        carriers: ['usps', 'ups', 'fedex', 'dhl']
+        carriers: ['usps', 'ups', 'fedex', 'dhl'] // Request all carriers
       };
 
       console.log('Rate calculator payload:', payload);
@@ -185,9 +206,34 @@ const RateCalculator: React.FC = () => {
         throw new Error(`Error fetching rates: ${error.message}`);
       }
 
+      console.log('Received rate data:', data);
+
       if (data.rates && Array.isArray(data.rates)) {
-        setRates(data.rates);
-        toast.success(`Found ${data.rates.length} shipping options`);
+        // Process rates to add premium flag and original rates like in useShippingRates
+        const processedRates = data.rates.map((rate: any) => {
+          const actualRate = parseFloat(rate.rate);
+          const discountPercentage = Math.random() * (90 - 85) + 85;
+          const inflatedRate = (actualRate * (100 / (100 - discountPercentage))).toFixed(2);
+          
+          const isPremium = 
+            rate.service.toLowerCase().includes('express') || 
+            rate.service.toLowerCase().includes('priority') || 
+            rate.service.toLowerCase().includes('overnight') ||
+            rate.service.toLowerCase().includes('next day') ||
+            rate.service.toLowerCase().includes('same day') ||
+            (rate.delivery_days === 1) ||
+            actualRate > 20;
+          
+          return {
+            ...rate,
+            original_rate: inflatedRate,
+            isPremium,
+            total_cost: actualRate
+          };
+        });
+        
+        setRates(processedRates);
+        toast.success(`Found ${processedRates.length} shipping options`);
       } else {
         setRates([]);
         toast.info('No rates available for this route');
@@ -214,15 +260,35 @@ const RateCalculator: React.FC = () => {
       selectedRate: rate
     };
 
+    // Store the data for transfer to main shipping form
+    sessionStorage.setItem('calculatorData', JSON.stringify(shippingData));
+
     // Dispatch event to pre-fill main shipping form
     document.dispatchEvent(new CustomEvent('prefill-shipping-form', {
       detail: shippingData
     }));
 
-    toast.success('Shipping form pre-filled with rate calculator data');
+    toast.success('Redirecting to shipping form with selected rate...');
     
-    // Navigate to main shipping form (if needed)
-    // You can add navigation logic here
+    // Navigate to main shipping form
+    window.location.href = '/create-label?tab=domestic';
+  };
+
+  const getCarrierColor = (carrier: string) => {
+    switch (carrier.toLowerCase()) {
+      case 'usps': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'ups': return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'fedex': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'dhl': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getServiceIcon = (service: string) => {
+    if (service.toLowerCase().includes('express') || service.toLowerCase().includes('overnight')) {
+      return <Star className="w-4 h-4 text-yellow-500" />;
+    }
+    return <Truck className="w-4 h-4 text-gray-500" />;
   };
 
   return (
@@ -386,45 +452,100 @@ const RateCalculator: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Results */}
+      {/* Results - Using same format as ShippingRates component */}
       {rates.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Available Shipping Options</CardTitle>
+        <Card className="border shadow-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2">
+              <Truck className="w-5 h-5 text-blue-600" />
+              Available Shipping Options
+            </CardTitle>
+            <p className="text-sm text-gray-600">
+              Choose the best shipping option for your package
+            </p>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {rates.map((rate) => (
-                <div
-                  key={rate.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-3">
-                    <Badge variant="secondary">
-                      {rate.carrier.toUpperCase()}
-                    </Badge>
-                    <div>
-                      <p className="font-medium">{rate.service}</p>
-                      <p className="text-sm text-gray-600">
-                        {rate.delivery_days} business day{rate.delivery_days !== 1 ? 's' : ''}
-                      </p>
+          
+          <CardContent className="p-0">
+            <div className="max-h-96 overflow-y-auto">
+              <div className="space-y-3 p-6">
+                {rates.map((rate, index) => (
+                  <div
+                    key={rate.id || index}
+                    className="group border rounded-xl p-4 hover:border-blue-300 hover:shadow-md transition-all duration-200"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          {getServiceIcon(rate.service)}
+                          <Badge 
+                            variant="outline" 
+                            className={`${getCarrierColor(rate.carrier)} font-semibold`}
+                          >
+                            {rate.carrier.toUpperCase()}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900 group-hover:text-blue-700">
+                            {rate.service}
+                          </h3>
+                          
+                          <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              <span>
+                                {rate.delivery_days} business day{rate.delivery_days !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                            
+                            {rate.delivery_date && (
+                              <span>
+                                • Delivery by {rate.delivery_date}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="flex items-center gap-2">
+                          <div className="text-right">
+                            {rate.original_rate && (
+                              <div className="text-xs text-gray-500 line-through">
+                                ${parseFloat(rate.original_rate).toFixed(2)}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1">
+                              <DollarSign className="w-4 h-4 text-green-600" />
+                              <span className="text-xl font-bold text-green-600">
+                                ${(rate.total_cost || parseFloat(rate.rate)).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {rate.insurance_cost && rate.insurance_cost > 0 && (
+                          <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                            <Shield className="w-3 h-3" />
+                            <span>
+                              +${rate.insurance_cost.toFixed(2)} insurance
+                            </span>
+                          </div>
+                        )}
+                        
+                        <Button
+                          size="sm"
+                          className="mt-2 bg-blue-600 hover:bg-blue-700 group-hover:bg-blue-700"
+                          onClick={() => handleShipWithRate(rate)}
+                        >
+                          <ExternalLink className="w-3 h-3 mr-1" />
+                          Ship This
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-green-600">
-                      ${parseFloat(rate.rate).toFixed(2)}
-                    </p>
-                    <Button
-                      size="sm"
-                      onClick={() => handleShipWithRate(rate)}
-                      className="mt-1"
-                    >
-                      <ExternalLink className="w-3 h-3 mr-1" />
-                      Ship This
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>
