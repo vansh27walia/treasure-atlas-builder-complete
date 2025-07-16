@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -113,6 +112,7 @@ const RateCalculator: React.FC = () => {
           state: getComponent(['administrative_area_level_1']),
           zip: getComponent(['postal_code']) || zip,
           country: country,
+          phone: '',
           formatted_address: result.formatted_address
         };
       }
@@ -124,7 +124,8 @@ const RateCalculator: React.FC = () => {
         city: 'Unknown',
         state: country === 'US' ? 'NY' : 'Unknown',
         zip: zip,
-        country: country
+        country: country,
+        phone: ''
       };
     } catch (error) {
       console.error('Error resolving address:', error);
@@ -134,7 +135,8 @@ const RateCalculator: React.FC = () => {
         city: 'Unknown',
         state: country === 'US' ? 'NY' : 'Unknown',
         zip: zip,
-        country: country
+        country: country,
+        phone: ''
       };
     }
   };
