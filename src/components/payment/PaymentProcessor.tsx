@@ -4,8 +4,9 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CreditCard, CheckCircle } from 'lucide-react';
+import { CreditCard, CheckCircle, Lock } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PaymentProcessorProps {
   amount: number;
@@ -58,13 +59,51 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({ amount, onPaymentCo
     
     setIsProcessing(true);
     
-    // Simulate payment processing (in a real app, this would call a payment API)
-    setTimeout(() => {
+    try {
+      // Create payment intent using Stripe
+      const { data, error } = await supabase.functions.invoke('charge-payment', {
+        body: {
+          amount: amount, // Amount in cents
+          currency: 'usd',
+          description: 'Shipping Label Payment',
+          payment_method_data: {
+            type: 'card',
+            card: {
+              number: cardNumber.replace(/\s/g, ''),
+              exp_month: parseInt(expiry.split('/')[0]),
+              exp_year: parseInt('20' + expiry.split('/')[1]),
+              cvc: cvc
+            },
+            billing_details: {
+              name: name
+            }
+          }
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data?.success) {
+        setIsComplete(true);
+        toast.success("Payment processed successfully");
+        onPaymentComplete(true);
+        
+        // Dispatch custom event for workflow tracking
+        document.dispatchEvent(new CustomEvent('payment-completed', { 
+          detail: { success: true, amount: amount }
+        }));
+      } else {
+        throw new Error(data?.error || 'Payment failed');
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error(error instanceof Error ? error.message : 'Payment failed. Please try again.');
+      onPaymentComplete(false);
+    } finally {
       setIsProcessing(false);
-      setIsComplete(true);
-      toast.success("Payment processed successfully");
-      onPaymentComplete(true);
-    }, 2000);
+    }
   };
 
   const validateForm = () => {
@@ -92,9 +131,12 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({ amount, onPaymentCo
   };
 
   return (
-    <Card className="p-6 max-w-md mx-auto">
+    <Card className="p-6 max-w-md mx-auto border-2 border-blue-200 shadow-lg">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-semibold">Payment</h3>
+        <h3 className="text-xl font-semibold flex items-center gap-2">
+          <Lock className="h-5 w-5 text-green-600" />
+          Secure Payment
+        </h3>
         <CreditCard className="h-6 w-6 text-blue-500" />
       </div>
       
@@ -102,7 +144,10 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({ amount, onPaymentCo
         <div className="text-center py-6">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
           <h4 className="text-lg font-medium">Payment Complete</h4>
-          <p className="text-gray-500 mt-2">Your payment was processed successfully</p>
+          <p className="text-gray-500 mt-2">Your payment of ${(amount / 100).toFixed(2)} was processed successfully</p>
+          <div className="mt-4 p-3 bg-green-50 rounded-lg">
+            <p className="text-sm text-green-800">Your shipping label is being created...</p>
+          </div>
         </div>
       ) : (
         <form onSubmit={handleSubmit}>
@@ -112,7 +157,7 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({ amount, onPaymentCo
               id="amount" 
               value={`$${(amount / 100).toFixed(2)}`}
               disabled
-              className="bg-gray-50"
+              className="bg-gray-50 font-semibold text-lg"
             />
           </div>
           
@@ -124,6 +169,7 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({ amount, onPaymentCo
               onChange={(e) => setName(e.target.value)}
               placeholder="John Doe"
               required
+              className="border-gray-300 focus:border-blue-500"
             />
           </div>
           
@@ -136,6 +182,7 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({ amount, onPaymentCo
               placeholder="1234 5678 9012 3456" 
               maxLength={19}
               required
+              className="border-gray-300 focus:border-blue-500"
             />
           </div>
           
@@ -149,6 +196,7 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({ amount, onPaymentCo
                 placeholder="MM/YY" 
                 maxLength={5}
                 required
+                className="border-gray-300 focus:border-blue-500"
               />
             </div>
             <div>
@@ -160,17 +208,30 @@ const PaymentProcessor: React.FC<PaymentProcessorProps> = ({ amount, onPaymentCo
                 placeholder="123" 
                 maxLength={4}
                 required
+                className="border-gray-300 focus:border-blue-500"
               />
             </div>
           </div>
           
           <Button 
             type="submit" 
-            className="w-full" 
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 h-12" 
             disabled={isProcessing}
           >
-            {isProcessing ? 'Processing...' : `Pay $${(amount / 100).toFixed(2)}`}
+            {isProcessing ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Processing Payment...
+              </div>
+            ) : (
+              `Pay $${(amount / 100).toFixed(2)}`
+            )}
           </Button>
+          
+          <div className="mt-4 text-xs text-gray-500 text-center flex items-center justify-center gap-1">
+            <Lock className="h-3 w-3" />
+            Your payment is secured by Stripe. All card information is encrypted.
+          </div>
         </form>
       )}
     </Card>
