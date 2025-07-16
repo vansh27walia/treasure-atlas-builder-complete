@@ -311,100 +311,7 @@ const ShippingRates: React.FC = () => {
                 </div>
               )}
               
-              <div className="max-h-96 overflow-y-auto">
-                <div className="space-y-3 p-6">
-                  {sortedRates.map((rate, index) => {
-                    const baseRate = parseFloat(rate.rate);
-                    const inflatedRate = getInflatedRate(baseRate);
-                    const hyperDiscountedRate = getHyperDiscountedRate(baseRate);
-                    const finalCost = rate.total_cost || baseRate;
-
-                    return (
-                      <div
-                        key={rate.id || index}
-                        className="group border rounded-xl p-4 hover:border-blue-300 hover:shadow-md transition-all duration-200 cursor-pointer"
-                        onClick={() => handleSelectRateLocal(rate)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                              {getServiceIcon(rate.service)}
-                              <Badge 
-                                variant="outline" 
-                                className={`${getCarrierColor(rate.carrier)} font-semibold`}
-                              >
-                                {rate.carrier.toUpperCase()}
-                              </Badge>
-                            </div>
-                            
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-gray-900 group-hover:text-blue-700">
-                                {rate.service}
-                              </h3>
-                              
-                              <div className="flex items-center gap-4 mt-1 text-sm text-gray-600">
-                                <div className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  <span>
-                                    {rate.delivery_days} business day{rate.delivery_days !== 1 ? 's' : ''}
-                                  </span>
-                                </div>
-                                
-                                {rate.delivery_date && (
-                                  <span>
-                                    • Delivery by {rate.delivery_date}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <div className="space-y-1 mb-2">
-                              <div className="text-xs text-gray-500 line-through">
-                                Regular: ${inflatedRate.toFixed(2)}
-                              </div>
-                              <div className="text-sm text-orange-600">
-                                Our Price: ${baseRate.toFixed(2)}
-                              </div>
-                              <div className="text-xs text-green-600 font-semibold">
-                                Hyper Discount: ${hyperDiscountedRate.toFixed(2)}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <DollarSign className="w-4 h-4 text-green-600" />
-                              <span className="text-xl font-bold text-green-600">
-                                ${finalCost.toFixed(2)}
-                              </span>
-                            </div>
-                            
-                            {rate.insurance_cost && rate.insurance_cost > 0 && (
-                              <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-                                <Shield className="w-3 h-3" />
-                                <span>
-                                  +${rate.insurance_cost.toFixed(2)} insurance
-                                </span>
-                              </div>
-                            )}
-                            
-                            <Button
-                              size="sm"
-                              className="mt-2 bg-blue-600 hover:bg-blue-700 group-hover:bg-blue-700"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSelectRateLocal(rate);
-                              }}
-                            >
-                              Ship It
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <
 
               {showPaymentSection && (
                 <div className="p-6 border-t bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -420,8 +327,115 @@ const ShippingRates: React.FC = () => {
                       }
                     }}
                     amount={rateAmount}
+            <div className="space-y-4 mt-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                   {sortedRates.map((rate) => (
+                     <ShippingRateCard
+                       key={rate.id}
+                       rate={rate}
+                       isSelected={selectedRateId === rate.id}
+                       onSelect={handleRateSelection}
+                       isBestValue={rate.id === bestValueRateId}
+                       isFastest={rate.id === fastestRateId}
+                       aiRecommendation={aiRecommendation && {
+                         rateId: aiRecommendation.bestOverall || '',
+                         reason: aiRecommendation.analysisText || ''
+                       }}
+                       showDiscount={true}
+                       originalRate={rate.original_rate}
+                       isPremium={false}
+                       showPayButton={true}
+                       shippingDetails={{
+                         rate: rate,
+                       }}
+                     />
+                   ))}
+                </div>
+
+                {sortedRates.length === 0 && (
+                  <div className="p-6 text-center bg-gray-50 rounded-lg">
+                    <p className="text-base text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleFilterByCarrier('all')} 
+                      className="mt-4 h-9 px-4 text-sm"
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Section - Show when rate is selected but payment not completed */}
+              {showPaymentSection && (
+                <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                  <h3 className="font-semibold text-blue-800 mb-4">Complete Payment to Create Label</h3>
+                  <PaymentMethodSelector
+                    selectedPaymentMethod={null}
+                    onPaymentMethodChange={handlePaymentMethodChange}
+                    onPaymentComplete={handlePaymentComplete}
+                    amount={rateAmount}
                     description="Shipping Label Purchase"
                   />
+                </div>
+              )}
+              
+              <div className="mt-6 flex flex-wrap justify-end gap-3">
+                {fromCalculator && selectedRateId && (
+                  <Button 
+                    onClick={handleProceedForward}
+                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md shadow-md"
+                  >
+                    <Download className="h-4 w-4" />
+                    Proceed Forward
+                  </Button>
+                )}
+
+                <Button 
+                  onClick={handleProceedToPayment}
+                  disabled={!selectedRateId || isProcessingPayment}
+                  variant="outline"
+                  className="border border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md"
+                >
+                  {isProcessingPayment ? (
+                    <>
+                      <Loader className="h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="h-4 w-4" />
+                      Proceed to Payment
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="mt-6 flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  sessionStorage.removeItem('calculatorData');
+                  sessionStorage.removeItem('transferToShipping');
+                  document.dispatchEvent(new Event('shipping-form-completed'));
+                }}
+                className="border border-blue-200 hover:bg-blue-50 h-9 px-4 text-sm"
+              >
+                Ship Another Package
+              </Button>
+            </div>
+          )}
+          
+          <div className="mt-4 text-center text-xs text-gray-500">
+            <p>* All rates include handling fees and applicable taxes</p>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+};                  />
                 </div>
               )}
 
