@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 
@@ -29,8 +30,6 @@ export interface UserProfile {
   updated_at?: string;
   onboarding_completed: boolean;
   payment_info?: PaymentInfo;
-  shopify_store_url?: string;
-  shopify_access_token?: string;
 }
 
 // Type for the raw data received from Supabase database
@@ -42,8 +41,6 @@ interface UserProfileRaw {
   updated_at?: string;
   onboarding_completed: boolean;
   payment_info: Json;
-  shopify_store_url?: string;
-  shopify_access_token?: string;
 }
 
 export class UserProfileService {
@@ -81,8 +78,6 @@ export class UserProfileService {
           updated_at: rawProfile.updated_at,
           onboarding_completed: rawProfile.onboarding_completed || false,
           payment_info: rawProfile.payment_info as unknown as PaymentInfo,
-          shopify_store_url: rawProfile.shopify_store_url,
-          shopify_access_token: rawProfile.shopify_access_token,
         };
       }
       
@@ -317,50 +312,6 @@ export class UserProfileService {
       return true;
     } catch (error) {
       console.error('Error updating payment info:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Update the Shopify store information
-   */
-  public async updateShopifyInfo(storeUrl: string, accessToken?: string): Promise<boolean> {
-    try {
-      const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.user) {
-        throw new Error('User is not authenticated');
-      }
-      
-      const userId = session.session.user.id;
-      
-      // Create the profile if it doesn't exist
-      const profile = await this.getUserProfile();
-      if (!profile) {
-        await this.createUserProfile();
-      }
-      
-      const updateData: any = {
-        shopify_store_url: storeUrl,
-        updated_at: new Date().toISOString()
-      };
-      
-      if (accessToken) {
-        updateData.shopify_access_token = accessToken;
-      }
-      
-      const { error } = await supabase
-        .from('user_profiles')
-        .update(updateData)
-        .eq('id', userId);
-      
-      if (error) {
-        console.error('Error updating Shopify info:', error);
-        return false;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error updating Shopify info:', error);
       return false;
     }
   }
