@@ -10,6 +10,7 @@ import { ArrowLeft, Store, Package, User, MapPin, CheckCircle, Loader2 } from 'l
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { userProfileService } from '@/services/UserProfileService';
 
 interface ShopifyOrder {
   id: string;
@@ -57,14 +58,11 @@ const ShopifyImportPage: React.FC = () => {
 
   const checkShopifyConnection = async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .single();
+      const profile = await userProfileService.getUserProfile();
 
-      if (data && data.shopify_store_url) {
+      if (profile && profile.shopify_store_url) {
         setIsConnected(true);
-        setStoreName(data.shopify_store_url.replace('.myshopify.com', ''));
+        setStoreName(profile.shopify_store_url.replace('.myshopify.com', ''));
         setStep('orders');
         fetchOrders();
       }
@@ -91,7 +89,10 @@ const ShopifyImportPage: React.FC = () => {
       const oauthUrl = `${shopifyUrl}?client_id=${clientId}&scope=${scopes}&redirect_uri=${redirectUri}&state=${Date.now()}`;
       
       // For now, we'll simulate the connection
-      setTimeout(() => {
+      setTimeout(async () => {
+        // Save the store URL to the user profile
+        await userProfileService.updateShopifyInfo(`${storeName}.myshopify.com`);
+        
         setIsConnected(true);
         setStep('orders');
         setIsConnecting(false);
@@ -207,6 +208,21 @@ const ShopifyImportPage: React.FC = () => {
         ? prev.filter(id => id !== orderId)
         : [...prev, orderId]
     );
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await userProfileService.updateShopifyInfo('');
+      setIsConnected(false);
+      setStep('connect');
+      setStoreName('');
+      setOrders([]);
+      setSelectedOrders([]);
+      toast.success('Store disconnected successfully');
+    } catch (error) {
+      console.error('Error disconnecting store:', error);
+      toast.error('Failed to disconnect store');
+    }
   };
 
   if (step === 'connect') {
@@ -325,10 +341,7 @@ const ShopifyImportPage: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  setIsConnected(false);
-                  setStep('connect');
-                }}
+                onClick={handleDisconnect}
               >
                 Disconnect
               </Button>
