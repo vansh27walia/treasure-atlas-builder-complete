@@ -3,7 +3,7 @@ import React from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import IndependentRateCalculator from '@/components/shipping/IndependentRateCalculator';
+import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
 
 const RateCalculatorPage = () => {
   const navigate = useNavigate();
@@ -25,7 +25,7 @@ const RateCalculatorPage = () => {
             </Button>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Rate Calculator</h1>
-              <p className="text-gray-600">Compare domestic and international shipping rates</p>
+              <p className="text-gray-600">Compare shipping rates across multiple carriers</p>
             </div>
           </div>
         </div>
@@ -33,8 +33,13 @@ const RateCalculatorPage = () => {
 
       {/* Full Screen Rate Calculator */}
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
-          <IndependentRateCalculator />
+        <div className="max-w-6xl mx-auto">
+          {/* Use the existing RateCalculatorModal but in full-screen mode */}
+          <RateCalculatorModal
+            isOpen={true}
+            onClose={() => navigate(-1)}
+            fullScreen={true}
+          />
         </div>
       </div>
     </div>
