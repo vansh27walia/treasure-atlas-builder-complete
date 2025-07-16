@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MapPin, Package, Search, Loader2, FileText } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from "@/integrations/supabase/client";
-import ShippingRates from './ShippingRates';
+import ShippingRates from '../ShippingRates';
 import CustomsDocumentationModal from './CustomsDocumentationModal';
 
 interface AddressData {
@@ -29,14 +29,25 @@ interface ParcelData {
   height?: number | string;
 }
 
-interface CustomsInfo {
+interface CustomsItem {
   description: string;
-  value: number;
-  currency: string;
   quantity: number;
+  value: number;
   weight: number;
-  weightUnit: string;
-  purpose: string;
+  hs_tariff_number?: string;
+  origin_country: string;
+}
+
+interface CustomsInfo {
+  contents_type: string;
+  contents_explanation?: string;
+  customs_certify: boolean;
+  customs_signer: string;
+  non_delivery_option: string;
+  restriction_type?: string;
+  restriction_comments?: string;
+  customs_items: CustomsItem[];
+  eel_pfc?: string;
 }
 
 const EnhancedShippingForm: React.FC = () => {
@@ -72,13 +83,22 @@ const EnhancedShippingForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showCustomsModal, setShowCustomsModal] = useState(false);
   const [customsInfo, setCustomsInfo] = useState<CustomsInfo>({
-    description: '',
-    value: 0,
-    currency: 'USD',
-    quantity: 1,
-    weight: 0,
-    weightUnit: 'lb',
-    purpose: 'merchandise'
+    contents_type: 'merchandise',
+    contents_explanation: '',
+    customs_certify: true,
+    customs_signer: '',
+    non_delivery_option: 'return',
+    restriction_type: 'none',
+    restriction_comments: '',
+    customs_items: [{
+      description: '',
+      quantity: 1,
+      value: 0,
+      weight: 0,
+      hs_tariff_number: '',
+      origin_country: 'US'
+    }],
+    eel_pfc: ''
   });
 
   // Enhanced function to handle address changes and trigger customs documentation
@@ -448,9 +468,9 @@ const EnhancedShippingForm: React.FC = () => {
                       <p className="text-sm text-purple-600 mt-1">
                         Customs documentation is required for shipments from {fromAddress.country} to {toAddress.country}
                       </p>
-                      {customsInfo.description && (
+                      {customsInfo.customs_signer && (
                         <p className="text-sm text-gray-600 mt-2">
-                          Current: {customsInfo.description} - ${customsInfo.value} - {customsInfo.purpose}
+                          Current: {customsInfo.contents_type} - {customsInfo.customs_signer}
                         </p>
                       )}
                     </div>
@@ -572,7 +592,9 @@ const EnhancedShippingForm: React.FC = () => {
       <CustomsDocumentationModal
         isOpen={showCustomsModal}
         onClose={() => setShowCustomsModal(false)}
-        onSave={handleCustomsSave}
+        onSubmit={handleCustomsSave}
+        fromCountry={fromAddress.country}
+        toCountry={toAddress.country}
         initialData={customsInfo}
       />
       
