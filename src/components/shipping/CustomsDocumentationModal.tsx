@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -79,7 +78,16 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
       eelPfc: eelPfc || 'AES ITN Required',
       customsItems
     };
+    
     onSubmit(customsInfo);
+    
+    setTimeout(() => {
+      onClose();
+    }, 100);
+  };
+
+  const handleClose = () => {
+    onClose();
   };
 
   const isValid = customsItems.every(item => 
@@ -87,7 +95,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
   ) && customsSigner.trim() !== '';
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold text-gray-800">
@@ -251,11 +259,15 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button onClick={onClose} variant="outline">
+            <Button onClick={handleClose} variant="outline">
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={!isValid}>
-              Complete Customs Documentation
+            <Button 
+              onClick={handleSubmit} 
+              disabled={!isValid}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Save & Continue
             </Button>
           </div>
         </div>

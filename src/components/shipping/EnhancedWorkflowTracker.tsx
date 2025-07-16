@@ -71,10 +71,10 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({
   };
 
   return (
-    <div className="w-full py-6">
-      <div className="mx-auto max-w-6xl px-6">
-        {/* Curved floating container */}
-        <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-lg border border-gray-200/50 p-6">
+    <div className="w-full py-4 sticky top-0 z-50">
+      <div className="mx-auto max-w-4xl px-4">
+        {/* Glassy translucent container with shorter width */}
+        <div className="bg-white/30 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-4 transition-all duration-300 hover:bg-white/40">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => {
               const status = getStepStatus(index);
@@ -83,29 +83,29 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({
               return (
                 <div key={step.id} className="flex items-center flex-1">
                   <div className="flex flex-col items-center">
-                    {/* Step Circle */}
+                    {/* Step Circle with glassy effect */}
                     <div className={`
-                      w-12 h-12 rounded-full border-2 flex items-center justify-center transition-all duration-500 relative shadow-lg
+                      w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-500 relative shadow-lg backdrop-blur-sm
                       ${status === 'completed' 
-                        ? 'bg-blue-600 border-blue-500 text-white shadow-blue-500/30' 
+                        ? 'bg-blue-600/80 border-blue-500 text-white shadow-blue-500/30' 
                         : status === 'current'
-                        ? 'bg-blue-100 border-blue-600 text-blue-700 ring-4 ring-blue-100/50 shadow-blue-500/20'
-                        : 'bg-white border-gray-300 text-gray-400 shadow-gray-200/50'
+                        ? 'bg-blue-100/60 border-blue-600 text-blue-700 ring-4 ring-blue-100/30 shadow-blue-500/20'
+                        : 'bg-white/50 border-gray-300/50 text-gray-400 shadow-gray-200/30'
                       }
                     `}>
-                      <Icon className="w-6 h-6" />
+                      <Icon className="w-5 h-5" />
                       
                       {status === 'current' && (
-                        <div className="absolute -inset-1 rounded-full bg-blue-500/10 animate-pulse" />
+                        <div className="absolute -inset-1 rounded-full bg-blue-500/20 animate-pulse" />
                       )}
                     </div>
                     
-                    {/* Step Text */}
-                    <div className="text-center mt-3">
-                      <div className={`text-sm font-bold transition-colors duration-300 ${
-                        status === 'current' ? 'text-blue-700' : 
-                        status === 'completed' ? 'text-blue-600' : 
-                        'text-gray-500'
+                    {/* Step Text with translucent background */}
+                    <div className="text-center mt-2">
+                      <div className={`text-xs font-bold transition-colors duration-300 px-2 py-1 rounded-lg backdrop-blur-sm ${
+                        status === 'current' ? 'text-blue-700 bg-blue-100/40' : 
+                        status === 'completed' ? 'text-blue-600 bg-blue-50/40' : 
+                        'text-gray-500 bg-gray-50/40'
                       }`}>
                         {step.name}
                       </div>
@@ -119,10 +119,10 @@ const EnhancedWorkflowTracker: React.FC<EnhancedWorkflowTrackerProps> = ({
                     </div>
                   </div>
                   
-                  {/* Connector Line */}
+                  {/* Connector Line with glassy effect */}
                   {index < steps.length - 1 && (
-                    <div className={`flex-1 h-1 mx-6 rounded-full transition-all duration-500 ${
-                      status === 'completed' ? 'bg-blue-500' : 'bg-gray-200'
+                    <div className={`flex-1 h-1 mx-4 rounded-full transition-all duration-500 backdrop-blur-sm ${
+                      status === 'completed' ? 'bg-blue-500/60' : 'bg-gray-200/40'
                     }`} />
                   )}
                 </div>

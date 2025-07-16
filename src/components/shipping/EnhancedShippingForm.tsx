@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -41,6 +40,7 @@ const EnhancedShippingForm: React.FC = () => {
   const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
   const [showCustomsModal, setShowCustomsModal] = useState(false);
   const [customsInfo, setCustomsInfo] = useState<any>(null);
+  const [showInternationalLabelModal, setShowInternationalLabelModal] = useState(false);
 
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
@@ -74,9 +74,10 @@ const EnhancedShippingForm: React.FC = () => {
   // Show dimensions for custom packages
   const showDimensions = ['box', 'envelope'].includes(watchPackageType);
 
-  // Watch for address changes to trigger customs modal
+  // Enhanced address change handler for international flow
   useEffect(() => {
     if (fromAddress && toAddress && fromAddress.country !== toAddress.country) {
+      // Show customs modal first
       setShowCustomsModal(true);
     }
   }, [fromAddress, toAddress]);
@@ -84,7 +85,17 @@ const EnhancedShippingForm: React.FC = () => {
   const handleCustomsSubmit = (customs: any) => {
     setCustomsInfo(customs);
     setShowCustomsModal(false);
-    toast.success("Customs documentation completed");
+    
+    // Show international label creation modal after customs
+    setTimeout(() => {
+      setShowInternationalLabelModal(true);
+    }, 300);
+  };
+
+  const handleInternationalLabelComplete = () => {
+    setShowInternationalLabelModal(false);
+    // Show success notification
+    toast.success("International shipping label created successfully!");
   };
 
   const handleInsuranceChange = (enabled: boolean, amount: number) => {
@@ -363,6 +374,44 @@ const EnhancedShippingForm: React.FC = () => {
                   )}
                 />
               </div>
+
+              {/* Enhanced Carrier Selection */}
+              <div className="mb-4">
+                <FormField
+                  control={form.control}
+                  name="carriers"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm">Preferred Carriers</FormLabel>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        {[
+                          { id: 'usps', name: 'USPS' },
+                          { id: 'ups', name: 'UPS' },
+                          { id: 'fedex', name: 'FedEx' },
+                          { id: 'dhl', name: 'DHL' }
+                        ].map((carrier) => (
+                          <label key={carrier.id} className="flex items-center space-x-2 p-2 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={field.value.includes(carrier.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  field.onChange([...field.value, carrier.id]);
+                                } else {
+                                  field.onChange(field.value.filter(c => c !== carrier.id));
+                                }
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm font-medium">{carrier.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             {/* Insurance */}
@@ -418,6 +467,36 @@ const EnhancedShippingForm: React.FC = () => {
         fromCountry={fromAddress?.country || ''}
         toCountry={toAddress?.country || ''}
       />
+
+      {/* International Label Creation Modal */}
+      {showInternationalLabelModal && (
+        <Dialog open={showInternationalLabelModal} onOpenChange={setShowInternationalLabelModal}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create International Shipping Label</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-gray-600">
+                Creating your international shipping label with customs documentation...
+              </p>
+              <div className="flex justify-end gap-3">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowInternationalLabelModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleInternationalLabelComplete}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Create Label
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
