@@ -1,94 +1,103 @@
 
-import React from 'react';
-import { Card } from '@/components/ui/card';
+import React, { useState } from 'react';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { Truck } from 'lucide-react';
 
 interface CarrierSelectorProps {
-  selectedCarrier: string;
-  onCarrierChange: (carrier: string) => void;
+  selectedCarriers: string[];
+  onCarrierChange: (carriers: string[]) => void;
 }
 
 const carriers = [
   { 
-    value: 'all', 
-    label: 'All Carriers', 
-    logo: '📦',
-    color: 'bg-blue-50 border-blue-200 text-blue-700',
-    description: 'Compare all options'
-  },
-  { 
-    value: 'usps', 
-    label: 'USPS', 
-    logo: '🇺🇸',
-    color: 'bg-red-50 border-red-200 text-red-700',
+    id: 'usps', 
+    name: 'USPS', 
+    color: 'bg-blue-600',
     description: 'US Postal Service'
   },
   { 
-    value: 'ups', 
-    label: 'UPS', 
-    logo: '🤎',
-    color: 'bg-yellow-50 border-yellow-200 text-yellow-700',
+    id: 'ups', 
+    name: 'UPS', 
+    color: 'bg-yellow-600',
     description: 'United Parcel Service'
   },
   { 
-    value: 'fedex', 
-    label: 'FedEx', 
-    logo: '💜',
-    color: 'bg-purple-50 border-purple-200 text-purple-700',
+    id: 'fedex', 
+    name: 'FedEx', 
+    color: 'bg-purple-600',
     description: 'Federal Express'
   },
   { 
-    value: 'dhl', 
-    label: 'DHL', 
-    logo: '🟡',
-    color: 'bg-orange-50 border-orange-200 text-orange-700',
-    description: 'International Express'
-  },
+    id: 'dhl', 
+    name: 'DHL', 
+    color: 'bg-red-600',
+    description: 'DHL Express'
+  }
 ];
 
-const CarrierSelector: React.FC<CarrierSelectorProps> = ({ selectedCarrier, onCarrierChange }) => {
+const CarrierSelector: React.FC<CarrierSelectorProps> = ({
+  selectedCarriers,
+  onCarrierChange,
+}) => {
+  const [selected, setSelected] = useState<string[]>(selectedCarriers);
+
+  const handleCarrierToggle = (carrierId: string) => {
+    const newSelected = selected.includes(carrierId)
+      ? selected.filter(id => id !== carrierId)
+      : [...selected, carrierId];
+    
+    setSelected(newSelected);
+    onCarrierChange(newSelected);
+  };
+
   return (
-    <Card className="p-6 bg-white shadow-lg">
-      <div className="mb-6">
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">Select Carrier</h3>
-        <p className="text-sm text-gray-600">Choose your preferred shipping carrier</p>
-      </div>
+    <div className="space-y-3">
+      <Label className="text-sm font-medium flex items-center gap-2">
+        <Truck className="w-4 h-4" />
+        Select Carriers
+      </Label>
       
-      <div className="space-y-3">
+      <div className="space-y-2">
         {carriers.map((carrier) => (
-          <div
-            key={carrier.value}
-            className={`cursor-pointer rounded-lg border-2 p-4 transition-all duration-200 hover:shadow-md ${
-              selectedCarrier === carrier.value 
-                ? `${carrier.color} border-current shadow-md` 
-                : 'border-gray-200 hover:border-gray-300 bg-white'
-            }`}
-            onClick={() => onCarrierChange(carrier.value)}
-          >
-            <div className="flex items-center space-x-3">
-              <div className="text-2xl">{carrier.logo}</div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className={`font-semibold ${
-                    selectedCarrier === carrier.value ? 'text-current' : 'text-gray-900'
-                  }`}>
-                    {carrier.label}
-                  </h4>
-                  {selectedCarrier === carrier.value && (
-                    <Badge variant="secondary" className="ml-2">Selected</Badge>
-                  )}
-                </div>
-                <p className={`text-sm ${
-                  selectedCarrier === carrier.value ? 'text-current opacity-80' : 'text-gray-500'
-                }`}>
-                  {carrier.description}
-                </p>
+          <div key={carrier.id} className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50">
+            <Checkbox
+              id={carrier.id}
+              checked={selected.includes(carrier.id)}
+              onCheckedChange={() => handleCarrierToggle(carrier.id)}
+            />
+            
+            <div className="flex items-center gap-2 flex-1">
+              <div className={`w-4 h-4 rounded ${carrier.color} flex items-center justify-center`}>
+                <Truck className="w-2 h-2 text-white" />
               </div>
+              
+              <div className="flex-1">
+                <Label htmlFor={carrier.id} className="text-sm font-medium cursor-pointer">
+                  {carrier.name}
+                </Label>
+                <p className="text-xs text-gray-500">{carrier.description}</p>
+              </div>
+              
+              {selected.includes(carrier.id) && (
+                <Badge variant="secondary" className="text-xs">
+                  Selected
+                </Badge>
+              )}
             </div>
           </div>
         ))}
       </div>
-    </Card>
+      
+      {selected.length > 0 && (
+        <div className="mt-3 p-2 bg-blue-50 rounded-lg">
+          <p className="text-xs text-blue-700">
+            {selected.length} carrier{selected.length > 1 ? 's' : ''} selected
+          </p>
+        </div>
+      )}
+    </div>
   );
 };
 
