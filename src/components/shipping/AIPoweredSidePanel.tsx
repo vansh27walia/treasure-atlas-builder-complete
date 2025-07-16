@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,8 +50,8 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
   const [lastAction, setLastAction] = useState<string>('');
   const [selectedCarrier, setSelectedCarrier] = useState('all');
 
-  // Updated carrier list - only USPS, UPS, DHL, FedEx, Canada Post
-  const availableCarriers = ['usps', 'ups', 'dhl', 'fedex', 'canadapost'];
+  // Get unique carriers from rates - only show UPS and USPS as requested
+  const availableCarriers = ['ups', 'usps'];
 
   // Handle carrier selection with proper filtering
   const handleCarrierChange = (carrier: string) => {
@@ -156,7 +157,7 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
   };
 
   return (
-    <div className="space-y-4 overflow-hidden">
+    <div className="space-y-4">
       {/* Rate Calculator Button */}
       <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
         <Button
@@ -168,7 +169,7 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         </Button>
       </Card>
 
-      {/* Carrier Selection - Updated carriers */}
+      {/* Carrier Selection - Only UPS and USPS */}
       <Card className="p-4">
         <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
           <Filter className="w-4 h-4 text-blue-500" />

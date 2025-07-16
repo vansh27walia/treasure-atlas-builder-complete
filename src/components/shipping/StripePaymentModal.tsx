@@ -52,17 +52,15 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
     setIsProcessing(true);
     
     try {
-      console.log('Processing REAL payment with method:', selectedPaymentMethod);
+      console.log('Processing payment with method:', selectedPaymentMethod);
       
-      // Use the real payment processing function with actual charges
       const { data, error } = await supabase.functions.invoke('process-shipping-payment', {
         body: {
           amount: Math.round(totalAmount * 100), // Convert to cents
           shipmentCount,
           currency: 'usd',
           paymentMethodId: selectedPaymentMethod,
-          description: `Shipping Label Creation (${shipmentCount} labels)`,
-          realPayment: true // Flag to indicate this is a real payment, not test
+          description: `Batch Label Creation (${shipmentCount} labels)`
         }
       });
 
@@ -71,15 +69,15 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
       }
 
       if (data?.success) {
-        console.log('REAL payment processed successfully:', data);
-        toast.success('Payment completed successfully! Your credit card has been charged.');
+        console.log('Payment processed successfully:', data);
+        toast.success('Payment completed successfully!');
         onPaymentSuccess();
         onClose();
       } else {
         throw new Error(data?.message || 'Payment processing failed');
       }
     } catch (error) {
-      console.error('Real payment error:', error);
+      console.error('Payment error:', error);
       toast.error(error instanceof Error ? error.message : 'Payment failed. Please try again.');
     } finally {
       setIsProcessing(false);
@@ -93,7 +91,7 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
           <DialogTitle className="flex items-center justify-between">
             <span className="flex items-center">
               <Lock className="h-5 w-5 mr-2 text-green-600" />
-              Secure Payment - LIVE MODE
+              Secure Payment
             </span>
             <Button variant="ghost" size="sm" onClick={onClose}>
               <X className="h-4 w-4" />
@@ -102,16 +100,6 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
         </DialogHeader>
         
         <div className="space-y-4">
-          <Card className="p-4 bg-red-50 border-red-200">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-              <span className="font-semibold text-red-800">LIVE PAYMENT MODE</span>
-            </div>
-            <p className="text-sm text-red-700">
-              Your credit card will be charged the full amount. This is not a test payment.
-            </p>
-          </Card>
-
           <Card className="p-4 bg-blue-50 border-blue-200">
             <h4 className="font-semibold text-blue-800 mb-2">Order Summary</h4>
             <div className="space-y-1 text-sm">
@@ -120,7 +108,7 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
                 <span>${totalAmount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between font-semibold border-t pt-1">
-                <span>Total to be charged</span>
+                <span>Total</span>
                 <span>${totalAmount.toFixed(2)}</span>
               </div>
             </div>
@@ -134,7 +122,7 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
                 onPaymentMethodChange={handlePaymentMethodChange}
                 onPaymentComplete={handlePaymentComplete}
                 amount={totalAmount}
-                description={`Shipping Label Creation (${shipmentCount} labels)`}
+                description={`Batch Label Creation (${shipmentCount} labels)`}
               />
             </div>
           )}
@@ -143,18 +131,18 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
             <Button
               onClick={handleDirectPayment}
               disabled={isProcessing || !selectedPaymentMethod}
-              className="w-full bg-red-600 hover:bg-red-700 text-white"
+              className="w-full bg-blue-600 hover:bg-blue-700"
               size="lg"
             >
               {isProcessing ? (
                 <div className="flex items-center">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Processing Live Payment...
+                  Processing Payment...
                 </div>
               ) : (
                 <>
                   <CreditCard className="mr-2 h-4 w-4" />
-                  Charge Card ${totalAmount.toFixed(2)}
+                  Pay ${totalAmount.toFixed(2)}
                 </>
               )}
             </Button>
@@ -171,7 +159,7 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
           
           <div className="text-xs text-gray-500 text-center">
             <Lock className="h-3 w-3 inline mr-1" />
-            Secured by Stripe. Your payment will be processed immediately.
+            Secured by Stripe. Your payment information is encrypted and secure.
           </div>
         </div>
       </DialogContent>
