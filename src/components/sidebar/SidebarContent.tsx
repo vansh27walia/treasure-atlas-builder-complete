@@ -44,7 +44,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
           <SidebarNavItem
             icon={<Calculator size={18} />}
             title="Rate Calculator"
-            to="/create-label?tab=calculator"
+            to="/rate-calculator"
             collapsed={collapsed}
           />
           <SidebarNavItem
