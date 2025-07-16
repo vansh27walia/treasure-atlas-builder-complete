@@ -1,607 +1,541 @@
+
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, Package, Search, Loader2, FileText } from 'lucide-react';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from "@/integrations/supabase/client";
-import ShippingRates from '../ShippingRates';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import AddressSelector from './AddressSelector';
+import { addressService, SavedAddress } from '@/services/AddressService';
+import { createAddressSelectHandler } from '@/utils/addressUtils';
+import { Search, Package, MapPin, FileText, Shield, AlertTriangle } from 'lucide-react';
 import CustomsDocumentationModal from './CustomsDocumentationModal';
+import LabelCreationModal from './LabelCreationModal';
+import PackageTypeSelector from './PackageTypeSelector';
+import InsuranceCalculator from './InsuranceCalculator';
+import HazmatSelector from './HazmatSelector';
 
-interface AddressData {
-  name: string;
-  company?: string;
-  street1: string;
-  street2?: string;
-  city: string;
-  state: string;
-  zip: string;
-  country: string;
-  phone?: string;
-}
+const shippingFormSchema = z.object({
+  packageType: z.string().min(1, "Please select a package type"),
+  weightValue: z.coerce.number().min(0, "Weight must be greater than 0"),
+  weightUnit: z.enum(["oz", "kg", "lb"]),
+  declaredValue: z.coerce.number().min(0, "Value must be greater than 0"),
+  length: z.coerce.number().min(0, "Length must be greater than 0").optional(),
+  width: z.coerce.number().min(0, "Width must be greater than 0").optional(),
+  height: z.coerce.number().min(0, "Height must be greater than 0").optional(),
+  insurance: z.boolean().default(true),
+  hazmat: z.boolean().default(false),
+  hazmatType: z.string().optional(),
+  carriers: z.array(z.string()).default(['usps', 'ups', 'fedex', 'dhl']),
+});
 
-interface ParcelData {
-  weight?: number | string;
-  length?: number | string;
-  width?: number | string;
-  height?: number | string;
-}
-
-interface CustomsItem {
-  description: string;
-  quantity: number;
-  value: number;
-  weight: number;
-  hs_tariff_number?: string;
-  origin_country: string;
-}
-
-interface CustomsInfo {
-  contents_type: string;
-  contents_explanation?: string;
-  customs_certify: boolean;
-  customs_signer: string;
-  non_delivery_option: string;
-  restriction_type?: string;
-  restriction_comments?: string;
-  customs_items: CustomsItem[];
-  eel_pfc?: string;
-}
+type ShippingFormValues = z.infer<typeof shippingFormSchema>;
 
 const EnhancedShippingForm: React.FC = () => {
-  const [fromAddress, setFromAddress] = useState<AddressData>({
-    name: '',
-    company: '',
-    street1: '',
-    street2: '',
-    city: '',
-    state: '',
-    zip: '',
-    country: 'US',
-    phone: ''
-  });
-  const [toAddress, setToAddress] = useState<AddressData>({
-    name: '',
-    company: '',
-    street1: '',
-    street2: '',
-    city: '',
-    state: '',
-    zip: '',
-    country: 'US',
-    phone: ''
-  });
-  const [parcel, setParcel] = useState<ParcelData>({
-    weight: '',
-    length: '',
-    width: '',
-    height: ''
-  });
-  const [weightUnit, setWeightUnit] = useState('lb');
   const [isLoading, setIsLoading] = useState(false);
+  const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
+  const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
   const [showCustomsModal, setShowCustomsModal] = useState(false);
-  const [customsInfo, setCustomsInfo] = useState<CustomsInfo>({
-    contents_type: 'merchandise',
-    contents_explanation: '',
-    customs_certify: true,
-    customs_signer: '',
-    non_delivery_option: 'return',
-    restriction_type: 'none',
-    restriction_comments: '',
-    customs_items: [{
-      description: '',
-      quantity: 1,
-      value: 0,
-      weight: 0,
-      hs_tariff_number: '',
-      origin_country: 'US'
-    }],
-    eel_pfc: ''
+  const [customsInfo, setCustomsInfo] = useState<any>(null);
+  const [showLabelCreationModal, setShowLabelCreationModal] = useState(false);
+  const [labelCreationData, setLabelCreationData] = useState<any>(null);
+
+  const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
+  const handleToAddressSelect = createAddressSelectHandler(setToAddress);
+
+  const form = useForm<ShippingFormValues>({
+    resolver: zodResolver(shippingFormSchema),
+    defaultValues: {
+      packageType: 'box',
+      weightValue: undefined,
+      weightUnit: 'lb',
+      declaredValue: undefined,
+      length: undefined,
+      width: undefined,
+      height: undefined,
+      insurance: true,
+      hazmat: false,
+      hazmatType: '',
+      carriers: ['usps', 'ups', 'fedex', 'dhl'],
+    }
   });
 
-  // Enhanced function to handle address changes and trigger customs documentation
-  const handleAddressChange = (addressType: 'from' | 'to', field: string, value: string) => {
-    if (addressType === 'from') {
-      setFromAddress(prev => ({ ...prev, [field]: value }));
-    } else {
-      setToAddress(prev => ({ ...prev, [field]: value }));
-      
-      // Check if this address change makes it international and trigger customs modal
-      if (field === 'country' && value !== 'US' && fromAddress.country === 'US') {
-        console.log('International shipping detected, opening customs modal');
-        setTimeout(() => {
-          setShowCustomsModal(true);
-        }, 500); // Small delay to let the UI update
-      }
-    }
-  };
+  // Watch for package type changes
+  const watchPackageType = form.watch("packageType");
+  const watchInsurance = form.watch("insurance");
+  const watchDeclaredValue = form.watch("declaredValue");
+  const watchHazmat = form.watch("hazmat");
 
-  const handleCustomsSave = (data: CustomsInfo) => {
-    setCustomsInfo(data);
+  // Calculate insurance cost
+  const insuranceCost = watchInsurance && watchDeclaredValue ? Math.max(2, Math.ceil((watchDeclaredValue / 100) * 2)) : 0;
+
+  // Show dimensions for custom packages
+  const showDimensions = ['box', 'envelope'].includes(watchPackageType);
+
+  // Check if international shipping
+  const isInternational = fromAddress && toAddress && fromAddress.country !== toAddress.country;
+
+  const handleCustomsSubmit = (customs: any) => {
+    setCustomsInfo(customs);
     setShowCustomsModal(false);
-    toast.success('Customs information saved');
+    toast.success("Customs documentation saved successfully");
   };
 
-  const handleCustomsCancel = () => {
-    setShowCustomsModal(false);
+  const handleInsuranceChange = (enabled: boolean, amount: number) => {
+    form.setValue('insurance', enabled);
+    form.setValue('declaredValue', amount);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!fromAddress.street1 || !toAddress.street1) {
-      toast.error('Please fill in all required address fields');
+  const handleGetRates = async (values: ShippingFormValues) => {
+    if (!fromAddress || !toAddress) {
+      toast.error("Please provide both origin and destination addresses");
       return;
     }
-    
-    if (!parcel.weight) {
-      toast.error('Please enter package weight');
+
+    // Check if international shipping requires customs and it's not completed
+    if (isInternational && !customsInfo) {
+      toast.error("Please complete customs documentation for international shipments");
+      setShowCustomsModal(true);
       return;
     }
-    
+
     setIsLoading(true);
-    
     try {
-      // Convert weight to ounces for EasyPost
-      let weightOz = parseFloat(parcel.weight.toString());
-      if (weightUnit === 'kg') {
+      // Convert weight to ounces for backend processing
+      let weightOz = values.weightValue || 0;
+      if (values.weightUnit === 'kg') {
         weightOz = weightOz * 35.274;
-      } else if (weightUnit === 'lb') {
+      } else if (values.weightUnit === 'lb') {
         weightOz = weightOz * 16;
       }
-
-      // Build parcel object
-      const parcelData: any = { weight: weightOz };
       
-      if (parcel.length && parcel.width) {
-        parcelData.length = parseFloat(parcel.length.toString());
-        parcelData.width = parseFloat(parcel.width.toString());
-        if (parcel.height) {
-          parcelData.height = parseFloat(parcel.height.toString());
-        }
-      }
-
-      const requestData = {
-        fromAddress,
-        toAddress,
-        parcel: parcelData,
-        carriers: ['usps', 'ups', 'fedex', 'dhl'], // Request all carriers
+      // Prepare the request payload for EasyPost API
+      const payload = {
+        fromAddress: {
+          name: fromAddress.name,
+          company: fromAddress.company,
+          street1: fromAddress.street1,
+          street2: fromAddress.street2,
+          city: fromAddress.city,
+          state: fromAddress.state,
+          zip: fromAddress.zip,
+          country: fromAddress.country || 'US',
+        },
+        toAddress: {
+          name: toAddress.name,
+          company: toAddress.company,
+          street1: toAddress.street1,
+          street2: toAddress.street2,
+          city: toAddress.city,
+          state: toAddress.state,
+          zip: toAddress.zip,
+          country: toAddress.country || 'US',
+        },
+        parcel: {
+          length: values.length || 8,
+          width: values.width || 8,
+          height: values.height || 2,
+          weight: weightOz,
+        },
         options: {
-          label_format: 'PDF'
-        }
+          hazmat: values.hazmat ? values.hazmatType : undefined,
+        },
+        carriers: values.carriers,
+        customs_info: customsInfo,
+        insurance_info: values.insurance ? {
+          amount: values.declaredValue,
+          cost: insuranceCost
+        } : null
       };
 
-      console.log('Submitting shipping request:', requestData);
+      console.log('Submitting payload:', payload);
 
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: requestData
+        body: payload,
       });
 
       if (error) {
         throw new Error(`Error fetching rates: ${error.message}`);
       }
 
-      if (data && data.rates) {
-        console.log('Received rates:', data.rates);
-        
-        // Dispatch event for ShippingRates component
-        document.dispatchEvent(new CustomEvent('easypost-rates-received', {
-          detail: {
-            rates: data.rates,
-            shipmentId: data.shipmentId
-          }
+      if (data.rates && Array.isArray(data.rates)) {
+        const ratesWithInsurance = data.rates.map(rate => ({
+          ...rate,
+          insurance_cost: insuranceCost,
+          total_cost: parseFloat(rate.rate) + insuranceCost
         }));
         
-        toast.success(`Found ${data.rates.length} shipping options!`);
-        
-        // Scroll to rates section
-        setTimeout(() => {
-          const ratesSection = document.getElementById('shipping-rates-section');
-          if (ratesSection) {
-            ratesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 300);
-      } else {
-        toast.error('No shipping rates found');
+        document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
+          detail: { rates: ratesWithInsurance, shipmentId: data.shipmentId } 
+        }));
       }
+
+      toast.success("Shipping rates retrieved successfully");
       
+      // Scroll to the rates section
+      const ratesSection = document.getElementById('shipping-rates-section');
+      if (ratesSection) {
+        ratesSection.scrollIntoView({ behavior: 'smooth' });
+      }
     } catch (error) {
-      console.error('Error submitting form:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to get shipping rates');
+      console.error('Error fetching shipping rates:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to get shipping rates");
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Listen for label creation events
+  useEffect(() => {
+    const handleLabelCreated = (event: any) => {
+      const { labelData } = event.detail;
+      setLabelCreationData({
+        ...labelData,
+        fromAddress,
+        toAddress,
+        isInternational
+      });
+      setShowLabelCreationModal(true);
+    };
+
+    document.addEventListener('label-created', handleLabelCreated);
+    return () => document.removeEventListener('label-created', handleLabelCreated);
+  }, [fromAddress, toAddress, isInternational]);
+
   return (
-    <div className="w-full max-w-4xl mx-auto p-6 space-y-8">
+    <div className="w-full">
       <Card className="border shadow-sm">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-xl font-semibold">Create Shipping Label</CardTitle>
-          <p className="text-sm text-gray-600">Enter shipment details to get rates and create your label</p>
-        </CardHeader>
-        
-        <CardContent className="space-y-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* From Address */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-blue-600" />
-                From Address
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="from-name">Name *</Label>
-                  <Input
-                    id="from-name"
-                    value={fromAddress.name}
-                    onChange={(e) => handleAddressChange('from', 'name', e.target.value)}
-                    placeholder="Enter sender name"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="from-company">Company</Label>
-                  <Input
-                    id="from-company"
-                    value={fromAddress.company}
-                    onChange={(e) => handleAddressChange('from', 'company', e.target.value)}
-                    placeholder="Company name (optional)"
-                  />
-                </div>
-                
-                <div className="md:col-span-2">
-                  <Label htmlFor="from-street1">Street Address *</Label>
-                  <Input
-                    id="from-street1"
-                    value={fromAddress.street1}
-                    onChange={(e) => handleAddressChange('from', 'street1', e.target.value)}
-                    placeholder="Enter street address"
-                    required
-                  />
-                </div>
-                
-                <div className="md:col-span-2">
-                  <Label htmlFor="from-street2">Street Address 2</Label>
-                  <Input
-                    id="from-street2"
-                    value={fromAddress.street2}
-                    onChange={(e) => handleAddressChange('from', 'street2', e.target.value)}
-                    placeholder="Apartment, suite, etc. (optional)"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="from-city">City *</Label>
-                  <Input
-                    id="from-city"
-                    value={fromAddress.city}
-                    onChange={(e) => handleAddressChange('from', 'city', e.target.value)}
-                    placeholder="Enter city"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="from-state">State/Province *</Label>
-                  <Input
-                    id="from-state"
-                    value={fromAddress.state}
-                    onChange={(e) => handleAddressChange('from', 'state', e.target.value)}
-                    placeholder="Enter state/province"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="from-zip">ZIP/Postal Code *</Label>
-                  <Input
-                    id="from-zip"
-                    value={fromAddress.zip}
-                    onChange={(e) => handleAddressChange('from', 'zip', e.target.value)}
-                    placeholder="Enter ZIP/postal code"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="from-country">Country *</Label>
-                  <Select value={fromAddress.country} onValueChange={(value) => handleAddressChange('from', 'country', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="US">United States</SelectItem>
-                      <SelectItem value="CA">Canada</SelectItem>
-                      <SelectItem value="GB">United Kingdom</SelectItem>
-                      <SelectItem value="DE">Germany</SelectItem>
-                      <SelectItem value="FR">France</SelectItem>
-                      <SelectItem value="AU">Australia</SelectItem>
-                      <SelectItem value="JP">Japan</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="md:col-span-2">
-                  <Label htmlFor="from-phone">Phone</Label>
-                  <Input
-                    id="from-phone"
-                    value={fromAddress.phone}
-                    onChange={(e) => handleAddressChange('from', 'phone', e.target.value)}
-                    placeholder="Enter phone number"
-                    type="tel"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* To Address */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium flex items-center gap-2">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-border">
+            {/* Pickup Address */}
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-green-600" />
-                To Address
+                Pickup Address
               </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="to-name">Name *</Label>
-                  <Input
-                    id="to-name"
-                    value={toAddress.name}
-                    onChange={(e) => handleAddressChange('to', 'name', e.target.value)}
-                    placeholder="Enter recipient name"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="to-company">Company</Label>
-                  <Input
-                    id="to-company"
-                    value={toAddress.company}
-                    onChange={(e) => handleAddressChange('to', 'company', e.target.value)}
-                    placeholder="Company name (optional)"
-                  />
-                </div>
-                
-                <div className="md:col-span-2">
-                  <Label htmlFor="to-street1">Street Address *</Label>
-                  <Input
-                    id="to-street1"
-                    value={toAddress.street1}
-                    onChange={(e) => handleAddressChange('to', 'street1', e.target.value)}
-                    placeholder="Enter street address"
-                    required
-                  />
-                </div>
-                
-                <div className="md:col-span-2">
-                  <Label htmlFor="to-street2">Street Address 2</Label>
-                  <Input
-                    id="to-street2"
-                    value={toAddress.street2}
-                    onChange={(e) => handleAddressChange('to', 'street2', e.target.value)}
-                    placeholder="Apartment, suite, etc. (optional)"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="to-city">City *</Label>
-                  <Input
-                    id="to-city"
-                    value={toAddress.city}
-                    onChange={(e) => handleAddressChange('to', 'city', e.target.value)}
-                    placeholder="Enter city"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="to-state">State/Province *</Label>
-                  <Input
-                    id="to-state"
-                    value={toAddress.state}
-                    onChange={(e) => handleAddressChange('to', 'state', e.target.value)}
-                    placeholder="Enter state/province"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="to-zip">ZIP/Postal Code *</Label>
-                  <Input
-                    id="to-zip"
-                    value={toAddress.zip}
-                    onChange={(e) => handleAddressChange('to', 'zip', e.target.value)}
-                    placeholder="Enter ZIP/postal code"
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="to-country">Country *</Label>
-                  <Select value={toAddress.country} onValueChange={(value) => handleAddressChange('to', 'country', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select country" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="US">United States</SelectItem>
-                      <SelectItem value="CA">Canada</SelectItem>
-                      <SelectItem value="GB">United Kingdom</SelectItem>
-                      <SelectItem value="DE">Germany</SelectItem>
-                      <SelectItem value="FR">France</SelectItem>
-                      <SelectItem value="AU">Australia</SelectItem>
-                      <SelectItem value="JP">Japan</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="md:col-span-2">
-                  <Label htmlFor="to-phone">Phone</Label>
-                  <Input
-                    id="to-phone"
-                    value={toAddress.phone}
-                    onChange={(e) => handleAddressChange('to', 'phone', e.target.value)}
-                    placeholder="Enter phone number"
-                    type="tel"
-                  />
-                </div>
-              </div>
+              <AddressSelector 
+                type="from"
+                onAddressSelect={handleFromAddressSelect}
+                useGoogleAutocomplete={true}
+              />
             </div>
 
-            {/* Customs Documentation Section - appears for international shipments */}
-            {(fromAddress.country !== toAddress.country) && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-purple-600" />
-                  Customs Documentation
-                </h3>
-                
-                <Card className="p-4 bg-purple-50 border-purple-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-purple-800">International Shipping Detected</h4>
-                      <p className="text-sm text-purple-600 mt-1">
-                        Customs documentation is required for shipments from {fromAddress.country} to {toAddress.country}
-                      </p>
-                      {customsInfo.customs_signer && (
-                        <p className="text-sm text-gray-600 mt-2">
-                          Current: {customsInfo.contents_type} - {customsInfo.customs_signer}
-                        </p>
-                      )}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowCustomsModal(true)}
-                      className="border-purple-300 text-purple-700 hover:bg-purple-100"
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      Edit Customs
-                    </Button>
-                  </div>
-                </Card>
-              </div>
-            )}
-
+            {/* Drop-off Address */}
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-red-600" />
+                Drop-off Address
+              </h3>
+              <AddressSelector 
+                type="to"
+                onAddressSelect={handleToAddressSelect}
+                useGoogleAutocomplete={true}
+              />
+            </div>
+            
             {/* Package Details */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium flex items-center gap-2">
-                <Package className="w-5 h-5 text-orange-600" />
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Package className="w-5 h-5" />
                 Package Details
               </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="weight">Weight *</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="weight"
-                      type="number"
-                      placeholder=""
-                      value={parcel.weight || ''}
-                      onChange={(e) => setParcel(prev => ({ ...prev, weight: e.target.value }))}
-                      className="flex-1"
-                      min="0"
-                      step="0.1"
-                      required
+                
+              <div className="mb-4">
+                <FormField
+                  control={form.control}
+                  name="packageType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <PackageTypeSelector
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Package Dimensions */}
+              {showDimensions && (
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <FormField
+                    control={form.control}
+                    name="length"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">Length (in)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            {...field}
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            className="bg-white"
+                            placeholder="Length"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="width"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-sm">Width (in)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            {...field}
+                            value={field.value || ''}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            className="bg-white"
+                            placeholder="Width"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {watchPackageType === 'box' && (
+                    <FormField
+                      control={form.control}
+                      name="height"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-sm">Height (in)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              {...field}
+                              value={field.value || ''}
+                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                              className="bg-white"
+                              placeholder="Height"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                    <Select value={weightUnit} onValueChange={setWeightUnit}>
-                      <SelectTrigger className="w-20">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="oz">oz</SelectItem>
-                        <SelectItem value="lb">lb</SelectItem>
-                        <SelectItem value="kg">kg</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  )}
                 </div>
-                
-                <div>
-                  <Label htmlFor="length">Length (inches)</Label>
-                  <Input
-                    id="length"
-                    type="number"
-                    placeholder=""
-                    value={parcel.length || ''}
-                    onChange={(e) => setParcel(prev => ({ ...prev, length: e.target.value }))}
-                    min="0"
-                    step="0.1"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="width">Width (inches)</Label>
-                  <Input
-                    id="width"
-                    type="number"
-                    placeholder=""
-                    value={parcel.width || ''}
-                    onChange={(e) => setParcel(prev => ({ ...prev, width: e.target.value }))}
-                    min="0"
-                    step="0.1"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="height">Height (inches)</Label>
-                  <Input
-                    id="height"
-                    type="number"
-                    placeholder=""
-                    value={parcel.height || ''}
-                    onChange={(e) => setParcel(prev => ({ ...prev, height: e.target.value }))}
-                    min="0"
-                    step="0.1"
-                  />
-                </div>
+              )}
+
+              {/* Weight */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <FormField
+                  control={form.control}
+                  name="weightValue"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm">Weight</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          {...field}
+                          value={field.value || ''}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          className="bg-white"
+                          placeholder="Weight"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="weightUnit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm">Unit</FormLabel>
+                      <FormControl>
+                        <select 
+                          {...field}
+                          className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
+                        >
+                          <option value="lb">Pounds (lb)</option>
+                          <option value="oz">Ounces (oz)</option>
+                          <option value="kg">Kilograms (kg)</option>
+                        </select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Enhanced Carrier Selection */}
+              <div className="mb-4">
+                <FormField
+                  control={form.control}
+                  name="carriers"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm">Preferred Carriers</FormLabel>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        {[
+                          { id: 'usps', name: 'USPS' },
+                          { id: 'ups', name: 'UPS' },
+                          { id: 'fedex', name: 'FedEx' },
+                          { id: 'dhl', name: 'DHL' }
+                        ].map((carrier) => (
+                          <label key={carrier.id} className="flex items-center space-x-2 p-2 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={field.value.includes(carrier.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  field.onChange([...field.value, carrier.id]);
+                                } else {
+                                  field.onChange(field.value.filter(c => c !== carrier.id));
+                                }
+                              }}
+                              className="rounded border-gray-300"
+                            />
+                            <span className="text-sm font-medium">{carrier.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
             </div>
 
-            {/* Submit Button */}
-            <div className="flex justify-center pt-4">
+            {/* Insurance */}
+            <div className="p-6">
+              <InsuranceCalculator
+                onInsuranceChange={handleInsuranceChange}
+              />
+            </div>
+
+            {/* HAZMAT */}
+            <div className="p-6">
+              <FormField
+                control={form.control}
+                name="hazmat"
+                render={({ field }) => (
+                  <FormItem>
+                    <HazmatSelector
+                      isHazmat={field.value}
+                      hazmatType={form.watch('hazmatType') || ''}
+                      onHazmatChange={field.onChange}
+                      onHazmatTypeChange={(type) => form.setValue('hazmatType', type)}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Customs Documentation Section */}
+            {isInternational && (
+              <div className="p-6 bg-blue-50 border-l-4 border-blue-400">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    Customs Documentation
+                    <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">Required</span>
+                  </h3>
+                  <Button
+                    type="button"
+                    onClick={() => setShowCustomsModal(true)}
+                    variant="outline"
+                    className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                  >
+                    {customsInfo ? 'Edit Customs Info' : 'Add Customs Info'}
+                  </Button>
+                </div>
+                
+                {customsInfo ? (
+                  <div className="bg-white p-4 rounded-lg border border-blue-200">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">Contents Type:</span>
+                        <span className="ml-2 capitalize">{customsInfo.contents_type}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">Signer:</span>
+                        <span className="ml-2">{customsInfo.customs_signer}</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">Items:</span>
+                        <span className="ml-2">{customsInfo.customs_items?.length || 0} item(s)</span>
+                      </div>
+                      <div>
+                        <span className="font-medium">Total Value:</span>
+                        <span className="ml-2">
+                          ${customsInfo.customs_items?.reduce((sum: number, item: any) => sum + (item.value * item.quantity), 0).toFixed(2) || '0.00'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 text-yellow-800">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span className="text-sm font-medium">
+                        Customs documentation is required for international shipments
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+              
+            {/* Submit Section */}
+            <div className="p-6 bg-muted/50">
               <Button 
                 type="submit" 
+                className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700" 
                 disabled={isLoading}
-                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium"
               >
                 {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Getting Rates...
-                  </>
+                  <Search className="w-5 h-5 mr-2 animate-spin" />
                 ) : (
-                  <>
-                    <Search className="w-4 h-4 mr-2" />
-                    Get Shipping Rates
-                  </>
+                  <Search className="w-5 h-5 mr-2" />
                 )}
+                Get Shipping Rates
               </Button>
             </div>
           </form>
-        </CardContent>
+        </Form>
       </Card>
 
       {/* Customs Documentation Modal */}
       <CustomsDocumentationModal
         isOpen={showCustomsModal}
         onClose={() => setShowCustomsModal(false)}
-        onSubmit={handleCustomsSave}
-        fromCountry={fromAddress.country}
-        toCountry={toAddress.country}
+        onSubmit={handleCustomsSubmit}
+        fromCountry={fromAddress?.country || ''}
+        toCountry={toAddress?.country || ''}
         initialData={customsInfo}
       />
-      
-      {/* Shipping Rates Section */}
-      <div id="shipping-rates-section">
-        <ShippingRates />
-      </div>
+
+      {/* Label Creation Modal */}
+      <LabelCreationModal
+        isOpen={showLabelCreationModal}
+        onClose={() => setShowLabelCreationModal(false)}
+        labelData={labelCreationData}
+      />
     </div>
   );
 };
