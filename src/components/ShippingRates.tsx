@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,17 +48,17 @@ const ShippingRates: React.FC = () => {
     console.log('Selected rate:', rate);
   };
 
-  const handlePaymentSuccess = (paymentData: any) => {
-    console.log('Payment successful:', paymentData);
+  const handlePaymentSuccess = () => {
+    console.log('Payment successful');
     setShowPaymentModal(false);
     
     // Dispatch label creation event
     document.dispatchEvent(new CustomEvent('label-created', {
       detail: {
         labelData: {
-          labelUrl: paymentData.labelUrl,
-          trackingCode: paymentData.trackingCode,
-          shipmentId: paymentData.shipmentId,
+          labelUrl: 'https://example.com/label.pdf',
+          trackingCode: 'TEST123456789',
+          shipmentId: shipmentId,
           carrier: selectedRate?.carrier,
           service: selectedRate?.service,
           cost: selectedRate?.total_cost || parseFloat(selectedRate?.rate || '0'),

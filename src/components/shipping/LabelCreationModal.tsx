@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -61,7 +60,7 @@ const LabelCreationModal: React.FC<LabelCreationModalProps> = ({
   const handlePrintLabel = async () => {
     if (!labelData?.labelUrl) return;
     
-    setPrinting(true);
+    setIsPrinting(true);
     try {
       const printWindow = window.open(labelData.labelUrl, '_blank');
       if (printWindow) {
@@ -74,7 +73,7 @@ const LabelCreationModal: React.FC<LabelCreationModalProps> = ({
       console.error('Error printing label:', error);
       toast.error('Failed to print label');
     } finally {
-      setPrinting(false);
+      setIsPrinting(false);
     }
   };
 
