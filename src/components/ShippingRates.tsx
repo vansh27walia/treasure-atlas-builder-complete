@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,29 +10,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import PaymentMethodSelector from './payment/PaymentMethodSelector';
-import { useShippingRates } from '@/hooks/useShippingRates';
+import { useShippingRates, type ShippingRate } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import PrintPreview from './shipping/PrintPreview';
 import LabelCreationModal from './shipping/LabelCreationModal';
-
-// Use the ShippingRate type from the hook for consistency
-interface ShippingRate {
-  id: string;
-  carrier: string;
-  service: string;
-  rate: string; // Keep as string to match hook
-  currency: string;
-  delivery_days?: number;
-  delivery_date?: string;
-  list_rate?: string;
-  retail_rate?: string;
-  est_delivery_days?: number;
-  shipment_id?: string;
-  original_rate?: string;
-  isPremium?: boolean;
-  insurance_cost?: number;
-  total_cost?: number;
-}
 
 const ShippingRates: React.FC = () => {
   const navigate = useNavigate();
