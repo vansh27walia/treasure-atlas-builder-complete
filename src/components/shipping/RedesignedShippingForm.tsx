@@ -672,8 +672,8 @@ const RedesignedShippingForm: React.FC = () => {
         <div className="xl:col-span-1 space-y-6">
           <div className="sticky top-32">
             <CarrierSelector 
-              selectedCarrier={selectedCarrier}
-              onCarrierChange={setSelectedCarrier}
+              selectedCarriers={selectedCarrier ? [selectedCarrier] : []}
+              onCarrierChange={(carriers) => setSelectedCarrier(carriers[0] || '')}
             />
             
             {/* Help Card */}
