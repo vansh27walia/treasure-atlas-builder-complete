@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,25 @@ import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import PrintPreview from './shipping/PrintPreview';
 import LabelCreationModal from './shipping/LabelCreationModal';
-import type { Rate } from '@/types/shipping';
+
+// Use the ShippingRate type from the hook for consistency
+interface ShippingRate {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: string; // Keep as string to match hook
+  currency: string;
+  delivery_days?: number;
+  delivery_date?: string;
+  list_rate?: string;
+  retail_rate?: string;
+  est_delivery_days?: number;
+  shipment_id?: string;
+  original_rate?: string;
+  isPremium?: boolean;
+  insurance_cost?: number;
+  total_cost?: number;
+}
 
 const ShippingRates: React.FC = () => {
   const navigate = useNavigate();
@@ -38,7 +57,7 @@ const ShippingRates: React.FC = () => {
   } = useShippingRates();
 
   const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
-  const [selectedRate, setSelectedRate] = useState<Rate | null>(null);
+  const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isInternational, setIsInternational] = useState(false);
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
@@ -101,7 +120,7 @@ const ShippingRates: React.FC = () => {
     };
   }, [handleCreateLabel, selectedLabelFormat]);
 
-  const handleSelectRateLocal = (rate: Rate) => {
+  const handleSelectRateLocal = (rate: ShippingRate) => {
     setSelectedRate(rate);
     handleSelectRate(rate.id);
     console.log('Selected rate for', isInternational ? 'international' : 'domestic', 'shipping:', rate);
@@ -136,9 +155,10 @@ const ShippingRates: React.FC = () => {
     }
   };
 
-  const getInflatedPrice = (rate: number) => {
+  const getInflatedPrice = (rate: string) => {
     // Calculate inflated price (original rate before discount)
-    return rate / ((100 - DISCOUNT_PERCENTAGE) / 100);
+    const numericRate = parseFloat(rate);
+    return numericRate / ((100 - DISCOUNT_PERCENTAGE) / 100);
   };
 
   const handleLabelFormatChange = async (format: string): Promise<void> => {
@@ -292,7 +312,7 @@ const ShippingRates: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {sortedRates.map((rate, index) => {
                     const currentRate = parseFloat(rate.rate);
-                    const inflatedRate = getInflatedPrice(currentRate);
+                    const inflatedRate = getInflatedPrice(rate.rate);
                     const isSelected = selectedRateId === rate.id;
                     const isBestValue = rate.id === bestValueRateId;
                     const isFastest = rate.id === fastestRateId;
