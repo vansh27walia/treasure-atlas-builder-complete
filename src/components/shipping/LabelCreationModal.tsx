@@ -4,9 +4,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { X, Download, Package, MapPin, FileText, CreditCard, Shield, Truck, Globe } from 'lucide-react';
+import { X, Download, Package, MapPin, FileText, CreditCard, Shield, Truck, Globe, CheckCircle, Printer, File, FileArchive } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsList, TabsContent, TabsTrigger } from '@/components/ui/tabs';
 
 interface LabelCreationModalProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ const LabelCreationModal: React.FC<LabelCreationModalProps> = ({
 }) => {
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [createdLabel, setCreatedLabel] = useState<any>(null);
+  const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
 
   if (!labelData) return null;
 
@@ -74,11 +76,26 @@ const LabelCreationModal: React.FC<LabelCreationModalProps> = ({
     }
   };
 
-  const handleDownloadLabel = () => {
-    if (createdLabel?.labelUrl) {
-      window.open(createdLabel.labelUrl, '_blank');
+  const handleDownloadLabel = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
+    if (createdLabel?.labelUrl || labelData.labelUrl) {
+      const url = createdLabel?.labelUrl || labelData.labelUrl;
+      window.open(url, '_blank');
+      toast.success(`Downloading ${format.toUpperCase()} label`);
     }
   };
+
+  const handleViewTracking = () => {
+    const trackingNumber = createdLabel?.trackingCode || labelData.trackingCode;
+    if (trackingNumber) {
+      // Navigate to tracking page
+      window.location.href = `/dashboard?tab=tracking&tracking=${trackingNumber}`;
+    }
+  };
+
+  // Use created label data if available, otherwise use labelData
+  const displayTrackingCode = createdLabel?.trackingCode || labelData.trackingCode;
+  const displayLabelUrl = createdLabel?.labelUrl || labelData.labelUrl;
+  const hasLabel = displayLabelUrl && displayTrackingCode;
 
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
@@ -127,42 +144,6 @@ const LabelCreationModal: React.FC<LabelCreationModalProps> = ({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* From Address */}
-              <div>
-                <h4 className="font-medium text-sm text-gray-700 mb-2 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-green-600" />
-                  From Address
-                </h4>
-                {fromAddress && (
-                  <div className="bg-gray-50 p-3 rounded-lg text-sm">
-                    <div className="font-medium">{fromAddress.name}</div>
-                    {fromAddress.company && <div>{fromAddress.company}</div>}
-                    <div>{fromAddress.street1}</div>
-                    {fromAddress.street2 && <div>{fromAddress.street2}</div>}
-                    <div>{fromAddress.city}, {fromAddress.state} {fromAddress.zip}</div>
-                    <div>{fromAddress.country}</div>
-                  </div>
-                )}
-              </div>
-
-              {/* To Address */}
-              <div>
-                <h4 className="font-medium text-sm text-gray-700 mb-2 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-red-600" />
-                  To Address
-                </h4>
-                {toAddress && (
-                  <div className="bg-gray-50 p-3 rounded-lg text-sm">
-                    <div className="font-medium">{toAddress.name}</div>
-                    {toAddress.company && <div>{toAddress.company}</div>}
-                    <div>{toAddress.street1}</div>
-                    {toAddress.street2 && <div>{toAddress.street2}</div>}
-                    <div>{toAddress.city}, {toAddress.state} {toAddress.zip}</div>
-                    <div>{toAddress.country}</div>
-                  </div>
-                )}
-              </div>
-
               {/* Service Details */}
               <div>
                 <h4 className="font-medium text-sm text-gray-700 mb-2 flex items-center gap-2">
@@ -184,6 +165,30 @@ const LabelCreationModal: React.FC<LabelCreationModalProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* Tracking Information */}
+              {displayTrackingCode && (
+                <div>
+                  <h4 className="font-medium text-sm text-gray-700 mb-2 flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-blue-600" />
+                    Tracking Information
+                  </h4>
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <div className="font-medium text-blue-800 mb-1">Tracking Number:</div>
+                    <div className="text-lg font-mono bg-white px-3 py-2 rounded border border-blue-200">
+                      {displayTrackingCode}
+                    </div>
+                    <Button
+                      onClick={handleViewTracking}
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 w-full"
+                    >
+                      View Tracking Details
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -271,7 +276,7 @@ const LabelCreationModal: React.FC<LabelCreationModalProps> = ({
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {!createdLabel ? (
+              {!hasLabel ? (
                 <div className="text-center py-6">
                   <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium mb-2">Ready to Create Label</h3>
@@ -293,21 +298,97 @@ const LabelCreationModal: React.FC<LabelCreationModalProps> = ({
                 <div className="text-center py-6">
                   <div className="bg-green-100 p-4 rounded-lg mb-4">
                     <div className="flex items-center justify-center gap-2 text-green-800 mb-2">
-                      <Package className="w-5 h-5" />
+                      <CheckCircle className="w-5 h-5" />
                       <span className="font-medium">Label Created Successfully!</span>
                     </div>
                     <div className="text-sm text-green-700">
-                      Tracking Number: {createdLabel.trackingCode}
+                      Tracking Number: {displayTrackingCode}
                     </div>
                   </div>
+
+                  <Tabs defaultValue="download" className="w-full">
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="download">Download Options</TabsTrigger>
+                      <TabsTrigger value="preview">Preview</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="download">
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div 
+                            className={`p-4 border-2 rounded-md text-center cursor-pointer transition-colors
+                              ${selectedFormat === 'pdf' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}
+                            `}
+                            onClick={() => setSelectedFormat('pdf')}
+                          >
+                            <File className="h-8 w-8 mx-auto mb-2 text-blue-600" />
+                            <h4 className="font-medium">PDF Format</h4>
+                            <p className="text-xs text-gray-500">Best for printing</p>
+                          </div>
+                          
+                          <div 
+                            className={`p-4 border-2 rounded-md text-center cursor-pointer transition-colors
+                              ${selectedFormat === 'png' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'}
+                            `}
+                            onClick={() => setSelectedFormat('png')}
+                          >
+                            <File className="h-8 w-8 mx-auto mb-2 text-green-600" />
+                            <h4 className="font-medium">PNG Format</h4>
+                            <p className="text-xs text-gray-500">Image format</p>
+                          </div>
+                          
+                          <div 
+                            className={`p-4 border-2 rounded-md text-center cursor-pointer transition-colors
+                              ${selectedFormat === 'zpl' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-purple-300'}
+                            `}
+                            onClick={() => setSelectedFormat('zpl')}
+                          >
+                            <FileArchive className="h-8 w-8 mx-auto mb-2 text-purple-600" />
+                            <h4 className="font-medium">ZPL Format</h4>
+                            <p className="text-xs text-gray-500">For thermal printers</p>
+                          </div>
+                        </div>
+                        
+                        <Button 
+                          onClick={() => handleDownloadLabel(selectedFormat)} 
+                          className={`w-full h-12 ${
+                            selectedFormat === 'pdf' ? 'bg-blue-600 hover:bg-blue-700' : 
+                            selectedFormat === 'png' ? 'bg-green-600 hover:bg-green-700' : 
+                            'bg-purple-600 hover:bg-purple-700'
+                          }`}
+                        >
+                          <Download className="mr-2 h-5 w-5" />
+                          Download {selectedFormat.toUpperCase()} File
+                        </Button>
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="preview">
+                      <div className="min-h-[400px] flex items-center justify-center border rounded-md p-4">
+                        {displayLabelUrl ? (
+                          <iframe 
+                            src={displayLabelUrl} 
+                            className="w-full h-[500px]" 
+                            title="Label Preview"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center h-full w-full">
+                            <FileText className="h-16 w-16 text-gray-300 mb-4" />
+                            <p className="text-gray-500">Label preview not available</p>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+                  </Tabs>
                   
-                  <div className="flex gap-3 justify-center">
+                  <div className="flex gap-3 justify-center mt-4">
                     <Button
-                      onClick={handleDownloadLabel}
-                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={handleViewTracking}
+                      variant="outline"
+                      className="flex items-center gap-2"
                     >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download Label
+                      <Truck className="w-4 h-4" />
+                      Track Package
                     </Button>
                     <Button
                       onClick={onClose}
