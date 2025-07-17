@@ -35,7 +35,7 @@ const BulkUploadProgressBar: React.FC<BulkUploadProgressBarProps> = ({
     if (stepId === currentStep) return 'current';
     return 'upcoming';
   };
-  return <div className="w-full py-6 px-4 rounded-3xl">
+  return <div className="w-full py-6 px-4 rounded-sm">
       <div className="flex items-center justify-between max-w-4xl mx-auto">
         {steps.map((step, index) => {
         const status = getStepStatus(step.id);
