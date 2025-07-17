@@ -142,6 +142,37 @@ const ShippingRates: React.FC = () => {
     }
   };
 
+  const getDiscountPercentage = (rate: ShippingRate): number => {
+    const carrierLower = rate.carrier.toLowerCase();
+    const serviceLower = rate.service.toLowerCase();
+    
+    if (carrierLower === 'usps') {
+      if (serviceLower.includes('express') || serviceLower.includes('priority') || serviceLower.includes('next day')) {
+        return 63; // USPS next day delivery: 63%
+      } else if (serviceLower.includes('first class')) {
+        return 86; // USPS first class: 86%
+      } else {
+        return 68; // Normal USPS: 68%
+      }
+    } else if (carrierLower === 'ups') {
+      if (serviceLower.includes('next day') || serviceLower.includes('express')) {
+        return 75; // UPS next day delivery: 75%
+      } else if (serviceLower.includes('2nd day') || serviceLower.includes('second day')) {
+        return 75; // UPS second day: 75%
+      } else if (serviceLower.includes('ground')) {
+        return 78; // UPS ground: 78%
+      } else {
+        return 75; // Default UPS: 75%
+      }
+    } else if (carrierLower === 'fedex') {
+      return 70; // FedEx: 70%
+    } else if (carrierLower === 'dhl') {
+      return 72; // DHL: 72%
+    }
+    
+    return 65; // Default discount
+  };
+
   if (rates.length === 0) {
     return (
       <div className="w-full" id="shipping-rates-section">
@@ -191,6 +222,7 @@ const ShippingRates: React.FC = () => {
                   <CarrierLogo carrier="usps" className="h-6" />
                   <CarrierLogo carrier="ups" className="h-6" />
                   <CarrierLogo carrier="fedex" className="h-6" />
+                  <CarrierLogo carrier="dhl" className="h-6" />
                 </div>
                 <Badge variant="secondary" className="bg-green-100 text-green-700">
                   ${INSURANCE_COVERAGE} Insurance Included
@@ -248,13 +280,20 @@ const ShippingRates: React.FC = () => {
         
         <CardContent className="p-0">
           {isCreatingLabel && (
-            <div className="p-6 bg-yellow-50 border-b border-yellow-200">
-              <h3 className="font-semibold text-yellow-800 mb-2">Creating Your Label...</h3>
-              <p className="text-sm text-gray-600">
-                Please wait while we generate your shipping label. This usually takes a few seconds.
-              </p>
-              <div className="mt-2">
-                <div className="animate-pulse bg-yellow-200 h-2 rounded"></div>
+            <div className="p-6 bg-blue-50 border-b border-blue-200">
+              <div className="flex items-center gap-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div>
+                  <h3 className="font-semibold text-blue-800 mb-1">Creating Your Shipping Label...</h3>
+                  <p className="text-sm text-blue-600">
+                    Please wait while we generate your shipping label. This usually takes a few seconds.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <div className="w-full bg-blue-200 rounded-full h-2">
+                  <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                </div>
               </div>
             </div>
           )}
@@ -278,6 +317,8 @@ const ShippingRates: React.FC = () => {
                     const isSelected = selectedRateId === rate.id;
                     const isBestValue = rate.id === bestValueRateId;
                     const isFastest = rate.id === fastestRateId;
+                    const discountPercentage = getDiscountPercentage(rate);
+                    const originalRate = currentRate / (1 - discountPercentage / 100);
                     
                     return (
                       <div 
@@ -300,6 +341,9 @@ const ShippingRates: React.FC = () => {
                               {isFastest && (
                                 <Badge className="bg-blue-500 text-white text-xs">Fastest</Badge>
                               )}
+                              <Badge className="bg-red-500 text-white text-xs">
+                                {discountPercentage}% OFF
+                              </Badge>
                             </div>
                           </div>
                           <div className="text-sm opacity-90 mt-1">{rate.service}</div>
@@ -308,13 +352,19 @@ const ShippingRates: React.FC = () => {
                         {/* Rate Details */}
                         <div className="p-4">
                           <div className="flex items-center justify-between mb-3">
-                            <div className="text-3xl font-bold text-green-600">
-                              ${currentRate.toFixed(2)}
+                            <div className="flex items-center gap-3">
+                              <div className="text-3xl font-bold text-green-600">
+                                ${currentRate.toFixed(2)}
+                              </div>
+                              <div className="text-lg text-gray-500 line-through">
+                                ${originalRate.toFixed(2)}
+                              </div>
                             </div>
                           </div>
 
-                          <div className="text-sm text-gray-600 mb-3">
-                            Includes ${INSURANCE_COVERAGE} insurance coverage (${INSURANCE_AMOUNT})
+                          <div className="text-sm text-green-600 mb-3 flex items-center gap-1">
+                            <Shield className="w-4 h-4" />
+                            ${INSURANCE_COVERAGE} insurance coverage included (${INSURANCE_AMOUNT})
                           </div>
 
                           <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">

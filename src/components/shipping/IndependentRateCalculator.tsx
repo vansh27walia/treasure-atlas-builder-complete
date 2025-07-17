@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Calculator, MapPin, Package, ArrowRight, Globe, Clock, Truck, DollarSign, Shield, Star, Filter, Sparkles } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -23,6 +24,7 @@ interface RateResult {
   total_cost?: number;
   original_rate?: string;
   isPremium?: boolean;
+  markup_percentage?: number;
 }
 
 const IndependentRateCalculator: React.FC = () => {
@@ -42,10 +44,8 @@ const IndependentRateCalculator: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [carrierFilter, setCarrierFilter] = useState<string>('all');
-
-  // Insurance amount - $100 coverage for $4
-  const INSURANCE_AMOUNT = 4;
-  const INSURANCE_COVERAGE = 100;
+  const [insuranceEnabled, setInsuranceEnabled] = useState(true);
+  const [insuranceAmount, setInsuranceAmount] = useState(100);
 
   const countries = [
     { code: 'US', name: 'United States' },
@@ -77,27 +77,47 @@ const IndependentRateCalculator: React.FC = () => {
   const showHeight = selectedPackage?.requiresHeight || false;
   const isCustomPackage = ['box', 'envelope'].includes(packageType);
 
-  // Get unique carriers for filtering
   const uniqueCarriers = [...new Set(rates.map(rate => rate.carrier.toUpperCase()))];
-
-  const getCarrierGradient = (carrier: string) => {
-    switch (carrier.toLowerCase()) {
-      case 'usps': return 'from-blue-500 to-blue-700';
-      case 'ups': return 'from-amber-500 to-orange-600';
-      case 'fedex': return 'from-purple-500 to-purple-700';
-      case 'dhl': return 'from-yellow-500 to-orange-500';
-      default: return 'from-gray-500 to-gray-700';
-    }
-  };
 
   const convertWeight = (weight: number, fromUnit: string, toUnit: string = 'oz') => {
     const conversions = {
-      'lbs': 16, // 1 lb = 16 oz
-      'kg': 35.274, // 1 kg = 35.274 oz
-      'oz': 1 // 1 oz = 1 oz
+      'lbs': 16,
+      'kg': 35.274,
+      'oz': 1
     };
     
     return weight * conversions[fromUnit as keyof typeof conversions];
+  };
+
+  const getDiscountPercentage = (carrier: string, service: string): number => {
+    const carrierLower = carrier.toLowerCase();
+    const serviceLower = service.toLowerCase();
+    
+    if (carrierLower === 'usps') {
+      if (serviceLower.includes('express') || serviceLower.includes('priority') || serviceLower.includes('next day')) {
+        return 63; // USPS next day delivery: 63%
+      } else if (serviceLower.includes('first class')) {
+        return 86; // USPS first class: 86%
+      } else {
+        return 68; // Normal USPS: 68%
+      }
+    } else if (carrierLower === 'ups') {
+      if (serviceLower.includes('next day') || serviceLower.includes('express')) {
+        return 75; // UPS next day delivery: 75%
+      } else if (serviceLower.includes('2nd day') || serviceLower.includes('second day')) {
+        return 75; // UPS second day: 75%
+      } else if (serviceLower.includes('ground')) {
+        return 78; // UPS ground: 78%
+      } else {
+        return 75; // Default UPS: 75%
+      }
+    } else if (carrierLower === 'fedex') {
+      return 70; // FedEx: 70%
+    } else if (carrierLower === 'dhl') {
+      return 72; // DHL: 72%
+    }
+    
+    return 65; // Default discount
   };
 
   const fetchRates = async () => {
@@ -174,8 +194,10 @@ const IndependentRateCalculator: React.FC = () => {
         parcel,
         carriers: ['usps', 'ups', 'fedex', 'dhl'],
         options: {},
-        customs_info: isInternational ? null : undefined,
-        insurance_info: null
+        insurance_info: insuranceEnabled ? {
+          amount: insuranceAmount,
+          cost: Math.round(insuranceAmount * 0.04) // 4% of insurance amount
+        } : null
       };
 
       console.log('Fetching rates with payload:', payload);
@@ -189,15 +211,24 @@ const IndependentRateCalculator: React.FC = () => {
       }
 
       if (data.rates && Array.isArray(data.rates)) {
-        const processedRates = data.rates.map(rate => ({
-          ...rate,
-          insurance_cost: INSURANCE_AMOUNT,
-          total_cost: parseFloat(rate.rate) + INSURANCE_AMOUNT,
-          isPremium: rate.service.toLowerCase().includes('express') || 
-                    rate.service.toLowerCase().includes('priority') || 
-                    rate.service.toLowerCase().includes('overnight') ||
-                    parseFloat(rate.rate) > 20
-        }));
+        const processedRates = data.rates.map(rate => {
+          const discountPercentage = getDiscountPercentage(rate.carrier, rate.service);
+          const actualRate = parseFloat(rate.rate);
+          // Calculate inflated price (what the price would be without discount)
+          const inflatedRate = actualRate / (1 - discountPercentage / 100);
+          
+          return {
+            ...rate,
+            insurance_cost: insuranceEnabled ? Math.round(insuranceAmount * 0.04) : 0,
+            total_cost: actualRate + (insuranceEnabled ? Math.round(insuranceAmount * 0.04) : 0),
+            original_rate: inflatedRate.toFixed(2),
+            markup_percentage: discountPercentage,
+            isPremium: rate.service.toLowerCase().includes('express') || 
+                      rate.service.toLowerCase().includes('priority') || 
+                      rate.service.toLowerCase().includes('overnight') ||
+                      actualRate > 20
+          };
+        });
         
         setRates(processedRates);
         toast.success(`Found ${processedRates.length} ${isInternational ? 'international' : 'domestic'} shipping rates`);
@@ -223,6 +254,8 @@ const IndependentRateCalculator: React.FC = () => {
       dimensions,
       selectedRate: rate,
       isInternational,
+      insuranceEnabled,
+      insuranceAmount,
       timestamp: new Date().toISOString()
     };
 
@@ -231,11 +264,9 @@ const IndependentRateCalculator: React.FC = () => {
     
     toast.success(`Package data saved! ${isInternational ? 'International customs documentation will be required.' : 'Go to Create Label to complete shipping.'}`);
 
-    // Navigate to create label page
     window.location.href = '/create-label';
   };
 
-  // Filter and sort rates
   const filteredRates = rates.filter(rate => 
     carrierFilter === 'all' || rate.carrier.toUpperCase() === carrierFilter.toUpperCase()
   );
@@ -249,6 +280,16 @@ const IndependentRateCalculator: React.FC = () => {
       return a.carrier.localeCompare(b.carrier);
     }
   });
+
+  const getCarrierGradient = (carrier: string) => {
+    switch (carrier.toLowerCase()) {
+      case 'usps': return 'from-blue-500 to-blue-700';
+      case 'ups': return 'from-amber-500 to-orange-600';
+      case 'fedex': return 'from-purple-500 to-purple-700';
+      case 'dhl': return 'from-yellow-500 to-orange-500';
+      default: return 'from-gray-500 to-gray-700';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">      
@@ -269,10 +310,13 @@ const IndependentRateCalculator: React.FC = () => {
               <CarrierLogo carrier="usps" className="h-8" />
               <CarrierLogo carrier="ups" className="h-8" />
               <CarrierLogo carrier="fedex" className="h-8" />
+              <CarrierLogo carrier="dhl" className="h-8" />
             </div>
-            <Badge variant="secondary" className="bg-green-100 text-green-700">
-              ${INSURANCE_COVERAGE} Insurance Included
-            </Badge>
+            {insuranceEnabled && (
+              <Badge variant="secondary" className="bg-green-100 text-green-700">
+                ${insuranceAmount} Insurance Included
+              </Badge>
+            )}
           </div>
           {isInternational && (
             <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
@@ -281,6 +325,55 @@ const IndependentRateCalculator: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Insurance Toggle Section */}
+        <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <Shield className="h-5 w-5 text-green-600" />
+              Insurance Options
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={insuranceEnabled}
+                    onCheckedChange={setInsuranceEnabled}
+                  />
+                  <Label className="text-base font-medium">
+                    Enable Package Insurance
+                  </Label>
+                </div>
+                {insuranceEnabled && (
+                  <div className="flex items-center gap-2">
+                    <Label>Coverage Amount: $</Label>
+                    <Input
+                      type="number"
+                      value={insuranceAmount}
+                      onChange={(e) => setInsuranceAmount(Number(e.target.value))}
+                      className="w-24 h-8"
+                      min="50"
+                      max="5000"
+                      step="50"
+                    />
+                  </div>
+                )}
+              </div>
+              {insuranceEnabled && (
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                  Insurance Cost: ${Math.round(insuranceAmount * 0.04)}
+                </Badge>
+              )}
+            </div>
+            {!insuranceEnabled && (
+              <p className="text-sm text-gray-600 mt-2">
+                Package insurance is disabled. Your package will not be covered for loss or damage.
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Address Input Section - Top */}
         <Card className="mb-8 shadow-xl border-0 bg-white/90 backdrop-blur-sm">
@@ -517,6 +610,8 @@ const IndependentRateCalculator: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {sortedRates.map((rate) => {
                   const currentRate = parseFloat(rate.rate);
+                  const originalRate = parseFloat(rate.original_rate || rate.rate);
+                  const discountPercentage = rate.markup_percentage || 0;
 
                   return (
                     <div 
@@ -528,6 +623,9 @@ const IndependentRateCalculator: React.FC = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <CarrierLogo carrier={rate.carrier} className="h-6 bg-white/20 text-white" />
+                            <Badge className="bg-green-500 text-white text-xs">
+                              {discountPercentage}% OFF
+                            </Badge>
                           </div>
                         </div>
                         <div className="text-sm opacity-90 mt-1">{rate.service}</div>
@@ -536,14 +634,24 @@ const IndependentRateCalculator: React.FC = () => {
                       {/* Rate Details */}
                       <div className="p-4">
                         <div className="flex items-center justify-between mb-3">
-                          <div className="text-3xl font-bold text-green-600">
-                            ${currentRate.toFixed(2)}
+                          <div className="flex items-center gap-3">
+                            <div className="text-3xl font-bold text-green-600">
+                              ${currentRate.toFixed(2)}
+                            </div>
+                            {originalRate > currentRate && (
+                              <div className="text-lg text-gray-500 line-through">
+                                ${originalRate.toFixed(2)}
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        <div className="text-sm text-gray-600 mb-3">
-                          Includes ${INSURANCE_COVERAGE} insurance coverage (${INSURANCE_AMOUNT})
-                        </div>
+                        {insuranceEnabled && (
+                          <div className="text-sm text-green-600 mb-3 flex items-center gap-1">
+                            <Shield className="w-4 h-4" />
+                            ${insuranceAmount} insurance coverage included (${Math.round(insuranceAmount * 0.04)})
+                          </div>
+                        )}
 
                         <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">
                           <div className="flex items-center gap-1">

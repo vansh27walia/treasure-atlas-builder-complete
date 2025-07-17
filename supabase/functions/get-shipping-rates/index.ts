@@ -168,18 +168,28 @@ serve(async (req) => {
 
     console.log('Applying carrier-specific markup to shipping rates');
 
-    // Apply markup to rates
+    // Apply markup to rates and add 5% baseline inflation
     const processedRates = filteredRates.map((rate: any) => {
       const originalRate = parseFloat(rate.rate);
       const markupPercentage = getMarkupPercentage(rate.carrier, rate.service);
+      
+      // First apply the 5% baseline inflation
+      const inflatedRate = originalRate * 1.05;
+      
+      // Then apply carrier-specific markup
       const markupMultiplier = 1 + (markupPercentage / 100);
-      const markedUpRate = (originalRate * markupMultiplier).toFixed(2);
+      const finalRate = (inflatedRate * markupMultiplier).toFixed(2);
+      
+      console.log(`Rate processed for ${rate.carrier} ${rate.service}:`);
+      console.log(`  Original: $${originalRate.toFixed(2)}`);
+      console.log(`  After 5% inflation: $${inflatedRate.toFixed(2)}`);
+      console.log(`  After ${markupPercentage}% markup: $${finalRate}`);
       
       return {
         id: rate.id,
         carrier: rate.carrier,
         service: rate.service,
-        rate: markedUpRate,
+        rate: finalRate,
         currency: rate.currency,
         delivery_days: rate.delivery_days,
         delivery_date: rate.delivery_date,
@@ -188,11 +198,12 @@ serve(async (req) => {
         est_delivery_days: rate.est_delivery_days,
         shipment_id: data.id,
         original_rate: originalRate.toFixed(2),
-        markup_percentage: markupPercentage
+        markup_percentage: markupPercentage,
+        inflated_base_rate: inflatedRate.toFixed(2)
       };
     });
 
-    console.log('Returning', processedRates.length, 'processed rates');
+    console.log('Returning', processedRates.length, 'processed rates with 5% baseline inflation + carrier markup');
 
     // Return the processed rates
     return new Response(
