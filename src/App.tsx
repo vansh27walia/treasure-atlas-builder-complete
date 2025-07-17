@@ -3,7 +3,6 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Index from './pages/Index';
 import CreateLabelPage from './pages/CreateLabelPage';
-import RateCalculatorPage from './pages/RateCalculatorPage';
 import LtlShippingPage from './pages/LtlShippingPage';
 import FtlShippingPage from './pages/FtlShippingPage';
 import InstantDeliveryPage from './pages/InstantDeliveryPage';
@@ -39,7 +38,6 @@ function App() {
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<AuthPage />} />
                   <Route path="/create-label" element={<CreateLabelPage />} />
-                  <Route path="/rate-calculator" element={<RateCalculatorPage />} />
                   <Route path="/freight-forwarding" element={<FreightForwardingPage />} />
                   <Route path="/ltl-shipping" element={<LtlShippingPage />} />
                   <Route path="/ftl-shipping" element={<FtlShippingPage />} />
