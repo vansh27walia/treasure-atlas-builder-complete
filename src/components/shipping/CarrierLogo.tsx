@@ -1,66 +1,70 @@
 
 import React from 'react';
-import { cn } from '@/lib/utils';
 
 interface CarrierLogoProps {
   carrier: string;
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
 }
 
-const CarrierLogo: React.FC<CarrierLogoProps> = ({ 
-  carrier, 
-  className,
-  size = 'md'
-}) => {
-  const sizeClasses = {
-    sm: 'h-6',
-    md: 'h-8',
-    lg: 'h-10'
-  };
-
-  // Map carrier names to appropriate logos
-  const getLogoUrl = () => {
-    const carrierLower = carrier.toLowerCase();
-    if (carrierLower.includes('usps')) {
-      return "https://www.usps.com/assets/images/home/logo-sb.svg";
-    } else if (carrierLower.includes('ups')) {
-      return "https://www.ups.com/assets/resources/images/UPS_logo.svg";
-    } else if (carrierLower.includes('fedex')) {
-      return "https://www.fedex.com/content/dam/fedex-com/logos/logo.png";
-    } else if (carrierLower.includes('dhl')) {
-      return "https://www.dhl.com/img/meta/dhl-logo.png";
-    }
-    return null;
-  };
-
-  const logoUrl = getLogoUrl();
+const CarrierLogo: React.FC<CarrierLogoProps> = ({ carrier, className = "h-8 w-auto" }) => {
+  const carrierLower = carrier.toLowerCase();
   
-  if (!logoUrl) {
-    return (
-      <div className={cn(
-        "flex items-center justify-center rounded bg-gray-100 px-3", 
-        sizeClasses[size],
-        className
-      )}>
-        <span className="font-bold text-gray-600">{carrier.toUpperCase()}</span>
-      </div>
-    );
-  }
+  const getCarrierLogo = () => {
+    switch (carrierLower) {
+      case 'usps':
+        return (
+          <div className={`${className} flex items-center justify-center bg-blue-600 text-white px-3 py-1 rounded-md font-bold text-sm relative`}>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-white rounded-full flex items-center justify-center">
+                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+              </div>
+              <span>USPS</span>
+            </div>
+          </div>
+        );
+      case 'ups':
+        return (
+          <div className={`${className} flex items-center justify-center bg-amber-600 text-white px-3 py-1 rounded-md font-bold text-sm relative`}>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-amber-800 rounded-sm flex items-center justify-center">
+                <div className="w-2 h-1 bg-white rounded-full"></div>
+              </div>
+              <span>UPS</span>
+            </div>
+          </div>
+        );
+      case 'fedex':
+        return (
+          <div className={`${className} flex items-center justify-center bg-purple-600 text-white px-3 py-1 rounded-md font-bold text-sm relative`}>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-orange-500 rounded-sm flex items-center justify-center">
+                <div className="w-2 h-2 bg-white rounded-full"></div>
+              </div>
+              <span>FedEx</span>
+            </div>
+          </div>
+        );
+      case 'dhl':
+        return (
+          <div className={`${className} flex items-center justify-center bg-yellow-500 text-black px-3 py-1 rounded-md font-bold text-sm relative`}>
+            <div className="flex items-center gap-1">
+              <div className="w-4 h-4 bg-red-600 rounded-sm flex items-center justify-center">
+                <div className="w-2 h-2 bg-white rounded-full"></div>
+              </div>
+              <span>DHL</span>
+            </div>
+          </div>
+        );
+      default:
+        return (
+          <div className={`${className} flex items-center justify-center bg-gray-600 text-white px-3 py-1 rounded-md font-bold text-sm`}>
+            {carrier.toUpperCase()}
+          </div>
+        );
+    }
+  };
 
-  return (
-    <div className={cn(
-      "flex items-center justify-center rounded bg-white p-1", 
-      sizeClasses[size],
-      className
-    )}>
-      <img
-        src={logoUrl}
-        alt={`${carrier} logo`}
-        className="h-full w-auto object-contain"
-      />
-    </div>
-  );
+  return getCarrierLogo();
 };
 
 export default CarrierLogo;
