@@ -24,7 +24,6 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
   onPaymentSuccess
 }) => {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   const [showInsuranceDetails, setShowInsuranceDetails] = useState(false);
 
   const handlePaymentMethodChange = (paymentMethodId: string) => {

@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Truck, DollarSign, Shield, Star, Filter, Download, Upload, CreditCard, Loader } from 'lucide-react';
+import { Clock, Truck, Shield, Filter, Download, Upload } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Link, useNavigate } from 'react-router-dom';
@@ -14,6 +13,9 @@ import InlinePaymentSection from './shipping/InlinePaymentSection';
 import EnhancedLabelModal from './shipping/EnhancedLabelModal';
 import { useShippingRates, type ShippingRate } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
+
+const INSURANCE_AMOUNT = 2; // Changed to $2 as requested
+const INSURANCE_COVERAGE = 100;
 
 const ShippingRates: React.FC = () => {
   const navigate = useNavigate();
@@ -47,8 +49,7 @@ const ShippingRates: React.FC = () => {
   const [showLabelModal, setShowLabelModal] = useState(false);
 
   // Insurance amount - $100 coverage for $4
-  const INSURANCE_AMOUNT = 4;
-  const INSURANCE_COVERAGE = 100;
+  
 
   useEffect(() => {
     const handleRatesReceived = (event: any) => {
@@ -117,60 +118,21 @@ const ShippingRates: React.FC = () => {
   const getCarrierGradient = (carrier: string) => {
     switch (carrier.toLowerCase()) {
       case 'usps': return 'from-blue-500 to-blue-700';
-      case 'ups': return 'from-amber-500 to-orange-600';
+      case 'ups': return 'from-yellow-500 to-yellow-600';
       case 'fedex': return 'from-purple-500 to-purple-700';
-      case 'dhl': return 'from-yellow-500 to-orange-500';
+      case 'dhl': return 'from-red-500 to-red-700';
       default: return 'from-gray-500 to-gray-700';
     }
   };
 
-  const handleLabelFormatChange = async (format: string): Promise<void> => {
-    setSelectedLabelFormat(format);
-    
-    if (selectedRateId && shipmentId && labelUrl) {
-      try {
-        console.log("Regenerating label with new format:", format);
-        await handleCreateLabel(selectedRateId, shipmentId, {
-          label_format: "PDF",
-          label_size: format
-        });
-      } catch (error) {
-        console.error("Error updating label format:", error);
-        toast.error("Failed to update label format");
-        throw error;
-      }
+  const getCarrierBorderColor = (carrier: string) => {
+    switch (carrier.toLowerCase()) {
+      case 'usps': return 'border-blue-400';
+      case 'ups': return 'border-yellow-400';
+      case 'fedex': return 'border-purple-400';
+      case 'dhl': return 'border-red-400';
+      default: return 'border-gray-400';
     }
-  };
-
-  const getDiscountPercentage = (rate: ShippingRate): number => {
-    const carrierLower = rate.carrier.toLowerCase();
-    const serviceLower = rate.service.toLowerCase();
-    
-    if (carrierLower === 'usps') {
-      if (serviceLower.includes('express') || serviceLower.includes('priority') || serviceLower.includes('next day')) {
-        return 63; // USPS next day delivery: 63%
-      } else if (serviceLower.includes('first class')) {
-        return 86; // USPS first class: 86%
-      } else {
-        return 68; // Normal USPS: 68%
-      }
-    } else if (carrierLower === 'ups') {
-      if (serviceLower.includes('next day') || serviceLower.includes('express')) {
-        return 75; // UPS next day delivery: 75%
-      } else if (serviceLower.includes('2nd day') || serviceLower.includes('second day')) {
-        return 75; // UPS second day: 75%
-      } else if (serviceLower.includes('ground')) {
-        return 78; // UPS ground: 78%
-      } else {
-        return 75; // Default UPS: 75%
-      }
-    } else if (carrierLower === 'fedex') {
-      return 70; // FedEx: 70%
-    } else if (carrierLower === 'dhl') {
-      return 72; // DHL: 72%
-    }
-    
-    return 65; // Default discount
   };
 
   if (rates.length === 0) {
@@ -201,7 +163,6 @@ const ShippingRates: React.FC = () => {
     }
   });
 
-  const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
   const rateAmount = selectedRate ? parseFloat(selectedRate.rate) : 0;
   const insuranceAmount = INSURANCE_AMOUNT;
   const totalAmount = rateAmount + insuranceAmount;
@@ -299,121 +260,113 @@ const ShippingRates: React.FC = () => {
           )}
           
           {!labelUrl && !isCreatingLabel && (
-            <>
-              {(aiRecommendation || isAiLoading) && (
-                <div className="p-6 border-b">
-                  <ShippingAIRecommendation 
-                    aiRecommendation={aiRecommendation}
-                    isLoading={isAiLoading}
-                    onSelectRecommendation={handleSelectRate}
-                  />
-                </div>
-              )}
-              
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {sortedRates.map((rate, index) => {
-                    const currentRate = parseFloat(rate.rate);
-                    const isSelected = selectedRateId === rate.id;
-                    const isBestValue = rate.id === bestValueRateId;
-                    const isFastest = rate.id === fastestRateId;
-                    const discountPercentage = getDiscountPercentage(rate);
-                    const originalRate = currentRate / (1 - discountPercentage / 100);
-                    
-                    return (
-                      <div 
-                        key={rate.id}
-                        className={`border-2 rounded-lg overflow-hidden cursor-pointer transition-all ${
-                          isSelected 
-                            ? 'border-blue-500 shadow-lg' 
-                            : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
-                        }`}
-                        onClick={() => handleSelectRateLocal(rate)}
-                      >
-                        {/* Carrier Header */}
-                        <div className={`bg-gradient-to-r ${getCarrierGradient(rate.carrier)} p-3 text-white`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <CarrierLogo carrier={rate.carrier} className="h-6 bg-white/20 text-white" />
-                              {isBestValue && (
-                                <Badge className="bg-green-500 text-white text-xs">Best Value</Badge>
-                              )}
-                              {isFastest && (
-                                <Badge className="bg-blue-500 text-white text-xs">Fastest</Badge>
-                              )}
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {sortedRates.map((rate) => {
+                  const currentRate = parseFloat(rate.rate);
+                  const originalRate = parseFloat(rate.original_rate || rate.rate);
+                  const discountPercentage = rate.discount_percentage || 0;
+                  const isSelected = selectedRateId === rate.id;
+                  const isBestValue = rate.id === bestValueRateId;
+                  const isFastest = rate.id === fastestRateId;
+                  
+                  return (
+                    <div 
+                      key={rate.id}
+                      className={`border-2 rounded-lg overflow-hidden cursor-pointer transition-all ${
+                        isSelected 
+                          ? `border-blue-500 shadow-lg ${getCarrierBorderColor(rate.carrier)}` 
+                          : `border-gray-200 hover:border-blue-300 hover:shadow-md ${getCarrierBorderColor(rate.carrier)}`
+                      }`}
+                      onClick={() => handleSelectRateLocal(rate)}
+                    >
+                      {/* Carrier Header */}
+                      <div className={`bg-gradient-to-r ${getCarrierGradient(rate.carrier)} p-3 text-white`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CarrierLogo carrier={rate.carrier} className="h-6 bg-white/20 text-white" />
+                            {isBestValue && (
+                              <Badge className="bg-green-500 text-white text-xs">Best Value</Badge>
+                            )}
+                            {isFastest && (
+                              <Badge className="bg-blue-500 text-white text-xs">Fastest</Badge>
+                            )}
+                            {discountPercentage > 0 && (
                               <Badge className="bg-red-500 text-white text-xs">
-                                {discountPercentage}% OFF
+                                {Math.round(discountPercentage)}% OFF
                               </Badge>
-                            </div>
+                            )}
                           </div>
-                          <div className="text-sm opacity-90 mt-1">{rate.service}</div>
                         </div>
+                        <div className="text-sm opacity-90 mt-1">{rate.service}</div>
+                      </div>
 
-                        {/* Rate Details */}
-                        <div className="p-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="text-3xl font-bold text-green-600">
-                                ${currentRate.toFixed(2)}
-                              </div>
+                      {/* Rate Details */}
+                      <div className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="text-3xl font-bold text-green-600">
+                              ${currentRate.toFixed(2)}
+                            </div>
+                            {originalRate > currentRate && (
                               <div className="text-lg text-gray-500 line-through">
                                 ${originalRate.toFixed(2)}
                               </div>
-                            </div>
+                            )}
                           </div>
-
-                          <div className="text-sm text-green-600 mb-3 flex items-center gap-1">
-                            <Shield className="w-4 h-4" />
-                            ${INSURANCE_COVERAGE} insurance coverage included (${INSURANCE_AMOUNT})
-                          </div>
-
-                          <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-4 h-4" />
-                              <span>
-                                {rate.delivery_days === 1 ? 'Next day' : `${rate.delivery_days || 'N/A'} business days`}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Shield className="w-4 h-4 text-green-500" />
-                              <span>Protected</span>
-                            </div>
-                          </div>
-
-                          <Button 
-                            className={`w-full ${
-                              isSelected 
-                                ? 'bg-blue-600 hover:bg-blue-700' 
-                                : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-                            }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSelectRateLocal(rate);
-                            }}
-                          >
-                            {isSelected ? 'Selected' : 'Select This Rate'}
-                          </Button>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
 
-              {/* Inline Payment Section */}
-              {showPaymentSection && (
-                <div className="p-6 border-t bg-gray-50">
-                  <InlinePaymentSection
-                    rateAmount={rateAmount}
-                    insuranceAmount={insuranceAmount}
-                    totalAmount={totalAmount}
-                    selectedRate={selectedRate}
-                    shipmentId={shipmentId}
-                    onPaymentSuccess={handlePaymentSuccess}
-                  />
-                </div>
-              )}
-            </>
+                        <div className="text-sm text-green-600 mb-3 flex items-center gap-1">
+                          <Shield className="w-4 h-4" />
+                          ${INSURANCE_COVERAGE} insurance coverage included (${INSURANCE_AMOUNT})
+                        </div>
+
+                        <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            <span>
+                              {rate.delivery_days === 1 ? 'Next day' : `${rate.delivery_days || 'N/A'} business days`}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Shield className="w-4 h-4 text-green-500" />
+                            <span>Protected</span>
+                          </div>
+                        </div>
+
+                        <Button 
+                          className={`w-full ${
+                            isSelected 
+                              ? 'bg-blue-600 hover:bg-blue-700' 
+                              : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                          }`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectRateLocal(rate);
+                          }}
+                        >
+                          {isSelected ? 'Selected' : 'Select This Rate'}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Inline Payment Section */}
+          {showPaymentSection && (
+            <div className="p-6 border-t bg-gray-50">
+              <InlinePaymentSection
+                rateAmount={rateAmount}
+                insuranceAmount={insuranceAmount}
+                totalAmount={totalAmount}
+                selectedRate={selectedRate}
+                shipmentId={shipmentId}
+                onPaymentSuccess={handlePaymentSuccess}
+              />
+            </div>
           )}
         </CardContent>
       </Card>
