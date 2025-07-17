@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +9,7 @@ import { Calculator, MapPin, Package, ArrowRight, Globe, Clock, Truck, DollarSig
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import CarrierLogo from './CarrierLogo';
 
 interface RateResult {
   id: string;
@@ -43,8 +43,9 @@ const IndependentRateCalculator: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [carrierFilter, setCarrierFilter] = useState<string>('all');
 
-  // Discount percentage - can be adjusted later
-  const DISCOUNT_PERCENTAGE = 85; // 85% discount
+  // Insurance amount - $100 coverage for $4
+  const INSURANCE_AMOUNT = 4;
+  const INSURANCE_COVERAGE = 100;
 
   const countries = [
     { code: 'US', name: 'United States' },
@@ -87,10 +88,6 @@ const IndependentRateCalculator: React.FC = () => {
       case 'dhl': return 'from-yellow-500 to-orange-500';
       default: return 'from-gray-500 to-gray-700';
     }
-  };
-
-  const getInflatedPrice = (rate: number) => {
-    return rate / ((100 - DISCOUNT_PERCENTAGE) / 100);
   };
 
   const convertWeight = (weight: number, fromUnit: string, toUnit: string = 'oz') => {
@@ -194,9 +191,8 @@ const IndependentRateCalculator: React.FC = () => {
       if (data.rates && Array.isArray(data.rates)) {
         const processedRates = data.rates.map(rate => ({
           ...rate,
-          insurance_cost: 4,
-          total_cost: parseFloat(rate.rate) + 4,
-          original_rate: getInflatedPrice(parseFloat(rate.rate)).toFixed(2),
+          insurance_cost: INSURANCE_AMOUNT,
+          total_cost: parseFloat(rate.rate) + INSURANCE_AMOUNT,
           isPremium: rate.service.toLowerCase().includes('express') || 
                     rate.service.toLowerCase().includes('priority') || 
                     rate.service.toLowerCase().includes('overnight') ||
@@ -268,6 +264,16 @@ const IndependentRateCalculator: React.FC = () => {
             Smart Rate Calculator
           </h1>
           <p className="text-gray-600 text-lg">Compare shipping rates from multiple carriers instantly</p>
+          <div className="flex items-center justify-center gap-4 mt-4">
+            <div className="flex items-center gap-2">
+              <CarrierLogo carrier="usps" className="h-8" />
+              <CarrierLogo carrier="ups" className="h-8" />
+              <CarrierLogo carrier="fedex" className="h-8" />
+            </div>
+            <Badge variant="secondary" className="bg-green-100 text-green-700">
+              ${INSURANCE_COVERAGE} Insurance Included
+            </Badge>
+          </div>
           {isInternational && (
             <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
               <Globe className="w-4 h-4" />
@@ -511,7 +517,6 @@ const IndependentRateCalculator: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {sortedRates.map((rate) => {
                   const currentRate = parseFloat(rate.rate);
-                  const inflatedRate = getInflatedPrice(currentRate);
 
                   return (
                     <div 
@@ -522,10 +527,7 @@ const IndependentRateCalculator: React.FC = () => {
                       <div className={`bg-gradient-to-r ${getCarrierGradient(rate.carrier)} p-3 text-white`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-lg">{rate.carrier.toUpperCase()}</span>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm opacity-90">Save {DISCOUNT_PERCENTAGE}%</div>
+                            <CarrierLogo carrier={rate.carrier} className="h-6 bg-white/20 text-white" />
                           </div>
                         </div>
                         <div className="text-sm opacity-90 mt-1">{rate.service}</div>
@@ -537,18 +539,10 @@ const IndependentRateCalculator: React.FC = () => {
                           <div className="text-3xl font-bold text-green-600">
                             ${currentRate.toFixed(2)}
                           </div>
-                          <div className="text-right">
-                            <div className="text-lg text-gray-500 line-through">
-                              ${inflatedRate.toFixed(2)}
-                            </div>
-                            <div className="text-sm text-green-600 font-semibold">
-                              -{DISCOUNT_PERCENTAGE}% OFF
-                            </div>
-                          </div>
                         </div>
 
                         <div className="text-sm text-gray-600 mb-3">
-                          Includes $4 insurance
+                          Includes ${INSURANCE_COVERAGE} insurance coverage (${INSURANCE_AMOUNT})
                         </div>
 
                         <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">

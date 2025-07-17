@@ -1,19 +1,19 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Truck, DollarSign, Shield, Star, Filter, Download, Upload, CreditCard, Loader } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import StripePaymentModal from './shipping/StripePaymentModal';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Link, useNavigate } from 'react-router-dom';
 import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
-import PaymentMethodSelector from './payment/PaymentMethodSelector';
+import CarrierLogo from './shipping/CarrierLogo';
+import InlinePaymentSection from './shipping/InlinePaymentSection';
+import EnhancedLabelModal from './shipping/EnhancedLabelModal';
 import { useShippingRates, type ShippingRate } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
-import PrintPreview from './shipping/PrintPreview';
-import LabelCreationModal from './shipping/LabelCreationModal';
 
 const ShippingRates: React.FC = () => {
   const navigate = useNavigate();
@@ -38,7 +38,6 @@ const ShippingRates: React.FC = () => {
 
   const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isInternational, setIsInternational] = useState(false);
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
@@ -47,8 +46,9 @@ const ShippingRates: React.FC = () => {
   const [shipmentDetails, setShipmentDetails] = useState<any>();
   const [showLabelModal, setShowLabelModal] = useState(false);
 
-  // Discount percentage - can be adjusted later
-  const DISCOUNT_PERCENTAGE = 85; // 85% discount
+  // Insurance amount - $100 coverage for $4
+  const INSURANCE_AMOUNT = 4;
+  const INSURANCE_COVERAGE = 100;
 
   useEffect(() => {
     const handleRatesReceived = (event: any) => {
@@ -82,7 +82,7 @@ const ShippingRates: React.FC = () => {
             const labelData = await handleCreateLabel(undefined, undefined, labelOptions);
             setIsCreatingLabel(false);
             
-            // Show label creation modal instead of navigating
+            // Show enhanced label modal
             setShowLabelModal(true);
           } catch (error) {
             console.error('Error creating label after payment:', error);
@@ -108,21 +108,10 @@ const ShippingRates: React.FC = () => {
 
   const handlePaymentSuccess = () => {
     console.log('Payment successful for', isInternational ? 'international' : 'domestic', 'shipment');
-    setShowPaymentModal(false);
     setPaymentCompleted(true);
     setIsCreatingLabel(true);
     
     toast.success(`${isInternational ? 'International' : 'Domestic'} shipping label created successfully!`);
-  };
-
-  const getCarrierColor = (carrier: string) => {
-    switch (carrier.toLowerCase()) {
-      case 'usps': return 'bg-blue-600';
-      case 'ups': return 'bg-amber-600';
-      case 'fedex': return 'bg-purple-600';
-      case 'dhl': return 'bg-yellow-600';
-      default: return 'bg-gray-600';
-    }
   };
 
   const getCarrierGradient = (carrier: string) => {
@@ -133,12 +122,6 @@ const ShippingRates: React.FC = () => {
       case 'dhl': return 'from-yellow-500 to-orange-500';
       default: return 'from-gray-500 to-gray-700';
     }
-  };
-
-  const getInflatedPrice = (rate: string) => {
-    // Calculate inflated price (original rate before discount)
-    const numericRate = parseFloat(rate);
-    return numericRate / ((100 - DISCOUNT_PERCENTAGE) / 100);
   };
 
   const handleLabelFormatChange = async (format: string): Promise<void> => {
@@ -189,7 +172,7 @@ const ShippingRates: React.FC = () => {
 
   const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
   const rateAmount = selectedRate ? parseFloat(selectedRate.rate) : 0;
-  const insuranceAmount = 4; // Fixed $4 insurance
+  const insuranceAmount = INSURANCE_AMOUNT;
   const totalAmount = rateAmount + insuranceAmount;
   const showPaymentSection = selectedRateId && !paymentCompleted && !labelUrl && !isCreatingLabel;
 
@@ -198,10 +181,22 @@ const ShippingRates: React.FC = () => {
       <Card className="border shadow-sm">
         <CardHeader className="pb-4">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
-            <CardTitle className="flex items-center gap-2">
-              <Truck className="w-5 h-5 text-blue-600" />
-              Available Shipping Options
-            </CardTitle>
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="w-5 h-5 text-blue-600" />
+                Available Shipping Options
+              </CardTitle>
+              <div className="flex items-center gap-4 mt-2">
+                <div className="flex items-center gap-2">
+                  <CarrierLogo carrier="usps" className="h-6" />
+                  <CarrierLogo carrier="ups" className="h-6" />
+                  <CarrierLogo carrier="fedex" className="h-6" />
+                </div>
+                <Badge variant="secondary" className="bg-green-100 text-green-700">
+                  ${INSURANCE_COVERAGE} Insurance Included
+                </Badge>
+              </div>
+            </div>
             <div className="flex flex-wrap gap-3 mt-4 lg:mt-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -264,18 +259,6 @@ const ShippingRates: React.FC = () => {
             </div>
           )}
           
-          {labelUrl && trackingCode && (
-            <div className="p-6 border-b">
-              <PrintPreview 
-                labelUrl={labelUrl} 
-                trackingCode={trackingCode} 
-                shipmentId={shipmentId}
-                shipmentDetails={shipmentDetails}
-                onFormatChange={handleLabelFormatChange}
-              />
-            </div>
-          )}
-          
           {!labelUrl && !isCreatingLabel && (
             <>
               {(aiRecommendation || isAiLoading) && (
@@ -292,7 +275,6 @@ const ShippingRates: React.FC = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {sortedRates.map((rate, index) => {
                     const currentRate = parseFloat(rate.rate);
-                    const inflatedRate = getInflatedPrice(rate.rate);
                     const isSelected = selectedRateId === rate.id;
                     const isBestValue = rate.id === bestValueRateId;
                     const isFastest = rate.id === fastestRateId;
@@ -311,16 +293,13 @@ const ShippingRates: React.FC = () => {
                         <div className={`bg-gradient-to-r ${getCarrierGradient(rate.carrier)} p-3 text-white`}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-lg">{rate.carrier.toUpperCase()}</span>
+                              <CarrierLogo carrier={rate.carrier} className="h-6 bg-white/20 text-white" />
                               {isBestValue && (
                                 <Badge className="bg-green-500 text-white text-xs">Best Value</Badge>
                               )}
                               {isFastest && (
                                 <Badge className="bg-blue-500 text-white text-xs">Fastest</Badge>
                               )}
-                            </div>
-                            <div className="text-right">
-                              <div className="text-sm opacity-90">Save {DISCOUNT_PERCENTAGE}%</div>
                             </div>
                           </div>
                           <div className="text-sm opacity-90 mt-1">{rate.service}</div>
@@ -329,21 +308,13 @@ const ShippingRates: React.FC = () => {
                         {/* Rate Details */}
                         <div className="p-4">
                           <div className="flex items-center justify-between mb-3">
-                            <div className="text-4xl font-bold text-green-600">
+                            <div className="text-3xl font-bold text-green-600">
                               ${currentRate.toFixed(2)}
-                            </div>
-                            <div className="text-right">
-                              <div className="text-lg text-gray-500 line-through">
-                                ${inflatedRate.toFixed(2)}
-                              </div>
-                              <div className="text-sm text-green-600 font-semibold">
-                                -{DISCOUNT_PERCENTAGE}% OFF
-                              </div>
                             </div>
                           </div>
 
                           <div className="text-sm text-gray-600 mb-3">
-                            Includes $4 insurance
+                            Includes ${INSURANCE_COVERAGE} insurance coverage (${INSURANCE_AMOUNT})
                           </div>
 
                           <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">
@@ -355,7 +326,7 @@ const ShippingRates: React.FC = () => {
                             </div>
                             <div className="flex items-center gap-1">
                               <Shield className="w-4 h-4 text-green-500" />
-                              <span>Package protection included</span>
+                              <span>Protected</span>
                             </div>
                           </div>
 
@@ -378,50 +349,33 @@ const ShippingRates: React.FC = () => {
                   })}
                 </div>
               </div>
+
+              {/* Inline Payment Section */}
+              {showPaymentSection && (
+                <div className="p-6 border-t bg-gray-50">
+                  <InlinePaymentSection
+                    rateAmount={rateAmount}
+                    insuranceAmount={insuranceAmount}
+                    totalAmount={totalAmount}
+                    selectedRate={selectedRate}
+                    shipmentId={shipmentId}
+                    onPaymentSuccess={handlePaymentSuccess}
+                  />
+                </div>
+              )}
             </>
           )}
         </CardContent>
       </Card>
 
-      {/* Fixed Payment Section at Bottom */}
-      {showPaymentSection && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 p-4">
-          <div className="container mx-auto max-w-4xl">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col">
-                <h3 className="font-semibold text-gray-800">Complete Payment</h3>
-                <div className="text-sm text-gray-600">
-                  Label: ${rateAmount.toFixed(2)} + Insurance: ${insuranceAmount.toFixed(2)} = Total: ${totalAmount.toFixed(2)}
-                </div>
-              </div>
-              <Button
-                onClick={() => setShowPaymentModal(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3"
-              >
-                Proceed to Payment
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Modal */}
-      <StripePaymentModal
-        isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
-        rate={selectedRate}
-        shipmentId={shipmentId}
-        onPaymentSuccess={handlePaymentSuccess}
-      />
-
-      {/* Label Creation Modal */}
-      <LabelCreationModal
+      {/* Enhanced Label Modal */}
+      <EnhancedLabelModal
         isOpen={showLabelModal}
         onClose={() => setShowLabelModal(false)}
         labelData={{
-          labelUrl,
-          trackingCode,
-          shipmentId,
+          labelUrl: labelUrl || '',
+          trackingCode: trackingCode || '',
+          shipmentId: shipmentId || '',
           carrier: selectedRate?.carrier,
           service: selectedRate?.service,
           cost: rateAmount,
