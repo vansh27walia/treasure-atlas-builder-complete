@@ -8,37 +8,24 @@ import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
 
-interface ShippingRate {
-  id: string;
-  carrier: string;
-  service: string;
-  rate: string;
-  delivery_days: number;
-  delivery_date?: string;
-  insurance_cost?: number;
-  total_cost?: number;
-}
-
 interface StripePaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  rate: ShippingRate | null;
-  shipmentId: string | null;
+  totalAmount: number;
+  shipmentCount: number;
   onPaymentSuccess: () => void;
 }
 
 const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
   isOpen,
   onClose,
-  rate,
-  shipmentId,
+  totalAmount,
+  shipmentCount,
   onPaymentSuccess
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
   const [showPaymentMethods, setShowPaymentMethods] = useState(true);
-
-  const totalAmount = rate ? (rate.total_cost || parseFloat(rate.rate)) : 0;
 
   const handlePaymentMethodChange = (paymentMethodId: string) => {
     console.log('Selected payment method:', paymentMethodId);
@@ -70,11 +57,10 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
       const { data, error } = await supabase.functions.invoke('process-shipping-payment', {
         body: {
           amount: Math.round(totalAmount * 100), // Convert to cents
+          shipmentCount,
           currency: 'usd',
           paymentMethodId: selectedPaymentMethod,
-          shipmentId: shipmentId,
-          rateId: rate?.id,
-          description: `Shipping Label - ${rate?.carrier} ${rate?.service}`
+          description: `Batch Label Creation (${shipmentCount} labels)`
         }
       });
 
@@ -98,10 +84,6 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
     }
   };
 
-  if (!rate) {
-    return null;
-  }
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
@@ -119,19 +101,11 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
         
         <div className="space-y-4">
           <Card className="p-4 bg-blue-50 border-blue-200">
-            <h4 className="font-semibold text-blue-800 mb-2">Shipping Details</h4>
+            <h4 className="font-semibold text-blue-800 mb-2">Order Summary</h4>
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
-                <span>Carrier</span>
-                <span className="font-medium">{rate.carrier.toUpperCase()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Service</span>
-                <span>{rate.service}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Delivery</span>
-                <span>{rate.delivery_days} business days</span>
+                <span>Labels ({shipmentCount})</span>
+                <span>${totalAmount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between font-semibold border-t pt-1">
                 <span>Total</span>
@@ -148,7 +122,7 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
                 onPaymentMethodChange={handlePaymentMethodChange}
                 onPaymentComplete={handlePaymentComplete}
                 amount={totalAmount}
-                description={`Shipping Label - ${rate.carrier} ${rate.service}`}
+                description={`Batch Label Creation (${shipmentCount} labels)`}
               />
             </div>
           )}

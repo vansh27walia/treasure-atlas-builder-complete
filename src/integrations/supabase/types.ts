@@ -652,8 +652,6 @@ export type Database = {
           id: string
           onboarding_completed: boolean | null
           payment_info: Json | null
-          shopify_access_token: string | null
-          shopify_store_url: string | null
           stripe_customer_id: string | null
           updated_at: string | null
           uship_api_key: string | null
@@ -666,8 +664,6 @@ export type Database = {
           id: string
           onboarding_completed?: boolean | null
           payment_info?: Json | null
-          shopify_access_token?: string | null
-          shopify_store_url?: string | null
           stripe_customer_id?: string | null
           updated_at?: string | null
           uship_api_key?: string | null
@@ -680,8 +676,6 @@ export type Database = {
           id?: string
           onboarding_completed?: boolean | null
           payment_info?: Json | null
-          shopify_access_token?: string | null
-          shopify_store_url?: string | null
           stripe_customer_id?: string | null
           updated_at?: string | null
           uship_api_key?: string | null
