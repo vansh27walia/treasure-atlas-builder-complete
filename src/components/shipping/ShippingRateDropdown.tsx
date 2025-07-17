@@ -95,7 +95,7 @@ const ShippingRateDropdown: React.FC<ShippingRateDropdownProps> = ({
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <CarrierLogo carrier={rate.carrier} className="h-6 w-auto" />
+                    <CarrierLogo carrier={rate.carrier} size="sm" />
                     <div>
                       <div className="flex items-center gap-1">
                         <p className="font-medium">{rate.carrier.toUpperCase()} - {rate.service}</p>

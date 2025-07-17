@@ -7,6 +7,98 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Define the input data structure
+interface AddressData {
+  name: string;
+  company?: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone?: string;
+}
+
+interface ParcelData {
+  length?: number;
+  width?: number;
+  height?: number;
+  weight: number;
+  predefined_package?: string;
+}
+
+interface ShippingRequestData {
+  fromAddress: AddressData;
+  toAddress: AddressData;
+  parcel: ParcelData;
+  options?: Record<string, any>;
+  carriers?: string[];
+  insurance?: number; // declared value in USD
+}
+
+// Get markup percentage from environment variable or use default value
+const getMarkupPercentage = (): number => {
+  const markupStr = Deno.env.get('SHIPPING_MARKUP_PERCENTAGE');
+  if (!markupStr) return 15; // Default 15% markup if not set
+  
+  const markup = parseFloat(markupStr);
+  return isNaN(markup) ? 15 : markup;
+};
+
+// Apply markup to rates
+const applyMarkup = (rates: any[], markupPercentage: number): any[] => {
+  return rates.map(rate => {
+    // Store original rate
+    const originalRate = rate.rate;
+    
+    // Calculate markup
+    const rateValue = parseFloat(rate.rate);
+    const markupAmount = rateValue * (markupPercentage / 100);
+    const markedUpRate = (rateValue + markupAmount).toFixed(2);
+    
+    // Return rate with markup applied
+    return {
+      ...rate,
+      original_rate: originalRate, // Store original rate
+      rate: markedUpRate.toString() // Update rate with markup
+    };
+  });
+};
+
+// Group rates by carrier for better organization
+const organizeRatesByCarrier = (rates: any[]): any[] => {
+  // Define carrier order for consistent presentation
+  const carrierOrder = ['USPS', 'UPS', 'FedEx', 'DHL'];
+  
+  // Sort rates by carrier first, then by price within each carrier
+  return rates.sort((a, b) => {
+    const carrierA = a.carrier.toUpperCase();
+    const carrierB = b.carrier.toUpperCase();
+    
+    // Compare carriers based on predefined order
+    const orderA = carrierOrder.indexOf(carrierA);
+    const orderB = carrierOrder.indexOf(carrierB);
+    
+    // If carriers are in our predefined list, sort by that order
+    if (orderA >= 0 && orderB >= 0) {
+      if (orderA !== orderB) return orderA - orderB;
+    } else if (orderA >= 0) {
+      return -1; // A is in the list, B is not
+    } else if (orderB >= 0) {
+      return 1; // B is in the list, A is not
+    }
+    
+    // If carriers are the same or neither is in our list, sort alphabetically
+    if (carrierA !== carrierB) {
+      return carrierA.localeCompare(carrierB);
+    }
+    
+    // Within same carrier, sort by price
+    return parseFloat(a.rate) - parseFloat(b.rate);
+  });
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -14,7 +106,9 @@ serve(async (req) => {
   }
 
   try {
-    // Get the EasyPost API key from environment
+    console.log('Rate fetching request received');
+    
+    // Get the EasyPost API key from Supabase secrets
     const apiKey = Deno.env.get('EASYPOST_API_KEY');
     if (!apiKey) {
       console.error('EasyPost API key not configured');
@@ -25,200 +119,166 @@ serve(async (req) => {
     }
 
     // Parse the request body
-    const requestData = await req.json();
+    const requestData: ShippingRequestData = await req.json();
     console.log('Request data received:', JSON.stringify(requestData, null, 2));
     
-    const { fromAddress, toAddress, parcel, carriers = ['usps', 'ups', 'fedex', 'dhl'], options = {} } = requestData;
-
-    // Validate required fields
-    if (!fromAddress || !toAddress || !parcel) {
+    // Validate required data
+    if (!requestData.fromAddress || !requestData.toAddress || !requestData.parcel) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: fromAddress, toAddress, and parcel are required' }),
+        JSON.stringify({ error: 'Missing required address or parcel data' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
-
-    console.log('Rate fetching request received');
-    console.log('Requested carriers:', carriers.join(', '));
-
-    // Filter carriers for API request
-    const validCarriers = ['usps', 'ups', 'fedex', 'dhl'];
-    const filteredCarriers = carriers.filter((carrier: string) => validCarriers.includes(carrier.toLowerCase()));
-    console.log('Filtered carriers for API request:', filteredCarriers.join(', '));
-
-    // Prepare parcel data
-    let parcelData: any = {
-      weight: parcel.weight || 16 // Default to 1 lb in oz
+    
+    // Set up carrier account options for EasyPost
+    let carrierAccounts: any[] = [];
+    const specificCarriers: string[] = [];
+    
+    // Process requested carriers
+    if (requestData.carriers && requestData.carriers.length > 0) {
+      console.log(`Requested carriers: ${requestData.carriers.join(', ')}`);
+      
+      // Map specific carrier strings to EasyPost carrier IDs
+      requestData.carriers.forEach(carrier => {
+        if (carrier !== 'all' && carrier !== 'easypost') {
+          specificCarriers.push(carrier.toLowerCase());
+        }
+      });
+    }
+    
+    console.log(`Filtered carriers for API request: ${specificCarriers.join(', ')}`);
+    
+    // Build parcel object for EasyPost
+    const parcelData: any = {
+      weight: requestData.parcel.weight
     };
 
-    // Handle predefined packages vs custom dimensions
-    if (parcel.predefined_package) {
-      parcelData.predefined_package = parcel.predefined_package;
-      console.log('Using predefined package:', parcel.predefined_package);
+    // Add dimensions or predefined package
+    if (requestData.parcel.predefined_package) {
+      parcelData.predefined_package = requestData.parcel.predefined_package;
+      console.log(`Using predefined package: ${requestData.parcel.predefined_package}`);
     } else {
-      // Use custom dimensions
+      // Custom dimensions
+      if (requestData.parcel.length) parcelData.length = requestData.parcel.length;
+      if (requestData.parcel.width) parcelData.width = requestData.parcel.width;
+      if (requestData.parcel.height) parcelData.height = requestData.parcel.height;
       console.log('Using custom dimensions');
-      parcelData.length = parcel.length || 10;
-      parcelData.width = parcel.width || 10;
-      if (parcel.height) {
-        parcelData.height = parcel.height;
-      }
     }
-
-    // Prepare the request payload for EasyPost
-    const payload = {
+    
+    // Create shipment request for EasyPost API
+    const shipmentRequest: any = {
       shipment: {
         from_address: {
-          name: fromAddress.name || 'Sender',
-          company: fromAddress.company || '',
-          street1: fromAddress.street1,
-          street2: fromAddress.street2 || '',
-          city: fromAddress.city,
-          state: fromAddress.state,
-          zip: fromAddress.zip,
-          country: fromAddress.country || 'US',
-          phone: fromAddress.phone || ''
+          name: requestData.fromAddress.name,
+          company: requestData.fromAddress.company || '',
+          street1: requestData.fromAddress.street1,
+          street2: requestData.fromAddress.street2 || '',
+          city: requestData.fromAddress.city,
+          state: requestData.fromAddress.state,
+          zip: requestData.fromAddress.zip,
+          country: requestData.fromAddress.country,
+          phone: requestData.fromAddress.phone || ''
         },
         to_address: {
-          name: toAddress.name || 'Recipient',
-          company: toAddress.company || '',
-          street1: toAddress.street1,
-          street2: toAddress.street2 || '',
-          city: toAddress.city,
-          state: toAddress.state,
-          zip: toAddress.zip,
-          country: toAddress.country || 'US',
-          phone: toAddress.phone || ''
+          name: requestData.toAddress.name,
+          company: requestData.toAddress.company || '',
+          street1: requestData.toAddress.street1,
+          street2: requestData.toAddress.street2 || '',
+          city: requestData.toAddress.city,
+          state: requestData.toAddress.state,
+          zip: requestData.toAddress.zip,
+          country: requestData.toAddress.country,
+          phone: requestData.toAddress.phone || ''
         },
         parcel: parcelData,
-        options: options
+        options: requestData.options || {}
       }
     };
 
-    console.log('Sending request to EasyPost API:', JSON.stringify(payload, null, 2));
-
-    // Make the request to EasyPost API
+    // Add insurance if provided
+    if (requestData.insurance && requestData.insurance > 0) {
+      shipmentRequest.shipment.insurance = requestData.insurance;
+      console.log(`Adding insurance for $${requestData.insurance}`);
+    }
+    
+    console.log("Sending request to EasyPost API:", JSON.stringify(shipmentRequest, null, 2));
+    
+    // Create a shipment with EasyPost API
     const response = await fetch('https://api.easypost.com/v2/shipments', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(shipmentRequest),
     });
 
+    const data = await response.json();
+    
+    // Check for API errors
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error('EasyPost API error:', errorData);
+      console.error('EasyPost API error:', data);
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch rates from EasyPost', details: errorData }),
+        JSON.stringify({ error: 'Failed to get shipping rates', details: data }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
       );
     }
 
-    const data = await response.json();
     console.log('EasyPost API response received successfully');
 
-    if (!data.rates || !Array.isArray(data.rates)) {
-      console.error('No rates returned from EasyPost');
+    // Filter rates by carrier if specified
+    let rates = data.rates || [];
+    console.log(`Raw rates returned from EasyPost: ${rates.length}`);
+    
+    if (specificCarriers.length > 0) {
+      rates = rates.filter((rate: any) => 
+        specificCarriers.some(carrier => 
+          rate.carrier.toLowerCase().includes(carrier)
+        )
+      );
+      console.log(`Filtered to ${rates.length} rates matching requested carriers`);
+    }
+    
+    // Ensure we have rates to return
+    if (rates.length === 0) {
+      console.log('No rates found for the given criteria');
       return new Response(
-        JSON.stringify({ error: 'No rates available for this shipment' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        JSON.stringify({ 
+          rates: [],
+          shipmentId: data.id,
+          message: 'No rates available for this shipment'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+    
+    // Get markup percentage and apply to rates
+    const markupPercentage = getMarkupPercentage();
+    console.log(`Applying ${markupPercentage}% markup to shipping rates`);
+    const markedUpRates = applyMarkup(rates, markupPercentage);
+    
+    // Organize rates by carrier for better presentation
+    const organizedRates = organizeRatesByCarrier(markedUpRates);
 
-    // Filter rates by requested carriers
-    const filteredRates = data.rates.filter((rate: any) => {
-      const carrierMatch = filteredCarriers.some(carrier => 
-        rate.carrier.toLowerCase() === carrier.toLowerCase()
-      );
-      return carrierMatch;
-    });
+    console.log(`Returning ${organizedRates.length} processed rates`);
 
-    console.log('Raw rates returned from EasyPost:', data.rates.length);
-    console.log('Filtered to', filteredRates.length, 'rates matching requested carriers');
-
-    // Define carrier-specific markup percentages
-    const getMarkupPercentage = (carrier: string, service: string): number => {
-      const carrierLower = carrier.toLowerCase();
-      const serviceLower = service.toLowerCase();
-      
-      if (carrierLower === 'usps') {
-        if (serviceLower.includes('express') || serviceLower.includes('priority') || serviceLower.includes('next day')) {
-          return 63; // USPS next day delivery: 63%
-        } else if (serviceLower.includes('first class')) {
-          return 86; // USPS first class: 86%
-        } else {
-          return 45; // Normal USPS: 45%
-        }
-      } else if (carrierLower === 'ups') {
-        if (serviceLower.includes('next day') || serviceLower.includes('express')) {
-          return 74.3; // UPS next day delivery: 74.3%
-        } else if (serviceLower.includes('2nd day') || serviceLower.includes('second day')) {
-          return 75; // UPS second day: 75%
-        } else if (serviceLower.includes('ground')) {
-          return 77; // UPS ground: 77%
-        } else {
-          return 70; // Default UPS: 70%
-        }
-      } else {
-        return 5; // Default 5% for other carriers (FedEx, DHL, etc.)
-      }
-    };
-
-    console.log('Applying carrier-specific markup to shipping rates');
-
-    // Apply markup to rates and add 5% baseline inflation
-    const processedRates = filteredRates.map((rate: any) => {
-      const originalRate = parseFloat(rate.rate);
-      const markupPercentage = getMarkupPercentage(rate.carrier, rate.service);
-      
-      // First apply the 5% baseline inflation
-      const inflatedRate = originalRate * 1.05;
-      
-      // Then apply carrier-specific markup
-      const markupMultiplier = 1 + (markupPercentage / 100);
-      const finalRate = (inflatedRate * markupMultiplier).toFixed(2);
-      
-      console.log(`Rate processed for ${rate.carrier} ${rate.service}:`);
-      console.log(`  Original: $${originalRate.toFixed(2)}`);
-      console.log(`  After 5% inflation: $${inflatedRate.toFixed(2)}`);
-      console.log(`  After ${markupPercentage}% markup: $${finalRate}`);
-      
-      return {
-        id: rate.id,
-        carrier: rate.carrier,
-        service: rate.service,
-        rate: finalRate,
-        currency: rate.currency,
-        delivery_days: rate.delivery_days,
-        delivery_date: rate.delivery_date,
-        list_rate: rate.list_rate,
-        retail_rate: rate.retail_rate,
-        est_delivery_days: rate.est_delivery_days,
-        shipment_id: data.id,
-        original_rate: originalRate.toFixed(2),
-        markup_percentage: markupPercentage,
-        inflated_base_rate: inflatedRate.toFixed(2)
-      };
-    });
-
-    console.log('Returning', processedRates.length, 'processed rates with 5% baseline inflation + carrier markup');
-
-    // Return the processed rates
+    // Return the rates from the response
     return new Response(
-      JSON.stringify({
-        rates: processedRates,
+      JSON.stringify({ 
+        rates: organizedRates,
         shipmentId: data.id,
-        isInternational: fromAddress.country !== toAddress.country
+        markupPercentage: markupPercentage // Include markup percentage for transparency
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
   } catch (error) {
     console.error('Error in get-shipping-rates function:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal Server Error', message: error.message }),
+      JSON.stringify({ 
+        error: 'Internal Server Error', 
+        message: error instanceof Error ? error.message : 'Unknown error',
+        details: 'Please check your request data and try again'
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }

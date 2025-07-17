@@ -1,22 +1,21 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Clock, Truck, DollarSign, Shield, Star, Filter, Download, Upload, CreditCard, Loader } from 'lucide-react';
-import { toast } from '@/components/ui/sonner';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Link, useNavigate } from 'react-router-dom';
+import ShippingRateCard from './shipping/ShippingRateCard';
+import ShippingLabel from './shipping/ShippingLabel';
 import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
-import CarrierLogo from './shipping/CarrierLogo';
-import InlinePaymentSection from './shipping/InlinePaymentSection';
-import EnhancedLabelModal from './shipping/EnhancedLabelModal';
-import { useShippingRates, type ShippingRate } from '@/hooks/useShippingRates';
+import PaymentMethodSelector from './payment/PaymentMethodSelector';
+import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
+import { toast } from '@/components/ui/sonner';
+import { CreditCard, Loader, Download, Upload, Truck, Filter } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import PrintPreview from './shipping/PrintPreview';
 
 const ShippingRates: React.FC = () => {
-  const navigate = useNavigate();
   const {
     rates,
     allRates,
@@ -35,35 +34,22 @@ const ShippingRates: React.FC = () => {
     handleProceedToPayment,
     handleFilterByCarrier
   } = useShippingRates();
-
+  
   const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
-  const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
-  const [isInternational, setIsInternational] = useState(false);
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
   const [selectedLabelFormat, setSelectedLabelFormat] = useState('4x6');
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
-  const [shipmentDetails, setShipmentDetails] = useState<any>();
-  const [showLabelModal, setShowLabelModal] = useState(false);
-
-  // Insurance amount - $100 coverage for $4
-  const INSURANCE_AMOUNT = 4;
-  const INSURANCE_COVERAGE = 100;
-
-  useEffect(() => {
-    const handleRatesReceived = (event: any) => {
-      console.log('Received rates:', event.detail);
-      const { rates: newRates, shipmentId: newShipmentId, isInternational: international } = event.detail;
-      
-      if (newRates && Array.isArray(newRates)) {
-        setIsInternational(international || false);
-      }
-    };
-
-    document.addEventListener('easypost-rates-received', handleRatesReceived);
-    return () => document.removeEventListener('easypost-rates-received', handleRatesReceived);
-  }, []);
-
+  const [shipmentDetails, setShipmentDetails] = useState<{ 
+    fromAddress: string; 
+    toAddress: string; 
+    weight: string; 
+    dimensions?: string; 
+    service: string; 
+    carrier: string; 
+  } | undefined>();
+  
+  // Listen for payment completion event
   useEffect(() => {
     const handlePaymentCompleted = (event: CustomEvent) => {
       console.log('Payment completed event received:', event.detail);
@@ -72,18 +58,22 @@ const ShippingRates: React.FC = () => {
         setIsCreatingLabel(true);
         toast.success('Payment successful! Creating label...');
         
+        // Trigger label creation after payment success
         const labelOptions = {
           label_format: "PDF",
           label_size: selectedLabelFormat
         };
         
+        // Automatically create label after payment
         setTimeout(async () => {
           try {
-            const labelData = await handleCreateLabel(undefined, undefined, labelOptions);
+            await handleCreateLabel(undefined, undefined, labelOptions);
             setIsCreatingLabel(false);
             
-            // Show enhanced label modal
-            setShowLabelModal(true);
+            // Update workflow step
+            document.dispatchEvent(new CustomEvent('shipping-step-change', { 
+              detail: { step: 'complete' }
+            }));
           } catch (error) {
             console.error('Error creating label after payment:', error);
             setIsCreatingLabel(false);
@@ -99,31 +89,22 @@ const ShippingRates: React.FC = () => {
       document.removeEventListener('payment-completed', handlePaymentCompleted as EventListener);
     };
   }, [handleCreateLabel, selectedLabelFormat]);
-
-  const handleSelectRateLocal = (rate: ShippingRate) => {
-    setSelectedRate(rate);
-    handleSelectRate(rate.id);
-    console.log('Selected rate for', isInternational ? 'international' : 'domestic', 'shipping:', rate);
-  };
-
-  const handlePaymentSuccess = () => {
-    console.log('Payment successful for', isInternational ? 'international' : 'domestic', 'shipment');
-    setPaymentCompleted(true);
-    setIsCreatingLabel(true);
-    
-    toast.success(`${isInternational ? 'International' : 'Domestic'} shipping label created successfully!`);
-  };
-
-  const getCarrierGradient = (carrier: string) => {
-    switch (carrier.toLowerCase()) {
-      case 'usps': return 'from-blue-500 to-blue-700';
-      case 'ups': return 'from-amber-500 to-orange-600';
-      case 'fedex': return 'from-purple-500 to-purple-700';
-      case 'dhl': return 'from-yellow-500 to-orange-500';
-      default: return 'from-gray-500 to-gray-700';
+  
+  useEffect(() => {
+    if (selectedRateId && rates.length > 0) {
+      const selectedRate = rates.find(rate => rate.id === selectedRateId);
+      if (selectedRate) {
+        setShipmentDetails({
+          fromAddress: "Your shipping address",
+          toAddress: "Recipient address",
+          weight: "Package weight",
+          service: selectedRate.service,
+          carrier: selectedRate.carrier.toUpperCase(),
+        });
+      }
     }
-  };
-
+  }, [selectedRateId, rates]);
+  
   const handleLabelFormatChange = async (format: string): Promise<void> => {
     setSelectedLabelFormat(format);
     
@@ -142,37 +123,51 @@ const ShippingRates: React.FC = () => {
     }
   };
 
-  const getDiscountPercentage = (rate: ShippingRate): number => {
-    const carrierLower = rate.carrier.toLowerCase();
-    const serviceLower = rate.service.toLowerCase();
+  const handleRateSelection = (rateId: string) => {
+    handleSelectRate(rateId);
     
-    if (carrierLower === 'usps') {
-      if (serviceLower.includes('express') || serviceLower.includes('priority') || serviceLower.includes('next day')) {
-        return 63; // USPS next day delivery: 63%
-      } else if (serviceLower.includes('first class')) {
-        return 86; // USPS first class: 86%
-      } else {
-        return 68; // Normal USPS: 68%
-      }
-    } else if (carrierLower === 'ups') {
-      if (serviceLower.includes('next day') || serviceLower.includes('express')) {
-        return 75; // UPS next day delivery: 75%
-      } else if (serviceLower.includes('2nd day') || serviceLower.includes('second day')) {
-        return 75; // UPS second day: 75%
-      } else if (serviceLower.includes('ground')) {
-        return 78; // UPS ground: 78%
-      } else {
-        return 75; // Default UPS: 75%
-      }
-    } else if (carrierLower === 'fedex') {
-      return 70; // FedEx: 70%
-    } else if (carrierLower === 'dhl') {
-      return 72; // DHL: 72%
+    const calculatorData = sessionStorage.getItem('calculatorData');
+    if (calculatorData) {
+      toast.success("Rate selected! Complete payment to continue with label creation.", {
+        duration: 5000,
+      });
     }
-    
-    return 65; // Default discount
   };
 
+  const handleProceedForward = () => {
+    if (selectedRateId) {
+      selectRateAndProceed(selectedRateId);
+    }
+  };
+
+  const handlePaymentComplete = (success: boolean) => {
+    if (success) {
+      setPaymentCompleted(true);
+      setIsCreatingLabel(true);
+      toast.success('Payment successful! Creating label...');
+      
+      const labelOptions = {
+        label_format: "PDF",
+        label_size: selectedLabelFormat
+      };
+      
+      setTimeout(async () => {
+        try {
+          await handleCreateLabel(undefined, undefined, labelOptions);
+          setIsCreatingLabel(false);
+        } catch (error) {
+          console.error('Error creating label:', error);
+          setIsCreatingLabel(false);
+          toast.error('Failed to create label');
+        }
+      }, 1000);
+    }
+  };
+
+  const handlePaymentMethodChange = (paymentMethodId: string) => {
+    console.log('Selected payment method:', paymentMethodId);
+  };
+  
   if (rates.length === 0) {
     return (
       <div className="w-full" id="shipping-rates-section">
@@ -202,49 +197,36 @@ const ShippingRates: React.FC = () => {
   });
 
   const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
+  const selectedRate = rates.find(rate => rate.id === selectedRateId);
   const rateAmount = selectedRate ? parseFloat(selectedRate.rate) : 0;
-  const insuranceAmount = INSURANCE_AMOUNT;
-  const totalAmount = rateAmount + insuranceAmount;
   const showPaymentSection = selectedRateId && !paymentCompleted && !labelUrl && !isCreatingLabel;
 
   return (
     <div className="w-full pb-6" id="shipping-rates-section">
-      <Card className="border shadow-sm">
-        <CardHeader className="pb-4">
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Truck className="w-5 h-5 text-blue-600" />
-                Available Shipping Options
-              </CardTitle>
-              <div className="flex items-center gap-4 mt-2">
-                <div className="flex items-center gap-2">
-                  <CarrierLogo carrier="usps" className="h-6" />
-                  <CarrierLogo carrier="ups" className="h-6" />
-                  <CarrierLogo carrier="fedex" className="h-6" />
-                  <CarrierLogo carrier="dhl" className="h-6" />
-                </div>
-                <Badge variant="secondary" className="bg-green-100 text-green-700">
-                  ${INSURANCE_COVERAGE} Insurance Included
-                </Badge>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3 mt-4 lg:mt-0">
+      <Card className="border border-gray-200 shadow-lg bg-white">
+        <div className="p-6">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6">
+            <h2 className="text-xl font-bold text-blue-800 flex items-center mb-4 lg:mb-0">
+              <Truck className="mr-2 h-5 w-5 text-blue-600" />
+              Available Shipping Rates
+            </h2>
+            <div className="flex flex-wrap gap-3">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50">
+                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
                     <Filter className="h-4 w-4" />
                     {activeCarrierFilter === 'all' ? 'All Carriers' : activeCarrierFilter.toUpperCase()}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999]">
-                  <DropdownMenuItem onClick={() => handleFilterByCarrier('all')}>
+                <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999] max-h-60 overflow-y-auto">
+                  <DropdownMenuItem onClick={() => handleFilterByCarrier('all')} className="py-2">
                     All Carriers
                   </DropdownMenuItem>
                   {uniqueCarriers.map((carrier) => (
                     <DropdownMenuItem 
                       key={carrier} 
                       onClick={() => handleFilterByCarrier(carrier)}
+                      className="py-2"
                     >
                       {carrier.toUpperCase()}
                     </DropdownMenuItem>
@@ -254,7 +236,7 @@ const ShippingRates: React.FC = () => {
               
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50">
+                  <Button variant="outline" className="flex items-center gap-2 border border-blue-200 hover:bg-blue-50 h-9 px-3 text-sm">
                     Sort by: {
                       sortOrder === 'price' ? 'Price' : 
                       sortOrder === 'speed' ? 'Speed' : 
@@ -263,177 +245,161 @@ const ShippingRates: React.FC = () => {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-white border border-blue-200 shadow-lg z-[9999]">
-                  <DropdownMenuItem onClick={() => setSortOrder('speed')}>
+                  <DropdownMenuItem onClick={() => setSortOrder('speed')} className="py-2">
                     Speed (Fastest First)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('price')}>
+                  <DropdownMenuItem onClick={() => setSortOrder('price')} className="py-2">
                     Price (Lowest First)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortOrder('carrier')}>
+                  <DropdownMenuItem onClick={() => setSortOrder('carrier')} className="py-2">
                     Carrier (A-Z)
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
-        </CardHeader>
-        
-        <CardContent className="p-0">
+          
+          {/* Label Creation Status */}
           {isCreatingLabel && (
-            <div className="p-6 bg-blue-50 border-b border-blue-200">
-              <div className="flex items-center gap-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <div>
-                  <h3 className="font-semibold text-blue-800 mb-1">Creating Your Shipping Label...</h3>
-                  <p className="text-sm text-blue-600">
-                    Please wait while we generate your shipping label. This usually takes a few seconds.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="w-full bg-blue-200 rounded-full h-2">
-                  <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
-                </div>
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <h3 className="font-semibold text-yellow-800 mb-2">Creating Your Label...</h3>
+              <p className="text-sm text-gray-600">
+                Please wait while we generate your shipping label. This usually takes a few seconds.
+              </p>
+              <div className="mt-2">
+                <div className="animate-pulse bg-yellow-200 h-2 rounded"></div>
               </div>
             </div>
           )}
           
-          {!labelUrl && !isCreatingLabel && (
+          {labelUrl && trackingCode && (
+            <div className="mb-6">
+              <PrintPreview 
+                labelUrl={labelUrl} 
+                trackingCode={trackingCode} 
+                shipmentId={shipmentId}
+                shipmentDetails={shipmentDetails}
+                onFormatChange={handleLabelFormatChange}
+              />
+            </div>
+          )}
+          
+          {!labelUrl && !isCreatingLabel ? (
             <>
               {(aiRecommendation || isAiLoading) && (
-                <div className="p-6 border-b">
-                  <ShippingAIRecommendation 
-                    aiRecommendation={aiRecommendation}
-                    isLoading={isAiLoading}
-                    onSelectRecommendation={handleSelectRate}
+                <ShippingAIRecommendation 
+                  aiRecommendation={aiRecommendation}
+                  isLoading={isAiLoading}
+                  onSelectRecommendation={handleRateSelection}
+                />
+              )}
+              
+              <div className="space-y-4 mt-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Available Shipping Options</h3>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                   {sortedRates.map((rate) => (
+                     <ShippingRateCard
+                       key={rate.id}
+                       rate={rate}
+                       isSelected={selectedRateId === rate.id}
+                       onSelect={handleRateSelection}
+                       isBestValue={rate.id === bestValueRateId}
+                       isFastest={rate.id === fastestRateId}
+                       aiRecommendation={aiRecommendation && {
+                         rateId: aiRecommendation.bestOverall || '',
+                         reason: aiRecommendation.analysisText || ''
+                       }}
+                       showDiscount={true}
+                       originalRate={rate.original_rate}
+                       isPremium={false}
+                       showPayButton={true}
+                       shippingDetails={{
+                         rate: rate,
+                       }}
+                     />
+                   ))}
+                </div>
+
+                {sortedRates.length === 0 && (
+                  <div className="p-6 text-center bg-gray-50 rounded-lg">
+                    <p className="text-base text-gray-600">No rates match the current filter. Try changing your filter criteria.</p>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleFilterByCarrier('all')} 
+                      className="mt-4 h-9 px-4 text-sm"
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Section - Show when rate is selected but payment not completed */}
+              {showPaymentSection && (
+                <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                  <h3 className="font-semibold text-blue-800 mb-4">Complete Payment to Create Label</h3>
+                  <PaymentMethodSelector
+                    selectedPaymentMethod={null}
+                    onPaymentMethodChange={handlePaymentMethodChange}
+                    onPaymentComplete={handlePaymentComplete}
+                    amount={rateAmount}
+                    description="Shipping Label Purchase"
                   />
                 </div>
               )}
               
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {sortedRates.map((rate, index) => {
-                    const currentRate = parseFloat(rate.rate);
-                    const isSelected = selectedRateId === rate.id;
-                    const isBestValue = rate.id === bestValueRateId;
-                    const isFastest = rate.id === fastestRateId;
-                    const discountPercentage = getDiscountPercentage(rate);
-                    const originalRate = currentRate / (1 - discountPercentage / 100);
-                    
-                    return (
-                      <div 
-                        key={rate.id}
-                        className={`border-2 rounded-lg overflow-hidden cursor-pointer transition-all ${
-                          isSelected 
-                            ? 'border-blue-500 shadow-lg' 
-                            : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
-                        }`}
-                        onClick={() => handleSelectRateLocal(rate)}
-                      >
-                        {/* Carrier Header */}
-                        <div className={`bg-gradient-to-r ${getCarrierGradient(rate.carrier)} p-3 text-white`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <CarrierLogo carrier={rate.carrier} className="h-6 bg-white/20 text-white" />
-                              {isBestValue && (
-                                <Badge className="bg-green-500 text-white text-xs">Best Value</Badge>
-                              )}
-                              {isFastest && (
-                                <Badge className="bg-blue-500 text-white text-xs">Fastest</Badge>
-                              )}
-                              <Badge className="bg-red-500 text-white text-xs">
-                                {discountPercentage}% OFF
-                              </Badge>
-                            </div>
-                          </div>
-                          <div className="text-sm opacity-90 mt-1">{rate.service}</div>
-                        </div>
+              <div className="mt-6 flex flex-wrap justify-end gap-3">
+                {fromCalculator && selectedRateId && (
+                  <Button 
+                    onClick={handleProceedForward}
+                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md shadow-md"
+                  >
+                    <Download className="h-4 w-4" />
+                    Proceed Forward
+                  </Button>
+                )}
 
-                        {/* Rate Details */}
-                        <div className="p-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                              <div className="text-3xl font-bold text-green-600">
-                                ${currentRate.toFixed(2)}
-                              </div>
-                              <div className="text-lg text-gray-500 line-through">
-                                ${originalRate.toFixed(2)}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="text-sm text-green-600 mb-3 flex items-center gap-1">
-                            <Shield className="w-4 h-4" />
-                            ${INSURANCE_COVERAGE} insurance coverage included (${INSURANCE_AMOUNT})
-                          </div>
-
-                          <div className="flex items-center gap-4 mb-4 text-sm text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-4 h-4" />
-                              <span>
-                                {rate.delivery_days === 1 ? 'Next day' : `${rate.delivery_days || 'N/A'} business days`}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Shield className="w-4 h-4 text-green-500" />
-                              <span>Protected</span>
-                            </div>
-                          </div>
-
-                          <Button 
-                            className={`w-full ${
-                              isSelected 
-                                ? 'bg-blue-600 hover:bg-blue-700' 
-                                : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-                            }`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSelectRateLocal(rate);
-                            }}
-                          >
-                            {isSelected ? 'Selected' : 'Select This Rate'}
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <Button 
+                  onClick={handleProceedToPayment}
+                  disabled={!selectedRateId || isProcessingPayment}
+                  variant="outline"
+                  className="border border-gray-300 hover:bg-gray-50 flex items-center gap-2 px-4 py-2 h-9 text-sm font-medium rounded-md"
+                >
+                  {isProcessingPayment ? (
+                    <>
+                      <Loader className="h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="h-4 w-4" />
+                      Proceed to Payment
+                    </>
+                  )}
+                </Button>
               </div>
-
-              {/* Inline Payment Section */}
-              {showPaymentSection && (
-                <div className="p-6 border-t bg-gray-50">
-                  <InlinePaymentSection
-                    rateAmount={rateAmount}
-                    insuranceAmount={insuranceAmount}
-                    totalAmount={totalAmount}
-                    selectedRate={selectedRate}
-                    shipmentId={shipmentId}
-                    onPaymentSuccess={handlePaymentSuccess}
-                  />
-                </div>
-              )}
             </>
+          ) : (
+            <div className="mt-6 flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  sessionStorage.removeItem('calculatorData');
+                  sessionStorage.removeItem('transferToShipping');
+                  document.dispatchEvent(new Event('shipping-form-completed'));
+                }}
+                className="border border-blue-200 hover:bg-blue-50 h-9 px-4 text-sm"
+              >
+                Ship Another Package
+              </Button>
+            </div>
           )}
-        </CardContent>
+          
+          <div className="mt-4 text-center text-xs text-gray-500">
+            <p>* All rates include handling fees and applicable taxes</p>
+          </div>
+        </div>
       </Card>
-
-      {/* Enhanced Label Modal */}
-      <EnhancedLabelModal
-        isOpen={showLabelModal}
-        onClose={() => setShowLabelModal(false)}
-        labelData={{
-          labelUrl: labelUrl || '',
-          trackingCode: trackingCode || '',
-          shipmentId: shipmentId || '',
-          carrier: selectedRate?.carrier,
-          service: selectedRate?.service,
-          cost: rateAmount,
-          isInternational,
-          fromAddress: shipmentDetails?.fromAddress,
-          toAddress: shipmentDetails?.toAddress
-        }}
-      />
     </div>
   );
 };
