@@ -7,7 +7,7 @@ import { Clock, Truck, DollarSign, Shield, Star, Filter, Download, Upload, Credi
 import { toast } from '@/components/ui/sonner';
 import StripePaymentModal from './shipping/StripePaymentModal';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import EmptyRatesState from './shipping/EmptyRatesState';
 import ShippingAIRecommendation from './shipping/ShippingAIRecommendation';
 import PaymentMethodSelector from './payment/PaymentMethodSelector';
@@ -29,6 +29,7 @@ interface ShippingRate {
 }
 
 const ShippingRates: React.FC = () => {
+  const navigate = useNavigate();
   const {
     rates,
     allRates,
@@ -90,9 +91,8 @@ const ShippingRates: React.FC = () => {
             await handleCreateLabel(undefined, undefined, labelOptions);
             setIsCreatingLabel(false);
             
-            document.dispatchEvent(new CustomEvent('shipping-step-change', { 
-              detail: { step: 'complete' }
-            }));
+            // Navigate to full screen label creation page
+            navigate(`/label-success?labelUrl=${encodeURIComponent(labelUrl || '')}&trackingCode=${encodeURIComponent(trackingCode || '')}&shipmentId=${encodeURIComponent(shipmentId || '')}`);
           } catch (error) {
             console.error('Error creating label after payment:', error);
             setIsCreatingLabel(false);
@@ -107,33 +107,24 @@ const ShippingRates: React.FC = () => {
     return () => {
       document.removeEventListener('payment-completed', handlePaymentCompleted as EventListener);
     };
-  }, [handleCreateLabel, selectedLabelFormat]);
+  }, [handleCreateLabel, selectedLabelFormat, labelUrl, trackingCode, shipmentId, navigate]);
 
   const handleSelectRateLocal = (rate: ShippingRate) => {
     setSelectedRate(rate);
     handleSelectRate(rate.id);
-    setShowPaymentModal(true);
     console.log('Selected rate for', isInternational ? 'international' : 'domestic', 'shipping:', rate);
   };
 
   const handlePaymentSuccess = () => {
     console.log('Payment successful for', isInternational ? 'international' : 'domestic', 'shipment');
     setShowPaymentModal(false);
+    setPaymentCompleted(true);
+    setIsCreatingLabel(true);
     
-    document.dispatchEvent(new CustomEvent('label-created', {
-      detail: {
-        labelData: {
-          labelUrl: 'https://example.com/label.pdf',
-          trackingCode: 'TEST123456789',
-          shipmentId: shipmentId,
-          carrier: selectedRate?.carrier,
-          service: selectedRate?.service,
-          cost: selectedRate?.total_cost || parseFloat(selectedRate?.rate || '0'),
-          estimatedDelivery: selectedRate?.delivery_date,
-          isInternational: isInternational
-        }
-      }
-    }));
+    // Navigate to full screen label creation page
+    setTimeout(() => {
+      navigate(`/label-success?labelUrl=${encodeURIComponent(labelUrl || '')}&trackingCode=${encodeURIComponent(trackingCode || '')}&shipmentId=${encodeURIComponent(shipmentId || '')}`);
+    }, 1500);
     
     toast.success(`${isInternational ? 'International' : 'Domestic'} shipping label created successfully!`);
   };
@@ -211,6 +202,8 @@ const ShippingRates: React.FC = () => {
 
   const fromCalculator = sessionStorage.getItem('calculatorData') !== null;
   const rateAmount = selectedRate ? parseFloat(selectedRate.rate) : 0;
+  const insuranceAmount = selectedRate?.insurance_cost || 0;
+  const totalAmount = rateAmount + insuranceAmount;
   const showPaymentSection = selectedRateId && !paymentCompleted && !labelUrl && !isCreatingLabel;
 
   return (
@@ -390,66 +383,37 @@ const ShippingRates: React.FC = () => {
                   </div>
                 ))}
               </div>
-
-              {showPaymentSection && (
-                <div className="p-6 border-t bg-gradient-to-r from-blue-50 to-indigo-50">
-                  <h3 className="font-semibold text-blue-800 mb-4">Complete Payment to Create Label</h3>
-                  <PaymentMethodSelector
-                    selectedPaymentMethod={null}
-                    onPaymentMethodChange={() => {}}
-                    onPaymentComplete={(success) => {
-                      if (success) {
-                        setPaymentCompleted(true);
-                        setIsCreatingLabel(true);
-                        toast.success('Payment successful! Creating label...');
-                      }
-                    }}
-                    amount={rateAmount}
-                    description="Shipping Label Purchase"
-                  />
-                </div>
-              )}
-
-              <div className="p-6 border-t">
-                <div className="flex flex-wrap justify-end gap-3">
-                  {fromCalculator && selectedRateId && (
-                    <Button 
-                      onClick={() => selectRateAndProceed(selectedRateId)}
-                      className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white flex items-center gap-2"
-                    >
-                      <Download className="h-4 w-4" />
-                      Proceed Forward
-                    </Button>
-                  )}
-
-                  <Button 
-                    onClick={handleProceedToPayment}
-                    disabled={!selectedRateId || isProcessingPayment}
-                    variant="outline"
-                    className="border border-gray-300 hover:bg-gray-50 flex items-center gap-2"
-                  >
-                    {isProcessingPayment ? (
-                      <>
-                        <Loader className="h-4 w-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard className="h-4 w-4" />
-                        Proceed to Payment
-                      </>
-                    )}
-                  </Button>
-                </div>
-                
-                <div className="mt-4 text-center text-xs text-gray-500">
-                  <p>* All rates include handling fees and applicable taxes</p>
-                </div>
-              </div>
             </>
           )}
         </CardContent>
       </Card>
+
+      {/* Payment Section - Fixed position at bottom */}
+      {showPaymentSection && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 p-4">
+          <div className="container mx-auto max-w-4xl">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <h3 className="font-semibold text-gray-800">Complete Payment</h3>
+                <div className="text-sm text-gray-600">
+                  Label: ${rateAmount.toFixed(2)} + Insurance: ${insuranceAmount.toFixed(2)} = Total: ${totalAmount.toFixed(2)}
+                </div>
+              </div>
+              <PaymentMethodSelector
+                selectedPaymentMethod={null}
+                onPaymentMethodChange={() => {}}
+                onPaymentComplete={(success) => {
+                  if (success) {
+                    handlePaymentSuccess();
+                  }
+                }}
+                amount={totalAmount}
+                description="Shipping Label with Insurance"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <StripePaymentModal
         isOpen={showPaymentModal}
