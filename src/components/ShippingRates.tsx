@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,21 +14,7 @@ import { useShippingRates } from '@/hooks/useShippingRates';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import PrintPreview from './shipping/PrintPreview';
 import LabelCreationModal from './shipping/LabelCreationModal';
-
-interface ShippingRate {
-  id: string;
-  carrier: string;
-  service: string;
-  rate: string;
-  currency: string;
-  delivery_days?: number;
-  delivery_date?: string | null;
-  list_rate?: string;
-  retail_rate?: string;
-  est_delivery_days?: number;
-  isPremium?: boolean;
-  original_rate?: string;
-}
+import type { Rate } from '@/types/shipping';
 
 const ShippingRates: React.FC = () => {
   const navigate = useNavigate();
@@ -53,7 +38,7 @@ const ShippingRates: React.FC = () => {
   } = useShippingRates();
 
   const { aiRecommendation, isAiLoading, selectRateAndProceed } = useRateCalculator();
-  const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
+  const [selectedRate, setSelectedRate] = useState<Rate | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isInternational, setIsInternational] = useState(false);
   const [sortOrder, setSortOrder] = useState<'price' | 'speed' | 'carrier'>('price');
@@ -116,7 +101,7 @@ const ShippingRates: React.FC = () => {
     };
   }, [handleCreateLabel, selectedLabelFormat]);
 
-  const handleSelectRateLocal = (rate: ShippingRate) => {
+  const handleSelectRateLocal = (rate: Rate) => {
     setSelectedRate(rate);
     handleSelectRate(rate.id);
     console.log('Selected rate for', isInternational ? 'international' : 'domestic', 'shipping:', rate);
