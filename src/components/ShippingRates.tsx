@@ -48,9 +48,6 @@ const ShippingRates: React.FC = () => {
   const [shipmentDetails, setShipmentDetails] = useState<any>();
   const [showLabelModal, setShowLabelModal] = useState(false);
 
-  // Insurance amount - $100 coverage for $4
-  
-
   useEffect(() => {
     const handleRatesReceived = (event: any) => {
       console.log('Received rates:', event.detail);

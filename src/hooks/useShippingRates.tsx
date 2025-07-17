@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
@@ -20,6 +19,7 @@ export interface ShippingRate {
   isPremium?: boolean;
   insurance_cost?: number;
   total_cost?: number;
+  discount_percentage?: number;
 }
 
 interface LabelOptions {
@@ -50,16 +50,20 @@ export const useShippingRates = () => {
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
 
-  // Process and enhance rates with original prices at 85-90% higher than actual rate
+  // Process and enhance rates with discount percentages
   const processRates = (incomingRates: ShippingRate[]) => {
     return incomingRates.map(rate => {
-      // Generate a random discount percentage between 85% and 90%
-      const discountPercentage = Math.random() * (90 - 85) + 85;
+      // The discount percentage should already come from the backend
+      // If not present, calculate it from original_rate and rate
+      let discountPercentage = rate.discount_percentage || 0;
       
-      // Calculate inflated original rate (actual rate + discount percentage)
-      const actualRate = parseFloat(rate.rate);
-      // Calculate what the "original" price would be before our massive discount
-      const inflatedRate = (actualRate * (100 / (100 - discountPercentage))).toFixed(2);
+      if (!discountPercentage && rate.original_rate) {
+        const originalRate = parseFloat(rate.original_rate);
+        const currentRate = parseFloat(rate.rate);
+        if (originalRate > currentRate) {
+          discountPercentage = Math.round(((originalRate - currentRate) / originalRate) * 100);
+        }
+      }
       
       // Generate premium flag - typically express, overnight, or most expensive services
       const isPremium = 
@@ -69,11 +73,11 @@ export const useShippingRates = () => {
         rate.service.toLowerCase().includes('next day') ||
         rate.service.toLowerCase().includes('same day') ||
         (rate.delivery_days === 1) ||
-        actualRate > 20; // If rate is above $20, consider it a premium service
+        parseFloat(rate.rate) > 20; // If rate is above $20, consider it a premium service
       
       return {
         ...rate,
-        original_rate: inflatedRate,
+        discount_percentage: discountPercentage,
         isPremium
       };
     });
