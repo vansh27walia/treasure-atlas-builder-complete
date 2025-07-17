@@ -40,7 +40,7 @@ const CarrierDropdown: React.FC<CarrierDropdownProps> = ({
           >
             <div className="flex items-center gap-3">
               {carrier.code !== 'all' && (
-                <CarrierLogo carrier={carrier.code} size="sm" />
+                <CarrierLogo carrier={carrier.code} className="h-6 w-auto" />
               )}
               <span className="font-medium">{carrier.name}</span>
             </div>
