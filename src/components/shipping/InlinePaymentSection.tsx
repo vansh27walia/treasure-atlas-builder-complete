@@ -1,122 +1,155 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { CreditCard, Lock, Eye, EyeOff, Shield } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector';
+import { Card } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Shield, CreditCard, Lock } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
+import { supabase } from '@/integrations/supabase/client';
+import PaymentMethodSelector from '../payment/PaymentMethodSelector';
 
 interface InlinePaymentSectionProps {
-  rateAmount: number;
-  insuranceAmount: number;
-  totalAmount: number;
   selectedRate: any;
-  shipmentId: string | null;
-  onPaymentSuccess: () => void;
+  shipmentDetails: any;
+  onPaymentSuccess: (data: any) => void;
+  insuranceAmount?: number;
+  isCreatingLabel?: boolean;
 }
 
 const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
-  rateAmount,
-  insuranceAmount,
-  totalAmount,
   selectedRate,
-  shipmentId,
-  onPaymentSuccess
+  shipmentDetails,
+  onPaymentSuccess,
+  insuranceAmount = 100, // Default $100 insurance included
+  isCreatingLabel = false
 }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
-  const [showInsuranceDetails, setShowInsuranceDetails] = useState(false);
 
-  const handlePaymentMethodChange = (paymentMethodId: string) => {
-    setSelectedPaymentMethod(paymentMethodId);
-  };
+  const shippingCost = parseFloat(selectedRate.rate);
+  const insuranceCost = 2.00; // Fixed $2 insurance cost
+  const totalCost = shippingCost + insuranceCost;
 
-  const handlePaymentComplete = async (success: boolean) => {
-    if (success) {
-      onPaymentSuccess();
+  const handlePaymentComplete = async (success: boolean, paymentData?: any) => {
+    if (!success) {
+      toast.error('Payment failed. Please try again.');
+      return;
+    }
+
+    setIsProcessing(true);
+    
+    try {
+      console.log('Processing payment success, creating label...');
+      
+      // Call the create-label function
+      const { data, error } = await supabase.functions.invoke('create-label', {
+        body: {
+          shipmentId: shipmentDetails?.id || selectedRate.shipment_id,
+          rateId: selectedRate.id,
+          options: {
+            label_format: 'PDF',
+            label_size: '4x6'
+          }
+        }
+      });
+
+      if (error) {
+        console.error('Label creation error:', error);
+        throw new Error(error.message || 'Failed to create label');
+      }
+
+      console.log('Label created successfully:', data);
+      
+      toast.success('Payment successful! Creating your label...');
+      
+      // Pass the label data to the parent component
+      onPaymentSuccess({
+        labelUrl: data.labelUrl,
+        trackingCode: data.trackingCode,
+        shipmentId: data.shipmentId,
+        paymentData
+      });
+
+    } catch (error) {
+      console.error('Error creating label:', error);
+      toast.error('Payment successful but failed to create label. Please contact support.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   return (
-    <Card className="border-t-4 border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50">
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-600 rounded-full">
-              <Lock className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-gray-900">Secure Payment</h3>
-              <p className="text-sm text-gray-600">Complete your shipping label purchase</p>
-            </div>
+    <div className="space-y-6">
+      <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-semibold text-blue-900">Complete Your Order</h3>
+          <div className="flex items-center text-sm text-blue-700">
+            <Lock className="w-4 h-4 mr-1" />
+            Secure Payment
           </div>
-          <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">
-            <Shield className="h-3 w-3 mr-1" />
-            SSL Secured
-          </Badge>
         </div>
 
         {/* Order Summary */}
-        <div className="bg-white rounded-lg border p-4 mb-6">
-          <h4 className="font-semibold text-gray-800 mb-3">Order Summary</h4>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span>Shipping Label ({selectedRate?.carrier} {selectedRate?.service})</span>
-              <span className="font-medium">${rateAmount.toFixed(2)}</span>
-            </div>
+        <div className="bg-white rounded-lg p-4 mb-6 border border-blue-200">
+          <h4 className="font-semibold text-gray-900 mb-3">Order Summary</h4>
+          
+          <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <span>Insurance Coverage ($100)</span>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setShowInsuranceDetails(!showInsuranceDetails)}
-                  className="h-5 w-5 p-0"
-                >
-                  {showInsuranceDetails ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                </Button>
-              </div>
-              <span className="font-medium">${insuranceAmount.toFixed(2)}</span>
+              <span className="text-gray-700">
+                {selectedRate.carrier} {selectedRate.service}
+              </span>
+              <span className="font-medium">${shippingCost.toFixed(2)}</span>
             </div>
-            {showInsuranceDetails && (
-              <div className="bg-blue-50 p-3 rounded text-xs text-blue-800 border-l-4 border-blue-400">
-                <p className="font-medium mb-1">Insurance Coverage Details:</p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>Covers up to $100 for lost or damaged packages</li>
-                  <li>Automatic claims processing</li>
-                  <li>No additional documentation required</li>
-                  <li>Coverage applies from pickup to delivery</li>
-                </ul>
+            
+            <div className="flex justify-between items-center text-green-700">
+              <div className="flex items-center">
+                <Shield className="w-4 h-4 mr-1" />
+                <span>Insurance (${insuranceAmount} coverage)</span>
               </div>
-            )}
-            <div className="border-t pt-2 flex justify-between font-bold text-lg">
+              <span className="font-medium">${insuranceCost.toFixed(2)}</span>
+            </div>
+            
+            <Separator className="my-2" />
+            
+            <div className="flex justify-between items-center text-lg font-bold">
               <span>Total</span>
-              <span className="text-blue-600">${totalAmount.toFixed(2)}</span>
+              <span>${totalCost.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
         {/* Payment Method Selection */}
-        <div className="mb-6">
-          <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
-            <CreditCard className="h-4 w-4" />
-            Payment Method
-          </h4>
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2 text-gray-700">
+            <CreditCard className="w-5 h-5" />
+            <span className="font-medium">Payment Method</span>
+          </div>
+          
           <PaymentMethodSelector
             selectedPaymentMethod={selectedPaymentMethod}
-            onPaymentMethodChange={handlePaymentMethodChange}
+            onPaymentMethodChange={setSelectedPaymentMethod}
             onPaymentComplete={handlePaymentComplete}
-            amount={totalAmount}
-            description={`Shipping Label - ${selectedRate?.carrier} ${selectedRate?.service}`}
+            amount={totalCost}
+            description={`${selectedRate.carrier} ${selectedRate.service} Shipping Label`}
+            disabled={isProcessing || isCreatingLabel}
           />
         </div>
 
+        {isProcessing && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2"></div>
+              <span className="text-yellow-800">Creating your shipping label...</span>
+            </div>
+          </div>
+        )}
+
         {/* Security Notice */}
-        <div className="text-xs text-gray-500 text-center mt-4 p-3 bg-gray-50 rounded">
-          <Lock className="h-3 w-3 inline mr-1" />
-          Your payment information is encrypted and secure. We use industry-standard SSL encryption to protect your data.
+        <div className="mt-4 text-xs text-gray-500 text-center">
+          Your payment information is secured with 256-bit SSL encryption
         </div>
-      </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 };
 

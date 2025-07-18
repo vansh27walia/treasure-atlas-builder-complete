@@ -1,5 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // Set up CORS headers
 const corsHeaders = {
@@ -7,59 +8,69 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Get carrier-specific discount percentage
-const getCarrierDiscountPercentage = (carrier: string, service: string): number => {
-  const carrierLower = carrier.toLowerCase();
-  const serviceLower = service.toLowerCase();
+// Carrier-specific discount configurations
+const getCarrierDiscountConfig = (carrier: string, service: string) => {
+  const carrierUpper = carrier.toUpperCase();
+  const serviceUpper = service.toUpperCase();
   
-  if (carrierLower === 'usps') {
-    if (serviceLower.includes('express') || serviceLower.includes('priority') || serviceLower.includes('next day')) {
-      return 63; // USPS next day delivery: 63%
-    } else if (serviceLower.includes('first class')) {
-      return 86; // USPS first class: 86%
-    } else {
-      return 45; // Normal USPS: 45%
-    }
-  } else if (carrierLower === 'ups') {
-    if (serviceLower.includes('next day') || serviceLower.includes('express')) {
-      return 74.3; // UPS next day delivery: 74.3%
-    } else if (serviceLower.includes('2nd day') || serviceLower.includes('second day')) {
-      return 75; // UPS second day: 75%
-    } else if (serviceLower.includes('ground')) {
-      return 77; // UPS ground: 77%
-    } else {
-      return 70; // Default UPS: 70%
-    }
-  } else if (carrierLower === 'fedex') {
-    return 70; // FedEx: 70%
-  } else if (carrierLower === 'dhl') {
-    return 72; // DHL: 72%
+  switch (carrierUpper) {
+    case 'USPS':
+      if (serviceUpper.includes('EXPRESS') || serviceUpper.includes('PRIORITY')) {
+        return { minDiscount: 68, maxDiscount: 86, inflationMultiplier: 2.8 };
+      }
+      return { minDiscount: 45, maxDiscount: 75, inflationMultiplier: 2.5 };
+      
+    case 'UPS':
+      if (serviceUpper.includes('NEXT DAY') || serviceUpper.includes('EXPRESS')) {
+        return { minDiscount: 77, maxDiscount: 82, inflationMultiplier: 3.2 };
+      }
+      return { minDiscount: 74.3, maxDiscount: 77, inflationMultiplier: 3.0 };
+      
+    case 'FEDEX':
+      if (serviceUpper.includes('OVERNIGHT') || serviceUpper.includes('EXPRESS')) {
+        return { minDiscount: 75, maxDiscount: 85, inflationMultiplier: 3.5 };
+      }
+      return { minDiscount: 70, maxDiscount: 80, inflationMultiplier: 2.8 };
+      
+    case 'DHL':
+      return { minDiscount: 72, maxDiscount: 85, inflationMultiplier: 3.0 };
+      
+    default:
+      return { minDiscount: 60, maxDiscount: 75, inflationMultiplier: 2.0 };
   }
-  
-  return 65; // Default discount for other carriers
 };
 
-// Apply carrier-specific discounts and create inflated prices
+// Apply carrier-specific markup and discount logic
 const applyCarrierDiscounts = (rates) => {
   return rates.map((rate) => {
-    const originalRate = parseFloat(rate.rate);
-    const discountPercentage = getCarrierDiscountPercentage(rate.carrier, rate.service);
+    const config = getCarrierDiscountConfig(rate.carrier, rate.service);
     
-    // Calculate inflated price (what the price would be without discount)
-    const inflatedRate = originalRate / (1 - discountPercentage / 100);
+    // Generate discount percentage within carrier-specific range
+    const discountPercentage = Math.random() * (config.maxDiscount - config.minDiscount) + config.minDiscount;
     
-    console.log(`Rate processed for ${rate.carrier} ${rate.service}:`);
-    console.log(`  Original: $${originalRate.toFixed(2)}`);
-    console.log(`  Inflated (showing as crossed out): $${inflatedRate.toFixed(2)}`);
-    console.log(`  Discount: ${discountPercentage}%`);
+    // Calculate inflated rate based on actual rate and discount
+    const actualRate = parseFloat(rate.rate);
+    const inflatedRate = actualRate / (1 - (discountPercentage / 100));
+    
+    // Calculate estimated delivery date
+    const estimatedDeliveryDate = calculateEstimatedDelivery(rate.delivery_days || 3);
     
     return {
       ...rate,
-      rate: originalRate.toFixed(2),
-      original_rate: inflatedRate.toFixed(2), // This will show as crossed out
-      discount_percentage: discountPercentage
+      original_rate: inflatedRate.toFixed(2),
+      discount_percentage: Math.round(discountPercentage),
+      estimated_delivery_date: estimatedDeliveryDate,
+      isPremium: rate.delivery_days <= 2 || actualRate > 25
     };
   });
+};
+
+// Calculate estimated delivery date
+const calculateEstimatedDelivery = (deliveryDays: number) => {
+  const today = new Date();
+  const deliveryDate = new Date(today);
+  deliveryDate.setDate(today.getDate() + deliveryDays);
+  return deliveryDate.toISOString().split('T')[0]; // Return YYYY-MM-DD format
 };
 
 // Group rates by carrier for better organization
@@ -90,7 +101,6 @@ const organizeRatesByCarrier = (rates) => {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -98,58 +108,35 @@ serve(async (req) => {
   try {
     console.log('Rate fetching request received');
     
-    // Get the EasyPost API key from environment
     const apiKey = Deno.env.get('EASYPOST_API_KEY');
     if (!apiKey) {
       console.error('EasyPost API key not configured');
-      return new Response(
-        JSON.stringify({ error: 'API key not configured' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
-
-    // Parse the request body
-    const requestData = await req.json();
-    console.log('Request data received:', JSON.stringify(requestData, null, 2));
-    
-    // Validate required data
-    if (!requestData.fromAddress || !requestData.toAddress || !requestData.parcel) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required address or parcel data' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
-
-    // Process requested carriers
-    const specificCarriers = [];
-    if (requestData.carriers && requestData.carriers.length > 0) {
-      console.log(`Requested carriers: ${requestData.carriers.join(', ')}`);
-      requestData.carriers.forEach((carrier) => {
-        if (carrier !== 'all' && carrier !== 'easypost') {
-          specificCarriers.push(carrier.toLowerCase());
-        }
+      return new Response(JSON.stringify({ error: 'API key not configured' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
       });
     }
-    console.log(`Filtered carriers for API request: ${specificCarriers.join(', ')}`);
 
-    // Build parcel object for EasyPost
-    const parcelData = {
-      weight: requestData.parcel.weight
-    };
+    const requestData = await req.json();
+    console.log('Request data received:', JSON.stringify(requestData, null, 2));
 
-    // Add dimensions or predefined package
+    if (!requestData.fromAddress || !requestData.toAddress || !requestData.parcel) {
+      return new Response(JSON.stringify({ error: 'Missing required address or parcel data' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
+    }
+
+    const parcelData = { weight: requestData.parcel.weight };
+    
     if (requestData.parcel.predefined_package) {
       parcelData.predefined_package = requestData.parcel.predefined_package;
-      console.log(`Using predefined package: ${requestData.parcel.predefined_package}`);
     } else {
-      // Custom dimensions
       if (requestData.parcel.length) parcelData.length = requestData.parcel.length;
       if (requestData.parcel.width) parcelData.width = requestData.parcel.width;
       if (requestData.parcel.height) parcelData.height = requestData.parcel.height;
-      console.log('Using custom dimensions');
     }
 
-    // Create shipment request for EasyPost API
     const shipmentRequest = {
       shipment: {
         from_address: {
@@ -179,91 +166,66 @@ serve(async (req) => {
       }
     };
 
-    // Add insurance if provided
     if (requestData.insurance && requestData.insurance > 0) {
       shipmentRequest.shipment.insurance = requestData.insurance;
-      console.log(`Adding insurance for $${requestData.insurance}`);
     }
 
     console.log("Sending request to EasyPost API:", JSON.stringify(shipmentRequest, null, 2));
 
-    // Create a shipment with EasyPost API
     const response = await fetch('https://api.easypost.com/v2/shipments', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(shipmentRequest),
+      body: JSON.stringify(shipmentRequest)
     });
 
     const data = await response.json();
 
-    // Check for API errors
     if (!response.ok) {
       console.error('EasyPost API error:', data);
-      return new Response(
-        JSON.stringify({ error: 'Failed to get shipping rates', details: data }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
-      );
+      return new Response(JSON.stringify({ error: 'Failed to get shipping rates', details: data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: response.status
+      });
     }
 
     console.log('EasyPost API response received successfully');
 
-    // Filter rates by carrier if specified
     let rates = data.rates || [];
-    console.log(`Raw rates returned from EasyPost: ${rates.length}`);
     
-    if (specificCarriers.length > 0) {
-      rates = rates.filter(rate => 
-        specificCarriers.some(carrier => 
-          rate.carrier.toLowerCase().includes(carrier)
-        )
-      );
-      console.log(`Filtered to ${rates.length} rates matching requested carriers`);
-    }
-
-    // Ensure we have rates to return
     if (rates.length === 0) {
-      console.log('No rates found for the given criteria');
-      return new Response(
-        JSON.stringify({
-          rates: [],
-          shipmentId: data.id,
-          message: 'No rates available for this shipment'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({
+        rates: [],
+        shipmentId: data.id,
+        message: 'No rates available for this shipment'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Apply carrier-specific discounts and create inflated prices
-    console.log('Applying carrier-specific discounts to shipping rates');
-    const discountedRates = applyCarrierDiscounts(rates);
-
-    // Organize rates by carrier for better presentation
-    const organizedRates = organizeRatesByCarrier(discountedRates);
+    // Apply carrier-specific discounts and organize rates
+    const processedRates = applyCarrierDiscounts(rates);
+    const organizedRates = organizeRatesByCarrier(processedRates);
 
     console.log(`Returning ${organizedRates.length} processed rates with carrier-specific discounts`);
 
-    // Return the rates from the response
-    return new Response(
-      JSON.stringify({
-        rates: organizedRates,
-        shipmentId: data.id,
-        isInternational: requestData.fromAddress.country !== requestData.toAddress.country
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify({
+      rates: organizedRates,
+      shipmentId: data.id
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
 
   } catch (error) {
     console.error('Error in get-shipping-rates function:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Internal Server Error', 
-        message: error instanceof Error ? error.message : 'Unknown error',
-        details: 'Please check your request data and try again'
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    return new Response(JSON.stringify({
+      error: 'Internal Server Error',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500
+    });
   }
 });
