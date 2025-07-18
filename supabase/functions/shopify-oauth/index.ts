@@ -8,7 +8,7 @@ const corsHeaders = {
 }
 
 // HMAC validation function
-function validateHmac(query: URLSearchParams, secret: string): boolean {
+async function validateHmac(query: URLSearchParams, secret: string): Promise<boolean> {
   const hmac = query.get('hmac')
   if (!hmac) return false
 
@@ -28,20 +28,25 @@ function validateHmac(query: URLSearchParams, secret: string): boolean {
   const keyData = encoder.encode(secret)
   const messageData = encoder.encode(message)
   
-  return crypto.subtle.importKey(
-    'raw',
-    keyData,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  ).then(key => 
-    crypto.subtle.sign('HMAC', key, messageData)
-  ).then(signature => {
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    )
+    
+    const signature = await crypto.subtle.sign('HMAC', key, messageData)
     const hash = Array.from(new Uint8Array(signature))
       .map(b => b.toString(16).padStart(2, '0'))
       .join('')
+    
     return hash === hmac
-  }).catch(() => false)
+  } catch (error) {
+    console.error('HMAC validation error:', error)
+    return false
+  }
 }
 
 serve(async (req) => {
@@ -50,10 +55,19 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('[SHOPIFY-OAUTH] Missing Supabase configuration')
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceKey)
 
     const url = new URL(req.url)
     const action = url.searchParams.get('action')
@@ -123,12 +137,31 @@ serve(async (req) => {
 
       // Generate state for CSRF protection (include user ID for validation)
       const state = `${user.id}_${crypto.randomUUID()}`
+      
+      // Store state in database for validation
+      const { error: stateError } = await supabaseClient
+        .from('oauth_states')
+        .insert({
+          user_id: user.id,
+          state_value: state,
+          shop_domain: shopDomain
+        })
+
+      if (stateError) {
+        console.error('[SHOPIFY-OAUTH] Error storing OAuth state:', stateError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to initialize OAuth' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
       const scopes = 'read_orders,read_products,read_customers'
-      const redirectUri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/shopify-oauth?action=callback`
+      const baseUrl = Deno.env.get('SUPABASE_URL')
+      const redirectUri = `${baseUrl}/functions/v1/shopify-oauth?action=callback`
       
       console.log(`[SHOPIFY-OAUTH] Redirect URI: ${redirectUri}`)
       
-      // Build Shopify OAuth URL with proper parameters
+      // Build Shopify OAuth URL
       const authUrl = `https://${shopDomain}/admin/oauth/authorize?` +
         `client_id=${shopifyApiKey}&` +
         `scope=${scopes}&` +
@@ -159,20 +192,48 @@ serve(async (req) => {
 
       if (!code || !shop || !state || !hmac) {
         console.error('[SHOPIFY-OAUTH] Missing required callback parameters')
-        return new Response(
-          JSON.stringify({ error: 'Invalid callback parameters' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        const frontendUrl = Deno.env.get('FRONTEND_REDIRECT_URL') || `${supabaseUrl?.replace('https://adhegezdzqlnqqnymvps.supabase.co', 'https://cdn.gpteng.co/lovable')}/import`
+        return new Response(null, {
+          status: 302,
+          headers: {
+            ...corsHeaders,
+            'Location': `${frontendUrl}?error=missing_parameters`
+          }
+        })
       }
 
-      // Extract user ID from state
+      // Validate state
       const [userId] = state.split('_')
       if (!userId) {
         console.error('[SHOPIFY-OAUTH] Invalid state format')
-        return new Response(
-          JSON.stringify({ error: 'Invalid state parameter' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        const frontendUrl = Deno.env.get('FRONTEND_REDIRECT_URL') || `${supabaseUrl?.replace('https://adhegezdzqlnqqnymvps.supabase.co', 'https://cdn.gpteng.co/lovable')}/import`
+        return new Response(null, {
+          status: 302,
+          headers: {
+            ...corsHeaders,
+            'Location': `${frontendUrl}?error=invalid_state`
+          }
+        })
+      }
+
+      // Verify state in database
+      const { data: stateRecord, error: stateError } = await supabaseClient
+        .from('oauth_states')
+        .select('*')
+        .eq('state_value', state)
+        .eq('shop_domain', shop)
+        .single()
+
+      if (stateError || !stateRecord) {
+        console.error('[SHOPIFY-OAUTH] Invalid state validation:', stateError)
+        const frontendUrl = Deno.env.get('FRONTEND_REDIRECT_URL') || `${supabaseUrl?.replace('https://adhegezdzqlnqqnymvps.supabase.co', 'https://cdn.gpteng.co/lovable')}/import`
+        return new Response(null, {
+          status: 302,
+          headers: {
+            ...corsHeaders,
+            'Location': `${frontendUrl}?error=state_validation_failed`
+          }
+        })
       }
 
       // Get Shopify credentials
@@ -181,20 +242,28 @@ serve(async (req) => {
 
       if (!shopifyApiKey || !shopifyApiSecret) {
         console.error('[SHOPIFY-OAUTH] Shopify credentials not configured')
-        return new Response(
-          JSON.stringify({ error: 'Server configuration error' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        const frontendUrl = Deno.env.get('FRONTEND_REDIRECT_URL') || `${supabaseUrl?.replace('https://adhegezdzqlnqqnymvps.supabase.co', 'https://cdn.gpteng.co/lovable')}/import`
+        return new Response(null, {
+          status: 302,
+          headers: {
+            ...corsHeaders,
+            'Location': `${frontendUrl}?error=server_configuration`
+          }
+        })
       }
 
       // Validate HMAC
       const isValidHmac = await validateHmac(url.searchParams, shopifyApiSecret)
       if (!isValidHmac) {
         console.error('[SHOPIFY-OAUTH] HMAC validation failed')
-        return new Response(
-          JSON.stringify({ error: 'Request validation failed' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        const frontendUrl = Deno.env.get('FRONTEND_REDIRECT_URL') || `${supabaseUrl?.replace('https://adhegezdzqlnqqnymvps.supabase.co', 'https://cdn.gpteng.co/lovable')}/import`
+        return new Response(null, {
+          status: 302,
+          headers: {
+            ...corsHeaders,
+            'Location': `${frontendUrl}?error=hmac_validation_failed`
+          }
+        })
       }
 
       console.log(`[SHOPIFY-OAUTH] HMAC validation successful for shop: ${shop}`)
@@ -215,16 +284,20 @@ serve(async (req) => {
       if (!tokenResponse.ok) {
         const errorText = await tokenResponse.text()
         console.error('[SHOPIFY-OAUTH] Token exchange failed:', tokenResponse.status, errorText)
-        return new Response(
-          JSON.stringify({ error: 'Failed to exchange authorization code' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        const frontendUrl = Deno.env.get('FRONTEND_REDIRECT_URL') || `${supabaseUrl?.replace('https://adhegezdzqlnqqnymvps.supabase.co', 'https://cdn.gpteng.co/lovable')}/import`
+        return new Response(null, {
+          status: 302,
+          headers: {
+            ...corsHeaders,
+            'Location': `${frontendUrl}?error=token_exchange_failed`
+          }
+        })
       }
 
       const tokenData = await tokenResponse.json()
       console.log('[SHOPIFY-OAUTH] Token exchange successful')
 
-      // Store the connection in the new shopify_connections table
+      // Store the connection
       const { error: insertError } = await supabaseClient
         .from('shopify_connections')
         .upsert({
@@ -239,22 +312,32 @@ serve(async (req) => {
 
       if (insertError) {
         console.error('[SHOPIFY-OAUTH] Error storing connection:', insertError)
-        return new Response(
-          JSON.stringify({ error: 'Failed to save connection' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
+        const frontendUrl = Deno.env.get('FRONTEND_REDIRECT_URL') || `${supabaseUrl?.replace('https://adhegezdzqlnqqnymvps.supabase.co', 'https://cdn.gpteng.co/lovable')}/import`
+        return new Response(null, {
+          status: 302,
+          headers: {
+            ...corsHeaders,
+            'Location': `${frontendUrl}?error=connection_save_failed`
+          }
+        })
       }
+
+      // Clean up OAuth state
+      await supabaseClient
+        .from('oauth_states')
+        .delete()
+        .eq('state_value', state)
 
       console.log('[SHOPIFY-OAUTH] Connection saved successfully for user:', userId)
       
-      // Redirect back to the import page with success
-      const frontendUrl = Deno.env.get('SUPABASE_URL')?.replace('https://adhegezdzqlnqqnymvps.supabase.co', 'https://cdn.gpteng.co/lovable') || 'http://localhost:3000'
+      // Redirect back to frontend with success
+      const frontendUrl = Deno.env.get('FRONTEND_REDIRECT_URL') || `${supabaseUrl?.replace('https://adhegezdzqlnqqnymvps.supabase.co', 'https://cdn.gpteng.co/lovable')}/import`
       
       return new Response(null, {
         status: 302,
         headers: {
           ...corsHeaders,
-          'Location': `${frontendUrl}/import?connected=true&shop=${encodeURIComponent(shop)}`
+          'Location': `${frontendUrl}?connected=true&shop=${encodeURIComponent(shop)}`
         }
       })
     }

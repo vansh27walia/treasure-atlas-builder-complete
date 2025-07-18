@@ -39,10 +39,13 @@ const ImportPage = () => {
       checkShopifyConnections();
     }
     
-    // Check for connection success from URL params
+    // Check for connection success/error from URL params
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('connected') === 'true') {
-      const connectedShop = urlParams.get('shop');
+    const connected = urlParams.get('connected');
+    const error = urlParams.get('error');
+    const connectedShop = urlParams.get('shop');
+
+    if (connected === 'true' && connectedShop) {
       toast.success(`Successfully connected to Shopify store: ${connectedShop}`);
       // Clean up URL
       window.history.pushState({}, document.title, window.location.pathname);
@@ -50,6 +53,36 @@ const ImportPage = () => {
       setTimeout(() => {
         checkShopifyConnections();
       }, 1000);
+    } else if (error) {
+      let errorMessage = 'Failed to connect to Shopify';
+      switch (error) {
+        case 'missing_parameters':
+          errorMessage = 'Missing required parameters from Shopify';
+          break;
+        case 'invalid_state':
+          errorMessage = 'Invalid OAuth state - please try again';
+          break;
+        case 'state_validation_failed':
+          errorMessage = 'State validation failed - please try again';
+          break;
+        case 'server_configuration':
+          errorMessage = 'Server configuration error - please contact support';
+          break;
+        case 'hmac_validation_failed':
+          errorMessage = 'Security validation failed - please try again';
+          break;
+        case 'token_exchange_failed':
+          errorMessage = 'Failed to exchange authorization code';
+          break;
+        case 'connection_save_failed':
+          errorMessage = 'Failed to save connection - please try again';
+          break;
+        default:
+          errorMessage = `Connection failed: ${error}`;
+      }
+      toast.error(errorMessage);
+      // Clean up URL
+      window.history.pushState({}, document.title, window.location.pathname);
     }
   }, [user]);
 
@@ -119,35 +152,10 @@ const ImportPage = () => {
         throw new Error('No auth URL received');
       }
 
-      console.log('Opening Shopify OAuth URL:', authUrl);
+      console.log('Redirecting to Shopify OAuth URL:', authUrl);
       
-      // Open Shopify OAuth in a popup window
-      const popup = window.open(
-        authUrl,
-        'shopify-oauth',
-        'width=500,height=700,scrollbars=yes,resizable=yes'
-      );
-
-      // Monitor popup for completion
-      const checkPopup = setInterval(() => {
-        if (popup?.closed) {
-          clearInterval(checkPopup);
-          setIsConnecting(false);
-          // Check if connection was successful
-          setTimeout(() => {
-            checkShopifyConnections();
-          }, 1000);
-        }
-      }, 1000);
-
-      // Timeout after 5 minutes
-      setTimeout(() => {
-        if (popup && !popup.closed) {
-          popup.close();
-        }
-        clearInterval(checkPopup);
-        setIsConnecting(false);
-      }, 300000);
+      // Redirect to Shopify OAuth (instead of popup)
+      window.location.href = authUrl;
       
     } catch (error) {
       console.error('Error connecting to Shopify:', error);
