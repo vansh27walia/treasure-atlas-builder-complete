@@ -3,12 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { CheckCircle, Download, Home, Truck, Printer, File, FileArchive, FileText, Mail, ExternalLink } from 'lucide-react';
+import { CheckCircle, Download, Home, Truck, Printer, File, FileArchive, FileText, Mail, ExternalLink, Search } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import ShippingWorkflow from '@/components/shipping/ShippingWorkflow';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsContent, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 
 const LabelSuccessPage: React.FC = () => {
   const location = useLocation();
@@ -19,6 +19,7 @@ const LabelSuccessPage: React.FC = () => {
   const [progress, setProgress] = useState(0);
   const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
+  const [trackingSearch, setTrackingSearch] = useState('');
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -26,24 +27,13 @@ const LabelSuccessPage: React.FC = () => {
     const trackingCodeParam = params.get('trackingCode');
     const shipmentIdParam = params.get('shipmentId');
 
-    console.log("URL Parameters:", {
-      labelUrl: labelUrlParam,
-      trackingCode: trackingCodeParam,
-      shipmentId: shipmentIdParam
-    });
-
     if (labelUrlParam) {
       setLabelUrl(decodeURIComponent(labelUrlParam));
-      console.log("Decoded label URL:", decodeURIComponent(labelUrlParam));
-    } else {
-      console.error('No label URL provided in the URL parameters');
-      toast.error('Missing label information');
     }
-
     if (trackingCodeParam) {
       setTrackingCode(decodeURIComponent(trackingCodeParam));
+      setTrackingSearch(decodeURIComponent(trackingCodeParam));
     }
-    
     if (shipmentIdParam) {
       setShipmentId(decodeURIComponent(shipmentIdParam));
     }
@@ -51,53 +41,61 @@ const LabelSuccessPage: React.FC = () => {
     toast.success('Your shipping label is ready!');
     window.scrollTo(0, 0);
     
-    document.dispatchEvent(new CustomEvent('shipping-step-change', { 
-      detail: { step: 'complete' }
-    }));
-    
     const timer = setTimeout(() => setProgress(100), 100);
     return () => clearTimeout(timer);
   }, [location]);
-  
-  const handleViewTracking = () => {
-    navigate(`/dashboard?tab=tracking&tracking=${trackingCode || ''}`);
+
+  const handleTrackingSearch = () => {
+    if (trackingSearch.trim()) {
+      navigate(`/tracking?search=${encodeURIComponent(trackingSearch.trim())}`);
+    } else {
+      toast.error('Please enter a tracking number');
+    }
   };
 
   const handleDownload = (format: 'pdf' | 'png' | 'zpl' = 'pdf') => {
-    setSelectedFormat(format);
     if (labelUrl) {
-      window.open(labelUrl, '_blank');
-      toast.success(`Downloading ${format.toUpperCase()} label`);
+      const link = document.createElement('a');
+      link.href = labelUrl;
+      link.download = `shipping-label-${trackingCode || 'label'}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(`Downloaded ${format.toUpperCase()} label`);
     } else {
       toast.error("Label URL is not available");
     }
   };
 
   const handleEmailLabel = () => {
-    toast.success('Label sent to your email address');
+    // In a real implementation, this would call an API to email the label
+    toast.success('Label has been sent to your email address');
   };
 
   const handlePrintLabel = () => {
     if (labelUrl) {
       const printWindow = window.open(labelUrl, '_blank');
       if (printWindow) {
-        printWindow.onload = () => {
+        printWindow.focus();
+        setTimeout(() => {
           printWindow.print();
-        };
+        }, 1000);
       }
+    } else {
+      toast.error("Label URL is not available");
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
-      <div className="container mx-auto max-w-4xl px-4 py-8">
-        <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm pb-4 -mx-4 px-4 pt-4 rounded-lg mb-6">
-          <ShippingWorkflow currentStep="complete" />
+      <div className="container mx-auto max-w-5xl px-4 py-8">
+        {/* Progress Bar */}
+        <div className="mb-6">
+          <Progress value={progress} className="h-3 bg-gray-200" />
         </div>
-        
-        <Progress value={progress} className="h-3 mb-6 bg-gray-200" />
-        
-        <Card className="p-8 text-center border-2 border-green-200 shadow-xl bg-white/90 backdrop-blur-sm">
+
+        {/* Success Card */}
+        <Card className="p-8 text-center border-2 border-green-200 shadow-xl bg-white/90 backdrop-blur-sm mb-8">
           <div className="flex justify-center mb-6">
             <div className="bg-green-100 p-6 rounded-full">
               <CheckCircle className="h-20 w-20 text-green-600" />
@@ -113,16 +111,6 @@ const LabelSuccessPage: React.FC = () => {
               </span>
             )}
           </p>
-
-          {/* Debug information - only in development */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="bg-gray-100 p-4 mb-6 text-left rounded-lg">
-              <h4 className="font-medium mb-2">Debug Information:</h4>
-              <p className="text-xs break-all">Label URL: {labelUrl}</p>
-              <p className="text-xs">Tracking: {trackingCode}</p>
-              <p className="text-xs">Shipment ID: {shipmentId}</p>
-            </div>
-          )}
 
           {/* Main Action Buttons */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -162,19 +150,38 @@ const LabelSuccessPage: React.FC = () => {
             </Button>
           </div>
 
+          {/* Tracking Search Bar */}
+          <Card className="p-6 mb-8 bg-blue-50 border-blue-200">
+            <h3 className="text-xl font-semibold text-blue-800 mb-4">Track Your Shipment</h3>
+            <div className="flex gap-3 max-w-md mx-auto">
+              <Input
+                type="text"
+                placeholder="Enter tracking number..."
+                value={trackingSearch}
+                onChange={(e) => setTrackingSearch(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleTrackingSearch()}
+                className="flex-1"
+              />
+              <Button onClick={handleTrackingSearch} className="bg-blue-600 hover:bg-blue-700">
+                <Search className="h-4 w-4 mr-2" />
+                Track
+              </Button>
+            </div>
+          </Card>
+
           <div className="flex flex-col sm:flex-row justify-center gap-4 mb-8">
             <Button 
               className="bg-green-600 hover:bg-green-700 text-white flex items-center gap-2 h-12 px-8"
-              onClick={handleViewTracking}
+              onClick={() => navigate('/dashboard?tab=tracking')}
             >
               <Truck className="h-5 w-5" />
-              Track Shipment
+              View All Shipments
             </Button>
             
             <Button 
               variant="outline" 
               className="flex items-center gap-2 h-12 px-8 border-gray-300"
-              onClick={() => navigate('/')}
+              onClick={() => navigate('/create-label')}
             >
               <Home className="h-5 w-5" />
               Create Another Label
@@ -252,7 +259,7 @@ const LabelSuccessPage: React.FC = () => {
                       }`}
                       onClick={() => setSelectedFormat('png')}
                     >
-                      <File className="h-16 w-16 mx-auto mb-3 text-green-600" />
+                      <FileText className="h-16 w-16 mx-auto mb-3 text-green-600" />
                       <h4 className="font-semibold text-lg">PNG Format</h4>
                       <p className="text-sm text-gray-500">Image format</p>
                     </div>

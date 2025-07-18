@@ -26,6 +26,7 @@ import TrackingPage from './pages/TrackingPage';
 import ShipToPage from './pages/ShipToPage';
 import FreightForwardingPage from './pages/FreightForwardingPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
+import ImportPage from './pages/ImportPage';
 
 function App() {
   return (
@@ -48,6 +49,7 @@ function App() {
                   <Route path="/ship-to" element={<ShipToPage />} />
                   <Route path="/payment" element={<PaymentPage />} />
                   <Route path="/tracking" element={<TrackingPage />} />
+                  <Route path="/import" element={<ImportPage />} />
                   <Route
                     path="/dashboard"
                     element={<ProtectedRoute><Dashboard /></ProtectedRoute>}

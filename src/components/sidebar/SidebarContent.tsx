@@ -2,7 +2,8 @@
 import React from 'react';
 import { 
   Home, Package, CreditCard, Settings, ShoppingBag, Truck, MapPin, 
-  BarChart3, Globe, HelpCircle, Tag, Upload, Calculator, Clock, Search, Ship
+  BarChart3, Globe, HelpCircle, Tag, Upload, Calculator, Clock, Search, Ship,
+  Download
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import SidebarNavSection from './SidebarNavSection';
@@ -57,6 +58,15 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
             icon={<Truck size={18} />}
             title="Ship To"
             to="/ship-to"
+            collapsed={collapsed}
+          />
+        </SidebarNavSection>
+
+        <SidebarNavSection title="Import" collapsed={collapsed}>
+          <SidebarNavItem
+            icon={<Download size={18} />}
+            title="Import Orders"
+            to="/import"
             collapsed={collapsed}
           />
         </SidebarNavSection>
