@@ -7,9 +7,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Check, ShoppingBag, Package, Globe, Store, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
+import { Check, ShoppingBag, Package, Globe, Store, AlertCircle, Loader2, ExternalLink, Lock } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ShopifyOrder {
   order_id: string;
@@ -19,12 +20,14 @@ interface ShopifyOrder {
   line_items: string;
   created_at: string;
   shopify_order_id: string;
+  shop?: string;
 }
 
 const ImportPage = () => {
+  const { user, isLoading: authLoading } = useAuth();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [shopName, setShopName] = useState('');
+  const [connectedShops, setConnectedShops] = useState<string[]>([]);
   const [shopUrl, setShopUrl] = useState('');
   const [orders, setOrders] = useState<ShopifyOrder[]>([]);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
@@ -32,7 +35,9 @@ const ImportPage = () => {
   const [showShopInput, setShowShopInput] = useState(false);
 
   useEffect(() => {
-    checkShopifyConnection();
+    if (user) {
+      checkShopifyConnections();
+    }
     
     // Check for connection success from URL params
     const urlParams = new URLSearchParams(window.location.search);
@@ -43,35 +48,50 @@ const ImportPage = () => {
       window.history.pushState({}, document.title, window.location.pathname);
       // Refresh connection status
       setTimeout(() => {
-        checkShopifyConnection();
+        checkShopifyConnections();
       }, 1000);
     }
-  }, []);
+  }, [user]);
 
-  const checkShopifyConnection = async () => {
+  const checkShopifyConnections = async () => {
+    if (!user) return;
+
     try {
       const { data, error } = await supabase
-        .from('user_profiles')
-        .select('shopify_store_url, shopify_access_token')
-        .single();
+        .from('shopify_connections')
+        .select('shop')
+        .eq('user_id', user.id);
 
-      if (data?.shopify_access_token && data?.shopify_store_url) {
+      if (data && data.length > 0) {
+        const shops = data.map(connection => connection.shop);
+        setConnectedShops(shops);
         setIsConnected(true);
-        setShopName(data.shopify_store_url.replace('.myshopify.com', ''));
         fetchShopifyOrders();
+      } else {
+        setIsConnected(false);
+        setConnectedShops([]);
       }
     } catch (error) {
-      console.error('Error checking Shopify connection:', error);
+      console.error('Error checking Shopify connections:', error);
     }
   };
 
   const handleConnectClick = () => {
+    if (!user) {
+      toast.error('Please sign in to connect your Shopify store');
+      return;
+    }
     if (!isConnected) {
       setShowShopInput(true);
     }
   };
 
   const connectShopify = async () => {
+    if (!user) {
+      toast.error('Please sign in first');
+      return;
+    }
+
     if (!shopUrl.trim()) {
       toast.error('Please enter your shop URL');
       return;
@@ -115,7 +135,7 @@ const ImportPage = () => {
           setIsConnecting(false);
           // Check if connection was successful
           setTimeout(() => {
-            checkShopifyConnection();
+            checkShopifyConnections();
           }, 1000);
         }
       }, 1000);
@@ -137,6 +157,8 @@ const ImportPage = () => {
   };
 
   const fetchShopifyOrders = async () => {
+    if (!user) return;
+
     setIsLoadingOrders(true);
     
     try {
@@ -194,27 +216,53 @@ const ImportPage = () => {
   };
 
   const disconnectShopify = async () => {
+    if (!user) return;
+
     try {
       await supabase
-        .from('user_profiles')
-        .update({
-          shopify_store_url: null,
-          shopify_access_token: null
-        })
-        .eq('id', (await supabase.auth.getUser()).data.user?.id);
+        .from('shopify_connections')
+        .delete()
+        .eq('user_id', user.id);
 
       setIsConnected(false);
-      setShopName('');
+      setConnectedShops([]);
       setOrders([]);
       setSelectedOrders([]);
       setShowShopInput(false);
       setShopUrl('');
-      toast.success('Disconnected from Shopify');
+      toast.success('Disconnected from all Shopify stores');
     } catch (error) {
       console.error('Error disconnecting:', error);
       toast.error('Failed to disconnect');
     }
   };
+
+  // Show authentication required state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Loading...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="p-8 max-w-md mx-auto text-center">
+          <Lock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Required</h2>
+          <p className="text-gray-600 mb-6">Please sign in to connect your Shopify store and import orders.</p>
+          <Button onClick={() => window.location.href = '/auth'} className="w-full">
+            Sign In
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -235,8 +283,10 @@ const ImportPage = () => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">Shopify</h3>
-                  {isConnected && (
-                    <p className="text-sm text-gray-500">{shopName}</p>
+                  {isConnected && connectedShops.length > 0 && (
+                    <p className="text-sm text-gray-500">
+                      {connectedShops.length} store{connectedShops.length > 1 ? 's' : ''} connected
+                    </p>
                   )}
                 </div>
               </div>
@@ -303,7 +353,7 @@ const ImportPage = () => {
                   Refresh Orders
                 </Button>
                 <Button variant="outline" onClick={disconnectShopify} className="w-full text-red-600 hover:text-red-700">
-                  Disconnect
+                  Disconnect All
                 </Button>
               </div>
             )}
@@ -366,11 +416,12 @@ const ImportPage = () => {
                       <TableHead>Weight</TableHead>
                       <TableHead>Items</TableHead>
                       <TableHead>Date</TableHead>
+                      {connectedShops.length > 1 && <TableHead>Store</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {orders.map((order) => (
-                      <TableRow key={order.order_id}>
+                      <TableRow key={`${order.shop || 'unknown'}-${order.order_id}`}>
                         <TableCell>
                           <Checkbox
                             checked={selectedOrders.includes(order.order_id)}
@@ -385,6 +436,11 @@ const ImportPage = () => {
                         <TableCell>{order.total_weight} lbs</TableCell>
                         <TableCell className="max-w-xs truncate">{order.line_items}</TableCell>
                         <TableCell>{order.created_at}</TableCell>
+                        {connectedShops.length > 1 && (
+                          <TableCell className="text-sm text-gray-500">
+                            {order.shop?.replace('.myshopify.com', '') || 'Unknown'}
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
