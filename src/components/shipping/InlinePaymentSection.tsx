@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Shield, CreditCard, Lock } from 'lucide-react';
+import { Shield, CreditCard, Lock, CheckCircle } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import PaymentMethodSelector from '../payment/PaymentMethodSelector';
@@ -20,15 +20,29 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
   selectedRate,
   shipmentDetails,
   onPaymentSuccess,
-  insuranceAmount = 100, // Default $100 insurance included
+  insuranceAmount = 100,
   isCreatingLabel = false
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [isCreatingLabelState, setIsCreatingLabelState] = useState(false);
 
   const shippingCost = parseFloat(selectedRate.rate);
   const insuranceCost = 2.00; // Fixed $2 insurance cost
   const totalCost = shippingCost + insuranceCost;
+
+  // Auto-scroll to payment section when it appears
+  useEffect(() => {
+    const paymentSection = document.getElementById('payment-section');
+    if (paymentSection) {
+      setTimeout(() => {
+        paymentSection.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }, 300);
+    }
+  }, []);
 
   const handlePaymentComplete = async (success: boolean, paymentData?: any) => {
     if (!success) {
@@ -37,11 +51,12 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
     }
 
     setIsProcessing(true);
+    setIsCreatingLabelState(true);
     
     try {
-      console.log('Processing payment success, creating label...');
+      console.log('Payment successful, creating label...');
       
-      // Call the create-label function
+      // Create label automatically after payment
       const { data, error } = await supabase.functions.invoke('create-label', {
         body: {
           shipmentId: shipmentDetails?.id || selectedRate.shipment_id,
@@ -60,7 +75,7 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
 
       console.log('Label created successfully:', data);
       
-      toast.success('Payment successful! Creating your label...');
+      toast.success('Payment successful! Label created.');
       
       // Pass the label data to the parent component
       onPaymentSuccess({
@@ -75,12 +90,13 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
       toast.error('Payment successful but failed to create label. Please contact support.');
     } finally {
       setIsProcessing(false);
+      setIsCreatingLabelState(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+    <div id="payment-section" className="space-y-6">
+      <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 border-2 shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold text-blue-900">Complete Your Order</h3>
           <div className="flex items-center text-sm text-blue-700">
@@ -90,7 +106,7 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
         </div>
 
         {/* Order Summary */}
-        <div className="bg-white rounded-lg p-4 mb-6 border border-blue-200">
+        <div className="bg-white rounded-lg p-4 mb-6 border border-blue-300">
           <h4 className="font-semibold text-gray-900 mb-3">Order Summary</h4>
           
           <div className="space-y-2">
@@ -131,15 +147,36 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
             onPaymentComplete={handlePaymentComplete}
             amount={totalCost}
             description={`${selectedRate.carrier} ${selectedRate.service} Shipping Label`}
-            disabled={isProcessing || isCreatingLabel}
+            disabled={isProcessing || isCreatingLabel || isCreatingLabelState}
           />
         </div>
 
-        {isProcessing && (
-          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        {(isProcessing || isCreatingLabelState) && (
+          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2"></div>
-              <span className="text-yellow-800">Creating your shipping label...</span>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+              <span className="text-green-800">
+                {isCreatingLabelState ? 'Creating your shipping label...' : 'Processing payment...'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Create Label Button - Always visible after payment method selection */}
+        {selectedPaymentMethod && !isProcessing && !isCreatingLabelState && (
+          <div className="mt-6 p-4 bg-green-50 border border-green-300 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                <span className="text-green-800 font-medium">Ready to create label</span>
+              </div>
+              <Button
+                onClick={() => handlePaymentComplete(true)}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={isProcessing || isCreatingLabelState}
+              >
+                Create Label Now
+              </Button>
             </div>
           </div>
         )}

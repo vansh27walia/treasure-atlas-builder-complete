@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Truck, Shield, Star } from 'lucide-react';
+import { Clock, Truck, Shield, Star, CheckCircle } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import InlinePaymentSection from './shipping/InlinePaymentSection';
 import CarrierLogo from './shipping/CarrierLogo';
@@ -79,35 +79,40 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
           bg: 'bg-amber-50',
           border: 'border-amber-200',
           text: 'text-amber-800',
-          accent: 'bg-amber-600'
+          accent: 'bg-amber-600',
+          selectedBorder: 'border-amber-500'
         };
       case 'FEDEX':
         return {
           bg: 'bg-purple-50',
           border: 'border-purple-200',
           text: 'text-purple-800',
-          accent: 'bg-purple-600'
+          accent: 'bg-purple-600',
+          selectedBorder: 'border-purple-500'
         };
       case 'DHL':
         return {
           bg: 'bg-red-50',
           border: 'border-red-200',
           text: 'text-red-800',
-          accent: 'bg-red-600'
+          accent: 'bg-red-600',
+          selectedBorder: 'border-red-500'
         };
       case 'USPS':
         return {
           bg: 'bg-blue-50',
           border: 'border-blue-200',
           text: 'text-blue-800',
-          accent: 'bg-blue-600'
+          accent: 'bg-blue-600',
+          selectedBorder: 'border-blue-500'
         };
       default:
         return {
           bg: 'bg-gray-50',
           border: 'border-gray-200',
           text: 'text-gray-800',
-          accent: 'bg-gray-600'
+          accent: 'bg-gray-600',
+          selectedBorder: 'border-gray-500'
         };
     }
   };
@@ -117,6 +122,17 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     setSelectedRate(rate);
     onRateSelected(rate);
     setShowPayment(true);
+    
+    // Auto-scroll to payment section with delay
+    setTimeout(() => {
+      const paymentSection = document.getElementById('payment-section');
+      if (paymentSection) {
+        paymentSection.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }
+    }, 300);
   };
 
   const handlePaymentSuccess = async (paymentData: any) => {
@@ -176,20 +192,20 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
           return (
             <Card
               key={rate.id}
-              className={`relative cursor-pointer transition-all duration-200 hover:shadow-md ${
+              className={`relative cursor-pointer transition-all duration-200 hover:shadow-md border-2 ${
                 isSelected
-                  ? `ring-2 ring-offset-2 ${colors.border.replace('border-', 'ring-')}`
-                  : colors.border
-              } ${colors.bg}`}
+                  ? `${colors.selectedBorder} shadow-lg bg-blue-50 border-blue-500`
+                  : `${colors.border} ${colors.bg}`
+              }`}
               onClick={() => handleRateSelection(rate)}
             >
               <div className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <CarrierLogo carrier={rate.carrier} className="w-8 h-8" />
+                    <CarrierLogo carrier={rate.carrier} className="w-10 h-10" />
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
-                        <h4 className={`font-semibold ${colors.text}`}>
+                        <h4 className={`font-semibold ${isSelected ? 'text-blue-800' : colors.text}`}>
                           {rate.carrier}
                         </h4>
                         {rate.isPremium && (
@@ -198,11 +214,14 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
                             Premium
                           </Badge>
                         )}
+                        {isSelected && (
+                          <CheckCircle className="w-5 h-5 text-blue-600" />
+                        )}
                       </div>
-                      <p className="text-sm text-gray-600 font-medium">
+                      <p className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-gray-600'}`}>
                         {rate.service}
                       </p>
-                      <div className="flex items-center text-sm text-gray-500 mt-1">
+                      <div className={`flex items-center text-sm mt-1 ${isSelected ? 'text-blue-600' : 'text-gray-500'}`}>
                         <Clock className="w-4 h-4 mr-1" />
                         <span>Estimated Delivery: {estimatedDelivery}</span>
                       </div>
@@ -221,7 +240,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
                           </Badge>
                         </div>
                       )}
-                      <div className={`text-xl font-bold ${colors.text}`}>
+                      <div className={`text-xl font-bold ${isSelected ? 'text-blue-800' : colors.text}`}>
                         ${parseFloat(rate.rate).toFixed(2)}
                       </div>
                     </div>
@@ -235,7 +254,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
                 </div>
                 
                 {isSelected && (
-                  <div className={`absolute inset-0 rounded-lg ring-2 ring-offset-2 ${colors.border.replace('border-', 'ring-')} pointer-events-none`} />
+                  <div className="absolute inset-0 rounded-lg border-2 border-blue-500 pointer-events-none bg-blue-50 bg-opacity-20" />
                 )}
               </div>
             </Card>
