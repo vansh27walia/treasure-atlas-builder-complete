@@ -35,20 +35,20 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
   onRateSelected,
   loading = false,
   selectedRateId,
-  shipmentDetails,
-  insuranceAmount = 0
+  shipmentDetails: propShipmentDetails,
+  insuranceAmount = 2
 }) => {
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
   const [showPayment, setShowPayment] = useState(false);
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
-  const [shipmentDetails, setShipmentDetails] = useState<any>();
+  const [localShipmentDetails, setLocalShipmentDetails] = useState<any>(propShipmentDetails);
   const [showLabelModal, setShowLabelModal] = useState(false);
 
   useEffect(() => {
     const handleRatesReceived = (event: any) => {
       console.log('Rates received event:', event.detail);
       if (event.detail?.shipment) {
-        setShipmentDetails(event.detail.shipment);
+        setLocalShipmentDetails(event.detail.shipment);
       }
     };
     
@@ -217,7 +217,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
                             ${parseFloat(rate.original_rate).toFixed(2)}
                           </div>
                           <Badge variant="destructive" className="text-xs mb-1">
-                            Save {rate.discount_percentage}%
+                            Save {Math.round(rate.discount_percentage)}%
                           </Badge>
                         </div>
                       )}
@@ -247,7 +247,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
         <div className="mt-8">
           <InlinePaymentSection
             selectedRate={selectedRate}
-            shipmentDetails={shipmentDetails}
+            shipmentDetails={localShipmentDetails || propShipmentDetails}
             onPaymentSuccess={handlePaymentSuccess}
             insuranceAmount={insuranceAmount}
             isCreatingLabel={isCreatingLabel}

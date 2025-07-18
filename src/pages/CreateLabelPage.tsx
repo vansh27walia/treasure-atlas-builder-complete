@@ -20,6 +20,11 @@ const CreateLabelPage = () => {
     console.log('Reordering rates:', reorderedRates);
   };
 
+  const handleRateSelected = (rate: any) => {
+    console.log('Rate selected in CreateLabelPage:', rate);
+    handleSelectRate(rate);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Sticky Workflow Tracker with curved floating design */}
@@ -47,7 +52,11 @@ const CreateLabelPage = () => {
               
               {/* Shipping Rates Section */}
               <div id="shipping-rates-section">
-                <ShippingRates />
+                <ShippingRates 
+                  rates={rates || []}
+                  onRateSelected={handleRateSelected}
+                  loading={false}
+                />
               </div>
             </div>
 
