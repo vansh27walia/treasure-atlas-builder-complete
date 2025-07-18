@@ -1,8 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Check, ShoppingBag, Package, Globe, Store, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
@@ -22,26 +25,26 @@ const ImportPage = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [shopName, setShopName] = useState('');
+  const [shopUrl, setShopUrl] = useState('');
   const [orders, setOrders] = useState<ShopifyOrder[]>([]);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [showShopInput, setShowShopInput] = useState(false);
 
   useEffect(() => {
     checkShopifyConnection();
     
-    // Handle OAuth callback
-    const handleOAuthCallback = () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const shop = urlParams.get('shop');
-      const state = urlParams.get('state');
-      
-      if (code && shop && state) {
-        handleShopifyCallback(code, shop, state);
-      }
-    };
-
-    handleOAuthCallback();
+    // Check for connection success from URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('connected') === 'true') {
+      toast.success('Successfully connected to Shopify!');
+      // Clean up URL
+      window.history.pushState({}, document.title, window.location.pathname);
+      // Refresh connection status
+      setTimeout(() => {
+        checkShopifyConnection();
+      }, 1000);
+    }
   }, []);
 
   const checkShopifyConnection = async () => {
@@ -61,7 +64,18 @@ const ImportPage = () => {
     }
   };
 
+  const handleConnectClick = () => {
+    if (!isConnected) {
+      setShowShopInput(true);
+    }
+  };
+
   const connectShopify = async () => {
+    if (!shopUrl.trim()) {
+      toast.error('Please enter your shop URL');
+      return;
+    }
+
     setIsConnecting(true);
     
     try {
@@ -71,62 +85,35 @@ const ImportPage = () => {
         return;
       }
 
+      console.log('Initiating Shopify OAuth for shop:', shopUrl);
+
       const response = await supabase.functions.invoke('shopify-oauth', {
-        body: { action: 'initiate' }
+        body: { action: 'initiate', shop: shopUrl.trim() }
       });
 
+      console.log('OAuth initiate response:', response);
+
       if (response.error) {
+        console.error('OAuth initiate error:', response.error);
         throw new Error(response.error.message || 'Failed to initiate OAuth');
       }
 
       const { authUrl } = response.data;
+      
+      if (!authUrl) {
+        throw new Error('No auth URL received');
+      }
+
+      console.log('Redirecting to:', authUrl);
       
       // Redirect to Shopify OAuth
       window.location.href = authUrl;
       
     } catch (error) {
       console.error('Error connecting to Shopify:', error);
-      toast.error('Failed to connect to Shopify');
+      toast.error(`Failed to connect to Shopify: ${error.message}`);
     } finally {
       setIsConnecting(false);
-    }
-  };
-
-  const handleShopifyCallback = async (code: string, shop: string, state: string) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('Session expired. Please log in again.');
-        return;
-      }
-
-      const response = await supabase.functions.invoke('shopify-oauth', {
-        body: { action: 'callback', code, shop, state }
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message || 'Failed to complete OAuth');
-      }
-
-      const result = response.data;
-      
-      if (result.success) {
-        setIsConnected(true);
-        setShopName(result.shop.replace('.myshopify.com', ''));
-        toast.success('Successfully connected to Shopify!');
-        
-        // Clean up URL
-        window.history.pushState({}, document.title, window.location.pathname);
-        
-        // Fetch orders
-        fetchShopifyOrders();
-      } else {
-        throw new Error('OAuth callback failed');
-      }
-      
-    } catch (error) {
-      console.error('Error handling Shopify callback:', error);
-      toast.error('Failed to complete Shopify connection');
     }
   };
 
@@ -206,6 +193,8 @@ const ImportPage = () => {
       setShopName('');
       setOrders([]);
       setSelectedOrders([]);
+      setShowShopInput(false);
+      setShopUrl('');
       toast.success('Disconnected from Shopify');
     } catch (error) {
       console.error('Error disconnecting:', error);
@@ -246,23 +235,54 @@ const ImportPage = () => {
             </div>
             
             {!isConnected ? (
-              <Button 
-                onClick={connectShopify} 
-                disabled={isConnecting}
-                className="w-full"
-              >
-                {isConnecting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
+              <div className="space-y-3">
+                {!showShopInput ? (
+                  <Button onClick={handleConnectClick} className="w-full">
                     <ExternalLink className="w-4 h-4 mr-2" />
-                    Connect with OAuth
-                  </>
+                    Connect Store
+                  </Button>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="shop-url">Shop URL</Label>
+                      <Input
+                        id="shop-url"
+                        placeholder="mystore.myshopify.com"
+                        value={shopUrl}
+                        onChange={(e) => setShopUrl(e.target.value)}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Enter your shop's .myshopify.com URL
+                      </p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button 
+                        onClick={connectShopify} 
+                        disabled={isConnecting}
+                        className="flex-1"
+                      >
+                        {isConnecting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Connecting...
+                          </>
+                        ) : (
+                          'Connect'
+                        )}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setShowShopInput(false);
+                          setShopUrl('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
                 )}
-              </Button>
+              </div>
             ) : (
               <div className="space-y-2">
                 <Button variant="outline" onClick={fetchShopifyOrders} className="w-full">
