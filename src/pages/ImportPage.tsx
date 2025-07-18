@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Check, ShoppingBag, Package, Globe, Store, AlertCircle, Loader2 } from 'lucide-react';
+import { Check, ShoppingBag, Package, Globe, Store, AlertCircle, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -15,6 +16,7 @@ interface ShopifyOrder {
   total_weight: number;
   line_items: string;
   created_at: string;
+  shopify_order_id: string;
 }
 
 const ImportPage = () => {
@@ -27,6 +29,20 @@ const ImportPage = () => {
 
   useEffect(() => {
     checkShopifyConnection();
+    
+    // Handle OAuth callback
+    const handleOAuthCallback = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      const shop = urlParams.get('shop');
+      const state = urlParams.get('state');
+      
+      if (code && shop && state) {
+        handleShopifyCallback(code, shop, state);
+      }
+    };
+
+    handleOAuthCallback();
   }, []);
 
   const checkShopifyConnection = async () => {
@@ -50,27 +66,29 @@ const ImportPage = () => {
     setIsConnecting(true);
     
     try {
-      // For demo purposes, we'll simulate the OAuth flow
-      // In production, this would redirect to Shopify OAuth
-      const shopifyUrl = prompt('Enter your Shopify store URL (e.g., mystore.myshopify.com):');
-      const accessToken = prompt('Enter your Shopify access token:');
-      
-      if (shopifyUrl && accessToken) {
-        const { error } = await supabase
-          .from('user_profiles')
-          .upsert({
-            id: (await supabase.auth.getUser()).data.user?.id,
-            shopify_store_url: shopifyUrl,
-            shopify_access_token: accessToken
-          });
-
-        if (error) throw error;
-
-        setIsConnected(true);
-        setShopName(shopifyUrl.replace('.myshopify.com', ''));
-        toast.success('Successfully connected to Shopify!');
-        fetchShopifyOrders();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Please log in to connect Shopify');
+        return;
       }
+
+      const response = await fetch('/functions/v1/shopify-oauth?action=initiate', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to initiate OAuth');
+      }
+
+      const { authUrl } = await response.json();
+      
+      // Redirect to Shopify OAuth
+      window.location.href = authUrl;
+      
     } catch (error) {
       console.error('Error connecting to Shopify:', error);
       toast.error('Failed to connect to Shopify');
@@ -79,41 +97,74 @@ const ImportPage = () => {
     }
   };
 
+  const handleShopifyCallback = async (code: string, shop: string, state: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Session expired. Please log in again.');
+        return;
+      }
+
+      const response = await fetch('/functions/v1/shopify-oauth?action=callback', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code, shop, state }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to complete OAuth');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setIsConnected(true);
+        setShopName(result.shop.replace('.myshopify.com', ''));
+        toast.success('Successfully connected to Shopify!');
+        
+        // Clean up URL
+        window.history.pushState({}, document.title, window.location.pathname);
+        
+        // Fetch orders
+        fetchShopifyOrders();
+      } else {
+        throw new Error('OAuth callback failed');
+      }
+      
+    } catch (error) {
+      console.error('Error handling Shopify callback:', error);
+      toast.error('Failed to complete Shopify connection');
+    }
+  };
+
   const fetchShopifyOrders = async () => {
     setIsLoadingOrders(true);
     
     try {
-      // Mock data for demonstration
-      // In production, this would call your backend API
-      const mockOrders: ShopifyOrder[] = [
-        {
-          order_id: '#1001',
-          customer_name: 'John Doe',
-          shipping_address: '123 Main St, New York, NY 10001',
-          total_weight: 2.5,
-          line_items: '2x Product A, 1x Product B',
-          created_at: '2025-01-15'
-        },
-        {
-          order_id: '#1002',
-          customer_name: 'Jane Smith',
-          shipping_address: '456 Oak Ave, Los Angeles, CA 90210',
-          total_weight: 1.8,
-          line_items: '1x Product C, 3x Product D',
-          created_at: '2025-01-16'
-        },
-        {
-          order_id: '#1003',
-          customer_name: 'Bob Johnson',
-          shipping_address: '789 Pine St, Chicago, IL 60601',
-          total_weight: 3.2,
-          line_items: '1x Product E, 2x Product F',
-          created_at: '2025-01-17'
-        }
-      ];
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No session');
+      }
 
-      setOrders(mockOrders);
-      toast.success(`Fetched ${mockOrders.length} unfulfilled orders`);
+      const response = await fetch('/functions/v1/shopify-orders', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch orders');
+      }
+
+      const { orders } = await response.json();
+      setOrders(orders);
+      toast.success(`Fetched ${orders.length} unfulfilled orders`);
+      
     } catch (error) {
       console.error('Error fetching orders:', error);
       toast.error('Failed to fetch orders');
@@ -140,7 +191,6 @@ const ImportPage = () => {
 
   const handleShipSelected = () => {
     if (selectedOrders.length > 0) {
-      // Emit event for selected orders
       const event = new CustomEvent('importOrders', {
         detail: { provider: 'shopify', orderIds: selectedOrders }
       });
@@ -156,6 +206,27 @@ const ImportPage = () => {
     });
     document.dispatchEvent(event);
     toast.success(`Importing all ${orders.length} orders`);
+  };
+
+  const disconnectShopify = async () => {
+    try {
+      await supabase
+        .from('user_profiles')
+        .update({
+          shopify_store_url: null,
+          shopify_access_token: null
+        })
+        .eq('id', (await supabase.auth.getUser()).data.user?.id);
+
+      setIsConnected(false);
+      setShopName('');
+      setOrders([]);
+      setSelectedOrders([]);
+      toast.success('Disconnected from Shopify');
+    } catch (error) {
+      console.error('Error disconnecting:', error);
+      toast.error('Failed to disconnect');
+    }
   };
 
   return (
@@ -202,13 +273,21 @@ const ImportPage = () => {
                     Connecting...
                   </>
                 ) : (
-                  'Connect'
+                  <>
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Connect with OAuth
+                  </>
                 )}
               </Button>
             ) : (
-              <Button variant="outline" onClick={fetchShopifyOrders} className="w-full">
-                Refresh Orders
-              </Button>
+              <div className="space-y-2">
+                <Button variant="outline" onClick={fetchShopifyOrders} className="w-full">
+                  Refresh Orders
+                </Button>
+                <Button variant="outline" onClick={disconnectShopify} className="w-full text-red-600 hover:text-red-700">
+                  Disconnect
+                </Button>
+              </div>
             )}
           </Card>
 
