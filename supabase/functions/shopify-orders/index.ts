@@ -21,6 +21,7 @@ serve(async (req) => {
     // Get user from auth header
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      console.error('[SHOPIFY-ORDERS] No authorization header')
       return new Response(
         JSON.stringify({ error: 'No authorization header' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -31,29 +32,35 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token)
     
     if (userError || !user) {
+      console.error('[SHOPIFY-ORDERS] Invalid user:', userError)
       return new Response(
         JSON.stringify({ error: 'Invalid user' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
+    console.log(`[SHOPIFY-ORDERS] Fetching orders for user: ${user.id}`)
+
     // Get user's Shopify credentials
-    const { data: profile } = await supabaseClient
+    const { data: profile, error: profileError } = await supabaseClient
       .from('user_profiles')
       .select('shopify_store_url, shopify_access_token')
       .eq('id', user.id)
       .single()
 
-    if (!profile?.shopify_access_token || !profile?.shopify_store_url) {
+    if (profileError || !profile?.shopify_access_token || !profile?.shopify_store_url) {
+      console.error('[SHOPIFY-ORDERS] Shopify not connected:', profileError)
       return new Response(
         JSON.stringify({ error: 'Shopify not connected' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Fetch orders from Shopify
+    console.log(`[SHOPIFY-ORDERS] Fetching orders from: ${profile.shopify_store_url}`)
+
+    // Fetch unfulfilled orders from Shopify
     const shopifyResponse = await fetch(
-      `https://${profile.shopify_store_url}/admin/api/2023-04/orders.json?status=unfulfilled&limit=200`,
+      `https://${profile.shopify_store_url}/admin/api/2023-10/orders.json?fulfillment_status=unfulfilled&status=open&limit=250`,
       {
         headers: {
           'X-Shopify-Access-Token': profile.shopify_access_token,
@@ -63,6 +70,8 @@ serve(async (req) => {
     )
 
     if (!shopifyResponse.ok) {
+      const errorText = await shopifyResponse.text()
+      console.error('[SHOPIFY-ORDERS] Failed to fetch orders from Shopify:', shopifyResponse.status, errorText)
       return new Response(
         JSON.stringify({ error: 'Failed to fetch orders from Shopify' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -70,27 +79,37 @@ serve(async (req) => {
     }
 
     const shopifyData = await shopifyResponse.json()
+    console.log(`[SHOPIFY-ORDERS] Retrieved ${shopifyData.orders?.length || 0} orders from Shopify`)
 
     // Transform orders to our format
-    const orders = shopifyData.orders.map((order: any) => ({
-      order_id: `#${order.order_number || order.id}`,
-      customer_name: order.customer ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim() : 'Guest',
-      shipping_address: order.shipping_address ? 
-        `${order.shipping_address.address1 || ''}, ${order.shipping_address.city || ''}, ${order.shipping_address.province || ''} ${order.shipping_address.zip || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '') : 
-        'No address',
-      total_weight: order.total_weight ? parseFloat(order.total_weight) : 0,
-      line_items: order.line_items.map((item: any) => `${item.quantity}x ${item.name}`).join(', '),
-      created_at: new Date(order.created_at).toLocaleDateString(),
-      shopify_order_id: order.id
-    }))
+    const orders = (shopifyData.orders || []).map((order: any) => {
+      const customer = order.customer || {}
+      const shippingAddress = order.shipping_address || {}
+      
+      return {
+        order_id: `#${order.order_number || order.id}`,
+        customer_name: customer.first_name && customer.last_name 
+          ? `${customer.first_name} ${customer.last_name}`.trim()
+          : customer.email || 'Guest Customer',
+        shipping_address: shippingAddress.address1 
+          ? `${shippingAddress.address1 || ''}, ${shippingAddress.city || ''}, ${shippingAddress.province || ''} ${shippingAddress.zip || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '')
+          : 'No shipping address',
+        total_weight: order.total_weight ? parseFloat(order.total_weight) : 0,
+        line_items: order.line_items?.map((item: any) => `${item.quantity}x ${item.name}`).join(', ') || 'No items',
+        created_at: order.created_at ? new Date(order.created_at).toLocaleDateString() : 'Unknown',
+        shopify_order_id: order.id?.toString() || ''
+      }
+    })
+
+    console.log(`[SHOPIFY-ORDERS] Transformed ${orders.length} orders successfully`)
 
     return new Response(
-      JSON.stringify({ orders }),
+      JSON.stringify({ orders, success: true }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
-    console.error('Shopify orders error:', error)
+    console.error('[SHOPIFY-ORDERS] Unexpected error:', error)
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

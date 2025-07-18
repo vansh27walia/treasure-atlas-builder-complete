@@ -37,7 +37,8 @@ const ImportPage = () => {
     // Check for connection success from URL params
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('connected') === 'true') {
-      toast.success('Successfully connected to Shopify!');
+      const connectedShop = urlParams.get('shop');
+      toast.success(`Successfully connected to Shopify store: ${connectedShop}`);
       // Clean up URL
       window.history.pushState({}, document.title, window.location.pathname);
       // Refresh connection status
@@ -79,12 +80,6 @@ const ImportPage = () => {
     setIsConnecting(true);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('Please log in to connect Shopify');
-        return;
-      }
-
       console.log('Initiating Shopify OAuth for shop:', shopUrl);
 
       const response = await supabase.functions.invoke('shopify-oauth', {
@@ -104,15 +99,39 @@ const ImportPage = () => {
         throw new Error('No auth URL received');
       }
 
-      console.log('Redirecting to:', authUrl);
+      console.log('Opening Shopify OAuth URL:', authUrl);
       
-      // Redirect to Shopify OAuth
-      window.location.href = authUrl;
+      // Open Shopify OAuth in a popup window
+      const popup = window.open(
+        authUrl,
+        'shopify-oauth',
+        'width=500,height=700,scrollbars=yes,resizable=yes'
+      );
+
+      // Monitor popup for completion
+      const checkPopup = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkPopup);
+          setIsConnecting(false);
+          // Check if connection was successful
+          setTimeout(() => {
+            checkShopifyConnection();
+          }, 1000);
+        }
+      }, 1000);
+
+      // Timeout after 5 minutes
+      setTimeout(() => {
+        if (popup && !popup.closed) {
+          popup.close();
+        }
+        clearInterval(checkPopup);
+        setIsConnecting(false);
+      }, 300000);
       
     } catch (error) {
       console.error('Error connecting to Shopify:', error);
       toast.error(`Failed to connect to Shopify: ${error.message}`);
-    } finally {
       setIsConnecting(false);
     }
   };
@@ -121,11 +140,6 @@ const ImportPage = () => {
     setIsLoadingOrders(true);
     
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No session');
-      }
-
       const response = await supabase.functions.invoke('shopify-orders');
 
       if (response.error) {
@@ -133,8 +147,8 @@ const ImportPage = () => {
       }
 
       const { orders } = response.data;
-      setOrders(orders);
-      toast.success(`Fetched ${orders.length} unfulfilled orders`);
+      setOrders(orders || []);
+      toast.success(`Fetched ${orders?.length || 0} unfulfilled orders`);
       
     } catch (error) {
       console.error('Error fetching orders:', error);
@@ -247,12 +261,12 @@ const ImportPage = () => {
                       <Label htmlFor="shop-url">Shop URL</Label>
                       <Input
                         id="shop-url"
-                        placeholder="mystore.myshopify.com"
+                        placeholder="mystore (without .myshopify.com)"
                         value={shopUrl}
                         onChange={(e) => setShopUrl(e.target.value)}
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        Enter your shop's .myshopify.com URL
+                        Enter your shop name (we'll add .myshopify.com automatically)
                       </p>
                     </div>
                     <div className="flex space-x-2">
@@ -267,7 +281,7 @@ const ImportPage = () => {
                             Connecting...
                           </>
                         ) : (
-                          'Connect'
+                          'Connect with OAuth'
                         )}
                       </Button>
                       <Button 
