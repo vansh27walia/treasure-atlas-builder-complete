@@ -51,11 +51,11 @@ serve(async (req) => {
       }
 
       const state = crypto.randomUUID()
-      const scopes = 'read_orders,write_orders,read_products'
+      const scopes = 'read_orders,write_orders,read_products,read_fulfillments'
       const redirectUri = `${url.origin}/shopify-callback`
       
       // Store state temporarily for validation
-      await supabaseClient
+      const { error: insertError } = await supabaseClient
         .from('shopify_oauth_states')
         .insert({
           state,
@@ -64,6 +64,16 @@ serve(async (req) => {
           expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10 minutes
         })
 
+      if (insertError) {
+        console.error('Error storing OAuth state:', insertError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to initialize OAuth' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Note: We'll need the shop parameter to build the proper OAuth URL
+      // For now, we'll use a generic Shopify admin URL that will prompt for the shop
       const authUrl = `https://admin.shopify.com/oauth/authorize?client_id=${shopifyApiKey}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
 
       return new Response(
@@ -75,15 +85,22 @@ serve(async (req) => {
     if (action === 'callback') {
       const { code, shop, state } = await req.json()
 
+      if (!code || !shop || !state) {
+        return new Response(
+          JSON.stringify({ error: 'Missing required parameters' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
       // Validate state
-      const { data: stateRecord } = await supabaseClient
+      const { data: stateRecord, error: stateError } = await supabaseClient
         .from('shopify_oauth_states')
         .select('*')
         .eq('state', state)
         .eq('user_id', user.id)
         .single()
 
-      if (!stateRecord || new Date(stateRecord.expires_at) < new Date()) {
+      if (stateError || !stateRecord || new Date(stateRecord.expires_at) < new Date()) {
         return new Response(
           JSON.stringify({ error: 'Invalid or expired state' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -114,6 +131,8 @@ serve(async (req) => {
       })
 
       if (!tokenResponse.ok) {
+        const errorText = await tokenResponse.text()
+        console.error('Token exchange failed:', errorText)
         return new Response(
           JSON.stringify({ error: 'Failed to exchange token' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -123,7 +142,7 @@ serve(async (req) => {
       const tokenData = await tokenResponse.json()
 
       // Store the access token securely
-      await supabaseClient
+      const { error: upsertError } = await supabaseClient
         .from('user_profiles')
         .upsert({
           id: user.id,
@@ -131,6 +150,14 @@ serve(async (req) => {
           shopify_access_token: tokenData.access_token,
           updated_at: new Date().toISOString()
         })
+
+      if (upsertError) {
+        console.error('Error storing access token:', upsertError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to store access token' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
 
       // Clean up state record
       await supabaseClient

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -72,19 +71,15 @@ const ImportPage = () => {
         return;
       }
 
-      const response = await fetch('/functions/v1/shopify-oauth?action=initiate', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
+      const response = await supabase.functions.invoke('shopify-oauth', {
+        body: { action: 'initiate' }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to initiate OAuth');
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to initiate OAuth');
       }
 
-      const { authUrl } = await response.json();
+      const { authUrl } = response.data;
       
       // Redirect to Shopify OAuth
       window.location.href = authUrl;
@@ -105,20 +100,15 @@ const ImportPage = () => {
         return;
       }
 
-      const response = await fetch('/functions/v1/shopify-oauth?action=callback', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code, shop, state }),
+      const response = await supabase.functions.invoke('shopify-oauth', {
+        body: { action: 'callback', code, shop, state }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to complete OAuth');
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to complete OAuth');
       }
 
-      const result = await response.json();
+      const result = response.data;
       
       if (result.success) {
         setIsConnected(true);
@@ -149,19 +139,13 @@ const ImportPage = () => {
         throw new Error('No session');
       }
 
-      const response = await fetch('/functions/v1/shopify-orders', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await supabase.functions.invoke('shopify-orders');
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch orders');
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to fetch orders');
       }
 
-      const { orders } = await response.json();
+      const { orders } = response.data;
       setOrders(orders);
       toast.success(`Fetched ${orders.length} unfulfilled orders`);
       
