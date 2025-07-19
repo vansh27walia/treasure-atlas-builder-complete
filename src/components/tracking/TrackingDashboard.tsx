@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TrackingHistoryChart from './TrackingHistoryChart';
 import TrackingFilters from './TrackingFilters';
 import TrackingList from './TrackingList';
+import TrackingSearchBar from './TrackingSearchBar';
 
 interface TrackingEvent {
   id: string;
@@ -66,7 +67,6 @@ const TrackingDashboard: React.FC = () => {
 
       console.log('Fetching tracking data for user:', session.user.id);
 
-      // Fetch user-scoped tracking data from shipment_records
       const { data: shipmentRecords, error } = await supabase
         .from('shipment_records')
         .select('*')
@@ -79,9 +79,7 @@ const TrackingDashboard: React.FC = () => {
 
       console.log('Fetched shipment records:', shipmentRecords?.length || 0);
 
-      // Transform shipment records to tracking format with proper type casting
       const transformedData: TrackingInfo[] = (shipmentRecords || []).map((record) => {
-        // Type cast JSON fields to expected objects
         const toAddress = record.to_address_json as any;
         const parcel = record.parcel_json as any;
         const trackingDetails = record.tracking_details as any[];
@@ -132,6 +130,34 @@ const TrackingDashboard: React.FC = () => {
     }
   };
 
+  const handleTrackingSearch = async (trackingNumber: string) => {
+    setIsLoading(true);
+    try {
+      // Search in existing data first
+      const existingItem = trackingData.find(item => 
+        item.tracking_code.toLowerCase() === trackingNumber.toLowerCase()
+      );
+      
+      if (existingItem) {
+        setSelectedTracking(existingItem.id);
+        toast.success('Tracking number found in your shipments');
+      } else {
+        // Try to fetch from external source
+        const response = await fetch(`/tracking?search=${encodeURIComponent(trackingNumber)}`);
+        if (response.ok) {
+          window.location.href = `/tracking?search=${encodeURIComponent(trackingNumber)}`;
+        } else {
+          toast.error('Tracking number not found');
+        }
+      }
+    } catch (error) {
+      console.error('Error searching tracking number:', error);
+      toast.error('Failed to search tracking number');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchTrackingData();
   }, []);
@@ -142,7 +168,6 @@ const TrackingDashboard: React.FC = () => {
     return trackingData.filter(item => item.status === activeFilter);
   };
 
-  // Calculate counts for each tracking status
   const trackingCount = {
     all: trackingData.length,
     in_transit: trackingData.filter(t => t.status === 'in_transit').length,
@@ -151,56 +176,66 @@ const TrackingDashboard: React.FC = () => {
   };
 
   return (
-    <Card className="border-2 border-gray-200">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <div>
-          <CardTitle className="text-2xl font-semibold flex items-center">
-            <Package className="mr-2" /> Tracking Dashboard
-          </CardTitle>
-          <CardDescription>
-            Track and manage all your shipments in one place
-          </CardDescription>
-        </div>
-        <Button 
-          variant="outline" 
-          onClick={fetchTrackingData} 
-          disabled={isLoading}
-          className="flex items-center gap-2"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </CardHeader>
-      
-      <CardContent>
-        <TrackingFilters 
-          activeFilter={activeFilter} 
-          setActiveFilter={setActiveFilter} 
-          trackingCount={trackingCount}
-        />
+    <div className="space-y-6">
+      {/* Prominent Tracking Search Bar at the Top */}
+      <TrackingSearchBar 
+        onSearch={handleTrackingSearch}
+        onRefresh={fetchTrackingData}
+        isLoading={isLoading}
+      />
 
-        <Tabs defaultValue="cards">
-          <TabsList className="mb-4">
-            <TabsTrigger value="cards">Card View</TabsTrigger>
-            <TabsTrigger value="history">Shipping History</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="cards">
-            <TrackingList 
-              trackingData={getFilteredTrackingData()} 
-              isLoading={isLoading} 
-              selectedTracking={selectedTracking}
-              setSelectedTracking={setSelectedTracking}
-              setActiveFilter={setActiveFilter}
-            />
-          </TabsContent>
-          
-          <TabsContent value="history">
-            <TrackingHistoryChart data={trackingData} />
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+      {/* Main Tracking Dashboard */}
+      <Card className="border-2 border-gray-200">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <div>
+            <CardTitle className="text-2xl font-semibold flex items-center">
+              <Package className="mr-2" /> Tracking Dashboard
+            </CardTitle>
+            <CardDescription>
+              Track and manage all your shipments in one place
+            </CardDescription>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={fetchTrackingData} 
+            disabled={isLoading}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </CardHeader>
+        
+        <CardContent>
+          <TrackingFilters 
+            activeFilter={activeFilter} 
+            setActiveFilter={setActiveFilter} 
+            trackingCount={trackingCount}
+          />
+
+          <Tabs defaultValue="cards">
+            <TabsList className="mb-4">
+              <TabsTrigger value="cards">Card View</TabsTrigger>
+              <TabsTrigger value="history">Shipping History</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="cards">
+              <TrackingList 
+                trackingData={getFilteredTrackingData()} 
+                isLoading={isLoading} 
+                selectedTracking={selectedTracking}
+                setSelectedTracking={setSelectedTracking}
+                setActiveFilter={setActiveFilter}
+              />
+            </TabsContent>
+            
+            <TabsContent value="history">
+              <TrackingHistoryChart data={trackingData} />
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
