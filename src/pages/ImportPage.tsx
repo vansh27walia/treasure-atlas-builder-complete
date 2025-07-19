@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -135,18 +134,35 @@ const ImportPage = () => {
     try {
       console.log('Initiating Shopify OAuth for shop:', shopUrl);
 
-      const response = await supabase.functions.invoke('shopify-oauth', {
-        body: { action: 'initiate', shop: shopUrl.trim() }
-      });
-
-      console.log('OAuth initiate response:', response);
-
-      if (response.error) {
-        console.error('OAuth initiate error:', response.error);
-        throw new Error(response.error.message || 'Failed to initiate OAuth');
+      // Get the current user's session to get the access token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        throw new Error('User session not found. Please log in again.');
       }
 
-      const { authUrl } = response.data;
+      const response = await fetch(`https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}` // This fixes the 401 error
+        },
+        body: JSON.stringify({ 
+          action: 'initiate', 
+          shop: shopUrl.trim() 
+        })
+      });
+
+      console.log('OAuth initiate response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('OAuth initiate error:', errorData);
+        throw new Error(errorData.error || 'Failed to initiate OAuth');
+      }
+
+      const data = await response.json();
+      const { authUrl } = data;
       
       if (!authUrl) {
         throw new Error('No auth URL received');
@@ -154,7 +170,7 @@ const ImportPage = () => {
 
       console.log('Redirecting to Shopify OAuth URL:', authUrl);
       
-      // Redirect to Shopify OAuth (instead of popup)
+      // Redirect to Shopify OAuth
       window.location.href = authUrl;
       
     } catch (error) {
