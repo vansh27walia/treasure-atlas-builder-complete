@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -73,9 +72,6 @@ function getFrontendRedirectUrl(shopDomain, hostParam, path = '/import') {
   return `${baseFrontendAppUrl}${path}?shop=${encodeURIComponent(shopDomain)}&host=${encodeURIComponent(hostParam)}`;
 }
 
-/**
- * Main server function to handle incoming requests for Shopify OAuth.
- */
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -233,18 +229,24 @@ serve(async (req) => {
       });
 
     } else if (action === 'callback') {
+      // CALLBACK DOES NOT REQUIRE AUTHORIZATION HEADER
+      // This is a direct redirect from Shopify, not from our authenticated frontend
+      
       const code = url.searchParams.get('code');
       const state = url.searchParams.get('state');
       const hmac = url.searchParams.get('hmac');
 
       console.log(`[SHOPIFY-OAUTH] Callback received - Code: ${!!code}, Shop: ${shop}, State: ${!!state}, HMAC: ${!!hmac}, Host: ${!!host}`);
 
-      if (!code || !shop || !state || !hmac || !host) {
+      if (!code || !shop || !state || !hmac) {
         console.error('[SHOPIFY-OAUTH] Missing required callback parameters.');
-        const frontendUrl = getFrontendRedirectUrl(shop, host, '/error');
+        // If we don't have host, we can't construct a proper redirect, so redirect to a fallback
+        const frontendUrl = host 
+          ? getFrontendRedirectUrl(shop, host, '/import')
+          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
         return new Response(null, {
           status: 302,
-          headers: { ...corsHeaders, 'Location': `${frontendUrl}?error=missing_parameters` }
+          headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=missing_parameters` }
         });
       }
 
@@ -252,10 +254,12 @@ serve(async (req) => {
       const [userId] = state.split('_');
       if (!userId) {
         console.error('[SHOPIFY-OAUTH] Invalid state format (missing user ID).');
-        const frontendUrl = getFrontendRedirectUrl(shop, host, '/error');
+        const frontendUrl = host 
+          ? getFrontendRedirectUrl(shop, host, '/import')
+          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
         return new Response(null, {
           status: 302,
-          headers: { ...corsHeaders, 'Location': `${frontendUrl}?error=invalid_state` }
+          headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=invalid_state` }
         });
       }
 
@@ -269,10 +273,12 @@ serve(async (req) => {
 
       if (stateError || !stateRecord) {
         console.error('[SHOPIFY-OAUTH] State validation failed:', stateError?.message || 'No record found.');
-        const frontendUrl = getFrontendRedirectUrl(shop, host, '/error');
+        const frontendUrl = host 
+          ? getFrontendRedirectUrl(shop, host, '/import')
+          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
         return new Response(null, {
           status: 302,
-          headers: { ...corsHeaders, 'Location': `${frontendUrl}?error=state_validation_failed` }
+          headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=state_validation_failed` }
         });
       }
 
@@ -282,10 +288,12 @@ serve(async (req) => {
 
       if (!shopifyApiKey || !shopifyApiSecret) {
         console.error('[SHOPIFY-OAUTH] Shopify API credentials not configured.');
-        const frontendUrl = getFrontendRedirectUrl(shop, host, '/error');
+        const frontendUrl = host 
+          ? getFrontendRedirectUrl(shop, host, '/import')
+          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
         return new Response(null, {
           status: 302,
-          headers: { ...corsHeaders, 'Location': `${frontendUrl}?error=server_configuration` }
+          headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=server_configuration` }
         });
       }
 
@@ -293,10 +301,12 @@ serve(async (req) => {
       const isValidHmac = await validateHmac(url.searchParams, shopifyApiSecret);
       if (!isValidHmac) {
         console.error('[SHOPIFY-OAUTH] HMAC validation failed.');
-        const frontendUrl = getFrontendRedirectUrl(shop, host, '/error');
+        const frontendUrl = host 
+          ? getFrontendRedirectUrl(shop, host, '/import')
+          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
         return new Response(null, {
           status: 302,
-          headers: { ...corsHeaders, 'Location': `${frontendUrl}?error=hmac_validation_failed` }
+          headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=hmac_validation_failed` }
         });
       }
 
@@ -316,10 +326,12 @@ serve(async (req) => {
       if (!tokenResponse.ok) {
         const errorText = await tokenResponse.text();
         console.error('[SHOPIFY-OAUTH] Token exchange failed:', tokenResponse.status, errorText);
-        const frontendUrl = getFrontendRedirectUrl(shop, host, '/error');
+        const frontendUrl = host 
+          ? getFrontendRedirectUrl(shop, host, '/import')
+          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
         return new Response(null, {
           status: 302,
-          headers: { ...corsHeaders, 'Location': `${frontendUrl}?error=token_exchange_failed` }
+          headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=token_exchange_failed` }
         });
       }
 
@@ -341,10 +353,12 @@ serve(async (req) => {
 
       if (insertError) {
         console.error('[SHOPIFY-OAUTH] Error storing connection:', insertError.message);
-        const frontendUrl = getFrontendRedirectUrl(shop, host, '/error');
+        const frontendUrl = host 
+          ? getFrontendRedirectUrl(shop, host, '/import')
+          : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
         return new Response(null, {
           status: 302,
-          headers: { ...corsHeaders, 'Location': `${frontendUrl}?error=connection_save_failed` }
+          headers: { ...corsHeaders, 'Location': `${frontendUrl}&error=connection_save_failed` }
         });
       }
 
@@ -354,7 +368,9 @@ serve(async (req) => {
       console.log('[SHOPIFY-OAUTH] Connection saved successfully for user:', userId);
 
       // Redirect back to frontend
-      const frontendUrl = getFrontendRedirectUrl(shop, host, '/import');
+      const frontendUrl = host 
+        ? getFrontendRedirectUrl(shop, host, '/import')
+        : `https://app.vvapglobal.com/import?shop=${encodeURIComponent(shop)}`;
       return new Response(null, {
         status: 302,
         headers: { ...corsHeaders, 'Location': `${frontendUrl}&connected=true` }
@@ -369,14 +385,14 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[SHOPIFY-OAUTH] Unexpected internal server error:', error);
-    let errorRedirectUrl = 'https://app.vvapglobal.com/error-fallback';
+    let errorRedirectUrl = 'https://app.vvapglobal.com/import?error=server_error';
     
     try {
       const url = new URL(req.url);
       const shopFromUrl = url.searchParams.get('shop');
       const hostFromUrl = url.searchParams.get('host');
       if (shopFromUrl && hostFromUrl) {
-        errorRedirectUrl = getFrontendRedirectUrl(shopFromUrl, hostFromUrl, '/error');
+        errorRedirectUrl = getFrontendRedirectUrl(shopFromUrl, hostFromUrl, '/import');
       }
     } catch (e) {
       console.warn('[SHOPIFY-OAUTH] Could not construct error redirect URL:', e);
