@@ -130,7 +130,7 @@ serve(async (req) => {
 
     console.log(`[SHOPIFY-OAUTH] Processing Action: ${action}, Shop: ${shop}, Host: ${host}`);
 
-    // Handle 'initiate' action
+    // Handle 'initiate' action - REQUIRES AUTHENTICATION
     if (action === 'initiate') {
       const authHeader = req.headers.get('Authorization');
       if (!authHeader) {
