@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download, CheckCircle, Truck, MapPin, Clock, ExternalLink } from 'lucide-react';
+import { Download, CheckCircle, Truck, MapPin, Clock } from 'lucide-react';
 
 interface TrackingEvent {
   id: string;
@@ -166,29 +167,6 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
           <p className="text-sm">{new Date(item.last_update).toLocaleString()}</p>
         </div>
       </div>
-
-      {/* Display Label URL if available */}
-      {item.label_url && (
-        <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-blue-900">Shipping Label</p>
-              <p className="text-xs text-blue-700 break-all">{item.label_url}</p>
-            </div>
-            <Button size="sm" variant="outline" asChild>
-              <a 
-                href={item.label_url} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center"
-              >
-                <ExternalLink className="h-3 w-3 mr-1" />
-                View
-              </a>
-            </Button>
-          </div>
-        </div>
-      )}
       
       <h4 className="text-sm font-semibold mb-3">Tracking History</h4>
       <div className="relative">
@@ -214,24 +192,14 @@ export const TrackingDetails: React.FC<TrackingDetailsProps> = ({ item }) => {
       
       <div className="flex justify-end mt-4 gap-2">
         {item.label_url && (
-          <>
-            <a 
-              href={item.label_url} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-            >
-              <Download className="mr-1 h-4 w-4" /> Download Label
-            </a>
-            <a 
-              href={item.label_url} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="flex items-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
-            >
-              <ExternalLink className="mr-1 h-4 w-4" /> View Online
-            </a>
-          </>
+          <a 
+            href={item.label_url} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="flex items-center px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+          >
+            <Download className="mr-1 h-4 w-4" /> Download Label
+          </a>
         )}
       </div>
     </div>

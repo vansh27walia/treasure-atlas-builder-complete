@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TrackingHistoryChart from './TrackingHistoryChart';
 import TrackingFilters from './TrackingFilters';
 import TrackingList from './TrackingList';
-import TrackingSearchBar from './TrackingSearchBar';
+
 interface TrackingEvent {
   id: string;
   description: string;
@@ -16,15 +17,18 @@ interface TrackingEvent {
   timestamp: string;
   status: string;
 }
+
 interface PackageDetails {
   weight: string;
   dimensions: string;
   service: string;
 }
+
 interface EstimatedDelivery {
   date: string;
   time_range: string;
 }
+
 interface TrackingInfo {
   id: string;
   tracking_code: string;
@@ -41,42 +45,47 @@ interface TrackingInfo {
   estimated_delivery: EstimatedDelivery | null;
   tracking_events?: TrackingEvent[];
 }
+
 const TrackingDashboard: React.FC = () => {
   const [trackingData, setTrackingData] = useState<TrackingInfo[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedTracking, setSelectedTracking] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>('all');
+
   const fetchTrackingData = async () => {
     setIsLoading(true);
     try {
       // Check if user is authenticated
-      const {
-        data: {
-          session
-        }
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         console.log('No active session found');
         toast.error('Please log in to view tracking data');
         setTrackingData([]);
         return;
       }
+
       console.log('Fetching tracking data for user:', session.user.id);
-      const {
-        data: shipmentRecords,
-        error
-      } = await supabase.from('shipment_records').select('*').order('created_at', {
-        ascending: false
-      });
+
+      // Fetch user-scoped tracking data from shipment_records
+      const { data: shipmentRecords, error } = await supabase
+        .from('shipment_records')
+        .select('*')
+        .order('created_at', { ascending: false });
+
       if (error) {
         console.error('Error fetching shipment records:', error);
         throw new Error(error.message);
       }
+
       console.log('Fetched shipment records:', shipmentRecords?.length || 0);
-      const transformedData: TrackingInfo[] = (shipmentRecords || []).map(record => {
+
+      // Transform shipment records to tracking format with proper type casting
+      const transformedData: TrackingInfo[] = (shipmentRecords || []).map((record) => {
+        // Type cast JSON fields to expected objects
         const toAddress = record.to_address_json as any;
         const parcel = record.parcel_json as any;
         const trackingDetails = record.tracking_details as any[];
+
         return {
           id: record.id.toString(),
           tracking_code: record.tracking_code || 'N/A',
@@ -88,10 +97,14 @@ const TrackingDashboard: React.FC = () => {
           label_url: record.label_url,
           shipment_id: record.shipment_id || '',
           recipient: toAddress?.name || 'Unknown Recipient',
-          recipient_address: toAddress ? `${toAddress.street1 || ''}, ${toAddress.city || ''}, ${toAddress.state || ''} ${toAddress.zip || ''}`.trim() : 'Unknown Address',
+          recipient_address: toAddress ? 
+            `${toAddress.street1 || ''}, ${toAddress.city || ''}, ${toAddress.state || ''} ${toAddress.zip || ''}`.trim() : 
+            'Unknown Address',
           package_details: {
             weight: parcel?.weight ? `${parcel.weight} oz` : 'N/A',
-            dimensions: parcel ? `${parcel.length || 0}x${parcel.width || 0}x${parcel.height || 0} in` : 'N/A',
+            dimensions: parcel ? 
+              `${parcel.length || 0}x${parcel.width || 0}x${parcel.height || 0} in` : 
+              'N/A',
             service: record.service || 'Standard'
           },
           estimated_delivery: record.est_delivery_date ? {
@@ -101,8 +114,10 @@ const TrackingDashboard: React.FC = () => {
           tracking_events: Array.isArray(trackingDetails) ? trackingDetails : []
         };
       });
+
       setTrackingData(transformedData);
       console.log('Successfully loaded tracking data:', transformedData.length, 'items');
+      
       if (transformedData.length > 0) {
         toast.success(`Loaded ${transformedData.length} tracking records`);
       } else {
@@ -116,30 +131,7 @@ const TrackingDashboard: React.FC = () => {
       setIsLoading(false);
     }
   };
-  const handleTrackingSearch = async (trackingNumber: string) => {
-    setIsLoading(true);
-    try {
-      // Search in existing data first
-      const existingItem = trackingData.find(item => item.tracking_code.toLowerCase() === trackingNumber.toLowerCase());
-      if (existingItem) {
-        setSelectedTracking(existingItem.id);
-        toast.success('Tracking number found in your shipments');
-      } else {
-        // Try to fetch from external source
-        const response = await fetch(`/tracking?search=${encodeURIComponent(trackingNumber)}`);
-        if (response.ok) {
-          window.location.href = `/tracking?search=${encodeURIComponent(trackingNumber)}`;
-        } else {
-          toast.error('Tracking number not found');
-        }
-      }
-    } catch (error) {
-      console.error('Error searching tracking number:', error);
-      toast.error('Failed to search tracking number');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
   useEffect(() => {
     fetchTrackingData();
   }, []);
@@ -149,52 +141,67 @@ const TrackingDashboard: React.FC = () => {
     if (activeFilter === 'all') return trackingData;
     return trackingData.filter(item => item.status === activeFilter);
   };
+
+  // Calculate counts for each tracking status
   const trackingCount = {
     all: trackingData.length,
     in_transit: trackingData.filter(t => t.status === 'in_transit').length,
     out_for_delivery: trackingData.filter(t => t.status === 'out_for_delivery').length,
-    delivered: trackingData.filter(t => t.status === 'delivered').length
+    delivered: trackingData.filter(t => t.status === 'delivered').length,
   };
-  return <div className="space-y-6 px-[22px] my-[34px]">
-      {/* Prominent Tracking Search Bar at the Top */}
-      <TrackingSearchBar onSearch={handleTrackingSearch} onRefresh={fetchTrackingData} isLoading={isLoading} />
 
-      {/* Main Tracking Dashboard */}
-      <Card className="border-2 border-gray-200">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <div>
-            <CardTitle className="text-2xl font-semibold flex items-center">
-              <Package className="mr-2" /> Tracking Dashboard
-            </CardTitle>
-            <CardDescription>
-              Track and manage all your shipments in one place
-            </CardDescription>
-          </div>
-          <Button variant="outline" onClick={fetchTrackingData} disabled={isLoading} className="flex items-center gap-2">
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </CardHeader>
-        
-        <CardContent>
-          <TrackingFilters activeFilter={activeFilter} setActiveFilter={setActiveFilter} trackingCount={trackingCount} />
+  return (
+    <Card className="border-2 border-gray-200">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <div>
+          <CardTitle className="text-2xl font-semibold flex items-center">
+            <Package className="mr-2" /> Tracking Dashboard
+          </CardTitle>
+          <CardDescription>
+            Track and manage all your shipments in one place
+          </CardDescription>
+        </div>
+        <Button 
+          variant="outline" 
+          onClick={fetchTrackingData} 
+          disabled={isLoading}
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </CardHeader>
+      
+      <CardContent>
+        <TrackingFilters 
+          activeFilter={activeFilter} 
+          setActiveFilter={setActiveFilter} 
+          trackingCount={trackingCount}
+        />
 
-          <Tabs defaultValue="cards">
-            <TabsList className="mb-4">
-              <TabsTrigger value="cards">Card View</TabsTrigger>
-              <TabsTrigger value="history">Shipping History</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="cards">
-              <TrackingList trackingData={getFilteredTrackingData()} isLoading={isLoading} selectedTracking={selectedTracking} setSelectedTracking={setSelectedTracking} setActiveFilter={setActiveFilter} />
-            </TabsContent>
-            
-            <TabsContent value="history">
-              <TrackingHistoryChart data={trackingData} />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>;
+        <Tabs defaultValue="cards">
+          <TabsList className="mb-4">
+            <TabsTrigger value="cards">Card View</TabsTrigger>
+            <TabsTrigger value="history">Shipping History</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="cards">
+            <TrackingList 
+              trackingData={getFilteredTrackingData()} 
+              isLoading={isLoading} 
+              selectedTracking={selectedTracking}
+              setSelectedTracking={setSelectedTracking}
+              setActiveFilter={setActiveFilter}
+            />
+          </TabsContent>
+          
+          <TabsContent value="history">
+            <TrackingHistoryChart data={trackingData} />
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
+  );
 };
+
 export default TrackingDashboard;

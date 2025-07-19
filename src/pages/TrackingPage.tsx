@@ -5,10 +5,9 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Package, Truck, MapPin, Clock, ExternalLink, RefreshCw, Download } from 'lucide-react';
+import { Search, Package, Truck, MapPin, Clock, ExternalLink, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
-import TrackingDashboard from '@/components/tracking/TrackingDashboard';
 
 interface TrackingInfo {
   tracking_code: string;
@@ -16,7 +15,6 @@ interface TrackingInfo {
   status: string;
   estimated_delivery: string;
   current_location: string;
-  label_url?: string;
   tracking_events: Array<{
     date: string;
     time: string;
@@ -33,7 +31,6 @@ const TrackingPage = () => {
   const [trackingInfo, setTrackingInfo] = useState<TrackingInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [showFullDashboard, setShowFullDashboard] = useState(true);
 
   useEffect(() => {
     // Check for tracking number in URL params
@@ -41,7 +38,6 @@ const TrackingPage = () => {
     const searchParam = params.get('search');
     if (searchParam) {
       setTrackingNumber(searchParam);
-      setShowFullDashboard(false);
       handleTrackingSearch(searchParam);
     }
 
@@ -61,7 +57,6 @@ const TrackingPage = () => {
     }
 
     setIsLoading(true);
-    setShowFullDashboard(false);
     
     try {
       // First try to get tracking info from our database
@@ -79,7 +74,6 @@ const TrackingPage = () => {
           status: shipmentData.status || 'In Transit',
           estimated_delivery: shipmentData.est_delivery_date || 'Unknown',
           current_location: 'In Transit',
-          label_url: shipmentData.label_url || undefined,
           tracking_events: shipmentData.tracking_details ? 
             (shipmentData.tracking_details as any).events || [] : 
             [
@@ -143,36 +137,12 @@ const TrackingPage = () => {
     }
   };
 
-  const handleBackToDashboard = () => {
-    setShowFullDashboard(true);
-    setTrackingInfo(null);
-    setTrackingNumber('');
-    // Clear URL params
-    window.history.pushState({}, document.title, window.location.pathname);
-  };
-
-  if (showFullDashboard && !trackingInfo) {
-    return <TrackingDashboard />;
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Track Your Shipment</h1>
-              <p className="text-gray-600">Enter your tracking number to get real-time updates</p>
-            </div>
-            <Button 
-              variant="outline" 
-              onClick={handleBackToDashboard}
-              className="flex items-center"
-            >
-              <Package className="w-4 h-4 mr-2" />
-              View All Tracking
-            </Button>
-          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Track Your Shipment</h1>
+          <p className="text-gray-600">Enter your tracking number to get real-time updates</p>
         </div>
 
         {/* Search Section */}
@@ -243,24 +213,9 @@ const TrackingPage = () => {
                   </h2>
                   <p className="text-gray-600">{trackingInfo.carrier}</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge className={getStatusColor(trackingInfo.status)}>
-                    {trackingInfo.status}
-                  </Badge>
-                  {trackingInfo.label_url && (
-                    <Button size="sm" variant="outline" asChild>
-                      <a 
-                        href={trackingInfo.label_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        View Label
-                      </a>
-                    </Button>
-                  )}
-                </div>
+                <Badge className={getStatusColor(trackingInfo.status)}>
+                  {trackingInfo.status}
+                </Badge>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -286,32 +241,6 @@ const TrackingPage = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Display Tracking URL if available */}
-              {trackingInfo.label_url && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-blue-900">Shipping Label</p>
-                      <p className="text-sm text-blue-700">Click to view or download the shipping label</p>
-                    </div>
-                    <Button asChild variant="outline" size="sm">
-                      <a 
-                        href={trackingInfo.label_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center"
-                      >
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Open Label
-                      </a>
-                    </Button>
-                  </div>
-                  <div className="mt-2">
-                    <p className="text-xs text-blue-600 break-all">{trackingInfo.label_url}</p>
-                  </div>
-                </div>
-              )}
             </Card>
 
             {/* Tracking Timeline */}
@@ -352,23 +281,10 @@ const TrackingPage = () => {
                   <Package className="h-4 w-4 mr-2" />
                   Create New Label
                 </Button>
-                <Button variant="outline" onClick={handleBackToDashboard}>
+                <Button variant="outline" onClick={() => navigate('/dashboard')}>
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  View All Tracking
+                  View Dashboard
                 </Button>
-                {trackingInfo.label_url && (
-                  <Button variant="outline" asChild>
-                    <a 
-                      href={trackingInfo.label_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Label
-                    </a>
-                  </Button>
-                )}
               </div>
             </Card>
           </div>
