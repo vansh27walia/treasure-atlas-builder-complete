@@ -13,32 +13,32 @@ const CarrierLogo: React.FC<CarrierLogoProps> = ({ carrier, className = "w-8 h-8
     switch (name) {
       case 'UPS':
         return (
-          <div className={`${className} bg-gradient-to-br from-amber-600 to-amber-700 text-white flex items-center justify-center rounded-lg shadow-md font-bold text-xs border-2 border-amber-500`}>
-            <span className="text-white drop-shadow-sm">UPS</span>
+          <div className={`${className} bg-amber-600 text-white flex items-center justify-center rounded font-bold text-xs`}>
+            UPS
           </div>
         );
       case 'USPS':
         return (
-          <div className={`${className} bg-gradient-to-br from-blue-600 to-blue-700 text-white flex items-center justify-center rounded-lg shadow-md font-bold text-xs border-2 border-blue-500`}>
-            <span className="text-white drop-shadow-sm">USPS</span>
+          <div className={`${className} bg-blue-600 text-white flex items-center justify-center rounded font-bold text-xs`}>
+            USPS
           </div>
         );
       case 'FEDEX':
         return (
-          <div className={`${className} bg-gradient-to-br from-purple-600 to-purple-700 text-white flex items-center justify-center rounded-lg shadow-md font-bold text-xs border-2 border-purple-500`}>
-            <span className="text-white drop-shadow-sm">FedEx</span>
+          <div className={`${className} bg-purple-600 text-white flex items-center justify-center rounded font-bold text-xs`}>
+            FedEx
           </div>
         );
       case 'DHL':
         return (
-          <div className={`${className} bg-gradient-to-br from-red-600 to-red-700 text-white flex items-center justify-center rounded-lg shadow-md font-bold text-xs border-2 border-red-500`}>
-            <span className="text-white drop-shadow-sm">DHL</span>
+          <div className={`${className} bg-red-600 text-white flex items-center justify-center rounded font-bold text-xs`}>
+            DHL
           </div>
         );
       default:
         return (
-          <div className={`${className} bg-gradient-to-br from-gray-600 to-gray-700 text-white flex items-center justify-center rounded-lg shadow-md font-bold text-xs border-2 border-gray-500`}>
-            <span className="text-white drop-shadow-sm">{name.slice(0, 3)}</span>
+          <div className={`${className} bg-gray-600 text-white flex items-center justify-center rounded font-bold text-xs`}>
+            {name.slice(0, 3)}
           </div>
         );
     }
