@@ -51,7 +51,7 @@ const CreateLabelPage = () => {
                 <EnhancedShippingForm />
               </div>
               
-              {/* Shipping Rates Section */}
+              {/* Enhanced Shipping Rates Section */}
               <div id="shipping-rates-section">
                 <ShippingRates 
                   rates={rates || []}
@@ -83,7 +83,7 @@ const CreateLabelPage = () => {
         onClose={() => setIsRateCalculatorOpen(false)}
       />
 
-      {/* ShipAI Chatbot */}
+      {/* ShipAI Chatbot - Enhanced */}
       <ShipAIChatbot />
     </div>
   );
