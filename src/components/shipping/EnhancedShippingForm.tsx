@@ -304,34 +304,7 @@ const EnhancedShippingForm: React.FC = () => {
               <div className="mb-4">
                 <FormField control={form.control} name="carriers" render={({
                 field
-              }) => <FormItem>
-                      <FormLabel className="text-sm">Preferred Carriers</FormLabel>
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        {[{
-                    id: 'usps',
-                    name: 'USPS'
-                  }, {
-                    id: 'ups',
-                    name: 'UPS'
-                  }, {
-                    id: 'fedex',
-                    name: 'FedEx'
-                  }, {
-                    id: 'dhl',
-                    name: 'DHL'
-                  }].map(carrier => <label key={carrier.id} className="flex items-center space-x-2 p-2 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                            <input type="checkbox" checked={field.value.includes(carrier.id)} onChange={e => {
-                      if (e.target.checked) {
-                        field.onChange([...field.value, carrier.id]);
-                      } else {
-                        field.onChange(field.value.filter(c => c !== carrier.id));
-                      }
-                    }} className="rounded border-gray-300" />
-                            <span className="text-sm font-medium">{carrier.name}</span>
-                          </label>)}
-                      </div>
-                      <FormMessage />
-                    </FormItem>} />
+              }) => {}} />
               </div>
             </div>
 
