@@ -5,6 +5,7 @@ import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTrack
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import AIPoweredSidePanel from '@/components/shipping/AIPoweredSidePanel';
 import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
+import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 import { useShippingRates } from '@/hooks/useShippingRates';
 
 const CreateLabelPage = () => {
@@ -81,6 +82,9 @@ const CreateLabelPage = () => {
         isOpen={isRateCalculatorOpen}
         onClose={() => setIsRateCalculatorOpen(false)}
       />
+
+      {/* ShipAI Chatbot */}
+      <ShipAIChatbot />
     </div>
   );
 };

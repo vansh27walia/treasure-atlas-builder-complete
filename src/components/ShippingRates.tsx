@@ -1,12 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Truck, Shield, Star, CheckCircle } from 'lucide-react';
+import { Clock, Truck, Shield, Star, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import InlinePaymentSection from './shipping/InlinePaymentSection';
 import CarrierLogo from './shipping/CarrierLogo';
+import AIRateAnalysisPanel from './shipping/AIRateAnalysisPanel';
 
 interface ShippingRate {
   id: string;
@@ -42,7 +42,18 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
   const [showPayment, setShowPayment] = useState(false);
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [localShipmentDetails, setLocalShipmentDetails] = useState<any>(propShipmentDetails);
-  const [showLabelModal, setShowLabelModal] = useState(false);
+  const [showAIPanel, setShowAIPanel] = useState(false);
+  const [showAllRates, setShowAllRates] = useState(false);
+  const [optimizedRates, setOptimizedRates] = useState<ShippingRate[]>([]);
+
+  // Default to fastest rate
+  useEffect(() => {
+    if (rates.length > 0 && !selectedRate) {
+      const fastestRate = [...rates].sort((a, b) => a.delivery_days - b.delivery_days)[0];
+      setSelectedRate(fastestRate);
+      setOptimizedRates(rates);
+    }
+  }, [rates]);
 
   useEffect(() => {
     const handleRatesReceived = (event: any) => {
@@ -56,7 +67,6 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     return () => document.removeEventListener('ratesReceived', handleRatesReceived);
   }, []);
 
-  // Calculate estimated delivery date
   const calculateEstimatedDelivery = (deliveryDays: number): string => {
     const today = new Date();
     const deliveryDate = new Date(today);
@@ -70,7 +80,6 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     });
   };
 
-  // Get carrier brand colors
   const getCarrierColors = (carrier: string) => {
     const carrierUpper = carrier.toUpperCase();
     switch (carrierUpper) {
@@ -121,18 +130,43 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     console.log('Rate selected:', rate);
     setSelectedRate(rate);
     onRateSelected(rate);
-    setShowPayment(true);
+    setShowAIPanel(true);
+  };
+
+  const handleOptimizationChange = (filter: string) => {
+    let sortedRates = [...rates];
     
-    // Auto-scroll to payment section with delay
-    setTimeout(() => {
-      const paymentSection = document.getElementById('payment-section');
-      if (paymentSection) {
-        paymentSection.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
+    switch (filter) {
+      case 'cheapest':
+        sortedRates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
+        break;
+      case 'fastest':
+        sortedRates.sort((a, b) => a.delivery_days - b.delivery_days);
+        break;
+      case 'reliable':
+        sortedRates.sort((a, b) => {
+          const reliabilityScore = (carrier: string) => {
+            if (carrier.toLowerCase().includes('ups')) return 1;
+            if (carrier.toLowerCase().includes('usps')) return 2;
+            if (carrier.toLowerCase().includes('fedex')) return 3;
+            return 4;
+          };
+          return reliabilityScore(a.carrier) - reliabilityScore(b.carrier);
         });
-      }
-    }, 300);
+        break;
+      default:
+        // Keep original order
+        break;
+    }
+    
+    setOptimizedRates(sortedRates);
+    if (sortedRates.length > 0) {
+      setSelectedRate(sortedRates[0]);
+      onRateSelected(sortedRates[0]);
+    }
+    
+    setShowAIPanel(false);
+    toast.success(`Rates optimized for ${filter}`);
   };
 
   const handlePaymentSuccess = async (paymentData: any) => {
@@ -140,7 +174,6 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     setIsCreatingLabel(true);
     
     try {
-      // Navigate to label success page with the payment data
       window.location.href = `/label-success?labelUrl=${encodeURIComponent(paymentData.labelUrl || '')}&trackingCode=${encodeURIComponent(paymentData.trackingCode || '')}&shipmentId=${encodeURIComponent(paymentData.shipmentId || '')}`;
     } catch (error) {
       console.error('Error after payment:', error);
@@ -179,93 +212,184 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     );
   }
 
+  const displayRates = optimizedRates.length > 0 ? optimizedRates : rates;
+  const currentSelectedRate = selectedRate || displayRates[0];
+  const otherRates = displayRates.filter(rate => rate.id !== currentSelectedRate?.id);
+
   return (
     <div className="space-y-6">
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Select Shipping Method</h3>
         
-        {rates.map((rate) => {
-          const colors = getCarrierColors(rate.carrier);
-          const isSelected = selectedRateId === rate.id || selectedRate?.id === rate.id;
-          const estimatedDelivery = calculateEstimatedDelivery(rate.delivery_days);
-          
-          return (
-            <Card
-              key={rate.id}
-              className={`relative cursor-pointer transition-all duration-200 hover:shadow-md border-2 ${
-                isSelected
-                  ? `${colors.selectedBorder} shadow-lg bg-blue-50 border-blue-500`
-                  : `${colors.border} ${colors.bg}`
-              }`}
-              onClick={() => handleRateSelection(rate)}
-            >
-              <div className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <CarrierLogo carrier={rate.carrier} className="w-10 h-10" />
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <h4 className={`font-semibold ${isSelected ? 'text-blue-800' : colors.text}`}>
-                          {rate.carrier}
-                        </h4>
-                        {rate.isPremium && (
-                          <Badge variant="secondary" className="text-xs">
-                            <Star className="w-3 h-3 mr-1" />
-                            Premium
-                          </Badge>
-                        )}
-                        {isSelected && (
-                          <CheckCircle className="w-5 h-5 text-blue-600" />
-                        )}
-                      </div>
-                      <p className={`text-sm font-medium ${isSelected ? 'text-blue-700' : 'text-gray-600'}`}>
-                        {rate.service}
-                      </p>
-                      <div className={`flex items-center text-sm mt-1 ${isSelected ? 'text-blue-600' : 'text-gray-500'}`}>
-                        <Clock className="w-4 h-4 mr-1" />
-                        <span>Estimated Delivery: {estimatedDelivery}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="text-right">
-                    <div className="flex items-center space-x-2">
-                      {rate.original_rate && rate.discount_percentage && rate.discount_percentage > 0 && (
-                        <div className="text-right">
-                          <div className="text-sm text-gray-500 line-through">
-                            ${parseFloat(rate.original_rate).toFixed(2)}
-                          </div>
-                          <Badge variant="destructive" className="text-xs mb-1">
-                            Save {Math.round(rate.discount_percentage)}%
-                          </Badge>
-                        </div>
+        {/* Selected Rate - Prominent Display */}
+        {currentSelectedRate && (
+          <Card
+            className="relative cursor-pointer transition-all duration-200 hover:shadow-lg border-2 border-blue-500 shadow-lg bg-blue-50"
+            onClick={() => handleRateSelection(currentSelectedRate)}
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <CarrierLogo carrier={currentSelectedRate.carrier} className="w-12 h-12" />
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3">
+                      <h4 className="font-bold text-lg text-blue-800">
+                        {currentSelectedRate.carrier}
+                      </h4>
+                      <Badge className="bg-blue-600 text-white">SELECTED</Badge>
+                      {currentSelectedRate.isPremium && (
+                        <Badge variant="secondary" className="text-xs">
+                          <Star className="w-3 h-3 mr-1" />
+                          Premium
+                        </Badge>
                       )}
-                      <div className={`text-xl font-bold ${isSelected ? 'text-blue-800' : colors.text}`}>
-                        ${parseFloat(rate.rate).toFixed(2)}
-                      </div>
                     </div>
-                    
-                    {rate.delivery_days <= 2 && (
-                      <div className="text-xs text-green-600 font-medium mt-1">
-                        Express Delivery
-                      </div>
-                    )}
+                    <p className="text-base font-medium text-blue-700 mb-1">
+                      {currentSelectedRate.service}
+                    </p>
+                    <div className="flex items-center text-sm text-blue-600">
+                      <Clock className="w-4 h-4 mr-1" />
+                      <span>Estimated Delivery: {calculateEstimatedDelivery(currentSelectedRate.delivery_days)}</span>
+                    </div>
                   </div>
                 </div>
                 
-                {isSelected && (
-                  <div className="absolute inset-0 rounded-lg border-2 border-blue-500 pointer-events-none bg-blue-50 bg-opacity-20" />
-                )}
+                <div className="text-right">
+                  <div className="flex items-center space-x-3">
+                    {currentSelectedRate.original_rate && currentSelectedRate.discount_percentage && currentSelectedRate.discount_percentage > 0 && (
+                      <div className="text-right">
+                        <div className="text-sm text-gray-500 line-through">
+                          ${parseFloat(currentSelectedRate.original_rate).toFixed(2)}
+                        </div>
+                        <Badge variant="destructive" className="text-xs mb-1">
+                          Save {Math.round(currentSelectedRate.discount_percentage)}%
+                        </Badge>
+                      </div>
+                    )}
+                    <div className="text-2xl font-bold text-blue-800">
+                      ${parseFloat(currentSelectedRate.rate).toFixed(2)}
+                    </div>
+                  </div>
+                  
+                  {currentSelectedRate.delivery_days <= 2 && (
+                    <div className="text-xs text-green-600 font-medium mt-1">
+                      Express Delivery
+                    </div>
+                  )}
+                </div>
               </div>
-            </Card>
-          );
-        })}
+            </div>
+          </Card>
+        )}
+
+        {/* Other Rates - Collapsible */}
+        {otherRates.length > 0 && (
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowAllRates(!showAllRates)}
+              className="w-full flex items-center justify-center space-x-2"
+            >
+              <span>View {otherRates.length} Other Options</span>
+              {showAllRates ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </Button>
+            
+            {showAllRates && (
+              <div className="space-y-3 mt-4">
+                {otherRates.map((rate) => {
+                  const colors = getCarrierColors(rate.carrier);
+                  const estimatedDelivery = calculateEstimatedDelivery(rate.delivery_days);
+                  
+                  return (
+                    <Card
+                      key={rate.id}
+                      className={`relative cursor-pointer transition-all duration-200 hover:shadow-md border ${colors.border} ${colors.bg}`}
+                      onClick={() => handleRateSelection(rate)}
+                    >
+                      <div className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <CarrierLogo carrier={rate.carrier} className="w-8 h-8" />
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2">
+                                <h4 className={`font-semibold ${colors.text}`}>
+                                  {rate.carrier}
+                                </h4>
+                                {rate.isPremium && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    <Star className="w-3 h-3 mr-1" />
+                                    Premium
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm font-medium text-gray-600">
+                                {rate.service}
+                              </p>
+                              <div className="flex items-center text-xs mt-1 text-gray-500">
+                                <Clock className="w-3 h-3 mr-1" />
+                                <span>{estimatedDelivery}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="text-right">
+                            <div className="flex items-center space-x-2">
+                              {rate.original_rate && rate.discount_percentage && rate.discount_percentage > 0 && (
+                                <div className="text-right">
+                                  <div className="text-xs text-gray-500 line-through">
+                                    ${parseFloat(rate.original_rate).toFixed(2)}
+                                  </div>
+                                  <Badge variant="destructive" className="text-xs">
+                                    Save {Math.round(rate.discount_percentage)}%
+                                  </Badge>
+                                </div>
+                              )}
+                              <div className={`text-lg font-bold ${colors.text}`}>
+                                ${parseFloat(rate.rate).toFixed(2)}
+                              </div>
+                            </div>
+                            
+                            {rate.delivery_days <= 2 && (
+                              <div className="text-xs text-green-600 font-medium mt-1">
+                                Express
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Continue to Payment Button */}
+        {currentSelectedRate && !showPayment && (
+          <Button
+            onClick={() => setShowPayment(true)}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-semibold"
+          >
+            Continue with {currentSelectedRate.carrier} - ${parseFloat(currentSelectedRate.rate).toFixed(2)}
+          </Button>
+        )}
       </div>
 
-      {showPayment && selectedRate && (
+      {/* AI Analysis Panel */}
+      <AIRateAnalysisPanel
+        selectedRate={currentSelectedRate}
+        allRates={displayRates}
+        isOpen={showAIPanel}
+        onClose={() => setShowAIPanel(false)}
+        onOptimizationChange={handleOptimizationChange}
+      />
+
+      {/* Payment Section */}
+      {showPayment && currentSelectedRate && (
         <div className="mt-8">
           <InlinePaymentSection
-            selectedRate={selectedRate}
+            selectedRate={currentSelectedRate}
             shipmentDetails={localShipmentDetails || propShipmentDetails}
             onPaymentSuccess={handlePaymentSuccess}
             insuranceAmount={insuranceAmount}
