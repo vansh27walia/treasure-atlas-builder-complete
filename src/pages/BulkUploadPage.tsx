@@ -10,8 +10,6 @@ import { useAuth } from '@/contexts/AuthContext';
 const BulkUploadPage = () => {
   const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
-  const [csvContent, setCsvContent] = useState<string>('');
-  const [isProcessing, setIsProcessing] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [shopifyData, setShopifyData] = useState<string | null>(null);
   const [shopifyOrderCount, setShopifyOrderCount] = useState<number>(0);
@@ -24,7 +22,6 @@ const BulkUploadPage = () => {
     if (shopifyCSV) {
       setShopifyData(shopifyCSV);
       setShopifyOrderCount(parseInt(orderCount || '0'));
-      setCsvContent(shopifyCSV);
       setShowResults(true);
       
       // Clear the session storage
@@ -43,7 +40,9 @@ const BulkUploadPage = () => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const content = e.target?.result as string;
-        setCsvContent(content);
+        // Store the CSV content in session storage for the BulkUploadView to access
+        sessionStorage.setItem('uploaded_csv_data', content);
+        sessionStorage.setItem('uploaded_filename', selectedFile.name);
         setShowResults(true);
       };
       reader.readAsText(selectedFile);
@@ -118,19 +117,9 @@ const BulkUploadPage = () => {
     );
   }
 
-  if (showResults && csvContent) {
+  if (showResults) {
     return (
-      <BulkUploadView 
-        csvContent={csvContent}
-        filename={shopifyData ? `Shopify Orders (${shopifyOrderCount})` : file?.name || 'uploaded-file.csv'}
-        onBack={() => {
-          setShowResults(false);
-          setCsvContent('');
-          setFile(null);
-          setShopifyData(null);
-          setShopifyOrderCount(0);
-        }}
-      />
+      <BulkUploadView />
     );
   }
 

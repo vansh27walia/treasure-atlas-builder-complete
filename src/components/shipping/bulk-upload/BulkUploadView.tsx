@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +16,7 @@ import BulkLabelDownloadOptions from './BulkLabelDownloadOptions';
 import { useBulkUpload } from './useBulkUpload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import PaymentMethodModal from '@/components/payment/PaymentMethodModal';
+import { useEffect } from 'react';
 
 const BulkUploadView: React.FC = () => {
   const {
@@ -61,6 +61,19 @@ const BulkUploadView: React.FC = () => {
   const [showPrintPreview, setShowPrintPreview] = React.useState(false);
   const [showEmailModal, setShowEmailModal] = React.useState(false);
   const [showPaymentModal, setShowPaymentModal] = React.useState(false);
+  const [csvContent, setCsvContent] = React.useState<string>('');
+  const [filename, setFilename] = React.useState<string>('');
+
+  useEffect(() => {
+    // Check for CSV data in session storage
+    const storedCSV = sessionStorage.getItem('uploaded_csv_data') || sessionStorage.getItem('shopify_csv_data');
+    const storedFilename = sessionStorage.getItem('uploaded_filename') || sessionStorage.getItem('shopify_filename');
+    
+    if (storedCSV) {
+      setCsvContent(storedCSV);
+      setFilename(storedFilename || 'uploaded-file.csv');
+    }
+  }, []);
 
   // Enhanced progress tracking steps with more detailed phases
   const getProgressSteps = () => {
@@ -175,6 +188,15 @@ const BulkUploadView: React.FC = () => {
 
   const handlePrintPreview = () => {
     setShowPrintPreview(true);
+  };
+
+  const handleBackToUpload = () => {
+    // Clear session storage and navigate back
+    sessionStorage.removeItem('uploaded_csv_data');
+    sessionStorage.removeItem('uploaded_filename');
+    sessionStorage.removeItem('shopify_csv_data');
+    sessionStorage.removeItem('shopify_filename');
+    window.location.href = '/bulk-upload';
   };
 
   // Enhanced file upload section with better UX
