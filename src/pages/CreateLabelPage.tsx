@@ -40,16 +40,13 @@ const CreateLabelPage = () => {
 
   const handleCarrierFilter = (carriers: string[]) => {
     setSelectedCarriers(carriers);
-    handleFilterByCarrier(carriers);
+    // Fix: Convert array to individual calls or modify hook to accept arrays
+    carriers.forEach(carrier => handleFilterByCarrier(carrier));
   };
 
   const handleAIFilter = (filter: string) => {
     setCurrentAIFilter(filter);
     // Apply AI filtering logic
-  };
-
-  const handleShipmentUpdate = (details: any) => {
-    setShipmentDetails(details);
   };
 
   return (
@@ -75,7 +72,7 @@ const CreateLabelPage = () => {
           <div className="space-y-8">
             {/* Shipping Form */}
             <div className="bg-white rounded-xl shadow-lg border">
-              <EnhancedShippingForm onShipmentUpdate={handleShipmentUpdate} />
+              <EnhancedShippingForm />
             </div>
             
             {/* Rate Filter Panel */}
