@@ -6,12 +6,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Check, ShoppingBag, Package, Globe, Store, AlertCircle, Loader2, ExternalLink, Lock } from 'lucide-react';
+import { Check, ShoppingBag, Package, Globe, Store, AlertCircle, Loader2, ExternalLink, Lock, Zap } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { ShopifyDataProcessor } from '@/services/ShopifyDataProcessor';
+import type { ShopifyOrder } from '@/services/ShopifyDataProcessor';
 
-interface ShopifyOrder {
+interface ShopifyOrderDisplay {
   order_id: string;
   customer_name: string;
   shipping_address: string;
@@ -28,10 +30,11 @@ const ImportPage = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [connectedShops, setConnectedShops] = useState<string[]>([]);
   const [shopUrl, setShopUrl] = useState('');
-  const [orders, setOrders] = useState<ShopifyOrder[]>([]);
+  const [orders, setOrders] = useState<ShopifyOrderDisplay[]>([]);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [showShopInput, setShowShopInput] = useState(false);
+  const [isProcessingBatch, setIsProcessingBatch] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -220,23 +223,65 @@ const ImportPage = () => {
     }
   };
 
-  const handleShipSelected = () => {
+  const handleShipSelected = async () => {
     if (selectedOrders.length > 0) {
-      const event = new CustomEvent('importOrders', {
-        detail: { provider: 'shopify', orderIds: selectedOrders }
-      });
-      document.dispatchEvent(event);
-      toast.success(`Importing ${selectedOrders.length} selected orders`);
+      setIsProcessingBatch(true);
+      try {
+        // Get the full order data for selected orders
+        const selectedOrderData = orders.filter(order => 
+          selectedOrders.includes(order.order_id)
+        );
+        
+        toast.success(`Processing ${selectedOrders.length} selected orders with AI header matching...`);
+        
+        // Trigger batch processing with AI
+        const event = new CustomEvent('importOrdersWithAI', {
+          detail: { 
+            provider: 'shopify', 
+            orders: selectedOrderData,
+            autoProcess: true 
+          }
+        });
+        document.dispatchEvent(event);
+        
+        // Navigate to batch creation page
+        setTimeout(() => {
+          window.location.href = '/batch-labels?source=shopify&auto=true';
+        }, 1500);
+        
+      } catch (error) {
+        console.error('Error processing batch:', error);
+        toast.error('Failed to process orders');
+      } finally {
+        setIsProcessingBatch(false);
+      }
     }
   };
 
-  const handleShipAll = () => {
-    const allOrderIds = orders.map(order => order.order_id);
-    const event = new CustomEvent('importOrders', {
-      detail: { provider: 'shopify', orderIds: allOrderIds }
-    });
-    document.dispatchEvent(event);
-    toast.success(`Importing all ${orders.length} orders`);
+  const handleShipAll = async () => {
+    setIsProcessingBatch(true);
+    try {
+      toast.success(`Processing all ${orders.length} orders with AI optimization...`);
+      
+      const event = new CustomEvent('importOrdersWithAI', {
+        detail: { 
+          provider: 'shopify', 
+          orders: orders,
+          autoProcess: true 
+        }
+      });
+      document.dispatchEvent(event);
+      
+      setTimeout(() => {
+        window.location.href = '/batch-labels?source=shopify&auto=true';
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Error processing all orders:', error);
+      toast.error('Failed to process orders');
+    } finally {
+      setIsProcessingBatch(false);
+    }
   };
 
   const disconnectShopify = async () => {
@@ -293,13 +338,13 @@ const ImportPage = () => {
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Import Orders</h1>
-          <p className="text-gray-600">Connect your e-commerce platforms to import orders for shipping</p>
+          <p className="text-gray-600">Connect your e-commerce platforms to import orders for AI-powered batch shipping</p>
         </div>
 
         {/* Integration Options */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Shopify */}
-          <Card className="p-6 cursor-pointer hover:shadow-lg transition-shadow">
+          {/* Shopify - Enhanced */}
+          <Card className="p-6 cursor-pointer hover:shadow-lg transition-shadow bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
@@ -307,8 +352,12 @@ const ImportPage = () => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">Shopify</h3>
+                  <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 text-xs">
+                    <Zap className="w-3 h-3 mr-1" />
+                    AI Enhanced
+                  </Badge>
                   {isConnected && connectedShops.length > 0 && (
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-500 mt-1">
                       {connectedShops.length} store{connectedShops.length > 1 ? 's' : ''} connected
                     </p>
                   )}
@@ -325,7 +374,7 @@ const ImportPage = () => {
             {!isConnected ? (
               <div className="space-y-3">
                 {!showShopInput ? (
-                  <Button onClick={handleConnectClick} className="w-full">
+                  <Button onClick={handleConnectClick} className="w-full bg-green-600 hover:bg-green-700">
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Connect Store
                   </Button>
@@ -347,7 +396,7 @@ const ImportPage = () => {
                       <Button 
                         onClick={connectShopify} 
                         disabled={isConnecting}
-                        className="flex-1"
+                        className="flex-1 bg-green-600 hover:bg-green-700"
                       >
                         {isConnecting ? (
                           <>
@@ -410,11 +459,16 @@ const ImportPage = () => {
           ))}
         </div>
 
-        {/* Orders Table */}
+        {/* Orders Table - Enhanced */}
         {isConnected && (
           <Card className="p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Shopify Orders</h2>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Shopify Orders</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  AI-powered batch processing available • Header matching included
+                </p>
+              </div>
               {isLoadingOrders && (
                 <div className="flex items-center text-gray-500">
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -473,17 +527,48 @@ const ImportPage = () => {
                 <div className="flex items-center justify-between mt-6 pt-6 border-t">
                   <div className="text-sm text-gray-500">
                     {selectedOrders.length} of {orders.length} orders selected
+                    {selectedOrders.length > 0 && (
+                      <Badge variant="outline" className="ml-2 bg-purple-100 text-purple-800">
+                        <Zap className="w-3 h-3 mr-1" />
+                        AI Processing Ready
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex space-x-3">
                     <Button
                       variant="outline"
                       onClick={handleShipSelected}
-                      disabled={selectedOrders.length === 0}
+                      disabled={selectedOrders.length === 0 || isProcessingBatch}
+                      className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 hover:from-blue-100 hover:to-indigo-100"
                     >
-                      Ship Selected ({selectedOrders.length})
+                      {isProcessingBatch ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4 mr-2" />
+                          AI Ship Selected ({selectedOrders.length})
+                        </>
+                      )}
                     </Button>
-                    <Button onClick={handleShipAll}>
-                      Ship All ({orders.length})
+                    <Button 
+                      onClick={handleShipAll}
+                      disabled={isProcessingBatch}
+                      className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                    >
+                      {isProcessingBatch ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4 mr-2" />
+                          AI Ship All ({orders.length})
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
