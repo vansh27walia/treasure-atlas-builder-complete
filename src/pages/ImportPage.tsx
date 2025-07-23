@@ -10,8 +10,6 @@ import { Check, ShoppingBag, Package, Globe, Store, AlertCircle, Loader2, Extern
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { ShopifyOrderTransformer } from '@/services/ShopifyOrderTransformer';
-import { useNavigate } from 'react-router-dom';
 
 interface ShopifyOrder {
   order_id: string;
@@ -26,7 +24,6 @@ interface ShopifyOrder {
 
 const ImportPage = () => {
   const { user, isLoading: authLoading } = useAuth();
-  const navigate = useNavigate();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [connectedShops, setConnectedShops] = useState<string[]>([]);
@@ -35,7 +32,6 @@ const ImportPage = () => {
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [showShopInput, setShowShopInput] = useState(false);
-  const [isProcessingShipment, setIsProcessingShipment] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -224,79 +220,23 @@ const ImportPage = () => {
     }
   };
 
-  const processShopifyOrdersForShipping = async (orderIds: string[]) => {
-    setIsProcessingShipment(true);
-    
-    try {
-      // Get selected orders
-      const selectedOrdersData = orders.filter(order => 
-        orderIds.includes(order.order_id)
-      );
-      
-      if (selectedOrdersData.length === 0) {
-        toast.error('No orders selected for shipping');
-        return;
-      }
-
-      // Transform Shopify orders to match the expected format
-      const transformedOrders = selectedOrdersData.map(order => ({
-        id: parseInt(order.shopify_order_id),
-        name: order.order_id,
-        email: order.customer_name.includes('@') ? order.customer_name.split(' ')[0] : '',
-        created_at: order.created_at,
-        updated_at: order.created_at,
-        total_price: '0.00',
-        currency: 'USD',
-        total_weight: order.total_weight,
-        financial_status: 'paid',
-        fulfillment_status: 'unfulfilled',
-        line_items: order.line_items.split(', ').map((item, index) => ({
-          id: index + 1,
-          title: item,
-          quantity: 1,
-          price: '0.00',
-          grams: Math.round(order.total_weight * 453.592) // Convert lbs to grams
-        })),
-        shipping_address: {
-          first_name: order.customer_name.split(' ')[0] || '',
-          last_name: order.customer_name.split(' ').slice(1).join(' ') || '',
-          address1: order.shipping_address.split(',')[0] || '',
-          city: order.shipping_address.split(',')[1]?.trim() || '',
-          province_code: order.shipping_address.split(',')[2]?.trim().split(' ')[0] || '',
-          zip: order.shipping_address.split(',')[2]?.trim().split(' ')[1] || '',
-          country_code: 'US'
-        }
-      }));
-
-      // Convert to CSV format using the transformer
-      const csvData = ShopifyOrderTransformer.transformToCSV(transformedOrders);
-      
-      // Store the CSV data in sessionStorage for the bulk upload page
-      sessionStorage.setItem('shopify_csv_data', csvData);
-      sessionStorage.setItem('shopify_order_count', selectedOrdersData.length.toString());
-      
-      toast.success(`Processing ${selectedOrdersData.length} orders for shipping`);
-      
-      // Navigate to bulk upload page
-      navigate('/bulk-upload');
-      
-    } catch (error) {
-      console.error('Error processing Shopify orders:', error);
-      toast.error('Failed to process orders for shipping');
-    } finally {
-      setIsProcessingShipment(false);
-    }
-  };
-
   const handleShipSelected = () => {
     if (selectedOrders.length > 0) {
-      processShopifyOrdersForShipping(selectedOrders);
+      const event = new CustomEvent('importOrders', {
+        detail: { provider: 'shopify', orderIds: selectedOrders }
+      });
+      document.dispatchEvent(event);
+      toast.success(`Importing ${selectedOrders.length} selected orders`);
     }
   };
 
   const handleShipAll = () => {
     const allOrderIds = orders.map(order => order.order_id);
-    processShopifyOrdersForShipping(allOrderIds);
+    const event = new CustomEvent('importOrders', {
+      detail: { provider: 'shopify', orderIds: allOrderIds }
+    });
+    document.dispatchEvent(event);
+    toast.success(`Importing all ${orders.length} orders`);
   };
 
   const disconnectShopify = async () => {
@@ -321,6 +261,7 @@ const ImportPage = () => {
     }
   };
 
+  // Show authentication required state
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -537,29 +478,12 @@ const ImportPage = () => {
                     <Button
                       variant="outline"
                       onClick={handleShipSelected}
-                      disabled={selectedOrders.length === 0 || isProcessingShipment}
+                      disabled={selectedOrders.length === 0}
                     >
-                      {isProcessingShipment ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        `Ship Selected (${selectedOrders.length})`
-                      )}
+                      Ship Selected ({selectedOrders.length})
                     </Button>
-                    <Button 
-                      onClick={handleShipAll}
-                      disabled={isProcessingShipment}
-                    >
-                      {isProcessingShipment ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Processing...
-                        </>
-                      ) : (
-                        `Ship All (${orders.length})`
-                      )}
+                    <Button onClick={handleShipAll}>
+                      Ship All ({orders.length})
                     </Button>
                   </div>
                 </div>
