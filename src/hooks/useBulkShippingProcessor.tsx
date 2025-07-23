@@ -78,6 +78,7 @@ export const useBulkShippingProcessor = () => {
 
   const fetchSavedShipments = async () => {
     try {
+      // Use supabase.from() directly with the table name as string
       const { data, error } = await supabase
         .from('bulk_shipments')
         .select('*')
@@ -98,6 +99,7 @@ export const useBulkShippingProcessor = () => {
 
   const updateShipmentRate = async (shipmentId: string, rateId: string) => {
     try {
+      // Use supabase.from() directly with the table name as string
       const { data, error } = await supabase
         .from('bulk_shipments')
         .update({ 

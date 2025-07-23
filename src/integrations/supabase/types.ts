@@ -235,6 +235,51 @@ export type Database = {
         }
         Relationships: []
       }
+      bulk_shipments: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          insurance_amount: number | null
+          insurance_cost: number | null
+          rates: Json
+          selected_rate_id: string | null
+          shipment_data: Json
+          status: string
+          total_cost: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          insurance_amount?: number | null
+          insurance_cost?: number | null
+          rates?: Json
+          selected_rate_id?: string | null
+          shipment_data: Json
+          status?: string
+          total_cost?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          insurance_amount?: number | null
+          insurance_cost?: number | null
+          rates?: Json
+          selected_rate_id?: string | null
+          shipment_data?: Json
+          status?: string
+          total_cost?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       external_trackings: {
         Row: {
           carrier: string | null
@@ -271,6 +316,33 @@ export type Database = {
           tracking_data?: Json | null
           tracking_events?: Json | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      oauth_states: {
+        Row: {
+          id: string
+          platform: string | null
+          shop_domain: string
+          state_value: string
+          time: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          platform?: string | null
+          shop_domain: string
+          state_value: string
+          time?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          platform?: string | null
+          shop_domain?: string
+          state_value?: string
+          time?: string | null
+          user_id?: string
         }
         Relationships: []
       }

@@ -2,7 +2,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Package, CheckCircle, XCircle, DollarSign, Truck } from 'lucide-react';
 import { BulkProcessingResult } from '@/hooks/useBulkShippingProcessor';
@@ -102,10 +101,10 @@ const BulkResults: React.FC<BulkResultsProps> = ({ results, onRateChange }) => {
                     {getStatusIcon(shipment.status)}
                     <div>
                       <h4 className="font-medium">
-                        {shipment.shipment_data.to_name || `Shipment ${index + 1}`}
+                        {shipment.shipment_data?.to_name || `Shipment ${index + 1}`}
                       </h4>
                       <p className="text-sm text-gray-600">
-                        {shipment.shipment_data.to_city}, {shipment.shipment_data.to_state}
+                        {shipment.shipment_data?.to_city}, {shipment.shipment_data?.to_state}
                       </p>
                     </div>
                   </div>
@@ -131,7 +130,7 @@ const BulkResults: React.FC<BulkResultsProps> = ({ results, onRateChange }) => {
                     </div>
                     
                     <Select
-                      value={shipment.selected_rate_id}
+                      value={shipment.selected_rate_id || ''}
                       onValueChange={(value) => onRateChange(shipment.id, value)}
                     >
                       <SelectTrigger className="w-full">
@@ -148,7 +147,7 @@ const BulkResults: React.FC<BulkResultsProps> = ({ results, onRateChange }) => {
                                 </span>
                               </div>
                               <div className="text-right">
-                                <span className="font-medium">${rate.total_cost.toFixed(2)}</span>
+                                <span className="font-medium">${rate.total_cost?.toFixed(2) || rate.rate}</span>
                                 <div className="text-xs text-gray-500">
                                   {rate.delivery_days} days
                                 </div>
@@ -159,7 +158,7 @@ const BulkResults: React.FC<BulkResultsProps> = ({ results, onRateChange }) => {
                       </SelectContent>
                     </Select>
 
-                    {shipment.insurance_amount > 0 && (
+                    {shipment.insurance_amount && shipment.insurance_amount > 0 && (
                       <div className="text-sm text-gray-600">
                         Insurance: ${shipment.insurance_cost?.toFixed(2)} 
                         (${shipment.insurance_amount} declared value)

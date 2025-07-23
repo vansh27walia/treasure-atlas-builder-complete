@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import { useBulkShippingProcessor } from '@/hooks/useBulkShippingProcessor';
 import CSVUploader from './CSVUploader';
 import BulkResults from './BulkResults';
-import AIRatePicker from './AIRatePicker';
 
 const BulkUploadView: React.FC = () => {
   const [csvContent, setCsvContent] = useState<string>('');
@@ -102,11 +101,6 @@ const BulkUploadView: React.FC = () => {
           </Button>
           <h2 className="text-xl font-semibold">Bulk Shipping Results</h2>
         </div>
-        
-        <AIRatePicker 
-          shipments={results.processedShipments}
-          onApplyAISelection={handleRateSelection}
-        />
         
         <BulkResults 
           results={results}
