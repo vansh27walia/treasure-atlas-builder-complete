@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Package, ShoppingCart, Truck, Loader2 } from 'lucide-react';
+import { Package, ShoppingCart, Truck, Loader2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBulkShipping, RRow } from '@/hooks/useBulkShipping';
 import { useNavigate } from 'react-router-dom';
@@ -98,19 +98,28 @@ const ShopifyBulkShipping: React.FC = () => {
       console.log('Starting Shopify bulk shipping process...');
       const selectedOrdersData = Array.from(selectedOrders).map(index => orders[index]);
       
-      // Show processing toast
-      toast.loading('Processing Shopify orders...', { id: 'shopify-processing' });
+      // Show initial processing toast
+      const processingToastId = toast.loading('Processing Shopify orders and converting to EasyPost format...', {
+        duration: 0
+      });
       
       // Call backend to transform Shopify data to EasyPost CSV format
+      console.log('Calling processBulkShipping with orders:', selectedOrdersData);
       const result = await processBulkShipping(selectedOrdersData, selectedCarrier);
       
       console.log('Shopify bulk shipping result:', result);
       
-      if (result.success) {
-        // Store the CSV content and metadata in session storage
+      if (result.success && result.csvContent) {
+        // Update toast to show conversion success
+        toast.success('Shopify orders converted to EasyPost format successfully!', {
+          id: processingToastId
+        });
+        
+        // Store the CSV content and metadata in session storage for bulk upload
         sessionStorage.setItem('csvContent', result.csvContent);
         sessionStorage.setItem('csvFilename', `shopify-orders-${Date.now()}.csv`);
         sessionStorage.setItem('isFromShopify', 'true');
+        sessionStorage.setItem('shopifyOrderCount', selectedOrders.size.toString());
         
         // Set default from address for Shopify warehouse
         sessionStorage.setItem('fromAddress', JSON.stringify({
@@ -125,24 +134,24 @@ const ShopifyBulkShipping: React.FC = () => {
           phone: "555-123-4567"
         }));
         
-        // Dismiss loading toast
-        toast.dismiss('shopify-processing');
-        toast.success(`${selectedOrders.size} orders processed successfully! Redirecting to rate fetching...`);
+        // Success toast with redirect info
+        toast.success(`${selectedOrders.size} orders processed! Redirecting to rate fetching...`, {
+          duration: 2000,
+          icon: <CheckCircle className="h-4 w-4" />
+        });
         
-        // Small delay to show success message, then redirect
+        // Small delay to show success, then redirect to bulk upload for automatic processing
         setTimeout(() => {
           navigate('/bulk-upload');
-        }, 1000);
+        }, 1500);
         
       } else {
-        toast.dismiss('shopify-processing');
-        toast.error('Failed to process Shopify orders');
+        toast.error('Failed to process Shopify orders: ' + (result.message || 'Unknown error'));
       }
       
     } catch (error) {
       console.error('Error shipping selected orders:', error);
-      toast.dismiss('shopify-processing');
-      toast.error('Failed to process selected orders');
+      toast.error('Failed to process selected orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsProcessing(false);
     }
@@ -214,7 +223,7 @@ const ShopifyBulkShipping: React.FC = () => {
                   <Button
                     onClick={handleShipSelected}
                     disabled={selectedOrders.size === 0 || isProcessing}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
                   >
                     {isProcessing ? (
                       <>
@@ -265,6 +274,18 @@ const ShopifyBulkShipping: React.FC = () => {
                   </div>
                 ))}
               </div>
+              
+              {isProcessing && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                  <div className="flex items-center gap-2 text-blue-800">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="font-medium">Processing Shopify Orders</span>
+                  </div>
+                  <p className="text-sm text-blue-700 mt-1">
+                    Converting {selectedOrders.size} orders to EasyPost CSV format and preparing for rate fetching...
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
