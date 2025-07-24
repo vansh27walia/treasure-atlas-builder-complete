@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,76 +5,51 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Package, ShoppingCart, Truck, Loader2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useBulkShipping, RRow } from '@/hooks/useBulkShipping';
 import { useNavigate } from 'react-router-dom';
-import { convertShopifyToEasyPost, generateEasyPostCSV } from '@/utils/shopifyHeaderMapper';
 
 // Mock Shopify data - replace with actual Shopify import
-const mockShopifyOrders = [
+const mockShopifyOrders: RRow[] = [
   {
-    id: "123456789",
-    name: "Order #1001",
-    email: "john@example.com",
-    phone: "555-123-4567",
-    shipping_address: {
-      first_name: "John",
-      last_name: "Doe",
-      company: "JD Inc.",
-      address1: "123 Main St",
-      address2: "Apt 4",
-      city: "Los Angeles",
-      province: "CA",
-      zip: "90210",
-      country: "US",
-      phone: "555-123-4567"
-    },
-    line_items: [
-      {
-        title: "Sample Product",
-        quantity: 1,
-        grams: 2268,
-        price: "29.99"
-      }
-    ],
-    total_weight: 2268,
-    order_number: "1001"
+    recipient_name: "John Doe",
+    recipient_address1: "123 Main St",
+    recipient_city: "Los Angeles",
+    recipient_state: "CA",
+    recipient_zip: "90210",
+    recipient_country: "US",
+    recipient_phone: "555-123-4567",
+    recipient_email: "john@example.com",
+    parcel_weight: 5.0,
+    parcel_length: 10,
+    parcel_width: 8,
+    parcel_height: 6,
+    order_reference: "ORD-001"
   },
   {
-    id: "123456790",
-    name: "Order #1002",
-    email: "jane@example.com",
-    phone: "555-987-6543",
-    shipping_address: {
-      first_name: "Jane",
-      last_name: "Smith",
-      company: "Acme Co.",
-      address1: "456 Oak Ave",
-      address2: "",
-      city: "New York",
-      province: "NY",
-      zip: "10001",
-      country: "US",
-      phone: "555-987-6543"
-    },
-    line_items: [
-      {
-        title: "Another Product",
-        quantity: 2,
-        grams: 1587,
-        price: "19.99"
-      }
-    ],
-    total_weight: 1587,
-    order_number: "1002"
+    recipient_name: "Jane Smith",
+    recipient_address1: "456 Oak Ave",
+    recipient_city: "New York",
+    recipient_state: "NY",
+    recipient_zip: "10001",
+    recipient_country: "US",
+    recipient_phone: "555-987-6543",
+    recipient_email: "jane@example.com",
+    parcel_weight: 3.5,
+    parcel_length: 12,
+    parcel_width: 6,
+    parcel_height: 4,
+    order_reference: "ORD-002"
   }
 ];
 
 const ShopifyBulkShipping: React.FC = () => {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<RRow[]>([]);
   const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set());
   const [selectedCarrier, setSelectedCarrier] = useState<string>('all');
   const [isImporting, setIsImporting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   
+  const { processBulkShipping } = useBulkShipping();
   const navigate = useNavigate();
 
   const handleImportShopifyData = async () => {
@@ -111,7 +85,7 @@ const ShopifyBulkShipping: React.FC = () => {
     }
   };
 
-  const handleShipAll = async () => {
+  const handleShipSelected = async () => {
     if (selectedOrders.size === 0) {
       toast.error('Please select at least one order to ship');
       return;
@@ -120,51 +94,57 @@ const ShopifyBulkShipping: React.FC = () => {
     setIsProcessing(true);
     
     try {
-      console.log('Starting Shopify Ship All process...');
+      console.log('Starting Shopify bulk shipping process...');
       const selectedOrdersData = Array.from(selectedOrders).map(index => orders[index]);
       
       // Show processing toast
-      const processingToastId = toast.loading('Processing Shopify orders for batch shipping...', {
+      const processingToastId = toast.loading('Processing Shopify orders...', {
         duration: 0
       });
       
-      // Convert Shopify orders to EasyPost format
-      console.log('Converting Shopify orders to EasyPost format...');
-      const easyPostData = convertShopifyToEasyPost(selectedOrdersData);
-      const csvContent = generateEasyPostCSV(easyPostData);
+      // Call backend to transform Shopify data to EasyPost CSV format
+      console.log('Converting Shopify orders to EasyPost CSV format...');
+      const result = await processBulkShipping(selectedOrdersData, selectedCarrier);
       
-      // Store the CSV content and metadata in session storage for batch processing
-      sessionStorage.setItem('shopifyBatchCsvContent', csvContent);
-      sessionStorage.setItem('shopifyBatchFilename', `shopify-batch-${Date.now()}.csv`);
-      sessionStorage.setItem('shopifyBatchOrderCount', selectedOrders.size.toString());
-      sessionStorage.setItem('shopifyBatchCarrier', selectedCarrier);
-      
-      // Set default from address for Shopify warehouse
-      sessionStorage.setItem('shopifyBatchFromAddress', JSON.stringify({
-        name: "Shopify Warehouse",
-        company: "Your Company",
-        street1: "123 Warehouse St",
-        street2: "",
-        city: "Los Angeles",
-        state: "CA",
-        zip: "90210",
-        country: "US",
-        phone: "555-123-4567"
-      }));
-      
-      // Success toast
-      toast.success(`${selectedOrders.size} orders prepared for batch shipping! Redirecting to batch label creation...`, {
-        id: processingToastId
-      });
-      
-      // Navigate to bulk upload page (batch label creation)
-      setTimeout(() => {
-        navigate('/bulk-upload');
-      }, 1000);
+      if (result.success && result.csvContent) {
+        // Store the CSV content and metadata in session storage
+        sessionStorage.setItem('csvContent', result.csvContent);
+        sessionStorage.setItem('csvFilename', `shopify-orders-${Date.now()}.csv`);
+        sessionStorage.setItem('isFromShopify', 'true');
+        sessionStorage.setItem('shopifyOrderCount', selectedOrders.size.toString());
+        
+        // Set default from address for Shopify warehouse
+        sessionStorage.setItem('fromAddress', JSON.stringify({
+          name: "Shopify Warehouse",
+          company: "Your Company",
+          street1: "123 Warehouse St",
+          street2: "",
+          city: "Los Angeles",
+          state: "CA",
+          zip: "90210",
+          country: "US",
+          phone: "555-123-4567"
+        }));
+        
+        // Success toast
+        toast.success(`${selectedOrders.size} orders processed! Redirecting to rate fetching...`, {
+          id: processingToastId
+        });
+        
+        // Redirect to bulk upload page
+        setTimeout(() => {
+          navigate('/bulk-upload');
+        }, 1000);
+        
+      } else {
+        toast.error('Failed to process Shopify orders: ' + (result.message || 'Unknown error'), {
+          id: processingToastId
+        });
+      }
       
     } catch (error) {
-      console.error('Error processing Shopify Ship All:', error);
-      toast.error('Failed to process Shopify orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error('Error processing Shopify orders:', error);
+      toast.error('Failed to process selected orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsProcessing(false);
     }
@@ -234,7 +214,7 @@ const ShopifyBulkShipping: React.FC = () => {
                   </Select>
                   
                   <Button
-                    onClick={handleShipAll}
+                    onClick={handleShipSelected}
                     disabled={selectedOrders.size === 0 || isProcessing}
                     className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
                   >
@@ -246,7 +226,7 @@ const ShopifyBulkShipping: React.FC = () => {
                     ) : (
                       <>
                         <Truck className="h-4 w-4" />
-                        Ship All
+                        Ship Selected
                       </>
                     )}
                   </Button>
@@ -256,16 +236,16 @@ const ShopifyBulkShipping: React.FC = () => {
               <div className="border rounded-lg">
                 <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 font-medium text-sm">
                   <div className="col-span-1">Select</div>
-                  <div className="col-span-2">Order</div>
-                  <div className="col-span-2">Customer</div>
+                  <div className="col-span-2">Order Ref</div>
+                  <div className="col-span-2">Recipient</div>
                   <div className="col-span-3">Address</div>
-                  <div className="col-span-2">Items</div>
+                  <div className="col-span-2">Dimensions</div>
                   <div className="col-span-1">Weight</div>
                   <div className="col-span-1">Phone</div>
                 </div>
                 
                 {orders.map((order, index) => (
-                  <div key={order.id} className="grid grid-cols-12 gap-4 p-4 border-t hover:bg-gray-50">
+                  <div key={index} className="grid grid-cols-12 gap-4 p-4 border-t hover:bg-gray-50">
                     <div className="col-span-1">
                       <Checkbox
                         checked={selectedOrders.has(index)}
@@ -273,19 +253,17 @@ const ShopifyBulkShipping: React.FC = () => {
                         disabled={isProcessing}
                       />
                     </div>
-                    <div className="col-span-2 font-medium">{order.name}</div>
-                    <div className="col-span-2">
-                      {order.shipping_address.first_name} {order.shipping_address.last_name}
-                    </div>
+                    <div className="col-span-2 font-medium">{order.order_reference}</div>
+                    <div className="col-span-2">{order.recipient_name}</div>
                     <div className="col-span-3 text-sm text-gray-600">
-                      {order.shipping_address.address1}<br />
-                      {order.shipping_address.city}, {order.shipping_address.province} {order.shipping_address.zip}
+                      {order.recipient_address1}<br />
+                      {order.recipient_city}, {order.recipient_state} {order.recipient_zip}
                     </div>
                     <div className="col-span-2 text-sm">
-                      {order.line_items.length} item(s)
+                      {order.parcel_length}"×{order.parcel_width}"×{order.parcel_height}"
                     </div>
-                    <div className="col-span-1 text-sm">{(order.total_weight / 453.592).toFixed(1)} lbs</div>
-                    <div className="col-span-1 text-sm">{order.shipping_address.phone}</div>
+                    <div className="col-span-1 text-sm">{order.parcel_weight} lbs</div>
+                    <div className="col-span-1 text-sm">{order.recipient_phone}</div>
                   </div>
                 ))}
               </div>
@@ -294,10 +272,10 @@ const ShopifyBulkShipping: React.FC = () => {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
                   <div className="flex items-center gap-2 text-blue-800">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="font-medium">Processing Shopify Orders for Batch Shipping</span>
+                    <span className="font-medium">Processing Shopify Orders</span>
                   </div>
                   <p className="text-sm text-blue-700 mt-1">
-                    Converting {selectedOrders.size} orders to EasyPost format and preparing for batch rate fetching...
+                    Converting {selectedOrders.size} orders to EasyPost format and preparing for rate fetching...
                   </p>
                 </div>
               )}
