@@ -92,29 +92,43 @@ const ShopifyBulkShipping: React.FC = () => {
     }
 
     try {
+      console.log('Starting Shopify bulk shipping process...');
       const selectedOrdersData = Array.from(selectedOrders).map(index => orders[index]);
+      
+      // Call backend to transform Shopify data to EasyPost CSV format
       const result = await processBulkShipping(selectedOrdersData, selectedCarrier);
       
-      // Store CSV content and redirect to existing bulk upload page
-      sessionStorage.setItem('csvContent', result.csvContent);
-      sessionStorage.setItem('csvFilename', `shopify-orders-${Date.now()}.csv`);
-      sessionStorage.setItem('fromAddress', JSON.stringify({
-        name: "Shopify Warehouse",
-        company: "Your Company",
-        street1: "123 Warehouse St",
-        street2: "",
-        city: "Los Angeles",
-        state: "CA",
-        zip: "90210",
-        country: "US",
-        phone: "555-123-4567"
-      }));
+      console.log('Shopify bulk shipping result:', result);
       
-      // Navigate to existing bulk upload page
-      navigate('/bulk-upload');
+      if (result.success) {
+        // Store the CSV content in session storage for the bulk upload page
+        sessionStorage.setItem('csvContent', result.csvContent);
+        sessionStorage.setItem('csvFilename', `shopify-orders-${Date.now()}.csv`);
+        
+        // Set default from address for Shopify warehouse
+        sessionStorage.setItem('fromAddress', JSON.stringify({
+          name: "Shopify Warehouse",
+          company: "Your Company",
+          street1: "123 Warehouse St",
+          street2: "",
+          city: "Los Angeles",
+          state: "CA",
+          zip: "90210",
+          country: "US",
+          phone: "555-123-4567"
+        }));
+        
+        toast.success(`${selectedOrders.size} orders processed successfully! Redirecting to rate fetching...`);
+        
+        // Navigate to the bulk upload page which will automatically start the rate fetching process
+        navigate('/bulk-upload');
+      } else {
+        toast.error('Failed to process Shopify orders');
+      }
       
     } catch (error) {
       console.error('Error shipping selected orders:', error);
+      toast.error('Failed to process selected orders');
     }
   };
 
