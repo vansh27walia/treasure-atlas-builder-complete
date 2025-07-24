@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, ArrowLeft, Loader2 } from 'lucide-react';
+import { Upload, FileText, ArrowLeft, Loader2, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBulkShippingProcessor } from '@/hooks/useBulkShippingProcessor';
+import { useLocation } from 'react-router-dom';
 import CSVUploader from './CSVUploader';
 import BulkResults from './BulkResults';
 
@@ -13,7 +14,9 @@ const BulkUploadView: React.FC = () => {
   const [filename, setFilename] = useState<string>('');
   const [fromAddress, setFromAddress] = useState<any>(null);
   const [showResults, setShowResults] = useState(false);
+  const [isShopifyMode, setIsShopifyMode] = useState(false);
   
+  const location = useLocation();
   const { 
     isProcessing, 
     results, 
@@ -21,22 +24,66 @@ const BulkUploadView: React.FC = () => {
     fetchSavedShipments 
   } = useBulkShippingProcessor();
 
+  // Check if we're coming from Shopify bulk shipping
+  useEffect(() => {
+    const bulkShippingResults = location.state?.bulkShippingResults;
+    const mode = location.state?.mode;
+    
+    if (bulkShippingResults && mode === 'shopify-bulk') {
+      setIsShopifyMode(true);
+      setShowResults(true);
+      
+      // Convert Shopify results to our format
+      const convertedResults = {
+        success: true,
+        total: bulkShippingResults.summary.total,
+        successful: bulkShippingResults.summary.successful,
+        failed: bulkShippingResults.summary.failed,
+        totalCost: bulkShippingResults.processed.reduce((sum: number, item: any) => sum + item.selectedRate.rate, 0),
+        processedShipments: bulkShippingResults.processed.map((item: any) => ({
+          id: item.shipmentId,
+          shipment_data: item.toAddress,
+          rates: [{
+            id: item.selectedRate.id,
+            carrier: item.selectedRate.carrier,
+            service: item.selectedRate.service,
+            rate: item.selectedRate.rate.toString(),
+            currency: 'USD',
+            delivery_days: 3,
+            delivery_date: null,
+            shipment_id: item.shipmentId
+          }],
+          selected_rate_id: item.selectedRate.id,
+          total_cost: item.selectedRate.rate,
+          status: 'rates_fetched'
+        })),
+        message: `Processed ${bulkShippingResults.summary.successful} Shopify orders successfully`
+      };
+      
+      // Set the converted results (this would normally come from useBulkShippingProcessor)
+      // For now, we'll just show the success message
+      toast.success(convertedResults.message);
+    }
+  }, [location.state]);
+
   // Load CSV content and from address from session storage
   useEffect(() => {
-    const savedCsvContent = sessionStorage.getItem('csvContent');
-    const savedFilename = sessionStorage.getItem('csvFilename');
-    const savedFromAddress = sessionStorage.getItem('fromAddress');
-    
-    if (savedCsvContent) {
-      setCsvContent(savedCsvContent);
+    if (!isShopifyMode) {
+      const savedCsvContent = sessionStorage.getItem('csvContent');
+      const savedFilename = sessionStorage.getItem('csvFilename');
+      const savedFromAddress = sessionStorage.getItem('fromAddress');
+      
+      if (savedCsvContent) {
+        setCsvContent(savedCsvContent);
+      }
+      if (savedFilename) {
+        setFilename(savedFilename);
+      }
+      if (savedFromAddress) {
+        setFromAddress(JSON.parse(savedFromAddress));
+      }
     }
-    if (savedFilename) {
-      setFilename(savedFilename);
-    }
-    if (savedFromAddress) {
-      setFromAddress(JSON.parse(savedFromAddress));
-    }
-  }, []);
+  }, [isShopifyMode]);
 
   const handleFileUpload = (content: string, name: string) => {
     setCsvContent(content);
@@ -76,6 +123,7 @@ const BulkUploadView: React.FC = () => {
 
   const handleBack = () => {
     setShowResults(false);
+    setIsShopifyMode(false);
     setCsvContent('');
     setFilename('');
     sessionStorage.removeItem('csvContent');
@@ -87,7 +135,7 @@ const BulkUploadView: React.FC = () => {
     // This will be handled by the BulkResults component
   };
 
-  if (showResults && results) {
+  if (showResults && (results || isShopifyMode)) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -99,13 +147,42 @@ const BulkUploadView: React.FC = () => {
             <ArrowLeft className="h-4 w-4" />
             Back to Upload
           </Button>
-          <h2 className="text-xl font-semibold">Bulk Shipping Results</h2>
+          <h2 className="text-xl font-semibold">
+            {isShopifyMode ? 'Shopify Bulk Shipping Results' : 'Bulk Shipping Results'}
+          </h2>
         </div>
         
-        <BulkResults 
-          results={results}
-          onRateChange={handleRateSelection}
-        />
+        {isShopifyMode ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShoppingCart className="h-5 w-5" />
+                Shopify Orders Processed
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <div className="text-green-600 mb-4">
+                  <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Orders Ready for Label Creation</h3>
+                <p className="text-gray-600 mb-4">
+                  Your Shopify orders have been processed and are ready for batch label creation.
+                </p>
+                <Button onClick={() => toast.success('Batch label creation coming soon!')}>
+                  Create Batch Labels
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <BulkResults 
+            results={results}
+            onRateChange={handleRateSelection}
+          />
+        )}
       </div>
     );
   }
