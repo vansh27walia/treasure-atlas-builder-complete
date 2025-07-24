@@ -151,8 +151,33 @@ const BulkUploadView: React.FC = () => {
     console.log('Rate selected:', { shipmentId, rateId });
   };
 
-  // Show results if we have them from the upload hook
+  // Convert BulkUploadResult to BulkProcessingResult format for compatibility
+  const convertToProcessingResult = (uploadResult: any) => {
+    return {
+      success: true,
+      total: uploadResult.total,
+      successful: uploadResult.successful,
+      failed: uploadResult.failed,
+      totalCost: uploadResult.totalCost,
+      processedShipments: uploadResult.processedShipments.map((shipment: any) => ({
+        id: shipment.id,
+        shipment_data: shipment.details || shipment,
+        rates: shipment.availableRates || [],
+        selected_rate_id: shipment.selectedRate?.id,
+        insurance_amount: shipment.insuranceAmount,
+        insurance_cost: shipment.insuranceCost,
+        total_cost: shipment.totalCost || 0,
+        status: shipment.status === 'completed' ? 'rates_fetched' : shipment.status,
+        error_message: shipment.error
+      })),
+      message: 'Bulk processing completed successfully'
+    };
+  };
+
+  // Show results if we have them from either hook
   if (showResults || (uploadStatus === 'editing' && uploadResults)) {
+    const displayResults = uploadResults ? convertToProcessingResult(uploadResults) : results;
+    
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -182,7 +207,7 @@ const BulkUploadView: React.FC = () => {
         )}
         
         <BulkResults 
-          results={uploadResults || results}
+          results={displayResults}
           onRateChange={handleRateSelection}
         />
       </div>
