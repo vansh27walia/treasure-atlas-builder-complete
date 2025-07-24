@@ -16,6 +16,7 @@ const BulkUploadView: React.FC = () => {
   const [fromAddress, setFromAddress] = useState<any>(null);
   const [showResults, setShowResults] = useState(false);
   const [isFromShopify, setIsFromShopify] = useState(false);
+  const [isProcessingShopify, setIsProcessingShopify] = useState(false);
   const [shopifyOrderCount, setShopifyOrderCount] = useState(0);
   
   const { 
@@ -25,12 +26,7 @@ const BulkUploadView: React.FC = () => {
     fetchSavedShipments 
   } = useBulkShippingProcessor();
   
-  const { 
-    handleUpload, 
-    uploadStatus, 
-    results: uploadResults 
-  } = useShipmentUpload();
-  
+  const { handleUpload, uploadStatus } = useShipmentUpload();
   const { addresses } = usePickupAddresses();
 
   // Check if we're coming from Shopify bulk shipping
@@ -48,6 +44,7 @@ const BulkUploadView: React.FC = () => {
       setFilename(savedFilename);
       setIsFromShopify(true);
       setShopifyOrderCount(orderCount);
+      setIsProcessingShopify(true);
       
       // Use saved from address or default pickup address
       let pickupAddress = null;
@@ -59,12 +56,13 @@ const BulkUploadView: React.FC = () => {
       
       setFromAddress(pickupAddress);
       
-      // Auto-start the processing with EasyPost upload
+      // Auto-start the processing
       if (pickupAddress) {
-        console.log('Auto-starting Shopify bulk processing with EasyPost...');
+        console.log('Auto-starting Shopify bulk processing...');
         autoStartShopifyProcessing(savedCsvContent, savedFilename, pickupAddress);
       } else {
         toast.error('No pickup address found. Please set a pickup address in settings.');
+        setIsProcessingShopify(false);
       }
     }
   }, [addresses]);
@@ -95,6 +93,8 @@ const BulkUploadView: React.FC = () => {
     } catch (error) {
       console.error('Error in Shopify auto-processing:', error);
       toast.error('Failed to process Shopify orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsProcessingShopify(false);
     }
   };
 
@@ -138,6 +138,7 @@ const BulkUploadView: React.FC = () => {
   const handleBack = () => {
     setShowResults(false);
     setIsFromShopify(false);
+    setIsProcessingShopify(false);
     setCsvContent('');
     setFilename('');
     sessionStorage.removeItem('csvContent');
@@ -151,33 +152,8 @@ const BulkUploadView: React.FC = () => {
     console.log('Rate selected:', { shipmentId, rateId });
   };
 
-  // Convert BulkUploadResult to BulkProcessingResult format for compatibility
-  const convertToProcessingResult = (uploadResult: any) => {
-    return {
-      success: true,
-      total: uploadResult.total,
-      successful: uploadResult.successful,
-      failed: uploadResult.failed,
-      totalCost: uploadResult.totalCost,
-      processedShipments: uploadResult.processedShipments.map((shipment: any) => ({
-        id: shipment.id,
-        shipment_data: shipment.details || shipment,
-        rates: shipment.availableRates || [],
-        selected_rate_id: shipment.selectedRate?.id,
-        insurance_amount: shipment.insuranceAmount,
-        insurance_cost: shipment.insuranceCost,
-        total_cost: shipment.totalCost || 0,
-        status: shipment.status === 'completed' ? 'rates_fetched' : shipment.status,
-        error_message: shipment.error
-      })),
-      message: 'Bulk processing completed successfully'
-    };
-  };
-
-  // Show results if we have them from either hook
-  if (showResults || (uploadStatus === 'editing' && uploadResults)) {
-    const displayResults = uploadResults ? convertToProcessingResult(uploadResults) : results;
-    
+  // Show results if we have them (from upload hook)
+  if (showResults || (uploadStatus === 'editing' && !isProcessingShopify)) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -207,15 +183,15 @@ const BulkUploadView: React.FC = () => {
         )}
         
         <BulkResults 
-          results={displayResults}
+          results={results}
           onRateChange={handleRateSelection}
         />
       </div>
     );
   }
 
-  // Show processing screen for Shopify orders
-  if (isFromShopify && (uploadStatus === 'uploading' || uploadStatus === 'creating-labels')) {
+  // Show Shopify processing screen
+  if (isFromShopify && isProcessingShopify) {
     return (
       <div className="space-y-6">
         <Card>
