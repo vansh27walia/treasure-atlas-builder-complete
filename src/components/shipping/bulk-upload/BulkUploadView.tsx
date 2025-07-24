@@ -16,7 +16,6 @@ const BulkUploadView: React.FC = () => {
   const [fromAddress, setFromAddress] = useState<any>(null);
   const [showResults, setShowResults] = useState(false);
   const [isFromShopify, setIsFromShopify] = useState(false);
-  const [isProcessingShopify, setIsProcessingShopify] = useState(false);
   const [shopifyOrderCount, setShopifyOrderCount] = useState(0);
   
   const { 
@@ -26,7 +25,12 @@ const BulkUploadView: React.FC = () => {
     fetchSavedShipments 
   } = useBulkShippingProcessor();
   
-  const { handleUpload, uploadStatus } = useShipmentUpload();
+  const { 
+    handleUpload, 
+    uploadStatus, 
+    results: uploadResults 
+  } = useShipmentUpload();
+  
   const { addresses } = usePickupAddresses();
 
   // Check if we're coming from Shopify bulk shipping
@@ -44,7 +48,6 @@ const BulkUploadView: React.FC = () => {
       setFilename(savedFilename);
       setIsFromShopify(true);
       setShopifyOrderCount(orderCount);
-      setIsProcessingShopify(true);
       
       // Use saved from address or default pickup address
       let pickupAddress = null;
@@ -56,13 +59,12 @@ const BulkUploadView: React.FC = () => {
       
       setFromAddress(pickupAddress);
       
-      // Auto-start the processing
+      // Auto-start the processing with EasyPost upload
       if (pickupAddress) {
-        console.log('Auto-starting Shopify bulk processing...');
+        console.log('Auto-starting Shopify bulk processing with EasyPost...');
         autoStartShopifyProcessing(savedCsvContent, savedFilename, pickupAddress);
       } else {
         toast.error('No pickup address found. Please set a pickup address in settings.');
-        setIsProcessingShopify(false);
       }
     }
   }, [addresses]);
@@ -93,8 +95,6 @@ const BulkUploadView: React.FC = () => {
     } catch (error) {
       console.error('Error in Shopify auto-processing:', error);
       toast.error('Failed to process Shopify orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    } finally {
-      setIsProcessingShopify(false);
     }
   };
 
@@ -138,7 +138,6 @@ const BulkUploadView: React.FC = () => {
   const handleBack = () => {
     setShowResults(false);
     setIsFromShopify(false);
-    setIsProcessingShopify(false);
     setCsvContent('');
     setFilename('');
     sessionStorage.removeItem('csvContent');
@@ -152,8 +151,8 @@ const BulkUploadView: React.FC = () => {
     console.log('Rate selected:', { shipmentId, rateId });
   };
 
-  // Show results if we have them (from upload hook)
-  if (showResults || (uploadStatus === 'editing' && !isProcessingShopify)) {
+  // Show results if we have them from the upload hook
+  if (showResults || (uploadStatus === 'editing' && uploadResults)) {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -183,15 +182,15 @@ const BulkUploadView: React.FC = () => {
         )}
         
         <BulkResults 
-          results={results}
+          results={uploadResults || results}
           onRateChange={handleRateSelection}
         />
       </div>
     );
   }
 
-  // Show Shopify processing screen
-  if (isFromShopify && isProcessingShopify) {
+  // Show processing screen for Shopify orders
+  if (isFromShopify && (uploadStatus === 'uploading' || uploadStatus === 'creating-labels')) {
     return (
       <div className="space-y-6">
         <Card>

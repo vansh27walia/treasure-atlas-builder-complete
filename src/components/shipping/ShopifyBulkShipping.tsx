@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -98,24 +97,17 @@ const ShopifyBulkShipping: React.FC = () => {
       console.log('Starting Shopify bulk shipping process...');
       const selectedOrdersData = Array.from(selectedOrders).map(index => orders[index]);
       
-      // Show initial processing toast
-      const processingToastId = toast.loading('Processing Shopify orders and converting to EasyPost format...', {
+      // Show processing toast
+      const processingToastId = toast.loading('Processing Shopify orders...', {
         duration: 0
       });
       
       // Call backend to transform Shopify data to EasyPost CSV format
-      console.log('Calling processBulkShipping with orders:', selectedOrdersData);
+      console.log('Converting Shopify orders to EasyPost CSV format...');
       const result = await processBulkShipping(selectedOrdersData, selectedCarrier);
       
-      console.log('Shopify bulk shipping result:', result);
-      
       if (result.success && result.csvContent) {
-        // Update toast to show conversion success
-        toast.success('Shopify orders converted to EasyPost format successfully!', {
-          id: processingToastId
-        });
-        
-        // Store the CSV content and metadata in session storage for bulk upload
+        // Store the CSV content and metadata in session storage
         sessionStorage.setItem('csvContent', result.csvContent);
         sessionStorage.setItem('csvFilename', `shopify-orders-${Date.now()}.csv`);
         sessionStorage.setItem('isFromShopify', 'true');
@@ -134,23 +126,24 @@ const ShopifyBulkShipping: React.FC = () => {
           phone: "555-123-4567"
         }));
         
-        // Success toast with redirect info
+        // Success toast
         toast.success(`${selectedOrders.size} orders processed! Redirecting to rate fetching...`, {
-          duration: 2000,
-          icon: <CheckCircle className="h-4 w-4" />
+          id: processingToastId
         });
         
-        // Small delay to show success, then redirect to bulk upload for automatic processing
+        // Redirect to bulk upload page
         setTimeout(() => {
           navigate('/bulk-upload');
-        }, 1500);
+        }, 1000);
         
       } else {
-        toast.error('Failed to process Shopify orders: ' + (result.message || 'Unknown error'));
+        toast.error('Failed to process Shopify orders: ' + (result.message || 'Unknown error'), {
+          id: processingToastId
+        });
       }
       
     } catch (error) {
-      console.error('Error shipping selected orders:', error);
+      console.error('Error processing Shopify orders:', error);
       toast.error('Failed to process selected orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsProcessing(false);
@@ -282,7 +275,7 @@ const ShopifyBulkShipping: React.FC = () => {
                     <span className="font-medium">Processing Shopify Orders</span>
                   </div>
                   <p className="text-sm text-blue-700 mt-1">
-                    Converting {selectedOrders.size} orders to EasyPost CSV format and preparing for rate fetching...
+                    Converting {selectedOrders.size} orders to EasyPost format and preparing for rate fetching...
                   </p>
                 </div>
               )}
