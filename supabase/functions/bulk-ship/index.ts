@@ -52,18 +52,6 @@ interface ShopifyRow {
   reference?: string;
 }
 
-interface ProcessedShipment {
-  shipmentId: string;
-  toAddress: ShopifyRow;
-  selectedRate: {
-    id: string;
-    carrier: string;
-    service: string;
-    rate: number;
-  };
-  originalRow: RRow;
-}
-
 // Map R-format to Shopify format
 function mapRtoShopify(r: RRow): ShopifyRow {
   return {
@@ -83,92 +71,38 @@ function mapRtoShopify(r: RRow): ShopifyRow {
   };
 }
 
-// Fetch rates from EasyPost
-async function fetchEasyPostRates(shopifyRow: ShopifyRow) {
-  const apiKey = Deno.env.get('EASYPOST_API_KEY');
-  if (!apiKey) {
-    throw new Error('EasyPost API key not configured');
-  }
-
-  const shipmentRequest = {
-    shipment: {
-      to_address: {
-        name: shopifyRow.to_name,
-        street1: shopifyRow.to_street1,
-        city: shopifyRow.to_city,
-        state: shopifyRow.to_state,
-        zip: shopifyRow.to_zip,
-        country: shopifyRow.to_country,
-        phone: shopifyRow.to_phone || '',
-        email: shopifyRow.to_email || '',
-      },
-      from_address: SHOPIFY_WAREHOUSE,
-      parcel: {
-        length: shopifyRow.length,
-        width: shopifyRow.width,
-        height: shopifyRow.height,
-        weight: shopifyRow.weight,
-      },
-      reference: shopifyRow.reference || ''
-    }
-  };
-
-  const response = await fetch('https://api.easypost.com/v2/shipments', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(shipmentRequest),
-  });
-
-  if (!response.ok) {
-    throw new Error(`EasyPost API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return {
-    shipmentId: data.id,
-    rates: data.rates || []
-  };
-}
-
-// Select rate based on carrier preference
-function selectRate(rates: any[], carrier: string) {
-  if (carrier === 'all') {
-    // Select cheapest rate
-    return rates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate))[0];
-  } else {
-    // Filter by specific carrier and select cheapest
-    const carrierRates = rates.filter(rate => 
-      rate.carrier.toLowerCase() === carrier.toLowerCase()
-    );
-    return carrierRates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate))[0];
-  }
-}
-
-// Send to DRAID Fetching endpoint
-async function sendToDRAID(shipmentData: ProcessedShipment) {
-  // This would be your internal DRAID endpoint
-  const draid_endpoint = Deno.env.get('DRAID_ENDPOINT') || 'https://internal-api.yourcompany.com/draid-fetching';
+// Convert Shopify rows to EasyPost CSV format
+function generateEasyPostCSV(shopifyRows: ShopifyRow[]): string {
+  const headers = [
+    'to_name', 'to_street1', 'to_city', 'to_state', 'to_zip', 'to_country',
+    'weight', 'length', 'width', 'height', 'to_company', 'to_street2',
+    'to_phone', 'to_email', 'reference'
+  ];
   
-  const response = await fetch(draid_endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      shipmentId: shipmentData.shipmentId,
-      toAddress: shipmentData.toAddress,
-      selectedRate: shipmentData.selectedRate
-    }),
+  const csvRows = [headers.join(',')];
+  
+  shopifyRows.forEach(row => {
+    const csvRow = [
+      `"${row.to_name}"`,
+      `"${row.to_street1}"`,
+      `"${row.to_city}"`,
+      `"${row.to_state}"`,
+      `"${row.to_zip}"`,
+      `"${row.to_country}"`,
+      `"${row.weight}"`,
+      `"${row.length}"`,
+      `"${row.width}"`,
+      `"${row.height}"`,
+      `""`, // to_company
+      `""`, // to_street2
+      `"${row.to_phone || ''}"`,
+      `"${row.to_email || ''}"`,
+      `"${row.reference || ''}"`
+    ];
+    csvRows.push(csvRow.join(','));
   });
-
-  if (!response.ok) {
-    throw new Error(`DRAID API error: ${response.status}`);
-  }
-
-  return await response.json();
+  
+  return csvRows.join('\n');
 }
 
 serve(async (req) => {
@@ -186,78 +120,23 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing ${rows.length} rows with carrier preference: ${carrier}`);
+    console.log(`Processing ${rows.length} Shopify orders for bulk shipping`);
     
-    const processed: ProcessedShipment[] = [];
-    const failed: Array<{ row: RRow; error: string }> = [];
-
-    for (let i = 0; i < rows.length; i++) {
-      const rRow = rows[i];
-      
-      try {
-        console.log(`Processing row ${i + 1}/${rows.length}: ${rRow.recipient_name}`);
-        
-        // Step 1: Map R-format to Shopify format
-        const shopifyRow = mapRtoShopify(rRow);
-        
-        // Step 2: Fetch rates from EasyPost
-        const { shipmentId, rates } = await fetchEasyPostRates(shopifyRow);
-        
-        if (rates.length === 0) {
-          throw new Error('No rates available for this shipment');
-        }
-        
-        // Step 3: Select rate based on carrier preference
-        const selectedRate = selectRate(rates, carrier);
-        
-        if (!selectedRate) {
-          throw new Error(`No rates found for carrier: ${carrier}`);
-        }
-        
-        // Step 4: Create processed shipment data
-        const processedShipment: ProcessedShipment = {
-          shipmentId,
-          toAddress: shopifyRow,
-          selectedRate: {
-            id: selectedRate.id,
-            carrier: selectedRate.carrier,
-            service: selectedRate.service,
-            rate: parseFloat(selectedRate.rate)
-          },
-          originalRow: rRow
-        };
-        
-        // Step 5: Send to DRAID (optional - comment out if not needed)
-        try {
-          await sendToDRAID(processedShipment);
-          console.log(`Successfully sent to DRAID: ${shipmentId}`);
-        } catch (draidError) {
-          console.log(`DRAID sending failed (continuing): ${draidError.message}`);
-          // Continue processing even if DRAID fails
-        }
-        
-        processed.push(processedShipment);
-        
-      } catch (error) {
-        console.error(`Error processing row ${i + 1}:`, error);
-        failed.push({
-          row: rRow,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-      }
-    }
-
-    console.log(`Bulk shipping complete: ${processed.length} processed, ${failed.length} failed`);
-
+    // Step 1: Transform R-format to Shopify format
+    const shopifyRows: ShopifyRow[] = rows.map(rRow => mapRtoShopify(rRow));
+    
+    // Step 2: Generate EasyPost CSV
+    const csvContent = generateEasyPostCSV(shopifyRows);
+    
+    console.log('Generated CSV content for batch label creation');
+    
+    // Step 3: Return CSV content for frontend to upload
     return new Response(
       JSON.stringify({
-        processed,
-        failed,
-        summary: {
-          total: rows.length,
-          successful: processed.length,
-          failed: failed.length
-        }
+        success: true,
+        csvContent,
+        rowCount: rows.length,
+        message: `Processed ${rows.length} Shopify orders and generated CSV for batch label creation`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

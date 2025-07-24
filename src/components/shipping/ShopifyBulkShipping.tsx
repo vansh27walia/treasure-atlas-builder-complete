@@ -95,16 +95,23 @@ const ShopifyBulkShipping: React.FC = () => {
       const selectedOrdersData = Array.from(selectedOrders).map(index => orders[index]);
       const result = await processBulkShipping(selectedOrdersData, selectedCarrier);
       
-      // Store results in sessionStorage for the batch label page
-      sessionStorage.setItem('bulkShippingResults', JSON.stringify(result));
+      // Store CSV content and redirect to existing bulk upload page
+      sessionStorage.setItem('csvContent', result.csvContent);
+      sessionStorage.setItem('csvFilename', `shopify-orders-${Date.now()}.csv`);
+      sessionStorage.setItem('fromAddress', JSON.stringify({
+        name: "Shopify Warehouse",
+        company: "Your Company",
+        street1: "123 Warehouse St",
+        street2: "",
+        city: "Los Angeles",
+        state: "CA",
+        zip: "90210",
+        country: "US",
+        phone: "555-123-4567"
+      }));
       
-      // Navigate to batch label creation page
-      navigate('/bulk-upload', { 
-        state: { 
-          bulkShippingResults: result,
-          mode: 'shopify-bulk'
-        }
-      });
+      // Navigate to existing bulk upload page
+      navigate('/bulk-upload');
       
     } catch (error) {
       console.error('Error shipping selected orders:', error);

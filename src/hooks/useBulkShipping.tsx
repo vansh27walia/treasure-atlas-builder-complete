@@ -19,26 +19,11 @@ export interface RRow {
   order_reference?: string;
 }
 
-export interface ProcessedShipment {
-  shipmentId: string;
-  toAddress: any;
-  selectedRate: {
-    id: string;
-    carrier: string;
-    service: string;
-    rate: number;
-  };
-  originalRow: RRow;
-}
-
 export interface BulkShippingResult {
-  processed: ProcessedShipment[];
-  failed: Array<{ row: RRow; error: string }>;
-  summary: {
-    total: number;
-    successful: number;
-    failed: number;
-  };
+  success: boolean;
+  csvContent: string;
+  rowCount: number;
+  message: string;
 }
 
 export const useBulkShipping = () => {
@@ -53,7 +38,7 @@ export const useBulkShipping = () => {
     setResults(null);
 
     try {
-      console.log('Starting bulk shipping process...');
+      console.log('Starting Shopify bulk shipping process...');
       
       const { data, error } = await supabase.functions.invoke('bulk-ship', {
         body: {
@@ -67,17 +52,10 @@ export const useBulkShipping = () => {
         throw new Error(error.message || 'Failed to process bulk shipping');
       }
 
-      console.log('Bulk shipping completed:', data);
+      console.log('Shopify bulk shipping completed:', data);
       
       setResults(data);
-      
-      if (data.summary.successful > 0) {
-        toast.success(`Successfully processed ${data.summary.successful} out of ${data.summary.total} shipments`);
-      }
-      
-      if (data.summary.failed > 0) {
-        toast.error(`${data.summary.failed} shipments failed to process`);
-      }
+      toast.success(data.message || 'Shopify orders processed successfully');
       
       return data;
       
