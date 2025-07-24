@@ -48,8 +48,9 @@ const ShopifyBulkShipping: React.FC = () => {
   const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set());
   const [selectedCarrier, setSelectedCarrier] = useState<string>('all');
   const [isImporting, setIsImporting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   
-  const { isProcessing, processBulkShipping } = useBulkShipping();
+  const { processBulkShipping } = useBulkShipping();
   const navigate = useNavigate();
 
   const handleImportShopifyData = async () => {
@@ -91,9 +92,14 @@ const ShopifyBulkShipping: React.FC = () => {
       return;
     }
 
+    setIsProcessing(true);
+    
     try {
       console.log('Starting Shopify bulk shipping process...');
       const selectedOrdersData = Array.from(selectedOrders).map(index => orders[index]);
+      
+      // Show processing toast
+      toast.loading('Processing Shopify orders...', { id: 'shopify-processing' });
       
       // Call backend to transform Shopify data to EasyPost CSV format
       const result = await processBulkShipping(selectedOrdersData, selectedCarrier);
@@ -101,9 +107,10 @@ const ShopifyBulkShipping: React.FC = () => {
       console.log('Shopify bulk shipping result:', result);
       
       if (result.success) {
-        // Store the CSV content in session storage for the bulk upload page
+        // Store the CSV content and metadata in session storage
         sessionStorage.setItem('csvContent', result.csvContent);
         sessionStorage.setItem('csvFilename', `shopify-orders-${Date.now()}.csv`);
+        sessionStorage.setItem('isFromShopify', 'true');
         
         // Set default from address for Shopify warehouse
         sessionStorage.setItem('fromAddress', JSON.stringify({
@@ -118,17 +125,26 @@ const ShopifyBulkShipping: React.FC = () => {
           phone: "555-123-4567"
         }));
         
+        // Dismiss loading toast
+        toast.dismiss('shopify-processing');
         toast.success(`${selectedOrders.size} orders processed successfully! Redirecting to rate fetching...`);
         
-        // Navigate to the bulk upload page which will automatically start the rate fetching process
-        navigate('/bulk-upload');
+        // Small delay to show success message, then redirect
+        setTimeout(() => {
+          navigate('/bulk-upload');
+        }, 1000);
+        
       } else {
+        toast.dismiss('shopify-processing');
         toast.error('Failed to process Shopify orders');
       }
       
     } catch (error) {
       console.error('Error shipping selected orders:', error);
+      toast.dismiss('shopify-processing');
       toast.error('Failed to process selected orders');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -172,6 +188,7 @@ const ShopifyBulkShipping: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={handleSelectAll}
+                    disabled={isProcessing}
                   >
                     {selectedOrders.size === orders.length ? 'Deselect All' : 'Select All'}
                   </Button>
@@ -181,7 +198,7 @@ const ShopifyBulkShipping: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  <Select value={selectedCarrier} onValueChange={setSelectedCarrier}>
+                  <Select value={selectedCarrier} onValueChange={setSelectedCarrier} disabled={isProcessing}>
                     <SelectTrigger className="w-32">
                       <SelectValue placeholder="Carrier" />
                     </SelectTrigger>
@@ -197,7 +214,7 @@ const ShopifyBulkShipping: React.FC = () => {
                   <Button
                     onClick={handleShipSelected}
                     disabled={selectedOrders.size === 0 || isProcessing}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
                   >
                     {isProcessing ? (
                       <>
@@ -231,6 +248,7 @@ const ShopifyBulkShipping: React.FC = () => {
                       <Checkbox
                         checked={selectedOrders.has(index)}
                         onCheckedChange={(checked) => handleOrderSelection(index, checked as boolean)}
+                        disabled={isProcessing}
                       />
                     </div>
                     <div className="col-span-2 font-medium">{order.order_reference}</div>

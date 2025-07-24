@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, ArrowLeft, Loader2, ShoppingCart } from 'lucide-react';
+import { Upload, FileText, ArrowLeft, Loader2, ShoppingCart, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBulkShippingProcessor } from '@/hooks/useBulkShippingProcessor';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -16,6 +16,7 @@ const BulkUploadView: React.FC = () => {
   const [fromAddress, setFromAddress] = useState<any>(null);
   const [showResults, setShowResults] = useState(false);
   const [isFromShopify, setIsFromShopify] = useState(false);
+  const [isProcessingShopify, setIsProcessingShopify] = useState(false);
   
   const { 
     isProcessing, 
@@ -27,18 +28,20 @@ const BulkUploadView: React.FC = () => {
   const { handleUpload } = useShipmentUpload();
   const { addresses } = usePickupAddresses();
 
-  // Check if we're coming from Shopify bulk shipping and auto-start the process
+  // Check if we're coming from Shopify bulk shipping
   useEffect(() => {
     const savedCsvContent = sessionStorage.getItem('csvContent');
     const savedFilename = sessionStorage.getItem('csvFilename');
     const savedFromAddress = sessionStorage.getItem('fromAddress');
+    const fromShopify = sessionStorage.getItem('isFromShopify') === 'true';
     
-    if (savedCsvContent && savedFilename) {
-      console.log('Found CSV content from Shopify, auto-starting upload process...');
+    if (savedCsvContent && savedFilename && fromShopify) {
+      console.log('Detected Shopify bulk shipping data, starting auto-processing...');
       
       setCsvContent(savedCsvContent);
       setFilename(savedFilename);
       setIsFromShopify(true);
+      setIsProcessingShopify(true);
       
       // Use saved from address or default pickup address
       let pickupAddress = null;
@@ -50,31 +53,43 @@ const BulkUploadView: React.FC = () => {
       
       setFromAddress(pickupAddress);
       
-      // Auto-start the upload process
+      // Auto-start the processing
       if (pickupAddress) {
-        console.log('Auto-starting bulk upload process with pickup address:', pickupAddress);
-        autoStartUpload(savedCsvContent, savedFilename, pickupAddress);
+        console.log('Auto-starting Shopify bulk processing...');
+        autoStartShopifyProcessing(savedCsvContent, savedFilename, pickupAddress);
       } else {
         toast.error('No pickup address found. Please set a pickup address in settings.');
+        setIsProcessingShopify(false);
       }
     }
   }, [addresses]);
 
-  const autoStartUpload = async (csvContent: string, filename: string, pickupAddress: any) => {
+  const autoStartShopifyProcessing = async (csvContent: string, filename: string, pickupAddress: any) => {
     try {
-      console.log('Starting auto-upload process...');
+      console.log('Starting Shopify auto-processing...');
+      
+      // Show processing status
+      toast.loading('Processing Shopify orders and fetching rates...', { id: 'shopify-auto-process' });
       
       // Create a File object from the CSV content
       const csvFile = new File([csvContent], filename, { type: 'text/csv' });
       
-      // Use the existing upload logic from useShipmentUpload
+      // Use the existing upload logic
       await handleUpload(csvFile, pickupAddress);
       
-      toast.success('Shopify orders processed successfully! Fetching rates...');
+      // Dismiss loading toast
+      toast.dismiss('shopify-auto-process');
+      toast.success('Shopify orders processed successfully! Rates fetched.');
+      
+      // Move to results view
+      setShowResults(true);
       
     } catch (error) {
-      console.error('Error in auto-upload:', error);
+      console.error('Error in Shopify auto-processing:', error);
+      toast.dismiss('shopify-auto-process');
       toast.error('Failed to process Shopify orders');
+    } finally {
+      setIsProcessingShopify(false);
     }
   };
 
@@ -118,18 +133,20 @@ const BulkUploadView: React.FC = () => {
   const handleBack = () => {
     setShowResults(false);
     setIsFromShopify(false);
+    setIsProcessingShopify(false);
     setCsvContent('');
     setFilename('');
     sessionStorage.removeItem('csvContent');
     sessionStorage.removeItem('csvFilename');
     sessionStorage.removeItem('fromAddress');
+    sessionStorage.removeItem('isFromShopify');
   };
 
   const handleRateSelection = (shipmentId: string, rateId: string) => {
     console.log('Rate selected:', { shipmentId, rateId });
-    // This will be handled by the BulkResults component
   };
 
+  // Show results if we have them
   if (showResults && results) {
     return (
       <div className="space-y-6">
@@ -155,72 +172,86 @@ const BulkUploadView: React.FC = () => {
     );
   }
 
+  // Show Shopify processing screen
+  if (isFromShopify && isProcessingShopify) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShoppingCart className="h-5 w-5" />
+              Processing Shopify Orders
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-12">
+              <div className="relative">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-6"></div>
+                <Package className="h-8 w-8 absolute top-4 left-1/2 transform -translate-x-1/2 text-blue-500 animate-pulse" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3">Processing Your Shopify Orders</h3>
+              <p className="text-gray-600 mb-4">
+                Converting Shopify data to EasyPost format and fetching live shipping rates...
+              </p>
+              <div className="bg-blue-50 rounded-lg p-4 max-w-md mx-auto">
+                <p className="text-sm text-blue-800">
+                  <strong>Processing:</strong> {filename}
+                </p>
+                <p className="text-sm text-blue-600 mt-1">
+                  {csvContent.split('\n').length - 1} orders being processed
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show regular upload interface
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            {isFromShopify ? (
-              <>
-                <ShoppingCart className="h-5 w-5" />
-                Shopify Bulk Processing
-              </>
-            ) : (
-              <>
-                <Upload className="h-5 w-5" />
-                Bulk CSV Upload
-              </>
-            )}
+            <Upload className="h-5 w-5" />
+            Bulk CSV Upload
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isFromShopify ? (
-            <div className="text-center py-8">
-              <div className="animate-pulse">
-                <Loader2 className="h-12 w-12 mx-auto text-blue-500 animate-spin mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Processing Shopify Orders</h3>
-                <p className="text-gray-600">
-                  Converting Shopify data to EasyPost format and fetching rates...
-                </p>
+          <CSVUploader onFileUpload={handleFileUpload} />
+          
+          {csvContent && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <FileText className="h-4 w-4" />
+                <span>File: {filename}</span>
+                <span>({csvContent.split('\n').length - 1} rows)</span>
               </div>
-            </div>
-          ) : (
-            <>
-              <CSVUploader onFileUpload={handleFileUpload} />
               
-              {csvContent && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <FileText className="h-4 w-4" />
-                    <span>File: {filename}</span>
-                    <span>({csvContent.split('\n').length - 1} rows)</span>
-                  </div>
-                  
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium mb-2">CSV Preview:</h4>
-                    <pre className="text-xs text-gray-700 overflow-x-auto">
-                      {csvContent.split('\n').slice(0, 5).join('\n')}
-                      {csvContent.split('\n').length > 5 && '\n...'}
-                    </pre>
-                  </div>
-                  
-                  <Button 
-                    onClick={handleProcessBulkShipping}
-                    disabled={isProcessing}
-                    className="w-full"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Processing Shipments...
-                      </>
-                    ) : (
-                      'Process Bulk Shipping'
-                    )}
-                  </Button>
-                </div>
-              )}
-            </>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-2">CSV Preview:</h4>
+                <pre className="text-xs text-gray-700 overflow-x-auto">
+                  {csvContent.split('\n').slice(0, 5).join('\n')}
+                  {csvContent.split('\n').length > 5 && '\n...'}
+                </pre>
+              </div>
+              
+              <Button 
+                onClick={handleProcessBulkShipping}
+                disabled={isProcessing}
+                className="w-full"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Processing Shipments...
+                  </>
+                ) : (
+                  'Process Bulk Shipping'
+                )}
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
