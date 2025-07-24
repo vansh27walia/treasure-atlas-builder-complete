@@ -17,6 +17,7 @@ const BulkUploadView: React.FC = () => {
   const [showResults, setShowResults] = useState(false);
   const [isFromShopify, setIsFromShopify] = useState(false);
   const [shopifyOrderCount, setShopifyOrderCount] = useState(0);
+  const [shopifyCarrier, setShopifyCarrier] = useState<string>('all');
   
   const { 
     isProcessing, 
@@ -35,46 +36,47 @@ const BulkUploadView: React.FC = () => {
 
   // Check if we're coming from Shopify bulk shipping
   useEffect(() => {
-    const savedCsvContent = sessionStorage.getItem('csvContent');
-    const savedFilename = sessionStorage.getItem('csvFilename');
-    const savedFromAddress = sessionStorage.getItem('fromAddress');
-    const fromShopify = sessionStorage.getItem('isFromShopify') === 'true';
-    const orderCount = parseInt(sessionStorage.getItem('shopifyOrderCount') || '0');
+    const shopifyBatchCsvContent = sessionStorage.getItem('shopifyBatchCsvContent');
+    const shopifyBatchFilename = sessionStorage.getItem('shopifyBatchFilename');
+    const shopifyBatchFromAddress = sessionStorage.getItem('shopifyBatchFromAddress');
+    const shopifyBatchOrderCount = parseInt(sessionStorage.getItem('shopifyBatchOrderCount') || '0');
+    const shopifyBatchCarrier = sessionStorage.getItem('shopifyBatchCarrier') || 'all';
     
-    if (savedCsvContent && savedFilename && fromShopify) {
-      console.log('Detected Shopify bulk shipping data, starting auto-processing...');
+    if (shopifyBatchCsvContent && shopifyBatchFilename && shopifyBatchOrderCount > 0) {
+      console.log('Detected Shopify batch shipping data, starting auto-processing...');
       
-      setCsvContent(savedCsvContent);
-      setFilename(savedFilename);
+      setCsvContent(shopifyBatchCsvContent);
+      setFilename(shopifyBatchFilename);
       setIsFromShopify(true);
-      setShopifyOrderCount(orderCount);
+      setShopifyOrderCount(shopifyBatchOrderCount);
+      setShopifyCarrier(shopifyBatchCarrier);
       
       // Use saved from address or default pickup address
       let pickupAddress = null;
-      if (savedFromAddress) {
-        pickupAddress = JSON.parse(savedFromAddress);
+      if (shopifyBatchFromAddress) {
+        pickupAddress = JSON.parse(shopifyBatchFromAddress);
       } else if (addresses.length > 0) {
         pickupAddress = addresses[0];
       }
       
       setFromAddress(pickupAddress);
       
-      // Auto-start the processing with EasyPost upload
+      // Auto-start the processing with EasyPost upload (skip header mapping)
       if (pickupAddress) {
-        console.log('Auto-starting Shopify bulk processing with EasyPost...');
-        autoStartShopifyProcessing(savedCsvContent, savedFilename, pickupAddress);
+        console.log('Auto-starting Shopify batch processing with EasyPost...');
+        autoStartShopifyBatchProcessing(shopifyBatchCsvContent, shopifyBatchFilename, pickupAddress);
       } else {
         toast.error('No pickup address found. Please set a pickup address in settings.');
       }
     }
   }, [addresses]);
 
-  const autoStartShopifyProcessing = async (csvContent: string, filename: string, pickupAddress: any) => {
+  const autoStartShopifyBatchProcessing = async (csvContent: string, filename: string, pickupAddress: any) => {
     try {
-      console.log('Starting Shopify auto-processing with EasyPost CSV...');
+      console.log('Starting Shopify batch auto-processing with EasyPost CSV...');
       
       // Show processing status
-      const processingToastId = toast.loading('Processing Shopify orders and fetching live rates from EasyPost...', {
+      const processingToastId = toast.loading('Processing Shopify batch orders and fetching live rates from EasyPost...', {
         duration: 0
       });
       
@@ -85,7 +87,7 @@ const BulkUploadView: React.FC = () => {
       await handleUpload(csvFile, pickupAddress);
       
       // Update processing status
-      toast.success('Shopify orders processed and rates fetched successfully!', {
+      toast.success('Shopify batch orders processed and rates fetched successfully!', {
         id: processingToastId
       });
       
@@ -93,8 +95,8 @@ const BulkUploadView: React.FC = () => {
       setShowResults(true);
       
     } catch (error) {
-      console.error('Error in Shopify auto-processing:', error);
-      toast.error('Failed to process Shopify orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error('Error in Shopify batch auto-processing:', error);
+      toast.error('Failed to process Shopify batch orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
 
@@ -140,11 +142,15 @@ const BulkUploadView: React.FC = () => {
     setIsFromShopify(false);
     setCsvContent('');
     setFilename('');
+    
+    // Clear session storage
     sessionStorage.removeItem('csvContent');
     sessionStorage.removeItem('csvFilename');
-    sessionStorage.removeItem('fromAddress');
-    sessionStorage.removeItem('isFromShopify');
-    sessionStorage.removeItem('shopifyOrderCount');
+    sessionStorage.removeItem('shopifyBatchCsvContent');
+    sessionStorage.removeItem('shopifyBatchFilename');
+    sessionStorage.removeItem('shopifyBatchFromAddress');
+    sessionStorage.removeItem('shopifyBatchOrderCount');
+    sessionStorage.removeItem('shopifyBatchCarrier');
   };
 
   const handleRateSelection = (shipmentId: string, rateId: string) => {
@@ -190,7 +196,7 @@ const BulkUploadView: React.FC = () => {
             Back to Upload
           </Button>
           <h2 className="text-xl font-semibold">
-            {isFromShopify ? `Shopify Bulk Shipping Results (${shopifyOrderCount} orders)` : 'Bulk Shipping Results'}
+            {isFromShopify ? `Shopify Batch Shipping Results (${shopifyOrderCount} orders)` : 'Bulk Shipping Results'}
           </h2>
         </div>
         
@@ -198,10 +204,11 @@ const BulkUploadView: React.FC = () => {
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
             <div className="flex items-center gap-2 text-green-800">
               <CheckCircle className="h-4 w-4" />
-              <span className="font-medium">Shopify Orders Processed Successfully!</span>
+              <span className="font-medium">Shopify Batch Orders Processed Successfully!</span>
             </div>
             <p className="text-sm text-green-700 mt-1">
               {shopifyOrderCount} orders converted to EasyPost format and rates fetched automatically
+              {shopifyCarrier !== 'all' && ` (filtered for ${shopifyCarrier.toUpperCase()})`}
             </p>
           </div>
         )}
@@ -214,7 +221,7 @@ const BulkUploadView: React.FC = () => {
     );
   }
 
-  // Show processing screen for Shopify orders
+  // Show processing screen for Shopify batch orders
   if (isFromShopify && (uploadStatus === 'uploading' || uploadStatus === 'creating-labels')) {
     return (
       <div className="space-y-6">
@@ -222,7 +229,7 @@ const BulkUploadView: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ShoppingCart className="h-5 w-5" />
-              Processing Shopify Orders
+              Processing Shopify Batch Orders
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -231,7 +238,7 @@ const BulkUploadView: React.FC = () => {
                 <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto"></div>
                 <Package className="h-8 w-8 absolute top-4 left-1/2 transform -translate-x-1/2 text-blue-500 animate-pulse" />
               </div>
-              <h3 className="text-xl font-semibold mb-3">🚀 Processing Your Shopify Orders</h3>
+              <h3 className="text-xl font-semibold mb-3">🚀 Processing Your Shopify Batch Orders</h3>
               <p className="text-gray-600 mb-6">
                 Converting Shopify data to EasyPost format and fetching live shipping rates...
               </p>
@@ -244,8 +251,13 @@ const BulkUploadView: React.FC = () => {
                     📦 Orders: {shopifyOrderCount} orders being processed
                   </p>
                   <p className="text-sm text-blue-600">
-                    🔄 Status: Converting headers and fetching rates
+                    🔄 Status: Headers mapped, fetching rates
                   </p>
+                  {shopifyCarrier !== 'all' && (
+                    <p className="text-sm text-blue-600">
+                      🚚 Carrier: {shopifyCarrier.toUpperCase()} only
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="mt-6 flex items-center justify-center gap-2 text-sm text-gray-500">

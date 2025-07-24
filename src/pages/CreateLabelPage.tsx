@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
@@ -8,6 +7,9 @@ import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 import RatePreferenceSelector from '@/components/shipping/RatePreferenceSelector';
 import { useShippingRates } from '@/hooks/useShippingRates';
+import { Button } from '@/components/ui/button';
+import { Brain } from 'lucide-react';
+import AIRateAdvisorSidebar from '@/components/shipping/AIRateAdvisorSidebar';
 
 const CreateLabelPage = () => {
   const {
@@ -19,6 +21,8 @@ const CreateLabelPage = () => {
   const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [selectedPreference, setSelectedPreference] = useState<string>('');
+  const [showAIRateAdvisor, setShowAIRateAdvisor] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState<string>('');
 
   const handleRatesReorder = (reorderedRates: any[]) => {
     console.log('Reordering rates:', reorderedRates);
@@ -41,6 +45,31 @@ const CreateLabelPage = () => {
     setShowAIPanel(false);
   };
 
+  const handleAIRateAdvisorToggle = () => {
+    setShowAIRateAdvisor(!showAIRateAdvisor);
+  };
+
+  const handleAIFilterChange = (filter: string) => {
+    setSelectedFilter(filter);
+    
+    // Handle carrier filter
+    if (filter.startsWith('carrier-')) {
+      const carrier = filter.replace('carrier-', '');
+      if (carrier === 'all') {
+        handleFilterByCarrier('');
+      } else {
+        handleFilterByCarrier(carrier);
+      }
+    }
+  };
+
+  const handleAIRateSelect = (rateId: string) => {
+    const rate = rates.find(r => r.id === rateId);
+    if (rate) {
+      handleRateSelected(rate);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Sticky Workflow Tracker */}
@@ -59,12 +88,20 @@ const CreateLabelPage = () => {
           </div>
 
           {/* AI Rate Preference Selector - Top Level */}
-          <div className="mb-6">
+          <div className="mb-6 flex items-center justify-between">
             <RatePreferenceSelector onPreferenceSelect={handlePreferenceSelect} />
+            <Button
+              variant="outline"
+              onClick={handleAIRateAdvisorToggle}
+              className="flex items-center gap-2"
+            >
+              <Brain className="h-4 w-4" />
+              AI Rate Advisor
+            </Button>
           </div>
 
           {/* Dynamic Layout Based on AI Panel State */}
-          <div className={`transition-all duration-300 ${showAIPanel ? 'grid grid-cols-1 lg:grid-cols-4 gap-8' : 'grid grid-cols-1'}`}>
+          <div className={`transition-all duration-300 ${showAIPanel ? 'grid grid-cols-1 lg:grid-cols-4 gap-8' : 'grid grid-cols-1'} ${showAIRateAdvisor ? 'mr-96' : ''}`}>
             {/* Main Content Area */}
             <div className={`${showAIPanel ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-8`}>
               {/* Main Form Section */}
@@ -111,6 +148,16 @@ const CreateLabelPage = () => {
           </div>
         </div>
       </div>
+
+      {/* AI Rate Advisor Sidebar */}
+      <AIRateAdvisorSidebar
+        isOpen={showAIRateAdvisor}
+        onClose={() => setShowAIRateAdvisor(false)}
+        rates={rates || []}
+        onRateSelect={handleAIRateSelect}
+        onFilterChange={handleAIFilterChange}
+        selectedFilter={selectedFilter}
+      />
 
       {/* Rate Calculator Modal */}
       <RateCalculatorModal
