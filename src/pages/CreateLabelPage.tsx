@@ -1,45 +1,85 @@
-
 import React, { useState } from 'react';
-import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
-import EnhancedRateDisplay from '@/components/shipping/EnhancedRateDisplay';
+import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
+import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
+import AIPoweredSidePanel from '@/components/shipping/AIPoweredSidePanel';
+import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
+import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
+import RatePreferenceSelector from '@/components/shipping/RatePreferenceSelector';
 import { useShippingRates } from '@/hooks/useShippingRates';
-
 const CreateLabelPage = () => {
-  const { rates } = useShippingRates();
-
-  return (
-    <div className="min-h-screen bg-background">
+  const {
+    rates,
+    handleSelectRate,
+    handleFilterByCarrier
+  } = useShippingRates();
+  const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
+  const [showAIPanel, setShowAIPanel] = useState(false);
+  const [selectedPreference, setSelectedPreference] = useState<string>('');
+  const handleRatesReorder = (reorderedRates: any[]) => {
+    console.log('Reordering rates:', reorderedRates);
+  };
+  const handleRateSelected = (rate: any) => {
+    console.log('Rate selected in CreateLabelPage:', rate);
+    handleSelectRate(rate);
+    // Show AI panel when rate is selected
+    setShowAIPanel(true);
+  };
+  const handlePreferenceSelect = (preference: string) => {
+    setSelectedPreference(preference);
+    console.log('AI preference selected:', preference);
+    // Apply preference logic here
+  };
+  const handleCloseAIPanel = () => {
+    setShowAIPanel(false);
+  };
+  return <div className="min-h-screen bg-background">
       {/* Sticky Workflow Tracker */}
-      <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-sm border-b">
+      <div className="sticky top-0 z-50 bg-transparent">
         <EnhancedWorkflowTracker currentStep="package" />
       </div>
       
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-7xl mx-auto space-y-8">
+        <div className="max-w-7xl mx-auto">
           {/* Header Section */}
-          <div className="text-center">
+          <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>
             <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
-              Get competitive rates from multiple carriers with AI-powered recommendations and create professional shipping labels.
+              Get competitive rates from multiple carriers and create professional shipping labels with AI-powered assistance.
             </p>
           </div>
 
-          {/* Main Form Section */}
-          <div className="bg-white rounded-xl shadow-lg border">
-            <EnhancedShippingForm />
+          {/* AI Rate Preference Selector - Top Level */}
+          <div className="mb-6">
+            <RatePreferenceSelector onPreferenceSelect={handlePreferenceSelect} />
           </div>
-          
-          {/* Enhanced Rate Display Section */}
-          {rates.length > 0 && (
-            <div id="shipping-rates-section" className="bg-white rounded-xl shadow-lg border p-6">
-              <EnhancedRateDisplay />
+
+          {/* Dynamic Layout Based on AI Panel State */}
+          <div className={`transition-all duration-300 ${showAIPanel ? 'grid grid-cols-1 lg:grid-cols-4 gap-8' : 'grid grid-cols-1'}`}>
+            {/* Main Content Area */}
+            <div className={`${showAIPanel ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-8`}>
+              {/* Main Form Section */}
+              <div className="bg-white rounded-xl shadow-lg border">
+                <EnhancedShippingForm />
+              </div>
+              
+              {/* Shipping Rates Section */}
+              <div id="shipping-rates-section">
+                <ShippingRates rates={rates || []} onRateSelected={handleRateSelected} loading={false} />
+              </div>
             </div>
-          )}
+
+            {/* AI-Powered Side Panel - Conditionally Rendered */}
+            {showAIPanel}
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
 
+      {/* Rate Calculator Modal */}
+      <RateCalculatorModal isOpen={isRateCalculatorOpen} onClose={() => setIsRateCalculatorOpen(false)} />
+
+      {/* ShipAI Chatbot */}
+      <ShipAIChatbot />
+    </div>;
+};
 export default CreateLabelPage;
