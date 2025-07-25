@@ -44,7 +44,7 @@ interface ShippingFormData {
 }
 
 const EnhancedShippingForm: React.FC = () => {
-  const { addresses, addAddress, isLoading: addressLoading } = usePickupAddresses();
+  const { addresses, createAddress, isLoading: addressLoading } = usePickupAddresses();
   const [isLoadingRates, setIsLoadingRates] = useState(false);
   const [selectedPickupAddress, setSelectedPickupAddress] = useState<string>('');
   const [savePickupAddress, setSavePickupAddress] = useState(false);
@@ -91,7 +91,7 @@ const EnhancedShippingForm: React.FC = () => {
   };
 
   const handleSavedAddressSelect = (addressId: string) => {
-    const selectedAddress = addresses.find(addr => addr.id === addressId);
+    const selectedAddress = addresses.find(addr => addr.id.toString() === addressId);
     if (selectedAddress) {
       setFormData(prev => ({
         ...prev,
@@ -118,7 +118,7 @@ const EnhancedShippingForm: React.FC = () => {
     }
 
     try {
-      await addAddress({
+      await createAddress({
         name: formData.fromAddress.name,
         company: formData.fromAddress.company,
         street1: formData.fromAddress.street1,
@@ -198,7 +198,7 @@ const EnhancedShippingForm: React.FC = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {addresses.map((address) => (
-                        <SelectItem key={address.id} value={address.id}>
+                        <SelectItem key={address.id} value={address.id.toString()}>
                           {address.name} - {address.street1}, {address.city}
                         </SelectItem>
                       ))}
