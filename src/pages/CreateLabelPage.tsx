@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
@@ -93,27 +92,27 @@ const CreateLabelPage = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Sticky Workflow Tracker */}
-      <div className="sticky top-0 z-40 bg-transparent">
+      <div className="sticky top-0 z-50 bg-transparent">
         <EnhancedWorkflowTracker currentStep="package" />
       </div>
       
-      {/* Main Content Container - Adjusts when AI panel is open */}
-      <div className={`transition-all duration-300 ${showAIPanel ? 'mr-96' : 'mr-0'}`}>
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-7xl mx-auto">
-            {/* Header Section */}
-            <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>
-              <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
-                Get competitive rates from multiple carriers and create professional shipping labels with AI-powered assistance.
-              </p>
-            </div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Header Section */}
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>
+            <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
+              Get competitive rates from multiple carriers and create professional shipping labels with AI-powered assistance.
+            </p>
+          </div>
 
-            {/* AI Rate Preference Selector - Top Level */}
-            <div className="mb-6">
-              <RatePreferenceSelector onPreferenceSelect={handlePreferenceSelect} />
-            </div>
+          {/* AI Rate Preference Selector - Top Level */}
+          <div className="mb-6">
+            <RatePreferenceSelector onPreferenceSelect={handlePreferenceSelect} />
+          </div>
 
+          {/* Main Layout with AI Panel Consideration */}
+          <div className={`transition-all duration-300 ${showAIPanel ? 'mr-96' : ''}`}>
             {/* Main Form Section */}
             <div className="bg-white rounded-xl shadow-lg border mb-8">
               <EnhancedShippingForm />
@@ -145,7 +144,7 @@ const CreateLabelPage = () => {
         </div>
       </div>
 
-      {/* AI Rate Analysis Panel - Fixed positioning */}
+      {/* AI Rate Analysis Panel */}
       <ImprovedAIRatePanel
         isOpen={showAIPanel}
         onClose={handleCloseAIPanel}
