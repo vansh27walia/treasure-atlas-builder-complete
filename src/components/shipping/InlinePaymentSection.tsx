@@ -1,192 +1,154 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Shield, CreditCard, Lock, CheckCircle } from 'lucide-react';
-import { toast } from '@/components/ui/sonner';
-import { supabase } from '@/integrations/supabase/client';
-import PaymentMethodSelector from '../payment/PaymentMethodSelector';
+import { CreditCard, Shield, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
+import { useShippingRates } from '@/hooks/useShippingRates';
 
 interface InlinePaymentSectionProps {
   selectedRate: any;
-  shipmentDetails: any;
-  onPaymentSuccess: (data: any) => void;
-  insuranceAmount?: number;
-  isCreatingLabel?: boolean;
+  onProceedToPayment: () => void;
 }
 
 const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
   selectedRate,
-  shipmentDetails,
-  onPaymentSuccess,
-  insuranceAmount = 100,
-  isCreatingLabel = false
+  onProceedToPayment
 }) => {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
-  const [isCreatingLabelState, setIsCreatingLabelState] = useState(false);
+  const { isProcessingPayment } = useShippingRates();
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'bank'>('card');
 
-  const shippingCost = parseFloat(selectedRate.rate);
-  const insuranceCost = 2.00; // Fixed $2 insurance cost
-  const totalCost = shippingCost + insuranceCost;
+  if (!selectedRate) return null;
 
-  // Auto-scroll to payment section when it appears
-  useEffect(() => {
-    const paymentSection = document.getElementById('payment-section');
-    if (paymentSection) {
-      setTimeout(() => {
-        paymentSection.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        });
-      }, 300);
-    }
-  }, []);
-
-  const handlePaymentComplete = async (success: boolean, paymentData?: any) => {
-    if (!success) {
-      toast.error('Payment failed. Please try again.');
-      return;
-    }
-
-    setIsProcessing(true);
-    setIsCreatingLabelState(true);
-    
-    try {
-      console.log('Payment successful, creating label...');
-      
-      // Create label automatically after payment
-      const { data, error } = await supabase.functions.invoke('create-label', {
-        body: {
-          shipmentId: shipmentDetails?.id || selectedRate.shipment_id,
-          rateId: selectedRate.id,
-          options: {
-            label_format: 'PDF',
-            label_size: '4x6'
-          }
-        }
-      });
-
-      if (error) {
-        console.error('Label creation error:', error);
-        throw new Error(error.message || 'Failed to create label');
-      }
-
-      console.log('Label created successfully:', data);
-      
-      toast.success('Payment successful! Label created.');
-      
-      // Pass the label data to the parent component
-      onPaymentSuccess({
-        labelUrl: data.labelUrl,
-        trackingCode: data.trackingCode,
-        shipmentId: data.shipmentId,
-        paymentData
-      });
-
-    } catch (error) {
-      console.error('Error creating label:', error);
-      toast.error('Payment successful but failed to create label. Please contact support.');
-    } finally {
-      setIsProcessing(false);
-      setIsCreatingLabelState(false);
-    }
-  };
+  const rate = parseFloat(selectedRate.rate);
+  const tax = rate * 0.08; // 8% tax
+  const total = rate + tax;
 
   return (
-    <div id="payment-section" className="space-y-6">
-      <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 border-2 shadow-lg">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold text-blue-900">Complete Your Order</h3>
-          <div className="flex items-center text-sm text-blue-700">
-            <Lock className="w-4 h-4 mr-1" />
-            Secure Payment
-          </div>
-        </div>
-
-        {/* Order Summary */}
-        <div className="bg-white rounded-lg p-4 mb-6 border border-blue-300">
-          <h4 className="font-semibold text-gray-900 mb-3">Order Summary</h4>
-          
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-700">
+    <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white shadow-xl">
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center gap-2 text-xl">
+          <CreditCard className="w-6 h-6 text-blue-600" />
+          Complete Your Payment
+        </CardTitle>
+      </CardHeader>
+      
+      <CardContent className="space-y-6">
+        {/* Selected Rate Summary */}
+        <div className="bg-white p-4 rounded-lg border border-blue-100">
+          <div className="flex justify-between items-start mb-3">
+            <div>
+              <h3 className="font-semibold text-lg text-gray-900">
                 {selectedRate.carrier} {selectedRate.service}
-              </span>
-              <span className="font-medium">${shippingCost.toFixed(2)}</span>
+              </h3>
+              <p className="text-sm text-gray-600">
+                Delivery: {selectedRate.delivery_days} business days
+              </p>
             </div>
-            
-            <div className="flex justify-between items-center text-green-700">
-              <div className="flex items-center">
-                <Shield className="w-4 h-4 mr-1" />
-                <span>Insurance (${insuranceAmount} coverage)</span>
-              </div>
-              <span className="font-medium">${insuranceCost.toFixed(2)}</span>
+            <Badge variant="secondary" className="bg-green-100 text-green-800">
+              Selected
+            </Badge>
+          </div>
+          
+          {/* Price Breakdown */}
+          <div className="space-y-2 pt-3 border-t border-gray-100">
+            <div className="flex justify-between text-sm">
+              <span>Shipping Rate</span>
+              <span>${rate.toFixed(2)}</span>
             </div>
-            
-            <Separator className="my-2" />
-            
-            <div className="flex justify-between items-center text-lg font-bold">
+            <div className="flex justify-between text-sm">
+              <span>Tax (8%)</span>
+              <span>${tax.toFixed(2)}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between font-semibold text-lg">
               <span>Total</span>
-              <span>${totalCost.toFixed(2)}</span>
+              <span>${total.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
         {/* Payment Method Selection */}
-        <div className="space-y-4">
-          <div className="flex items-center space-x-2 text-gray-700">
-            <CreditCard className="w-5 h-5" />
-            <span className="font-medium">Payment Method</span>
-          </div>
-          
-          <PaymentMethodSelector
-            selectedPaymentMethod={selectedPaymentMethod}
-            onPaymentMethodChange={setSelectedPaymentMethod}
-            onPaymentComplete={handlePaymentComplete}
-            amount={totalCost}
-            description={`${selectedRate.carrier} ${selectedRate.service} Shipping Label`}
-            disabled={isProcessing || isCreatingLabel || isCreatingLabelState}
-          />
-        </div>
-
-        {(isProcessing || isCreatingLabelState) && (
-          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
-              <span className="text-green-800">
-                {isCreatingLabelState ? 'Creating your shipping label...' : 'Processing payment...'}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Create Label Button - Always visible after payment method selection */}
-        {selectedPaymentMethod && !isProcessing && !isCreatingLabelState && (
-          <div className="mt-6 p-4 bg-green-50 border border-green-300 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-                <span className="text-green-800 font-medium">Ready to create label</span>
+        <div className="space-y-3">
+          <h4 className="font-medium text-gray-900">Payment Method</h4>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              variant={paymentMethod === 'card' ? 'default' : 'outline'}
+              onClick={() => setPaymentMethod('card')}
+              className="flex items-center gap-2 p-4 h-auto"
+            >
+              <CreditCard className="w-5 h-5" />
+              <div className="text-left">
+                <div className="font-medium">Credit Card</div>
+                <div className="text-xs opacity-80">Instant processing</div>
               </div>
-              <Button
-                onClick={() => handlePaymentComplete(true)}
-                className="bg-green-600 hover:bg-green-700 text-white"
-                disabled={isProcessing || isCreatingLabelState}
-              >
-                Create Label Now
-              </Button>
-            </div>
+            </Button>
+            
+            <Button
+              variant={paymentMethod === 'bank' ? 'default' : 'outline'}
+              onClick={() => setPaymentMethod('bank')}
+              className="flex items-center gap-2 p-4 h-auto"
+            >
+              <Shield className="w-5 h-5" />
+              <div className="text-left">
+                <div className="font-medium">Bank Transfer</div>
+                <div className="text-xs opacity-80">Secure payment</div>
+              </div>
+            </Button>
           </div>
-        )}
-
-        {/* Security Notice */}
-        <div className="mt-4 text-xs text-gray-500 text-center">
-          Your payment information is secured with 256-bit SSL encryption
         </div>
-      </Card>
-    </div>
+
+        {/* Security Features */}
+        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+          <div className="flex items-center gap-2 mb-2">
+            <Shield className="w-5 h-5 text-green-600" />
+            <span className="font-medium text-green-800">Secure Payment</span>
+          </div>
+          <ul className="text-sm text-green-700 space-y-1">
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              256-bit SSL encryption
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              PCI DSS compliant
+            </li>
+            <li className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4" />
+              Money-back guarantee
+            </li>
+          </ul>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="space-y-3">
+          <Button
+            onClick={onProceedToPayment}
+            disabled={isProcessingPayment}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold shadow-lg"
+            size="lg"
+          >
+            {isProcessingPayment ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />
+                Processing Payment...
+              </>
+            ) : (
+              <>
+                Pay ${total.toFixed(2)} & Create Label
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </>
+            )}
+          </Button>
+          
+          <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+            <Clock className="w-4 h-4" />
+            <span>Label will be generated instantly after payment</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
