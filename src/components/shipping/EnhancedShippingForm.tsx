@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -127,7 +126,9 @@ const EnhancedShippingForm: React.FC = () => {
         state: formData.fromAddress.state,
         zip: formData.fromAddress.zip,
         country: formData.fromAddress.country,
-        phone: formData.fromAddress.phone
+        phone: formData.fromAddress.phone,
+        is_default_from: false,
+        is_default_to: false
       });
       toast.success('Address saved successfully');
       setSavePickupAddress(false);
