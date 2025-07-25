@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, Truck, Shield, Star, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import InlinePaymentSection from './shipping/InlinePaymentSection';
-import CarrierLogo from './shipping/CarrierLogo';
+import EnhancedCarrierLogo from './shipping/EnhancedCarrierLogo';
 import AIRateAnalysisPanel from './shipping/AIRateAnalysisPanel';
 
 interface ShippingRate {
@@ -28,6 +28,7 @@ interface ShippingRatesProps {
   selectedRateId?: string;
   shipmentDetails?: any;
   insuranceAmount?: number;
+  showEnhancedUI?: boolean;
 }
 
 const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
@@ -36,7 +37,8 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
   loading = false,
   selectedRateId,
   shipmentDetails: propShipmentDetails,
-  insuranceAmount = 2
+  insuranceAmount = 2,
+  showEnhancedUI = false
 }) => {
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
   const [showPayment, setShowPayment] = useState(false);
@@ -101,11 +103,11 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
         };
       case 'DHL':
         return {
-          bg: 'bg-red-50',
-          border: 'border-red-200',
-          text: 'text-red-800',
-          accent: 'bg-red-600',
-          selectedBorder: 'border-red-500'
+          bg: 'bg-yellow-50',
+          border: 'border-yellow-200',
+          text: 'text-yellow-800',
+          accent: 'bg-yellow-600',
+          selectedBorder: 'border-yellow-500'
         };
       case 'USPS':
         return {
@@ -130,7 +132,9 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     console.log('Rate selected:', rate);
     setSelectedRate(rate);
     onRateSelected(rate);
-    setShowAIPanel(true);
+    if (showEnhancedUI) {
+      setShowAIPanel(true);
+    }
   };
 
   const handleOptimizationChange = (filter: string) => {
@@ -190,9 +194,12 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
         {[1, 2, 3].map((i) => (
           <Card key={i} className="p-4 animate-pulse">
             <div className="flex justify-between items-center">
-              <div>
-                <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-32"></div>
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-gray-200 rounded"></div>
+                <div>
+                  <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-32"></div>
+                </div>
               </div>
               <div className="h-6 bg-gray-200 rounded w-16"></div>
             </div>
@@ -221,7 +228,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Select Shipping Method</h3>
         
-        {/* Selected Rate - Prominent Display */}
+        {/* Selected Rate - Prominent Display with Enhanced Logo */}
         {currentSelectedRate && (
           <Card
             className="relative cursor-pointer transition-all duration-200 hover:shadow-lg border-2 border-blue-500 shadow-lg bg-blue-50"
@@ -230,10 +237,14 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
             <div className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <CarrierLogo carrier={currentSelectedRate.carrier} className="w-12 h-12" />
+                  <EnhancedCarrierLogo 
+                    carrier={currentSelectedRate.carrier} 
+                    size="lg"
+                    className="shadow-lg"
+                  />
                   <div className="flex-1">
                     <div className="flex items-center space-x-3">
-                      <h4 className="font-bold text-lg text-blue-800">
+                      <h4 className="font-bold text-xl text-blue-800">
                         {currentSelectedRate.carrier}
                       </h4>
                       <Badge className="bg-blue-600 text-white">SELECTED</Badge>
@@ -244,7 +255,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
                         </Badge>
                       )}
                     </div>
-                    <p className="text-base font-medium text-blue-700 mb-1">
+                    <p className="text-lg font-medium text-blue-700 mb-2">
                       {currentSelectedRate.service}
                     </p>
                     <div className="flex items-center text-sm text-blue-600">
@@ -266,13 +277,13 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
                         </Badge>
                       </div>
                     )}
-                    <div className="text-2xl font-bold text-blue-800">
+                    <div className="text-3xl font-bold text-blue-800">
                       ${parseFloat(currentSelectedRate.rate).toFixed(2)}
                     </div>
                   </div>
                   
                   {currentSelectedRate.delivery_days <= 2 && (
-                    <div className="text-xs text-green-600 font-medium mt-1">
+                    <div className="text-sm text-green-600 font-medium mt-2">
                       Express Delivery
                     </div>
                   )}
@@ -282,7 +293,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
           </Card>
         )}
 
-        {/* Other Rates - Collapsible */}
+        {/* Other Rates - Collapsible with Enhanced Logos */}
         {otherRates.length > 0 && (
           <div className="space-y-2">
             <Button
@@ -308,11 +319,15 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
                     >
                       <div className="p-4">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <CarrierLogo carrier={rate.carrier} className="w-8 h-8" />
+                          <div className="flex items-center space-x-4">
+                            <EnhancedCarrierLogo 
+                              carrier={rate.carrier} 
+                              size="md"
+                              className="shadow-sm"
+                            />
                             <div className="flex-1">
                               <div className="flex items-center space-x-2">
-                                <h4 className={`font-semibold ${colors.text}`}>
+                                <h4 className={`font-semibold text-lg ${colors.text}`}>
                                   {rate.carrier}
                                 </h4>
                                 {rate.isPremium && (
@@ -322,10 +337,10 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-sm font-medium text-gray-600">
+                              <p className="text-sm font-medium text-gray-600 mb-1">
                                 {rate.service}
                               </p>
-                              <div className="flex items-center text-xs mt-1 text-gray-500">
+                              <div className="flex items-center text-xs text-gray-500">
                                 <Clock className="w-3 h-3 mr-1" />
                                 <span>{estimatedDelivery}</span>
                               </div>
@@ -344,7 +359,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
                                   </Badge>
                                 </div>
                               )}
-                              <div className={`text-lg font-bold ${colors.text}`}>
+                              <div className={`text-xl font-bold ${colors.text}`}>
                                 ${parseFloat(rate.rate).toFixed(2)}
                               </div>
                             </div>
@@ -365,14 +380,32 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
           </div>
         )}
 
-        {/* Continue to Payment Button */}
+        {/* Enhanced Continue to Payment Button */}
         {currentSelectedRate && !showPayment && (
-          <Button
-            onClick={() => setShowPayment(true)}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-semibold"
-          >
-            Continue with {currentSelectedRate.carrier} - ${parseFloat(currentSelectedRate.rate).toFixed(2)}
-          </Button>
+          <Card className="p-6 bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-200">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Ready to Ship</h3>
+                <p className="text-sm text-gray-600">
+                  Selected: {currentSelectedRate.carrier} {currentSelectedRate.service}
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-green-600">
+                  ${parseFloat(currentSelectedRate.rate).toFixed(2)}
+                </div>
+                <div className="text-sm text-gray-500">
+                  + ${insuranceAmount.toFixed(2)} insurance
+                </div>
+              </div>
+            </div>
+            <Button
+              onClick={() => setShowPayment(true)}
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-4 text-lg font-semibold shadow-lg"
+            >
+              Continue to Payment - ${(parseFloat(currentSelectedRate.rate) + insuranceAmount).toFixed(2)}
+            </Button>
+          </Card>
         )}
       </div>
 
@@ -382,7 +415,10 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
         allRates={displayRates}
         isOpen={showAIPanel}
         onClose={() => setShowAIPanel(false)}
-        onOptimizationChange={handleOptimizationChange}
+        onOptimizationChange={(filter) => {
+          // Handle optimization change
+          console.log('Optimization changed:', filter);
+        }}
       />
 
       {/* Payment Section */}
