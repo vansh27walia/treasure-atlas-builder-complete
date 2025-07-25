@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useBulkShipping, RRow } from '@/hooks/useBulkShipping';
 import { useNavigate } from 'react-router-dom';
 
+// Mock Shopify data - replace with actual Shopify import
 const mockShopifyOrders: RRow[] = [
   {
     recipient_name: "John Doe",
@@ -56,6 +57,7 @@ const ShopifyBulkShipping: React.FC = () => {
     setIsImporting(true);
     
     try {
+      // Simulate API call to import Shopify data
       await new Promise(resolve => setTimeout(resolve, 1000));
       setOrders(mockShopifyOrders);
       toast.success('Shopify data imported successfully');
@@ -93,25 +95,33 @@ const ShopifyBulkShipping: React.FC = () => {
     setIsProcessing(true);
     
     try {
+      console.log('Starting Shopify bulk shipping process...');
       const selectedOrdersData = Array.from(selectedOrders).map(index => orders[index]);
       
-      const processingToastId = toast.loading('Processing Shopify orders...', {
+      // Show initial processing toast
+      const processingToastId = toast.loading('Processing Shopify orders and converting to EasyPost format...', {
         duration: 0
       });
       
+      // Call backend to transform Shopify data to EasyPost CSV format
+      console.log('Calling processBulkShipping with orders:', selectedOrdersData);
       const result = await processBulkShipping(selectedOrdersData, selectedCarrier);
       
+      console.log('Shopify bulk shipping result:', result);
+      
       if (result.success && result.csvContent) {
-        toast.success('Shopify orders processed successfully!', {
+        // Update toast to show conversion success
+        toast.success('Shopify orders converted to EasyPost format successfully!', {
           id: processingToastId
         });
         
-        // Store data for bulk upload page
+        // Store the CSV content and metadata in session storage for bulk upload
         sessionStorage.setItem('csvContent', result.csvContent);
         sessionStorage.setItem('csvFilename', `shopify-orders-${Date.now()}.csv`);
         sessionStorage.setItem('isFromShopify', 'true');
         sessionStorage.setItem('shopifyOrderCount', selectedOrders.size.toString());
         
+        // Set default from address for Shopify warehouse
         sessionStorage.setItem('fromAddress', JSON.stringify({
           name: "Shopify Warehouse",
           company: "Your Company",
@@ -124,22 +134,24 @@ const ShopifyBulkShipping: React.FC = () => {
           phone: "555-123-4567"
         }));
         
-        toast.success(`${selectedOrders.size} orders ready for shipping!`, {
+        // Success toast with redirect info
+        toast.success(`${selectedOrders.size} orders processed! Redirecting to rate fetching...`, {
           duration: 2000,
           icon: <CheckCircle className="h-4 w-4" />
         });
         
+        // Small delay to show success, then redirect to bulk upload for automatic processing
         setTimeout(() => {
           navigate('/bulk-upload');
         }, 1500);
         
       } else {
-        toast.error('Failed to process orders: ' + (result.message || 'Unknown error'));
+        toast.error('Failed to process Shopify orders: ' + (result.message || 'Unknown error'));
       }
       
     } catch (error) {
-      console.error('Error processing orders:', error);
-      toast.error('Failed to process orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error('Error shipping selected orders:', error);
+      toast.error('Failed to process selected orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsProcessing(false);
     }
@@ -270,7 +282,7 @@ const ShopifyBulkShipping: React.FC = () => {
                     <span className="font-medium">Processing Shopify Orders</span>
                   </div>
                   <p className="text-sm text-blue-700 mt-1">
-                    Converting {selectedOrders.size} orders to shipping format...
+                    Converting {selectedOrders.size} orders to EasyPost CSV format and preparing for rate fetching...
                   </p>
                 </div>
               )}

@@ -1,231 +1,168 @@
 
 import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Ship, 
-  Package, 
-  TrendingUp, 
-  Clock, 
-  Shield, 
-  CreditCard,
-  Truck,
-  BarChart3,
-  Users,
-  Globe,
-  Zap,
-  CheckCircle,
-  ArrowRight,
-  Sparkles
-} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Package, Truck, ChartBar, Upload, CreditCard } from 'lucide-react';
 
-const Index = () => {
+const Index: React.FC = () => {
   const navigate = useNavigate();
-
-  const features = [
-    {
-      icon: Ship,
-      title: "Smart Shipping",
-      description: "AI-powered rate comparison across all major carriers",
-      color: "bg-blue-500"
-    },
-    {
-      icon: Package,
-      title: "Bulk Processing",
-      description: "Process hundreds of shipments simultaneously",
-      color: "bg-green-500"
-    },
-    {
-      icon: TrendingUp,
-      title: "Analytics & Insights",
-      description: "Track performance and optimize shipping costs",
-      color: "bg-purple-500"
-    },
-    {
-      icon: Shield,
-      title: "Secure & Reliable",
-      description: "Enterprise-grade security with 99.9% uptime",
-      color: "bg-orange-500"
-    }
-  ];
-
-  const stats = [
-    { label: "Labels Created", value: "1M+", icon: Package },
-    { label: "Cost Savings", value: "30%", icon: TrendingUp },
-    { label: "Happy Customers", value: "10K+", icon: Users },
-    { label: "Countries Served", value: "50+", icon: Globe }
-  ];
-
+  
+  // Quick action buttons for main shipping tasks
   const quickActions = [
     {
-      title: "Create Single Label",
-      description: "Quick label creation for individual shipments",
-      icon: Package,
-      action: () => navigate('/create-label'),
-      color: "bg-blue-600 hover:bg-blue-700"
+      title: "Create Shipping Label",
+      description: "Generate a new shipping label for a package",
+      icon: <Package className="h-6 w-6" />,
+      action: () => navigate('/create-label')
     },
     {
-      title: "Bulk Upload",
-      description: "Process multiple shipments at once",
-      icon: Truck,
-      action: () => navigate('/bulk-upload'),
-      color: "bg-green-600 hover:bg-green-700"
+      title: "Track Packages",
+      description: "View and track shipment status",
+      icon: <Truck className="h-6 w-6" />,
+      action: () => navigate('/dashboard?tab=tracking')
     },
     {
-      title: "Shopify Integration",
-      description: "Import and ship Shopify orders",
-      icon: Users,
-      action: () => navigate('/shopify-bulk-shipping'),
-      color: "bg-purple-600 hover:bg-purple-700"
+      title: "Bulk Shipping",
+      description: "Upload multiple shipments via CSV",
+      icon: <Upload className="h-6 w-6" />,
+      action: () => navigate('/dashboard?tab=bulk')
     },
     {
-      title: "Rate Calculator",
-      description: "Compare shipping rates instantly",
-      icon: BarChart3,
-      action: () => navigate('/rate-calculator'),
-      color: "bg-orange-600 hover:bg-orange-700"
+      title: "Shipping History",
+      description: "View past shipments and analytics",
+      icon: <ChartBar className="h-6 w-6" />,
+      action: () => navigate('/dashboard?tab=history')
     }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/10" />
-        <div className="relative container mx-auto px-4 py-16">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="flex items-center justify-center mb-6">
-              <Badge className="bg-blue-100 text-blue-800 px-4 py-2 text-sm font-medium">
-                <Sparkles className="w-4 h-4 mr-2" />
-                AI-Powered Shipping Platform
-              </Badge>
-            </div>
-            
-            <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-              Ship Smarter with
-              <span className="block bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                PirateShip Pro
-              </span>
-            </h1>
-            
-            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-              The most advanced shipping platform that combines AI intelligence with competitive rates 
-              to save you time and money on every shipment.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                onClick={() => navigate('/create-label')}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                Start Shipping Now
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-              
-              <Button 
-                variant="outline"
-                onClick={() => navigate('/rate-calculator')}
-                className="border-2 border-blue-600 text-blue-600 hover:bg-blue-50 px-8 py-4 text-lg font-semibold rounded-xl transition-all duration-300"
-              >
-                Calculate Rates
-              </Button>
-            </div>
-          </div>
-        </div>
+    <div className="container mx-auto p-6">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Shipping Dashboard</h1>
+        <p className="text-gray-600">Welcome to ShipQuick - your complete shipping solution</p>
       </div>
 
-      {/* Stats Section */}
-      <div className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                  <stat.icon className="w-8 h-8 text-blue-600" />
+      {/* Quick action cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        {quickActions.map((action, index) => (
+          <Card key={index} className="hover:shadow-lg transition-shadow border-2 border-gray-100">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-50 rounded-md text-blue-600">
+                  {action.icon}
                 </div>
-                <div className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</div>
-                <div className="text-gray-600">{stat.label}</div>
+                <CardTitle className="text-lg">{action.title}</CardTitle>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="py-16">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Get Started in Seconds</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Choose your shipping workflow and let our AI-powered platform handle the rest
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {quickActions.map((action, index) => (
-              <Card 
-                key={index} 
-                className="hover:shadow-lg transition-all duration-300 cursor-pointer group border-2 hover:border-blue-200"
+            </CardHeader>
+            <CardContent>
+              <CardDescription>{action.description}</CardDescription>
+            </CardContent>
+            <CardFooter>
+              <Button 
                 onClick={action.action}
+                className="w-full"
+                variant="outline"
               >
-                <CardHeader className="pb-4">
-                  <div className={`w-12 h-12 rounded-lg ${action.color} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300`}>
-                    <action.icon className="w-6 h-6 text-white" />
-                  </div>
-                  <CardTitle className="text-lg font-semibold">{action.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CardDescription className="text-gray-600">
-                    {action.description}
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
+                {action.title}
+              </Button>
+            </CardFooter>
+          </Card>
+        ))}
       </div>
 
-      {/* Features Section */}
-      <div className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Choose PirateShip Pro?</h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Advanced features designed to streamline your shipping operations
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <div key={index} className="text-center">
-                <div className={`w-16 h-16 rounded-full ${feature.color} flex items-center justify-center mx-auto mb-4`}>
-                  <feature.icon className="w-8 h-8 text-white" />
+      {/* Shipping summary and recent activity section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="col-span-1 md:col-span-2 border-2 border-gray-100">
+          <CardHeader>
+            <CardTitle>Recent Shipments</CardTitle>
+            <CardDescription>Your most recent shipping activity</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-3 border border-gray-200 rounded-md">
+                <div>
+                  <p className="font-medium">USPS - EZ1000000001</p>
+                  <p className="text-sm text-blue-600">In Transit</p>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">{feature.title}</h3>
-                <p className="text-gray-600">{feature.description}</p>
+                <Button variant="outline" size="sm" onClick={() => navigate('/dashboard?tab=tracking')}>
+                  Track
+                </Button>
               </div>
-            ))}
-          </div>
-        </div>
+              <div className="flex justify-between items-center p-3 border border-gray-200 rounded-md">
+                <div>
+                  <p className="font-medium">FedEx - EZ1000000002</p>
+                  <p className="text-sm text-green-600">Delivered</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => navigate('/dashboard?tab=tracking')}>
+                  Details
+                </Button>
+              </div>
+              <div className="flex justify-between items-center p-3 border border-gray-200 rounded-md">
+                <div>
+                  <p className="font-medium">UPS - EZ1000000003</p>
+                  <p className="text-sm text-purple-600">Out for Delivery</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => navigate('/dashboard?tab=tracking')}>
+                  Track
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button variant="ghost" onClick={() => navigate('/dashboard?tab=tracking')} className="w-full">
+              View All Shipments
+            </Button>
+          </CardFooter>
+        </Card>
+
+        <Card className="border-2 border-gray-100">
+          <CardHeader>
+            <CardTitle>Shipping Summary</CardTitle>
+            <CardDescription>This month's activity</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Total Shipments</span>
+                <span className="font-semibold">142</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">In Transit</span>
+                <span className="font-semibold text-blue-600">14</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Delivered</span>
+                <span className="font-semibold text-green-600">128</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Shipping Spent</span>
+                <span className="font-semibold text-amber-600">$1,256</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Saved</span>
+                <span className="font-semibold text-green-600">$320</span>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter>
+            <Button variant="ghost" onClick={() => navigate('/dashboard?tab=history')} className="w-full">
+              View Shipping Analytics
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
 
-      {/* CTA Section */}
-      <div className="py-16 bg-gradient-to-r from-blue-600 to-purple-600">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Ready to Transform Your Shipping?</h2>
-          <p className="text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of businesses that have already optimized their shipping with PirateShip Pro
-          </p>
-          <Button 
-            onClick={() => navigate('/create-label')}
-            className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-          >
-            Get Started Free
-            <ArrowRight className="ml-2 w-5 h-5" />
-          </Button>
-        </div>
+      {/* Create new label button */}
+      <div className="mt-8 flex justify-center">
+        <Button 
+          size="lg" 
+          onClick={() => navigate('/create-label')}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-10"
+        >
+          <Package className="mr-2 h-5 w-5" />
+          Create New Shipping Label
+        </Button>
       </div>
     </div>
   );
