@@ -12,6 +12,9 @@ import { Search, Package, TrendingUp, Clock, MapPin } from 'lucide-react';
 const TrackingPage = () => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTracking, setSelectedTracking] = useState<string | null>(null);
+  const [trackingData, setTrackingData] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const trackingCount = {
     all: 125,
@@ -47,6 +50,14 @@ const TrackingPage = () => {
     }
   ];
 
+  const handleRefresh = () => {
+    setIsLoading(true);
+    // Simulate refresh
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 1000);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Fixed Top Header */}
@@ -59,7 +70,11 @@ const TrackingPage = () => {
             </div>
             
             <div className="flex items-center gap-4">
-              <TrackingSearchBar onSearch={setSearchTerm} />
+              <TrackingSearchBar 
+                onSearch={setSearchTerm} 
+                onRefresh={handleRefresh}
+                isLoading={isLoading}
+              />
               <Button className="bg-blue-600 hover:bg-blue-700">
                 <Search className="w-4 h-4 mr-2" />
                 Track Package
@@ -99,8 +114,11 @@ const TrackingPage = () => {
           </div>
           
           <TrackingList 
-            filter={activeFilter}
-            searchTerm={searchTerm}
+            trackingData={trackingData}
+            isLoading={isLoading}
+            selectedTracking={selectedTracking}
+            setSelectedTracking={setSelectedTracking}
+            setActiveFilter={setActiveFilter}
           />
         </Card>
       </div>
