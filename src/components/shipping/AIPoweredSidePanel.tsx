@@ -11,7 +11,6 @@ import {
   TrendingUp, 
   Clock, 
   DollarSign,
-  ArrowUpDown,
   Filter,
   Zap,
   Target,
@@ -50,17 +49,14 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
   const [lastAction, setLastAction] = useState<string>('');
   const [selectedCarrier, setSelectedCarrier] = useState('all');
 
-  // Get unique carriers from rates - only show UPS and USPS as requested
   const availableCarriers = ['ups', 'usps'];
 
-  // Handle carrier selection with proper filtering
   const handleCarrierChange = (carrier: string) => {
     setSelectedCarrier(carrier);
     onCarrierFilter(carrier);
     toast.success(`Filtered by ${carrier === 'all' ? 'All Carriers' : carrier.toUpperCase()}`);
   };
 
-  // AI-powered rate optimization with proper rate reordering
   const optimizeRates = async (type: 'cost' | 'speed' | 'balance') => {
     if (rates.length === 0) {
       toast.error('No rates available to optimize');
@@ -112,7 +108,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
     }
   };
 
-  // Calculate savings potential
   const calculateSavings = () => {
     if (rates.length < 2) return 0;
     const sortedRates = [...rates].sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
@@ -123,7 +118,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
 
   const potentialSavings = calculateSavings();
 
-  // Get rate statistics
   const getStatsInsights = () => {
     if (rates.length === 0) return null;
 
@@ -140,7 +134,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
 
   const stats = getStatsInsights();
 
-  // Handle rate adjustment from chatbot
   const handleRateAdjustment = (instruction: string) => {
     console.log('Rate adjustment instruction:', instruction);
     const input = instruction.toLowerCase();
@@ -157,8 +150,7 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Rate Calculator Button */}
+    <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
       <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
         <Button
           onClick={onOpenRateCalculator}
@@ -169,7 +161,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         </Button>
       </Card>
 
-      {/* Carrier Selection - Only UPS and USPS */}
       <Card className="p-4">
         <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
           <Filter className="w-4 h-4 text-blue-500" />
@@ -182,7 +173,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         />
       </Card>
 
-      {/* AI Assistant Header */}
       <Card className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
         <div className="flex items-center gap-2 mb-3">
           <Brain className="w-5 h-5 text-blue-600" />
@@ -219,7 +209,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         )}
       </Card>
 
-      {/* Smart Optimization */}
       <Card className="p-4">
         <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
           <Zap className="w-4 h-4 text-yellow-500" />
@@ -268,12 +257,10 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         )}
       </Card>
 
-      {/* Shipping Chatbot - Added below filters */}
       <div className="mt-6">
         <ShippingChatbot onRateAdjustment={handleRateAdjustment} />
       </div>
 
-      {/* Processing Indicator */}
       {isProcessing && (
         <Card className="p-4 bg-blue-50 border-blue-200">
           <div className="flex items-center gap-2 text-blue-800">

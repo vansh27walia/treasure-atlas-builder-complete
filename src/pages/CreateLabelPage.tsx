@@ -27,7 +27,6 @@ const CreateLabelPage = () => {
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
     handleSelectRate(rate);
-    // Show AI panel when rate is selected
     setShowAIPanel(true);
   };
 
@@ -63,9 +62,9 @@ const CreateLabelPage = () => {
             <RatePreferenceSelector onPreferenceSelect={handlePreferenceSelect} />
           </div>
 
-          {/* Dynamic Layout Based on AI Panel State */}
+          {/* Side-by-side Layout - No Modal Behavior */}
           <div className={`transition-all duration-300 ${showAIPanel ? 'grid grid-cols-1 lg:grid-cols-4 gap-8' : 'grid grid-cols-1'}`}>
-            {/* Main Content Area */}
+            {/* Main Content Area - No Blocking */}
             <div className={`${showAIPanel ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-8`}>
               {/* Main Form Section */}
               <div className="bg-white rounded-xl shadow-lg border">
@@ -82,12 +81,11 @@ const CreateLabelPage = () => {
               </div>
             </div>
 
-            {/* AI-Powered Side Panel - Conditionally Rendered */}
+            {/* AI-Powered Side Panel - Non-Modal */}
             {showAIPanel && (
               <div className="lg:col-span-1">
                 <div className="sticky top-32">
                   <div className="bg-white rounded-xl shadow-lg border p-4 relative">
-                    {/* Close Button */}
                     <button
                       onClick={handleCloseAIPanel}
                       className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded-full transition-colors"
@@ -112,13 +110,11 @@ const CreateLabelPage = () => {
         </div>
       </div>
 
-      {/* Rate Calculator Modal */}
       <RateCalculatorModal
         isOpen={isRateCalculatorOpen}
         onClose={() => setIsRateCalculatorOpen(false)}
       />
 
-      {/* ShipAI Chatbot */}
       <ShipAIChatbot />
     </div>
   );
