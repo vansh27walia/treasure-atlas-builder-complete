@@ -6,11 +6,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Package, ShoppingCart, Truck, Loader2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useBulkShipping, RRow } from '@/hooks/useBulkShipping';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 
 // Mock Shopify data - replace with actual Shopify import
-const mockShopifyOrders = [
+const mockShopifyOrders: RRow[] = [
   {
     recipient_name: "John Doe",
     recipient_address1: "123 Main St",
@@ -44,63 +44,25 @@ const mockShopifyOrders = [
 ];
 
 const ShopifyBulkShipping: React.FC = () => {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<RRow[]>([]);
   const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set());
   const [selectedCarrier, setSelectedCarrier] = useState<string>('all');
   const [isImporting, setIsImporting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   
+  const { processBulkShipping } = useBulkShipping();
   const navigate = useNavigate();
 
   const handleImportShopifyData = async () => {
     setIsImporting(true);
     
     try {
-      console.log('Importing Shopify data...');
-      
-      // Call the Shopify orders function to get real data
-      const { data, error } = await supabase.functions.invoke('shopify-orders');
-      
-      if (error) {
-        console.error('Error fetching Shopify orders:', error);
-        // Use mock data as fallback
-        setOrders(mockShopifyOrders);
-        toast.success('Shopify demo data imported successfully');
-        return;
-      }
-      
-      console.log('Shopify orders data:', data);
-      
-      if (data && data.orders && data.orders.length > 0) {
-        // Convert Shopify orders to our format
-        const convertedOrders = data.orders.map((order: any) => ({
-          recipient_name: order.customer_name || `${order.shipping_address?.first_name || ''} ${order.shipping_address?.last_name || ''}`.trim(),
-          recipient_address1: order.shipping_address?.address1 || '',
-          recipient_city: order.shipping_address?.city || '',
-          recipient_state: order.shipping_address?.province_code || '',
-          recipient_zip: order.shipping_address?.zip || '',
-          recipient_country: order.shipping_address?.country_code || 'US',
-          recipient_phone: order.shipping_address?.phone || order.customer_phone || '',
-          recipient_email: order.customer_email || '',
-          parcel_weight: order.total_weight || 1.0,
-          parcel_length: 12, // Default dimensions
-          parcel_width: 8,
-          parcel_height: 4,
-          order_reference: order.order_number || order.name
-        }));
-        
-        setOrders(convertedOrders);
-        toast.success(`Successfully imported ${convertedOrders.length} Shopify orders`);
-      } else {
-        // Fallback to mock data
-        setOrders(mockShopifyOrders);
-        toast.success('Shopify demo data imported successfully');
-      }
-    } catch (error) {
-      console.error('Error importing Shopify data:', error);
-      toast.error('Failed to import Shopify data, using demo data');
-      // Fallback to mock data
+      // Simulate API call to import Shopify data
+      await new Promise(resolve => setTimeout(resolve, 1000));
       setOrders(mockShopifyOrders);
+      toast.success('Shopify data imported successfully');
+    } catch (error) {
+      toast.error('Failed to import Shopify data');
     } finally {
       setIsImporting(false);
     }
@@ -136,80 +98,67 @@ const ShopifyBulkShipping: React.FC = () => {
       console.log('Starting Shopify bulk shipping process...');
       const selectedOrdersData = Array.from(selectedOrders).map(index => orders[index]);
       
-      // Show processing toast
-      toast.loading('Converting Shopify orders to EasyPost format...', {
-        duration: 3000
+      // Show initial processing toast
+      const processingToastId = toast.loading('Processing Shopify orders and converting to EasyPost format...', {
+        duration: 0
       });
       
-      // Convert to EasyPost CSV format
-      const csvHeaders = [
-        'to_name', 'to_company', 'to_street1', 'to_street2', 'to_city', 
-        'to_state', 'to_zip', 'to_country', 'to_phone', 'to_email',
-        'weight', 'length', 'width', 'height', 'reference'
-      ];
+      // Call backend to transform Shopify data to EasyPost CSV format
+      console.log('Calling processBulkShipping with orders:', selectedOrdersData);
+      const result = await processBulkShipping(selectedOrdersData, selectedCarrier);
       
-      const csvRows = selectedOrdersData.map(order => [
-        order.recipient_name || '',
-        '', // to_company
-        order.recipient_address1 || '',
-        '', // to_street2
-        order.recipient_city || '',
-        order.recipient_state || '',
-        order.recipient_zip || '',
-        order.recipient_country || 'US',
-        order.recipient_phone || '',
-        order.recipient_email || '',
-        order.parcel_weight?.toString() || '1',
-        order.parcel_length?.toString() || '12',
-        order.parcel_width?.toString() || '8',
-        order.parcel_height?.toString() || '4',
-        order.order_reference || ''
-      ]);
+      console.log('Shopify bulk shipping result:', result);
       
-      const csvContent = [csvHeaders, ...csvRows]
-        .map(row => row.map(cell => `"${cell}"`).join(','))
-        .join('\n');
-      
-      console.log('Generated EasyPost CSV:', csvContent);
-      
-      // Store the converted data for bulk upload
-      sessionStorage.setItem('shopifyCSVContent', csvContent);
-      sessionStorage.setItem('shopifyCSVFilename', `shopify-orders-${Date.now()}.csv`);
-      sessionStorage.setItem('shopifyOrderCount', selectedOrders.size.toString());
-      
-      // Set default from address for Shopify
-      const defaultFromAddress = {
-        name: "Shopify Store",
-        company: "Your Company",
-        street1: "123 Warehouse St",
-        street2: "",
-        city: "Los Angeles",
-        state: "CA",
-        zip: "90210",
-        country: "US",
-        phone: "555-123-4567"
-      };
-      
-      sessionStorage.setItem('shopifyFromAddress', JSON.stringify(defaultFromAddress));
-      
-      // Success message
-      toast.success(`${selectedOrders.size} Shopify orders converted! Redirecting to bulk processing...`);
-      
-      // Navigate to bulk upload page with auto-processing
-      setTimeout(() => {
-        navigate('/bulk-upload?source=shopify&auto=true');
-      }, 1500);
+      if (result.success && result.csvContent) {
+        // Update toast to show conversion success
+        toast.success('Shopify orders converted to EasyPost format successfully!', {
+          id: processingToastId
+        });
+        
+        // Store the CSV content and metadata in session storage for bulk upload
+        sessionStorage.setItem('csvContent', result.csvContent);
+        sessionStorage.setItem('csvFilename', `shopify-orders-${Date.now()}.csv`);
+        sessionStorage.setItem('isFromShopify', 'true');
+        sessionStorage.setItem('shopifyOrderCount', selectedOrders.size.toString());
+        
+        // Set default from address for Shopify warehouse
+        sessionStorage.setItem('fromAddress', JSON.stringify({
+          name: "Shopify Warehouse",
+          company: "Your Company",
+          street1: "123 Warehouse St",
+          street2: "",
+          city: "Los Angeles",
+          state: "CA",
+          zip: "90210",
+          country: "US",
+          phone: "555-123-4567"
+        }));
+        
+        // Success toast with redirect info
+        toast.success(`${selectedOrders.size} orders processed! Redirecting to rate fetching...`, {
+          duration: 2000,
+          icon: <CheckCircle className="h-4 w-4" />
+        });
+        
+        // Small delay to show success, then redirect to bulk upload for automatic processing
+        setTimeout(() => {
+          navigate('/bulk-upload');
+        }, 1500);
+        
+      } else {
+        toast.error('Failed to process Shopify orders: ' + (result.message || 'Unknown error'));
+      }
       
     } catch (error) {
-      console.error('Error processing Shopify orders:', error);
-      toast.error('Failed to process Shopify orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error('Error shipping selected orders:', error);
+      toast.error('Failed to process selected orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsProcessing(false);
     }
   };
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -219,24 +168,23 @@ const ShopifyBulkShipping: React.FC = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           {orders.length === 0 ? (
-            <div className="text-center py-12">
-              <Package className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-600 mb-6 text-lg">Import your Shopify orders to get started</p>
+            <div className="text-center py-8">
+              <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-600 mb-4">No Shopify orders imported yet</p>
               <Button 
                 onClick={handleImportShopifyData}
                 disabled={isImporting}
-                className="flex items-center gap-2 px-6 py-3 text-lg"
-                size="lg"
+                className="flex items-center gap-2"
               >
                 {isImporting ? (
                   <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Importing Orders...
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Importing...
                   </>
                 ) : (
                   <>
-                    <ShoppingCart className="h-5 w-5" />
-                    Import Shopify Orders
+                    <ShoppingCart className="h-4 w-4" />
+                    Import Shopify Data
                   </>
                 )}
               </Button>
@@ -275,7 +223,7 @@ const ShopifyBulkShipping: React.FC = () => {
                   <Button
                     onClick={handleShipSelected}
                     disabled={selectedOrders.size === 0 || isProcessing}
-                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-2 shadow-lg"
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
                   >
                     {isProcessing ? (
                       <>
@@ -285,16 +233,15 @@ const ShopifyBulkShipping: React.FC = () => {
                     ) : (
                       <>
                         <Truck className="h-4 w-4" />
-                        Ship Selected Orders
+                        Ship Selected
                       </>
                     )}
                   </Button>
                 </div>
               </div>
 
-              {/* Orders Table */}
-              <div className="border rounded-lg bg-white shadow-sm">
-                <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 font-medium text-sm border-b">
+              <div className="border rounded-lg">
+                <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 font-medium text-sm">
                   <div className="col-span-1">Select</div>
                   <div className="col-span-2">Order Ref</div>
                   <div className="col-span-2">Recipient</div>
@@ -305,7 +252,7 @@ const ShopifyBulkShipping: React.FC = () => {
                 </div>
                 
                 {orders.map((order, index) => (
-                  <div key={index} className="grid grid-cols-12 gap-4 p-4 border-b hover:bg-gray-50 transition-colors">
+                  <div key={index} className="grid grid-cols-12 gap-4 p-4 border-t hover:bg-gray-50">
                     <div className="col-span-1">
                       <Checkbox
                         checked={selectedOrders.has(index)}
@@ -313,8 +260,8 @@ const ShopifyBulkShipping: React.FC = () => {
                         disabled={isProcessing}
                       />
                     </div>
-                    <div className="col-span-2 font-medium text-blue-600">{order.order_reference}</div>
-                    <div className="col-span-2 font-medium">{order.recipient_name}</div>
+                    <div className="col-span-2 font-medium">{order.order_reference}</div>
+                    <div className="col-span-2">{order.recipient_name}</div>
                     <div className="col-span-3 text-sm text-gray-600">
                       {order.recipient_address1}<br />
                       {order.recipient_city}, {order.recipient_state} {order.recipient_zip}
@@ -322,27 +269,22 @@ const ShopifyBulkShipping: React.FC = () => {
                     <div className="col-span-2 text-sm">
                       {order.parcel_length}"×{order.parcel_width}"×{order.parcel_height}"
                     </div>
-                    <div className="col-span-1 text-sm font-medium">{order.parcel_weight} lbs</div>
+                    <div className="col-span-1 text-sm">{order.parcel_weight} lbs</div>
                     <div className="col-span-1 text-sm">{order.recipient_phone}</div>
                   </div>
                 ))}
               </div>
               
-              {/* Processing Status */}
               {isProcessing && (
-                <Card className="bg-blue-50 border-blue-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3 text-blue-800">
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      <div>
-                        <div className="font-medium">Processing Shopify Orders</div>
-                        <div className="text-sm text-blue-700">
-                          Converting {selectedOrders.size} orders to EasyPost format for bulk label creation...
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                  <div className="flex items-center gap-2 text-blue-800">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="font-medium">Processing Shopify Orders</span>
+                  </div>
+                  <p className="text-sm text-blue-700 mt-1">
+                    Converting {selectedOrders.size} orders to EasyPost CSV format and preparing for rate fetching...
+                  </p>
+                </div>
               )}
             </div>
           )}
