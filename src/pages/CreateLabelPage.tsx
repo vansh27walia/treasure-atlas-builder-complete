@@ -3,10 +3,9 @@ import React, { useState } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
-import AIPoweredSidePanel from '@/components/shipping/AIPoweredSidePanel';
+import AIRateAnalysisPanel from '@/components/shipping/AIRateAnalysisPanel';
 import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
-import RatePreferenceSelector from '@/components/shipping/RatePreferenceSelector';
 import { useShippingRates } from '@/hooks/useShippingRates';
 
 const CreateLabelPage = () => {
@@ -18,27 +17,24 @@ const CreateLabelPage = () => {
   
   const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
-  const [selectedPreference, setSelectedPreference] = useState<string>('');
-
-  const handleRatesReorder = (reorderedRates: any[]) => {
-    console.log('Reordering rates:', reorderedRates);
-  };
+  const [selectedRate, setSelectedRate] = useState<any>(null);
 
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
+    setSelectedRate(rate);
     handleSelectRate(rate);
-    // Show AI panel when rate is selected
     setShowAIPanel(true);
-  };
-
-  const handlePreferenceSelect = (preference: string) => {
-    setSelectedPreference(preference);
-    console.log('AI preference selected:', preference);
-    // Apply preference logic here
   };
 
   const handleCloseAIPanel = () => {
     setShowAIPanel(false);
+    setSelectedRate(null);
+  };
+
+  const handleOptimizationChange = (filter: string) => {
+    console.log('Optimization filter applied:', filter);
+    // Apply the optimization filter to rates
+    handleFilterByCarrier(filter);
   };
 
   return (
@@ -49,7 +45,7 @@ const CreateLabelPage = () => {
       </div>
       
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-7xl mx-auto">
+        <div className={`max-w-7xl mx-auto transition-all duration-300 ${showAIPanel ? 'mr-96' : ''}`}>
           {/* Header Section */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>
@@ -58,59 +54,30 @@ const CreateLabelPage = () => {
             </p>
           </div>
 
-          {/* AI Rate Preference Selector - Top Level */}
-          <div className="mb-6">
-            <RatePreferenceSelector onPreferenceSelect={handlePreferenceSelect} />
+          {/* Main Form Section */}
+          <div className="bg-white rounded-xl shadow-lg border mb-8">
+            <EnhancedShippingForm />
           </div>
-
-          {/* Dynamic Layout Based on AI Panel State */}
-          <div className={`transition-all duration-300 ${showAIPanel ? 'grid grid-cols-1 lg:grid-cols-4 gap-8' : 'grid grid-cols-1'}`}>
-            {/* Main Content Area */}
-            <div className={`${showAIPanel ? 'lg:col-span-3' : 'lg:col-span-4'} space-y-8`}>
-              {/* Main Form Section */}
-              <div className="bg-white rounded-xl shadow-lg border">
-                <EnhancedShippingForm />
-              </div>
-              
-              {/* Shipping Rates Section */}
-              <div id="shipping-rates-section">
-                <ShippingRates 
-                  rates={rates || []}
-                  onRateSelected={handleRateSelected}
-                  loading={false}
-                />
-              </div>
-            </div>
-
-            {/* AI-Powered Side Panel - Conditionally Rendered */}
-            {showAIPanel && (
-              <div className="lg:col-span-1">
-                <div className="sticky top-32">
-                  <div className="bg-white rounded-xl shadow-lg border p-4 relative">
-                    {/* Close Button */}
-                    <button
-                      onClick={handleCloseAIPanel}
-                      className="absolute top-2 right-2 p-1 hover:bg-gray-100 rounded-full transition-colors"
-                    >
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                    
-                    <AIPoweredSidePanel 
-                      rates={rates} 
-                      onRatesReorder={handleRatesReorder} 
-                      onCarrierFilter={handleFilterByCarrier} 
-                      onRateSelect={handleSelectRate}
-                      onOpenRateCalculator={() => setIsRateCalculatorOpen(true)}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+          
+          {/* Shipping Rates Section */}
+          <div id="shipping-rates-section">
+            <ShippingRates 
+              rates={rates || []}
+              onRateSelected={handleRateSelected}
+              loading={false}
+            />
           </div>
         </div>
       </div>
+
+      {/* AI Rate Analysis Panel */}
+      <AIRateAnalysisPanel
+        selectedRate={selectedRate}
+        allRates={rates || []}
+        isOpen={showAIPanel}
+        onClose={handleCloseAIPanel}
+        onOptimizationChange={handleOptimizationChange}
+      />
 
       {/* Rate Calculator Modal */}
       <RateCalculatorModal
