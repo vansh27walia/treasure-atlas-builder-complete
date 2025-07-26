@@ -1,183 +1,137 @@
 
 import React, { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Truck, Filter, Zap, ChevronDown } from 'lucide-react';
-import { toast } from '@/components/ui/sonner';
+import { Filter, DollarSign, Clock, TrendingUp, RotateCcw } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface RateFilterDropdownProps {
   onCarrierFilter: (carrier: string) => void;
   onSortFilter: (sort: string) => void;
   availableCarriers: string[];
-  selectedCarrier?: string;
-  selectedSort?: string;
-  rateCount?: number;
-  showQuickChanges?: boolean;
+  selectedCarrier: string;
+  selectedSort: string;
+  rateCount: number;
 }
 
 const RateFilterDropdown: React.FC<RateFilterDropdownProps> = ({
   onCarrierFilter,
   onSortFilter,
   availableCarriers,
-  selectedCarrier = 'all',
-  selectedSort = 'default',
-  rateCount = 0,
-  showQuickChanges = false
+  selectedCarrier,
+  selectedSort,
+  rateCount
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isFiltered, setIsFiltered] = useState(false);
 
-  const carrierOptions = [
-    { value: 'all', label: 'All Carriers', count: rateCount },
-    ...availableCarriers.map(carrier => ({
-      value: carrier.toLowerCase(),
-      label: carrier.toUpperCase(),
-      count: 0
-    }))
-  ];
-
-  const sortOptions = [
-    { value: 'default', label: 'Default Order', icon: '📋' },
-    { value: 'cheapest', label: 'Price: Low to High', icon: '💰' },
-    { value: 'fastest', label: 'Fastest Delivery', icon: '⚡' },
-    { value: 'balanced', label: 'Best Value', icon: '✅' },
-    { value: 'express', label: 'Express Only', icon: '🚀' },
-    { value: 'ground', label: 'Ground Only', icon: '🚛' },
-    { value: 'overnight', label: 'Overnight', icon: '🌙' },
-    { value: 'two-day', label: '2-Day Delivery', icon: '📅' },
-    { value: 'door-delivery', label: 'Door Delivery', icon: '📦' },
-    { value: 'po-box', label: 'PO Box Delivery', icon: '📫' },
-    { value: 'eco-friendly', label: 'Eco Friendly', icon: '🌱' },
-    { value: 'most-reliable', label: 'Most Reliable', icon: '🛡️' },
-    { value: 'ai-recommended', label: 'AI Recommended', icon: '🧠' },
-    { value: 'bulk', label: 'Bulk Shipment', icon: '🧳' },
-    { value: 'international', label: 'International', icon: '✈️' },
-    { value: 'return-friendly', label: 'Return Friendly', icon: '🔄' },
-    { value: 'weekend-delivery', label: 'Weekend Delivery', icon: '📅' },
-    { value: 'signature-required', label: 'Signature Required', icon: '✍️' },
-    { value: 'insurance-included', label: 'Insurance Included', icon: '🔒' },
-    { value: 'fragile-handling', label: 'Fragile Handling', icon: '🔍' },
-    { value: 'temperature-controlled', label: 'Temperature Controlled', icon: '🌡️' },
-    { value: 'hazmat-certified', label: 'Hazmat Certified', icon: '⚠️' },
-    { value: 'carbon-neutral', label: 'Carbon Neutral', icon: '🌍' }
-  ];
-
-  const handleQuickChange = (sortValue: string) => {
-    onSortFilter(sortValue);
-    toast.success(`Applied ${sortOptions.find(opt => opt.value === sortValue)?.label} filter`);
+  const handleCarrierChange = (carrier: string) => {
+    onCarrierFilter(carrier);
+    setIsFiltered(carrier !== 'all');
   };
 
-  if (rateCount === 0) return null;
+  const handleSortChange = (sort: string) => {
+    onSortFilter(sort);
+  };
+
+  const resetFilters = () => {
+    onCarrierFilter('all');
+    onSortFilter('default');
+    setIsFiltered(false);
+  };
 
   return (
-    <div className="bg-white rounded-lg shadow-md border-2 border-gray-200 p-4 mb-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+    <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm mb-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Filter className="w-5 h-5 text-gray-600" />
           <h3 className="font-semibold text-gray-900">Filter & Sort Rates</h3>
-          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-            {rateCount} rates found
+          <Badge variant="secondary" className="text-xs">
+            {rateCount} rates
           </Badge>
         </div>
         
-        <div className="flex items-center gap-3">
-          {/* Carrier Filter */}
-          <div className="flex items-center gap-2">
-            <Truck className="w-4 h-4 text-gray-600" />
-            <Select value={selectedCarrier} onValueChange={onCarrierFilter}>
-              <SelectTrigger className="w-40 border-2">
-                <SelectValue placeholder="All Carriers" />
-              </SelectTrigger>
-              <SelectContent className="bg-white border-2 shadow-lg z-50">
-                {carrierOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{option.label}</span>
-                      {option.count > 0 && (
-                        <span className="ml-2 text-xs text-gray-500">({option.count})</span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {isFiltered && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={resetFilters}
+            className="flex items-center gap-1 text-xs"
+          >
+            <RotateCcw className="w-3 h-3" />
+            Reset
+          </Button>
+        )}
+      </div>
 
-          {/* Sort Filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-600" />
-            <Select value={selectedSort} onValueChange={onSortFilter}>
-              <SelectTrigger className="w-48 border-2">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent className="bg-white border-2 shadow-lg z-50 max-h-80 overflow-y-auto">
-                {sortOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    <div className="flex items-center gap-2">
-                      <span>{option.icon}</span>
-                      <span>{option.label}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        {/* Carrier Filter */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Carrier</label>
+          <Select value={selectedCarrier} onValueChange={handleCarrierChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select carrier" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Carriers</SelectItem>
+              {availableCarriers.map((carrier) => (
+                <SelectItem key={carrier} value={carrier.toLowerCase()}>
+                  {carrier}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Sort Filter */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Sort By</label>
+          <Select value={selectedSort} onValueChange={handleSortChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Default</SelectItem>
+              <SelectItem value="cheapest">Lowest Price</SelectItem>
+              <SelectItem value="fastest">Fastest Delivery</SelectItem>
+              <SelectItem value="balanced">Best Value</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Quick Actions</label>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleSortChange('cheapest')}
+              className="flex items-center gap-1 text-xs"
+            >
+              <DollarSign className="w-3 h-3" />
+              Cheapest
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleSortChange('fastest')}
+              className="flex items-center gap-1 text-xs"
+            >
+              <Clock className="w-3 h-3" />
+              Fastest
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleSortChange('balanced')}
+              className="flex items-center gap-1 text-xs"
+            >
+              <TrendingUp className="w-3 h-3" />
+              Balanced
+            </Button>
           </div>
         </div>
       </div>
-
-      {/* Quick Changes Section - Enhanced with all options */}
-      {showQuickChanges && (
-        <div className="mt-4 pt-4 border-t-2 border-gray-200">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="font-medium text-gray-800 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-yellow-500" />
-              Quick Changes
-            </h4>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsOpen(!isOpen)}
-              className="text-blue-600 hover:text-blue-800"
-            >
-              {isOpen ? 'Hide' : 'Show All'} 
-              <ChevronDown className={`w-4 h-4 ml-1 transform transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-            </Button>
-          </div>
-          
-          {/* Always visible top quick options */}
-          <div className="flex flex-wrap gap-2 mb-3">
-            {sortOptions.slice(1, 4).map((option) => (
-              <Button
-                key={option.value}
-                variant="outline"
-                size="sm"
-                onClick={() => handleQuickChange(option.value)}
-                className="border-2 hover:bg-blue-50 hover:border-blue-300"
-              >
-                <span className="mr-1">{option.icon}</span>
-                {option.label}
-              </Button>
-            ))}
-          </div>
-
-          {/* Expandable all options */}
-          {isOpen && (
-            <div className="grid grid-cols-2 gap-2 animate-fade-in">
-              {sortOptions.slice(4).map((option) => (
-                <Button
-                  key={option.value}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickChange(option.value)}
-                  className="border-2 hover:bg-gray-50 hover:border-gray-300 justify-start"
-                >
-                  <span className="mr-1">{option.icon}</span>
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 };

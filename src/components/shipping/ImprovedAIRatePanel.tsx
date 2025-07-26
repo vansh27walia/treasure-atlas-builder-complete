@@ -70,9 +70,8 @@ const ImprovedAIRatePanel: React.FC<ImprovedAIRatePanelProps> = ({
           break;
       }
 
-      // Small delay for better UX
       await new Promise(resolve => setTimeout(resolve, 1000));
-
+      
       onOptimizationChange(type);
       
       if (sortedRates.length > 0) {
@@ -108,178 +107,139 @@ const ImprovedAIRatePanel: React.FC<ImprovedAIRatePanelProps> = ({
         />
       )}
       
-      {/* AI Panel */}
-      <div 
-        className={`fixed top-0 right-0 h-full w-96 bg-white border-l-4 border-blue-500 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        } overflow-y-auto`}
-      >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center space-x-2">
-              <Brain className="w-6 h-6" />
-              <h3 className="text-lg font-bold">AI Rate Analysis</h3>
+      {/* AI Panel - Fixed positioning from right */}
+      <div className={`fixed top-0 right-0 h-full w-96 bg-white shadow-2xl border-l-4 border-blue-500 transform transition-transform duration-300 z-50 ${
+        isOpen ? 'translate-x-0' : 'translate-x-full'
+      }`}>
+        <div className="h-full flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-50 to-purple-50">
+            <div className="flex items-center gap-2">
+              <Brain className="w-6 h-6 text-blue-600" />
+              <h2 className="text-lg font-semibold text-gray-900">AI Rate Analysis</h2>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="text-white hover:bg-white/20"
-            >
+            <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-white/50">
               <X className="w-4 h-4" />
             </Button>
           </div>
-          
-          {lastAction && (
-            <div className="flex items-center space-x-1 text-sm opacity-90">
-              <CheckCircle2 className="w-4 h-4" />
-              <span>{lastAction}</span>
-            </div>
-          )}
-        </div>
 
-        {/* Content */}
-        <div className="p-4 space-y-4">
-          {/* Selected Rate Summary */}
-          {selectedRate && (
-            <Card className="p-4 bg-blue-50 border-blue-200">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-semibold text-blue-800">Selected Rate</h4>
-                <Badge className="bg-blue-600 text-white">ACTIVE</Badge>
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            {/* Selected Rate Info */}
+            {selectedRate && (
+              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-blue-900">{selectedRate.carrier}</h3>
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                    Selected
+                  </Badge>
+                </div>
+                <p className="text-sm text-blue-700">{selectedRate.service}</p>
+                <p className="text-2xl font-bold text-blue-800">${parseFloat(selectedRate.rate).toFixed(2)}</p>
+                <p className="text-sm text-blue-600">{selectedRate.delivery_days} days delivery</p>
               </div>
-              <div className="space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Carrier:</span>
-                  <span className="font-medium">{selectedRate.carrier}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Service:</span>
-                  <span className="font-medium">{selectedRate.service}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Cost:</span>
-                  <span className="font-bold text-green-600">${parseFloat(selectedRate.rate).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Delivery:</span>
-                  <span className="font-medium">{selectedRate.delivery_days} days</span>
-                </div>
-              </div>
-            </Card>
-          )}
+            )}
 
-          {/* Quick Optimization Actions */}
-          <Card className="p-4">
-            <h4 className="font-semibold mb-3 flex items-center">
-              <Sparkles className="w-4 h-4 mr-2 text-yellow-500" />
-              Quick Changes
-            </h4>
-            
-            <div className="space-y-2">
-              <Button
-                onClick={() => handleOptimization('cheapest')}
-                disabled={isProcessing}
-                className="w-full justify-start bg-green-600 hover:bg-green-700 text-white"
-                size="sm"
-              >
-                <DollarSign className="w-4 h-4 mr-2" />
-                {currentOptimization === 'cheapest' ? 'Optimizing...' : 'Find Cheapest'}
-              </Button>
+            {/* Quick Actions */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-yellow-500" />
+                Quick Optimization
+              </h3>
               
-              <Button
-                onClick={() => handleOptimization('fastest')}
-                disabled={isProcessing}
-                className="w-full justify-start bg-orange-600 hover:bg-orange-700 text-white"
-                size="sm"
-              >
-                <Clock className="w-4 h-4 mr-2" />
-                {currentOptimization === 'fastest' ? 'Optimizing...' : 'Find Fastest'}
-              </Button>
-              
-              <Button
-                onClick={() => handleOptimization('balanced')}
-                disabled={isProcessing}
-                className="w-full justify-start bg-purple-600 hover:bg-purple-700 text-white"
-                size="sm"
-              >
-                <Target className="w-4 h-4 mr-2" />
-                {currentOptimization === 'balanced' ? 'Optimizing...' : 'Best Balance'}
-              </Button>
-            </div>
-          </Card>
-
-          {/* Savings Analysis */}
-          {potentialSavings > 0 && (
-            <Card className="p-4 bg-green-50 border-green-200">
-              <h4 className="font-semibold text-green-800 mb-2">Potential Savings</h4>
-              <div className="text-2xl font-bold text-green-600">
-                ${potentialSavings.toFixed(2)}
-              </div>
-              <p className="text-sm text-green-700 mt-1">
-                Maximum savings available by choosing the cheapest option
-              </p>
-            </Card>
-          )}
-
-          {/* Rate Comparison */}
-          <Card className="p-4">
-            <h4 className="font-semibold mb-3">Rate Comparison</h4>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {allRates.map((rate) => (
-                <div
-                  key={rate.id}
-                  className={`flex justify-between items-center p-2 rounded cursor-pointer transition-colors ${
-                    selectedRate?.id === rate.id
-                      ? 'bg-blue-100 border border-blue-300'
-                      : 'bg-gray-50 hover:bg-gray-100'
-                  }`}
-                  onClick={() => onRateSelect(rate.id)}
+              <div className="grid grid-cols-1 gap-3">
+                <Button
+                  onClick={() => handleOptimization('cheapest')}
+                  disabled={isProcessing}
+                  className="flex items-center justify-start gap-3 p-4 h-auto bg-green-50 hover:bg-green-100 text-green-800 border border-green-200"
+                  variant="outline"
                 >
-                  <div>
-                    <div className="text-sm font-medium">{rate.carrier}</div>
-                    <div className="text-xs text-gray-600">{rate.service}</div>
+                  <DollarSign className="w-5 h-5" />
+                  <div className="text-left">
+                    <div className="font-medium">Find Cheapest</div>
+                    <div className="text-xs opacity-80">Save up to ${potentialSavings.toFixed(2)}</div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold">${parseFloat(rate.rate).toFixed(2)}</div>
-                    <div className="text-xs text-gray-600">{rate.delivery_days} days</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
+                </Button>
 
-          {/* AI Insights */}
-          <Card className="p-4 bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200">
-            <h4 className="font-semibold mb-2 flex items-center text-purple-800">
-              <Brain className="w-4 h-4 mr-2" />
-              AI Insights
-            </h4>
-            <div className="space-y-2 text-sm">
-              {allRates.length > 0 && (
-                <>
-                  <div className="flex items-center text-gray-600">
-                    <TrendingUp className="w-3 h-3 mr-1" />
-                    <span>Found {allRates.length} shipping options</span>
+                <Button
+                  onClick={() => handleOptimization('fastest')}
+                  disabled={isProcessing}
+                  className="flex items-center justify-start gap-3 p-4 h-auto bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200"
+                  variant="outline"
+                >
+                  <Clock className="w-5 h-5" />
+                  <div className="text-left">
+                    <div className="font-medium">Find Fastest</div>
+                    <div className="text-xs opacity-80">Get it there quickly</div>
                   </div>
-                  
-                  {allRates.some(r => r.delivery_days <= 2) && (
-                    <div className="flex items-center text-orange-600">
-                      <Clock className="w-3 h-3 mr-1" />
-                      <span>Express options available</span>
-                    </div>
-                  )}
-                  
-                  {potentialSavings > 5 && (
-                    <div className="flex items-center text-green-600">
-                      <DollarSign className="w-3 h-3 mr-1" />
-                      <span>Significant savings possible</span>
-                    </div>
-                  )}
-                </>
-              )}
+                </Button>
+
+                <Button
+                  onClick={() => handleOptimization('balanced')}
+                  disabled={isProcessing}
+                  className="flex items-center justify-start gap-3 p-4 h-auto bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200"
+                  variant="outline"
+                >
+                  <Target className="w-5 h-5" />
+                  <div className="text-left">
+                    <div className="font-medium">Best Balance</div>
+                    <div className="text-xs opacity-80">Optimal price & speed</div>
+                  </div>
+                </Button>
+              </div>
             </div>
-          </Card>
+
+            {/* Rate Comparison */}
+            {allRates.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="font-semibold text-gray-900">Rate Comparison</h3>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {allRates.slice(0, 5).map((rate) => (
+                    <div 
+                      key={rate.id} 
+                      className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                        selectedRate?.id === rate.id 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                      onClick={() => onRateSelect(rate.id)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium text-sm">{rate.carrier}</p>
+                          <p className="text-xs text-gray-600">{rate.service}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-sm">${parseFloat(rate.rate).toFixed(2)}</p>
+                          <p className="text-xs text-gray-500">{rate.delivery_days} days</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Last Action */}
+            {lastAction && (
+              <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-center gap-2 text-green-800">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span className="text-sm font-medium">{lastAction}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Processing State */}
+            {isProcessing && (
+              <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                <div className="flex items-center gap-3 text-yellow-800">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-yellow-600 border-t-transparent"></div>
+                  <span className="font-medium">Processing optimization...</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>

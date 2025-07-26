@@ -6,7 +6,7 @@ import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 import RatePreferenceSelector from '@/components/shipping/RatePreferenceSelector';
-import AIRateAnalysisPanel from '@/components/shipping/AIRateAnalysisPanel';
+import ImprovedAIRatePanel from '@/components/shipping/ImprovedAIRatePanel';
 import RateFilterDropdown from '@/components/shipping/RateFilterDropdown';
 import { useShippingRates } from '@/hooks/useShippingRates';
 
@@ -34,7 +34,7 @@ const CreateLabelPage = () => {
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
     setSelectedRate(rate);
-    handleSelectRate(rate.id || rate);
+    handleSelectRate(rate);
     setShowAIPanel(true);
   };
 
@@ -78,15 +78,8 @@ const CreateLabelPage = () => {
           return scoreA - scoreB;
         });
         break;
-      case 'po-box':
-        // Filter for PO Box compatible services and trigger AI panel update
-        sorted = sorted.filter(rate => 
-          rate.service.toLowerCase().includes('ground') || 
-          rate.service.toLowerCase().includes('standard')
-        );
-        setShowAIPanel(true);
-        break;
       default:
+        // Keep original order
         break;
     }
     
@@ -97,74 +90,68 @@ const CreateLabelPage = () => {
     handleSortFilter(filter);
   };
 
-  const handleAIRateSelect = (rateId: string) => {
-    const rate = rates?.find(r => r.id === rateId);
-    if (rate) {
-      setSelectedRate(rate);
-      handleSelectRate(rateId);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background">
       {/* Sticky Workflow Tracker */}
-      <div className="sticky top-0 z-50 bg-transparent">
+      <div className="sticky top-0 z-40 bg-transparent">
         <EnhancedWorkflowTracker currentStep="package" />
       </div>
       
-      <div className="container mx-auto px-4 py-8">
-        {/* Main content with proper margin adjustment when AI panel is open */}
-        <div className={`transition-all duration-300 ${showAIPanel ? 'pr-96' : ''} max-w-full`}>
-          {/* Header Section */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>
-            <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
-              Get competitive rates from multiple carriers and create professional shipping labels with AI-powered assistance.
-            </p>
-          </div>
+      {/* Main Content Container - Adjusts when AI panel is open */}
+      <div className={`transition-all duration-300 ${showAIPanel ? 'mr-96' : 'mr-0'}`}>
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Header Section */}
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>
+              <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
+                Get competitive rates from multiple carriers and create professional shipping labels with AI-powered assistance.
+              </p>
+            </div>
 
-          {/* AI Rate Preference Selector - Top Level */}
-          <div className="mb-6">
-            <RatePreferenceSelector onPreferenceSelect={handlePreferenceSelect} />
-          </div>
+            {/* AI Rate Preference Selector - Top Level */}
+            <div className="mb-6">
+              <RatePreferenceSelector onPreferenceSelect={handlePreferenceSelect} />
+            </div>
 
-          {/* Main Form Section */}
-          <div className="bg-white rounded-xl shadow-lg border mb-8">
-            <EnhancedShippingForm />
-          </div>
+            {/* Main Form Section */}
+            <div className="bg-white rounded-xl shadow-lg border mb-8">
+              <EnhancedShippingForm />
+            </div>
 
-          {/* Rate Filter Section with enhanced Quick Changes */}
-          {(rates && rates.length > 0) && (
-            <RateFilterDropdown
-              onCarrierFilter={handleCarrierFilter}
-              onSortFilter={handleSortFilter}
-              availableCarriers={uniqueCarriers}
-              selectedCarrier={activeCarrierFilter}
-              selectedSort={selectedSort}
-              rateCount={filteredRates.length}
-              showQuickChanges={true}
-            />
-          )}
-          
-          {/* Shipping Rates Section */}
-          <div id="shipping-rates-section">
-            <ShippingRates 
-              rates={filteredRates || []} 
-              onRateSelected={handleRateSelected} 
-              loading={false}
-              selectedRateId={selectedRate?.id}
-              showEnhancedUI={true}
-            />
+            {/* Rate Filter Section */}
+            {(rates && rates.length > 0) && (
+              <RateFilterDropdown
+                onCarrierFilter={handleCarrierFilter}
+                onSortFilter={handleSortFilter}
+                availableCarriers={uniqueCarriers}
+                selectedCarrier={activeCarrierFilter}
+                selectedSort={selectedSort}
+                rateCount={filteredRates.length}
+              />
+            )}
+            
+            {/* Shipping Rates Section */}
+            <div id="shipping-rates-section">
+              <ShippingRates 
+                rates={filteredRates || []} 
+                onRateSelected={handleRateSelected} 
+                loading={false}
+                selectedRateId={selectedRate?.id}
+                showEnhancedUI={true}
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* AI Rate Analysis Panel with proper positioning */}
-      <AIRateAnalysisPanel
+      {/* AI Rate Analysis Panel - Fixed positioning */}
+      <ImprovedAIRatePanel
         isOpen={showAIPanel}
         onClose={handleCloseAIPanel}
         selectedRate={selectedRate}
         allRates={rates || []}
+        onRateSelect={handleSelectRate}
         onOptimizationChange={handleOptimizationChange}
       />
 
