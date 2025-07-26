@@ -6,7 +6,7 @@ import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 import RatePreferenceSelector from '@/components/shipping/RatePreferenceSelector';
-import ImprovedAIRatePanel from '@/components/shipping/ImprovedAIRatePanel';
+import AIRateAnalysisPanel from '@/components/shipping/AIRateAnalysisPanel';
 import RateFilterDropdown from '@/components/shipping/RateFilterDropdown';
 import { useShippingRates } from '@/hooks/useShippingRates';
 
@@ -79,7 +79,6 @@ const CreateLabelPage = () => {
         });
         break;
       default:
-        // Keep original order
         break;
     }
     
@@ -106,8 +105,8 @@ const CreateLabelPage = () => {
       </div>
       
       <div className="container mx-auto px-4 py-8">
-        {/* Adjust main content margin when AI panel is open */}
-        <div className={`max-w-7xl mx-auto transition-all duration-300 ${showAIPanel ? 'pr-4' : ''}`}>
+        {/* Main content with proper margin adjustment when AI panel is open */}
+        <div className={`max-w-7xl mx-auto transition-all duration-300 ${showAIPanel ? 'mr-96' : ''}`}>
           {/* Header Section */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>
@@ -126,7 +125,7 @@ const CreateLabelPage = () => {
             <EnhancedShippingForm />
           </div>
 
-          {/* Rate Filter Section */}
+          {/* Rate Filter Section with enhanced Quick Changes */}
           {(rates && rates.length > 0) && (
             <RateFilterDropdown
               onCarrierFilter={handleCarrierFilter}
@@ -135,6 +134,7 @@ const CreateLabelPage = () => {
               selectedCarrier={activeCarrierFilter}
               selectedSort={selectedSort}
               rateCount={filteredRates.length}
+              showQuickChanges={true}
             />
           )}
           
@@ -151,13 +151,12 @@ const CreateLabelPage = () => {
         </div>
       </div>
 
-      {/* AI Rate Analysis Panel */}
-      <ImprovedAIRatePanel
+      {/* AI Rate Analysis Panel with proper positioning */}
+      <AIRateAnalysisPanel
         isOpen={showAIPanel}
         onClose={handleCloseAIPanel}
         selectedRate={selectedRate}
         allRates={rates || []}
-        onRateSelect={handleAIRateSelect}
         onOptimizationChange={handleOptimizationChange}
       />
 

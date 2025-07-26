@@ -215,8 +215,8 @@ const ShopifyBulkShipping: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
+      <Card className="border-2 border-gray-200">
+        <CardHeader className="border-b-2 border-gray-200 bg-gradient-to-r from-green-50 to-blue-50">
           <CardTitle className="flex items-center gap-2">
             <ShoppingCart className="h-5 w-5" />
             Shopify Bulk Shipping
@@ -230,7 +230,7 @@ const ShopifyBulkShipping: React.FC = () => {
               <Button 
                 onClick={handleImportShopifyData}
                 disabled={isImporting}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 border-2 border-blue-600"
               >
                 {isImporting ? (
                   <>
@@ -296,8 +296,8 @@ const ShopifyBulkShipping: React.FC = () => {
                 </div>
               </div>
 
-              {/* Orders Table */}
-              <div className="border rounded-lg bg-white shadow-sm">
+              {/* Enhanced Orders Table */}
+              <div className="border-2 border-gray-200 rounded-lg bg-white shadow-sm">
                 <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 font-medium text-sm border-b">
                   <div className="col-span-1">Select</div>
                   <div className="col-span-2">Order Ref</div>
@@ -334,7 +334,7 @@ const ShopifyBulkShipping: React.FC = () => {
               
               {/* Processing Status */}
               {isProcessing && (
-                <Card className="bg-blue-50 border-blue-200">
+                <Card className="bg-blue-50 border-2 border-blue-200">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3 text-blue-800">
                       <Loader2 className="h-5 w-5 animate-spin" />
