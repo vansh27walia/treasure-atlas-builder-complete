@@ -78,6 +78,14 @@ const CreateLabelPage = () => {
           return scoreA - scoreB;
         });
         break;
+      case 'po-box':
+        // Filter for PO Box compatible services and trigger AI panel update
+        sorted = sorted.filter(rate => 
+          rate.service.toLowerCase().includes('ground') || 
+          rate.service.toLowerCase().includes('standard')
+        );
+        setShowAIPanel(true);
+        break;
       default:
         break;
     }
@@ -106,7 +114,7 @@ const CreateLabelPage = () => {
       
       <div className="container mx-auto px-4 py-8">
         {/* Main content with proper margin adjustment when AI panel is open */}
-        <div className={`max-w-7xl mx-auto transition-all duration-300 ${showAIPanel ? 'mr-96' : ''}`}>
+        <div className={`transition-all duration-300 ${showAIPanel ? 'pr-96' : ''} max-w-full`}>
           {/* Header Section */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>

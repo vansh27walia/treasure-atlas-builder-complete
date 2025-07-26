@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Clock, DollarSign, Package, Shield, Star, TrendingDown, Zap } from 'lucide-react';
 import { useShippingRates, ShippingRate } from '@/hooks/useShippingRates';
 import CarrierLogo from './shipping/CarrierLogo';
+import ShippingRateDropdown from './shipping/ShippingRateDropdown';
 
 interface ShippingRatesProps {
   rates: ShippingRate[];
@@ -35,50 +36,48 @@ const ShippingRates: React.FC<ShippingRatesProps> = ({
     setLocalSelectedId(selectedRateId || null);
   }, [selectedRateId]);
 
-  const handleRateClick = (rate: ShippingRate) => {
-    setLocalSelectedId(rate.id);
-    onRateSelected(rate);
+  const handleRateSelect = (rateId: string) => {
+    setLocalSelectedId(rateId);
+    const selectedRate = rates.find(rate => rate.id === rateId);
+    if (selectedRate) {
+      onRateSelected(selectedRate);
+    }
   };
 
-  const handleCreateLabelClick = async (rate: ShippingRate) => {
+  const handleCreateLabelClick = async () => {
+    if (!localSelectedId) return;
     try {
-      await handleCreateLabel(rate.id, rate.shipment_id);
+      const selectedRate = rates.find(rate => rate.id === localSelectedId);
+      if (selectedRate) {
+        await handleCreateLabel(selectedRate.id, selectedRate.shipment_id);
+      }
     } catch (error) {
       console.error('Error creating label:', error);
     }
   };
 
-  const getRateBadges = (rate: ShippingRate) => {
-    const badges = [];
-    
-    // Check if it's the cheapest
-    const cheapest = Math.min(...rates.map(r => parseFloat(r.rate)));
-    if (parseFloat(rate.rate) === cheapest) {
-      badges.push({ label: 'CHEAPEST', color: 'bg-green-500 text-white', icon: '💰' });
-    }
-    
-    // Check if it's the fastest
-    const fastest = Math.min(...rates.map(r => r.delivery_days));
-    if (rate.delivery_days === fastest) {
-      badges.push({ label: 'FASTEST', color: 'bg-blue-500 text-white', icon: '⚡' });
-    }
-    
-    // Premium service badge
-    if (rate.isPremium) {
-      badges.push({ label: 'PREMIUM', color: 'bg-purple-500 text-white', icon: '⭐' });
-    }
-    
-    // Discount badge
-    if (rate.discount_percentage && rate.discount_percentage > 0) {
-      badges.push({ 
-        label: `${rate.discount_percentage}% OFF`, 
-        color: 'bg-orange-500 text-white', 
-        icon: '🔥' 
-      });
-    }
-    
-    return badges;
+  // Get best value and fastest rates
+  const getBestValueRate = () => {
+    if (rates.length === 0) return null;
+    const sortedRates = [...rates].sort((a, b) => {
+      const aPrice = parseFloat(a.rate);
+      const bPrice = parseFloat(b.rate);
+      if (aPrice !== bPrice) return aPrice - bPrice;
+      return (a.delivery_days || 999) - (b.delivery_days || 999);
+    });
+    return sortedRates[0]?.id;
   };
+
+  const getFastestRate = () => {
+    if (rates.length === 0) return null;
+    const sortedRates = [...rates].sort((a, b) => 
+      (a.delivery_days || 999) - (b.delivery_days || 999)
+    );
+    return sortedRates[0]?.id;
+  };
+
+  const bestValueRateId = getBestValueRate();
+  const fastestRateId = getFastestRate();
 
   if (loading) {
     return (
@@ -118,132 +117,44 @@ const ShippingRates: React.FC<ShippingRatesProps> = ({
         </div>
       </div>
       
-      <div className="p-6 space-y-4">
-        {rates.map((rate) => {
-          const isSelected = localSelectedId === rate.id;
-          const badges = getRateBadges(rate);
+      <div className="p-6 space-y-6">
+        {/* Rate Dropdown Selection */}
+        <div className="space-y-4">
+          <ShippingRateDropdown
+            rates={rates}
+            selectedRateId={localSelectedId}
+            onSelectRate={handleRateSelect}
+            bestValueRateId={bestValueRateId}
+            fastestRateId={fastestRateId}
+            isLoading={isLoading}
+            onCreateLabel={handleCreateLabelClick}
+          />
           
-          return (
-            <Card 
-              key={rate.id}
-              data-rate-id={rate.id}
-              className={`cursor-pointer transition-all duration-200 border-2 hover:shadow-lg ${
-                isSelected 
-                  ? 'border-blue-500 bg-blue-50 shadow-md' 
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-              onClick={() => handleRateClick(rate)}
-            >
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4 flex-1">
-                    {/* Carrier Logo */}
-                    <div className="flex-shrink-0">
-                      <CarrierLogo carrier={rate.carrier} className="w-12 h-12" />
-                    </div>
-                    
-                    {/* Rate Details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-lg font-semibold text-gray-900 truncate">
-                          {rate.carrier}
-                        </h3>
-                        {badges.slice(0, 2).map((badge, index) => (
-                          <Badge key={index} className={`${badge.color} text-xs px-2 py-1`}>
-                            {badge.icon} {badge.label}
-                          </Badge>
-                        ))}
-                      </div>
-                      
-                      <p className="text-sm text-gray-600 mb-2">{rate.service}</p>
-                      
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="flex items-center gap-1 text-gray-600">
-                          <Clock className="w-4 h-4" />
-                          <span>{rate.delivery_days} business days</span>
-                        </div>
-                        
-                        <div className="flex items-center gap-1 text-gray-600">
-                          <Package className="w-4 h-4" />
-                          <span>Delivery by {new Date(rate.delivery_date).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Price Section */}
-                  <div className="text-right flex-shrink-0 ml-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <DollarSign className="w-5 h-5 text-green-600" />
-                      <div>
-                        {rate.original_rate && parseFloat(rate.original_rate) > parseFloat(rate.rate) ? (
-                          <div>
-                            <span className="text-2xl font-bold text-green-600">
-                              ${parseFloat(rate.rate).toFixed(2)}
-                            </span>
-                            <div className="text-sm text-gray-500 line-through">
-                              ${parseFloat(rate.original_rate).toFixed(2)}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-2xl font-bold text-gray-900">
-                            ${parseFloat(rate.rate).toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {isSelected && (
-                      <div className="space-y-2 mt-4">
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCreateLabelClick(rate);
-                          }}
-                          disabled={isLoading}
-                          className="w-full bg-green-600 hover:bg-green-700 text-white border-2 border-green-600"
-                        >
-                          {isLoading ? 'Creating...' : 'Create Label'}
-                        </Button>
-                        
-                        <Button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleProceedToPayment();
-                          }}
-                          disabled={isProcessingPayment}
-                          variant="outline"
-                          className="w-full border-2 border-blue-600 text-blue-600 hover:bg-blue-50"
-                        >
-                          {isProcessingPayment ? 'Processing...' : 'Proceed to Payment'}
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Additional badges row */}
-                {badges.length > 2 && (
-                  <div className="mt-3 flex gap-2 flex-wrap">
-                    {badges.slice(2).map((badge, index) => (
-                      <Badge key={index} className={`${badge.color} text-xs px-2 py-1`}>
-                        {badge.icon} {badge.label}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+          {/* Payment Section */}
+          {localSelectedId && (
+            <div className="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+              <h3 className="font-semibold text-gray-900 mb-3">Payment Options</h3>
+              <div className="space-y-3">
+                <Button
+                  onClick={handleCreateLabelClick}
+                  disabled={isLoading}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white border-2 border-green-600"
+                >
+                  {isLoading ? 'Creating Label...' : 'Create Shipping Label'}
+                </Button>
                 
-                {/* Selection indicator */}
-                {isSelected && (
-                  <div className="mt-4 flex items-center gap-2 text-blue-600 text-sm font-medium">
-                    <Star className="w-4 h-4 fill-current" />
-                    Selected Rate
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+                <Button
+                  onClick={handleProceedToPayment}
+                  disabled={isProcessingPayment}
+                  variant="outline"
+                  className="w-full border-2 border-blue-600 text-blue-600 hover:bg-blue-50"
+                >
+                  {isProcessingPayment ? 'Processing...' : 'Proceed to Payment'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

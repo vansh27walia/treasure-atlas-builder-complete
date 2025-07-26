@@ -53,7 +53,17 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
     { id: '2-day', label: '2-Day Delivery', icon: '🕓', color: 'bg-orange-100 text-orange-800' },
     { id: 'express', label: 'Express Delivery', icon: '🚀', color: 'bg-red-100 text-red-800' },
     { id: 'most-reliable', label: 'Most Reliable', icon: '🛡️', color: 'bg-gray-100 text-gray-800' },
-    { id: 'ai-recommended', label: 'AI Recommended', icon: '🧠', color: 'bg-pink-100 text-pink-800' }
+    { id: 'ai-recommended', label: 'AI Recommended', icon: '🧠', color: 'bg-pink-100 text-pink-800' },
+    { id: 'bulk', label: 'Bulk Shipment', icon: '🧳', color: 'bg-teal-100 text-teal-800' },
+    { id: 'international', label: 'International', icon: '✈️', color: 'bg-blue-100 text-blue-800' },
+    { id: 'return-friendly', label: 'Return Friendly', icon: '🔄', color: 'bg-green-100 text-green-800' },
+    { id: 'weekend-delivery', label: 'Weekend Delivery', icon: '📅', color: 'bg-purple-100 text-purple-800' },
+    { id: 'signature-required', label: 'Signature Required', icon: '✍️', color: 'bg-yellow-100 text-yellow-800' },
+    { id: 'insurance-included', label: 'Insurance Included', icon: '🔒', color: 'bg-blue-100 text-blue-800' },
+    { id: 'fragile-handling', label: 'Fragile Handling', icon: '🔍', color: 'bg-red-100 text-red-800' },
+    { id: 'temperature-controlled', label: 'Temperature Controlled', icon: '🌡️', color: 'bg-cyan-100 text-cyan-800' },
+    { id: 'hazmat-certified', label: 'Hazmat Certified', icon: '⚠️', color: 'bg-orange-100 text-orange-800' },
+    { id: 'carbon-neutral', label: 'Carbon Neutral', icon: '🌍', color: 'bg-green-100 text-green-800' }
   ];
 
   const analyzeRate = async () => {
@@ -95,7 +105,6 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
     setSelectedRateId(rateId);
     const newSelectedRate = allRates.find(rate => rate.id === rateId);
     if (newSelectedRate) {
-      // Trigger rate selection in parent component
       document.dispatchEvent(new CustomEvent('select-shipping-rate', { 
         detail: { rateId } 
       }));
@@ -124,10 +133,10 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
         onClick={onClose}
       />
       
-      {/* AI Panel - Fixed positioning on right side */}
-      <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-y-auto">
-        <Card className="h-full rounded-none border-0">
-          <CardHeader className="flex flex-row items-center justify-between sticky top-0 bg-white z-10 border-b-2 border-blue-200">
+      {/* AI Panel - Fixed positioning on right side with proper height */}
+      <div className="fixed top-0 right-0 h-screen w-96 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
+        <Card className="h-full rounded-none border-0 flex flex-col">
+          <CardHeader className="flex flex-row items-center justify-between bg-white z-10 border-b-2 border-blue-200 flex-shrink-0">
             <CardTitle className="flex items-center gap-2">
               <Brain className="w-5 h-5 text-blue-600" />
               AI Rate Analysis
@@ -137,7 +146,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
             </Button>
           </CardHeader>
           
-          <CardContent className="space-y-6 p-4">
+          <CardContent className="flex-1 overflow-y-auto p-4 space-y-6">
             {/* Rate Selector Dropdown */}
             <div className="space-y-3">
               <h4 className="font-semibold text-gray-900 flex items-center gap-2">

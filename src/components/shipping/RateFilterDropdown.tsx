@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +32,7 @@ const RateFilterDropdown: React.FC<RateFilterDropdownProps> = ({
     ...availableCarriers.map(carrier => ({
       value: carrier.toLowerCase(),
       label: carrier.toUpperCase(),
-      count: 0 // Would need to calculate actual count
+      count: 0
     }))
   ];
 
@@ -43,7 +44,22 @@ const RateFilterDropdown: React.FC<RateFilterDropdownProps> = ({
     { value: 'express', label: 'Express Only', icon: '🚀' },
     { value: 'ground', label: 'Ground Only', icon: '🚛' },
     { value: 'overnight', label: 'Overnight', icon: '🌙' },
-    { value: 'two-day', label: '2-Day Delivery', icon: '📅' }
+    { value: 'two-day', label: '2-Day Delivery', icon: '📅' },
+    { value: 'door-delivery', label: 'Door Delivery', icon: '📦' },
+    { value: 'po-box', label: 'PO Box Delivery', icon: '📫' },
+    { value: 'eco-friendly', label: 'Eco Friendly', icon: '🌱' },
+    { value: 'most-reliable', label: 'Most Reliable', icon: '🛡️' },
+    { value: 'ai-recommended', label: 'AI Recommended', icon: '🧠' },
+    { value: 'bulk', label: 'Bulk Shipment', icon: '🧳' },
+    { value: 'international', label: 'International', icon: '✈️' },
+    { value: 'return-friendly', label: 'Return Friendly', icon: '🔄' },
+    { value: 'weekend-delivery', label: 'Weekend Delivery', icon: '📅' },
+    { value: 'signature-required', label: 'Signature Required', icon: '✍️' },
+    { value: 'insurance-included', label: 'Insurance Included', icon: '🔒' },
+    { value: 'fragile-handling', label: 'Fragile Handling', icon: '🔍' },
+    { value: 'temperature-controlled', label: 'Temperature Controlled', icon: '🌡️' },
+    { value: 'hazmat-certified', label: 'Hazmat Certified', icon: '⚠️' },
+    { value: 'carbon-neutral', label: 'Carbon Neutral', icon: '🌍' }
   ];
 
   const handleQuickChange = (sortValue: string) => {
@@ -93,7 +109,7 @@ const RateFilterDropdown: React.FC<RateFilterDropdownProps> = ({
               <SelectTrigger className="w-48 border-2">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
-              <SelectContent className="bg-white border-2 shadow-lg z-50">
+              <SelectContent className="bg-white border-2 shadow-lg z-50 max-h-80 overflow-y-auto">
                 {sortOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     <div className="flex items-center gap-2">
@@ -108,7 +124,7 @@ const RateFilterDropdown: React.FC<RateFilterDropdownProps> = ({
         </div>
       </div>
 
-      {/* Quick Changes Section */}
+      {/* Quick Changes Section - Enhanced with all options */}
       {showQuickChanges && (
         <div className="mt-4 pt-4 border-t-2 border-gray-200">
           <div className="flex items-center justify-between mb-3">
@@ -122,12 +138,12 @@ const RateFilterDropdown: React.FC<RateFilterDropdownProps> = ({
               onClick={() => setIsOpen(!isOpen)}
               className="text-blue-600 hover:text-blue-800"
             >
-              {isOpen ? 'Hide' : 'Show More'} 
+              {isOpen ? 'Hide' : 'Show All'} 
               <ChevronDown className={`w-4 h-4 ml-1 transform transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </Button>
           </div>
           
-          {/* Always visible quick options */}
+          {/* Always visible top quick options */}
           <div className="flex flex-wrap gap-2 mb-3">
             {sortOptions.slice(1, 4).map((option) => (
               <Button
@@ -143,16 +159,16 @@ const RateFilterDropdown: React.FC<RateFilterDropdownProps> = ({
             ))}
           </div>
 
-          {/* Expandable additional options */}
+          {/* Expandable all options */}
           {isOpen && (
-            <div className="flex flex-wrap gap-2 animate-fade-in">
+            <div className="grid grid-cols-2 gap-2 animate-fade-in">
               {sortOptions.slice(4).map((option) => (
                 <Button
                   key={option.value}
                   variant="outline"
                   size="sm"
                   onClick={() => handleQuickChange(option.value)}
-                  className="border-2 hover:bg-gray-50 hover:border-gray-300"
+                  className="border-2 hover:bg-gray-50 hover:border-gray-300 justify-start"
                 >
                   <span className="mr-1">{option.icon}</span>
                   {option.label}
