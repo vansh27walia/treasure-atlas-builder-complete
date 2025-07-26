@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
@@ -33,7 +34,7 @@ const CreateLabelPage = () => {
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
     setSelectedRate(rate);
-    handleSelectRate(rate);
+    handleSelectRate(rate.id || rate);
     setShowAIPanel(true);
   };
 
@@ -89,6 +90,14 @@ const CreateLabelPage = () => {
     handleSortFilter(filter);
   };
 
+  const handleAIRateSelect = (rateId: string) => {
+    const rate = rates?.find(r => r.id === rateId);
+    if (rate) {
+      setSelectedRate(rate);
+      handleSelectRate(rateId);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Sticky Workflow Tracker */}
@@ -97,7 +106,8 @@ const CreateLabelPage = () => {
       </div>
       
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-7xl mx-auto">
+        {/* Adjust main content margin when AI panel is open */}
+        <div className={`max-w-7xl mx-auto transition-all duration-300 ${showAIPanel ? 'pr-4' : ''}`}>
           {/* Header Section */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>
@@ -111,35 +121,32 @@ const CreateLabelPage = () => {
             <RatePreferenceSelector onPreferenceSelect={handlePreferenceSelect} />
           </div>
 
-          {/* Main Layout with AI Panel Consideration */}
-          <div className={`transition-all duration-300 ${showAIPanel ? 'mr-96' : ''}`}>
-            {/* Main Form Section */}
-            <div className="bg-white rounded-xl shadow-lg border mb-8">
-              <EnhancedShippingForm />
-            </div>
+          {/* Main Form Section */}
+          <div className="bg-white rounded-xl shadow-lg border mb-8">
+            <EnhancedShippingForm />
+          </div>
 
-            {/* Rate Filter Section */}
-            {(rates && rates.length > 0) && (
-              <RateFilterDropdown
-                onCarrierFilter={handleCarrierFilter}
-                onSortFilter={handleSortFilter}
-                availableCarriers={uniqueCarriers}
-                selectedCarrier={activeCarrierFilter}
-                selectedSort={selectedSort}
-                rateCount={filteredRates.length}
-              />
-            )}
-            
-            {/* Shipping Rates Section */}
-            <div id="shipping-rates-section">
-              <ShippingRates 
-                rates={filteredRates || []} 
-                onRateSelected={handleRateSelected} 
-                loading={false}
-                selectedRateId={selectedRate?.id}
-                showEnhancedUI={true}
-              />
-            </div>
+          {/* Rate Filter Section */}
+          {(rates && rates.length > 0) && (
+            <RateFilterDropdown
+              onCarrierFilter={handleCarrierFilter}
+              onSortFilter={handleSortFilter}
+              availableCarriers={uniqueCarriers}
+              selectedCarrier={activeCarrierFilter}
+              selectedSort={selectedSort}
+              rateCount={filteredRates.length}
+            />
+          )}
+          
+          {/* Shipping Rates Section */}
+          <div id="shipping-rates-section">
+            <ShippingRates 
+              rates={filteredRates || []} 
+              onRateSelected={handleRateSelected} 
+              loading={false}
+              selectedRateId={selectedRate?.id}
+              showEnhancedUI={true}
+            />
           </div>
         </div>
       </div>
@@ -150,7 +157,7 @@ const CreateLabelPage = () => {
         onClose={handleCloseAIPanel}
         selectedRate={selectedRate}
         allRates={rates || []}
-        onRateSelect={handleSelectRate}
+        onRateSelect={handleAIRateSelect}
         onOptimizationChange={handleOptimizationChange}
       />
 
