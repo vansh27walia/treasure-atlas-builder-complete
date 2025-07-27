@@ -20,6 +20,7 @@ export interface ShippingRate {
   insurance_cost?: number;
   total_cost?: number;
   discount_percentage?: number;
+  isAIRecommended?: boolean;
 }
 
 interface LabelOptions {
@@ -50,9 +51,9 @@ export const useShippingRates = () => {
   // Carrier filters
   const [uniqueCarriers, setUniqueCarriers] = useState<string[]>([]);
 
-  // Process and enhance rates with discount percentages
+  // Process and enhance rates with discount percentages and AI recommendations
   const processRates = (incomingRates: ShippingRate[]) => {
-    return incomingRates.map(rate => {
+    return incomingRates.map((rate, index) => {
       // The discount percentage should already come from the backend
       // If not present, calculate it from original_rate and rate
       let discountPercentage = rate.discount_percentage || 0;
@@ -75,10 +76,18 @@ export const useShippingRates = () => {
         (rate.delivery_days === 1) ||
         parseFloat(rate.rate) > 20; // If rate is above $20, consider it a premium service
       
+      // AI recommendation logic - recommend the best balance of price and speed
+      const isAIRecommended = index === 0 || (
+        rate.delivery_days <= 3 && 
+        parseFloat(rate.rate) < 25 && 
+        !rate.service.toLowerCase().includes('ground')
+      );
+      
       return {
         ...rate,
         discount_percentage: discountPercentage,
-        isPremium
+        isPremium,
+        isAIRecommended
       };
     });
   };
