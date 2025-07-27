@@ -5,7 +5,6 @@ import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTrack
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import AIRateAnalysisPanel from '@/components/shipping/AIRateAnalysisPanel';
 import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
-import RateFilterDropdown from '@/components/shipping/RateFilterDropdown';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 import { useShippingRates } from '@/hooks/useShippingRates';
 
@@ -19,7 +18,6 @@ const CreateLabelPage = () => {
   const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [selectedRate, setSelectedRate] = useState<any>(null);
-  const [rateFilter, setRateFilter] = useState<string>('all');
 
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
@@ -35,24 +33,19 @@ const CreateLabelPage = () => {
 
   const handleOptimizationChange = (filter: string) => {
     console.log('Optimization filter applied:', filter);
-    setRateFilter(filter);
-    handleFilterByCarrier(filter);
-  };
-
-  const handleRateFilterChange = (filter: string) => {
-    setRateFilter(filter);
+    // Apply the optimization filter to rates
     handleFilterByCarrier(filter);
   };
 
   return (
     <div className="min-h-screen bg-background">
       {/* Sticky Workflow Tracker */}
-      <div className="sticky top-0 z-40 bg-transparent">
+      <div className="sticky top-0 z-50 bg-transparent">
         <EnhancedWorkflowTracker currentStep="package" />
       </div>
       
-      <div className={`container mx-auto px-4 py-8 transition-all duration-300 ${showAIPanel ? 'pr-[400px]' : ''}`}>
-        <div className="max-w-7xl mx-auto">
+      <div className="container mx-auto px-4 py-8">
+        <div className={`max-w-7xl mx-auto transition-all duration-300 ${showAIPanel ? 'mr-96' : ''}`}>
           {/* Header Section */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>
@@ -65,17 +58,6 @@ const CreateLabelPage = () => {
           <div className="bg-white rounded-xl shadow-lg border mb-8">
             <EnhancedShippingForm />
           </div>
-
-          {/* Rate Filter Section */}
-          {rates && rates.length > 0 && (
-            <div className="mb-6 bg-white rounded-xl shadow-lg border p-6">
-              <RateFilterDropdown
-                onFilterChange={handleRateFilterChange}
-                selectedFilter={rateFilter}
-                rateCount={rates.length}
-              />
-            </div>
-          )}
           
           {/* Shipping Rates Section */}
           <div id="shipping-rates-section">
