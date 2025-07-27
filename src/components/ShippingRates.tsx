@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -143,15 +144,11 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
       case 'fastest':
         sortedRates.sort((a, b) => a.delivery_days - b.delivery_days);
         break;
-      case 'reliable':
+      case 'balanced':
         sortedRates.sort((a, b) => {
-          const reliabilityScore = (carrier: string) => {
-            if (carrier.toLowerCase().includes('ups')) return 1;
-            if (carrier.toLowerCase().includes('usps')) return 2;
-            if (carrier.toLowerCase().includes('fedex')) return 3;
-            return 4;
-          };
-          return reliabilityScore(a.carrier) - reliabilityScore(b.carrier);
+          const aScore = parseFloat(a.rate) / a.delivery_days;
+          const bScore = parseFloat(b.rate) / b.delivery_days;
+          return aScore - bScore;
         });
         break;
       default:
@@ -165,7 +162,6 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
       onRateSelected(sortedRates[0]);
     }
     
-    setShowAIPanel(false);
     toast.success(`Rates optimized for ${filter}`);
   };
 
@@ -181,6 +177,11 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     } finally {
       setIsCreatingLabel(false);
     }
+  };
+
+  const handleContinueToPayment = () => {
+    setShowPayment(true);
+    setShowAIPanel(false); // Close AI panel when payment starts
   };
 
   if (loading) {
@@ -368,7 +369,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
         {/* Continue to Payment Button */}
         {currentSelectedRate && !showPayment && (
           <Button
-            onClick={() => setShowPayment(true)}
+            onClick={handleContinueToPayment}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-semibold"
           >
             Continue with {currentSelectedRate.carrier} - ${parseFloat(currentSelectedRate.rate).toFixed(2)}

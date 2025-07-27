@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Package, ShoppingCart, Truck, Loader2, CheckCircle } from 'lucide-react';
+import { Package, ShoppingCart, Truck, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBulkShipping, RRow } from '@/hooks/useBulkShipping';
 import { useNavigate } from 'react-router-dom';
@@ -57,7 +57,7 @@ const ShopifyBulkShipping: React.FC = () => {
     setIsImporting(true);
     
     try {
-      console.log('Fetching Shopify orders...');
+      console.log('Attempting to fetch Shopify orders...');
       
       // Try to fetch real Shopify orders first
       const { data: shopifyData, error } = await supabase.functions.invoke('shopify-orders');
@@ -65,7 +65,7 @@ const ShopifyBulkShipping: React.FC = () => {
       if (shopifyData && shopifyData.orders && shopifyData.orders.length > 0) {
         // Convert Shopify orders to our format
         const convertedOrders = shopifyData.orders.map((order: any) => ({
-          recipient_name: `${order.shipping_address?.first_name} ${order.shipping_address?.last_name}`,
+          recipient_name: `${order.shipping_address?.first_name || ''} ${order.shipping_address?.last_name || ''}`.trim(),
           recipient_address1: order.shipping_address?.address1 || '',
           recipient_city: order.shipping_address?.city || '',
           recipient_state: order.shipping_address?.province_code || '',
@@ -73,26 +73,30 @@ const ShopifyBulkShipping: React.FC = () => {
           recipient_country: order.shipping_address?.country_code || 'US',
           recipient_phone: order.shipping_address?.phone || '',
           recipient_email: order.email || '',
-          parcel_weight: order.total_weight || 5.0,
+          parcel_weight: parseFloat(order.total_weight) || 5.0,
           parcel_length: 12,
           parcel_width: 8,
           parcel_height: 6,
-          order_reference: order.order_number || order.name
+          order_reference: order.order_number || order.name || `ORDER-${Date.now()}`
         }));
         
+        console.log('Successfully converted Shopify orders:', convertedOrders);
         setOrders(convertedOrders);
         toast.success(`Imported ${convertedOrders.length} Shopify orders successfully`);
       } else {
-        // Fallback to mock data if no real Shopify connection
-        console.log('No Shopify orders found, using mock data');
+        console.log('No Shopify orders found or error occurred, using demo data');
+        if (error) {
+          console.error('Shopify API error:', error);
+          toast.error('Could not connect to Shopify. Using demo data instead.');
+        } else {
+          toast.info('No Shopify orders found. Using demo data for testing.');
+        }
         setOrders(mockShopifyOrders);
-        toast.success('Shopify demo data imported successfully');
       }
     } catch (error) {
       console.error('Error importing Shopify data:', error);
-      // Use mock data as fallback
+      toast.error('Shopify connection failed. Using demo data instead.');
       setOrders(mockShopifyOrders);
-      toast.success('Shopify demo data imported successfully');
     } finally {
       setIsImporting(false);
     }
@@ -127,16 +131,16 @@ const ShopifyBulkShipping: React.FC = () => {
     
     orders.forEach(order => {
       const csvRow = [
-        `"${order.recipient_name}"`,
-        `"${order.recipient_address1}"`,
-        `"${order.recipient_city}"`,
-        `"${order.recipient_state}"`,
-        `"${order.recipient_zip}"`,
-        `"${order.recipient_country}"`,
-        `"${order.parcel_weight}"`,
-        `"${order.parcel_length}"`,
-        `"${order.parcel_width}"`,
-        `"${order.parcel_height}"`,
+        `"${order.recipient_name || ''}"`,
+        `"${order.recipient_address1 || ''}"`,
+        `"${order.recipient_city || ''}"`,
+        `"${order.recipient_state || ''}"`,
+        `"${order.recipient_zip || ''}"`,
+        `"${order.recipient_country || 'US'}"`,
+        `"${order.parcel_weight || 5.0}"`,
+        `"${order.parcel_length || 12}"`,
+        `"${order.parcel_width || 8}"`,
+        `"${order.parcel_height || 6}"`,
         `""`, // to_company
         `""`, // to_street2
         `"${order.recipient_phone || ''}"`,
@@ -161,31 +165,45 @@ const ShopifyBulkShipping: React.FC = () => {
       console.log('Starting Shopify to EasyPost conversion...');
       const selectedOrdersData = Array.from(selectedOrders).map(index => orders[index]);
       
-      // Show initial processing toast
-      const processingToastId = toast.loading('Converting Shopify orders to EasyPost format...', {
+      // Validate orders before processing
+      const validOrders = selectedOrdersData.filter(order => 
+        order.recipient_name && 
+        order.recipient_address1 && 
+        order.recipient_city && 
+        order.recipient_state && 
+        order.recipient_zip
+      );
+
+      if (validOrders.length !== selectedOrdersData.length) {
+        const invalidCount = selectedOrdersData.length - validOrders.length;
+        toast.error(`${invalidCount} orders have missing required address information and will be skipped.`);
+      }
+
+      if (validOrders.length === 0) {
+        toast.error('No valid orders found. Please check the address information.');
+        return;
+      }
+
+      // Show processing status
+      const processingToastId = toast.loading(`Converting ${validOrders.length} Shopify orders to EasyPost format...`, {
         duration: 0
       });
       
       // Convert orders to EasyPost CSV format
-      const csvContent = convertToEasyPostCSV(selectedOrdersData);
+      const csvContent = convertToEasyPostCSV(validOrders);
       
-      console.log('Generated EasyPost CSV for Shopify orders');
-      
-      // Update toast to show conversion success
-      toast.success('Shopify orders converted to EasyPost format successfully!', {
-        id: processingToastId
-      });
+      console.log('Generated EasyPost CSV for Shopify orders:', csvContent.substring(0, 200) + '...');
       
       // Store the CSV content and metadata in session storage for bulk upload
       sessionStorage.setItem('csvContent', csvContent);
       sessionStorage.setItem('csvFilename', `shopify-orders-${Date.now()}.csv`);
       sessionStorage.setItem('isFromShopify', 'true');
-      sessionStorage.setItem('shopifyOrderCount', selectedOrders.size.toString());
+      sessionStorage.setItem('shopifyOrderCount', validOrders.length.toString());
       
       // Set default from address for Shopify warehouse
       sessionStorage.setItem('fromAddress', JSON.stringify({
-        name: "Shopify Warehouse",
-        company: "Your Company",
+        name: "Shopify Store",
+        company: "Your Store",
         street1: "123 Warehouse St",
         street2: "",
         city: "Los Angeles",
@@ -195,20 +213,24 @@ const ShopifyBulkShipping: React.FC = () => {
         phone: "555-123-4567"
       }));
       
-      // Success toast with redirect info
-      toast.success(`${selectedOrders.size} orders converted! Redirecting to batch label creation...`, {
+      // Success notification
+      toast.success(`Successfully converted ${validOrders.length} Shopify orders!`, {
+        id: processingToastId,
         duration: 2000,
         icon: <CheckCircle className="h-4 w-4" />
       });
       
-      // Small delay to show success, then redirect to bulk upload for automatic processing
+      // Add a brief delay to show success, then redirect
       setTimeout(() => {
+        toast.success('Redirecting to batch label creation...', {
+          duration: 1500
+        });
         navigate('/bulk-upload');
-      }, 1500);
+      }, 1000);
       
     } catch (error) {
-      console.error('Error processing selected orders:', error);
-      toast.error('Failed to process selected orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error('Error processing Shopify orders:', error);
+      toast.error('Failed to process Shopify orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsProcessing(false);
     }
@@ -220,7 +242,7 @@ const ShopifyBulkShipping: React.FC = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ShoppingCart className="h-5 w-5" />
-            Shopify Bulk Shipping
+            Shopify Bulk Shipping Integration
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -241,7 +263,7 @@ const ShopifyBulkShipping: React.FC = () => {
                 ) : (
                   <>
                     <ShoppingCart className="h-4 w-4" />
-                    Import Shopify Data
+                    Import from Shopify
                   </>
                 )}
               </Button>
@@ -290,15 +312,15 @@ const ShopifyBulkShipping: React.FC = () => {
                     ) : (
                       <>
                         <Truck className="h-4 w-4" />
-                        Convert & Ship
+                        Convert & Create Labels
                       </>
                     )}
                   </Button>
                 </div>
               </div>
 
-              <div className="border rounded-lg">
-                <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 font-medium text-sm">
+              <div className="border rounded-lg overflow-hidden">
+                <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 font-medium text-sm border-b">
                   <div className="col-span-1">Select</div>
                   <div className="col-span-2">Order Ref</div>
                   <div className="col-span-2">Recipient</div>
@@ -308,28 +330,30 @@ const ShopifyBulkShipping: React.FC = () => {
                   <div className="col-span-1">Phone</div>
                 </div>
                 
-                {orders.map((order, index) => (
-                  <div key={index} className="grid grid-cols-12 gap-4 p-4 border-t hover:bg-gray-50">
-                    <div className="col-span-1">
-                      <Checkbox
-                        checked={selectedOrders.has(index)}
-                        onCheckedChange={(checked) => handleOrderSelection(index, checked as boolean)}
-                        disabled={isProcessing}
-                      />
+                <div className="max-h-64 overflow-y-auto">
+                  {orders.map((order, index) => (
+                    <div key={index} className="grid grid-cols-12 gap-4 p-4 border-b hover:bg-gray-50">
+                      <div className="col-span-1">
+                        <Checkbox
+                          checked={selectedOrders.has(index)}
+                          onCheckedChange={(checked) => handleOrderSelection(index, checked as boolean)}
+                          disabled={isProcessing}
+                        />
+                      </div>
+                      <div className="col-span-2 font-medium">{order.order_reference}</div>
+                      <div className="col-span-2">{order.recipient_name}</div>
+                      <div className="col-span-3 text-sm text-gray-600">
+                        {order.recipient_address1}<br />
+                        {order.recipient_city}, {order.recipient_state} {order.recipient_zip}
+                      </div>
+                      <div className="col-span-2 text-sm">
+                        {order.parcel_length}"×{order.parcel_width}"×{order.parcel_height}"
+                      </div>
+                      <div className="col-span-1 text-sm">{order.parcel_weight} lbs</div>
+                      <div className="col-span-1 text-sm">{order.recipient_phone}</div>
                     </div>
-                    <div className="col-span-2 font-medium">{order.order_reference}</div>
-                    <div className="col-span-2">{order.recipient_name}</div>
-                    <div className="col-span-3 text-sm text-gray-600">
-                      {order.recipient_address1}<br />
-                      {order.recipient_city}, {order.recipient_state} {order.recipient_zip}
-                    </div>
-                    <div className="col-span-2 text-sm">
-                      {order.parcel_length}"×{order.parcel_width}"×{order.parcel_height}"
-                    </div>
-                    <div className="col-span-1 text-sm">{order.parcel_weight} lbs</div>
-                    <div className="col-span-1 text-sm">{order.recipient_phone}</div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
               
               {isProcessing && (
@@ -339,10 +363,26 @@ const ShopifyBulkShipping: React.FC = () => {
                     <span className="font-medium">Converting Shopify Orders</span>
                   </div>
                   <p className="text-sm text-blue-700 mt-1">
-                    Converting {selectedOrders.size} orders to EasyPost CSV format for batch label creation...
+                    Converting {selectedOrders.size} orders to EasyPost format for bulk label creation...
                   </p>
                 </div>
               )}
+
+              {/* Instructions */}
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-yellow-800">How it works:</h4>
+                    <ul className="text-sm text-yellow-700 mt-1 space-y-1">
+                      <li>• Orders are converted to EasyPost CSV format</li>
+                      <li>• Redirects automatically to bulk label creation</li>
+                      <li>• Get rates from multiple carriers instantly</li>
+                      <li>• Create labels in batches with one click</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
