@@ -1,270 +1,209 @@
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Package, ShoppingCart, Truck, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
-import { useBulkShipping, RRow } from '@/hooks/useBulkShipping';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, ShoppingCart, Download, CheckCircle } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
-// Mock Shopify data - replace with actual Shopify import
-const mockShopifyOrders: RRow[] = [
-  {
-    recipient_name: "John Doe",
-    recipient_address1: "123 Main St",
-    recipient_city: "Los Angeles",
-    recipient_state: "CA",
-    recipient_zip: "90210",
-    recipient_country: "US",
-    recipient_phone: "555-123-4567",
-    recipient_email: "john@example.com",
-    parcel_weight: 5.0,
-    parcel_length: 10,
-    parcel_width: 8,
-    parcel_height: 6,
-    order_reference: "ORD-001"
-  },
-  {
-    recipient_name: "Jane Smith",
-    recipient_address1: "456 Oak Ave",
-    recipient_city: "New York",
-    recipient_state: "NY",
-    recipient_zip: "10001",
-    recipient_country: "US",
-    recipient_phone: "555-987-6543",
-    recipient_email: "jane@example.com",
-    parcel_weight: 3.5,
-    parcel_length: 12,
-    parcel_width: 6,
-    parcel_height: 4,
-    order_reference: "ORD-002"
-  }
-];
+interface ShopifyOrder {
+  id: string;
+  order_number: string;
+  customer: {
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
+  shipping_address: {
+    first_name: string;
+    last_name: string;
+    company?: string;
+    address1: string;
+    address2?: string;
+    city: string;
+    province: string;
+    zip: string;
+    country: string;
+    phone?: string;
+  };
+  line_items: Array<{
+    title: string;
+    quantity: number;
+    weight?: number;
+    price: string;
+  }>;
+  total_weight?: number;
+  created_at: string;
+}
 
 const ShopifyBulkShipping: React.FC = () => {
-  const [orders, setOrders] = useState<RRow[]>([]);
-  const [selectedOrders, setSelectedOrders] = useState<Set<number>>(new Set());
-  const [selectedCarrier, setSelectedCarrier] = useState<string>('all');
+  const { user } = useAuth();
+  const [isConnecting, setIsConnecting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [importError, setImportError] = useState<string | null>(null);
-  
-  const navigate = useNavigate();
+  const [isConnected, setIsConnected] = useState(false);
+  const [orders, setOrders] = useState<ShopifyOrder[]>([]);
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
 
-  const handleImportShopifyData = async () => {
-    setIsImporting(true);
-    setImportError(null);
+  const handleShopifyConnect = async () => {
+    if (!user) {
+      toast.error('Please login to connect Shopify');
+      return;
+    }
+
+    setIsConnecting(true);
     
     try {
-      console.log('Attempting to fetch Shopify orders...');
+      // Generate state parameter for OAuth security
+      const state = Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('shopify_oauth_state', state);
       
-      // Show loading toast
-      const loadingToast = toast.loading('Connecting to Shopify...', {
-        duration: 0
+      // Redirect to Shopify OAuth
+      const shopifyOAuthUrl = `https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-oauth?state=${state}`;
+      window.location.href = shopifyOAuthUrl;
+    } catch (error) {
+      console.error('Error connecting to Shopify:', error);
+      toast.error('Failed to connect to Shopify. Please try again.');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleImportOrders = async () => {
+    if (!user) {
+      toast.error('Please login to import orders');
+      return;
+    }
+
+    setIsImporting(true);
+    
+    try {
+      const response = await fetch('https://adhegezdzqlnqqnymvps.supabase.co/functions/v1/shopify-orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${user.access_token}`
+        },
+        body: JSON.stringify({
+          limit: 50,
+          status: 'unfulfilled'
+        })
       });
-      
-      // Try to fetch real Shopify orders first
-      const { data: shopifyData, error } = await supabase.functions.invoke('shopify-orders');
-      
-      // Dismiss loading toast
-      toast.dismiss(loadingToast);
-      
-      if (error) {
-        console.error('Shopify API Error:', error);
-        setImportError('Failed to connect to Shopify. Using demo data instead.');
-        
-        // Use mock data as fallback
-        setOrders(mockShopifyOrders);
-        toast.info('Using Shopify demo data for testing');
-        return;
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
       
-      if (shopifyData && shopifyData.orders && shopifyData.orders.length > 0) {
-        console.log('Successfully fetched Shopify orders:', shopifyData.orders.length);
-        
-        // Convert Shopify orders to our format
-        const convertedOrders = shopifyData.orders.map((order: any) => ({
-          recipient_name: `${order.shipping_address?.first_name || ''} ${order.shipping_address?.last_name || ''}`.trim(),
-          recipient_address1: order.shipping_address?.address1 || '',
-          recipient_city: order.shipping_address?.city || '',
-          recipient_state: order.shipping_address?.province_code || '',
-          recipient_zip: order.shipping_address?.zip || '',
-          recipient_country: order.shipping_address?.country_code || 'US',
-          recipient_phone: order.shipping_address?.phone || '',
-          recipient_email: order.email || '',
-          parcel_weight: order.total_weight || 5.0,
-          parcel_length: 12,
-          parcel_width: 8,
-          parcel_height: 6,
-          order_reference: order.order_number || order.name || `ORDER-${Date.now()}`
-        }));
-        
-        // Validate converted orders
-        const validOrders = convertedOrders.filter(order => 
-          order.recipient_name && 
-          order.recipient_address1 && 
-          order.recipient_city && 
-          order.recipient_state && 
-          order.recipient_zip
-        );
-        
-        if (validOrders.length === 0) {
-          throw new Error('No valid orders found in Shopify data');
-        }
-        
-        setOrders(validOrders);
-        toast.success(`Successfully imported ${validOrders.length} Shopify orders`);
-        
-        if (validOrders.length < convertedOrders.length) {
-          toast.warning(`${convertedOrders.length - validOrders.length} orders skipped due to missing address information`);
-        }
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      if (data.orders && Array.isArray(data.orders)) {
+        setOrders(data.orders);
+        setIsConnected(true);
+        toast.success(`Successfully imported ${data.orders.length} orders from Shopify`);
       } else {
-        console.log('No Shopify orders found, using mock data');
-        setImportError('No orders found in Shopify store. Using demo data instead.');
-        setOrders(mockShopifyOrders);
-        toast.info('No Shopify orders found. Using demo data for testing.');
+        throw new Error('Invalid response format from Shopify');
       }
     } catch (error) {
-      console.error('Error importing Shopify data:', error);
-      setImportError(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}. Using demo data instead.`);
-      
-      // Use mock data as fallback
-      setOrders(mockShopifyOrders);
-      toast.warning('Shopify import failed. Using demo data for testing.');
+      console.error('Error importing Shopify orders:', error);
+      toast.error('Failed to import orders from Shopify. Please check your connection and try again.');
     } finally {
       setIsImporting(false);
     }
   };
 
-  const handleOrderSelection = (index: number, checked: boolean) => {
-    const newSelected = new Set(selectedOrders);
-    if (checked) {
-      newSelected.add(index);
-    } else {
-      newSelected.delete(index);
-    }
-    setSelectedOrders(newSelected);
+  const handleOrderSelection = (orderId: string) => {
+    setSelectedOrders(prev => 
+      prev.includes(orderId) 
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    );
   };
 
   const handleSelectAll = () => {
-    if (selectedOrders.size === orders.length) {
-      setSelectedOrders(new Set());
-    } else {
-      setSelectedOrders(new Set(orders.map((_, index) => index)));
-    }
+    setSelectedOrders(
+      selectedOrders.length === orders.length 
+        ? [] 
+        : orders.map(order => order.id)
+    );
   };
 
-  const convertToEasyPostCSV = (orders: RRow[]) => {
+  const convertToCSV = (orders: ShopifyOrder[]) => {
     const headers = [
-      'to_name', 'to_street1', 'to_city', 'to_state', 'to_zip', 'to_country',
-      'weight', 'length', 'width', 'height', 'to_company', 'to_street2',
-      'to_phone', 'to_email', 'reference'
+      'Order Number',
+      'Customer Name',
+      'Email',
+      'Company',
+      'Address 1',
+      'Address 2',
+      'City',
+      'State',
+      'Zip',
+      'Country',
+      'Phone',
+      'Weight (oz)',
+      'Items',
+      'Total Value'
     ];
-    
-    const csvRows = [headers.join(',')];
-    
-    orders.forEach(order => {
-      const csvRow = [
-        `"${order.recipient_name}"`,
-        `"${order.recipient_address1}"`,
-        `"${order.recipient_city}"`,
-        `"${order.recipient_state}"`,
-        `"${order.recipient_zip}"`,
-        `"${order.recipient_country}"`,
-        `"${order.parcel_weight}"`,
-        `"${order.parcel_length}"`,
-        `"${order.parcel_width}"`,
-        `"${order.parcel_height}"`,
-        `""`, // to_company
-        `""`, // to_street2
-        `"${order.recipient_phone || ''}"`,
-        `"${order.recipient_email || ''}"`,
-        `"${order.order_reference || ''}"`
+
+    const csvData = orders.map(order => {
+      const totalValue = order.line_items.reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
+      const itemsDescription = order.line_items.map(item => `${item.title} (${item.quantity})`).join('; ');
+      
+      return [
+        order.order_number,
+        `${order.customer.first_name} ${order.customer.last_name}`,
+        order.customer.email,
+        order.shipping_address.company || '',
+        order.shipping_address.address1,
+        order.shipping_address.address2 || '',
+        order.shipping_address.city,
+        order.shipping_address.province,
+        order.shipping_address.zip,
+        order.shipping_address.country,
+        order.shipping_address.phone || '',
+        order.total_weight || 16, // Default weight if not provided
+        itemsDescription,
+        totalValue.toFixed(2)
       ];
-      csvRows.push(csvRow.join(','));
     });
-    
-    return csvRows.join('\n');
+
+    return [headers, ...csvData].map(row => 
+      row.map(field => `"${field}"`).join(',')
+    ).join('\n');
   };
 
-  const handleShipSelected = async () => {
-    if (selectedOrders.size === 0) {
+  const handleCreateBulkShipment = () => {
+    if (selectedOrders.length === 0) {
       toast.error('Please select at least one order to ship');
       return;
     }
 
-    setIsProcessing(true);
+    const selectedOrderData = orders.filter(order => selectedOrders.includes(order.id));
+    const csvContent = convertToCSV(selectedOrderData);
     
-    try {
-      console.log('Starting Shopify to EasyPost conversion...');
-      const selectedOrdersData = Array.from(selectedOrders).map(index => orders[index]);
-      
-      // Validate selected orders
-      const invalidOrders = selectedOrdersData.filter(order => 
-        !order.recipient_name || !order.recipient_address1 || !order.recipient_city || 
-        !order.recipient_state || !order.recipient_zip
-      );
-      
-      if (invalidOrders.length > 0) {
-        toast.error(`${invalidOrders.length} selected orders have missing address information`);
-        setIsProcessing(false);
-        return;
-      }
-      
-      // Show initial processing toast
-      const processingToastId = toast.loading('Converting Shopify orders to EasyPost format...', {
-        duration: 0
-      });
-      
-      // Convert orders to EasyPost CSV format
-      const csvContent = convertToEasyPostCSV(selectedOrdersData);
-      
-      console.log('Generated EasyPost CSV for Shopify orders');
-      
-      // Update toast to show conversion success
-      toast.success('Shopify orders converted to EasyPost format successfully!', {
-        id: processingToastId
-      });
-      
-      // Store the CSV content and metadata in session storage for bulk upload
-      sessionStorage.setItem('csvContent', csvContent);
-      sessionStorage.setItem('csvFilename', `shopify-orders-${Date.now()}.csv`);
-      sessionStorage.setItem('isFromShopify', 'true');
-      sessionStorage.setItem('shopifyOrderCount', selectedOrders.size.toString());
-      
-      // Set default from address for Shopify warehouse
-      sessionStorage.setItem('fromAddress', JSON.stringify({
-        name: "Shopify Warehouse",
-        company: "Your Company",
-        street1: "123 Warehouse St",
-        street2: "",
-        city: "Los Angeles",
-        state: "CA",
-        zip: "90210",
-        country: "US",
-        phone: "555-123-4567"
-      }));
-      
-      // Success toast with redirect info
-      toast.success(`${selectedOrders.size} orders converted! Redirecting to batch label creation...`, {
-        duration: 2000,
-        icon: <CheckCircle className="h-4 w-4" />
-      });
-      
-      // Small delay to show success, then redirect to bulk upload for automatic processing
-      setTimeout(() => {
-        navigate('/bulk-upload');
-      }, 1500);
-      
-    } catch (error) {
-      console.error('Error processing selected orders:', error);
-      toast.error('Failed to process selected orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    } finally {
-      setIsProcessing(false);
+    // Create and download CSV file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `shopify_orders_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
+
+    toast.success(`CSV file created with ${selectedOrders.length} orders`);
+    
+    // Navigate to bulk upload page
+    setTimeout(() => {
+      window.location.href = '/bulk-upload';
+    }, 1000);
   };
 
   return (
@@ -272,141 +211,115 @@ const ShopifyBulkShipping: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ShoppingCart className="h-5 w-5" />
-            Shopify Bulk Shipping
+            <ShoppingCart className="w-5 h-5" />
+            Shopify Integration
           </CardTitle>
+          <CardDescription>
+            Connect your Shopify store to import orders and create bulk shipping labels
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Import Error Alert */}
-          {importError && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-yellow-800">
-                <AlertCircle className="h-4 w-4" />
-                <span className="font-medium">Import Notice</span>
+          {!isConnected ? (
+            <div className="space-y-4">
+              <Alert>
+                <AlertDescription>
+                  Connect your Shopify store to import unfulfilled orders and create shipping labels in bulk.
+                </AlertDescription>
+              </Alert>
+              
+              <div className="flex gap-4">
+                <Button 
+                  onClick={handleShopifyConnect}
+                  disabled={isConnecting}
+                  className="flex-1"
+                >
+                  {isConnecting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    'Connect Shopify Store'
+                  )}
+                </Button>
+                
+                <Button 
+                  onClick={handleImportOrders}
+                  disabled={isImporting}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  {isImporting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    'Import Orders'
+                  )}
+                </Button>
               </div>
-              <p className="text-sm text-yellow-700 mt-1">{importError}</p>
-            </div>
-          )}
-
-          {orders.length === 0 ? (
-            <div className="text-center py-8">
-              <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-600 mb-4">No Shopify orders imported yet</p>
-              <Button 
-                onClick={handleImportShopifyData}
-                disabled={isImporting}
-                className="flex items-center gap-2"
-              >
-                {isImporting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Importing...
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart className="h-4 w-4" />
-                    Import Shopify Orders
-                  </>
-                )}
-              </Button>
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSelectAll}
-                    disabled={isProcessing}
-                  >
-                    {selectedOrders.size === orders.length ? 'Deselect All' : 'Select All'}
-                  </Button>
-                  <span className="text-sm text-gray-600">
-                    {selectedOrders.size} of {orders.length} selected
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Select value={selectedCarrier} onValueChange={setSelectedCarrier} disabled={isProcessing}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="Carrier" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Carriers</SelectItem>
-                      <SelectItem value="usps">USPS</SelectItem>
-                      <SelectItem value="ups">UPS</SelectItem>
-                      <SelectItem value="fedex">FedEx</SelectItem>
-                      <SelectItem value="dhl">DHL</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <Button
-                    onClick={handleShipSelected}
-                    disabled={selectedOrders.size === 0 || isProcessing}
-                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Converting...
-                      </>
-                    ) : (
-                      <>
-                        <Truck className="h-4 w-4" />
-                        Convert & Ship
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="border rounded-lg">
-                <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 font-medium text-sm">
-                  <div className="col-span-1">Select</div>
-                  <div className="col-span-2">Order Ref</div>
-                  <div className="col-span-2">Recipient</div>
-                  <div className="col-span-3">Address</div>
-                  <div className="col-span-2">Dimensions</div>
-                  <div className="col-span-1">Weight</div>
-                  <div className="col-span-1">Phone</div>
-                </div>
-                
-                {orders.map((order, index) => (
-                  <div key={index} className="grid grid-cols-12 gap-4 p-4 border-t hover:bg-gray-50">
-                    <div className="col-span-1">
-                      <Checkbox
-                        checked={selectedOrders.has(index)}
-                        onCheckedChange={(checked) => handleOrderSelection(index, checked as boolean)}
-                        disabled={isProcessing}
-                      />
-                    </div>
-                    <div className="col-span-2 font-medium">{order.order_reference}</div>
-                    <div className="col-span-2">{order.recipient_name}</div>
-                    <div className="col-span-3 text-sm text-gray-600">
-                      {order.recipient_address1}<br />
-                      {order.recipient_city}, {order.recipient_state} {order.recipient_zip}
-                    </div>
-                    <div className="col-span-2 text-sm">
-                      {order.parcel_length}"×{order.parcel_width}"×{order.parcel_height}"
-                    </div>
-                    <div className="col-span-1 text-sm">{order.parcel_weight} lbs</div>
-                    <div className="col-span-1 text-sm">{order.recipient_phone}</div>
-                  </div>
-                ))}
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle className="w-4 h-4" />
+                <span>Connected to Shopify</span>
               </div>
               
-              {isProcessing && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-                  <div className="flex items-center gap-2 text-blue-800">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="font-medium">Converting Shopify Orders</span>
-                  </div>
-                  <p className="text-sm text-blue-700 mt-1">
-                    Converting {selectedOrders.size} orders to EasyPost CSV format for batch label creation...
-                  </p>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold">
+                  Orders ({orders.length})
+                </h3>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleSelectAll}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {selectedOrders.length === orders.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                  <Button 
+                    onClick={handleCreateBulkShipment}
+                    disabled={selectedOrders.length === 0}
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Create Bulk Shipment ({selectedOrders.length})
+                  </Button>
                 </div>
-              )}
+              </div>
+              
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {orders.map((order) => (
+                  <Card key={order.id} className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrders.includes(order.id)}
+                          onChange={() => handleOrderSelection(order.id)}
+                          className="w-4 h-4"
+                        />
+                        <div>
+                          <div className="font-medium">Order #{order.order_number}</div>
+                          <div className="text-sm text-gray-600">
+                            {order.customer.first_name} {order.customer.last_name} - {order.shipping_address.city}, {order.shipping_address.province}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium">
+                          {order.line_items.length} item{order.line_items.length !== 1 ? 's' : ''}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(order.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
             </div>
           )}
         </CardContent>
