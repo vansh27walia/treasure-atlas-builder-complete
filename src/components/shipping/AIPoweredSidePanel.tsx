@@ -159,7 +159,7 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
   return (
     <div className="space-y-4">
       {/* Rate Calculator Button */}
-      <Card className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+      <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
         <Button
           onClick={onOpenRateCalculator}
           className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 p-4 h-auto"
@@ -169,25 +169,12 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         </Button>
       </Card>
 
-      {/* Carrier Selection - Only UPS and USPS */}
-      <Card className="p-4">
-        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-          <Filter className="w-4 h-4 text-blue-500" />
-          Select Carrier
-        </h4>
-        <CarrierDropdown
-          selectedCarrier={selectedCarrier}
-          onCarrierChange={handleCarrierChange}
-          availableCarriers={availableCarriers}
-        />
-      </Card>
-
       {/* AI Assistant Header */}
-      <Card className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
+      <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
         <div className="flex items-center gap-2 mb-3">
           <Brain className="w-5 h-5 text-blue-600" />
           <h3 className="font-semibold text-blue-900">AI Assistant</h3>
-          <Sparkles className="w-4 h-4 text-purple-500" />
+          <Sparkles className="w-4 h-4 text-blue-500" />
         </div>
         
         {stats && (
@@ -208,8 +195,8 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         )}
 
         {potentialSavings > 0 && (
-          <div className="mt-3 p-2 bg-green-100 rounded-lg">
-            <div className="flex items-center gap-1 text-green-800">
+          <div className="mt-3 p-2 bg-blue-200 rounded-lg">
+            <div className="flex items-center gap-1 text-blue-800">
               <DollarSign className="w-4 h-4" />
               <span className="text-sm font-medium">
                 Save up to ${potentialSavings.toFixed(2)}
@@ -220,9 +207,9 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
       </Card>
 
       {/* Smart Optimization */}
-      <Card className="p-4">
-        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-          <Zap className="w-4 h-4 text-yellow-500" />
+      <Card className="p-4 bg-blue-50 border-blue-200">
+        <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+          <Zap className="w-4 h-4 text-blue-500" />
           Smart Optimization
         </h4>
         
@@ -230,7 +217,7 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
           <Button
             onClick={() => optimizeRates('cost')}
             disabled={isProcessing || rates.length === 0}
-            className="w-full justify-start text-sm bg-green-600 hover:bg-green-700 text-white"
+            className="w-full justify-start text-sm bg-blue-600 hover:bg-blue-700 text-white"
             size="sm"
           >
             <DollarSign className="w-4 h-4 mr-2" />
@@ -250,7 +237,7 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
           <Button
             onClick={() => optimizeRates('balance')}
             disabled={isProcessing || rates.length === 0}
-            className="w-full justify-start text-sm bg-purple-600 hover:bg-purple-700 text-white"
+            className="w-full justify-start text-sm bg-blue-600 hover:bg-blue-700 text-white"
             size="sm"
           >
             <Target className="w-4 h-4 mr-2" />
@@ -259,7 +246,7 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         </div>
 
         {lastAction && (
-          <div className="mt-3 p-2 bg-blue-50 rounded-lg">
+          <div className="mt-3 p-2 bg-blue-100 rounded-lg">
             <div className="flex items-center gap-1 text-blue-800">
               <CheckCircle2 className="w-4 h-4" />
               <span className="text-xs">{lastAction}</span>
@@ -268,7 +255,7 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
         )}
       </Card>
 
-      {/* Shipping Chatbot - Added below filters */}
+      {/* Shipping Chatbot */}
       <div className="mt-6">
         <ShippingChatbot onRateAdjustment={handleRateAdjustment} />
       </div>

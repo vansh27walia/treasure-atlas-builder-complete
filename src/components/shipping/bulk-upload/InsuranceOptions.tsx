@@ -21,7 +21,13 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
   onInsuranceToggle,
   onDeclaredValueChange
 }) => {
-  const insuranceCost = insuranceEnabled ? (declaredValue * 0.02) : 0;
+  // Calculate insurance cost based on declared value (2% of declared value)
+  const calculateInsuranceCost = (value: number) => {
+    if (!insuranceEnabled || value <= 0) return 0;
+    return Math.max(value * 0.02, 1); // Minimum $1 insurance cost
+  };
+
+  const insuranceCost = calculateInsuranceCost(declaredValue);
 
   return (
     <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -53,7 +59,7 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
       <div className="flex items-center space-x-4">
         <div className="flex-1">
           <Label htmlFor={`declared-value-${shipmentId}`} className="text-xs text-gray-600">
-            Declared Value
+            Declared Value ($)
           </Label>
           <Input
             id={`declared-value-${shipmentId}`}
@@ -63,7 +69,8 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
             disabled={!insuranceEnabled}
             className="mt-1"
             min="0"
-            step="1"
+            step="0.01"
+            placeholder="Enter declared value"
           />
         </div>
         <div className="text-right">
@@ -73,6 +80,12 @@ const InsuranceOptions: React.FC<InsuranceOptionsProps> = ({
           </div>
         </div>
       </div>
+      
+      {insuranceEnabled && declaredValue > 0 && (
+        <div className="text-xs text-gray-500">
+          Total Coverage: ${(100 + declaredValue).toFixed(2)} (Base $100 + Additional ${declaredValue.toFixed(2)})
+        </div>
+      )}
     </div>
   );
 };
