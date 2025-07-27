@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
@@ -20,6 +20,7 @@ const CreateLabelPage = () => {
   
   const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [showAIPanel, setShowAIPanel] = useState(false);
 
   // Redirect to auth if not logged in
   if (!user) {
@@ -29,6 +30,10 @@ const CreateLabelPage = () => {
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
     handleSelectRate(rate);
+    // Show AI panel when first rate is selected
+    if (rates && rates.length > 0 && !showAIPanel) {
+      setShowAIPanel(true);
+    }
   };
 
   const handleFilterChange = (filter: string) => {
@@ -97,8 +102,13 @@ const CreateLabelPage = () => {
         onClose={() => setIsRateCalculatorOpen(false)}
       />
 
-      {/* ShipAI Chatbot */}
-      <ShipAIChatbot />
+      {/* ShipAI Chatbot - Only render once and control visibility */}
+      {showAIPanel && (
+        <ShipAIChatbot 
+          key="single-ai-chatbot"
+          onClose={() => setShowAIPanel(false)}
+        />
+      )}
     </div>
   );
 };
