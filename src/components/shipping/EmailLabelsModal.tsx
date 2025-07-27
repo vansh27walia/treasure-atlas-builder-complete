@@ -13,31 +13,56 @@ interface EmailLabelsModalProps {
   onClose: () => void;
   labelUrl?: string;
   trackingCode?: string;
+  batchResult?: {
+    batchId: string;
+    consolidatedLabelUrls: {
+      pdf?: string;
+      zpl?: string;
+      epl?: string;
+      png?: string;
+    };
+    scanFormUrl?: string;
+  } | null;
 }
 
 const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
   isOpen,
   onClose,
   labelUrl,
-  trackingCode
+  trackingCode,
+  batchResult
 }) => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSendEmail = async () => {
-    if (!email || !labelUrl) {
-      toast.error('Please provide an email address and ensure a label is available');
+    if (!email) {
+      toast.error('Please provide an email address');
+      return;
+    }
+
+    // Determine what to send - individual label or batch result
+    const emailData: any = { email };
+    
+    if (batchResult) {
+      // For batch results, use the consolidated PDF URL
+      emailData.labelUrl = batchResult.consolidatedLabelUrls.pdf;
+      emailData.batchId = batchResult.batchId;
+      emailData.isBatch = true;
+    } else if (labelUrl) {
+      // For individual labels
+      emailData.labelUrl = labelUrl;
+      emailData.trackingCode = trackingCode;
+      emailData.isBatch = false;
+    } else {
+      toast.error('No label available to send');
       return;
     }
 
     setIsLoading(true);
     try {
       const { error } = await supabase.functions.invoke('email-labels', {
-        body: {
-          email,
-          labelUrl,
-          trackingCode
-        }
+        body: emailData
       });
 
       if (error) throw error;
@@ -53,13 +78,15 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
     }
   };
 
+  const hasValidLabel = labelUrl || batchResult?.consolidatedLabelUrls?.pdf;
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="w-5 h-5" />
-            Email Shipping Label
+            Email Shipping {batchResult ? 'Labels' : 'Label'}
           </DialogTitle>
         </DialogHeader>
         
@@ -76,10 +103,16 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
             />
           </div>
           
+          {batchResult && (
+            <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+              <p>This will send all consolidated labels from batch #{batchResult.batchId}</p>
+            </div>
+          )}
+          
           <div className="flex gap-2">
             <Button
               onClick={handleSendEmail}
-              disabled={isLoading || !email || !labelUrl}
+              disabled={isLoading || !email || !hasValidLabel}
               className="flex-1"
             >
               {isLoading ? (
@@ -90,7 +123,7 @@ const EmailLabelsModal: React.FC<EmailLabelsModalProps> = ({
               ) : (
                 <>
                   <Mail className="w-4 h-4 mr-2" />
-                  Send Label
+                  Send {batchResult ? 'Labels' : 'Label'}
                 </>
               )}
             </Button>
