@@ -6,6 +6,7 @@ import { Clock, Truck, Shield, Star, CheckCircle, ChevronDown, ChevronUp } from 
 import { toast } from '@/components/ui/sonner';
 import InlinePaymentSection from './shipping/InlinePaymentSection';
 import CarrierLogo from './shipping/CarrierLogo';
+import AIRateAnalysisPanel from './shipping/AIRateAnalysisPanel';
 
 interface ShippingRate {
   id: string;
@@ -18,7 +19,6 @@ interface ShippingRate {
   currency: string;
   isPremium?: boolean;
   estimated_delivery_date?: string;
-  isAIRecommended?: boolean;
 }
 
 interface ShippingRatesProps {
@@ -42,12 +42,16 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
   const [showPayment, setShowPayment] = useState(false);
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [localShipmentDetails, setLocalShipmentDetails] = useState<any>(propShipmentDetails);
+  const [showAIPanel, setShowAIPanel] = useState(false);
   const [showAllRates, setShowAllRates] = useState(false);
+  const [optimizedRates, setOptimizedRates] = useState<ShippingRate[]>([]);
 
-  // Default to first rate (should be USPS fastest)
+  // Default to fastest rate
   useEffect(() => {
     if (rates.length > 0 && !selectedRate) {
-      setSelectedRate(rates[0]);
+      const fastestRate = [...rates].sort((a, b) => a.delivery_days - b.delivery_days)[0];
+      setSelectedRate(fastestRate);
+      setOptimizedRates(rates);
     }
   }, [rates]);
 
@@ -126,6 +130,43 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     console.log('Rate selected:', rate);
     setSelectedRate(rate);
     onRateSelected(rate);
+    setShowAIPanel(true);
+  };
+
+  const handleOptimizationChange = (filter: string) => {
+    let sortedRates = [...rates];
+    
+    switch (filter) {
+      case 'cheapest':
+        sortedRates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
+        break;
+      case 'fastest':
+        sortedRates.sort((a, b) => a.delivery_days - b.delivery_days);
+        break;
+      case 'reliable':
+        sortedRates.sort((a, b) => {
+          const reliabilityScore = (carrier: string) => {
+            if (carrier.toLowerCase().includes('ups')) return 1;
+            if (carrier.toLowerCase().includes('usps')) return 2;
+            if (carrier.toLowerCase().includes('fedex')) return 3;
+            return 4;
+          };
+          return reliabilityScore(a.carrier) - reliabilityScore(b.carrier);
+        });
+        break;
+      default:
+        // Keep original order
+        break;
+    }
+    
+    setOptimizedRates(sortedRates);
+    if (sortedRates.length > 0) {
+      setSelectedRate(sortedRates[0]);
+      onRateSelected(sortedRates[0]);
+    }
+    
+    setShowAIPanel(false);
+    toast.success(`Rates optimized for ${filter}`);
   };
 
   const handlePaymentSuccess = async (paymentData: any) => {
@@ -171,11 +212,12 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     );
   }
 
-  const currentSelectedRate = selectedRate || rates[0];
-  const otherRates = rates.filter(rate => rate.id !== currentSelectedRate?.id);
+  const displayRates = optimizedRates.length > 0 ? optimizedRates : rates;
+  const currentSelectedRate = selectedRate || displayRates[0];
+  const otherRates = displayRates.filter(rate => rate.id !== currentSelectedRate?.id);
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6">
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Select Shipping Method</h3>
         
@@ -199,11 +241,6 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
                         <Badge variant="secondary" className="text-xs">
                           <Star className="w-3 h-3 mr-1" />
                           Premium
-                        </Badge>
-                      )}
-                      {currentSelectedRate.isAIRecommended && (
-                        <Badge className="bg-purple-600 text-white text-xs">
-                          AI Recommended
                         </Badge>
                       )}
                     </div>
@@ -284,11 +321,6 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
                                     Premium
                                   </Badge>
                                 )}
-                                {rate.isAIRecommended && (
-                                  <Badge className="bg-purple-600 text-white text-xs">
-                                    AI Recommended
-                                  </Badge>
-                                )}
                               </div>
                               <p className="text-sm font-medium text-gray-600">
                                 {rate.service}
@@ -343,6 +375,15 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
           </Button>
         )}
       </div>
+
+      {/* AI Analysis Panel */}
+      <AIRateAnalysisPanel
+        selectedRate={currentSelectedRate}
+        allRates={displayRates}
+        isOpen={showAIPanel}
+        onClose={() => setShowAIPanel(false)}
+        onOptimizationChange={handleOptimizationChange}
+      />
 
       {/* Payment Section */}
       {showPayment && currentSelectedRate && (

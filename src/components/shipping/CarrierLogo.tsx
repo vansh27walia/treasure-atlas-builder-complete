@@ -13,27 +13,44 @@ const CarrierLogo: React.FC<CarrierLogoProps> = ({ carrier, className = "w-8 h-8
     switch (name) {
       case 'UPS':
         return (
-          <img 
-            src="/lovable-uploads/1519fff0-84ba-4c37-8eb2-49d0679b1dab.png" 
-            alt="UPS Logo" 
-            className={`${className} object-contain`}
-          />
+          <div className={`${className} bg-gradient-to-br from-amber-600 to-amber-800 text-white flex items-center justify-center rounded-md relative overflow-hidden shadow-lg`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-amber-900"></div>
+            <div className="relative z-10 flex flex-col items-center justify-center">
+              <div className="text-[8px] font-black leading-none tracking-wider">UPS</div>
+              <div className="w-4 h-0.5 bg-yellow-300 rounded-full mt-1"></div>
+              <div className="text-[6px] font-semibold mt-0.5">LOGISTICS</div>
+            </div>
+          </div>
         );
       case 'USPS':
         return (
-          <img 
-            src="/lovable-uploads/788a234d-3e32-4de2-875f-65e541977a88.png" 
-            alt="USPS Logo" 
-            className={`${className} object-contain`}
-          />
+          <div className={`${className} bg-gradient-to-br from-blue-600 to-blue-800 text-white flex items-center justify-center rounded-md relative overflow-hidden shadow-lg`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-900"></div>
+            <div className="relative z-10 flex flex-col items-center justify-center">
+              <div className="text-[7px] font-bold leading-none tracking-wider">USPS</div>
+              <div className="flex gap-0.5 mt-1">
+                <div className="w-1 h-1 bg-red-400 rounded-full"></div>
+                <div className="w-1 h-1 bg-white rounded-full"></div>
+                <div className="w-1 h-1 bg-red-400 rounded-full"></div>
+              </div>
+              <div className="text-[5px] font-semibold mt-0.5">POSTAL</div>
+            </div>
+          </div>
         );
       case 'FEDEX':
         return (
-          <img 
-            src="/lovable-uploads/55c3543a-bea2-4329-ae0c-c1f0bbb26faf.png" 
-            alt="FedEx Logo" 
-            className={`${className} object-contain`}
-          />
+          <div className={`${className} bg-gradient-to-br from-purple-600 to-purple-800 text-white flex items-center justify-center rounded-md relative overflow-hidden shadow-lg`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-purple-900"></div>
+            <div className="relative z-10 flex items-center justify-center">
+              <div className="text-[7px] font-black leading-none tracking-wider">
+                <span className="text-white">Fed</span>
+                <span className="text-orange-400">Ex</span>
+              </div>
+              <div className="absolute bottom-0.5 left-1/2 transform -translate-x-1/2">
+                <div className="w-3 h-0.5 bg-orange-400 rounded-full"></div>
+              </div>
+            </div>
+          </div>
         );
       case 'DHL':
         return (
