@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Brain, Star, Clock, DollarSign, Shield, Zap, Truck } from 'lucide-react';
+import { X, Brain, Star, Clock, DollarSign, Shield, Zap, Truck, Award, MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import CarrierLogo from './CarrierLogo';
@@ -22,6 +22,8 @@ interface AIAnalysis {
   reliabilityScore: number;
   speedScore: number;
   costScore: number;
+  serviceQualityScore: number;
+  trackingScore: number;
   recommendation: string;
   labels: {
     isCheapest: boolean;
@@ -236,6 +238,20 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                     <span className="text-sm">Cost Value</span>
                   </div>
                   <span className="font-semibold">{analysis.costScore}/100</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-4 h-4 text-orange-600" />
+                    <span className="text-sm">Service Quality</span>
+                  </div>
+                  <span className="font-semibold">{analysis.serviceQualityScore || 85}/100</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-pink-600" />
+                    <span className="text-sm">Tracking Features</span>
+                  </div>
+                  <span className="font-semibold">{analysis.trackingScore || 90}/100</span>
                 </div>
               </div>
 

@@ -7,8 +7,11 @@ import AIRateAnalysisPanel from '@/components/shipping/AIRateAnalysisPanel';
 import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 import { useShippingRates } from '@/hooks/useShippingRates';
+import { useAuth } from '@/contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 const CreateLabelPage = () => {
+  const { user } = useAuth();
   const {
     rates,
     handleSelectRate,
@@ -18,6 +21,11 @@ const CreateLabelPage = () => {
   const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [selectedRate, setSelectedRate] = useState<any>(null);
+
+  // Redirect to auth if not logged in
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
 
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
@@ -37,10 +45,20 @@ const CreateLabelPage = () => {
     handleFilterByCarrier(filter);
   };
 
+  // Sort rates with AI recommended first, then by price
+  const sortedRates = rates ? [...rates].sort((a, b) => {
+    // Put AI recommended first
+    if (a.isAIRecommended && !b.isAIRecommended) return -1;
+    if (!a.isAIRecommended && b.isAIRecommended) return 1;
+    
+    // Then sort by price (cheapest to most expensive)
+    return parseFloat(a.rate) - parseFloat(b.rate);
+  }) : [];
+
   return (
     <div className="min-h-screen bg-background">
       {/* Sticky Workflow Tracker */}
-      <div className="sticky top-0 z-50 bg-transparent">
+      <div className="sticky top-0 z-40 bg-transparent">
         <EnhancedWorkflowTracker currentStep="package" />
       </div>
       
@@ -62,7 +80,7 @@ const CreateLabelPage = () => {
           {/* Shipping Rates Section */}
           <div id="shipping-rates-section">
             <ShippingRates 
-              rates={rates || []}
+              rates={sortedRates || []}
               onRateSelected={handleRateSelected}
               loading={false}
             />
@@ -70,7 +88,7 @@ const CreateLabelPage = () => {
         </div>
       </div>
 
-      {/* AI Rate Analysis Panel */}
+      {/* AI Rate Analysis Panel - Only one instance */}
       <AIRateAnalysisPanel
         selectedRate={selectedRate}
         allRates={rates || []}

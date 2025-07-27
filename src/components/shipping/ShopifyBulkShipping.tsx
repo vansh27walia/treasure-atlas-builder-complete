@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Package, ShoppingCart, Truck, Loader2, CheckCircle } from 'lucide-react';
+import { Package, ShoppingCart, Truck, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBulkShipping, RRow } from '@/hooks/useBulkShipping';
 import { useNavigate } from 'react-router-dom';
@@ -50,22 +50,44 @@ const ShopifyBulkShipping: React.FC = () => {
   const [selectedCarrier, setSelectedCarrier] = useState<string>('all');
   const [isImporting, setIsImporting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   
   const navigate = useNavigate();
 
   const handleImportShopifyData = async () => {
     setIsImporting(true);
+    setImportError(null);
     
     try {
-      console.log('Fetching Shopify orders...');
+      console.log('Attempting to fetch Shopify orders...');
+      
+      // Show loading toast
+      const loadingToast = toast.loading('Connecting to Shopify...', {
+        duration: 0
+      });
       
       // Try to fetch real Shopify orders first
       const { data: shopifyData, error } = await supabase.functions.invoke('shopify-orders');
       
+      // Dismiss loading toast
+      toast.dismiss(loadingToast);
+      
+      if (error) {
+        console.error('Shopify API Error:', error);
+        setImportError('Failed to connect to Shopify. Using demo data instead.');
+        
+        // Use mock data as fallback
+        setOrders(mockShopifyOrders);
+        toast.info('Using Shopify demo data for testing');
+        return;
+      }
+      
       if (shopifyData && shopifyData.orders && shopifyData.orders.length > 0) {
+        console.log('Successfully fetched Shopify orders:', shopifyData.orders.length);
+        
         // Convert Shopify orders to our format
         const convertedOrders = shopifyData.orders.map((order: any) => ({
-          recipient_name: `${order.shipping_address?.first_name} ${order.shipping_address?.last_name}`,
+          recipient_name: `${order.shipping_address?.first_name || ''} ${order.shipping_address?.last_name || ''}`.trim(),
           recipient_address1: order.shipping_address?.address1 || '',
           recipient_city: order.shipping_address?.city || '',
           recipient_state: order.shipping_address?.province_code || '',
@@ -77,22 +99,41 @@ const ShopifyBulkShipping: React.FC = () => {
           parcel_length: 12,
           parcel_width: 8,
           parcel_height: 6,
-          order_reference: order.order_number || order.name
+          order_reference: order.order_number || order.name || `ORDER-${Date.now()}`
         }));
         
-        setOrders(convertedOrders);
-        toast.success(`Imported ${convertedOrders.length} Shopify orders successfully`);
+        // Validate converted orders
+        const validOrders = convertedOrders.filter(order => 
+          order.recipient_name && 
+          order.recipient_address1 && 
+          order.recipient_city && 
+          order.recipient_state && 
+          order.recipient_zip
+        );
+        
+        if (validOrders.length === 0) {
+          throw new Error('No valid orders found in Shopify data');
+        }
+        
+        setOrders(validOrders);
+        toast.success(`Successfully imported ${validOrders.length} Shopify orders`);
+        
+        if (validOrders.length < convertedOrders.length) {
+          toast.warning(`${convertedOrders.length - validOrders.length} orders skipped due to missing address information`);
+        }
       } else {
-        // Fallback to mock data if no real Shopify connection
         console.log('No Shopify orders found, using mock data');
+        setImportError('No orders found in Shopify store. Using demo data instead.');
         setOrders(mockShopifyOrders);
-        toast.success('Shopify demo data imported successfully');
+        toast.info('No Shopify orders found. Using demo data for testing.');
       }
     } catch (error) {
       console.error('Error importing Shopify data:', error);
+      setImportError(`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}. Using demo data instead.`);
+      
       // Use mock data as fallback
       setOrders(mockShopifyOrders);
-      toast.success('Shopify demo data imported successfully');
+      toast.warning('Shopify import failed. Using demo data for testing.');
     } finally {
       setIsImporting(false);
     }
@@ -161,6 +202,18 @@ const ShopifyBulkShipping: React.FC = () => {
       console.log('Starting Shopify to EasyPost conversion...');
       const selectedOrdersData = Array.from(selectedOrders).map(index => orders[index]);
       
+      // Validate selected orders
+      const invalidOrders = selectedOrdersData.filter(order => 
+        !order.recipient_name || !order.recipient_address1 || !order.recipient_city || 
+        !order.recipient_state || !order.recipient_zip
+      );
+      
+      if (invalidOrders.length > 0) {
+        toast.error(`${invalidOrders.length} selected orders have missing address information`);
+        setIsProcessing(false);
+        return;
+      }
+      
       // Show initial processing toast
       const processingToastId = toast.loading('Converting Shopify orders to EasyPost format...', {
         duration: 0
@@ -224,6 +277,17 @@ const ShopifyBulkShipping: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Import Error Alert */}
+          {importError && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-yellow-800">
+                <AlertCircle className="h-4 w-4" />
+                <span className="font-medium">Import Notice</span>
+              </div>
+              <p className="text-sm text-yellow-700 mt-1">{importError}</p>
+            </div>
+          )}
+
           {orders.length === 0 ? (
             <div className="text-center py-8">
               <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
@@ -241,7 +305,7 @@ const ShopifyBulkShipping: React.FC = () => {
                 ) : (
                   <>
                     <ShoppingCart className="h-4 w-4" />
-                    Import Shopify Data
+                    Import Shopify Orders
                   </>
                 )}
               </Button>
