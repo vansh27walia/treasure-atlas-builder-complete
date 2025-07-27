@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Separator } from '@/components/ui/separator';
@@ -13,11 +14,25 @@ interface SidebarNavigationProps {
 const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const isMobile = useIsMobile();
+  const location = useLocation();
+  
+  // Hide sidebar on auth pages
+  const isAuthPage = location.pathname === '/auth' || location.pathname === '/reset-password';
   
   // Handle sidebar collapse toggle
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
   };
+
+  if (isAuthPage) {
+    return (
+      <div className="h-screen w-full overflow-hidden">
+        <div className="h-full overflow-y-auto bg-gray-50 w-full">
+          {children}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-full overflow-hidden">

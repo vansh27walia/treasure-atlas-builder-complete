@@ -18,6 +18,7 @@ interface ShippingRate {
   delivery_days: number;
   currency: string;
   isPremium?: boolean;
+  isAIRecommended?: boolean;
   estimated_delivery_date?: string;
 }
 
@@ -46,11 +47,12 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
   const [showAllRates, setShowAllRates] = useState(false);
   const [optimizedRates, setOptimizedRates] = useState<ShippingRate[]>([]);
 
-  // Default to fastest rate
+  // Default to USPS first, then fastest rate
   useEffect(() => {
     if (rates.length > 0 && !selectedRate) {
-      const fastestRate = [...rates].sort((a, b) => a.delivery_days - b.delivery_days)[0];
-      setSelectedRate(fastestRate);
+      const uspsRates = rates.filter(rate => rate.carrier.toLowerCase().includes('usps'));
+      const firstRate = uspsRates.length > 0 ? uspsRates[0] : rates[0];
+      setSelectedRate(firstRate);
       setOptimizedRates(rates);
     }
   }, [rates]);
@@ -146,8 +148,8 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
       case 'reliable':
         sortedRates.sort((a, b) => {
           const reliabilityScore = (carrier: string) => {
-            if (carrier.toLowerCase().includes('ups')) return 1;
-            if (carrier.toLowerCase().includes('usps')) return 2;
+            if (carrier.toLowerCase().includes('usps')) return 1;
+            if (carrier.toLowerCase().includes('ups')) return 2;
             if (carrier.toLowerCase().includes('fedex')) return 3;
             return 4;
           };
@@ -155,7 +157,12 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
         });
         break;
       default:
-        // Keep original order
+        // Keep original order with USPS first
+        sortedRates.sort((a, b) => {
+          if (a.carrier.toLowerCase().includes('usps') && !b.carrier.toLowerCase().includes('usps')) return -1;
+          if (!a.carrier.toLowerCase().includes('usps') && b.carrier.toLowerCase().includes('usps')) return 1;
+          return 0;
+        });
         break;
     }
     
@@ -172,6 +179,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
   const handlePaymentSuccess = async (paymentData: any) => {
     console.log('Payment successful, creating label...', paymentData);
     setIsCreatingLabel(true);
+    setShowAIPanel(false); // Close AI panel when payment succeeds
     
     try {
       window.location.href = `/label-success?labelUrl=${encodeURIComponent(paymentData.labelUrl || '')}&trackingCode=${encodeURIComponent(paymentData.trackingCode || '')}&shipmentId=${encodeURIComponent(paymentData.shipmentId || '')}`;
@@ -217,7 +225,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
   const otherRates = displayRates.filter(rate => rate.id !== currentSelectedRate?.id);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Select Shipping Method</h3>
         
@@ -241,6 +249,11 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
                         <Badge variant="secondary" className="text-xs">
                           <Star className="w-3 h-3 mr-1" />
                           Premium
+                        </Badge>
+                      )}
+                      {currentSelectedRate.isAIRecommended && (
+                        <Badge className="bg-pink-600 text-white text-xs">
+                          AI Recommended
                         </Badge>
                       )}
                     </div>
@@ -321,6 +334,11 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
                                     Premium
                                   </Badge>
                                 )}
+                                {rate.isAIRecommended && (
+                                  <Badge className="bg-pink-600 text-white text-xs">
+                                    AI
+                                  </Badge>
+                                )}
                               </div>
                               <p className="text-sm font-medium text-gray-600">
                                 {rate.service}
@@ -376,14 +394,16 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
         )}
       </div>
 
-      {/* AI Analysis Panel */}
-      <AIRateAnalysisPanel
-        selectedRate={currentSelectedRate}
-        allRates={displayRates}
-        isOpen={showAIPanel}
-        onClose={() => setShowAIPanel(false)}
-        onOptimizationChange={handleOptimizationChange}
-      />
+      {/* AI Analysis Panel - Only show when explicitly opened */}
+      {showAIPanel && (
+        <AIRateAnalysisPanel
+          selectedRate={currentSelectedRate}
+          allRates={displayRates}
+          isOpen={showAIPanel}
+          onClose={() => setShowAIPanel(false)}
+          onOptimizationChange={handleOptimizationChange}
+        />
+      )}
 
       {/* Payment Section */}
       {showPayment && currentSelectedRate && (
