@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -34,12 +35,13 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
     scrollToBottom();
   }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return;
+  const handleSendMessage = async (predefinedMessage?: string) => {
+    const messageToSend = predefinedMessage || inputMessage;
+    if (!messageToSend.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: inputMessage,
+      content: messageToSend,
       isUser: true,
       timestamp: new Date()
     };
@@ -51,7 +53,7 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
     try {
       const { data, error } = await supabase.functions.invoke('ship-ai-chat', {
         body: {
-          message: inputMessage,
+          message: messageToSend,
           context: 'shipping_assistant'
         }
       });
@@ -219,12 +221,7 @@ const ShipAIChatbot: React.FC<ShipAIChatbotProps> = ({ onClose }) => {
                   onChange={(e) => setInputMessage(e.target.value)}
                   placeholder="Ask me about shipping rates, delivery times, or recommendations..."
                   className="flex-1 min-h-[40px] max-h-[80px] resize-none"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }
-                  }}
+                  onKeyPress={handleKeyPress}
                 />
                 <Button
                   onClick={() => handleSendMessage()}
