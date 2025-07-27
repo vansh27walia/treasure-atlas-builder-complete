@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +15,8 @@ import {
   Zap,
   Target,
   CheckCircle2,
-  Calculator
+  Calculator,
+  X
 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
@@ -36,6 +36,7 @@ interface AIPoweredSidePanelProps {
   onCarrierFilter: (carrier: string) => void;
   onRateSelect: (rateId: string) => void;
   onOpenRateCalculator: () => void;
+  onClose: () => void;
 }
 
 const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
@@ -43,24 +44,22 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
   onRatesReorder,
   onCarrierFilter,
   onRateSelect,
-  onOpenRateCalculator
+  onOpenRateCalculator,
+  onClose
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentOptimization, setCurrentOptimization] = useState<string>('');
   const [lastAction, setLastAction] = useState<string>('');
   const [selectedCarrier, setSelectedCarrier] = useState('all');
 
-  // Get unique carriers from rates - only show UPS and USPS as requested
   const availableCarriers = ['ups', 'usps'];
 
-  // Handle carrier selection with proper filtering
   const handleCarrierChange = (carrier: string) => {
     setSelectedCarrier(carrier);
     onCarrierFilter(carrier);
     toast.success(`Filtered by ${carrier === 'all' ? 'All Carriers' : carrier.toUpperCase()}`);
   };
 
-  // AI-powered rate optimization with proper rate reordering
   const optimizeRates = async (type: 'cost' | 'speed' | 'balance') => {
     if (rates.length === 0) {
       toast.error('No rates available to optimize');
@@ -112,7 +111,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
     }
   };
 
-  // Calculate savings potential
   const calculateSavings = () => {
     if (rates.length < 2) return 0;
     const sortedRates = [...rates].sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
@@ -123,7 +121,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
 
   const potentialSavings = calculateSavings();
 
-  // Get rate statistics
   const getStatsInsights = () => {
     if (rates.length === 0) return null;
 
@@ -140,7 +137,6 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
 
   const stats = getStatsInsights();
 
-  // Handle rate adjustment from chatbot
   const handleRateAdjustment = (instruction: string) => {
     console.log('Rate adjustment instruction:', instruction);
     const input = instruction.toLowerCase();
@@ -157,118 +153,132 @@ const AIPoweredSidePanel: React.FC<AIPoweredSidePanelProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Rate Calculator Button */}
-      <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-        <Button
-          onClick={onOpenRateCalculator}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 p-4 h-auto"
-        >
-          <Calculator className="w-5 h-5" />
-          <span className="font-medium">Rate Calculator</span>
-        </Button>
-      </Card>
-
-      {/* AI Assistant Header */}
-      <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-        <div className="flex items-center gap-2 mb-3">
+    <div className="h-full flex flex-col">
+      {/* Header with close button */}
+      <div className="flex items-center justify-between p-4 border-b bg-blue-50">
+        <div className="flex items-center gap-2">
           <Brain className="w-5 h-5 text-blue-600" />
-          <h3 className="font-semibold text-blue-900">AI Assistant</h3>
+          <h2 className="font-semibold text-blue-900">AI Assistant</h2>
           <Sparkles className="w-4 h-4 text-blue-500" />
         </div>
-        
-        {stats && (
-          <div className="space-y-2 text-sm text-blue-800">
-            <div className="flex justify-between">
-              <span>Avg Price:</span>
-              <span className="font-medium">${stats.avgPrice}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Avg Delivery:</span>
-              <span className="font-medium">{stats.avgDelivery} days</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Carriers:</span>
-              <span className="font-medium">{stats.carriers}</span>
-            </div>
-          </div>
-        )}
-
-        {potentialSavings > 0 && (
-          <div className="mt-3 p-2 bg-blue-200 rounded-lg">
-            <div className="flex items-center gap-1 text-blue-800">
-              <DollarSign className="w-4 h-4" />
-              <span className="text-sm font-medium">
-                Save up to ${potentialSavings.toFixed(2)}
-              </span>
-            </div>
-          </div>
-        )}
-      </Card>
-
-      {/* Smart Optimization */}
-      <Card className="p-4 bg-blue-50 border-blue-200">
-        <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
-          <Zap className="w-4 h-4 text-blue-500" />
-          Smart Optimization
-        </h4>
-        
-        <div className="space-y-2">
-          <Button
-            onClick={() => optimizeRates('cost')}
-            disabled={isProcessing || rates.length === 0}
-            className="w-full justify-start text-sm bg-blue-600 hover:bg-blue-700 text-white"
-            size="sm"
-          >
-            <DollarSign className="w-4 h-4 mr-2" />
-            {isProcessing && currentOptimization === 'cost' ? 'Optimizing...' : 'Lowest Cost'}
-          </Button>
-          
-          <Button
-            onClick={() => optimizeRates('speed')}
-            disabled={isProcessing || rates.length === 0}
-            className="w-full justify-start text-sm bg-blue-600 hover:bg-blue-700 text-white"
-            size="sm"
-          >
-            <Clock className="w-4 h-4 mr-2" />
-            {isProcessing && currentOptimization === 'speed' ? 'Optimizing...' : 'Fastest Delivery'}
-          </Button>
-          
-          <Button
-            onClick={() => optimizeRates('balance')}
-            disabled={isProcessing || rates.length === 0}
-            className="w-full justify-start text-sm bg-blue-600 hover:bg-blue-700 text-white"
-            size="sm"
-          >
-            <Target className="w-4 h-4 mr-2" />
-            {isProcessing && currentOptimization === 'balance' ? 'Optimizing...' : 'Best Balance'}
-          </Button>
-        </div>
-
-        {lastAction && (
-          <div className="mt-3 p-2 bg-blue-100 rounded-lg">
-            <div className="flex items-center gap-1 text-blue-800">
-              <CheckCircle2 className="w-4 h-4" />
-              <span className="text-xs">{lastAction}</span>
-            </div>
-          </div>
-        )}
-      </Card>
-
-      {/* Shipping Chatbot */}
-      <div className="mt-6">
-        <ShippingChatbot onRateAdjustment={handleRateAdjustment} />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          className="text-blue-600 hover:bg-blue-100"
+        >
+          <X className="w-4 h-4" />
+        </Button>
       </div>
 
-      {/* Processing Indicator */}
-      {isProcessing && (
-        <Card className="p-4 bg-blue-50 border-blue-200">
-          <div className="flex items-center gap-2 text-blue-800">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span className="text-sm font-medium">AI Processing...</span>
-          </div>
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Rate Calculator Button */}
+        <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          <Button
+            onClick={onOpenRateCalculator}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 p-4 h-auto"
+          >
+            <Calculator className="w-5 h-5" />
+            <span className="font-medium">Rate Calculator</span>
+          </Button>
         </Card>
-      )}
+
+        {/* Stats Card */}
+        <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+          {stats && (
+            <div className="space-y-2 text-sm text-blue-800">
+              <div className="flex justify-between">
+                <span>Avg Price:</span>
+                <span className="font-medium">${stats.avgPrice}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Avg Delivery:</span>
+                <span className="font-medium">{stats.avgDelivery} days</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Carriers:</span>
+                <span className="font-medium">{stats.carriers}</span>
+              </div>
+            </div>
+          )}
+
+          {potentialSavings > 0 && (
+            <div className="mt-3 p-2 bg-blue-200 rounded-lg">
+              <div className="flex items-center gap-1 text-blue-800">
+                <DollarSign className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  Save up to ${potentialSavings.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Smart Optimization */}
+        <Card className="p-4 bg-blue-50 border-blue-200">
+          <h4 className="font-semibold text-blue-900 mb-3 flex items-center gap-2">
+            <Zap className="w-4 h-4 text-blue-500" />
+            Smart Optimization
+          </h4>
+          
+          <div className="space-y-2">
+            <Button
+              onClick={() => optimizeRates('cost')}
+              disabled={isProcessing || rates.length === 0}
+              className="w-full justify-start text-sm bg-blue-600 hover:bg-blue-700 text-white"
+              size="sm"
+            >
+              <DollarSign className="w-4 h-4 mr-2" />
+              {isProcessing && currentOptimization === 'cost' ? 'Optimizing...' : 'Lowest Cost'}
+            </Button>
+            
+            <Button
+              onClick={() => optimizeRates('speed')}
+              disabled={isProcessing || rates.length === 0}
+              className="w-full justify-start text-sm bg-blue-600 hover:bg-blue-700 text-white"
+              size="sm"
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              {isProcessing && currentOptimization === 'speed' ? 'Optimizing...' : 'Fastest Delivery'}
+            </Button>
+            
+            <Button
+              onClick={() => optimizeRates('balance')}
+              disabled={isProcessing || rates.length === 0}
+              className="w-full justify-start text-sm bg-blue-600 hover:bg-blue-700 text-white"
+              size="sm"
+            >
+              <Target className="w-4 h-4 mr-2" />
+              {isProcessing && currentOptimization === 'balance' ? 'Optimizing...' : 'Best Balance'}
+            </Button>
+          </div>
+
+          {lastAction && (
+            <div className="mt-3 p-2 bg-blue-100 rounded-lg">
+              <div className="flex items-center gap-1 text-blue-800">
+                <CheckCircle2 className="w-4 h-4" />
+                <span className="text-xs">{lastAction}</span>
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Shipping Chatbot */}
+        <div className="mt-6">
+          <ShippingChatbot onRateAdjustment={handleRateAdjustment} />
+        </div>
+
+        {/* Processing Indicator */}
+        {isProcessing && (
+          <Card className="p-4 bg-blue-50 border-blue-200">
+            <div className="flex items-center gap-2 text-blue-800">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <span className="text-sm font-medium">AI Processing...</span>
+            </div>
+          </Card>
+        )}
+      </div>
     </div>
   );
 };
