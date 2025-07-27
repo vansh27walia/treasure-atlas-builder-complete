@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,7 +37,7 @@ interface ShopifyOrder {
 }
 
 const ShopifyBulkShipping: React.FC = () => {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
@@ -70,7 +69,7 @@ const ShopifyBulkShipping: React.FC = () => {
   };
 
   const handleImportOrders = async () => {
-    if (!user) {
+    if (!user || !session) {
       toast.error('Please login to import orders');
       return;
     }
@@ -82,7 +81,7 @@ const ShopifyBulkShipping: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.access_token}`
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({
           limit: 50,
