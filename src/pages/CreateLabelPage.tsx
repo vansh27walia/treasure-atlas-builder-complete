@@ -6,8 +6,7 @@ import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
 import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 import RateFilter from '@/components/shipping/RateFilter';
-import AIPoweredSidePanel from '@/components/shipping/AIPoweredSidePanel';
-import CarrierFilterDropdown from '@/components/shipping/CarrierFilterDropdown';
+import AIRateAnalysisPanel from '@/components/shipping/AIRateAnalysisPanel';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
@@ -24,7 +23,7 @@ const CreateLabelPage = () => {
   const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [showAIPanel, setShowAIPanel] = useState(false);
-  const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
+  const [selectedRate, setSelectedRate] = useState<any>(null);
 
   // Redirect to auth if not logged in
   if (!user) {
@@ -33,9 +32,9 @@ const CreateLabelPage = () => {
 
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
-    handleSelectRate(rate);
-    setSelectedRateId(rate);
+    setSelectedRate(rate);
     setShowAIPanel(true);
+    handleSelectRate(rate.id);
   };
 
   const handleFilterChange = (filter: string) => {
@@ -43,12 +42,9 @@ const CreateLabelPage = () => {
     handleFilterByCarrier(filter);
   };
 
-  const handleRatesReorder = (reorderedRates: any[]) => {
-    console.log('Rates reordered:', reorderedRates);
-  };
-
-  const handleCarrierFilter = (carrier: string) => {
-    handleFilterByCarrier(carrier);
+  const handleOptimizationChange = (filter: string) => {
+    console.log('Optimization changed:', filter);
+    // Apply optimization logic here
   };
 
   const handleOpenRateCalculator = () => {
@@ -76,7 +72,7 @@ const CreateLabelPage = () => {
       </div>
       
       {/* Main Content - Adjust width when sidebar is open */}
-      <div className={`transition-all duration-300 ${showAIPanel ? 'mr-96' : ''}`}>
+      <div className={`transition-all duration-300 ${showAIPanel ? 'pr-96' : ''}`}>
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-7xl mx-auto">
             {/* Header Section */}
@@ -92,13 +88,8 @@ const CreateLabelPage = () => {
               <EnhancedShippingForm />
             </div>
 
-            {/* Carrier Filter and Rate Filter */}
+            {/* Rate Filter - Only show the filter dropdown, no carrier selection */}
             <div className="mb-6 flex gap-4">
-              <CarrierFilterDropdown 
-                carriers={uniqueCarriers}
-                activeFilter={activeCarrierFilter}
-                onFilterChange={handleCarrierFilter}
-              />
               <RateFilter 
                 activeFilter={activeFilter} 
                 onFilterChange={handleFilterChange} 
@@ -117,18 +108,15 @@ const CreateLabelPage = () => {
         </div>
       </div>
 
-      {/* AI Sidebar Panel - Fixed position overlay */}
-      {showAIPanel && (
-        <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl border-l-2 border-gray-300 z-50 overflow-y-auto">
-          <AIPoweredSidePanel
-            rates={sortedRates || []}
-            onRatesReorder={handleRatesReorder}
-            onCarrierFilter={handleCarrierFilter}
-            onRateSelect={handleSelectRate}
-            onOpenRateCalculator={handleOpenRateCalculator}
-            onClose={handleCloseSidebar}
-          />
-        </div>
+      {/* AI Analysis Panel - Fixed position overlay from the right */}
+      {showAIPanel && selectedRate && (
+        <AIRateAnalysisPanel
+          selectedRate={selectedRate}
+          allRates={sortedRates || []}
+          isOpen={showAIPanel}
+          onClose={handleCloseSidebar}
+          onOptimizationChange={handleOptimizationChange}
+        />
       )}
 
       {/* Rate Calculator Modal */}
