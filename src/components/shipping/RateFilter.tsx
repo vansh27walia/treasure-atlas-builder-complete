@@ -64,6 +64,64 @@ const RateFilter: React.FC<RateFilterProps> = ({ activeFilter, onFilterChange })
         )}
       </div>
     </div>
+    <div className="flex gap-2">
+        <Select
+          value={sortField}
+          onValueChange={(value) => onSortChange(value as 'recipient' | 'rate' | 'carrier', sortDirection)}
+        >
+          <SelectTrigger className="w-[130px]">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectLabel>Sort by</SelectLabel>
+              <SelectItem value="recipient">Recipient</SelectItem>
+              <SelectItem value="rate">Price</SelectItem>
+              <SelectItem value="carrier">Carrier</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onSortChange(sortField, sortDirection === 'asc' ? 'desc' : 'asc')}
+          className="border"
+        >
+          {sortDirection === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+        </Button>
+        
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="gap-2">
+              <Filter className="h-4 w-4" />
+              <span className="hidden sm:inline">Filter</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80">
+            <div className="space-y-4">
+              <h4 className="font-medium">Filter by carrier</h4>
+              
+              <RadioGroup 
+                value={selectedCarrier || ''} 
+                onValueChange={(value) => onCarrierFilterChange(value === '' ? null : value)}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="" id="all" />
+                  <Label htmlFor="all">All carriers</Label>
+                </div>
+                
+                {EXTENDED_CARRIER_OPTIONS.map((carrier) => (
+                  <div className="flex items-center space-x-2" key={carrier.id}>
+                    <RadioGroupItem value={carrier.id} id={carrier.id} />
+                    <Label htmlFor={carrier.id}>{carrier.name}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
   );
 };
 
