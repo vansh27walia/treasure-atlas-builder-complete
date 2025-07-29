@@ -3,8 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Brain, Star, Clock, DollarSign, Shield, Zap, Truck, Award, MapPin } from 'lucide-react';
+import { X, Brain, Star, Clock, DollarSign, Shield, Zap, Award, MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import CarrierLogo from './CarrierLogo';
@@ -43,7 +42,6 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
 }) => {
   const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedRateId, setSelectedRateId] = useState<string>('');
 
   const optimizationFilters = [
     { id: 'cheapest', label: 'Cheapest', icon: '💰', color: 'bg-green-100 text-green-800' },
@@ -93,24 +91,14 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
     }
   };
 
-  const handleRateChange = (rateId: string) => {
-    setSelectedRateId(rateId);
-    const newSelectedRate = allRates.find(rate => rate.id === rateId);
-    if (newSelectedRate) {
-      document.dispatchEvent(new CustomEvent('select-shipping-rate', { 
-        detail: { rateId } 
-      }));
-    }
-  };
-
   const handleQuickChange = (filterId: string) => {
+    console.log('Quick change clicked:', filterId);
     onOptimizationChange(filterId);
     toast.success(`Applied ${filterId} optimization`);
   };
 
   useEffect(() => {
     if (isOpen && selectedRate) {
-      setSelectedRateId(selectedRate.id);
       analyzeRate();
     }
   }, [isOpen, selectedRate]);
@@ -118,58 +106,23 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden">
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-2">
-            <Brain className="w-5 h-5" />
-            <h2 className="text-lg font-semibold">AI Rate Analysis</h2>
+    <div className="fixed top-0 right-0 h-screen w-96 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
+      <Card className="h-full rounded-none border-0 flex flex-col">
+        <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 text-white z-10 flex-shrink-0">
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="w-5 h-5 text-white" />
+            AI Rate Analysis
             <Badge className="bg-white/20 text-white text-xs">RECOMMENDED</Badge>
-          </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={onClose}
-            className="text-white hover:bg-white/20 p-1"
-          >
+          </CardTitle>
+          <Button variant="ghost" size="sm" onClick={onClose} className="text-white hover:bg-white/20">
             <X className="w-4 h-4" />
           </Button>
-        </div>
+        </CardHeader>
         
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {/* Rate Selector Dropdown */}
-          <div className="space-y-3">
-            <h4 className="font-semibold text-gray-900 flex items-center gap-2">
-              <Truck className="w-4 h-4" />
-              Change Rate
-            </h4>
-            <Select value={selectedRateId} onValueChange={handleRateChange}>
-              <SelectTrigger className="w-full bg-white">
-                <SelectValue placeholder="Select a different rate" />
-              </SelectTrigger>
-              <SelectContent className="bg-white border shadow-lg z-[60]">
-                {allRates.map((rate) => (
-                  <SelectItem key={rate.id} value={rate.id} className="hover:bg-gray-50">
-                    <div className="flex items-center gap-2 w-full">
-                      <CarrierLogo carrier={rate.carrier} className="w-6 h-6" />
-                      <div className="flex-1">
-                        <div className="font-medium">{rate.carrier} {rate.service}</div>
-                        <div className="text-sm text-gray-600">
-                          ${parseFloat(rate.rate).toFixed(2)} - {rate.delivery_days} days
-                        </div>
-                      </div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
+        <CardContent className="flex-1 overflow-y-auto p-4 space-y-6">
           {/* Selected Rate Info */}
           {selectedRate && (
-            <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+            <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border-2 border-blue-200">
               <div className="flex items-center gap-3 mb-2">
                 <CarrierLogo carrier={selectedRate.carrier} className="w-8 h-8" />
                 <h3 className="font-semibold text-blue-900">{selectedRate.carrier} {selectedRate.service}</h3>
@@ -188,7 +141,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
           ) : analysis ? (
             <div className="space-y-4">
               {/* Overall Score */}
-              <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+              <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border-2 border-blue-200">
                 <div className="text-3xl font-bold text-blue-800">{analysis.overallScore}/100</div>
                 <div className="text-sm text-gray-600">Overall AI Score</div>
                 <div className="text-xs text-blue-600 mt-1">✨ AI Recommended Choice</div>
@@ -224,7 +177,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
               </div>
 
               {/* Detailed Scores */}
-              <div className="space-y-3 p-3 bg-gray-50 rounded-lg border">
+              <div className="space-y-3 p-3 bg-gray-50 rounded-lg border-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Shield className="w-4 h-4 text-blue-600" />
@@ -263,7 +216,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
               </div>
 
               {/* AI Recommendation */}
-              <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+              <div className="p-3 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border-2">
                 <div className="flex items-center gap-2 mb-2">
                   <Brain className="w-4 h-4 text-blue-600" />
                   <span className="font-medium text-blue-900">AI Recommendation</span>
@@ -274,9 +227,9 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
           ) : null}
 
           {/* Quick Change Guide */}
-          <div className="space-y-4 border border-blue-200 rounded-lg p-4 bg-blue-50">
-            <h3 className="font-semibold text-blue-900 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-blue-600" />
+          <div className="space-y-4 border-2 border-gray-200 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-yellow-500" />
               Quick Changes
             </h3>
             
@@ -286,7 +239,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                 <Button
                   key={filter.id}
                   variant="outline"
-                  className="justify-start h-auto p-3 border-blue-200 hover:bg-blue-100"
+                  className="justify-start h-auto p-3 border-2 hover:bg-blue-50 hover:border-blue-300 transition-all duration-200"
                   onClick={() => handleQuickChange(filter.id)}
                 >
                   <span className="mr-2">{filter.icon}</span>
@@ -305,7 +258,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                   <Button
                     key={filter.id}
                     variant="outline"
-                    className="justify-start h-auto p-2 text-sm border-blue-200 hover:bg-blue-100"
+                    className="justify-start h-auto p-2 text-sm border hover:bg-gray-50 transition-all duration-200"
                     onClick={() => handleQuickChange(filter.id)}
                   >
                     <span className="mr-2">{filter.icon}</span>
@@ -315,8 +268,8 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
               </div>
             </details>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

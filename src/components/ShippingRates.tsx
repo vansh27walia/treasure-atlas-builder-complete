@@ -6,7 +6,6 @@ import { Clock, Truck, Shield, Star, CheckCircle, ChevronDown, ChevronUp } from 
 import { toast } from '@/components/ui/sonner';
 import InlinePaymentSection from './shipping/InlinePaymentSection';
 import CarrierLogo from './shipping/CarrierLogo';
-import AIRateAnalysisPanel from './shipping/AIRateAnalysisPanel';
 
 interface ShippingRate {
   id: string;
@@ -43,17 +42,33 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
   const [showPayment, setShowPayment] = useState(false);
   const [isCreatingLabel, setIsCreatingLabel] = useState(false);
   const [localShipmentDetails, setLocalShipmentDetails] = useState<any>(propShipmentDetails);
-  const [showAIPanel, setShowAIPanel] = useState(false);
   const [showAllRates, setShowAllRates] = useState(false);
-  const [optimizedRates, setOptimizedRates] = useState<ShippingRate[]>([]);
+  const [displayRates, setDisplayRates] = useState<ShippingRate[]>(rates);
 
-  // Default to USPS first, then fastest rate
+  // Listen for rate reordering events from the AI panel
   useEffect(() => {
-    if (rates.length > 0 && !selectedRate) {
-      const uspsRates = rates.filter(rate => rate.carrier.toLowerCase().includes('usps'));
-      const firstRate = uspsRates.length > 0 ? uspsRates[0] : rates[0];
-      setSelectedRate(firstRate);
-      setOptimizedRates(rates);
+    const handleRatesReordered = (event: any) => {
+      if (event.detail?.rates) {
+        setDisplayRates(event.detail.rates);
+        if (event.detail.rates.length > 0) {
+          setSelectedRate(event.detail.rates[0]);
+        }
+      }
+    };
+    
+    document.addEventListener('rates-reordered', handleRatesReordered);
+    return () => document.removeEventListener('rates-reordered', handleRatesReordered);
+  }, []);
+
+  // Update display rates when rates prop changes
+  useEffect(() => {
+    if (rates && rates.length > 0) {
+      setDisplayRates(rates);
+      if (!selectedRate) {
+        const uspsRates = rates.filter(rate => rate.carrier.toLowerCase().includes('usps'));
+        const firstRate = uspsRates.length > 0 ? uspsRates[0] : rates[0];
+        setSelectedRate(firstRate);
+      }
     }
   }, [rates]);
 
@@ -132,54 +147,11 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     console.log('Rate selected:', rate);
     setSelectedRate(rate);
     onRateSelected(rate);
-    setShowAIPanel(true);
-  };
-
-  const handleOptimizationChange = (filter: string) => {
-    let sortedRates = [...rates];
-    
-    switch (filter) {
-      case 'cheapest':
-        sortedRates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
-        break;
-      case 'fastest':
-        sortedRates.sort((a, b) => a.delivery_days - b.delivery_days);
-        break;
-      case 'reliable':
-        sortedRates.sort((a, b) => {
-          const reliabilityScore = (carrier: string) => {
-            if (carrier.toLowerCase().includes('usps')) return 1;
-            if (carrier.toLowerCase().includes('ups')) return 2;
-            if (carrier.toLowerCase().includes('fedex')) return 3;
-            return 4;
-          };
-          return reliabilityScore(a.carrier) - reliabilityScore(b.carrier);
-        });
-        break;
-      default:
-        // Keep original order with USPS first
-        sortedRates.sort((a, b) => {
-          if (a.carrier.toLowerCase().includes('usps') && !b.carrier.toLowerCase().includes('usps')) return -1;
-          if (!a.carrier.toLowerCase().includes('usps') && b.carrier.toLowerCase().includes('usps')) return 1;
-          return 0;
-        });
-        break;
-    }
-    
-    setOptimizedRates(sortedRates);
-    if (sortedRates.length > 0) {
-      setSelectedRate(sortedRates[0]);
-      onRateSelected(sortedRates[0]);
-    }
-    
-    setShowAIPanel(false);
-    toast.success(`Rates optimized for ${filter}`);
   };
 
   const handlePaymentSuccess = async (paymentData: any) => {
     console.log('Payment successful, creating label...', paymentData);
     setIsCreatingLabel(true);
-    setShowAIPanel(false); // Close AI panel when payment succeeds
     
     try {
       window.location.href = `/label-success?labelUrl=${encodeURIComponent(paymentData.labelUrl || '')}&trackingCode=${encodeURIComponent(paymentData.trackingCode || '')}&shipmentId=${encodeURIComponent(paymentData.shipmentId || '')}`;
@@ -210,7 +182,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     );
   }
 
-  if (!rates || rates.length === 0) {
+  if (!displayRates || displayRates.length === 0) {
     return (
       <Card className="p-8 text-center">
         <Truck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -220,7 +192,6 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     );
   }
 
-  const displayRates = optimizedRates.length > 0 ? optimizedRates : rates;
   const currentSelectedRate = selectedRate || displayRates[0];
   const otherRates = displayRates.filter(rate => rate.id !== currentSelectedRate?.id);
 
@@ -393,17 +364,6 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
           </Button>
         )}
       </div>
-
-      {/* AI Analysis Panel - Only show when explicitly opened */}
-      {showAIPanel && (
-        <AIRateAnalysisPanel
-          selectedRate={currentSelectedRate}
-          allRates={displayRates}
-          isOpen={showAIPanel}
-          onClose={() => setShowAIPanel(false)}
-          onOptimizationChange={handleOptimizationChange}
-        />
-      )}
 
       {/* Payment Section */}
       {showPayment && currentSelectedRate && (

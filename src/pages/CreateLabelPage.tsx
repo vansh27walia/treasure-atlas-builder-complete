@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
@@ -30,6 +29,16 @@ const CreateLabelPage = () => {
     return <Navigate to="/auth" replace />;
   }
 
+  // Auto-show AI panel when rates are available
+  useEffect(() => {
+    if (rates && rates.length > 0 && !showAIPanel) {
+      setShowAIPanel(true);
+      if (rates[0] && !selectedRate) {
+        setSelectedRate(rates[0]);
+      }
+    }
+  }, [rates, showAIPanel, selectedRate]);
+
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
     setSelectedRate(rate);
@@ -44,7 +53,50 @@ const CreateLabelPage = () => {
 
   const handleOptimizationChange = (filter: string) => {
     console.log('Optimization changed:', filter);
+    
     // Apply optimization logic here
+    let sortedRates = [...(rates || [])];
+    
+    switch (filter) {
+      case 'cheapest':
+        sortedRates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
+        break;
+      case 'fastest':
+        sortedRates.sort((a, b) => (a.delivery_days || 999) - (b.delivery_days || 999));
+        break;
+      case 'balanced':
+      case 'most-efficient':
+        // Balance between price and speed
+        sortedRates.sort((a, b) => {
+          const scoreA = (parseFloat(a.rate) / 10) + (a.delivery_days || 999);
+          const scoreB = (parseFloat(b.rate) / 10) + (b.delivery_days || 999);
+          return scoreA - scoreB;
+        });
+        break;
+      case 'most-reliable':
+        // Sort by carrier reliability (USPS first, then UPS, FedEx, DHL)
+        sortedRates.sort((a, b) => {
+          const reliabilityOrder = { 'USPS': 1, 'UPS': 2, 'FedEx': 3, 'DHL': 4 };
+          const scoreA = reliabilityOrder[a.carrier.toUpperCase()] || 999;
+          const scoreB = reliabilityOrder[b.carrier.toUpperCase()] || 999;
+          return scoreA - scoreB;
+        });
+        break;
+      default:
+        // Keep current order
+        break;
+    }
+    
+    // Update the rates order and select the first one
+    if (sortedRates.length > 0) {
+      setSelectedRate(sortedRates[0]);
+      handleSelectRate(sortedRates[0].id);
+      
+      // Trigger a re-render of the ShippingRates component with new order
+      document.dispatchEvent(new CustomEvent('rates-reordered', { 
+        detail: { rates: sortedRates } 
+      }));
+    }
   };
 
   const handleOpenRateCalculator = () => {
@@ -88,7 +140,7 @@ const CreateLabelPage = () => {
               <EnhancedShippingForm />
             </div>
 
-            {/* Rate Filter - Only show the filter dropdown, no carrier selection */}
+            {/* Rate Filter - Only show the filter dropdown, no carrier selection buttons */}
             <div className="mb-6 flex gap-4">
               <RateFilter 
                 activeFilter={activeFilter} 
@@ -108,7 +160,7 @@ const CreateLabelPage = () => {
         </div>
       </div>
 
-      {/* AI Analysis Panel - Fixed position overlay from the right */}
+      {/* Single AI Analysis Panel - Only this one, no duplicates */}
       {showAIPanel && selectedRate && (
         <AIRateAnalysisPanel
           selectedRate={selectedRate}
