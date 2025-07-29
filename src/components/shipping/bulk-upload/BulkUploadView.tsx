@@ -23,9 +23,15 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [selectedRate, setSelectedRate] = useState<any>(null);
   const [allRates, setAllRates] = useState<any[]>([]);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'editing' | 'success' | 'error'>('idle');
+  const [isUploading, setIsUploading] = useState(false);
+  const [isFetchingRates, setIsFetchingRates] = useState(false);
+  const [isCreatingLabels, setIsCreatingLabels] = useState(false);
 
   const handleUploadStart = () => {
     setIsProcessing(true);
+    setIsUploading(true);
+    setUploadStatus('uploading');
     setUploadProgress(0);
     setCurrentStep('processing');
   };
@@ -37,6 +43,8 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
   const handleUploadComplete = (uploadResults: any) => {
     setResults(uploadResults);
     setIsProcessing(false);
+    setIsUploading(false);
+    setUploadStatus('success');
     setCurrentStep('complete');
     
     // Extract rates from results for AI analysis
@@ -64,6 +72,20 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
   const handleRateSelected = (rate: any) => {
     setSelectedRate(rate);
     setShowAIPanel(true);
+  };
+
+  const handleRateChange = (shipmentId: string, rateId: string) => {
+    // Handle rate change logic
+    if (results?.shipments) {
+      const updatedShipments = results.shipments.map((shipment: any) => {
+        if (shipment.id === shipmentId) {
+          const selectedRate = shipment.rates?.find((rate: any) => rate.id === rateId);
+          return { ...shipment, selectedRate };
+        }
+        return shipment;
+      });
+      setResults({ ...results, shipments: updatedShipments });
+    }
   };
 
   const handleOptimizationChange = (filter: string) => {
@@ -110,9 +132,13 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
         {/* Progress Tracker */}
         {isProcessing && (
           <AdvancedProgressTracker 
+            uploadStatus={uploadStatus}
+            isUploading={isUploading}
+            isFetchingRates={isFetchingRates}
+            isCreatingLabels={isCreatingLabels}
             progress={uploadProgress}
-            currentStep={currentStep}
-            totalSteps={3}
+            totalShipments={results?.shipments?.length || 0}
+            processedShipments={results?.processedShipments?.length || 0}
           />
         )}
 
@@ -130,9 +156,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
               </CardHeader>
               <CardContent className="p-6">
                 <BulkUploadForm
-                  onUploadStart={handleUploadStart}
-                  onUploadProgress={handleUploadProgress}
-                  onUploadComplete={handleUploadComplete}
+                  onUpload={handleUploadComplete}
                 />
               </CardContent>
             </Card>
@@ -246,7 +270,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
               )}
 
               {/* Detailed Results */}
-              <BulkResults results={results} />
+              <BulkResults results={results} onRateChange={handleRateChange} />
             </div>
           )}
         </div>

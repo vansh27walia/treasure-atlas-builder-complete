@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Package, ShoppingCart, Truck, Loader2, CheckCircle, AlertCircle, Brain, Zap } from 'lucide-react';
@@ -9,6 +10,7 @@ import { useBulkShipping, RRow } from '@/hooks/useBulkShipping';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import CarrierLogo from './CarrierLogo';
+import AIRateAnalysisPanel from './AIRateAnalysisPanel';
 
 // Mock Shopify data - replace with actual Shopify import
 const mockShopifyOrders: RRow[] = [
