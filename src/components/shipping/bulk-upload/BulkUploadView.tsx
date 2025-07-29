@@ -2,286 +2,266 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Upload, FileText, ArrowLeft, Loader2, ShoppingCart, Package, CheckCircle } from 'lucide-react';
-import { toast } from 'sonner';
-import { useBulkShippingProcessor } from '@/hooks/useBulkShippingProcessor';
-import { useShipmentUpload } from '@/hooks/useShipmentUpload';
-import { usePickupAddresses } from '@/hooks/usePickupAddresses';
-import CSVUploader from './CSVUploader';
+import { Badge } from '@/components/ui/badge';
+import { Upload, FileText, Loader2, CheckCircle, AlertCircle, Brain, Zap } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
+import BulkUploadForm from './BulkUploadForm';
 import BulkResults from './BulkResults';
+import AdvancedProgressTracker from './AdvancedProgressTracker';
+import AIRateAnalysisPanel from '../AIRateAnalysisPanel';
+import CarrierLogo from '../CarrierLogo';
 
-const BulkUploadView: React.FC = () => {
-  const [csvContent, setCsvContent] = useState<string>('');
-  const [filename, setFilename] = useState<string>('');
-  const [fromAddress, setFromAddress] = useState<any>(null);
-  const [showResults, setShowResults] = useState(false);
-  const [isFromShopify, setIsFromShopify] = useState(false);
-  const [isProcessingShopify, setIsProcessingShopify] = useState(false);
-  const [shopifyOrderCount, setShopifyOrderCount] = useState(0);
-  
-  const { 
-    isProcessing, 
-    results, 
-    processBulkShipping,
-    fetchSavedShipments 
-  } = useBulkShippingProcessor();
-  
-  const { handleUpload, uploadStatus } = useShipmentUpload();
-  const { addresses } = usePickupAddresses();
+interface BulkUploadViewProps {
+  onUploadComplete?: (results: any) => void;
+}
 
-  // Check if we're coming from Shopify bulk shipping
-  useEffect(() => {
-    const savedCsvContent = sessionStorage.getItem('csvContent');
-    const savedFilename = sessionStorage.getItem('csvFilename');
-    const savedFromAddress = sessionStorage.getItem('fromAddress');
-    const fromShopify = sessionStorage.getItem('isFromShopify') === 'true';
-    const orderCount = parseInt(sessionStorage.getItem('shopifyOrderCount') || '0');
+const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [results, setResults] = useState<any>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [currentStep, setCurrentStep] = useState<string>('upload');
+  const [showAIPanel, setShowAIPanel] = useState(false);
+  const [selectedRate, setSelectedRate] = useState<any>(null);
+  const [allRates, setAllRates] = useState<any[]>([]);
+
+  const handleUploadStart = () => {
+    setIsProcessing(true);
+    setUploadProgress(0);
+    setCurrentStep('processing');
+  };
+
+  const handleUploadProgress = (progress: number) => {
+    setUploadProgress(progress);
+  };
+
+  const handleUploadComplete = (uploadResults: any) => {
+    setResults(uploadResults);
+    setIsProcessing(false);
+    setCurrentStep('complete');
     
-    if (savedCsvContent && savedFilename && fromShopify) {
-      console.log('Detected Shopify bulk shipping data, starting auto-processing...');
+    // Extract rates from results for AI analysis
+    if (uploadResults?.shipments) {
+      const extractedRates = uploadResults.shipments
+        .filter((shipment: any) => shipment.rates && shipment.rates.length > 0)
+        .flatMap((shipment: any) => shipment.rates);
       
-      setCsvContent(savedCsvContent);
-      setFilename(savedFilename);
-      setIsFromShopify(true);
-      setShopifyOrderCount(orderCount);
-      setIsProcessingShopify(true);
+      setAllRates(extractedRates);
       
-      // Use saved from address or default pickup address
-      let pickupAddress = null;
-      if (savedFromAddress) {
-        pickupAddress = JSON.parse(savedFromAddress);
-      } else if (addresses.length > 0) {
-        pickupAddress = addresses[0];
-      }
-      
-      setFromAddress(pickupAddress);
-      
-      // Auto-start the processing
-      if (pickupAddress) {
-        console.log('Auto-starting Shopify bulk processing...');
-        autoStartShopifyProcessing(savedCsvContent, savedFilename, pickupAddress);
-      } else {
-        toast.error('No pickup address found. Please set a pickup address in settings.');
-        setIsProcessingShopify(false);
+      // Auto-select first rate for analysis
+      if (extractedRates.length > 0) {
+        setSelectedRate(extractedRates[0]);
+        setShowAIPanel(true);
       }
     }
-  }, [addresses]);
-
-  const autoStartShopifyProcessing = async (csvContent: string, filename: string, pickupAddress: any) => {
-    try {
-      console.log('Starting Shopify auto-processing with EasyPost CSV...');
-      
-      // Show processing status
-      const processingToastId = toast.loading('Processing Shopify orders and fetching live rates from EasyPost...', {
-        duration: 0
-      });
-      
-      // Create a File object from the CSV content
-      const csvFile = new File([csvContent], filename, { type: 'text/csv' });
-      
-      // Use the existing upload logic to process the EasyPost CSV
-      await handleUpload(csvFile, pickupAddress);
-      
-      // Update processing status
-      toast.success('Shopify orders processed and rates fetched successfully!', {
-        id: processingToastId
-      });
-      
-      // Move to results view
-      setShowResults(true);
-      
-    } catch (error) {
-      console.error('Error in Shopify auto-processing:', error);
-      toast.error('Failed to process Shopify orders: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    } finally {
-      setIsProcessingShopify(false);
-    }
-  };
-
-  const handleFileUpload = (content: string, name: string) => {
-    setCsvContent(content);
-    setFilename(name);
-    setShowResults(false);
-    setIsFromShopify(false);
     
-    // Save to session storage
-    sessionStorage.setItem('csvContent', content);
-    sessionStorage.setItem('csvFilename', name);
+    if (onUploadComplete) {
+      onUploadComplete(uploadResults);
+    }
     
-    toast.success('CSV file uploaded successfully');
+    toast.success('Bulk upload completed successfully!');
   };
 
-  const handleProcessBulkShipping = async () => {
-    if (!csvContent) {
-      toast.error('Please upload a CSV file first');
-      return;
+  const handleRateSelected = (rate: any) => {
+    setSelectedRate(rate);
+    setShowAIPanel(true);
+  };
+
+  const handleOptimizationChange = (filter: string) => {
+    // Apply optimization logic similar to the main page
+    let sortedRates = [...allRates];
+    
+    switch (filter) {
+      case 'cheapest':
+        sortedRates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
+        break;
+      case 'fastest':
+        sortedRates.sort((a, b) => (a.delivery_days || 999) - (b.delivery_days || 999));
+        break;
+      case 'balanced':
+        sortedRates.sort((a, b) => {
+          const scoreA = (parseFloat(a.rate) / 10) + (a.delivery_days || 999);
+          const scoreB = (parseFloat(b.rate) / 10) + (b.delivery_days || 999);
+          return scoreA - scoreB;
+        });
+        break;
+      default:
+        break;
     }
-
-    if (!fromAddress) {
-      toast.error('Please set a pickup address in settings');
-      return;
+    
+    setAllRates(sortedRates);
+    if (sortedRates.length > 0) {
+      setSelectedRate(sortedRates[0]);
     }
-
-    try {
-      await processBulkShipping(csvContent, fromAddress, {
-        insuranceOptions: {
-          declaredValue: 100,
-          requireInsurance: false
-        }
-      });
-      setShowResults(true);
-    } catch (error) {
-      console.error('Error processing bulk shipping:', error);
-    }
+    
+    toast.success(`Applied ${filter} optimization to bulk rates`);
   };
 
-  const handleBack = () => {
-    setShowResults(false);
-    setIsFromShopify(false);
-    setIsProcessingShopify(false);
-    setCsvContent('');
-    setFilename('');
-    sessionStorage.removeItem('csvContent');
-    sessionStorage.removeItem('csvFilename');
-    sessionStorage.removeItem('fromAddress');
-    sessionStorage.removeItem('isFromShopify');
-    sessionStorage.removeItem('shopifyOrderCount');
-  };
-
-  const handleRateSelection = (shipmentId: string, rateId: string) => {
-    console.log('Rate selected:', { shipmentId, rateId });
-  };
-
-  // Show results if we have them (from upload hook)
-  if (showResults || (uploadStatus === 'editing' && !isProcessingShopify)) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <Button
-            variant="outline"
-            onClick={handleBack}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Upload
-          </Button>
-          <h2 className="text-xl font-semibold">
-            {isFromShopify ? `Shopify Bulk Shipping Results (${shopifyOrderCount} orders)` : 'Bulk Shipping Results'}
-          </h2>
-        </div>
-        
-        {isFromShopify && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-            <div className="flex items-center gap-2 text-green-800">
-              <CheckCircle className="h-4 w-4" />
-              <span className="font-medium">Shopify Orders Processed Successfully!</span>
-            </div>
-            <p className="text-sm text-green-700 mt-1">
-              {shopifyOrderCount} orders converted to EasyPost format and rates fetched automatically
-            </p>
-          </div>
-        )}
-        
-        <BulkResults 
-          results={results}
-          onRateChange={handleRateSelection}
-        />
-      </div>
-    );
-  }
-
-  // Show Shopify processing screen
-  if (isFromShopify && isProcessingShopify) {
-    return (
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShoppingCart className="h-5 w-5" />
-              Processing Shopify Orders
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-12">
-              <div className="relative mb-8">
-                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto"></div>
-                <Package className="h-8 w-8 absolute top-4 left-1/2 transform -translate-x-1/2 text-blue-500 animate-pulse" />
-              </div>
-              <h3 className="text-xl font-semibold mb-3">🚀 Processing Your Shopify Orders</h3>
-              <p className="text-gray-600 mb-6">
-                Converting Shopify data to EasyPost format and fetching live shipping rates...
-              </p>
-              <div className="bg-blue-50 rounded-lg p-6 max-w-md mx-auto">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-blue-800">
-                    📁 Processing: {filename}
-                  </p>
-                  <p className="text-sm text-blue-600">
-                    📦 Orders: {shopifyOrderCount} orders being processed
-                  </p>
-                  <p className="text-sm text-blue-600">
-                    🔄 Status: Converting headers and fetching rates
-                  </p>
-                </div>
-              </div>
-              <div className="mt-6 flex items-center justify-center gap-2 text-sm text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>This may take a few moments...</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Show regular upload interface
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Bulk CSV Upload
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <CSVUploader onFileUpload={handleFileUpload} />
-          
-          {csvContent && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <FileText className="h-4 w-4" />
-                <span>File: {filename}</span>
-                <span>({csvContent.split('\n').length - 1} rows)</span>
+    <div className={`transition-all duration-300 ${showAIPanel ? 'pr-80' : ''}`}>
+      <div className="space-y-6">
+        {/* Enhanced Header */}
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Bulk Label Creation</h1>
+          <p className="text-gray-600 max-w-2xl mx-auto">
+            Upload your CSV file to create multiple shipping labels at once with AI-powered rate optimization.
+          </p>
+        </div>
+
+        {/* Progress Tracker */}
+        {isProcessing && (
+          <AdvancedProgressTracker 
+            progress={uploadProgress}
+            currentStep={currentStep}
+            totalSteps={3}
+          />
+        )}
+
+        {/* Main Content */}
+        <div className="grid grid-cols-1 gap-6">
+          {/* Upload Form */}
+          {!results && (
+            <Card className="shadow-lg border-2">
+              <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
+                <CardTitle className="flex items-center gap-2">
+                  <Upload className="w-5 h-5 text-blue-600" />
+                  Upload Shipments
+                  <Badge className="bg-blue-100 text-blue-800">CSV Format</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <BulkUploadForm
+                  onUploadStart={handleUploadStart}
+                  onUploadProgress={handleUploadProgress}
+                  onUploadComplete={handleUploadComplete}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Results Display */}
+          {results && (
+            <div className="space-y-6">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="border-green-200 bg-green-50">
+                  <CardContent className="p-4 text-center">
+                    <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-600" />
+                    <div className="text-2xl font-bold text-green-800">
+                      {results.successfulShipments?.length || 0}
+                    </div>
+                    <div className="text-sm text-green-600">Successful</div>
+                  </CardContent>
+                </Card>
+                
+                <Card className="border-red-200 bg-red-50">
+                  <CardContent className="p-4 text-center">
+                    <AlertCircle className="w-8 h-8 mx-auto mb-2 text-red-600" />
+                    <div className="text-2xl font-bold text-red-800">
+                      {results.failedShipments?.length || 0}
+                    </div>
+                    <div className="text-sm text-red-600">Failed</div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardContent className="p-4 text-center">
+                    <Brain className="w-8 h-8 mx-auto mb-2 text-blue-600" />
+                    <div className="text-2xl font-bold text-blue-800">
+                      {allRates.length}
+                    </div>
+                    <div className="text-sm text-blue-600">Total Rates</div>
+                  </CardContent>
+                </Card>
               </div>
-              
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium mb-2">CSV Preview:</h4>
-                <pre className="text-xs text-gray-700 overflow-x-auto">
-                  {csvContent.split('\n').slice(0, 5).join('\n')}
-                  {csvContent.split('\n').length > 5 && '\n...'}
-                </pre>
-              </div>
-              
-              <Button 
-                onClick={handleProcessBulkShipping}
-                disabled={isProcessing}
-                className="w-full"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Processing Shipments...
-                  </>
-                ) : (
-                  'Process Bulk Shipping'
-                )}
-              </Button>
+
+              {/* AI Insights Section */}
+              {allRates.length > 0 && (
+                <Card className="border-2 border-blue-200 bg-blue-50/30">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-blue-800">
+                      <Brain className="w-5 h-5" />
+                      AI Rate Insights
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowAIPanel(!showAIPanel)}
+                        className="ml-auto"
+                      >
+                        <Zap className="w-4 h-4 mr-1" />
+                        {showAIPanel ? 'Hide' : 'Show'} AI Analysis
+                      </Button>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      <div className="text-center p-3 bg-white rounded-lg border">
+                        <div className="font-bold text-green-600">
+                          ${Math.min(...allRates.map(r => parseFloat(r.rate))).toFixed(2)}
+                        </div>
+                        <div className="text-xs text-gray-600">Cheapest Rate</div>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg border">
+                        <div className="font-bold text-blue-600">
+                          ${Math.max(...allRates.map(r => parseFloat(r.rate))).toFixed(2)}
+                        </div>
+                        <div className="text-xs text-gray-600">Highest Rate</div>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg border">
+                        <div className="font-bold text-purple-600">
+                          {Math.min(...allRates.map(r => r.delivery_days || 999))} days
+                        </div>
+                        <div className="text-xs text-gray-600">Fastest Delivery</div>
+                      </div>
+                      <div className="text-center p-3 bg-white rounded-lg border">
+                        <div className="font-bold text-orange-600">
+                          ${(allRates.reduce((sum, r) => sum + parseFloat(r.rate), 0) / allRates.length).toFixed(2)}
+                        </div>
+                        <div className="text-xs text-gray-600">Average Cost</div>
+                      </div>
+                    </div>
+
+                    {/* Sample Rates with Carrier Logos */}
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-gray-800">Sample Rates Available:</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {allRates.slice(0, 4).map((rate, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-3 p-2 bg-white rounded border cursor-pointer hover:bg-gray-50"
+                            onClick={() => handleRateSelected(rate)}
+                          >
+                            <CarrierLogo carrier={rate.carrier} className="w-6 h-6" />
+                            <div className="flex-1">
+                              <div className="font-medium text-sm">{rate.carrier} {rate.service}</div>
+                              <div className="text-xs text-gray-600">
+                                ${parseFloat(rate.rate).toFixed(2)} - {rate.delivery_days} days
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Detailed Results */}
+              <BulkResults results={results} />
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* AI Analysis Panel for Bulk Upload */}
+      {showAIPanel && selectedRate && allRates.length > 0 && (
+        <AIRateAnalysisPanel
+          selectedRate={selectedRate}
+          allRates={allRates}
+          isOpen={showAIPanel}
+          onClose={() => setShowAIPanel(false)}
+          onOptimizationChange={handleOptimizationChange}
+        />
+      )}
     </div>
   );
 };

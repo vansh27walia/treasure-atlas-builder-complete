@@ -123,8 +123,8 @@ const CreateLabelPage = () => {
         <EnhancedWorkflowTracker currentStep="package" />
       </div>
       
-      {/* Main Content - Adjust width when sidebar is open */}
-      <div className={`transition-all duration-300 ${showAIPanel ? 'pr-96' : ''}`}>
+      {/* Main Content - Adjust width when sidebar is open (narrower now) */}
+      <div className={`transition-all duration-300 ${showAIPanel ? 'pr-80' : ''}`}>
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-7xl mx-auto">
             {/* Header Section */}
@@ -160,7 +160,7 @@ const CreateLabelPage = () => {
         </div>
       </div>
 
-      {/* Single AI Analysis Panel - Only this one, no duplicates */}
+      {/* Single AI Analysis Panel - Narrower width */}
       {showAIPanel && selectedRate && (
         <AIRateAnalysisPanel
           selectedRate={selectedRate}
