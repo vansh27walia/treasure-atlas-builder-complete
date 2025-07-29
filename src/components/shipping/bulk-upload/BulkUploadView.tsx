@@ -10,6 +10,7 @@ import BulkResults from './BulkResults';
 import AdvancedProgressTracker from './AdvancedProgressTracker';
 import AIRateAnalysisPanel from '../AIRateAnalysisPanel';
 import CarrierLogo from '../CarrierLogo';
+import { useShipmentUpload } from '@/hooks/useShipmentUpload';
 
 interface BulkUploadViewProps {
   onUploadComplete?: (results: any) => void;
@@ -27,6 +28,9 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
   const [isUploading, setIsUploading] = useState(false);
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
+  const [selectedPickupAddress, setSelectedPickupAddress] = useState<any>(null);
+
+  const { handleUpload } = useShipmentUpload();
 
   const handleUploadStart = () => {
     setIsProcessing(true);
@@ -40,7 +44,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
     setUploadProgress(progress);
   };
 
-  const handleUploadComplete = (uploadResults: any) => {
+  const handleUploadSuccess = (uploadResults: any) => {
     setResults(uploadResults);
     setIsProcessing(false);
     setIsUploading(false);
@@ -67,6 +71,34 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
     }
     
     toast.success('Bulk upload completed successfully!');
+  };
+
+  const handleUploadFail = (error: string) => {
+    setIsProcessing(false);
+    setIsUploading(false);
+    setUploadStatus('error');
+    setCurrentStep('upload');
+    toast.error(`Upload failed: ${error}`);
+  };
+
+  const handlePickupAddressSelect = (address: any) => {
+    setSelectedPickupAddress(address);
+  };
+
+  const handleFileUpload = async (file: File) => {
+    if (!selectedPickupAddress) {
+      toast.error('Please select a pickup address first');
+      return;
+    }
+
+    try {
+      handleUploadStart();
+      await handleUpload(file, selectedPickupAddress);
+      handleUploadSuccess({ shipments: [], total: 0, successful: 0, failed: 0 });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+      handleUploadFail(errorMessage);
+    }
   };
 
   const handleRateSelected = (rate: any) => {
@@ -156,7 +188,12 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
               </CardHeader>
               <CardContent className="p-6">
                 <BulkUploadForm
-                  onUpload={handleUploadComplete}
+                  onUploadSuccess={handleUploadSuccess}
+                  onUploadFail={handleUploadFail}
+                  onPickupAddressSelect={handlePickupAddressSelect}
+                  isUploading={isUploading}
+                  progress={uploadProgress}
+                  handleUpload={handleFileUpload}
                 />
               </CardContent>
             </Card>
