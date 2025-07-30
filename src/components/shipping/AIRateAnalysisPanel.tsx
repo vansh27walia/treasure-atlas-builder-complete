@@ -108,56 +108,24 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
     toast.success(`Applied ${filterId} optimization`);
   };
 
-  // Enhanced auto-close functionality - listen for multiple events
+  // Listen for payment or close events to auto-close sidebar
   useEffect(() => {
     const handlePaymentSuccess = () => {
-      console.log('Payment success detected, closing AI panel');
       onClose();
     };
 
     const handlePaymentStart = () => {
-      console.log('Payment start detected, closing AI panel');
       onClose();
     };
 
-    const handlePaymentCancel = () => {
-      console.log('Payment cancel detected, closing AI panel');
-      onClose();
-    };
-
-    const handleLabelCreation = () => {
-      console.log('Label creation detected, closing AI panel');
-      onClose();
-    };
-
-    // Listen for payment and label creation events
     document.addEventListener('payment-success', handlePaymentSuccess);
     document.addEventListener('payment-start', handlePaymentStart);
-    document.addEventListener('payment-cancel', handlePaymentCancel);
-    document.addEventListener('label-creation-start', handleLabelCreation);
-    document.addEventListener('checkout-start', handlePaymentStart);
-    
-    // Also listen for clicks on payment buttons
-    const handlePaymentButtonClick = (e: Event) => {
-      const target = e.target as HTMLElement;
-      if (target.closest('[data-payment-button]') || 
-          target.textContent?.toLowerCase().includes('pay') ||
-          target.textContent?.toLowerCase().includes('checkout') ||
-          target.textContent?.toLowerCase().includes('create label')) {
-        console.log('Payment button clicked, closing AI panel');
-        onClose();
-      }
-    };
-
-    document.addEventListener('click', handlePaymentButtonClick);
+    document.addEventListener('payment-cancel', handlePaymentSuccess);
 
     return () => {
       document.removeEventListener('payment-success', handlePaymentSuccess);
       document.removeEventListener('payment-start', handlePaymentStart);
-      document.removeEventListener('payment-cancel', handlePaymentCancel);
-      document.removeEventListener('label-creation-start', handleLabelCreation);
-      document.removeEventListener('checkout-start', handlePaymentStart);
-      document.removeEventListener('click', handlePaymentButtonClick);
+      document.removeEventListener('payment-cancel', handlePaymentSuccess);
     };
   }, [onClose]);
 
@@ -171,7 +139,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed top-0 right-0 h-screen w-80 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col animate-slide-in-right">
+    <div className="fixed top-0 right-0 h-screen w-80 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
       <Card className="h-full rounded-none border-0 flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 text-white z-10 flex-shrink-0 py-3">
           <CardTitle className="flex items-center gap-2 text-sm">

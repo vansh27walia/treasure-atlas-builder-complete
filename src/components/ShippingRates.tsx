@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -155,9 +154,6 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     setIsCreatingLabel(true);
     
     try {
-      // Dispatch event to close AI panel when payment is successful
-      document.dispatchEvent(new CustomEvent('payment-success', { detail: paymentData }));
-      
       window.location.href = `/label-success?labelUrl=${encodeURIComponent(paymentData.labelUrl || '')}&trackingCode=${encodeURIComponent(paymentData.trackingCode || '')}&shipmentId=${encodeURIComponent(paymentData.shipmentId || '')}`;
     } catch (error) {
       console.error('Error after payment:', error);
@@ -166,13 +162,6 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
       setIsCreatingLabel(false);
     }
   };
-
-  // Trigger payment start event when payment section is shown
-  useEffect(() => {
-    if (showPayment) {
-      document.dispatchEvent(new CustomEvent('payment-start'));
-    }
-  }, [showPayment]);
 
   if (loading) {
     return (
@@ -365,16 +354,11 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
           </div>
         )}
 
-        {/* Continue to Payment Button - Enhanced with event dispatching */}
+        {/* Continue to Payment Button */}
         {currentSelectedRate && !showPayment && (
           <Button
-            onClick={() => {
-              setShowPayment(true);
-              // Dispatch payment start event
-              document.dispatchEvent(new CustomEvent('payment-start'));
-            }}
+            onClick={() => setShowPayment(true)}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-semibold"
-            data-payment-button="true"
           >
             Continue with {currentSelectedRate.carrier} - ${parseFloat(currentSelectedRate.rate).toFixed(2)}
           </Button>
