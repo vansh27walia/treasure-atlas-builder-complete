@@ -341,16 +341,22 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onPaymentEn
               Street Address *
             </Label>
             <AddressAutoComplete
-              value={fromAddress.street1}
+              defaultValue={fromAddress.street1}
               onChange={(value) => setFromAddress({...fromAddress, street1: value})}
-              onAddressSelect={(address) => {
-                setFromAddress({
-                  ...fromAddress,
-                  street1: address.street1,
-                  city: address.city,
-                  state: address.state,
-                  zip: address.zip
-                });
+              onAddressSelected={(place) => {
+                if (place?.formatted_address) {
+                  setFromAddress({...fromAddress, street1: place.formatted_address});
+                }
+              }}
+              onFullAddressPopulated={(addressData) => {
+                setFromAddress(prev => ({
+                  ...prev,
+                  street1: addressData.street1 || prev.street1,
+                  city: addressData.city || prev.city,
+                  state: addressData.state || prev.state,
+                  zip: addressData.zip || prev.zip,
+                  country: addressData.country || prev.country
+                }));
               }}
               placeholder="123 Main Street"
               className="mt-1 bg-white"
@@ -495,16 +501,22 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onPaymentEn
               Street Address *
             </Label>
             <AddressAutoComplete
-              value={toAddress.street1}
+              defaultValue={toAddress.street1}
               onChange={(value) => setToAddress({...toAddress, street1: value})}
-              onAddressSelect={(address) => {
-                setToAddress({
-                  ...toAddress,
-                  street1: address.street1,
-                  city: address.city,
-                  state: address.state,
-                  zip: address.zip
-                });
+              onAddressSelected={(place) => {
+                if (place?.formatted_address) {
+                  setToAddress({...toAddress, street1: place.formatted_address});
+                }
+              }}
+              onFullAddressPopulated={(addressData) => {
+                setToAddress(prev => ({
+                  ...prev,
+                  street1: addressData.street1 || prev.street1,
+                  city: addressData.city || prev.city,
+                  state: addressData.state || prev.state,
+                  zip: addressData.zip || prev.zip,
+                  country: addressData.country || prev.country
+                }));
               }}
               placeholder="456 Oak Avenue"
               className="mt-1 bg-white"
