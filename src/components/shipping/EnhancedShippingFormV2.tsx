@@ -13,7 +13,7 @@ import AddressAutoComplete from './AddressAutoComplete';
 import ImprovedDimensionsForm from './ImprovedDimensionsForm';
 import DynamicDiscountBadge from './DynamicDiscountBadge';
 import AIRateSidebar from './AIRateSidebar';
-import { InsuranceCalculator } from './InsuranceCalculator';
+import InsuranceCalculator from './InsuranceCalculator';
 import { usePaymentRedirect } from '@/hooks/usePaymentRedirect';
 
 interface EnhancedShippingFormV2Props {

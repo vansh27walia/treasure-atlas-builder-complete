@@ -16,7 +16,6 @@ import { toast } from '@/components/ui/sonner';
 
 const ImprovedBulkUploadView: React.FC = () => {
   const {
-    file,
     isUploading,
     isPaying,
     isCreatingLabels,
@@ -30,7 +29,6 @@ const ImprovedBulkUploadView: React.FC = () => {
     selectedCarrierFilter,
     filteredShipments,
     pickupAddress,
-    handleFileChange,
     handleUpload,
     handleCreateLabels,
     handleDownloadAllLabels,
@@ -54,6 +52,39 @@ const ImprovedBulkUploadView: React.FC = () => {
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
   const [selectedShipmentForAI, setSelectedShipmentForAI] = useState<any>(null);
   const [editingShipment, setEditingShipment] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+    }
+  };
+
+  const handleFileUpload = async () => {
+    if (!selectedFile) {
+      toast.error('Please select a file first');
+      return;
+    }
+
+    if (selectedFile.type !== 'text/csv' && !selectedFile.name.endsWith('.csv')) {
+      toast.error('Please upload a CSV file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const content = e.target?.result as string;
+      if (content) {
+        // Process the CSV content here
+        await handleUpload();
+      }
+    };
+    reader.onerror = () => {
+      toast.error('Error reading file');
+    };
+    reader.readAsText(selectedFile);
+  };
 
   const handleManualCSVSubmit = async () => {
     if (!manualCSVData.trim()) {
@@ -66,14 +97,13 @@ const ImprovedBulkUploadView: React.FC = () => {
       const blob = new Blob([manualCSVData], { type: 'text/csv' });
       const file = new File([blob], 'manual-data.csv', { type: 'text/csv' });
       
-      // Handle the file upload
-      handleFileChange({ target: { files: [file] } } as any);
+      setSelectedFile(file);
       setShowManualCSV(false);
       setManualCSVData('');
       
       // Trigger upload
       setTimeout(() => {
-        handleUpload();
+        handleFileUpload();
       }, 100);
       
     } catch (error) {
@@ -160,13 +190,13 @@ const ImprovedBulkUploadView: React.FC = () => {
                     Manual Entry
                   </Button>
                 </div>
-                {file && (
+                {selectedFile && (
                   <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      Selected: {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                      Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
                     </p>
                     <Button
-                      onClick={handleUpload}
+                      onClick={handleFileUpload}
                       disabled={isUploading}
                       className="mt-2 w-full"
                     >
