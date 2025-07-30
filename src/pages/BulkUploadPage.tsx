@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Upload, Download, Package, Truck } from 'lucide-react';
 import BulkUploadForm from '@/components/shipping/bulk-upload/BulkUploadForm';
-import BulkUploadResults from '@/components/shipping/bulk-upload/BulkUploadResults';
 import AIRatePicker from '@/components/shipping/bulk-upload/AIRatePicker';
 import EnhancedBulkRateDisplay from '@/components/shipping/bulk-upload/EnhancedBulkRateDisplay';
 import { BulkUploadResult } from '@/types/shipping';
@@ -22,10 +21,18 @@ const BulkUploadPage = () => {
     handleBulkApplyCarrier,
   } = useShipmentRates(results, setResults);
 
-  const handleUploadComplete = (uploadResults: BulkUploadResult) => {
+  const handleUploadSuccess = (uploadResults: any) => {
     console.log('Upload complete:', uploadResults);
     setResults(uploadResults);
     setCurrentStep('rates');
+  };
+
+  const handleUploadFail = (error: string) => {
+    console.error('Upload failed:', error);
+  };
+
+  const handlePickupAddressSelect = (address: any) => {
+    console.log('Pickup address selected:', address);
   };
 
   const handleFetchRates = async () => {
@@ -118,7 +125,11 @@ const BulkUploadPage = () => {
           </Card>
 
           {/* Upload Form */}
-          <BulkUploadForm onUploadComplete={handleUploadComplete} />
+          <BulkUploadForm 
+            onUploadSuccess={handleUploadSuccess}
+            onUploadFail={handleUploadFail}
+            onPickupAddressSelect={handlePickupAddressSelect}
+          />
         </div>
       )}
 
@@ -204,13 +215,14 @@ const BulkUploadPage = () => {
       {/* Payment Step */}
       {currentStep === 'payment' && results && (
         <div className="space-y-6">
-          <BulkUploadResults 
-            results={results}
-            onSelectRate={handleSelectRate}
-            onRefreshRates={handleRefreshRates}
-            onBulkApplyCarrier={handleBulkApplyCarrier}
-            isFetchingRates={isFetchingRates}
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment Processing</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p>Payment processing functionality will be implemented here.</p>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
