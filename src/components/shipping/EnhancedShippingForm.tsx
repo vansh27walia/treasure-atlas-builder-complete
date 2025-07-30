@@ -12,7 +12,7 @@ import { MapPin, Package, User, Building, Phone, Mail, Truck, Calculator, Zap, A
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import AddressAutocomplete from './AddressAutocomplete';
+import AddressAutoComplete from './AddressAutoComplete';
 import InsuranceCalculator from './InsuranceCalculator';
 import RateCalculatorModal from './RateCalculatorModal';
 import { usePaymentRedirect } from '@/hooks/usePaymentRedirect';
@@ -150,7 +150,7 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onPaymentEn
 
     try {
       const { data: addresses, error } = await supabase
-        .from('saved_addresses')
+        .from('addresses')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -163,18 +163,21 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onPaymentEn
       // Auto-fill from address with the most recent saved address
       if (addresses && addresses.length > 0) {
         const recentAddress = addresses[0];
-        setFromAddress({
-          name: recentAddress.name || '',
-          company: recentAddress.company || '',
-          street1: recentAddress.street1 || '',
-          street2: recentAddress.street2 || '',
-          city: recentAddress.city || '',
-          state: recentAddress.state || '',
-          zip: recentAddress.zip || '',
-          country: recentAddress.country || 'US',
-          phone: recentAddress.phone || '',
-          email: recentAddress.email || ''
-        });
+        // Type guard to ensure we have a valid address record
+        if ('name' in recentAddress && 'street1' in recentAddress) {
+          setFromAddress({
+            name: recentAddress.name || '',
+            company: recentAddress.company || '',
+            street1: recentAddress.street1 || '',
+            street2: recentAddress.street2 || '',
+            city: recentAddress.city || '',
+            state: recentAddress.state || '',
+            zip: recentAddress.zip || '',
+            country: recentAddress.country || 'US',
+            phone: recentAddress.phone || '',
+            email: '' // email is not stored in addresses table
+          });
+        }
       }
     } catch (error) {
       console.error('Error loading addresses:', error);
@@ -337,7 +340,7 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onPaymentEn
             <Label htmlFor="from-street1" className="text-sm font-medium text-gray-700">
               Street Address *
             </Label>
-            <AddressAutocomplete
+            <AddressAutoComplete
               value={fromAddress.street1}
               onChange={(value) => setFromAddress({...fromAddress, street1: value})}
               onAddressSelect={(address) => {
@@ -491,7 +494,7 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onPaymentEn
             <Label htmlFor="to-street1" className="text-sm font-medium text-gray-700">
               Street Address *
             </Label>
-            <AddressAutocomplete
+            <AddressAutoComplete
               value={toAddress.street1}
               onChange={(value) => setToAddress({...toAddress, street1: value})}
               onAddressSelect={(address) => {

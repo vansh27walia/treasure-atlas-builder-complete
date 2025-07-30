@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Upload, FileText, Loader2, CheckCircle, AlertCircle, Brain, Zap, ArrowRight } from 'lucide-react';
+import { Upload, FileText, Loader2, CheckCircle, AlertCircle, Brain, Zap, ArrowRight, Sparkles, X } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import BulkUploadForm from './bulk-upload/BulkUploadForm';
 import BulkResults from './bulk-upload/BulkResults';
