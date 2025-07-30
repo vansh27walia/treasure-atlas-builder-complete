@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -29,7 +28,6 @@ interface ShippingRatesProps {
   selectedRateId?: string;
   shipmentDetails?: any;
   insuranceAmount?: number;
-  onProceedToPayment?: () => void;
 }
 
 const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
@@ -38,8 +36,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
   loading = false,
   selectedRateId,
   shipmentDetails: propShipmentDetails,
-  insuranceAmount = 2,
-  onProceedToPayment
+  insuranceAmount = 2
 }) => {
   const [selectedRate, setSelectedRate] = useState<ShippingRate | null>(null);
   const [showPayment, setShowPayment] = useState(false);
@@ -150,13 +147,6 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     console.log('Rate selected:', rate);
     setSelectedRate(rate);
     onRateSelected(rate);
-  };
-
-  const handleContinueToPayment = () => {
-    setShowPayment(true);
-    if (onProceedToPayment) {
-      onProceedToPayment();
-    }
   };
 
   const handlePaymentSuccess = async (paymentData: any) => {
@@ -367,7 +357,7 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
         {/* Continue to Payment Button */}
         {currentSelectedRate && !showPayment && (
           <Button
-            onClick={handleContinueToPayment}
+            onClick={() => setShowPayment(true)}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-semibold"
           >
             Continue with {currentSelectedRate.carrier} - ${parseFloat(currentSelectedRate.rate).toFixed(2)}
