@@ -178,11 +178,11 @@ const EnhancedRateFetchingDisplay: React.FC<EnhancedRateFetchingDisplayProps> = 
                             <DynamicDiscountBadge rate={rate} />
                             <div>
                               <div className="text-2xl font-bold text-green-600">
-                                ${parseFloat(rate.rate).toFixed(2)}
+                                ${typeof rate.rate === 'string' ? parseFloat(rate.rate).toFixed(2) : rate.rate.toFixed(2)}
                               </div>
-                              {rate.list_rate && parseFloat(rate.list_rate) > parseFloat(rate.rate) && (
+                              {rate.list_rate && parseFloat(rate.list_rate.toString()) > parseFloat(rate.rate.toString()) && (
                                 <div className="text-sm text-gray-500 line-through">
-                                  ${parseFloat(rate.list_rate).toFixed(2)}
+                                  ${typeof rate.list_rate === 'string' ? parseFloat(rate.list_rate).toFixed(2) : rate.list_rate.toFixed(2)}
                                 </div>
                               )}
                             </div>
