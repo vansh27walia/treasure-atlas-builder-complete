@@ -1,548 +1,758 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useForm } from 'react-hook-form';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { MapPin, Package, User, Building, Phone, Mail, Truck, Calculator, Zap, AlertCircle, CheckCircle } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import { supabase } from "@/integrations/supabase/client";
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import AddressSelector from './AddressSelector';
-import { addressService, SavedAddress } from '@/services/AddressService';
-import { createAddressSelectHandler } from '@/utils/addressUtils';
-import { Search, Package, MapPin, FileText, Shield, AlertTriangle } from 'lucide-react';
-import CustomsDocumentationModal from './CustomsDocumentationModal';
-import LabelCreationModal from './LabelCreationModal';
-import PackageTypeSelector from './PackageTypeSelector';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import AddressAutocomplete from './AddressAutocomplete';
 import InsuranceCalculator from './InsuranceCalculator';
-import HazmatSelector from './HazmatSelector';
+import RateCalculatorModal from './RateCalculatorModal';
+import { usePaymentRedirect } from '@/hooks/usePaymentRedirect';
 
-const shippingFormSchema = z.object({
-  packageType: z.string().min(1, "Please select a package type"),
-  weightValue: z.coerce.number().min(0, "Weight must be greater than 0"),
-  weightUnit: z.enum(["oz", "kg", "lb"]),
-  declaredValue: z.coerce.number().min(0, "Value must be greater than 0"),
-  length: z.coerce.number().min(0, "Length must be greater than 0").optional(),
-  width: z.coerce.number().min(0, "Width must be greater than 0").optional(),
-  height: z.coerce.number().min(0, "Height must be greater than 0").optional(),
-  insurance: z.boolean().default(true),
-  hazmat: z.boolean().default(false),
-  hazmatType: z.string().optional(),
-  carriers: z.array(z.string()).default(['usps', 'ups', 'fedex', 'dhl']),
-});
+interface Address {
+  name: string;
+  company?: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone?: string;
+  email?: string;
+}
 
-type ShippingFormValues = z.infer<typeof shippingFormSchema>;
+interface Parcel {
+  length: number;
+  width: number;
+  height: number;
+  weight: number;
+}
 
-const EnhancedShippingForm: React.FC = () => {
+interface EnhancedShippingFormProps {
+  onPaymentEntry?: () => void;
+}
+
+const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onPaymentEntry }) => {
+  const { user } = useAuth();
+  const [fromAddress, setFromAddress] = useState<Address>({
+    name: '',
+    company: '',
+    street1: '',
+    street2: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'US',
+    phone: '',
+    email: ''
+  });
+
+  const [toAddress, setToAddress] = useState<Address>({
+    name: '',
+    company: '',
+    street1: '',
+    street2: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'US',
+    phone: '',
+    email: ''
+  });
+
+  const [parcel, setParcel] = useState<Parcel>({
+    length: 12,
+    width: 8,
+    height: 4,
+    weight: 16
+  });
+
   const [isLoading, setIsLoading] = useState(false);
-  const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
-  const [toAddress, setToAddress] = useState<SavedAddress | null>(null);
-  const [showCustomsModal, setShowCustomsModal] = useState(false);
-  const [customsInfo, setCustomsInfo] = useState<any>(null);
-  const [showLabelCreationModal, setShowLabelCreationModal] = useState(false);
-  const [labelCreationData, setLabelCreationData] = useState<any>(null);
-
-  const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
-  const handleToAddressSelect = createAddressSelectHandler(setToAddress);
-
-  const form = useForm<ShippingFormValues>({
-    resolver: zodResolver(shippingFormSchema),
-    defaultValues: {
-      packageType: 'box',
-      weightValue: undefined,
-      weightUnit: 'lb',
-      declaredValue: undefined,
-      length: undefined,
-      width: undefined,
-      height: undefined,
-      insurance: true,
-      hazmat: false,
-      hazmatType: '',
-      carriers: ['usps', 'ups', 'fedex', 'dhl'],
+  const [selectedRate, setSelectedRate] = useState<any>(null);
+  const [insuranceEnabled, setInsuranceEnabled] = useState(true);
+  const [insuranceAmount, setInsuranceAmount] = useState(100);
+  const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
+  const [hasPaymentCard, setHasPaymentCard] = useState(false);
+  
+  const { checkPaymentAndProceed } = usePaymentRedirect({
+    requiresPaymentCard: true,
+    onPaymentRequired: () => {
+      if (onPaymentEntry) {
+        onPaymentEntry();
+      }
+    },
+    onPaymentSaved: () => {
+      setHasPaymentCard(true);
     }
   });
 
-  const watchPackageType = form.watch("packageType");
-  const watchInsurance = form.watch("insurance");
-  const watchDeclaredValue = form.watch("declaredValue");
-  const watchHazmat = form.watch("hazmat");
-
-  const insuranceCost = watchInsurance && watchDeclaredValue ? Math.max(2, Math.ceil((watchDeclaredValue / 100) * 2)) : 0;
-  const showDimensions = ['box', 'envelope'].includes(watchPackageType);
-  const isInternational = fromAddress && toAddress && fromAddress.country !== toAddress.country;
-
-  // Auto-trigger customs modal when international shipping is detected
+  // Check for saved payment methods on component mount
   useEffect(() => {
-    if (isInternational && !customsInfo && toAddress && fromAddress) {
-      console.log('International shipping detected, opening customs modal');
-      setShowCustomsModal(true);
+    const checkPaymentMethods = async () => {
+      try {
+        const hasCard = localStorage.getItem('hasPaymentCard') === 'true';
+        setHasPaymentCard(hasCard);
+      } catch (error) {
+        console.error('Error checking payment methods:', error);
+      }
+    };
+    
+    checkPaymentMethods();
+  }, []);
+
+  // Load saved addresses on component mount
+  useEffect(() => {
+    loadSavedAddresses();
+  }, [user]);
+
+  // Listen for auto-fill events from rate calculator
+  useEffect(() => {
+    const handleAutoFill = (event: CustomEvent) => {
+      const transferData = sessionStorage.getItem('transferToShipping');
+      if (transferData) {
+        const data = JSON.parse(transferData);
+        
+        // Auto-fill addresses
+        if (data.fromAddress) {
+          setFromAddress(data.fromAddress);
+        }
+        if (data.toAddress) {
+          setToAddress(data.toAddress);
+        }
+        if (data.parcel) {
+          setParcel(data.parcel);
+        }
+        
+        // Clear the transfer data
+        sessionStorage.removeItem('transferToShipping');
+        
+        toast.success('Form auto-filled from rate calculator!');
+      }
+    };
+
+    document.addEventListener('auto-fill-shipping-form', handleAutoFill as EventListener);
+    return () => {
+      document.removeEventListener('auto-fill-shipping-form', handleAutoFill as EventListener);
+    };
+  }, []);
+
+  const loadSavedAddresses = async () => {
+    if (!user) return;
+
+    try {
+      const { data: addresses, error } = await supabase
+        .from('saved_addresses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading saved addresses:', error);
+        return;
+      }
+
+      // Auto-fill from address with the most recent saved address
+      if (addresses && addresses.length > 0) {
+        const recentAddress = addresses[0];
+        setFromAddress({
+          name: recentAddress.name || '',
+          company: recentAddress.company || '',
+          street1: recentAddress.street1 || '',
+          street2: recentAddress.street2 || '',
+          city: recentAddress.city || '',
+          state: recentAddress.state || '',
+          zip: recentAddress.zip || '',
+          country: recentAddress.country || 'US',
+          phone: recentAddress.phone || '',
+          email: recentAddress.email || ''
+        });
+      }
+    } catch (error) {
+      console.error('Error loading addresses:', error);
     }
-  }, [isInternational, customsInfo, toAddress, fromAddress]);
-
-  const handleCustomsSubmit = (customs: any) => {
-    setCustomsInfo(customs);
-    setShowCustomsModal(false);
-    toast.success("Customs documentation saved successfully");
   };
 
-  const handleInsuranceChange = (enabled: boolean, amount: number) => {
-    form.setValue('insurance', enabled);
-    form.setValue('declaredValue', amount);
-  };
-
-  const handleGetRates = async (values: ShippingFormValues) => {
-    if (!fromAddress || !toAddress) {
-      toast.error("Please provide both origin and destination addresses");
+  const handleGetRates = async () => {
+    // Validate required fields
+    if (!fromAddress.street1 || !fromAddress.city || !fromAddress.state || !fromAddress.zip) {
+      toast.error('Please fill in all required FROM address fields');
       return;
     }
 
-    // For international shipping, customs info is required
-    if (isInternational && !customsInfo) {
-      toast.error("Please complete customs documentation for international shipments");
-      setShowCustomsModal(true);
+    if (!toAddress.street1 || !toAddress.city || !toAddress.state || !toAddress.zip) {
+      toast.error('Please fill in all required TO address fields');
+      return;
+    }
+
+    if (!parcel.weight || parcel.weight <= 0) {
+      toast.error('Please enter a valid package weight');
       return;
     }
 
     setIsLoading(true);
+
     try {
-      // Convert weight to ounces for backend processing
-      let weightOz = values.weightValue || 0;
-      if (values.weightUnit === 'kg') {
-        weightOz = weightOz * 35.274;
-      } else if (values.weightUnit === 'lb') {
-        weightOz = weightOz * 16;
-      }
-      
-      // Prepare the request payload for EasyPost API - same format for both domestic and international
-      const payload = {
-        fromAddress: {
-          name: fromAddress.name,
-          company: fromAddress.company,
-          street1: fromAddress.street1,
-          street2: fromAddress.street2,
-          city: fromAddress.city,
-          state: fromAddress.state,
-          zip: fromAddress.zip,
-          country: fromAddress.country || 'US',
-          phone: fromAddress.phone || '',
-        },
-        toAddress: {
-          name: toAddress.name,
-          company: toAddress.company,
-          street1: toAddress.street1,
-          street2: toAddress.street2,
-          city: toAddress.city,
-          state: toAddress.state,
-          zip: toAddress.zip,
-          country: toAddress.country || 'US',
-          phone: toAddress.phone || '',
-        },
-        parcel: {
-          length: values.length || 8,
-          width: values.width || 8,
-          height: values.height || 2,
-          weight: weightOz,
-        },
-        options: {
-          hazmat: values.hazmat ? values.hazmatType : undefined,
-        },
-        carriers: values.carriers,
-        customs_info: customsInfo,
-        insurance_info: values.insurance ? {
-          amount: values.declaredValue,
-          cost: insuranceCost
-        } : null
+      const requestData = {
+        fromAddress,
+        toAddress,
+        parcel,
+        carriers: ['USPS', 'UPS', 'FedEx', 'DHL']
       };
 
-      console.log('Submitting payload:', payload);
+      console.log('Fetching rates with data:', requestData);
 
-      // Use the same endpoint for both domestic and international
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: payload,
+        body: requestData
       });
 
       if (error) {
-        throw new Error(`Error fetching rates: ${error.message}`);
+        console.error('Error fetching rates:', error);
+        toast.error('Failed to fetch shipping rates. Please try again.');
+        return;
       }
 
-      if (data.rates && Array.isArray(data.rates)) {
-        // Process rates with insurance cost and apply same formatting as domestic
-        const ratesWithInsurance = data.rates.map(rate => ({
-          ...rate,
-          insurance_cost: insuranceCost,
-          total_cost: parseFloat(rate.rate) + insuranceCost
-        }));
-        
-        // Dispatch the same event format for both domestic and international
-        document.dispatchEvent(new CustomEvent('easypost-rates-received', { 
-          detail: { 
-            rates: ratesWithInsurance, 
-            shipmentId: data.shipmentId,
-            isInternational: isInternational
-          } 
-        }));
+      if (!data?.rates || data.rates.length === 0) {
+        toast.warning('No shipping rates found for the provided details.');
+        return;
       }
 
-      toast.success("Shipping rates retrieved successfully");
+      console.log('Received rates:', data.rates);
+
+      // Dispatch event to update ShippingRates component
+      const ratesEvent = new CustomEvent('easypost-rates-received', {
+        detail: { 
+          rates: data.rates, 
+          shipmentId: data.shipmentId,
+          fromAddress,
+          toAddress,
+          parcel
+        }
+      });
       
-      // Scroll to the rates section
-      const ratesSection = document.getElementById('shipping-rates-section');
-      if (ratesSection) {
-        ratesSection.scrollIntoView({ behavior: 'smooth' });
-      }
+      document.dispatchEvent(ratesEvent);
+      
+      toast.success(`Found ${data.rates.length} shipping options!`);
+
+      // Scroll to rates section
+      setTimeout(() => {
+        const ratesSection = document.getElementById('shipping-rates-section');
+        if (ratesSection) {
+          ratesSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 500);
+
     } catch (error) {
-      console.error('Error fetching shipping rates:', error);
-      toast.error(error instanceof Error ? error.message : "Failed to get shipping rates");
+      console.error('Error in rate calculation:', error);
+      toast.error('An error occurred while calculating shipping rates.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Listen for label creation events
-  useEffect(() => {
-    const handleLabelCreated = (event: any) => {
-      const { labelData } = event.detail;
-      setLabelCreationData({
-        ...labelData,
-        fromAddress,
-        toAddress,
-        isInternational,
-        customsInfo
-      });
-      setShowLabelCreationModal(true);
+  const handleInsuranceChange = (enabled: boolean, amount: number) => {
+    setInsuranceEnabled(enabled);
+    setInsuranceAmount(amount);
+  };
+
+  const handlePrintLabel = async () => {
+    const proceedWithPrint = () => {
+      if (onPaymentEntry) {
+        onPaymentEntry();
+      }
+      console.log('Proceeding with label printing...');
+      toast.success('Label printed successfully!');
     };
 
-    document.addEventListener('label-created', handleLabelCreated);
-    return () => document.removeEventListener('label-created', handleLabelCreated);
-  }, [fromAddress, toAddress, isInternational, customsInfo]);
+    await checkPaymentAndProceed(hasPaymentCard, proceedWithPrint);
+  };
+
+  const usStates = [
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+    'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+    'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+    'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+    'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
+  ];
 
   return (
-    <div className="w-full">
-      <Card className="border shadow-sm">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleGetRates)} className="divide-y divide-border">
-            {/* Pickup Address */}
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-green-600" />
-                Pickup Address
-              </h3>
-              <AddressSelector 
-                type="from"
-                onAddressSelect={handleFromAddressSelect}
-                useGoogleAutocomplete={true}
-              />
-            </div>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Shipping Information</h2>
+        <p className="text-gray-600">Enter your package details to get competitive shipping rates</p>
+      </div>
 
-            {/* Drop-off Address */}
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-red-600" />
-                Drop-off Address
-              </h3>
-              <AddressSelector 
-                type="to"
-                onAddressSelect={handleToAddressSelect}
-                useGoogleAutocomplete={true}
-              />
-            </div>
-            
-            {/* Package Details */}
-            <div className="p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Package className="w-5 h-5" />
-                Package Details
-              </h3>
-                
-              <div className="mb-4">
-                <FormField
-                  control={form.control}
-                  name="packageType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <PackageTypeSelector
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {showDimensions && (
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  <FormField
-                    control={form.control}
-                    name="length"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm">Length (in)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number"
-                            min="0"
-                            step="0.1"
-                            {...field}
-                            value={field.value || ''}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                            className="bg-white"
-                            placeholder="Length"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="width"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-sm">Width (in)</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="number"
-                            min="0"
-                            step="0.1"
-                            {...field}
-                            value={field.value || ''}
-                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                            className="bg-white"
-                            placeholder="Width"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  {watchPackageType === 'box' && (
-                    <FormField
-                      control={form.control}
-                      name="height"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-sm">Height (in)</FormLabel>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              min="0"
-                              step="0.1"
-                              {...field}
-                              value={field.value || ''}
-                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                              className="bg-white"
-                              placeholder="Height"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <FormField
-                  control={form.control}
-                  name="weightValue"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm">Weight</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number"
-                          min="0"
-                          step="0.1"
-                          {...field}
-                          value={field.value || ''}
-                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
-                          className="bg-white"
-                          placeholder="Weight"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="weightUnit"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm">Unit</FormLabel>
-                      <FormControl>
-                        <select 
-                          {...field}
-                          className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
-                        >
-                          <option value="lb">Pounds (lb)</option>
-                          <option value="oz">Ounces (oz)</option>
-                          <option value="kg">Kilograms (kg)</option>
-                        </select>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="mb-4">
-                <FormField
-                  control={form.control}
-                  name="carriers"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-sm">Preferred Carriers</FormLabel>
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        {[
-                          { id: 'usps', name: 'USPS' },
-                          { id: 'ups', name: 'UPS' },
-                          { id: 'fedex', name: 'FedEx' },
-                          { id: 'dhl', name: 'DHL' }
-                        ].map((carrier) => (
-                          <label key={carrier.id} className="flex items-center space-x-2 p-2 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={field.value.includes(carrier.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  field.onChange([...field.value, carrier.id]);
-                                } else {
-                                  field.onChange(field.value.filter(c => c !== carrier.id));
-                                }
-                              }}
-                              className="rounded border-gray-300"
-                            />
-                            <span className="text-sm font-medium">{carrier.name}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+      {/* From Address Section */}
+      <Card className="border-blue-200">
+        <CardHeader className="bg-blue-50 border-b border-blue-200">
+          <CardTitle className="flex items-center gap-2 text-blue-800">
+            <MapPin className="w-5 h-5" />
+            From Address (Sender)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="from-name" className="text-sm font-medium text-gray-700">
+                Full Name *
+              </Label>
+              <div className="mt-1 relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="from-name"
+                  value={fromAddress.name}
+                  onChange={(e) => setFromAddress({...fromAddress, name: e.target.value})}
+                  className="pl-9 bg-white"
+                  placeholder="John Doe"
                 />
               </div>
             </div>
-
-            {/* Insurance */}
-            <div className="p-6">
-              <InsuranceCalculator
-                onInsuranceChange={handleInsuranceChange}
-              />
-            </div>
-
-            {/* HAZMAT */}
-            <div className="p-6">
-              <FormField
-                control={form.control}
-                name="hazmat"
-                render={({ field }) => (
-                  <FormItem>
-                    <HazmatSelector
-                      isHazmat={field.value}
-                      hazmatType={form.watch('hazmatType') || ''}
-                      onHazmatChange={field.onChange}
-                      onHazmatTypeChange={(type) => form.setValue('hazmatType', type)}
-                    />
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Customs Documentation Section */}
-            {isInternational && (
-              <div className="p-6 bg-blue-50 border-l-4 border-blue-400">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-blue-600" />
-                    Customs Documentation
-                    <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">Required</span>
-                  </h3>
-                  <Button
-                    type="button"
-                    onClick={() => setShowCustomsModal(true)}
-                    variant="outline"
-                    className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                  >
-                    {customsInfo ? 'Edit Customs Info' : 'Add Customs Info'}
-                  </Button>
-                </div>
-                
-                {customsInfo ? (
-                  <div className="bg-white p-4 rounded-lg border border-blue-200">
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium">Contents Type:</span>
-                        <span className="ml-2 capitalize">{customsInfo.contents_type}</span>
-                      </div>
-                      <div>
-                        <span className="font-medium">Signer:</span>
-                        <span className="ml-2">{customsInfo.customs_signer}</span>
-                      </div>
-                      <div>
-                        <span className="font-medium">Items:</span>
-                        <span className="ml-2">{customsInfo.customs_items?.length || 0} item(s)</span>
-                      </div>
-                      <div>
-                        <span className="font-medium">Total Value:</span>
-                        <span className="ml-2">
-                          ${customsInfo.customs_items?.reduce((sum: number, item: any) => sum + (item.value * item.quantity), 0).toFixed(2) || '0.00'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <div className="flex items-center gap-2 text-yellow-800">
-                      <AlertTriangle className="w-4 h-4" />
-                      <span className="text-sm font-medium">
-                        Customs documentation is required for international shipments
-                      </span>
-                    </div>
-                  </div>
-                )}
+            <div>
+              <Label htmlFor="from-company" className="text-sm font-medium text-gray-700">
+                Company (Optional)
+              </Label>
+              <div className="mt-1 relative">
+                <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="from-company"
+                  value={fromAddress.company}
+                  onChange={(e) => setFromAddress({...fromAddress, company: e.target.value})}
+                  className="pl-9 bg-white"
+                  placeholder="Company Name"
+                />
               </div>
-            )}
-              
-            {/* Submit Section */}
-            <div className="p-6 bg-muted/50">
-              <Button 
-                type="submit" 
-                className="w-full h-12 text-lg font-semibold bg-blue-600 hover:bg-blue-700" 
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Search className="w-5 h-5 mr-2 animate-spin" />
-                ) : (
-                  <Search className="w-5 h-5 mr-2" />
-                )}
-                Get Shipping Rates
-              </Button>
             </div>
-          </form>
-        </Form>
+          </div>
+
+          <div>
+            <Label htmlFor="from-street1" className="text-sm font-medium text-gray-700">
+              Street Address *
+            </Label>
+            <AddressAutocomplete
+              value={fromAddress.street1}
+              onChange={(value) => setFromAddress({...fromAddress, street1: value})}
+              onAddressSelect={(address) => {
+                setFromAddress({
+                  ...fromAddress,
+                  street1: address.street1,
+                  city: address.city,
+                  state: address.state,
+                  zip: address.zip
+                });
+              }}
+              placeholder="123 Main Street"
+              className="mt-1 bg-white"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="from-street2" className="text-sm font-medium text-gray-700">
+              Apartment, Suite, etc. (Optional)
+            </Label>
+            <Input
+              id="from-street2"
+              value={fromAddress.street2}
+              onChange={(e) => setFromAddress({...fromAddress, street2: e.target.value})}
+              className="mt-1 bg-white"
+              placeholder="Apt 4B"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="from-city" className="text-sm font-medium text-gray-700">
+                City *
+              </Label>
+              <Input
+                id="from-city"
+                value={fromAddress.city}
+                onChange={(e) => setFromAddress({...fromAddress, city: e.target.value})}
+                className="mt-1 bg-white"
+                placeholder="New York"
+              />
+            </div>
+            <div>
+              <Label htmlFor="from-state" className="text-sm font-medium text-gray-700">
+                State *
+              </Label>
+              <Select value={fromAddress.state} onValueChange={(value) => setFromAddress({...fromAddress, state: value})}>
+                <SelectTrigger className="mt-1 bg-white">
+                  <SelectValue placeholder="Select state" />
+                </SelectTrigger>
+                <SelectContent>
+                  {usStates.map(state => (
+                    <SelectItem key={state} value={state}>{state}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="from-zip" className="text-sm font-medium text-gray-700">
+                ZIP Code *
+              </Label>
+              <Input
+                id="from-zip"
+                value={fromAddress.zip}
+                onChange={(e) => setFromAddress({...fromAddress, zip: e.target.value})}
+                className="mt-1 bg-white"
+                placeholder="10001"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="from-phone" className="text-sm font-medium text-gray-700">
+                Phone Number
+              </Label>
+              <div className="mt-1 relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="from-phone"
+                  value={fromAddress.phone}
+                  onChange={(e) => setFromAddress({...fromAddress, phone: e.target.value})}
+                  className="pl-9 bg-white"
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="from-email" className="text-sm font-medium text-gray-700">
+                Email Address
+              </Label>
+              <div className="mt-1 relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="from-email"
+                  type="email"
+                  value={fromAddress.email}
+                  onChange={(e) => setFromAddress({...fromAddress, email: e.target.value})}
+                  className="pl-9 bg-white"
+                  placeholder="john@example.com"
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
       </Card>
 
-      {/* Customs Documentation Modal */}
-      <CustomsDocumentationModal
-        isOpen={showCustomsModal}
-        onClose={() => setShowCustomsModal(false)}
-        onSubmit={handleCustomsSubmit}
-        fromCountry={fromAddress?.country || ''}
-        toCountry={toAddress?.country || ''}
-        initialData={customsInfo}
-      />
+      {/* To Address Section */}
+      <Card className="border-green-200">
+        <CardHeader className="bg-green-50 border-b border-green-200">
+          <CardTitle className="flex items-center gap-2 text-green-800">
+            <MapPin className="w-5 h-5" />
+            To Address (Recipient)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="to-name" className="text-sm font-medium text-gray-700">
+                Full Name *
+              </Label>
+              <div className="mt-1 relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="to-name"
+                  value={toAddress.name}
+                  onChange={(e) => setToAddress({...toAddress, name: e.target.value})}
+                  className="pl-9 bg-white"
+                  placeholder="Jane Smith"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="to-company" className="text-sm font-medium text-gray-700">
+                Company (Optional)
+              </Label>
+              <div className="mt-1 relative">
+                <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="to-company"
+                  value={toAddress.company}
+                  onChange={(e) => setToAddress({...toAddress, company: e.target.value})}
+                  className="pl-9 bg-white"
+                  placeholder="Company Name"
+                />
+              </div>
+            </div>
+          </div>
 
-      {/* Label Creation Modal */}
-      <LabelCreationModal
-        isOpen={showLabelCreationModal}
-        onClose={() => setShowLabelCreationModal(false)}
-        labelData={labelCreationData}
+          <div>
+            <Label htmlFor="to-street1" className="text-sm font-medium text-gray-700">
+              Street Address *
+            </Label>
+            <AddressAutocomplete
+              value={toAddress.street1}
+              onChange={(value) => setToAddress({...toAddress, street1: value})}
+              onAddressSelect={(address) => {
+                setToAddress({
+                  ...toAddress,
+                  street1: address.street1,
+                  city: address.city,
+                  state: address.state,
+                  zip: address.zip
+                });
+              }}
+              placeholder="456 Oak Avenue"
+              className="mt-1 bg-white"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="to-street2" className="text-sm font-medium text-gray-700">
+              Apartment, Suite, etc. (Optional)
+            </Label>
+            <Input
+              id="to-street2"
+              value={toAddress.street2}
+              onChange={(e) => setToAddress({...toAddress, street2: e.target.value})}
+              className="mt-1 bg-white"
+              placeholder="Suite 200"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="to-city" className="text-sm font-medium text-gray-700">
+                City *
+              </Label>
+              <Input
+                id="to-city"
+                value={toAddress.city}
+                onChange={(e) => setToAddress({...toAddress, city: e.target.value})}
+                className="mt-1 bg-white"
+                placeholder="Los Angeles"
+              />
+            </div>
+            <div>
+              <Label htmlFor="to-state" className="text-sm font-medium text-gray-700">
+                State *
+              </Label>
+              <Select value={toAddress.state} onValueChange={(value) => setToAddress({...toAddress, state: value})}>
+                <SelectTrigger className="mt-1 bg-white">
+                  <SelectValue placeholder="Select state" />
+                </SelectTrigger>
+                <SelectContent>
+                  {usStates.map(state => (
+                    <SelectItem key={state} value={state}>{state}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="to-zip" className="text-sm font-medium text-gray-700">
+                ZIP Code *
+              </Label>
+              <Input
+                id="to-zip"
+                value={toAddress.zip}
+                onChange={(e) => setToAddress({...toAddress, zip: e.target.value})}
+                className="mt-1 bg-white"
+                placeholder="90210"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="to-phone" className="text-sm font-medium text-gray-700">
+                Phone Number
+              </Label>
+              <div className="mt-1 relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="to-phone"
+                  value={toAddress.phone}
+                  onChange={(e) => setToAddress({...toAddress, phone: e.target.value})}
+                  className="pl-9 bg-white"
+                  placeholder="(555) 987-6543"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="to-email" className="text-sm font-medium text-gray-700">
+                Email Address
+              </Label>
+              <div className="mt-1 relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="to-email"
+                  type="email"
+                  value={toAddress.email}
+                  onChange={(e) => setToAddress({...toAddress, email: e.target.value})}
+                  className="pl-9 bg-white"
+                  placeholder="jane@example.com"
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Package Details Section */}
+      <Card className="border-purple-200">
+        <CardHeader className="bg-purple-50 border-b border-purple-200">
+          <CardTitle className="flex items-center gap-2 text-purple-800">
+            <Package className="w-5 h-5" />
+            Package Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <Label htmlFor="length" className="text-sm font-medium text-gray-700">
+                Length (in) *
+              </Label>
+              <Input
+                id="length"
+                type="number"
+                value={parcel.length}
+                onChange={(e) => setParcel({...parcel, length: parseFloat(e.target.value) || 0})}
+                className="mt-1 bg-white"
+                placeholder="12"
+                min="0.1"
+                step="0.1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="width" className="text-sm font-medium text-gray-700">
+                Width (in) *
+              </Label>
+              <Input
+                id="width"
+                type="number"
+                value={parcel.width}
+                onChange={(e) => setParcel({...parcel, width: parseFloat(e.target.value) || 0})}
+                className="mt-1 bg-white"
+                placeholder="8"
+                min="0.1"
+                step="0.1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="height" className="text-sm font-medium text-gray-700">
+                Height (in) *
+              </Label>
+              <Input
+                id="height"
+                type="number"
+                value={parcel.height}
+                onChange={(e) => setParcel({...parcel, height: parseFloat(e.target.value) || 0})}
+                className="mt-1 bg-white"
+                placeholder="4"
+                min="0.1"
+                step="0.1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="weight" className="text-sm font-medium text-gray-700">
+                Weight (oz) *
+              </Label>
+              <Input
+                id="weight"
+                type="number"
+                value={parcel.weight}
+                onChange={(e) => setParcel({...parcel, weight: parseFloat(e.target.value) || 0})}
+                className="mt-1 bg-white"
+                placeholder="16"
+                min="0.1"
+                step="0.1"
+              />
+            </div>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="text-sm text-gray-600">
+              <strong>Package Volume:</strong> {(parcel.length * parcel.width * parcel.height).toFixed(1)} cubic inches
+            </p>
+            <p className="text-sm text-gray-600">
+              <strong>Weight:</strong> {(parcel.weight / 16).toFixed(2)} lbs ({parcel.weight} oz)
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Insurance Section */}
+      <InsuranceCalculator onInsuranceChange={handleInsuranceChange} />
+
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-4 pt-6">
+        <Button
+          onClick={handleGetRates}
+          disabled={isLoading}
+          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-semibold"
+        >
+          {isLoading ? (
+            <>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+              Getting Rates...
+            </>
+          ) : (
+            <>
+              <Truck className="w-5 h-5 mr-2" />
+              Get Shipping Rates
+            </>
+          )}
+        </Button>
+
+        <Button
+          onClick={() => setIsRateCalculatorOpen(true)}
+          variant="outline"
+          className="flex-1 sm:flex-none border-blue-300 text-blue-600 hover:bg-blue-50 py-3"
+        >
+          <Calculator className="w-5 h-5 mr-2" />
+          Rate Calculator
+        </Button>
+      </div>
+
+      {/* Payment section */}
+      <div className="mt-8 pt-6 border-t">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Payment & Shipping</h3>
+            <p className="text-sm text-gray-600">Complete your label creation</p>
+          </div>
+          
+          {!hasPaymentCard && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-sm text-amber-800">
+                💳 No payment method on file. You'll be redirected to add one.
+              </p>
+            </div>
+          )}
+        </div>
+        
+        <div className="mt-4 flex gap-4">
+          <Button
+            onClick={handlePrintLabel}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
+            disabled={!selectedRate}
+          >
+            {hasPaymentCard ? 'Print Label' : 'Add Payment & Print'}
+          </Button>
+          
+          {selectedRate && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span>Total: ${parseFloat(selectedRate.rate || '0').toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Rate Calculator Modal */}
+      <RateCalculatorModal 
+        isOpen={isRateCalculatorOpen} 
+        onClose={() => setIsRateCalculatorOpen(false)} 
       />
     </div>
   );
