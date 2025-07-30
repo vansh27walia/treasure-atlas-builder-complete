@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
@@ -23,6 +24,7 @@ const CreateLabelPage = () => {
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [selectedRate, setSelectedRate] = useState<any>(null);
+  const [isPaymentMode, setIsPaymentMode] = useState(false);
 
   // Redirect to auth if not logged in
   if (!user) {
@@ -31,18 +33,44 @@ const CreateLabelPage = () => {
 
   // Auto-show AI panel when rates are available
   useEffect(() => {
-    if (rates && rates.length > 0 && !showAIPanel) {
+    if (rates && rates.length > 0 && !showAIPanel && !isPaymentMode) {
       setShowAIPanel(true);
       if (rates[0] && !selectedRate) {
         setSelectedRate(rates[0]);
       }
     }
-  }, [rates, showAIPanel, selectedRate]);
+  }, [rates, showAIPanel, selectedRate, isPaymentMode]);
+
+  // Listen for payment events to close sidebar
+  useEffect(() => {
+    const handlePaymentStart = () => {
+      setIsPaymentMode(true);
+      setShowAIPanel(false);
+    };
+
+    const handlePaymentCancel = () => {
+      setIsPaymentMode(false);
+      // Reopen sidebar if rates are available
+      if (rates && rates.length > 0) {
+        setShowAIPanel(true);
+      }
+    };
+
+    document.addEventListener('payment-start', handlePaymentStart);
+    document.addEventListener('payment-cancel', handlePaymentCancel);
+
+    return () => {
+      document.removeEventListener('payment-start', handlePaymentStart);
+      document.removeEventListener('payment-cancel', handlePaymentCancel);
+    };
+  }, [rates]);
 
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
     setSelectedRate(rate);
-    setShowAIPanel(true);
+    if (!isPaymentMode) {
+      setShowAIPanel(true);
+    }
     handleSelectRate(rate.id);
   };
 
@@ -107,6 +135,12 @@ const CreateLabelPage = () => {
     setShowAIPanel(false);
   };
 
+  const handleProceedToPayment = () => {
+    setIsPaymentMode(true);
+    setShowAIPanel(false);
+    document.dispatchEvent(new CustomEvent('payment-start'));
+  };
+
   // Sort rates to ensure USPS is first, then by price
   const sortedRates = rates ? [...rates].sort((a, b) => {
     if (a.carrier.toLowerCase().includes('usps') && !b.carrier.toLowerCase().includes('usps')) return -1;
@@ -123,7 +157,7 @@ const CreateLabelPage = () => {
         <EnhancedWorkflowTracker currentStep="package" />
       </div>
       
-      {/* Main Content - Adjust width when sidebar is open (narrower now) */}
+      {/* Main Content - Adjust width when sidebar is open */}
       <div className={`transition-all duration-300 ${showAIPanel ? 'pr-80' : ''}`}>
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-7xl mx-auto">
@@ -140,7 +174,7 @@ const CreateLabelPage = () => {
               <EnhancedShippingForm />
             </div>
 
-            {/* Rate Filter - Only show the filter dropdown, no carrier selection buttons */}
+            {/* Rate Filter */}
             <div className="mb-6 flex gap-4">
               <RateFilter 
                 activeFilter={activeFilter} 
@@ -153,15 +187,16 @@ const CreateLabelPage = () => {
               <ShippingRates 
                 rates={sortedRates || []} 
                 onRateSelected={handleRateSelected} 
-                loading={false} 
+                loading={false}
+                onProceedToPayment={handleProceedToPayment}
               />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Single AI Analysis Panel - Narrower width */}
-      {showAIPanel && selectedRate && (
+      {/* AI Analysis Panel */}
+      {showAIPanel && selectedRate && !isPaymentMode && (
         <AIRateAnalysisPanel
           selectedRate={selectedRate}
           allRates={sortedRates || []}
