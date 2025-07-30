@@ -43,7 +43,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
   const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(defaultAddress);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Refresh addresses function with proper state management
+  // Refresh addresses function with improved loading states
   const refreshAddresses = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -67,7 +67,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     }
   }, []);
 
-  // Load addresses on component mount
+  // Load addresses on component mount with better error handling
   useEffect(() => {
     let isMounted = true;
     
@@ -103,6 +103,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
               console.log('Auto-selecting default address:', defaultAddr);
               setSelectedAddress(defaultAddr);
               onAddressSelected(defaultAddr);
+              toast.success('Default address selected automatically');
             }
           }
         }
@@ -123,7 +124,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     return () => {
       isMounted = false;
     };
-  }, []); // Empty dependency array to run only once
+  }, []);
 
   // Handle external default address changes
   useEffect(() => {
@@ -138,12 +139,13 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     setSelectedAddress(address);
     onAddressSelected(address);
     setOpen(false);
-    toast.success('Address selected successfully');
+    toast.success(`${address.name} selected successfully`);
   }, [onAddressSelected]);
 
   const handleAddNew = useCallback(() => {
     onAddNew();
     setOpen(false);
+    toast.info('Add new address form opened');
   }, [onAddNew]);
 
   const handleClearSelection = useCallback(() => {
@@ -167,10 +169,13 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
           role="combobox"
           aria-expanded={open}
           disabled={isLoading}
-          className={`w-full justify-between ${className}`}
+          className={`w-full justify-between transition-all duration-200 hover:shadow-md ${selectedAddress ? 'border-green-300 bg-green-50' : ''} ${className}`}
         >
           {isLoading ? (
-            <span className="text-muted-foreground">Loading addresses...</span>
+            <span className="text-muted-foreground flex items-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+              Loading addresses...
+            </span>
           ) : (
             <>
               <MapPin className="mr-2 h-4 w-4 shrink-0" />
@@ -180,12 +185,13 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0 bg-white z-50" align="start">
+      <PopoverContent className="w-[400px] p-0 bg-white z-50 shadow-xl border-2" align="start">
         <Command className="bg-white">
           <CommandInput placeholder="Search address..." className="bg-white" />
           <CommandList className="bg-white max-h-[300px] overflow-y-auto">
             <CommandEmpty>
               <div className="flex flex-col items-center justify-center py-6">
+                <MapPin className="w-8 h-8 text-gray-400 mb-2" />
                 <p className="text-sm text-muted-foreground mb-2">No addresses found</p>
                 <div className="flex gap-2">
                   <Button 
@@ -193,6 +199,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                     size="sm"
                     onClick={refreshAddresses}
                     disabled={isLoading}
+                    className="hover:bg-blue-50"
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Refresh
@@ -201,6 +208,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                     variant="outline" 
                     size="sm"
                     onClick={handleAddNew}
+                    className="bg-green-600 text-white hover:bg-green-700 border-green-600"
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Add new
@@ -217,20 +225,20 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                     console.log('Selecting address:', address);
                     handleSelectAddress(address);
                   }}
-                  className="cursor-pointer hover:bg-gray-50"
+                  className="cursor-pointer hover:bg-gray-50 transition-colors duration-150"
                 >
                   <div className="flex items-start mr-2">
                     <Check
                       className={cn(
-                        "h-4 w-4 mt-0.5",
+                        "h-4 w-4 mt-0.5 transition-opacity duration-150",
                         selectedAddress?.id === address.id 
-                          ? "opacity-100" 
+                          ? "opacity-100 text-green-600" 
                           : "opacity-0"
                       )}
                     />
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-medium">
+                    <span className="font-medium flex items-center">
                       {address.name || 'Unnamed Address'}
                       {isPickupAddress && address.is_default_from && (
                         <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
@@ -255,7 +263,7 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
               {selectedAddress && (
                 <CommandItem 
                   onSelect={handleClearSelection}
-                  className="cursor-pointer hover:bg-gray-50 text-red-600"
+                  className="cursor-pointer hover:bg-red-50 text-red-600 transition-colors duration-150"
                 >
                   <span className="font-medium flex items-center">
                     Clear Selection
@@ -264,17 +272,17 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
               )}
               <CommandItem 
                 onSelect={refreshAddresses}
-                className="cursor-pointer hover:bg-gray-50"
+                className="cursor-pointer hover:bg-blue-50 transition-colors duration-150"
                 disabled={isLoading}
               >
                 <span className="font-medium text-blue-600 flex items-center">
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh Addresses
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  {isLoading ? 'Refreshing...' : 'Refresh Addresses'}
                 </span>
               </CommandItem>
               <CommandItem 
                 onSelect={handleAddNew}
-                className="cursor-pointer hover:bg-gray-50"
+                className="cursor-pointer hover:bg-green-50 transition-colors duration-150"
               >
                 <span className="font-medium text-green-600 flex items-center">
                   <Plus className="mr-2 h-4 w-4" />
