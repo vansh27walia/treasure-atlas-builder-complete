@@ -51,6 +51,11 @@ const EnhancedRateFetchingDisplay: React.FC<EnhancedRateFetchingDisplayProps> = 
     toast.success('AI recommendation applied');
   };
 
+  const formatRate = (rate: any) => {
+    const numericRate = typeof rate === 'string' ? parseFloat(rate) : Number(rate);
+    return numericRate.toFixed(2);
+  };
+
   return (
     <div className="space-y-6">
       {/* AI Rate Picker */}
@@ -178,11 +183,11 @@ const EnhancedRateFetchingDisplay: React.FC<EnhancedRateFetchingDisplayProps> = 
                             <DynamicDiscountBadge rate={rate} />
                             <div>
                               <div className="text-2xl font-bold text-green-600">
-                                ${typeof rate.rate === 'string' ? parseFloat(rate.rate).toFixed(2) : rate.rate.toFixed(2)}
+                                ${formatRate(rate.rate)}
                               </div>
                               {rate.list_rate && parseFloat(rate.list_rate.toString()) > parseFloat(rate.rate.toString()) && (
                                 <div className="text-sm text-gray-500 line-through">
-                                  ${typeof rate.list_rate === 'string' ? parseFloat(rate.list_rate).toFixed(2) : rate.list_rate.toFixed(2)}
+                                  ${formatRate(rate.list_rate)}
                                 </div>
                               )}
                             </div>
