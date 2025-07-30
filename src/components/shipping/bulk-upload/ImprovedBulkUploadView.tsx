@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -72,18 +71,12 @@ const ImprovedBulkUploadView: React.FC = () => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const content = e.target?.result as string;
-      if (content) {
-        // Process the CSV content here
-        await handleUpload();
-      }
-    };
-    reader.onerror = () => {
-      toast.error('Error reading file');
-    };
-    reader.readAsText(selectedFile);
+    try {
+      await handleUpload(selectedFile);
+    } catch (error) {
+      console.error('File upload error:', error);
+      toast.error('Failed to upload file');
+    }
   };
 
   const handleManualCSVSubmit = async () => {
@@ -101,9 +94,9 @@ const ImprovedBulkUploadView: React.FC = () => {
       setShowManualCSV(false);
       setManualCSVData('');
       
-      // Trigger upload
-      setTimeout(() => {
-        handleFileUpload();
+      // Trigger upload with the created file
+      setTimeout(async () => {
+        await handleUpload(file);
       }, 100);
       
     } catch (error) {
