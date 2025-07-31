@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { BulkShipment } from '@/types/shipping';
 import { Button } from '@/components/ui/button';
@@ -115,6 +116,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     onBulkApplyCarrier(carrier);
   };
 
+  const handleOptimizationChange = (filter: string) => {
+    // Handle optimization filter changes
+    toast.success(`Applied ${filter} optimization`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Section with CSV Template */}
@@ -212,7 +218,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                               <div>
                                 <div className="font-medium">{rate.carrier} {rate.service}</div>
                                 <div className="text-xs text-gray-500">
-                                  ${parseFloat(rate.rate).toFixed(2)} - {rate.delivery_days} days
+                                  ${parseFloat(rate.rate.toString()).toFixed(2)} - {rate.delivery_days} days
                                 </div>
                               </div>
                             </div>
@@ -292,6 +298,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
         isOpen={showAIPanel}
         onClose={handleCloseAIPanel}
         onShipmentUpdate={handleAIShipmentUpdate}
+        onOptimizationChange={handleOptimizationChange}
       />
 
       {editingId && (

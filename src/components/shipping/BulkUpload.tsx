@@ -17,6 +17,7 @@ import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
+
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
@@ -78,6 +79,7 @@ const BulkUpload: React.FC = () => {
   useEffect(() => {
     console.log("Current pickup address in BulkUpload:", pickupAddress);
   }, [pickupAddress?.id]);
+
   const handlePickupAddressSelect = (address: SavedAddress | null) => {
     if (address && address.id !== pickupAddress?.id) {
       console.log("Selected pickup address in BulkUpload:", address);
@@ -89,13 +91,17 @@ const BulkUpload: React.FC = () => {
       }
     }
   };
+
   const handleUploadSuccess = (uploadResults: any) => {
     console.log("Upload success in BulkUpload component:", uploadResults);
   };
+
   const handleUploadFail = (error: string) => {
     console.error("Upload failed in BulkUpload component:", error);
   };
+
   const processedShipmentsCount = results?.processedShipments?.length || 0;
+
   const handleDownloadLabelsClick = async () => {
     if (!results?.processedShipments?.length) {
       toast.error('No shipments available for label creation');
@@ -149,9 +155,18 @@ const BulkUpload: React.FC = () => {
       toast.error('Failed to create labels');
     }
   };
+
   const handlePaymentSuccess = () => {
     toast.success('Payment successful! Labels are now available for download.');
   };
+
+  const handleShipmentUpdate = (shipmentId: string, updates: Partial<BulkShipment>) => {
+    if (updates.selectedRateId) {
+      handleSelectRate(shipmentId, updates.selectedRateId);
+    }
+    // Handle other updates if needed
+  };
+
   return <>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         {/* Progress Bar */}
@@ -207,12 +222,13 @@ const BulkUpload: React.FC = () => {
                   }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
                     </div>
                     
-                    <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, details: any) => {
-                  const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
-                  if (shipment) {
-                    handleEditShipment(shipment);
-                  }
-                }} onRefreshRates={handleRefreshRates} />
+                    <BulkShipmentsList 
+                      shipments={filteredShipments} 
+                      onShipmentUpdate={handleShipmentUpdate}
+                      onRefreshRates={handleRefreshRates}
+                      isFetchingRates={isFetchingRates}
+                      onBulkApplyCarrier={handleBulkApplyCarrier}
+                    />
                   </div>
                   
                   {processedShipmentsCount > 0 && <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
@@ -295,4 +311,5 @@ const BulkUpload: React.FC = () => {
       {results?.bulk_label_pdf_url && results.batchResult && <PrintPreview isOpenProp={showPrintPreview} onOpenChangeProp={setShowPrintPreview} labelUrl={results.bulk_label_pdf_url} trackingCode={null} isBatchPreview={true} batchResult={results.batchResult} />}
     </>;
 };
+
 export default BulkUpload;
