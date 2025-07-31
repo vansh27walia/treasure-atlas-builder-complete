@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BulkShipment } from '@/types/shipping';
+import BulkShipment from '@/types/shipping';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
@@ -114,6 +114,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     setAiSidebarOpen(false);
     setSelectedShipmentForAI(null);
     setSelectedRateForAI(null);
+  };
+
+  // Add the missing handleOptimizationChange function
+  const handleOptimizationChange = (filter: string) => {
+    handleBulkOptimization(filter);
   };
 
   // Enhanced AI analysis with 5 criteria
@@ -852,8 +857,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   {[
                     { value: 'cheapest', label: 'Most Affordable', icon: DollarSign, color: 'green' },
                     { value: 'fastest', label: 'Fastest Delivery', icon: Zap, color: 'red' },
-                    { value: 'most-reliable', label: 'Most Reliable', icon: Shield, color: 'blue' },
-                    { value: 'eco-friendly', label: 'Eco-Friendly', icon: Truck, color: 'emerald' },
+                    { value: 'most_reliable', label: 'Most Reliable', icon: Shield, color: 'blue' },
+                    { value: 'eco_friendly', label: 'Eco-Friendly', icon: Truck, color: 'emerald' },
                     { value: 'balanced', label: 'Balanced Choice', icon: Star, color: 'purple' }
                   ].map((option) => {
                     const Icon = option.icon;
