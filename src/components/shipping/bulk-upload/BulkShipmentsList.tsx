@@ -6,7 +6,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Package, PackageCheck, Edit, RefreshCcw, X, FileText, Truck, ArrowUp, ArrowDown, Check } from 'lucide-react';
+import { Package, PackageCheck, Edit, RefreshCcw, X, FileText, Truck, ArrowUp, ArrowDown, Check, Shield, DollarSign } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
@@ -64,7 +64,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       [shipmentId]: {
         ...prev[shipmentId],
         enabled,
-        value: prev[shipmentId]?.value || 200
+        value: prev[shipmentId]?.value || 100 // Default $100
       }
     }));
   };
@@ -119,6 +119,29 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
           (curr.delivery_days || 999) < (prev.delivery_days || 999) ? curr : prev
         );
         break;
+      case 'most_reliable':
+        bestRate = rates.find(r => r.carrier === 'USPS') || rates[0];
+        break;
+      case 'eco_friendly':
+        bestRate = rates.find(r => r.service.toLowerCase().includes('ground')) || rates[0];
+        break;
+      case 'premium':
+        bestRate = rates.reduce((prev, curr) => {
+          const currRate = typeof curr.rate === 'string' ? parseFloat(curr.rate) : curr.rate;
+          const prevRate = typeof prev.rate === 'string' ? parseFloat(prev.rate) : prev.rate;
+          return currRate > prevRate ? curr : prev;
+        });
+        break;
+      case 'balanced':
+        // Find rate with best price/speed ratio
+        bestRate = rates.reduce((prev, curr) => {
+          const currRate = typeof curr.rate === 'string' ? parseFloat(curr.rate) : curr.rate;
+          const prevRate = typeof prev.rate === 'string' ? parseFloat(prev.rate) : prev.rate;
+          const currRatio = currRate / (curr.delivery_days || 1);
+          const prevRatio = prevRate / (prev.delivery_days || 1);
+          return currRatio < prevRatio ? curr : prev;
+        });
+        break;
       default:
         bestRate = rates[0];
     }
@@ -139,27 +162,168 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   const getInsuranceSettings = (shipmentId: string) => {
     return insuranceSettings[shipmentId] || {
       enabled: true,
-      value: 200
+      value: 100 // Default $100
     };
   };
 
-  // Helper function to calculate insurance cost
+  // Helper function to calculate insurance cost - dynamic based on declared value
   const calculateInsuranceCost = (declaredValue: number): number => {
-    return (declaredValue * 0.02); // $2 for every $100
+    return Math.max(2, (declaredValue * 0.02)); // Minimum $2, or 2% of declared value
   };
 
-  // Helper function to get discount percentage
+  // Helper function to get dynamic discount percentage based on rate
   const getDiscountPercentage = (rate: any): number => {
     if (!rate) return 0;
     const currentRate = typeof rate.rate === 'string' ? parseFloat(rate.rate) : rate.rate;
-    const inflatedRate = currentRate * 4; // Same as RateDisplay component
+    
+    // Dynamic discount calculation based on carrier and service
+    let baseInflation = 2.5; // Base 150% markup
+    
+    // Adjust inflation based on carrier
+    if (rate.carrier === 'USPS') baseInflation = 3.0;
+    else if (rate.carrier === 'UPS') baseInflation = 2.8;
+    else if (rate.carrier === 'FedEx') baseInflation = 3.2;
+    
+    // Adjust for service type
+    if (rate.service.toLowerCase().includes('express')) baseInflation += 0.5;
+    else if (rate.service.toLowerCase().includes('ground')) baseInflation -= 0.2;
+    else if (rate.service.toLowerCase().includes('priority')) baseInflation += 0.3;
+    
+    const inflatedRate = currentRate * baseInflation;
     return Math.round(((inflatedRate - currentRate) / inflatedRate) * 100);
   };
 
+  // Enhanced AI Rate Picker with more options
+  const EnhancedAIRatePicker = () => (
+    <Card className="mb-6 border-2 border-blue-200 shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+      <div className="p-6">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+            <Truck className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-blue-900">AI Smart Rate Selection</h3>
+            <p className="text-blue-700 text-sm">Apply intelligent rate optimization to all shipments</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <Button 
+            onClick={() => handleBulkOptimization('cheapest')}
+            className="bg-green-100 text-green-800 hover:bg-green-200 border border-green-300"
+            size="sm"
+          >
+            💰 Cheapest
+          </Button>
+          <Button 
+            onClick={() => handleBulkOptimization('fastest')}
+            className="bg-red-100 text-red-800 hover:bg-red-200 border border-red-300"
+            size="sm"
+          >
+            ⚡ Fastest
+          </Button>
+          <Button 
+            onClick={() => handleBulkOptimization('most_reliable')}
+            className="bg-blue-100 text-blue-800 hover:bg-blue-200 border border-blue-300"
+            size="sm"
+          >
+            🛡️ Most Reliable
+          </Button>
+          <Button 
+            onClick={() => handleBulkOptimization('balanced')}
+            className="bg-purple-100 text-purple-800 hover:bg-purple-200 border border-purple-300"
+            size="sm"
+          >
+            ⚖️ Balanced
+          </Button>
+          <Button 
+            onClick={() => handleBulkOptimization('eco_friendly')}
+            className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300"
+            size="sm"
+          >
+            🌿 Eco-Friendly
+          </Button>
+          <Button 
+            onClick={() => handleBulkOptimization('premium')}
+            className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300"
+            size="sm"
+          >
+            ⭐ Premium
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+
+  const handleBulkOptimization = (type: string) => {
+    shipments.forEach(shipment => {
+      if (shipment.availableRates && shipment.availableRates.length > 0) {
+        let bestRate;
+        const rates = shipment.availableRates;
+
+        switch (type) {
+          case 'cheapest':
+            bestRate = rates.reduce((prev, curr) => {
+              const currRate = typeof curr.rate === 'string' ? parseFloat(curr.rate) : curr.rate;
+              const prevRate = typeof prev.rate === 'string' ? parseFloat(prev.rate) : prev.rate;
+              return currRate < prevRate ? curr : prev;
+            });
+            break;
+          case 'fastest':
+            bestRate = rates.reduce((prev, curr) => 
+              (curr.delivery_days || 999) < (prev.delivery_days || 999) ? curr : prev
+            );
+            break;
+          case 'most_reliable':
+            bestRate = rates.find(r => r.carrier === 'USPS') || rates[0];
+            break;
+          case 'eco_friendly':
+            bestRate = rates.find(r => r.service.toLowerCase().includes('ground')) || rates[0];
+            break;
+          case 'premium':
+            bestRate = rates.reduce((prev, curr) => {
+              const currRate = typeof curr.rate === 'string' ? parseFloat(curr.rate) : curr.rate;
+              const prevRate = typeof prev.rate === 'string' ? parseFloat(prev.rate) : prev.rate;
+              return currRate > prevRate ? curr : prev;
+            });
+            break;
+          case 'balanced':
+            bestRate = rates.reduce((prev, curr) => {
+              const currRate = typeof curr.rate === 'string' ? parseFloat(curr.rate) : curr.rate;
+              const prevRate = typeof prev.rate === 'string' ? parseFloat(prev.rate) : prev.rate;
+              const currRatio = currRate / (curr.delivery_days || 1);
+              const prevRatio = prevRate / (prev.delivery_days || 1);
+              return currRatio < prevRatio ? curr : prev;
+            });
+            break;
+          default:
+            bestRate = rates[0];
+        }
+
+        if (bestRate) {
+          onSelectRate(shipment.id, bestRate.id);
+        }
+      }
+    });
+  };
+
+  const handleEditSubmit = async (shipmentId: string, editedData: any) => {
+    // Update the shipment details
+    onEditShipment(shipmentId, editedData);
+    
+    // Close the dialog
+    handleCloseEditDialog(shipmentId);
+    
+    // Refresh rates for this shipment after a brief delay
+    setTimeout(() => {
+      onRefreshRates(shipmentId);
+    }, 500);
+  };
+
   return (
-    <div className={`space-y-4 transition-all duration-300 ${aiSidebarOpen ? 'mr-80' : ''}`}>
-      {/* AI Rate Picker */}
-      <AIRatePicker shipments={shipments} onApplyAISelection={handleAIRateSelection} />
+    <div className="space-y-4">
+      {/* Enhanced AI Rate Picker */}
+      <EnhancedAIRatePicker />
 
       {shipments.length === 0 ? (
         <Card className="p-6 text-center">
@@ -277,7 +441,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                         <div className="flex items-center space-x-3">
                                           <div className="text-right">
                                             <div className="text-xs text-gray-500 line-through">
-                                              ${(parseFloat(formatRate(rate.rate)) * 4).toFixed(2)}
+                                              ${(parseFloat(formatRate(rate.rate)) * (2.5 + Math.random() * 1.5)).toFixed(2)}
                                             </div>
                                             <div className="text-lg font-bold text-green-600">
                                               ${formatRate(rate.rate)}
@@ -307,18 +471,52 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                       </TableCell>
                       
                       <TableCell>
-                        <InsuranceOptions 
-                          shipmentId={shipment.id}
-                          insuranceEnabled={insurance.enabled}
-                          declaredValue={insurance.value}
-                          onInsuranceToggle={handleInsuranceToggle}
-                          onDeclaredValueChange={handleDeclaredValueChange}
-                        />
-                        {insurance.enabled && (
-                          <div className="text-xs text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded">
-                            $2 per $100 value
+                        <div className="bg-white border-2 border-blue-100 rounded-lg p-3 shadow-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <Shield className="w-4 h-4 text-blue-600" />
+                              <span className="text-sm font-medium text-blue-800">Insurance</span>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={insurance.enabled}
+                                onChange={(e) => handleInsuranceToggle(shipment.id, e.target.checked)}
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
                           </div>
-                        )}
+                          
+                          {insurance.enabled && (
+                            <div className="space-y-2">
+                              <div className="flex items-center space-x-2">
+                                <DollarSign className="w-3 h-3 text-gray-500" />
+                                <input
+                                  type="number"
+                                  value={insurance.value}
+                                  onChange={(e) => handleDeclaredValueChange(shipment.id, parseFloat(e.target.value) || 100)}
+                                  className="flex-1 px-2 py-1 text-xs border border-blue-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  placeholder="Declared Value"
+                                  min="1"
+                                  step="1"
+                                />
+                              </div>
+                              <div className="text-xs text-blue-700 bg-blue-50 px-2 py-1 rounded flex items-center justify-between">
+                                <span>Cost: ${insuranceCost.toFixed(2)}</span>
+                                <span className="text-green-600 font-medium">
+                                  {Math.round(((insurance.value * 0.03) - insuranceCost) / (insurance.value * 0.03) * 100)}% off
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {!insurance.enabled && (
+                            <div className="text-xs text-gray-500 text-center py-2">
+                              Click to add protection
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                       
                       <TableCell>
@@ -393,10 +591,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                               </DialogHeader>
                               <ShipmentEditForm 
                                 shipment={shipment} 
-                                onSubmit={data => {
-                                  onEditShipment(shipment.id, data);
-                                  handleCloseEditDialog(shipment.id);
-                                }} 
+                                onSubmit={(data) => handleEditSubmit(shipment.id, data)}
                                 onCancel={() => handleCloseEditDialog(shipment.id)} 
                               />
                             </DialogContent>
@@ -422,25 +617,32 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
         </div>
       )}
 
-      {/* AI Powered Side Panel */}
+      {/* AI Powered Side Panel - Fixed positioning outside main content */}
       {aiSidebarOpen && selectedShipmentForAI && selectedShipmentForAI.availableRates && (
-        <AIPoweredSidePanel
-          rates={selectedShipmentForAI.availableRates.map(rate => ({
-            ...rate,
-            rate: formatRate(rate.rate),
-            days: rate.delivery_days || 3,
-            reliability: 85 // Default reliability score
-          }))}
-          onRatesReorder={() => {}}
-          onCarrierFilter={() => {}}
-          onRateSelect={(rate) => {
-            if (selectedShipmentForAI) {
-              handleRateSelection(selectedShipmentForAI.id, rate.id);
-            }
-          }}
-          onOpenRateCalculator={() => {}}
-          onClose={handleAISidebarClose}
-        />
+        <div className="fixed inset-y-0 right-0 w-80 z-50 shadow-2xl">
+          <AIPoweredSidePanel
+            rates={selectedShipmentForAI.availableRates.map(rate => ({
+              ...rate,
+              rate: formatRate(rate.rate),
+              days: rate.delivery_days || 3,
+              reliability: 85 // Default reliability score
+            }))}
+            onRatesReorder={() => {}}
+            onCarrierFilter={() => {}}
+            onRateSelect={(rate) => {
+              if (selectedShipmentForAI) {
+                handleRateSelection(selectedShipmentForAI.id, rate.id);
+              }
+            }}
+            onOpenRateCalculator={() => {}}
+            onClose={handleAISidebarClose}
+          />
+        </div>
+      )}
+
+      {/* Overlay when AI sidebar is open */}
+      {aiSidebarOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-20 z-40" onClick={handleAISidebarClose} />
       )}
     </div>
   );
@@ -476,10 +678,13 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({
       reference: shipment.details.reference || ''
     }
   });
+
   const handleFormSubmit = (data: any) => {
     onSubmit(data);
   };
-  return <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+
+  return (
+    <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="to_name">Customer Name *</Label>
@@ -545,29 +750,29 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({
         <div className="space-y-2">
           <Label htmlFor="weight">Weight (oz) *</Label>
           <Input id="weight" type="number" step="0.1" {...form.register('weight', {
-          valueAsNumber: true
-        })} required />
+            valueAsNumber: true
+          })} required />
         </div>
         
         <div className="space-y-2">
           <Label htmlFor="length">Length (in) *</Label>
           <Input id="length" type="number" step="0.1" {...form.register('length', {
-          valueAsNumber: true
-        })} required />
+            valueAsNumber: true
+          })} required />
         </div>
         
         <div className="space-y-2">
           <Label htmlFor="width">Width (in) *</Label>
           <Input id="width" type="number" step="0.1" {...form.register('width', {
-          valueAsNumber: true
-        })} required />
+            valueAsNumber: true
+          })} required />
         </div>
         
         <div className="space-y-2">
           <Label htmlFor="height">Height (in) *</Label>
           <Input id="height" type="number" step="0.1" {...form.register('height', {
-          valueAsNumber: true
-        })} required />
+            valueAsNumber: true
+          })} required />
         </div>
       </div>
 
@@ -577,10 +782,11 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({
         </Button>
         <Button type="submit">
           <Check className="h-4 w-4 mr-1" />
-          Save Customer Details
+          Save & Refresh Rates
         </Button>
       </div>
-    </form>;
+    </form>
+  );
 };
 
 export default BulkShipmentsList;
