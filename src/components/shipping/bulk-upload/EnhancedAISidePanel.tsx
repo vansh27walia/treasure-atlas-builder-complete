@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +16,7 @@ interface EnhancedAISidePanelProps {
   isOpen: boolean;
   onClose: () => void;
   onShipmentUpdate: (shipmentId: string, updates: any) => void;
+  onOptimizationChange: (filter: string) => void;
 }
 
 interface EnhancedAIAnalysis {
@@ -54,7 +54,8 @@ const EnhancedAISidePanel: React.FC<EnhancedAISidePanelProps> = ({
   allShipments,
   isOpen,
   onClose,
-  onShipmentUpdate
+  onShipmentUpdate,
+  onOptimizationChange
 }) => {
   const [analysis, setAnalysis] = useState<EnhancedAIAnalysis | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -115,6 +116,11 @@ const EnhancedAISidePanel: React.FC<EnhancedAISidePanelProps> = ({
         rate: parseFloat(newSelectedRate.rate)
       });
     }
+  };
+
+  const handleOptimizationChange = (filter: string) => {
+    onOptimizationChange(filter);
+    toast.success(`Applied ${filter} optimization`);
   };
 
   const handleSendMessage = async () => {
