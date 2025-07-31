@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import BulkShipment from '@/types/shipping';
+import { BulkShipment } from '@/types/shipping';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
