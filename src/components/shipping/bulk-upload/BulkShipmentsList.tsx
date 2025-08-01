@@ -28,6 +28,7 @@ interface BulkShipmentsListProps {
   onRemoveShipment: (shipmentId: string) => void;
   onEditShipment: (shipmentId: string, details: BulkShipment['details']) => void;
   onRefreshRates: (shipmentId: string) => void;
+  onAIAnalysis: (shipment?: any) => void;
 }
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
@@ -36,16 +37,14 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   onSelectRate,
   onRemoveShipment,
   onEditShipment,
-  onRefreshRates
+  onRefreshRates,
+  onAIAnalysis
 }) => {
   const [openDialogs, setOpenDialogs] = useState<Record<string, boolean>>({});
   const [insuranceSettings, setInsuranceSettings] = useState<Record<string, {
     enabled: boolean;
     value: number;
   }>>({});
-  const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
-  const [selectedShipmentForAI, setSelectedShipmentForAI] = useState<BulkShipment | null>(null);
-  const [selectedRateForAI, setSelectedRateForAI] = useState<any>(null);
   const [editingShipments, setEditingShipments] = useState<Set<string>>(new Set());
 
   // Handle post-payment refresh
@@ -92,34 +91,14 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     }));
   };
 
-  const handleAIRateSelection = (shipmentId: string, rateId: string) => {
-    onSelectRate(shipmentId, rateId);
-  };
-
   const handleRateSelection = (shipmentId: string, rateId: string) => {
     onSelectRate(shipmentId, rateId);
     
-    // Find the shipment and selected rate for AI analysis
+    // Trigger AI analysis when a rate is selected
     const shipment = shipments.find(s => s.id === shipmentId);
-    if (shipment && shipment.availableRates && shipment.availableRates.length > 0) {
-      const selectedRate = shipment.availableRates.find(r => r.id === rateId);
-      if (selectedRate) {
-        setSelectedShipmentForAI(shipment);
-        setSelectedRateForAI(selectedRate);
-        setAiSidebarOpen(true);
-      }
+    if (shipment) {
+      onAIAnalysis(shipment);
     }
-  };
-
-  const handleAISidebarClose = () => {
-    setAiSidebarOpen(false);
-    setSelectedShipmentForAI(null);
-    setSelectedRateForAI(null);
-  };
-
-  // Add the missing handleOptimizationChange function
-  const handleOptimizationChange = (filter: string) => {
-    handleBulkOptimization(filter);
   };
 
   // Enhanced AI analysis with 5 criteria
@@ -164,116 +143,6 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
     return scores;
   };
-
-  // Enhanced AI Rate Picker as Dropdown
-  const AIRatePickerDropdown = () => (
-    <Card className="mb-6 border-2 border-purple-200 shadow-lg bg-gradient-to-r from-purple-50 to-indigo-50">
-      <div className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
-              <Brain className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-purple-900">AI Smart Rate Selection</h3>
-              <p className="text-purple-700 text-sm">Apply intelligent optimization to all shipments</p>
-            </div>
-          </div>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                <Brain className="w-4 h-4 mr-2" />
-                AI Optimize
-                <ChevronDown className="w-4 h-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64 bg-white border-2 border-purple-200 shadow-xl z-50">
-              <DropdownMenuItem onClick={() => handleBulkOptimization('cheapest')} className="hover:bg-green-50 cursor-pointer">
-                <div className="flex items-center space-x-3 w-full p-2">
-                  <DollarSign className="w-5 h-5 text-green-600" />
-                  <div>
-                    <div className="font-medium text-green-800">Most Affordable</div>
-                    <div className="text-xs text-green-600">Select lowest cost rates</div>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={() => handleBulkOptimization('fastest')} className="hover:bg-red-50 cursor-pointer">
-                <div className="flex items-center space-x-3 w-full p-2">
-                  <Zap className="w-5 h-5 text-red-600" />
-                  <div>
-                    <div className="font-medium text-red-800">Fastest Delivery</div>
-                    <div className="text-xs text-red-600">Prioritize delivery speed</div>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={() => handleBulkOptimization('most_reliable')} className="hover:bg-blue-50 cursor-pointer">
-                <div className="flex items-center space-x-3 w-full p-2">
-                  <Shield className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <div className="font-medium text-blue-800">Most Reliable</div>
-                    <div className="text-xs text-blue-600">Choose trusted carriers</div>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={() => handleBulkOptimization('balanced')} className="hover:bg-purple-50 cursor-pointer">
-                <div className="flex items-center space-x-3 w-full p-2">
-                  <Star className="w-5 h-5 text-purple-600" />
-                  <div>
-                    <div className="font-medium text-purple-800">Balanced Choice</div>
-                    <div className="text-xs text-purple-600">Best price-speed ratio</div>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={() => handleBulkOptimization('eco_friendly')} className="hover:bg-emerald-50 cursor-pointer">
-                <div className="flex items-center space-x-3 w-full p-2">
-                  <Truck className="w-5 h-5 text-emerald-600" />
-                  <div>
-                    <div className="font-medium text-emerald-800">Eco-Friendly</div>
-                    <div className="text-xs text-emerald-600">Ground shipping options</div>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem onClick={() => handleBulkOptimization('2day')} className="hover:bg-orange-50 cursor-pointer">
-                <div className="flex items-center space-x-3 w-full p-2">
-                  <Package className="w-5 h-5 text-orange-600" />
-                  <div>
-                    <div className="font-medium text-orange-800">2-Day Delivery</div>
-                    <div className="text-xs text-orange-600">Target 2-day shipping</div>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem onClick={() => handleBulkOptimization('3day')} className="hover:bg-indigo-50 cursor-pointer">
-                <div className="flex items-center space-x-3 w-full p-2">
-                  <Package className="w-5 h-5 text-indigo-600" />
-                  <div>
-                    <div className="font-medium text-indigo-800">3-Day Delivery</div>
-                    <div className="text-xs text-indigo-600">Target 3-day shipping</div>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem onClick={() => handleBulkOptimization('premium')} className="hover:bg-yellow-50 cursor-pointer">
-                <div className="flex items-center space-x-3 w-full p-2">
-                  <Star className="w-5 h-5 text-yellow-600" />
-                  <div>
-                    <div className="font-medium text-yellow-800">Premium Service</div>
-                    <div className="text-xs text-yellow-600">Highest service level</div>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-    </Card>
-  );
 
   const handleBulkOptimization = (type: string) => {
     let processedCount = 0;
@@ -457,6 +326,116 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     }
   };
 
+  // Enhanced AI Rate Picker as Dropdown
+  const AIRatePickerDropdown = () => (
+    <Card className="mb-6 border-2 border-purple-200 shadow-lg bg-gradient-to-r from-purple-50 to-indigo-50">
+      <div className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
+              <Brain className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-purple-900">AI Smart Rate Selection</h3>
+              <p className="text-purple-700 text-sm">Apply intelligent optimization to all shipments</p>
+            </div>
+          </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                <Brain className="w-4 h-4 mr-2" />
+                AI Optimize
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-64 bg-white border-2 border-purple-200 shadow-xl z-50">
+              <DropdownMenuItem onClick={() => handleBulkOptimization('cheapest')} className="hover:bg-green-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <DollarSign className="w-5 h-5 text-green-600" />
+                  <div>
+                    <div className="font-medium text-green-800">Most Affordable</div>
+                    <div className="text-xs text-green-600">Select lowest cost rates</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem onClick={() => handleBulkOptimization('fastest')} className="hover:bg-red-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Zap className="w-5 h-5 text-red-600" />
+                  <div>
+                    <div className="font-medium text-red-800">Fastest Delivery</div>
+                    <div className="text-xs text-red-600">Prioritize delivery speed</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem onClick={() => handleBulkOptimization('most_reliable')} className="hover:bg-blue-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                  <div>
+                    <div className="font-medium text-blue-800">Most Reliable</div>
+                    <div className="text-xs text-blue-600">Choose trusted carriers</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem onClick={() => handleBulkOptimization('balanced')} className="hover:bg-purple-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Star className="w-5 h-5 text-purple-600" />
+                  <div>
+                    <div className="font-medium text-purple-800">Balanced Choice</div>
+                    <div className="text-xs text-purple-600">Best price-speed ratio</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+              
+              <DropdownMenuItem onClick={() => handleBulkOptimization('eco_friendly')} className="hover:bg-emerald-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Truck className="w-5 h-5 text-emerald-600" />
+                  <div>
+                    <div className="font-medium text-emerald-800">Eco-Friendly</div>
+                    <div className="text-xs text-emerald-600">Ground shipping options</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => handleBulkOptimization('2day')} className="hover:bg-orange-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Package className="w-5 h-5 text-orange-600" />
+                  <div>
+                    <div className="font-medium text-orange-800">2-Day Delivery</div>
+                    <div className="text-xs text-orange-600">Target 2-day shipping</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => handleBulkOptimization('3day')} className="hover:bg-indigo-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Package className="w-5 h-5 text-indigo-600" />
+                  <div>
+                    <div className="font-medium text-indigo-800">3-Day Delivery</div>
+                    <div className="text-xs text-indigo-600">Target 3-day shipping</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => handleBulkOptimization('premium')} className="hover:bg-yellow-50 cursor-pointer">
+                <div className="flex items-center space-x-3 w-full p-2">
+                  <Star className="w-5 h-5 text-yellow-600" />
+                  <div>
+                    <div className="font-medium text-yellow-800">Premium Service</div>
+                    <div className="text-xs text-yellow-600">Highest service level</div>
+                  </div>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </Card>
+  );
+
   return (
     <div className="space-y-4">
       {/* Enhanced AI Rate Picker */}
@@ -600,6 +579,19 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 ))}
                               </SelectContent>
                             </Select>
+                            
+                            {/* AI Analysis Button */}
+                            {selectedRate && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onAIAnalysis(shipment)}
+                                className="w-full border-purple-200 text-purple-700 hover:bg-purple-50"
+                              >
+                                <Brain className="w-4 h-4 mr-2" />
+                                AI Analysis
+                              </Button>
+                            )}
                           </div>
                         ) : (
                           <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
@@ -779,142 +771,6 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
           </Card>
         </div>
       )}
-
-      {/* AI Analysis Side Panel - Fixed positioning and better alignment */}
-      {aiSidebarOpen && selectedRateForAI && selectedShipmentForAI && (
-        <>
-          <div className="fixed inset-0 bg-black bg-opacity-20 z-40" onClick={handleAISidebarClose} />
-          <div className="fixed right-0 top-0 h-full w-96 bg-white shadow-2xl z-50 border-l-2 border-purple-200 overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
-                    <Brain className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-purple-900">AI Rate Analysis</h3>
-                    <p className="text-sm text-purple-700">Intelligent shipping insights</p>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleAISidebarClose}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-
-              {/* Selected Rate Info */}
-              <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
-                <div className="flex items-center space-x-3 mb-3">
-                  <CarrierLogo carrier={selectedRateForAI.carrier} className="w-8 h-8" />
-                  <div>
-                    <div className="font-semibold text-purple-900">
-                      {selectedRateForAI.carrier} - {selectedRateForAI.service}
-                    </div>
-                    <div className="text-sm text-purple-700">
-                      ${formatRate(selectedRateForAI.rate)} • {selectedRateForAI.delivery_days} days
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Enhanced AI Scoring with 5 criteria */}
-              <div className="mb-6">
-                <h4 className="text-md font-semibold text-gray-900 mb-4">AI Performance Score</h4>
-                {(() => {
-                  const scores = calculateAIScore(selectedRateForAI, selectedShipmentForAI.availableRates || []);
-                  const scoreItems = [
-                    { label: 'Cost Efficiency', score: scores.cost, color: 'green' },
-                    { label: 'Delivery Speed', score: scores.speed, color: 'blue' },
-                    { label: 'Reliability', score: scores.reliability, color: 'purple' },
-                    { label: 'Eco-Friendly', score: scores.ecoFriendly, color: 'emerald' },
-                    { label: 'Insurance Coverage', score: scores.insurance, color: 'orange' }
-                  ];
-
-                  return scoreItems.map((item, index) => (
-                    <div key={index} className="mb-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-gray-700">{item.label}</span>
-                        <span className="text-sm font-bold text-gray-900">{item.score}/5</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className={`bg-${item.color}-500 h-2 rounded-full transition-all duration-300`}
-                          style={{ width: `${(item.score / 5) * 100}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  ));
-                })()}
-              </div>
-
-              {/* Optimization Options */}
-              <div className="mb-6">
-                <h4 className="text-md font-semibold text-gray-900 mb-4">Optimization Options</h4>
-                <div className="space-y-2">
-                  {[
-                    { value: 'cheapest', label: 'Most Affordable', icon: DollarSign, color: 'green' },
-                    { value: 'fastest', label: 'Fastest Delivery', icon: Zap, color: 'red' },
-                    { value: 'most_reliable', label: 'Most Reliable', icon: Shield, color: 'blue' },
-                    { value: 'eco_friendly', label: 'Eco-Friendly', icon: Truck, color: 'emerald' },
-                    { value: 'balanced', label: 'Balanced Choice', icon: Star, color: 'purple' }
-                  ].map((option) => {
-                    const Icon = option.icon;
-                    return (
-                      <Button
-                        key={option.value}
-                        variant="outline"
-                        className={`w-full justify-start hover:bg-${option.color}-50 hover:border-${option.color}-300`}
-                        onClick={() => handleOptimizationChange(option.value)}
-                      >
-                        <Icon className={`w-4 h-4 mr-3 text-${option.color}-600`} />
-                        {option.label}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Rate Comparison */}
-              <div>
-                <h4 className="text-md font-semibold text-gray-900 mb-4">Alternative Rates</h4>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {(selectedShipmentForAI.availableRates || [])
-                    .filter(rate => rate.id !== selectedRateForAI.id)
-                    .slice(0, 5)
-                    .map((rate) => (
-                      <div 
-                        key={rate.id} 
-                        className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                        onClick={() => {
-                          onSelectRate(selectedShipmentForAI.id, rate.id);
-                          setSelectedRateForAI(rate);
-                        }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <CarrierLogo carrier={rate.carrier} className="w-5 h-5" />
-                            <div>
-                              <div className="text-sm font-medium">{rate.carrier}</div>
-                              <div className="text-xs text-gray-600">{rate.service}</div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm font-bold">${formatRate(rate.rate)}</div>
-                            <div className="text-xs text-gray-500">{rate.delivery_days} days</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 };
@@ -1061,4 +917,3 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({
 };
 
 export default BulkShipmentsList;
-
