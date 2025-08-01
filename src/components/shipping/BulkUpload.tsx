@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -100,7 +99,7 @@ const BulkUpload: React.FC = () => {
         switch (filter) {
           case 'cheapest':
             selectedRate = shipment.availableRates.reduce((min, rate) => 
-              parseFloat(rate.rate) < parseFloat(min.rate) ? rate : min
+              parseFloat(rate.rate.toString()) < parseFloat(min.rate.toString()) ? rate : min
             );
             break;
           case 'fastest':
@@ -110,8 +109,8 @@ const BulkUpload: React.FC = () => {
             break;
           case 'balanced':
             selectedRate = shipment.availableRates.reduce((best, rate) => {
-              const rateScore = (1 / parseFloat(rate.rate)) + (1 / (rate.delivery_days || 5));
-              const bestScore = (1 / parseFloat(best.rate)) + (1 / (best.delivery_days || 5));
+              const rateScore = (1 / parseFloat(rate.rate.toString())) + (1 / (rate.delivery_days || 5));
+              const bestScore = (1 / parseFloat(best.rate.toString())) + (1 / (best.delivery_days || 5));
               return rateScore > bestScore ? rate : best;
             });
             break;

@@ -159,7 +159,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                     {rate.carrier} - {rate.service}
                                   </div>
                                   <div className="text-sm text-gray-600">
-                                    ${parseFloat(rate.rate).toFixed(2)} • {rate.delivery_days} days
+                                    ${parseFloat(rate.rate.toString()).toFixed(2)} • {rate.delivery_days} days
                                   </div>
                                 </div>
                               </div>
