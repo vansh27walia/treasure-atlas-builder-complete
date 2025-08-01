@@ -8,7 +8,6 @@ import UploadError from './bulk-upload/UploadError';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
 import BulkUploadProgressBar, { BulkUploadStep } from './bulk-upload/BulkUploadProgressBar';
-import EnhancedBulkAISidePanel from './bulk-upload/EnhancedBulkAISidePanel';
 import LabelCreationOverlay from './LabelCreationOverlay';
 import PaymentDropdown from '../payment/PaymentDropdown';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -18,12 +17,9 @@ import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
-
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
-  const [showAIPanel, setShowAIPanel] = useState(false);
-  const [selectedShipmentForAI, setSelectedShipmentForAI] = useState<any>(null);
   const [labelProgress, setLabelProgress] = useState({
     isCreating: false,
     progress: 0,
@@ -156,72 +152,8 @@ const BulkUpload: React.FC = () => {
   const handlePaymentSuccess = () => {
     toast.success('Payment successful! Labels are now available for download.');
   };
-
-  // Auto-open AI panel when payment starts
-  useEffect(() => {
-    const handlePaymentStart = () => {
-      if (results?.processedShipments?.length > 0) {
-        setSelectedShipmentForAI(results.processedShipments[0]);
-        setShowAIPanel(true);
-      }
-    };
-
-    const handlePaymentSuccess = () => {
-      setShowAIPanel(false);
-    };
-
-    const handlePaymentCancel = () => {
-      setShowAIPanel(false);
-    };
-
-    document.addEventListener('payment-start', handlePaymentStart);
-    document.addEventListener('payment-success', handlePaymentSuccess);
-    document.addEventListener('payment-cancel', handlePaymentCancel);
-
-    return () => {
-      document.removeEventListener('payment-start', handlePaymentStart);
-      document.removeEventListener('payment-success', handlePaymentSuccess);
-      document.removeEventListener('payment-cancel', handlePaymentCancel);
-    };
-  }, [results?.processedShipments]);
-
-  const handleShipmentSelect = (shipment: any) => {
-    setSelectedShipmentForAI(shipment);
-    setShowAIPanel(true);
-  };
-
-  const handleAIPanelClose = () => {
-    setShowAIPanel(false);
-  };
-
-  const handleShipmentUpdate = (shipmentId: string, updates: any) => {
-    // Update the shipment in results
-    if (results?.processedShipments) {
-      const updatedShipments = results.processedShipments.map(shipment => 
-        shipment.id === shipmentId ? { ...shipment, ...updates } : shipment
-      );
-      
-      // Update total cost
-      const newTotalCost = updatedShipments.reduce((total, shipment) => {
-        return total + (shipment.rate || 0);
-      }, 0);
-
-      // Update results (you'll need to implement this based on your state management)
-      // This is a placeholder - replace with your actual state update logic
-      console.log('Updating shipment:', shipmentId, updates);
-    }
-  };
-
-  const handleOptimizationChange = (filter: string) => {
-    // Implement optimization logic based on filter
-    console.log('Applying optimization:', filter);
-    toast.success(`Applied ${filter} optimization`);
-  };
-
   return <>
-      <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${
-        showAIPanel ? 'mr-80' : 'mr-0'
-      }`}>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         {/* Progress Bar */}
         <div className="bg-white shadow-sm border-b rounded-3xl">
           <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
@@ -275,20 +207,12 @@ const BulkUpload: React.FC = () => {
                   }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
                     </div>
                     
-                    <BulkShipmentsList 
-                      shipments={filteredShipments} 
-                      isFetchingRates={isFetchingRates} 
-                      onShipmentUpdate={handleShipmentUpdate}
-                      onRemoveShipment={handleRemoveShipment} 
-                      onEditShipment={(shipmentId: string, details: any) => {
-                        const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
-                        if (shipment) {
-                          handleEditShipment(shipment);
-                        }
-                      }} 
-                      onRefreshRates={handleRefreshRates}
-                      onShipmentSelect={handleShipmentSelect}
-                    />
+                    <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, details: any) => {
+                  const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+                  if (shipment) {
+                    handleEditShipment(shipment);
+                  }
+                }} onRefreshRates={handleRefreshRates} />
                   </div>
                   
                   {processedShipmentsCount > 0 && <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
@@ -361,18 +285,6 @@ const BulkUpload: React.FC = () => {
           </Card>
         </div>
       </div>
-
-      {/* Enhanced AI Side Panel */}
-      {selectedShipmentForAI && (
-        <EnhancedBulkAISidePanel
-          selectedShipment={selectedShipmentForAI}
-          allShipments={results?.processedShipments || []}
-          isOpen={showAIPanel}
-          onClose={handleAIPanelClose}
-          onShipmentUpdate={handleShipmentUpdate}
-          onOptimizationChange={handleOptimizationChange}
-        />
-      )}
 
       {/* Modals and Overlays */}
       <LabelCreationOverlay isVisible={labelProgress.isCreating} progress={labelProgress.progress} currentStep={labelProgress.currentStep} totalLabels={processedShipmentsCount} completedLabels={labelProgress.completed} failedLabels={labelProgress.failed} onClose={() => setLabelProgress(prev => ({
