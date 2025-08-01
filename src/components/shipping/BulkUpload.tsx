@@ -11,9 +11,10 @@ import BulkUploadProgressBar, { BulkUploadStep } from './bulk-upload/BulkUploadP
 import LabelCreationOverlay from './LabelCreationOverlay';
 import PaymentDropdown from '../payment/PaymentDropdown';
 import BulkAIOverviewPanel from './bulk-upload/BulkAIOverviewPanel';
+import BulkShippingChatbot from './bulk-upload/BulkShippingChatbot';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { FileText, UploadCloud, AlertCircle, Download, PrinterIcon, Sparkles } from 'lucide-react';
+import { FileText, UploadCloud, AlertCircle, Download, PrinterIcon, Sparkles, MessageCircle } from 'lucide-react';
 import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
@@ -23,6 +24,7 @@ const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [chatbotOpen, setChatbotOpen] = useState(false);
   const [selectedShipmentForAI, setSelectedShipmentForAI] = useState<any>(null);
   
   const [labelProgress, setLabelProgress] = useState({
@@ -436,6 +438,16 @@ const BulkUpload: React.FC = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Chatbot Toggle Button */}
+        {uploadStatus === 'editing' && (
+          <Button
+            onClick={() => setChatbotOpen(true)}
+            className="fixed bottom-4 right-4 z-40 bg-purple-600 hover:bg-purple-700 text-white rounded-full p-4 shadow-lg"
+          >
+            <MessageCircle className="w-6 h-6" />
+          </Button>
+        )}
       </div>
 
       {/* AI Overview Panel */}
@@ -449,6 +461,13 @@ const BulkUpload: React.FC = () => {
         }}
         onRateChange={handleSelectRate}
         onOptimizationChange={handleAIOptimizationChange}
+      />
+
+      {/* Bulk Shipping Chatbot */}
+      <BulkShippingChatbot
+        isOpen={chatbotOpen}
+        onClose={() => setChatbotOpen(false)}
+        shipments={filteredShipments || []}
       />
 
       {/* Modals and Overlays */}
