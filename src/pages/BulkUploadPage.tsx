@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -6,36 +5,26 @@ import { FileText, Upload, CheckCircle, Download, Info, Sparkles, Brain } from '
 import BulkUpload from '@/components/shipping/BulkUpload';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-
 const BulkUploadPage = () => {
   const [activeTab, setActiveTab] = React.useState("upload");
-
-  const handleDownloadTemplate = () => {
-    const csvContent = [
-      'to_name,to_street1,to_street2,to_city,to_state,to_zip,to_country,weight,length,width,height,reference',
-      'John Doe,123 Main St,,San Francisco,CA,94105,US,1.5,12,8,4,Order #1234',
-      'Jane Smith,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,2.0,10,6,3,Order #1235',
-      'Bob Johnson,789 Pine St,,New York,NY,10001,US,3.0,15,10,6,Order #1236'
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+  const handleDownloadEasyPostTemplate = () => {
+    const csvContent = ['to_name,to_street1,to_street2,to_city,to_state,to_zip,to_country,weight,length,width,height,reference', 'John Doe,123 Main St,,San Francisco,CA,94105,US,1.5,12,8,4,Order #1234', 'Jane Smith,456 Oak Ave,Suite 200,Los Angeles,CA,90210,US,2.0,10,6,3,Order #1235', 'Bob Johnson,789 Pine St,,New York,NY,10001,US,3.0,15,10,6,Order #1236'].join('\n');
+    const blob = new Blob([csvContent], {
+      type: 'text/csv'
+    });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.setAttribute('hidden', '');
     a.setAttribute('href', url);
-    a.setAttribute('download', 'bulk_shipping_template.csv');
+    a.setAttribute('download', 'easypost_bulk_shipping_template.csv');
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+  return <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto py-[6px] px-[5px]">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4 text-center">
-            Bulk Shipping
-          </h1>
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-4 text-center"> Bulk Shipping</h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Upload your CSV file and let our AI handle the rest. Smart mapping, live rates, and instant label generation.
           </p>
@@ -58,7 +47,7 @@ const BulkUploadPage = () => {
           </TabsContent>
           
           <TabsContent value="template" className="space-y-8">
-            {/* Integration Notice */}
+            {/* EasyPost Integration Notice */}
             <Alert className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 shadow-sm">
               <div className="flex items-center space-x-3">
                 <div className="flex-shrink-0">
@@ -66,22 +55,22 @@ const BulkUploadPage = () => {
                 </div>
                 <div>
                   <AlertDescription className="text-green-800">
-                    <strong className="font-semibold">Multi-Carrier Integration:</strong> This template supports multiple carriers including UPS, USPS, FedEx, and DHL. 
+                    <strong className="font-semibold">EasyPost Integration:</strong> This template follows EasyPost's recommended CSV format for bulk shipping. 
                     Pickup addresses are selected from your saved addresses - only recipient details go in the CSV.
                   </AlertDescription>
                 </div>
               </div>
             </Alert>
 
-            {/* Template Download */}
+            {/* EasyPost Template Download */}
             <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm hover:shadow-2xl transition-all duration-300">
               <CardHeader className="bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
                 <CardTitle className="flex items-center text-xl">
                   <FileText className="h-6 w-6 mr-3" />
-                  Bulk Shipping CSV Template
+                  EasyPost CSV Template
                 </CardTitle>
                 <CardDescription className="text-green-100">
-                  Standard format for bulk shipping uploads with AI-powered processing
+                  Official EasyPost format for bulk shipping uploads with AI-powered processing
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6">
@@ -113,7 +102,7 @@ const BulkUploadPage = () => {
                         </li>
                         <li className="flex items-center space-x-2">
                           <CheckCircle className="w-4 h-4 text-green-600" />
-                          <span>Multi-carrier compatibility</span>
+                          <span>API compatibility</span>
                         </li>
                         <li className="flex items-center space-x-2">
                           <Brain className="w-4 h-4 text-purple-600" />
@@ -122,24 +111,20 @@ const BulkUploadPage = () => {
                       </ul>
                     </div>
                   </div>
-                  <Button 
-                    onClick={handleDownloadTemplate} 
-                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all duration-200" 
-                    size="lg"
-                  >
+                  <Button onClick={handleDownloadEasyPostTemplate} className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg hover:shadow-xl transition-all duration-200" size="lg">
                     <Download className="h-5 w-5 mr-2" />
-                    Download CSV Template
+                    Download EasyPost Template
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Smart Workflow Guide */}
+            {/* EasyPost Workflow Guide */}
             <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="flex items-center text-xl">
                   <CheckCircle className="h-6 w-6 mr-3 text-green-600" />
-                  Smart Bulk Shipping Workflow
+                  EasyPost Smart Workflow
                 </CardTitle>
                 <CardDescription>
                   Follow our AI-enhanced workflow for optimal bulk shipping results
@@ -147,39 +132,32 @@ const BulkUploadPage = () => {
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-8">
-                  {[
-                    {
-                      step: 1,
-                      title: "Setup Pickup Address",
-                      description: "Save your pickup/from address in Settings. This will be used for all shipments in the batch.",
-                      color: "bg-blue-100 text-blue-600"
-                    },
-                    {
-                      step: 2,
-                      title: "Upload CSV with AI",
-                      description: "Upload your CSV file and let our AI automatically map headers to the correct format. No manual mapping required!",
-                      color: "bg-purple-100 text-purple-600"
-                    },
-                    {
-                      step: 3,
-                      title: "Smart Rate Fetching",
-                      description: "System creates shipments and fetches live rates from multiple carriers (UPS, USPS, FedEx, DHL) instantly.",
-                      color: "bg-green-100 text-green-600"
-                    },
-                    {
-                      step: 4,
-                      title: "Select & Customize",
-                      description: "Review and select preferred carriers/services for each shipment. Apply bulk changes or customize individually.",
-                      color: "bg-orange-100 text-orange-600"
-                    },
-                    {
-                      step: 5,
-                      title: "Generate & Download",
-                      description: "Confirm selections and generate all labels at once. Download individually, as batches, or in multiple formats.",
-                      color: "bg-emerald-100 text-emerald-600"
-                    }
-                  ].map(item => (
-                    <div key={item.step} className="flex items-start space-x-6">
+                  {[{
+                  step: 1,
+                  title: "Setup Pickup Address",
+                  description: "Save your pickup/from address in Settings. This will be used for all shipments in the batch.",
+                  color: "bg-blue-100 text-blue-600"
+                }, {
+                  step: 2,
+                  title: "Upload CSV with AI",
+                  description: "Upload your CSV file and let our AI automatically map headers to the correct format. No manual mapping required!",
+                  color: "bg-purple-100 text-purple-600"
+                }, {
+                  step: 3,
+                  title: "Smart Rate Fetching",
+                  description: "System creates EasyPost shipments and fetches live rates from multiple carriers (UPS, USPS, FedEx, DHL) instantly.",
+                  color: "bg-green-100 text-green-600"
+                }, {
+                  step: 4,
+                  title: "Select & Customize",
+                  description: "Review and select preferred carriers/services for each shipment. Apply bulk changes or customize individually.",
+                  color: "bg-orange-100 text-orange-600"
+                }, {
+                  step: 5,
+                  title: "Generate & Download",
+                  description: "Confirm selections and generate all labels at once. Download individually, as batches, or in multiple formats.",
+                  color: "bg-emerald-100 text-emerald-600"
+                }].map(item => <div key={item.step} className="flex items-start space-x-6">
                       <div className={`w-12 h-12 ${item.color} rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0`}>
                         {item.step}
                       </div>
@@ -187,8 +165,7 @@ const BulkUploadPage = () => {
                         <h4 className="font-semibold text-gray-900 text-lg mb-2 text-center">{item.title}</h4>
                         <p className="text-gray-600 leading-relaxed text-center">{item.description}</p>
                       </div>
-                    </div>
-                  ))}
+                    </div>)}
                 </div>
               </CardContent>
             </Card>
@@ -198,7 +175,7 @@ const BulkUploadPage = () => {
               <CardHeader>
                 <CardTitle className="text-xl">CSV Field Requirements</CardTitle>
                 <CardDescription>
-                  Required and optional fields for bulk shipping uploads
+                  Required and optional fields following EasyPost's format
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6">
@@ -209,23 +186,40 @@ const BulkUploadPage = () => {
                       Required Fields
                     </h4>
                     <div className="space-y-3">
-                      {[
-                        { field: 'to_name', desc: 'Recipient name' },
-                        { field: 'to_street1', desc: 'Street address' },
-                        { field: 'to_city', desc: 'City name' },
-                        { field: 'to_state', desc: 'State/Province' },
-                        { field: 'to_zip', desc: 'ZIP/Postal code' },
-                        { field: 'to_country', desc: 'Country (US)' },
-                        { field: 'weight', desc: 'Weight (pounds)' },
-                        { field: 'length', desc: 'Length (inches)' },
-                        { field: 'width', desc: 'Width (inches)' },
-                        { field: 'height', desc: 'Height (inches)' }
-                      ].map(item => (
-                        <div key={item.field} className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
+                      {[{
+                      field: 'to_name',
+                      desc: 'Recipient name'
+                    }, {
+                      field: 'to_street1',
+                      desc: 'Street address'
+                    }, {
+                      field: 'to_city',
+                      desc: 'City name'
+                    }, {
+                      field: 'to_state',
+                      desc: 'State/Province'
+                    }, {
+                      field: 'to_zip',
+                      desc: 'ZIP/Postal code'
+                    }, {
+                      field: 'to_country',
+                      desc: 'Country (US)'
+                    }, {
+                      field: 'weight',
+                      desc: 'Weight (pounds)'
+                    }, {
+                      field: 'length',
+                      desc: 'Length (inches)'
+                    }, {
+                      field: 'width',
+                      desc: 'Width (inches)'
+                    }, {
+                      field: 'height',
+                      desc: 'Height (inches)'
+                    }].map(item => <div key={item.field} className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-200">
                           <span className="font-mono text-sm font-medium text-green-800">{item.field}</span>
                           <span className="text-sm text-green-600">{item.desc}</span>
-                        </div>
-                      ))}
+                        </div>)}
                     </div>
                   </div>
 
@@ -235,15 +229,16 @@ const BulkUploadPage = () => {
                       Optional Fields
                     </h4>
                     <div className="space-y-3 mb-6">
-                      {[
-                        { field: 'to_street2', desc: 'Apt/Suite number' },
-                        { field: 'reference', desc: 'Order/Reference #' }
-                      ].map(item => (
-                        <div key={item.field} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      {[{
+                      field: 'to_street2',
+                      desc: 'Apt/Suite number'
+                    }, {
+                      field: 'reference',
+                      desc: 'Order/Reference #'
+                    }].map(item => <div key={item.field} className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-200">
                           <span className="font-mono text-sm font-medium text-blue-800">{item.field}</span>
                           <span className="text-sm text-blue-600">{item.desc}</span>
-                        </div>
-                      ))}
+                        </div>)}
                     </div>
                     
                     <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200">
@@ -263,8 +258,6 @@ const BulkUploadPage = () => {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default BulkUploadPage;
