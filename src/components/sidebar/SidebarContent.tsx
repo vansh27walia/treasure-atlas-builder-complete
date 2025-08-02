@@ -1,151 +1,154 @@
 
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
-  Home, Package, CreditCard, Settings, ShoppingBag, Truck, MapPin, 
-  BarChart3, Globe, HelpCircle, Tag, Upload, Calculator, Clock, Search, Ship,
-  Download
+  Home, 
+  Package, 
+  Upload, 
+  Calculator, 
+  Truck, 
+  MapPin, 
+  Settings, 
+  ChartBar,
+  Plane,
+  Container
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import SidebarNavSection from './SidebarNavSection';
 import SidebarNavItem from './SidebarNavItem';
-import SidebarUserProfile from './SidebarUserProfile';
+import SidebarNavSection from './SidebarNavSection';
 import SidebarAuthButton from './SidebarAuthButton';
+import SidebarUserProfile from './SidebarUserProfile';
+import { Separator } from '@/components/ui/separator';
 
 interface SidebarContentProps {
   collapsed: boolean;
 }
 
 const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
+  const location = useLocation();
+  
+  // Main navigation items (reordered as requested)
+  const mainNavItems = [
+    {
+      icon: <Home className="h-5 w-5" />,
+      title: 'Home',
+      to: '/'
+    },
+    {
+      icon: <Package className="h-5 w-5" />,
+      title: 'Shipping',
+      to: '/create-label'
+    },
+    {
+      icon: <Upload className="h-5 w-5" />,
+      title: 'Batch Label Creation',
+      to: '/bulk-upload'
+    },
+    {
+      icon: <Calculator className="h-5 w-5" />,
+      title: 'Rate Calculator',
+      to: '/rate-calculator'
+    },
+    {
+      icon: <Truck className="h-5 w-5" />,
+      title: 'Tracking',
+      to: '/tracking'
+    },
+    {
+      icon: <MapPin className="h-5 w-5" />,
+      title: 'Pickup Scheduling',
+      to: '/pickup'
+    }
+  ];
+
+  // Freight services with tabs
+  const freightItems = [
+    {
+      icon: <Container className="h-5 w-5" />,
+      title: 'LTL Shipping',
+      to: '/ltl-shipping'
+    },
+    {
+      icon: <Truck className="h-5 w-5" />,
+      title: 'FTL Shipping',
+      to: '/ftl-shipping'
+    },
+    {
+      icon: <Plane className="h-5 w-5" />,
+      title: 'Freight Forwarding',
+      to: '/freight-forwarding'
+    }
+  ];
+
+  // Tools and analytics
+  const toolsItems = [
+    {
+      icon: <ChartBar className="h-5 w-5" />,
+      title: 'Analytics',
+      to: '/dashboard?tab=history'
+    },
+    {
+      icon: <Settings className="h-5 w-5" />,
+      title: 'Settings',
+      to: '/settings'
+    }
+  ];
+
   return (
-    <div className="flex flex-col flex-1 overflow-y-auto py-4">
+    <div className="flex flex-col h-full">
       {/* User Profile */}
-      <SidebarUserProfile collapsed={collapsed} />
+      <div className="p-4">
+        <SidebarUserProfile collapsed={collapsed} />
+      </div>
+      
+      <Separator className="bg-blue-800" />
 
       {/* Main Navigation */}
-      <div className="mt-8 flex-1">
+      <div className="flex-1 overflow-y-auto py-4">
         <SidebarNavSection title="Main" collapsed={collapsed}>
-          <SidebarNavItem
-            icon={<Home size={18} />}
-            title="Dashboard"
-            to="/"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Package size={18} />}
-            title="Standard Shipping"
-            to="/create-label"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Ship size={18} />}
-            title="Freight Forwarding"
-            to="/freight-forwarding"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Calculator size={18} />}
-            title="Rate Calculator"
-            to="/rate-calculator"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Globe size={18} />}
-            title="International"
-            to="/international"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Truck size={18} />}
-            title="Ship To"
-            to="/ship-to"
-            collapsed={collapsed}
-          />
+          {mainNavItems.map((item, index) => (
+            <SidebarNavItem
+              key={index}
+              icon={item.icon}
+              title={item.title}
+              to={item.to}
+              collapsed={collapsed}
+            />
+          ))}
         </SidebarNavSection>
 
-        <SidebarNavSection title="Import" collapsed={collapsed}>
-          <SidebarNavItem
-            icon={<Download size={18} />}
-            title="Import Orders"
-            to="/import"
-            collapsed={collapsed}
-          />
+        <Separator className="bg-blue-800 my-4" />
+
+        <SidebarNavSection title="Freight Services" collapsed={collapsed}>
+          {freightItems.map((item, index) => (
+            <SidebarNavItem
+              key={index}
+              icon={item.icon}
+              title={item.title}
+              to={item.to}
+              collapsed={collapsed}
+            />
+          ))}
         </SidebarNavSection>
 
-        <SidebarNavSection title="Shipping" collapsed={collapsed}>
-          <SidebarNavItem
-            icon={<MapPin size={18} />}
-            title="Pickup Service"
-            to="/pickup"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Truck size={18} />}
-            title="Tracking"
-            to="/tracking" 
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Upload size={18} />}
-            title="Bulk Upload"
-            to="/bulk-upload"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Truck size={18} />}
-            title="LTL Shipping"
-            to="/ltl-shipping"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Truck size={18} />}
-            title="Full Truckload"
-            to="/ftl-shipping"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Clock size={18} />}
-            title="Instant Delivery"
-            to="/instant-delivery"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<BarChart3 size={18} />}
-            title="Reports"
-            to="/dashboard?tab=history"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<CreditCard size={18} />}
-            title="Payment"
-            to="/payment"
-            collapsed={collapsed}
-          />
-        </SidebarNavSection>
-        
-        <SidebarNavSection title="More" collapsed={collapsed}>
-          <SidebarNavItem
-            icon={<Settings size={18} />}
-            title="Settings"
-            to="/settings"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<HelpCircle size={18} />}
-            title="Help Center"
-            to="/help"
-            collapsed={collapsed}
-          />
-          <SidebarNavItem
-            icon={<Tag size={18} />}
-            title="Pricing"
-            to="/pricing"
-            collapsed={collapsed}
-          />
+        <Separator className="bg-blue-800 my-4" />
+
+        <SidebarNavSection title="Tools" collapsed={collapsed}>
+          {toolsItems.map((item, index) => (
+            <SidebarNavItem
+              key={index}
+              icon={item.icon}
+              title={item.title}
+              to={item.to}
+              collapsed={collapsed}
+            />
+          ))}
         </SidebarNavSection>
       </div>
 
-      {/* Authentication Button */}
-      <SidebarAuthButton collapsed={collapsed} />
+      {/* Auth Button */}
+      <div className="p-4">
+        <SidebarAuthButton collapsed={collapsed} />
+      </div>
     </div>
   );
 };
