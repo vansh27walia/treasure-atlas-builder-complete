@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,23 +54,34 @@ const Dashboard = () => {
         const processedShipments = shipments || [];
         const totalShipments = processedShipments.length;
         const pendingShipments = processedShipments.filter(s => s.status === 'pending').length;
-        const totalSpent = processedShipments.reduce((sum, s) => sum + (parseFloat(s.total_cost) || 0), 0);
+        const totalSpent = processedShipments.reduce((sum, s) => {
+          const cost = typeof s.total_cost === 'string' ? parseFloat(s.total_cost) : s.total_cost;
+          return sum + (cost || 0);
+        }, 0);
         const averageCost = totalShipments > 0 ? totalSpent / totalShipments : 0;
 
         // Get recent shipments
         const recentShipments = processedShipments.slice(0, 5);
 
-        // Calculate popular carriers
-        const carrierCounts = {};
+        // Calculate popular carriers from shipment_data
+        const carrierCounts: Record<string, number> = {};
         processedShipments.forEach(shipment => {
-          if (shipment.carrier) {
-            carrierCounts[shipment.carrier] = (carrierCounts[shipment.carrier] || 0) + 1;
+          try {
+            const shipmentData = typeof shipment.shipment_data === 'string' 
+              ? JSON.parse(shipment.shipment_data) 
+              : shipment.shipment_data;
+            
+            if (shipmentData?.carrier) {
+              carrierCounts[shipmentData.carrier] = (carrierCounts[shipmentData.carrier] || 0) + 1;
+            }
+          } catch (error) {
+            console.log('Error parsing shipment data:', error);
           }
         });
 
         const popularCarriers = Object.entries(carrierCounts)
           .map(([carrier, count]) => ({ carrier, count }))
-          .sort((a, b) => b.count - a.count)
+          .sort((a, b) => (b.count as number) - (a.count as number))
           .slice(0, 3);
 
         // Calculate monthly volume (last 6 months)
@@ -88,7 +98,10 @@ const Dashboard = () => {
           monthlyVolume.push({
             month: date.toLocaleDateString('en-US', { month: 'short' }),
             volume: monthShipments.length,
-            revenue: monthShipments.reduce((sum, s) => sum + (parseFloat(s.total_cost) || 0), 0)
+            revenue: monthShipments.reduce((sum, s) => {
+              const cost = typeof s.total_cost === 'string' ? parseFloat(s.total_cost) : s.total_cost;
+              return sum + (cost || 0);
+            }, 0)
           });
         }
 
@@ -265,7 +278,7 @@ const Dashboard = () => {
                     <p className="text-gray-500 mt-2">Loading recent activity...</p>
                   </div>
                 ) : dashboardData.recentShipments.length > 0 ? (
-                  dashboardData.recentShipments.map((shipment, index) => (
+                  dashboardData.recentShipments.map((shipment: any, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-blue-100 rounded-full">
@@ -277,7 +290,7 @@ const Dashboard = () => {
                         </div>
                       </div>
                       <Badge className="bg-blue-100 text-blue-800">
-                        ${parseFloat(shipment.total_cost || 0).toFixed(2)}
+                        ${(typeof shipment.total_cost === 'string' ? parseFloat(shipment.total_cost) : shipment.total_cost || 0).toFixed(2)}
                       </Badge>
                     </div>
                   ))
@@ -314,7 +327,7 @@ const Dashboard = () => {
                     <p className="text-gray-500 mt-2">Loading carrier data...</p>
                   </div>
                 ) : dashboardData.popularCarriers.length > 0 ? (
-                  dashboardData.popularCarriers.map((carrier, index) => (
+                  dashboardData.popularCarriers.map((carrier: any, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-purple-100 rounded-full">
