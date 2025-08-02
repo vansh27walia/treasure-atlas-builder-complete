@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -62,7 +63,7 @@ const PickupAddressEditor: React.FC<PickupAddressEditorProps> = ({
 
   const loadAddresses = async () => {
     try {
-      const addressList = await addressService.getFromAddresses();
+      const addressList = await addressService.getSavedAddresses();
       setAddresses(addressList);
     } catch (error) {
       console.error('Error loading addresses:', error);
@@ -101,17 +102,19 @@ const PickupAddressEditor: React.FC<PickupAddressEditorProps> = ({
       
       if (selectedAddress) {
         // Update existing address
-        savedAddress = await addressService.updateFromAddress(selectedAddress.id, formData);
+        savedAddress = await addressService.updateAddress(selectedAddress.id, formData);
         toast.success('Address updated successfully');
       } else {
         // Create new address
-        savedAddress = await addressService.saveFromAddress(formData);
+        savedAddress = await addressService.createAddress(formData);
         toast.success('Address saved successfully');
       }
 
-      onAddressUpdate(savedAddress);
-      onClose();
-      loadAddresses();
+      if (savedAddress) {
+        onAddressUpdate(savedAddress);
+        onClose();
+        loadAddresses();
+      }
     } catch (error) {
       console.error('Error saving address:', error);
       toast.error('Failed to save address');

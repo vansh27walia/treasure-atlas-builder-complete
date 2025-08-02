@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,7 +33,7 @@ const BulkUploadHeader: React.FC<BulkUploadHeaderProps> = ({
   const loadAddresses = async () => {
     setIsLoading(true);
     try {
-      const addressList = await addressService.getFromAddresses();
+      const addressList = await addressService.getSavedAddresses();
       setAddresses(addressList);
       
       // Auto-select default address if none selected
