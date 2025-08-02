@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -14,6 +13,7 @@ interface InlinePaymentSectionProps {
   onPaymentSuccess: (data: any) => void;
   insuranceAmount?: number;
   isCreatingLabel?: boolean;
+  onCancel?: () => void;
 }
 
 const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
@@ -21,7 +21,8 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
   shipmentDetails,
   onPaymentSuccess,
   insuranceAmount = 100,
-  isCreatingLabel = false
+  isCreatingLabel = false,
+  onCancel
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
@@ -43,6 +44,12 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
       }, 300);
     }
   }, []);
+
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+    }
+  };
 
   const handlePaymentComplete = async (success: boolean, paymentData?: any) => {
     if (!success) {
@@ -99,9 +106,20 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
       <Card className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 border-2 shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold text-blue-900">Complete Your Order</h3>
-          <div className="flex items-center text-sm text-blue-700">
-            <Lock className="w-4 h-4 mr-1" />
-            Secure Payment
+          <div className="flex items-center space-x-2">
+            {onCancel && (
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                className="text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </Button>
+            )}
+            <div className="flex items-center text-sm text-blue-700">
+              <Lock className="w-4 h-4 mr-1" />
+              Secure Payment
+            </div>
           </div>
         </div>
 

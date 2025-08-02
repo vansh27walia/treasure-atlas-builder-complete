@@ -21,40 +21,46 @@ const Index: React.FC = () => {
   useEffect(() => {
     const fetchRealData = async () => {
       try {
-        // Fetch shipments data
-        const { data: shipments } = await supabase
-          .from('shipments')
+        // Fetch labels data (this is the correct table based on the error messages)
+        const { data: labels } = await supabase
+          .from('labels')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(5);
+          .limit(10);
 
-        // Calculate statistics
-        const totalShipments = shipments?.length || 0;
-        const deliveredShipments = shipments?.filter(s => s.status === 'delivered').length || 0;
-        const inTransitShipments = shipments?.filter(s => s.status === 'in_transit').length || 0;
-        const totalSpent = shipments?.reduce((sum, s) => sum + (parseFloat(s.total_cost) || 0), 0) || 0;
+        if (labels) {
+          // Calculate statistics from labels
+          const totalShipments = labels.length;
+          const deliveredShipments = labels.filter(l => l.status === 'delivered').length;
+          const inTransitShipments = labels.filter(l => l.status === 'in_transit').length;
+          
+          // Calculate total spent - handle both string and number types
+          const totalSpent = labels.reduce((sum, label) => {
+            const cost = typeof label.cost === 'string' ? parseFloat(label.cost) || 0 : (label.cost || 0);
+            return sum + cost;
+          }, 0);
 
-        // Get carrier stats
-        const carrierStats = {};
-        shipments?.forEach(s => {
-          const shipmentData = typeof s.shipment_data === 'string' ? JSON.parse(s.shipment_data) : s.shipment_data;
-          const carrier = shipmentData?.carrier || 'Unknown';
-          carrierStats[carrier] = (carrierStats[carrier] || 0) + 1;
-        });
+          // Get carrier stats
+          const carrierStats: Record<string, number> = {};
+          labels.forEach(label => {
+            const carrier = label.carrier || 'Unknown';
+            carrierStats[carrier] = (carrierStats[carrier] || 0) + 1;
+          });
 
-        const topCarriers = Object.entries(carrierStats)
-          .sort(([,a], [,b]) => b - a)
-          .slice(0, 3)
-          .map(([carrier, count]) => ({ carrier, count }));
+          const topCarriers = Object.entries(carrierStats)
+            .sort(([,a], [,b]) => (b as number) - (a as number))
+            .slice(0, 3)
+            .map(([carrier, count]) => ({ carrier, count: count as number }));
 
-        setDashboardData({
-          totalShipments,
-          deliveredShipments,
-          inTransitShipments,
-          totalSpent,
-          recentShipments: shipments || [],
-          topCarriers
-        });
+          setDashboardData({
+            totalShipments,
+            deliveredShipments,
+            inTransitShipments,
+            totalSpent,
+            recentShipments: labels.slice(0, 5),
+            topCarriers
+          });
+        }
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
       } finally {
@@ -211,29 +217,28 @@ const Index: React.FC = () => {
               </div>
             ) : dashboardData.recentShipments.length > 0 ? (
               <div className="space-y-4">
-                {dashboardData.recentShipments.slice(0, 3).map((shipment, index) => {
-                  const shipmentData = typeof shipment.shipment_data === 'string' ? JSON.parse(shipment.shipment_data) : shipment.shipment_data;
-                  return (
-                    <div key={index} className="flex justify-between items-center p-3 border border-gray-200 rounded-lg bg-gray-50">
-                      <div>
-                        <p className="font-medium">{shipmentData?.carrier || 'Unknown'} - {shipment.id?.slice(-8)}</p>
-                        <p className={`text-sm ${
-                          shipment.status === 'delivered' ? 'text-green-600' :
-                          shipment.status === 'in_transit' ? 'text-blue-600' :
-                          'text-purple-600'
-                        }`}>
-                          {shipment.status?.replace('_', ' ').toUpperCase() || 'Processing'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">${parseFloat(shipment.total_cost || '0').toFixed(2)}</p>
-                        <Button variant="outline" size="sm" onClick={() => navigate('/dashboard?tab=tracking')}>
-                          Details
-                        </Button>
-                      </div>
+                {dashboardData.recentShipments.slice(0, 3).map((shipment: any, index) => (
+                  <div key={index} className="flex justify-between items-center p-3 border border-gray-200 rounded-lg bg-gray-50">
+                    <div>
+                      <p className="font-medium">{shipment.carrier || 'Unknown'} - {shipment.id?.slice(-8)}</p>
+                      <p className={`text-sm ${
+                        shipment.status === 'delivered' ? 'text-green-600' :
+                        shipment.status === 'in_transit' ? 'text-blue-600' :
+                        'text-purple-600'
+                      }`}>
+                        {shipment.status?.replace('_', ' ').toUpperCase() || 'Processing'}
+                      </p>
                     </div>
-                  );
-                })}
+                    <div className="text-right">
+                      <p className="font-semibold">
+                        ${typeof shipment.cost === 'string' ? parseFloat(shipment.cost || '0').toFixed(2) : (shipment.cost || 0).toFixed(2)}
+                      </p>
+                      <Button variant="outline" size="sm" onClick={() => navigate('/dashboard?tab=tracking')}>
+                        Details
+                      </Button>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
