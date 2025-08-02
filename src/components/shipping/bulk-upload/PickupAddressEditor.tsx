@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -34,7 +33,8 @@ const PickupAddressEditor: React.FC<PickupAddressEditorProps> = ({
     zip: '',
     country: 'US',
     phone: '',
-    is_default_from: false
+    is_default_from: false,
+    is_default_to: false
   });
   const [isLoading, setIsLoading] = useState(false);
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
@@ -53,7 +53,8 @@ const PickupAddressEditor: React.FC<PickupAddressEditorProps> = ({
           zip: selectedAddress.zip || '',
           country: selectedAddress.country || 'US',
           phone: selectedAddress.phone || '',
-          is_default_from: selectedAddress.is_default_from || false
+          is_default_from: selectedAddress.is_default_from || false,
+          is_default_to: selectedAddress.is_default_to || false
         });
       } else {
         resetForm();
@@ -81,7 +82,8 @@ const PickupAddressEditor: React.FC<PickupAddressEditorProps> = ({
       zip: '',
       country: 'US',
       phone: '',
-      is_default_from: false
+      is_default_from: false,
+      is_default_to: false
     });
   };
 
@@ -134,7 +136,8 @@ const PickupAddressEditor: React.FC<PickupAddressEditorProps> = ({
       zip: address.zip || '',
       country: address.country || 'US',
       phone: address.phone || '',
-      is_default_from: address.is_default_from || false
+      is_default_from: address.is_default_from || false,
+      is_default_to: address.is_default_to || false
     });
   };
 
