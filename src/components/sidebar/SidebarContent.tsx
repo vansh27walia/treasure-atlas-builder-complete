@@ -11,7 +11,8 @@ import {
   Settings, 
   ChartBar,
   Plane,
-  Container
+  Container,
+  FileText
 } from 'lucide-react';
 import SidebarNavItem from './SidebarNavItem';
 import SidebarNavSection from './SidebarNavSection';
@@ -42,6 +43,11 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed }) => {
       icon: <Upload className="h-5 w-5" />,
       title: 'Batch Label Creation',
       to: '/bulk-upload'
+    },
+    {
+      icon: <FileText className="h-5 w-5" />,
+      title: 'Import',
+      to: '/import'
     },
     {
       icon: <Calculator className="h-5 w-5" />,
