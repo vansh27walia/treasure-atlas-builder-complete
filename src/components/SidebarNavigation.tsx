@@ -1,93 +1,65 @@
 
-import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Package, 
-  Truck, 
-  Search, 
-  Settings, 
-  Calculator,
-  Upload,
-  FileSpreadsheet,
-  Layers
-} from 'lucide-react';
+import React, { useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Separator } from '@/components/ui/separator';
+import SidebarContent from './sidebar/SidebarContent';
+import ToggleButton from './sidebar/ToggleButton';
 
-const SidebarNavigation = () => {
+interface SidebarNavigationProps {
+  children: React.ReactNode;
+}
+
+const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ children }) => {
+  const [collapsed, setCollapsed] = useState(false);
+  const isMobile = useIsMobile();
   const location = useLocation();
   
-  const navItems = [
-    { 
-      name: 'Dashboard', 
-      path: '/', 
-      icon: Home 
-    },
-    { 
-      name: 'Shipping', 
-      path: '/create-label', 
-      icon: Package 
-    },
-    { 
-      name: 'Batch Label Creation', 
-      path: '/bulk-upload', 
-      icon: FileSpreadsheet 
-    },
-    { 
-      name: 'Rate Calculator', 
-      path: '/rate-calculator', 
-      icon: Calculator 
-    },
-    { 
-      name: 'LTL Shipping', 
-      path: '/ltl-shipping', 
-      icon: Truck 
-    },
-    { 
-      name: 'FTL Shipping', 
-      path: '/ftl-shipping', 
-      icon: Layers 
-    },
-    { 
-      name: 'Instant Delivery', 
-      path: '/instant-delivery', 
-      icon: Upload 
-    },
-    { 
-      name: 'Tracking', 
-      path: '/tracking', 
-      icon: Search 
-    },
-    { 
-      name: 'Settings', 
-      path: '/settings', 
-      icon: Settings 
-    }
-  ];
+  // Hide sidebar on auth pages
+  const isAuthPage = location.pathname === '/auth' || location.pathname === '/reset-password';
+  
+  // Handle sidebar collapse toggle
+  const toggleSidebar = () => {
+    setCollapsed(!collapsed);
+  };
+
+  if (isAuthPage) {
+    return (
+      <div className="h-screen w-full overflow-hidden">
+        <div className="h-full overflow-y-auto bg-gray-50 w-full">
+          {children}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <nav className="mt-8">
-      <div className="space-y-1">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = location.pathname === item.path;
-          
-          return (
-            <NavLink
-              key={item.name}
-              to={item.path}
-              className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 ${
-                isActive
-                  ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-              }`}
-            >
-              <Icon className={`mr-3 h-5 w-5 ${isActive ? 'text-blue-600' : 'text-gray-400'}`} />
-              {item.name}
-            </NavLink>
-          );
-        })}
+    <div className="flex h-screen w-full overflow-hidden">
+      {/* Sidebar */}
+      <div
+        className={cn(
+          'bg-blue-950 text-white transition-all duration-300 h-full flex flex-col relative',
+          collapsed ? 'w-20' : 'w-64'
+        )}
+      >
+        {/* Logo and Toggle Button */}
+        <div className="flex items-center justify-between p-4">
+          <div className="flex-1" /> {/* Spacer */}
+          <ToggleButton collapsed={collapsed} onClick={toggleSidebar} />
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto">
+          <SidebarContent collapsed={collapsed} />
+        </div>
       </div>
-    </nav>
+
+      {/* Main Content */}
+      <div className="flex-1 h-full overflow-y-auto bg-gray-50 w-full">
+        {children}
+      </div>
+    </div>
   );
 };
 

@@ -35,9 +35,8 @@ function App() {
       <AuthProvider>
         <OnboardingProvider>
           <div className="w-full h-screen overflow-hidden">
-            <div className="flex">
-              <SidebarNavigation />
-              <div className="flex-1 h-screen overflow-y-auto">
+            <SidebarNavigation>
+              <div className="w-full h-full overflow-y-auto">
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/auth" element={<AuthPage />} />
@@ -71,7 +70,7 @@ function App() {
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </div>
-            </div>
+            </SidebarNavigation>
           </div>
           <Toaster />
         </OnboardingProvider>
