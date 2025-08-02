@@ -3,12 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, SortAsc, SortDesc, Filter } from 'lucide-react';
+import { Search, SortAsc, SortDesc, Filter, Sparkles, Zap } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
 
-// Extended carrier options with additional carriers
 const EXTENDED_CARRIER_OPTIONS = [
   {
     id: 'usps',
@@ -74,6 +74,38 @@ const EXTENDED_CARRIER_OPTIONS = [
   }
 ];
 
+// Smart optimization presets for bulk operations
+const OPTIMIZATION_PRESETS = [
+  { 
+    id: 'cheapest', 
+    name: 'Cheapest', 
+    icon: '💰', 
+    description: 'Minimize cost across all shipments',
+    color: 'bg-green-50 border-green-200 text-green-800'
+  },
+  { 
+    id: 'fastest', 
+    name: 'Fastest', 
+    icon: '⚡', 
+    description: 'Prioritize delivery speed',
+    color: 'bg-blue-50 border-blue-200 text-blue-800'
+  },
+  { 
+    id: 'balanced', 
+    name: 'Balanced', 
+    icon: '⚖️', 
+    description: 'Optimize for cost and speed',
+    color: 'bg-purple-50 border-purple-200 text-purple-800'
+  },
+  { 
+    id: 'reliable', 
+    name: 'Most Reliable', 
+    icon: '🛡️', 
+    description: 'Choose most dependable carriers',
+    color: 'bg-orange-50 border-orange-200 text-orange-800'
+  }
+];
+
 interface BulkShipmentFiltersProps {
   searchTerm: string;
   onSearchChange: (value: string) => void;
@@ -82,7 +114,7 @@ interface BulkShipmentFiltersProps {
   onSortChange: (field: 'recipient' | 'rate' | 'carrier', direction: 'asc' | 'desc') => void;
   selectedCarrier: string | null;
   onCarrierFilterChange: (carrier: string | null) => void;
-  onApplyCarrierToAll: (carrier: string, service: string) => void;
+  onApplyCarrierToAll: (carrier: string, service?: string) => void;
 }
 
 const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
@@ -98,13 +130,11 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
   const [selectedCarrierService, setSelectedCarrierService] = useState<{carrierId: string, serviceId: string} | null>(null);
   const [availableServices, setAvailableServices] = useState<Array<{id: string, name: string}>>([]);
   
-  // Update available services when carrier changes
   useEffect(() => {
     if (selectedCarrierService?.carrierId) {
       const carrier = EXTENDED_CARRIER_OPTIONS.find(c => c.id === selectedCarrierService.carrierId);
       if (carrier) {
         setAvailableServices(carrier.services);
-        // Auto select first service if current service doesn't exist in this carrier
         if (!carrier.services.some(s => s.id === selectedCarrierService.serviceId)) {
           setSelectedCarrierService({
             carrierId: selectedCarrierService.carrierId,
@@ -117,7 +147,6 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
     }
   }, [selectedCarrierService?.carrierId]);
 
-  // Handle apply to all button click - Fixed functionality
   const handleApplyToAll = () => {
     if (selectedCarrierService?.carrierId && selectedCarrierService?.serviceId) {
       const carrier = EXTENDED_CARRIER_OPTIONS.find(c => c.id === selectedCarrierService.carrierId);
@@ -129,80 +158,120 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
     }
   };
 
+  const handleOptimizationPreset = (presetId: string) => {
+    onApplyCarrierToAll(presetId);
+  };
+
   return (
-    <div className="flex flex-col md:flex-row gap-3 mb-4">
-      <div className="relative flex-grow">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-        <Input
-          type="text"
-          placeholder="Search by recipient, address, carrier..."
-          value={searchTerm}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9"
-        />
-      </div>
-      
-      <div className="flex gap-2">
-        <Select
-          value={sortField}
-          onValueChange={(value) => onSortChange(value as 'recipient' | 'rate' | 'carrier', sortDirection)}
-        >
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectLabel>Sort by</SelectLabel>
-              <SelectItem value="recipient">Recipient</SelectItem>
-              <SelectItem value="rate">Price</SelectItem>
-              <SelectItem value="carrier">Carrier</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+    <div className="space-y-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-200/50">
+      {/* Search and Sort Controls */}
+      <div className="flex flex-col lg:flex-row gap-3">
+        <div className="relative flex-grow">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+          <Input
+            type="text"
+            placeholder="Search recipients, addresses, carriers..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-10 h-10 bg-white/80 border-white/50 focus:bg-white transition-all"
+          />
+        </div>
         
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onSortChange(sortField, sortDirection === 'asc' ? 'desc' : 'asc')}
-          className="border"
-        >
-          {sortDirection === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
-        </Button>
-        
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="gap-2">
-              <Filter className="h-4 w-4" />
-              <span className="hidden sm:inline">Filter</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80">
-            <div className="space-y-4">
-              <h4 className="font-medium">Filter by carrier</h4>
-              
-              <RadioGroup 
-                value={selectedCarrier || ''} 
-                onValueChange={(value) => onCarrierFilterChange(value === '' ? null : value)}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="" id="all" />
-                  <Label htmlFor="all">All carriers</Label>
-                </div>
+        <div className="flex gap-2">
+          <Select
+            value={sortField}
+            onValueChange={(value) => onSortChange(value as 'recipient' | 'rate' | 'carrier', sortDirection)}
+          >
+            <SelectTrigger className="w-[140px] h-10 bg-white/80 border-white/50">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel>Sort by</SelectLabel>
+                <SelectItem value="recipient">Recipient</SelectItem>
+                <SelectItem value="rate">Price</SelectItem>
+                <SelectItem value="carrier">Carrier</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => onSortChange(sortField, sortDirection === 'asc' ? 'desc' : 'asc')}
+            className="h-10 w-10 bg-white/80 border-white/50 hover:bg-white"
+          >
+            {sortDirection === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
+          </Button>
+          
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-2 h-10 bg-white/80 border-white/50 hover:bg-white">
+                <Filter className="h-4 w-4" />
+                Filter
+                {selectedCarrier && <Badge variant="secondary" className="ml-1 text-xs">Active</Badge>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+              <div className="space-y-4">
+                <h4 className="font-semibold text-gray-900">Filter by Carrier</h4>
                 
-                {EXTENDED_CARRIER_OPTIONS.map((carrier) => (
-                  <div className="flex items-center space-x-2" key={carrier.id}>
-                    <RadioGroupItem value={carrier.id} id={carrier.id} />
-                    <Label htmlFor={carrier.id}>{carrier.name}</Label>
+                <RadioGroup 
+                  value={selectedCarrier || ''} 
+                  onValueChange={(value) => onCarrierFilterChange(value === '' ? null : value)}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="" id="all" />
+                    <Label htmlFor="all" className="font-medium">All carriers</Label>
                   </div>
-                ))}
-              </RadioGroup>
-            </div>
-          </PopoverContent>
-        </Popover>
+                  
+                  {EXTENDED_CARRIER_OPTIONS.map((carrier) => (
+                    <div className="flex items-center space-x-2" key={carrier.id}>
+                      <RadioGroupItem value={carrier.id} id={carrier.id} />
+                      <Label htmlFor={carrier.id}>{carrier.name}</Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
-      
-      <div className="mt-3 md:mt-0 border-t pt-3 md:border-t-0 md:pt-0">
-        <div className="flex flex-wrap gap-2 items-center">
+
+      {/* Smart Optimization Presets - 4 criteria for bulk creation */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-purple-600" />
+          <h4 className="font-semibold text-gray-900">Smart Optimization</h4>
+          <Badge className="bg-purple-100 text-purple-800 text-xs">AI Powered</Badge>
+        </div>
+        
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {OPTIMIZATION_PRESETS.map((preset) => (
+            <Button
+              key={preset.id}
+              variant="outline"
+              className={`h-auto p-3 flex flex-col items-center gap-2 border-2 hover:scale-105 transition-all ${preset.color}`}
+              onClick={() => handleOptimizationPreset(preset.id)}
+            >
+              <span className="text-lg">{preset.icon}</span>
+              <div className="text-center">
+                <div className="font-semibold text-sm">{preset.name}</div>
+                <div className="text-xs opacity-80">{preset.description}</div>
+              </div>
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Manual Carrier/Service Selection */}
+      <div className="border-t pt-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Zap className="h-4 w-4 text-blue-600" />
+          <h4 className="font-semibold text-gray-900">Manual Selection</h4>
+        </div>
+        
+        <div className="flex flex-wrap gap-3 items-center">
           <Select
             value={selectedCarrierService?.carrierId || ''}
             onValueChange={(value) => setSelectedCarrierService({
@@ -210,12 +279,12 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
               serviceId: ''
             })}
           >
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Choose All Carriers" />
+            <SelectTrigger className="w-[160px] bg-white">
+              <SelectValue placeholder="Choose Carrier" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectLabel>Carriers</SelectLabel>
+                <SelectLabel>Available Carriers</SelectLabel>
                 {EXTENDED_CARRIER_OPTIONS.map((carrier) => (
                   <SelectItem key={carrier.id} value={carrier.id}>{carrier.name}</SelectItem>
                 ))}
@@ -231,8 +300,8 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
             })}
             disabled={!selectedCarrierService?.carrierId || availableServices.length === 0}
           >
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Select service" />
+            <SelectTrigger className="w-[160px] bg-white">
+              <SelectValue placeholder="Select Service" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
@@ -247,9 +316,9 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
           <Button 
             onClick={handleApplyToAll}
             disabled={!selectedCarrierService?.carrierId || !selectedCarrierService?.serviceId}
-            size="sm"
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all"
           >
+            <Zap className="mr-2 h-4 w-4" />
             Apply to All
           </Button>
         </div>
