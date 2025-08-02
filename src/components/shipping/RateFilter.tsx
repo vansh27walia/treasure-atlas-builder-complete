@@ -1,8 +1,13 @@
 
-import React from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import React, { useState, useEffect } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Filter, Zap, DollarSign, Clock, Shield, Star } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Filter, Zap, DollarSign, Clock, Shield, Star, Search, SortAsc, SortDesc } from 'lucide-react';
 
 interface RateFilterProps {
   activeFilter: string;
@@ -66,7 +71,8 @@ const RateFilter: React.FC<RateFilterProps> = ({ activeFilter, onFilterChange })
     </div>
   );
 };
-/ Extended carrier options with additional carriers
+
+// Extended carrier options with additional carriers
 const EXTENDED_CARRIER_OPTIONS = [
   {
     id: 'usps',
@@ -315,4 +321,5 @@ const BulkShipmentFilters: React.FC<BulkShipmentFiltersProps> = ({
     </div>
   );
 };
+
 export default RateFilter;
