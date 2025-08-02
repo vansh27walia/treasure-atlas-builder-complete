@@ -102,7 +102,7 @@ const BulkUploadPage = () => {
                         </li>
                         <li className="flex items-center space-x-2">
                           <CheckCircle className="w-4 h-4 text-green-600" />
-                          <span>EasyPost API compatibility</span>
+                          <span>API compatibility</span>
                         </li>
                         <li className="flex items-center space-x-2">
                           <Brain className="w-4 h-4 text-purple-600" />
@@ -173,7 +173,7 @@ const BulkUploadPage = () => {
             {/* CSV Field Requirements */}
             <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="text-xl">EasyPost CSV Field Requirements</CardTitle>
+                <CardTitle className="text-xl">CSV Field Requirements</CardTitle>
                 <CardDescription>
                   Required and optional fields following EasyPost's format
                 </CardDescription>
