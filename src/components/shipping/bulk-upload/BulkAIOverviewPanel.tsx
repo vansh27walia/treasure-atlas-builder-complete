@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +8,6 @@ import { X, Brain, Star, Clock, DollarSign, Shield, Zap, Truck, Award, MapPin, M
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import CarrierLogo from '../CarrierLogo';
-
 interface BulkAIOverviewPanelProps {
   selectedShipment?: any;
   allShipments: any[];
@@ -18,7 +16,6 @@ interface BulkAIOverviewPanelProps {
   onRateChange: (shipmentId: string, rateId: string) => void;
   onOptimizationChange: (filter: string, shipmentId?: string) => void;
 }
-
 interface AIAnalysis {
   overallScore: number;
   reliabilityScore: number;
@@ -35,14 +32,12 @@ interface AIAnalysis {
     isAIRecommended: boolean;
   };
 }
-
 interface ChatMessage {
   id: string;
   content: string;
   role: 'user' | 'assistant';
   timestamp: Date;
 }
-
 const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
   selectedShipment,
   allShipments,
@@ -55,46 +50,86 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [analysisMode, setAnalysisMode] = useState<'individual' | 'combined'>('individual');
   const [selectedShipmentId, setSelectedShipmentId] = useState<string>('');
-  
+
   // Chat functionality
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatLoading, setIsChatLoading] = useState(false);
   const [showChat, setShowChat] = useState(false);
-
-  const optimizationFilters = [
-    { id: 'cheapest', label: 'Cheapest', icon: '💰', color: 'bg-green-100 text-green-800' },
-    { id: 'fastest', label: 'Fastest', icon: '⚡', color: 'bg-yellow-100 text-yellow-800' },
-    { id: 'balanced', label: 'Most Efficient', icon: '✅', color: 'bg-blue-100 text-blue-800' },
-    { id: 'door-delivery', label: 'Door Delivery', icon: '📦', color: 'bg-purple-100 text-purple-800' },
-    { id: 'po-box', label: 'PO Box Delivery', icon: '📫', color: 'bg-indigo-100 text-indigo-800' },
-    { id: 'eco-friendly', label: 'Eco Friendly', icon: '🌱', color: 'bg-green-100 text-green-800' },
-    { id: '2-day', label: '2-Day Delivery', icon: '🕓', color: 'bg-orange-100 text-orange-800' },
-    { id: 'express', label: 'Express Delivery', icon: '🚀', color: 'bg-red-100 text-red-800' },
-    { id: 'most-reliable', label: 'Most Reliable', icon: '🛡️', color: 'bg-gray-100 text-gray-800' },
-    { id: 'ai-recommended', label: 'AI Recommended', icon: '🧠', color: 'bg-pink-100 text-pink-800' }
-  ];
-
+  const optimizationFilters = [{
+    id: 'cheapest',
+    label: 'Cheapest',
+    icon: '💰',
+    color: 'bg-green-100 text-green-800'
+  }, {
+    id: 'fastest',
+    label: 'Fastest',
+    icon: '⚡',
+    color: 'bg-yellow-100 text-yellow-800'
+  }, {
+    id: 'balanced',
+    label: 'Most Efficient',
+    icon: '✅',
+    color: 'bg-blue-100 text-blue-800'
+  }, {
+    id: 'door-delivery',
+    label: 'Door Delivery',
+    icon: '📦',
+    color: 'bg-purple-100 text-purple-800'
+  }, {
+    id: 'po-box',
+    label: 'PO Box Delivery',
+    icon: '📫',
+    color: 'bg-indigo-100 text-indigo-800'
+  }, {
+    id: 'eco-friendly',
+    label: 'Eco Friendly',
+    icon: '🌱',
+    color: 'bg-green-100 text-green-800'
+  }, {
+    id: '2-day',
+    label: '2-Day Delivery',
+    icon: '🕓',
+    color: 'bg-orange-100 text-orange-800'
+  }, {
+    id: 'express',
+    label: 'Express Delivery',
+    icon: '🚀',
+    color: 'bg-red-100 text-red-800'
+  }, {
+    id: 'most-reliable',
+    label: 'Most Reliable',
+    icon: '🛡️',
+    color: 'bg-gray-100 text-gray-800'
+  }, {
+    id: 'ai-recommended',
+    label: 'AI Recommended',
+    icon: '🧠',
+    color: 'bg-pink-100 text-pink-800'
+  }];
   const analyzeRates = async () => {
     if (!allShipments.length) return;
-    
     setIsLoading(true);
-    
     try {
-      const analysisData = analysisMode === 'individual' && selectedShipment
-        ? { shipment: selectedShipment, allShipments, mode: 'individual' }
-        : { allShipments, mode: 'combined' };
-
-      const { data, error } = await supabase.functions.invoke('analyze-bulk-shipping-rates', {
+      const analysisData = analysisMode === 'individual' && selectedShipment ? {
+        shipment: selectedShipment,
+        allShipments,
+        mode: 'individual'
+      } : {
+        allShipments,
+        mode: 'combined'
+      };
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('analyze-bulk-shipping-rates', {
         body: analysisData
       });
-
       if (error) {
         console.error('Error analyzing rates:', error);
         toast.error('Failed to analyze rates');
         return;
       }
-
       setAnalysis(data);
     } catch (error) {
       console.error('Error:', error);
@@ -103,7 +138,6 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
       setIsLoading(false);
     }
   };
-
   const handleShipmentChange = (shipmentId: string) => {
     setSelectedShipmentId(shipmentId);
     const newSelectedShipment = allShipments.find(s => s.id === shipmentId);
@@ -112,7 +146,6 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
       analyzeRates();
     }
   };
-
   const handleRateChangeInternal = (rateId: string) => {
     const targetShipmentId = analysisMode === 'individual' ? selectedShipmentId || selectedShipment?.id : '';
     if (targetShipmentId) {
@@ -120,29 +153,27 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
       toast.success('Rate updated successfully');
     }
   };
-
   const handleQuickChange = (filterId: string) => {
     const targetShipmentId = analysisMode === 'individual' ? selectedShipmentId || selectedShipment?.id : undefined;
     onOptimizationChange(filterId, targetShipmentId);
     toast.success(`Applied ${filterId} optimization`);
   };
-
   const sendChatMessage = async () => {
     if (!chatInput.trim()) return;
-    
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       content: chatInput,
       role: 'user',
       timestamp: new Date()
     };
-    
     setChatMessages(prev => [...prev, userMessage]);
     setChatInput('');
     setIsChatLoading(true);
-    
     try {
-      const { data, error } = await supabase.functions.invoke('bulk-shipping-ai-chat', {
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('bulk-shipping-ai-chat', {
         body: {
           message: userMessage.content,
           shipments: allShipments,
@@ -153,18 +184,15 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
           }
         }
       });
-
       if (error) {
         throw new Error(error.message);
       }
-
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         content: data.response,
         role: 'assistant',
         timestamp: new Date()
       };
-      
       setChatMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Chat error:', error);
@@ -179,22 +207,18 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
     const handlePaymentSuccess = () => {
       onClose();
     };
-
     const handlePaymentStart = () => {
       onClose();
     };
-
     document.addEventListener('payment-success', handlePaymentSuccess);
     document.addEventListener('payment-start', handlePaymentStart);
     document.addEventListener('payment-cancel', handlePaymentSuccess);
-
     return () => {
       document.removeEventListener('payment-success', handlePaymentSuccess);
       document.removeEventListener('payment-start', handlePaymentStart);
       document.removeEventListener('payment-cancel', handlePaymentSuccess);
     };
   }, [onClose]);
-
   useEffect(() => {
     if (isOpen) {
       if (selectedShipment) {
@@ -206,17 +230,10 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
       analyzeRates();
     }
   }, [isOpen, selectedShipment, analysisMode]);
-
   if (!isOpen) return null;
-
-  const currentShipment = analysisMode === 'individual' 
-    ? (allShipments.find(s => s.id === selectedShipmentId) || selectedShipment)
-    : null;
-
+  const currentShipment = analysisMode === 'individual' ? allShipments.find(s => s.id === selectedShipmentId) || selectedShipment : null;
   const currentRates = currentShipment?.availableRates || [];
-
-  return (
-    <div className="fixed top-0 right-0 h-screen w-96 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
+  return <div className="fixed top-0 right-0 h-screen w-96 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
       <Card className="h-full rounded-none border-0 flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 text-white z-10 flex-shrink-0 py-3">
           <CardTitle className="flex items-center gap-2 text-sm">
@@ -248,8 +265,7 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
           </div>
 
           {/* Shipment Selector (for individual mode) */}
-          {analysisMode === 'individual' && (
-            <div className="space-y-2">
+          {analysisMode === 'individual' && <div className="space-y-2">
               <h4 className="font-semibold text-gray-900 flex items-center gap-1 text-sm">
                 <Truck className="w-3 h-3" />
                 Select Shipment
@@ -259,8 +275,7 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                   <SelectValue placeholder="Select shipment" />
                 </SelectTrigger>
                 <SelectContent className="bg-white border-2 shadow-lg z-50">
-                  {allShipments.map((shipment) => (
-                    <SelectItem key={shipment.id} value={shipment.id} className="hover:bg-gray-50">
+                  {allShipments.map(shipment => <SelectItem key={shipment.id} value={shipment.id} className="hover:bg-gray-50">
                       <div className="flex items-center gap-2 w-full">
                         <div className="flex-1">
                           <div className="font-medium text-xs">{shipment.recipient}</div>
@@ -269,16 +284,13 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                           </div>
                         </div>
                       </div>
-                    </SelectItem>
-                  ))}
+                    </SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
-          )}
+            </div>}
 
           {/* Rate Selector (for individual mode) */}
-          {analysisMode === 'individual' && currentRates.length > 0 && (
-            <div className="space-y-2">
+          {analysisMode === 'individual' && currentRates.length > 0 && <div className="space-y-2">
               <h4 className="font-semibold text-gray-900 flex items-center gap-1 text-sm">
                 <Truck className="w-3 h-3" />
                 Change Rate
@@ -288,8 +300,7 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                   <SelectValue placeholder="Select rate" />
                 </SelectTrigger>
                 <SelectContent className="bg-white border-2 shadow-lg z-50">
-                  {currentRates.map((rate) => (
-                    <SelectItem key={rate.id} value={rate.id} className="hover:bg-gray-50">
+                  {currentRates.map(rate => <SelectItem key={rate.id} value={rate.id} className="hover:bg-gray-50">
                       <div className="flex items-center gap-2 w-full">
                         <CarrierLogo carrier={rate.carrier} className="w-4 h-4" />
                         <div className="flex-1">
@@ -299,44 +310,35 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                           </div>
                         </div>
                       </div>
-                    </SelectItem>
-                  ))}
+                    </SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
-          )}
+            </div>}
 
           {/* Selected Rate/Shipment Info */}
-          {analysisMode === 'individual' && currentShipment && (
-            <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
+          {analysisMode === 'individual' && currentShipment && <div className="p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
               <div className="flex items-center gap-2 mb-2">
                 <CarrierLogo carrier={currentShipment.carrier} className="w-6 h-6" />
                 <h3 className="font-semibold text-blue-900 text-sm">{currentShipment.carrier}</h3>
               </div>
               <p className="text-lg font-bold text-blue-800">${parseFloat(currentShipment.rate || 0).toFixed(2)}</p>
               <p className="text-xs text-blue-600">To: {currentShipment.recipient}</p>
-            </div>
-          )}
+            </div>}
 
-          {analysisMode === 'combined' && (
-            <div className="p-3 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200">
+          {analysisMode === 'combined' && <div className="p-3 bg-gradient-to-r from-green-50 to-green-100 rounded-lg border border-green-200">
               <div className="flex items-center gap-2 mb-2">
                 <Award className="w-6 h-6 text-green-600" />
                 <h3 className="font-semibold text-green-900 text-sm">Combined Analysis</h3>
               </div>
               <p className="text-lg font-bold text-green-800">{allShipments.length} Shipments</p>
               <p className="text-xs text-green-600">Total: ${allShipments.reduce((sum, s) => sum + parseFloat(s.rate || 0), 0).toFixed(2)}</p>
-            </div>
-          )}
+            </div>}
 
           {/* AI Analysis */}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-6">
+          {isLoading ? <div className="flex items-center justify-center py-6">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
               <span className="ml-2 text-sm">AI analyzing...</span>
-            </div>
-          ) : analysis ? (
-            <div className="space-y-3">
+            </div> : analysis ? <div className="space-y-3">
               {/* Overall Score */}
               <div className="text-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
                 <div className="text-2xl font-bold text-blue-800">{analysis.overallScore}/100</div>
@@ -346,26 +348,18 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
 
               {/* Labels */}
               <div className="space-y-1">
-                {analysis.labels.isCheapest && (
-                  <Badge className="w-full justify-start bg-green-100 text-green-800 border-green-300 text-xs py-1">
+                {analysis.labels.isCheapest && <Badge className="w-full justify-start bg-green-100 text-green-800 border-green-300 text-xs py-1">
                     💰 Cheapest option
-                  </Badge>
-                )}
-                {analysis.labels.isFastest && (
-                  <Badge className="w-full justify-start bg-yellow-100 text-yellow-800 border-yellow-300 text-xs py-1">
+                  </Badge>}
+                {analysis.labels.isFastest && <Badge className="w-full justify-start bg-yellow-100 text-yellow-800 border-yellow-300 text-xs py-1">
                     ⚡ Fastest delivery
-                  </Badge>
-                )}
-                {analysis.labels.isMostReliable && (
-                  <Badge className="w-full justify-start bg-blue-100 text-blue-800 border-blue-300 text-xs py-1">
+                  </Badge>}
+                {analysis.labels.isMostReliable && <Badge className="w-full justify-start bg-blue-100 text-blue-800 border-blue-300 text-xs py-1">
                     🛡️ Most reliable
-                  </Badge>
-                )}
-                {analysis.labels.isMostEfficient && (
-                  <Badge className="w-full justify-start bg-purple-100 text-purple-800 border-purple-300 text-xs py-1">
+                  </Badge>}
+                {analysis.labels.isMostEfficient && <Badge className="w-full justify-start bg-purple-100 text-purple-800 border-purple-300 text-xs py-1">
                     ✅ Most efficient
-                  </Badge>
-                )}
+                  </Badge>}
               </div>
 
               {/* Detailed Scores */}
@@ -415,8 +409,7 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                 </div>
                 <p className="text-xs text-gray-700">{analysis.recommendation}</p>
               </div>
-            </div>
-          ) : null}
+            </div> : null}
 
           {/* Quick Change Guide */}
           <div className="space-y-3 border border-gray-200 rounded-lg p-3">
@@ -427,17 +420,10 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
             
             {/* Top 3 Quick Change Options */}
             <div className="grid grid-cols-1 gap-1">
-              {optimizationFilters.slice(0, 3).map((filter) => (
-                <Button
-                  key={filter.id}
-                  variant="outline"
-                  className="justify-start h-auto p-2 border hover:bg-blue-50 text-xs"
-                  onClick={() => handleQuickChange(filter.id)}
-                >
+              {optimizationFilters.slice(0, 3).map(filter => <Button key={filter.id} variant="outline" className="justify-start h-auto p-2 border hover:bg-blue-50 text-xs" onClick={() => handleQuickChange(filter.id)}>
                   <span className="mr-1">{filter.icon}</span>
                   {filter.label}
-                </Button>
-              ))}
+                </Button>)}
             </div>
 
             {/* Expandable More Options */}
@@ -446,75 +432,18 @@ const BulkAIOverviewPanel: React.FC<BulkAIOverviewPanelProps> = ({
                 Show More ({optimizationFilters.length - 3} more)
               </summary>
               <div className="mt-2 grid grid-cols-1 gap-1">
-                {optimizationFilters.slice(3).map((filter) => (
-                  <Button
-                    key={filter.id}
-                    variant="outline"
-                    className="justify-start h-auto p-2 text-xs border hover:bg-gray-50"
-                    onClick={() => handleQuickChange(filter.id)}
-                  >
+                {optimizationFilters.slice(3).map(filter => <Button key={filter.id} variant="outline" className="justify-start h-auto p-2 text-xs border hover:bg-gray-50" onClick={() => handleQuickChange(filter.id)}>
                     <span className="mr-1">{filter.icon}</span>
                     {filter.label}
-                  </Button>
-                ))}
+                  </Button>)}
               </div>
             </details>
           </div>
         </CardContent>
 
         {/* AI Chatbot Section - Fixed at bottom */}
-        <div className="border-t bg-gray-50 p-3">
-          <Button
-            onClick={() => setShowChat(!showChat)}
-            className="w-full mb-2 bg-purple-600 hover:bg-purple-700 text-white text-xs h-8"
-          >
-            <MessageCircle className="w-3 h-3 mr-1" />
-            AI Assistant
-          </Button>
-          
-          {showChat && (
-            <div className="space-y-2">
-              <div className="h-32 overflow-y-auto bg-white rounded border p-2 text-xs space-y-1">
-                {chatMessages.map((message) => (
-                  <div key={message.id} className={`p-1 rounded ${
-                    message.role === 'user' 
-                      ? 'bg-blue-100 text-blue-800 ml-4' 
-                      : 'bg-gray-100 text-gray-800 mr-4'
-                  }`}>
-                    <p className="text-xs">{message.content}</p>
-                  </div>
-                ))}
-                {isChatLoading && (
-                  <div className="text-gray-500 text-xs">AI is thinking...</div>
-                )}
-              </div>
-              <div className="flex gap-1">
-                <Textarea
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="Ask about your shipments..."
-                  className="flex-1 h-8 text-xs resize-none"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      sendChatMessage();
-                    }
-                  }}
-                />
-                <Button
-                  onClick={sendChatMessage}
-                  disabled={!chatInput.trim() || isChatLoading}
-                  className="h-8 w-8 p-0 bg-purple-600 hover:bg-purple-700"
-                >
-                  <Send className="w-3 h-3" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
+        
       </Card>
-    </div>
-  );
+    </div>;
 };
-
 export default BulkAIOverviewPanel;
