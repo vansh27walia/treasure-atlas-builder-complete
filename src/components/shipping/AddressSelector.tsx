@@ -189,14 +189,16 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
           </span>
         </div>
         
-        {/* Address selector dropdown */}
-        <SelectAddressDropdown
-          onAddressSelected={handleSavedAddressSelected}
-          onAddNew={handleAddNewAddress}
-          defaultAddress={defaultAddress}
-          placeholder={type === 'from' ? 'Select pickup address' : 'Select delivery address'}
-          isPickupAddress={type === 'from'}
-        />
+        {/* Only show address selector dropdown for pickup addresses (from), not for delivery (to) */}
+        {type === 'from' && (
+          <SelectAddressDropdown
+            onAddressSelected={handleSavedAddressSelected}
+            onAddNew={handleAddNewAddress}
+            defaultAddress={defaultAddress}
+            placeholder="Select pickup address"
+            isPickupAddress={true}
+          />
+        )}
       </div>
       
       {showAddressForm && (

@@ -4,10 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
-import { Package, Truck, DollarSign, TrendingUp, Calendar, MapPin, Clock, AlertTriangle, Globe, Users, Target, Activity } from 'lucide-react';
+import { Package, Truck, DollarSign, TrendingUp, Calendar, MapPin, Clock, AlertTriangle, Globe, Users, Target, Activity, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/sonner';
+import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
+
 interface ShipmentAnalytics {
   totalShipments: number;
   totalSpent: number;
@@ -45,6 +47,7 @@ interface ShipmentAnalytics {
   averageDeliveryTime: number;
   internationalShipments: number;
 }
+
 const AnalyticsPage: React.FC = () => {
   const {
     user
@@ -52,11 +55,13 @@ const AnalyticsPage: React.FC = () => {
   const [analytics, setAnalytics] = useState<ShipmentAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y' | 'all'>('30d');
+
   useEffect(() => {
     if (user) {
       fetchRealAnalytics();
     }
   }, [user, timeRange]);
+
   const fetchRealAnalytics = async () => {
     try {
       setIsLoading(true);
@@ -276,6 +281,7 @@ const AnalyticsPage: React.FC = () => {
       setIsLoading(false);
     }
   };
+
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -292,6 +298,63 @@ const AnalyticsPage: React.FC = () => {
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
+
+  const downloadAnalyticsCSV = () => {
+    if (!analytics) {
+      toast.error('No analytics data available to download');
+      return;
+    }
+
+    // Create CSV content
+    const csvContent = [
+      // Header
+      'Type,Data,Value,Date',
+      // Summary data
+      `Summary,Total Shipments,${analytics.totalShipments},${new Date().toISOString()}`,
+      `Summary,Total Spent,$${analytics.totalSpent.toFixed(2)},${new Date().toISOString()}`,
+      `Summary,Average Cost,$${analytics.averageCost.toFixed(2)},${new Date().toISOString()}`,
+      `Summary,International Shipments,${analytics.internationalShipments},${new Date().toISOString()}`,
+      '',
+      // Carrier data
+      'Carrier Data,Carrier,Count,Percentage',
+      ...analytics.popularCarriers.map(carrier => 
+        `Carrier,${carrier.name},${carrier.count},${carrier.percentage}%`
+      ),
+      '',
+      // Monthly trends
+      'Monthly Trends,Month,Shipments,Cost',
+      ...analytics.monthlyTrends.map(trend =>
+        `Monthly,${trend.month},${trend.shipments},$${trend.cost.toFixed(2)}`
+      ),
+      '',
+      // Status distribution
+      'Status Distribution,Status,Count,Percentage',
+      ...analytics.statusDistribution.map(status =>
+        `Status,${status.status},${status.count},${status.percentage}%`
+      ),
+      '',
+      // Recent shipments
+      'Recent Shipments,Tracking Code,Carrier,Cost,Status,Date',
+      ...analytics.recentShipments.map(shipment =>
+        `Shipment,${shipment.tracking_code},${shipment.carrier},$${shipment.cost.toFixed(2)},${shipment.status},${new Date(shipment.created_at).toLocaleDateString()}`
+      )
+    ].join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `shipping-analytics-${timeRange}-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Analytics data downloaded successfully!');
+    }
+  };
+
   if (isLoading) {
     return <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center h-64">
@@ -299,6 +362,7 @@ const AnalyticsPage: React.FC = () => {
         </div>
       </div>;
   }
+
   if (!analytics) {
     return <div className="container mx-auto px-4 py-8">
         <div className="text-center">
@@ -311,12 +375,28 @@ const AnalyticsPage: React.FC = () => {
         </div>
       </div>;
   }
-  return <div className="container mx-auto px-4 py-8 space-y-8">
+
+  return (
+    <div className="container mx-auto px-4 py-8 space-y-8">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          Shipping Analytics
-        </h1>
-        <p className="text-gray-600 text-lg">Real-time insights from your shipping data</p>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Shipping Analytics
+            </h1>
+            <p className="text-gray-600 text-lg">Real-time insights from your shipping data</p>
+          </div>
+          
+          {/* Download Button */}
+          <Button 
+            onClick={downloadAnalyticsCSV}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+            disabled={!analytics}
+          >
+            <Download className="h-4 w-4" />
+            Download CSV
+          </Button>
+        </div>
       </div>
 
       {/* Enhanced Time Range Selector */}
@@ -677,6 +757,11 @@ const AnalyticsPage: React.FC = () => {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>;
+
+      {/* ShipAI Chatbot */}
+      <ShipAIChatbot onClose={() => {}} />
+    </div>
+  );
 };
+
 export default AnalyticsPage;
