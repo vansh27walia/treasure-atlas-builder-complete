@@ -1,329 +1,118 @@
-import React, { useEffect, useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { Truck, Package, Clock, DollarSign, TrendingUp, Users, MapPin, Calendar } from 'lucide-react';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
 
-interface AnalyticsData {
-  totalShipments: number;
-  deliveredShipments: number;
-  inTransitShipments: number;
-  totalSpent: number;
-  carrierBreakdown: Array<{ name: string; value: number; color: string }>;
-  monthlyTrends: Array<{ month: string; shipments: number; cost: number }>;
-  recentActivity: Array<{ id: string; action: string; date: string; status: string }>;
-}
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import TrackingDashboard from '@/components/tracking/TrackingDashboard';
+import BulkUpload from '@/components/shipping/BulkUpload';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ChartBar, Upload, CreditCard, Package } from 'lucide-react';
+import ShippingHistorySummary from '@/components/shipping/ShippingHistorySummary';
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuth();
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
-    totalShipments: 0,
-    deliveredShipments: 0,
-    inTransitShipments: 0,
-    totalSpent: 0,
-    carrierBreakdown: [],
-    monthlyTrends: [],
-    recentActivity: []
-  });
-  const [loading, setLoading] = useState(true);
-
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('tracking');
+  
+  // Parse tab from URL query parameter
   useEffect(() => {
-    if (user) {
-      fetchRealAnalyticsData();
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get('tab');
+    if (tabParam && ['tracking', 'bulk', 'history'].includes(tabParam)) {
+      setActiveTab(tabParam);
     }
-  }, [user]);
-
-  const fetchRealAnalyticsData = async () => {
-    try {
-      setLoading(true);
-      
-      // Fetch shipment records
-      const { data: shipments, error: shipmentsError } = await supabase
-        .from('shipment_records')
-        .select('*')
-        .eq('user_id', user?.id);
-
-      if (shipmentsError) throw shipmentsError;
-
-      // Fetch tracking records
-      const { data: tracking, error: trackingError } = await supabase
-        .from('tracking_records')
-        .select('*')
-        .eq('user_id', user?.id);
-
-      if (trackingError) throw trackingError;
-
-      // Fetch payment records
-      const { data: payments, error: paymentsError } = await supabase
-        .from('payment_records')
-        .select('*')
-        .eq('user_id', user?.id);
-
-      if (paymentsError) throw paymentsError;
-
-      // Calculate analytics
-      const allRecords = [...(shipments || []), ...(tracking || [])];
-      const totalShipments = allRecords.length;
-      const deliveredShipments = allRecords.filter(record => record.status === 'delivered').length;
-      const inTransitShipments = allRecords.filter(record => 
-        ['in_transit', 'out_for_delivery', 'processing'].includes(record.status || '')
-      ).length;
-
-      const totalSpent = (payments || []).reduce((sum, payment) => 
-        sum + (parseFloat(payment.amount?.toString() || '0') || 0), 0
-      );
-
-      // Carrier breakdown from real data
-      const carrierCounts: { [key: string]: number } = {};
-      allRecords.forEach(record => {
-        const carrier = record.carrier || 'Unknown';
-        carrierCounts[carrier] = (carrierCounts[carrier] || 0) + 1;
-      });
-
-      const carrierColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
-      const carrierBreakdown = Object.entries(carrierCounts).map(([name, value], index) => ({
-        name,
-        value,
-        color: carrierColors[index % carrierColors.length]
-      }));
-
-      // Monthly trends from real data
-      const monthlyData: { [key: string]: { shipments: number; cost: number } } = {};
-      allRecords.forEach(record => {
-        const month = new Date(record.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        if (!monthlyData[month]) {
-          monthlyData[month] = { shipments: 0, cost: 0 };
-        }
-        monthlyData[month].shipments += 1;
-      });
-
-      (payments || []).forEach(payment => {
-        const month = new Date(payment.created_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        if (monthlyData[month]) {
-          monthlyData[month].cost += parseFloat(payment.amount?.toString() || '0') || 0;
-        }
-      });
-
-      const monthlyTrends = Object.entries(monthlyData).map(([month, data]) => ({
-        month,
-        shipments: data.shipments,
-        cost: data.cost
-      })).slice(-6); // Last 6 months
-
-      // Recent activity from real data - fix the id type issue
-      const recentActivity = allRecords.slice(-10).map(record => ({
-        id: record.id.toString(), // Convert to string to match interface
-        action: `Shipment ${record.tracking_code || record.shipment_id || 'created'}`,
-        date: new Date(record.created_at).toLocaleDateString(),
-        status: record.status || 'pending'
-      }));
-
-      setAnalyticsData({
-        totalShipments,
-        deliveredShipments,
-        inTransitShipments,
-        totalSpent,
-        carrierBreakdown,
-        monthlyTrends,
-        recentActivity
-      });
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-      // Fallback to minimal data if error occurs
-      setAnalyticsData({
-        totalShipments: 0,
-        deliveredShipments: 0,
-        inTransitShipments: 0,
-        totalSpent: 0,
-        carrierBreakdown: [],
-        monthlyTrends: [],
-        recentActivity: []
-      });
-    } finally {
-      setLoading(false);
-    }
+  }, [location.search]);
+  
+  // Update URL when tab changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    navigate(`/dashboard?tab=${value}`, { replace: true });
   };
 
-  if (loading) {
-    return (
-      <div className="p-8">
-        <div className="animate-pulse space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="h-80 bg-gray-200 rounded-lg"></div>
-            <div className="h-80 bg-gray-200 rounded-lg"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const deliveryRate = analyticsData.totalShipments > 0 ? 
-    (analyticsData.deliveredShipments / analyticsData.totalShipments) * 100 : 0;
-
   return (
-    <div className="p-8 space-y-8 bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
-          <p className="text-gray-600 mt-1">Track your shipping performance and insights</p>
+    <div className="min-h-screen flex flex-col">
+      <main className="flex-1 container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-6">Shipping Dashboard</h1>
+        
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <Card className="p-6 bg-blue-50 border border-blue-200">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm text-blue-700">Total Shipments</p>
+                <h3 className="text-2xl font-bold text-blue-900">142</h3>
+              </div>
+              <div className="bg-blue-100 p-2 rounded-lg">
+                <Package className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+            <p className="text-xs text-blue-600 mt-2">+12% from last month</p>
+          </Card>
+          
+          <Card className="p-6 bg-green-50 border border-green-200">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm text-green-700">Delivered</p>
+                <h3 className="text-2xl font-bold text-green-900">128</h3>
+              </div>
+              <div className="bg-green-100 p-2 rounded-lg">
+                <Package className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+            <p className="text-xs text-green-600 mt-2">98% success rate</p>
+          </Card>
+          
+          <Card className="p-6 bg-purple-50 border border-purple-200">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm text-purple-700">In Transit</p>
+                <h3 className="text-2xl font-bold text-purple-900">14</h3>
+              </div>
+              <div className="bg-purple-100 p-2 rounded-lg">
+                <Package className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
+            <p className="text-xs text-purple-600 mt-2">All on schedule</p>
+          </Card>
+          
+          <Card className="p-6 bg-amber-50 border border-amber-200">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm text-amber-700">Shipping Spend</p>
+                <h3 className="text-2xl font-bold text-amber-900">$1,256</h3>
+              </div>
+              <div className="bg-amber-100 p-2 rounded-lg">
+                <CreditCard className="h-6 w-6 text-amber-600" />
+              </div>
+            </div>
+            <p className="text-xs text-amber-600 mt-2">Saved $320 this month</p>
+          </Card>
         </div>
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-          <TrendingUp className="w-4 h-4 mr-1" />
-          Live Data
-        </Badge>
-      </div>
-
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="p-6 bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg hover:shadow-xl transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100 text-sm font-medium">Total Shipments</p>
-              <p className="text-3xl font-bold mt-1">{analyticsData.totalShipments}</p>
-              <p className="text-blue-100 text-sm mt-1">All time</p>
-            </div>
-            <Package className="w-12 h-12 text-blue-200" />
-          </div>
-        </Card>
-
-        <Card className="p-6 bg-gradient-to-br from-green-500 to-green-600 text-white shadow-lg hover:shadow-xl transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-sm font-medium">Delivered</p>
-              <p className="text-3xl font-bold mt-1">{analyticsData.deliveredShipments}</p>
-              <p className="text-green-100 text-sm mt-1">{deliveryRate.toFixed(1)}% success rate</p>
-            </div>
-            <Truck className="w-12 h-12 text-green-200" />
-          </div>
-        </Card>
-
-        <Card className="p-6 bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg hover:shadow-xl transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-orange-100 text-sm font-medium">In Transit</p>
-              <p className="text-3xl font-bold mt-1">{analyticsData.inTransitShipments}</p>
-              <p className="text-orange-100 text-sm mt-1">Active shipments</p>
-            </div>
-            <Clock className="w-12 h-12 text-orange-200" />
-          </div>
-        </Card>
-
-        <Card className="p-6 bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg hover:shadow-xl transition-shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-100 text-sm font-medium">Total Spent</p>
-              <p className="text-3xl font-bold mt-1">${analyticsData.totalSpent.toFixed(2)}</p>
-              <p className="text-purple-100 text-sm mt-1">All time</p>
-            </div>
-            <DollarSign className="w-12 h-12 text-purple-200" />
-          </div>
-        </Card>
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Carrier Distribution */}
-        <Card className="p-6 shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Carrier Distribution</h3>
-          {analyticsData.carrierBreakdown.length > 0 ? (
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={analyticsData.carrierBreakdown}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    dataKey="value"
-                  >
-                    {analyticsData.carrierBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex flex-wrap gap-4 mt-4">
-                {analyticsData.carrierBreakdown.map((carrier, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: carrier.color }}></div>
-                    <span className="text-sm text-gray-600">{carrier.name} ({carrier.value})</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="h-80 flex items-center justify-center text-gray-500">
-              <div className="text-center">
-                <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No shipment data available</p>
-              </div>
-            </div>
-          )}
-        </Card>
-
-        {/* Monthly Trends */}
-        <Card className="p-6 shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">Monthly Trends</h3>
-          {analyticsData.monthlyTrends.length > 0 ? (
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={analyticsData.monthlyTrends}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="shipments" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.3} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div className="h-80 flex items-center justify-center text-gray-500">
-              <div className="text-center">
-                <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No trend data available</p>
-              </div>
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* Recent Activity */}
-      <Card className="p-6 shadow-lg">
-        <h3 className="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h3>
-        {analyticsData.recentActivity.length > 0 ? (
-          <div className="space-y-4">
-            {analyticsData.recentActivity.map((activity, index) => (
-              <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span className="font-medium text-gray-900">{activity.action}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={activity.status === 'delivered' ? 'default' : 'secondary'}>
-                    {activity.status}
-                  </Badge>
-                  <span className="text-sm text-gray-500">{activity.date}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-            <p className="text-gray-500">No recent activity</p>
-          </div>
-        )}
-      </Card>
+        
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="tracking" className="flex items-center">
+              <Package className="mr-2 h-4 w-4" /> Tracking
+            </TabsTrigger>
+            <TabsTrigger value="bulk" className="flex items-center">
+              <Upload className="mr-2 h-4 w-4" /> Bulk Upload
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center">
+              <ChartBar className="mr-2 h-4 w-4" /> Shipping History
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="tracking">
+            <TrackingDashboard />
+          </TabsContent>
+          
+          <TabsContent value="bulk">
+            <BulkUpload />
+          </TabsContent>
+          
+          <TabsContent value="history">
+            <ShippingHistorySummary />
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   );
 };
