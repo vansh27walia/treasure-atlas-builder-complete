@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -58,11 +59,32 @@ const Index = () => {
           return;
         }
 
-        // Combine shipments and shipment_records
-        const allShipments = [...(shipments || []), ...(shipmentRecords || [])];
+        // Process shipments and shipment_records separately
+        const processedShipments = (shipments || []).map(shipment => ({
+          id: shipment.id?.toString() || 'unknown',
+          tracking_code: shipment.tracking_code || 'N/A',
+          carrier: shipment.carrier || 'Unknown',
+          cost: 0, // shipments table doesn't have cost data
+          status: shipment.status || 'created',
+          created_at: shipment.created_at,
+          source: 'shipments' as const
+        }));
+
+        const processedRecords = (shipmentRecords || []).map(record => ({
+          id: record.id?.toString() || 'unknown',
+          tracking_code: record.tracking_code || 'N/A',
+          carrier: record.carrier || 'Unknown',
+          cost: record.charged_rate || record.easypost_rate || 0,
+          status: record.status || 'created',
+          created_at: record.created_at,
+          source: 'shipment_records' as const
+        }));
+
+        // Combine both datasets
+        const allShipments = [...processedShipments, ...processedRecords];
 
         const totalShipments = allShipments.length;
-        const totalSpent = (shipmentRecords || []).reduce((sum, record) => sum + (record.charged_rate || record.easypost_rate || 0), 0);
+        const totalSpent = processedRecords.reduce((sum, record) => sum + record.cost, 0);
         const averageCost = totalShipments > 0 ? totalSpent / totalShipments : 0;
 
         // Fetch recent shipments (last 5)
@@ -70,11 +92,11 @@ const Index = () => {
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
           .slice(0, 5)
           .map(shipment => ({
-            id: shipment.id?.toString() || 'unknown',
-            tracking_code: shipment.tracking_code || 'N/A',
-            carrier: shipment.carrier || 'Unknown',
-            cost: shipment.charged_rate || shipment.easypost_rate || 0,
-            status: shipment.status || 'created',
+            id: shipment.id,
+            tracking_code: shipment.tracking_code,
+            carrier: shipment.carrier,
+            cost: shipment.cost,
+            status: shipment.status,
             created_at: shipment.created_at
           }));
 
