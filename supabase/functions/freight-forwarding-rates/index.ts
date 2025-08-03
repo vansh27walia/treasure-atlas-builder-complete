@@ -52,52 +52,15 @@ serve(async (req) => {
     if (!freightApiKey || !freightApiSecret) {
       console.error('Missing Freightos API credentials in Supabase secrets')
       
-      // Return mock data for development/testing when credentials are not available
-      const mockRates = [
-        {
-          carrier: "Maersk Line",
-          serviceType: "ocean",
-          serviceLevel: "standard",
-          transitTime: "15-20 days",
-          totalCost: 2850,
-          currency: "USD",
-          notes: "Port-to-port service. Customs clearance not included."
-        },
-        {
-          carrier: "CMA CGM",
-          serviceType: "ocean",
-          serviceLevel: "express",
-          transitTime: "12-15 days",
-          totalCost: 3200,
-          currency: "USD",
-          notes: "Expedited service with priority loading."
-        },
-        {
-          carrier: "DHL Global Forwarding",
-          serviceType: "air",
-          serviceLevel: "standard",
-          transitTime: "3-5 days",
-          totalCost: 4500,
-          currency: "USD",
-          notes: "Airport-to-airport service. Door delivery available."
-        },
-        {
-          carrier: "Kuehne + Nagel",
-          serviceType: "multimodal",
-          serviceLevel: "economy",
-          transitTime: "18-25 days",
-          totalCost: 2400,
-          currency: "USD",
-          notes: "Combination of ocean and land transport for cost efficiency."
-        }
-      ]
-
-      console.log('Returning mock data due to missing API credentials')
       return new Response(
-        JSON.stringify({ rates: mockRates }),
+        JSON.stringify({ 
+          error: 'API credentials not configured',
+          message: 'Freightos API credentials are required to get real freight rates. Please contact support to configure your API access.',
+          requiresSetup: true
+        }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
+          status: 400 
         }
       )
     }
@@ -149,53 +112,19 @@ serve(async (req) => {
     })
 
     if (!freightosResponse.ok) {
-      console.error('Freightos API error:', freightosResponse.status, freightosResponse.statusText)
-      
-      // Return enhanced mock data if API fails
-      const enhancedMockRates = [
-        {
-          carrier: "Maersk Line",
-          serviceType: "ocean",
-          serviceLevel: "standard",
-          transitTime: "15-20 days",
-          totalCost: Math.floor(Math.random() * 1000) + 2500,
-          currency: "USD",
-          notes: "Port-to-port service. Customs clearance not included."
-        },
-        {
-          carrier: "CMA CGM",
-          serviceType: "ocean",
-          serviceLevel: "express",
-          transitTime: "12-15 days",
-          totalCost: Math.floor(Math.random() * 800) + 3000,
-          currency: "USD",
-          notes: "Expedited service with priority loading."
-        },
-        {
-          carrier: "DHL Global Forwarding",
-          serviceType: "air",
-          serviceLevel: "standard",
-          transitTime: "3-5 days",
-          totalCost: Math.floor(Math.random() * 1200) + 4200,
-          currency: "USD",
-          notes: "Airport-to-airport service. Door delivery available."
-        },
-        {
-          carrier: "Kuehne + Nagel",
-          serviceType: "multimodal",
-          serviceLevel: "economy",
-          transitTime: "18-25 days",
-          totalCost: Math.floor(Math.random() * 600) + 2200,
-          currency: "USD",
-          notes: "Combination of ocean and land transport for cost efficiency."
-        }
-      ]
+      const errorText = await freightosResponse.text()
+      console.error('Freightos API error:', freightosResponse.status, freightosResponse.statusText, errorText)
       
       return new Response(
-        JSON.stringify({ rates: enhancedMockRates }),
+        JSON.stringify({ 
+          error: 'Failed to get freight rates',
+          message: `API request failed: ${freightosResponse.statusText}`,
+          details: errorText,
+          statusCode: freightosResponse.status
+        }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200 
+          status: 502
         }
       )
     }
@@ -214,8 +143,26 @@ serve(async (req) => {
       notes: quote.notes
     })) || []
 
+    if (rates.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'No rates available',
+          message: 'No freight rates were returned for this route. Please check your shipment details and try again.',
+          rates: []
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200
+        }
+      )
+    }
+
     return new Response(
-      JSON.stringify({ rates }),
+      JSON.stringify({ 
+        rates,
+        message: `Found ${rates.length} freight rate(s)`,
+        source: 'freightos_api'
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200 
@@ -227,7 +174,8 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ 
-        error: 'Failed to get freight rates',
+        error: 'Internal server error',
+        message: 'An unexpected error occurred while processing your request.',
         details: error.message 
       }),
       { 

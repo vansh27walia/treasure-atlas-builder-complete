@@ -49,114 +49,106 @@ serve(async (req) => {
     const freightApiKey = Deno.env.get('FREIGHTOS_API_KEY')
     const freightApiSecret = Deno.env.get('FREIGHTOS_API_SECRET')
 
-    let bookingResponse;
-
     if (!freightApiKey || !freightApiSecret) {
-      console.log('Missing Freightos API credentials, using mock booking response')
+      console.error('Missing Freightos API credentials, cannot process booking')
       
-      // Mock booking response for development/testing
-      bookingResponse = {
-        bookingReference: `FF-${Date.now()}`,
-        status: 'confirmed',
-        carrier: rate.carrier,
-        serviceType: rate.serviceType,
-        totalCost: rate.totalCost,
-        currency: rate.currency || 'USD',
-        transitTime: rate.transitTime,
-        origin: origin,
-        destination: destination,
-        loadDetails: loadDetails,
-        bookingDate: new Date().toISOString(),
-        expectedDelivery: new Date(Date.now() + (15 * 24 * 60 * 60 * 1000)).toISOString() // +15 days
-      }
-    } else {
-      // Prepare payload for Freightos booking API
-      const bookingPayload = {
-        rate_id: rate.id || `rate_${Date.now()}`,
-        origin: {
-          type: origin.locationType,
-          country: origin.country,
-          address: origin.address
-        },
-        destination: {
-          type: destination.locationType,
-          country: destination.country,
-          address: destination.address
-        },
-        loads: loadDetails.loads.map((load: any) => {
-          if (loadDetails.type === 'loose-cargo') {
-            return {
-              type: 'loose_cargo',
-              calculate_by: load.calculateBy,
-              unit_type: load.unitType,
-              quantity: load.quantity,
-              dimensions: load.dimensions,
-              weight: load.weight,
-              total_volume: load.totalVolume
-            }
-          } else {
-            return {
-              type: 'container',
-              quantity: load.quantity,
-              container_size: load.containerSize,
-              is_overweight: load.isOverweight
-            }
-          }
+      return new Response(
+        JSON.stringify({ 
+          error: 'API credentials not configured',
+          message: 'Freightos API credentials are required to process freight bookings. Please contact support to configure your API access.',
+          requiresSetup: true
         }),
-        carrier: rate.carrier,
-        service_type: rate.serviceType,
-        total_cost: rate.totalCost
-      }
-
-      console.log('Calling Freightos booking API with payload:', bookingPayload)
-
-      // Call Freightos booking API
-      const freightosResponse = await fetch('https://api.freightos.com/forwarding/bookings', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Key ${freightApiKey}:${freightApiSecret}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(bookingPayload)
-      })
-
-      if (!freightosResponse.ok) {
-        console.error('Freightos booking API error:', freightosResponse.status, freightosResponse.statusText)
-        
-        // Fallback to mock response if API fails
-        bookingResponse = {
-          bookingReference: `FF-${Date.now()}`,
-          status: 'confirmed',
-          carrier: rate.carrier,
-          serviceType: rate.serviceType,
-          totalCost: rate.totalCost,
-          currency: rate.currency || 'USD',
-          transitTime: rate.transitTime,
-          origin: origin,
-          destination: destination,
-          loadDetails: loadDetails,
-          bookingDate: new Date().toISOString(),
-          expectedDelivery: new Date(Date.now() + (15 * 24 * 60 * 60 * 1000)).toISOString()
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400
         }
-      } else {
-        const freightosData = await freightosResponse.json()
-        console.log('Freightos booking API response:', freightosData)
-        
-        bookingResponse = {
-          bookingReference: freightosData.booking_reference || `FF-${Date.now()}`,
-          status: freightosData.status || 'confirmed',
-          carrier: rate.carrier,
-          serviceType: rate.serviceType,
-          totalCost: rate.totalCost,
-          currency: rate.currency || 'USD',
-          transitTime: rate.transitTime,
-          origin: origin,
-          destination: destination,
-          loadDetails: loadDetails,
-          bookingDate: new Date().toISOString(),
-          expectedDelivery: freightosData.expected_delivery || new Date(Date.now() + (15 * 24 * 60 * 60 * 1000)).toISOString()
+      )
+    }
+
+    // Prepare payload for Freightos booking API
+    const bookingPayload = {
+      rate_id: rate.id || `rate_${Date.now()}`,
+      origin: {
+        type: origin.locationType,
+        country: origin.country,
+        address: origin.address
+      },
+      destination: {
+        type: destination.locationType,
+        country: destination.country,
+        address: destination.address
+      },
+      loads: loadDetails.loads.map((load: any) => {
+        if (loadDetails.type === 'loose-cargo') {
+          return {
+            type: 'loose_cargo',
+            calculate_by: load.calculateBy,
+            unit_type: load.unitType,
+            quantity: load.quantity,
+            dimensions: load.dimensions,
+            weight: load.weight,
+            total_volume: load.totalVolume
+          }
+        } else {
+          return {
+            type: 'container',
+            quantity: load.quantity,
+            container_size: load.containerSize,
+            is_overweight: load.isOverweight
+          }
         }
-      }
+      }),
+      carrier: rate.carrier,
+      service_type: rate.serviceType,
+      total_cost: rate.totalCost
+    }
+
+    console.log('Calling Freightos booking API with payload:', bookingPayload)
+
+    // Call Freightos booking API
+    const freightosResponse = await fetch('https://api.freightos.com/forwarding/bookings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Key ${freightApiKey}:${freightApiSecret}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(bookingPayload)
+    })
+
+    if (!freightosResponse.ok) {
+      const errorText = await freightosResponse.text()
+      console.error('Freightos booking API error:', freightosResponse.status, freightosResponse.statusText, errorText)
+      
+      return new Response(
+        JSON.stringify({ 
+          error: 'Booking failed',
+          message: `Failed to process booking: ${freightosResponse.statusText}`,
+          details: errorText,
+          statusCode: freightosResponse.status
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 502
+        }
+      )
+    }
+
+    const freightosData = await freightosResponse.json()
+    console.log('Freightos booking API response:', freightosData)
+    
+    const bookingResponse = {
+      bookingReference: freightosData.booking_reference || `FF-${Date.now()}`,
+      status: freightosData.status || 'confirmed',
+      carrier: rate.carrier,
+      serviceType: rate.serviceType,
+      totalCost: rate.totalCost,
+      currency: rate.currency || 'USD',
+      transitTime: rate.transitTime,
+      origin: origin,
+      destination: destination,
+      loadDetails: loadDetails,
+      bookingDate: new Date().toISOString(),
+      expectedDelivery: freightosData.expected_delivery || new Date(Date.now() + (15 * 24 * 60 * 60 * 1000)).toISOString()
     }
 
     // Save booking record to database
@@ -185,7 +177,11 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify(bookingResponse),
+      JSON.stringify({
+        ...bookingResponse,
+        message: 'Booking completed successfully',
+        source: 'freightos_api'
+      }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200 
@@ -197,7 +193,8 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ 
-        error: 'Failed to process booking',
+        error: 'Internal server error',
+        message: 'An unexpected error occurred while processing your booking.',
         details: error.message 
       }),
       { 

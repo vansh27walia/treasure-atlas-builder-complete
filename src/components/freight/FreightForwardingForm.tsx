@@ -32,6 +32,7 @@ const FreightForwardingForm: React.FC = () => {
   const [rates, setRates] = useState<FreightRate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showLoadDetails, setShowLoadDetails] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const updateFormData = (section: keyof FreightFormData, data: any) => {
     setFormData(prev => ({
@@ -62,6 +63,8 @@ const FreightForwardingForm: React.FC = () => {
     }
 
     setIsLoading(true);
+    setError(null);
+    
     try {
       console.log('Requesting freight rates with data:', formData);
       
@@ -71,21 +74,36 @@ const FreightForwardingForm: React.FC = () => {
 
       if (error) {
         console.error('Error getting freight rates:', error);
-        toast.error('Failed to get freight rates. Please try again.');
+        
+        if (error.message?.includes('credentials not configured')) {
+          setError('API credentials are not configured. Please contact support to set up Freightos API access for real freight rates.');
+          toast.error('API setup required for real freight rates');
+        } else {
+          setError(`Failed to get freight rates: ${error.message || 'Unknown error'}`);
+          toast.error('Failed to get freight rates. Please try again.');
+        }
         return;
       }
 
       console.log('Received freight rates:', data);
       
+      if (data?.requiresSetup) {
+        setError(data.message);
+        toast.error('API setup required');
+        return;
+      }
+      
       if (data?.rates && data.rates.length > 0) {
         setRates(data.rates);
-        toast.success(`Found ${data.rates.length} freight quotes!`);
+        toast.success(`Found ${data.rates.length} real freight quotes from ${data.source || 'API'}!`);
       } else {
-        toast.warning('No freight rates found for this route. Please try different parameters.');
+        setError('No freight rates found for this route. Please check your shipment details and try again.');
+        toast.warning('No freight rates found for this route');
         setRates([]);
       }
     } catch (error) {
       console.error('Error fetching freight rates:', error);
+      setError('Failed to connect to freight rate API. Please check your connection and try again.');
       toast.error('Failed to get freight rates. Please try again.');
     } finally {
       setIsLoading(false);
@@ -99,6 +117,27 @@ const FreightForwardingForm: React.FC = () => {
 
   return (
     <div className="space-y-8">
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">
+                Error Getting Freight Rates
+              </h3>
+              <div className="mt-2 text-sm text-red-700">
+                {error}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Progress Steps */}
       <div className="flex items-center justify-center space-x-4 mb-8">
         <div className="flex items-center">
@@ -127,7 +166,7 @@ const FreightForwardingForm: React.FC = () => {
           </div>
           <span className={`ml-2 text-sm font-medium ${
             rates.length > 0 ? 'text-gray-900' : 'text-gray-500'
-          }`}>Get Quotes</span>
+          }`}>Get Real Quotes</span>
         </div>
       </div>
 
@@ -158,7 +197,7 @@ const FreightForwardingForm: React.FC = () => {
           <div className="flex items-center justify-center">
             <div className="border-t border-gray-200 flex-1"></div>
             <div className="mx-6 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-              Ready to get quotes?
+              Ready to get real freight quotes?
             </div>
             <div className="border-t border-gray-200 flex-1"></div>
           </div>
@@ -174,12 +213,12 @@ const FreightForwardingForm: React.FC = () => {
               {isLoading ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                  Getting Your Quotes...
+                  Getting Real Quotes...
                 </div>
               ) : (
                 <div className="flex items-center">
                   <Calculator className="w-5 h-5 mr-3" />
-                  Get Freight Quotes
+                  Get Real Freight Quotes
                 </div>
               )}
             </Button>
@@ -193,7 +232,7 @@ const FreightForwardingForm: React.FC = () => {
           <div className="flex items-center justify-center">
             <div className="border-t border-gray-200 flex-1"></div>
             <div className="mx-6 px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-              Your freight quotes are ready!
+              Your real freight quotes are ready!
             </div>
             <div className="border-t border-gray-200 flex-1"></div>
           </div>
