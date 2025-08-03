@@ -15,6 +15,7 @@ export const useShipmentManagement = (
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl'>('pdf');
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
 
   const loadDefaultPickupAddress = async () => {
     try {
@@ -39,17 +40,25 @@ export const useShipmentManagement = (
       shipment => shipment.id !== shipmentId
     );
     
-    // Recalculate totals
+    // Recalculate totals including insurance
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate?.rate || 0);
+      const shippingCost = selectedRate?.rate || 0;
+      const insuranceCost = shipment.insurance_amount || 0;
+      return sum + shippingCost + insuranceCost;
+    }, 0);
+    
+    // Calculate separate insurance total
+    const totalInsurance = updatedShipments.reduce((sum, shipment) => {
+      return sum + (shipment.insurance_amount || 0);
     }, 0);
     
     updateResults({
       ...initialResults,
       processedShipments: updatedShipments,
       successful: updatedShipments.length,
-      totalCost
+      totalCost,
+      totalInsurance
     });
     
     toast("Shipment removed", {
@@ -78,9 +87,73 @@ export const useShipmentManagement = (
       processedShipments: updatedShipments
     });
     
+    // Re-fetch rates after editing
+    handleRefreshRates(shipmentId);
+    
     toast("Shipment updated", {
-      description: "The shipment details have been updated"
+      description: "The shipment details have been updated. Refreshing rates..."
     });
+  };
+
+  const handleRefreshRates = async (shipmentId?: string) => {
+    if (!initialResults) return;
+    
+    try {
+      toast("Refreshing rates...", {
+        description: "Fetching latest shipping rates"
+      });
+      
+      // If specific shipment ID provided, refresh only that shipment
+      const shipmentsToRefresh = shipmentId 
+        ? initialResults.processedShipments.filter(s => s.id === shipmentId)
+        : initialResults.processedShipments;
+      
+      // Call the bulk upload processor to refresh rates
+      const { data, error } = await supabase.functions.invoke('process-bulk-upload', {
+        body: { 
+          shipments: shipmentsToRefresh.map(s => ({
+            ...s.details,
+            id: s.id
+          })),
+          pickupAddress: pickupAddress,
+          refreshRates: true
+        }
+      });
+
+      if (error) throw new Error(error.message);
+      
+      // Update results with new rates
+      const updatedShipments = initialResults.processedShipments.map(shipment => {
+        const refreshedShipment = data.processedShipments.find((s: any) => s.id === shipment.id);
+        return refreshedShipment || shipment;
+      });
+      
+      // Recalculate totals
+      const totalCost = updatedShipments.reduce((sum, shipment) => {
+        const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
+        return sum + (selectedRate?.rate || 0);
+      }, 0);
+      
+      const totalInsurance = updatedShipments.reduce((sum, shipment) => {
+        return sum + (shipment.insurance_amount || 0);
+      }, 0);
+      
+      updateResults({
+        ...initialResults,
+        processedShipments: updatedShipments,
+        totalCost,
+        totalInsurance
+      });
+      
+      toast("Rates refreshed successfully", {
+        description: "All shipping rates have been updated"
+      });
+    } catch (error) {
+      console.error('Error refreshing rates:', error);
+      toast("Failed to refresh rates", {
+        description: error instanceof Error ? error.message : "Please try again"
+      });
+    }
   };
   
   const handleProceedToPayment = async () => {
@@ -94,26 +167,40 @@ export const useShipmentManagement = (
     setIsPaying(true);
     
     try {
-      // Calculate total amount in cents for Stripe
-      const amountInCents = Math.round(initialResults.totalCost * 100);
+      // Calculate total including insurance
+      const shippingCost = initialResults.processedShipments.reduce((sum, shipment) => {
+        const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
+        return sum + (selectedRate?.rate || 0);
+      }, 0);
+      
+      const insuranceCost = initialResults.processedShipments.reduce((sum, shipment) => {
+        return sum + (shipment.insurance_amount || 0);
+      }, 0);
+      
+      const totalAmount = shippingCost + insuranceCost;
+      const amountInCents = Math.round(totalAmount * 100);
       
       // Create checkout session with Stripe
       const { data, error } = await supabase.functions.invoke('create-bulk-checkout', {
         body: { 
           amount: amountInCents,
           quantity: initialResults.successful,
-          description: `Bulk Shipping - ${initialResults.successful} labels`,
+          description: `Bulk Shipping - ${initialResults.successful} labels (including insurance)`,
           metadata: {
             shipment_ids: initialResults.processedShipments.map(s => s.id).join(','),
-            pickup_address_id: pickupAddress?.id
+            pickup_address_id: pickupAddress?.id,
+            shipping_cost: shippingCost,
+            insurance_cost: insuranceCost,
+            total_cost: totalAmount
           }
         }
       });
 
       if (error) throw new Error(error.message);
       
-      // Update with label creation before redirecting to payment
-      await handleCreateLabels();
+      toast("Redirecting to payment...", {
+        description: `Processing payment for $${totalAmount.toFixed(2)}`
+      });
       
       // Redirect to Stripe checkout
       window.location.href = data.url;
@@ -192,13 +279,10 @@ export const useShipmentManagement = (
         updateResults({
           ...initialResults,
           processedShipments: updatedShipments,
-          totalCost: initialResults.totalCost,
           successful: successCount,
-          failed: initialResults.processedShipments.length - successCount
+          failed: initialResults.processedShipments.length - successCount,
+          uploadStatus: 'success'
         });
-        
-        // Update upload status in parent component
-        setUploadStatus('success');
       } else {
         toast("Label generation failed", {
           description: "No labels were generated, please try again"
@@ -225,8 +309,6 @@ export const useShipmentManagement = (
     // Show label options modal
     setShowLabelOptions(true);
   };
-
-  const [showLabelOptions, setShowLabelOptions] = useState(false);
   
   const handleDownloadLabelsWithFormat = (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!initialResults || !initialResults.processedShipments.length) return;
@@ -301,17 +383,6 @@ export const useShipmentManagement = (
       toast.success(`Using ${address.name || 'selected'} address for pickup`);
     }
   };
-  
-  // This function is needed for the updated component but doesn't exist in the original hook
-  const setUploadStatus = (status: 'idle' | 'success' | 'error' | 'editing') => {
-    // This should be passed from the parent hook
-    if (initialResults) {
-      updateResults({
-        ...initialResults,
-        uploadStatus: status
-      });
-    }
-  };
 
   return {
     isPaying,
@@ -321,6 +392,7 @@ export const useShipmentManagement = (
     pickupAddress,
     handleRemoveShipment,
     handleEditShipment,
+    handleRefreshRates,
     handleProceedToPayment,
     handleCreateLabels,
     handleDownloadAllLabels,

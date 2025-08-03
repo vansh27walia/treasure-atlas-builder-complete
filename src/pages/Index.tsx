@@ -1,74 +1,99 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Package, Truck, ChartBar, Upload, CreditCard, TrendingUp, MapPin, Clock, Users, Calculator, FileText, Plane, Container, Settings } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Index: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState({
-    totalShipments: 248,
-    deliveredShipments: 231,
-    inTransitShipments: 17,
-    totalSpent: 3456.78,
+    totalShipments: 0,
+    deliveredShipments: 0,
+    inTransitShipments: 0,
+    totalSpent: 0,
     recentShipments: [],
-    topCarriers: [
-      { carrier: 'USPS', count: 98 },
-      { carrier: 'FedEx', count: 87 },
-      { carrier: 'UPS', count: 63 }
-    ]
+    topCarriers: []
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchRealData = async () => {
-      try {
-        setLoading(true);
-        // Fetch shipments data from the correct table
-        const { data: shipments } = await supabase
-          .from('shipments')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(10);
+    if (user) {
+      fetchRealData();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
-        if (shipments && shipments.length > 0) {
-          const totalShipments = shipments.length;
-          const deliveredShipments = shipments.filter(s => s.status === 'delivered').length;
-          const inTransitShipments = shipments.filter(s => s.status === 'in_transit' || s.status === 'created').length;
-          
-          const totalSpent = shipments.length * 14.25;
+  const fetchRealData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch real shipments data
+      const { data: shipments, error: shipmentsError } = await supabase
+        .from('shipments')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
 
-          const carrierStats: Record<string, number> = {};
-          shipments.forEach(shipment => {
-            const carrier = shipment.carrier || 'USPS';
-            carrierStats[carrier] = (carrierStats[carrier] || 0) + 1;
-          });
+      if (shipmentsError) throw shipmentsError;
 
-          const topCarriers = Object.entries(carrierStats)
-            .sort(([,a], [,b]) => (b as number) - (a as number))
-            .slice(0, 3)
-            .map(([carrier, count]) => ({ carrier, count: count as number }));
+      // Fetch shipment records for cost data
+      const { data: shipmentRecords, error: recordsError } = await supabase
+        .from('shipment_records')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
 
-          setDashboardData({
-            totalShipments,
-            deliveredShipments,
-            inTransitShipments,
-            totalSpent,
-            recentShipments: shipments.slice(0, 5),
-            topCarriers
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        // Keep realistic sample data as fallback
-      } finally {
-        setLoading(false);
-      }
-    };
+      if (recordsError) throw recordsError;
 
-    fetchRealData();
-  }, []);
+      // Calculate real statistics
+      const totalShipments = (shipments?.length || 0) + (shipmentRecords?.length || 0);
+      const deliveredShipments = (shipments?.filter(s => s.status === 'delivered').length || 0) + 
+                                 (shipmentRecords?.filter(s => s.status === 'delivered').length || 0);
+      const inTransitShipments = (shipments?.filter(s => ['in_transit', 'created', 'pending'].includes(s.status || '')).length || 0) +
+                                 (shipmentRecords?.filter(s => ['in_transit', 'created', 'pending'].includes(s.status || '')).length || 0);
+
+      // Calculate total spent from real data
+      const totalSpent = shipmentRecords?.reduce((sum, record) => {
+        return sum + (Number(record.charged_rate) || Number(record.easypost_rate) || 0);
+      }, 0) || 0;
+
+      // Combine all shipments for recent activity
+      const allShipments = [
+        ...(shipments || []).map(s => ({ ...s, source: 'shipments' })),
+        ...(shipmentRecords || []).map(s => ({ ...s, source: 'records' }))
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      // Get carrier statistics from real data
+      const carrierStats: Record<string, number> = {};
+      allShipments.forEach(shipment => {
+        const carrier = shipment.carrier || 'USPS';
+        carrierStats[carrier] = (carrierStats[carrier] || 0) + 1;
+      });
+
+      const topCarriers = Object.entries(carrierStats)
+        .sort(([,a], [,b]) => (b as number) - (a as number))
+        .slice(0, 3)
+        .map(([carrier, count]) => ({ carrier, count: count as number }));
+
+      setDashboardData({
+        totalShipments,
+        deliveredShipments,
+        inTransitShipments,
+        totalSpent,
+        recentShipments: allShipments.slice(0, 5),
+        topCarriers
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Quick action items for the top section - only 4 main options
   const quickActionItems = [
@@ -172,7 +197,9 @@ const Index: React.FC = () => {
               <div className="text-2xl font-bold text-blue-900">
                 {loading ? '...' : dashboardData.totalShipments.toLocaleString()}
               </div>
-              <p className="text-xs text-blue-600 mt-1">+12% from last month</p>
+              <p className="text-xs text-blue-600 mt-1">
+                {user ? 'Real shipment data' : 'Sign in to see your data'}
+              </p>
             </CardContent>
           </Card>
 
@@ -188,7 +215,7 @@ const Index: React.FC = () => {
               <p className="text-xs text-green-600 mt-1">
                 {dashboardData.totalShipments > 0 
                   ? `${Math.round((dashboardData.deliveredShipments / dashboardData.totalShipments) * 100)}% success rate`
-                  : '93% success rate'
+                  : user ? 'No deliveries yet' : 'Sign in to see data'
                 }
               </p>
             </CardContent>
@@ -203,7 +230,9 @@ const Index: React.FC = () => {
               <div className="text-2xl font-bold text-orange-900">
                 {loading ? '...' : dashboardData.inTransitShipments}
               </div>
-              <p className="text-xs text-orange-600 mt-1">Active shipments</p>
+              <p className="text-xs text-orange-600 mt-1">
+                {user ? 'Active shipments' : 'Sign in to track'}
+              </p>
             </CardContent>
           </Card>
 
@@ -214,9 +243,11 @@ const Index: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-purple-900">
-                ${loading ? '...' : dashboardData.totalSpent.toLocaleString()}
+                ${loading ? '...' : dashboardData.totalSpent.toFixed(2)}
               </div>
-              <p className="text-xs text-purple-600 mt-1">Total shipping costs</p>
+              <p className="text-xs text-purple-600 mt-1">
+                {user ? 'Actual shipping costs' : 'Sign in to see costs'}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -258,7 +289,12 @@ const Index: React.FC = () => {
               <CardDescription className="text-blue-100">Your most recent shipping activity</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
-              {loading ? (
+              {!user ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 mb-4">Sign in to see your recent shipments</p>
+                  <Button onClick={() => navigate('/auth')}>Sign In</Button>
+                </div>
+              ) : loading ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map(i => (
                     <div key={i} className="animate-pulse">
@@ -272,17 +308,21 @@ const Index: React.FC = () => {
                   {dashboardData.recentShipments.slice(0, 3).map((shipment: any, index) => (
                     <div key={index} className="flex justify-between items-center p-4 border border-gray-200 rounded-lg bg-gradient-to-r from-gray-50 to-blue-50 hover:shadow-md transition-all">
                       <div>
-                        <p className="font-medium text-gray-900">{shipment.carrier || 'USPS'} - {shipment.tracking_code || `TRK${1000 + index}`}</p>
+                        <p className="font-medium text-gray-900">
+                          {shipment.carrier || 'USPS'} - {shipment.tracking_code || `TRK${Date.now() + index}`}
+                        </p>
                         <p className={`text-sm font-medium ${
                           shipment.status === 'delivered' ? 'text-green-600' :
                           shipment.status === 'in_transit' ? 'text-blue-600' :
                           'text-gray-600'
                         }`}>
-                          {shipment.status?.replace('_', ' ').toUpperCase() || 'DELIVERED'}
+                          {shipment.status?.replace('_', ' ').toUpperCase() || 'CREATED'}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold text-gray-900">$14.25</p>
+                        <p className="font-semibold text-gray-900">
+                          ${shipment.charged_rate || shipment.easypost_rate || '0.00'}
+                        </p>
                         <Button variant="outline" size="sm" onClick={() => navigate('/dashboard?tab=tracking')} className="mt-1">
                           Details
                         </Button>
@@ -291,31 +331,9 @@ const Index: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {[
-                    { carrier: 'USPS', code: 'TRK1001', status: 'DELIVERED' },
-                    { carrier: 'FedEx', code: 'TRK1002', status: 'IN TRANSIT' },
-                    { carrier: 'UPS', code: 'TRK1003', status: 'DELIVERED' }
-                  ].map((shipment, index) => (
-                    <div key={index} className="flex justify-between items-center p-4 border border-gray-200 rounded-lg bg-gradient-to-r from-gray-50 to-blue-50 hover:shadow-md transition-all">
-                      <div>
-                        <p className="font-medium text-gray-900">{shipment.carrier} - {shipment.code}</p>
-                        <p className={`text-sm font-medium ${
-                          shipment.status === 'DELIVERED' ? 'text-green-600' :
-                          shipment.status === 'IN TRANSIT' ? 'text-blue-600' :
-                          'text-gray-600'
-                        }`}>
-                          {shipment.status}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">$14.25</p>
-                        <Button variant="outline" size="sm" onClick={() => navigate('/dashboard?tab=tracking')} className="mt-1">
-                          Details
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                <div className="text-center py-8">
+                  <p className="text-gray-500 mb-4">No shipments yet</p>
+                  <Button onClick={() => navigate('/create-label')}>Create First Label</Button>
                 </div>
               )}
             </CardContent>
@@ -336,24 +354,32 @@ const Index: React.FC = () => {
               <CardDescription className="text-teal-100">Performance metrics</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
-                  <span className="text-gray-700 font-medium">Avg Cost</span>
-                  <span className="font-bold text-gray-900">
-                    ${dashboardData.totalShipments > 0 ? (dashboardData.totalSpent / dashboardData.totalShipments).toFixed(2) : '13.94'}
-                  </span>
+              {!user ? (
+                <div className="text-center py-4">
+                  <p className="text-gray-500 mb-2">Sign in to view analytics</p>
                 </div>
-                
-                <div className="space-y-3">
-                  <span className="text-gray-700 font-medium text-sm">Top Carriers</span>
-                  {dashboardData.topCarriers.map((carrier, index) => (
-                    <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
-                      <span className="capitalize text-gray-700 font-medium">{carrier.carrier}</span>
-                      <span className="font-semibold text-blue-600">{carrier.count}</span>
-                    </div>
-                  ))}
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg">
+                    <span className="text-gray-700 font-medium">Avg Cost</span>
+                    <span className="font-bold text-gray-900">
+                      ${dashboardData.totalShipments > 0 ? (dashboardData.totalSpent / dashboardData.totalShipments).toFixed(2) : '0.00'}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <span className="text-gray-700 font-medium text-sm">Top Carriers</span>
+                    {dashboardData.topCarriers.length > 0 ? dashboardData.topCarriers.map((carrier, index) => (
+                      <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
+                        <span className="capitalize text-gray-700 font-medium">{carrier.carrier}</span>
+                        <span className="font-semibold text-blue-600">{carrier.count}</span>
+                      </div>
+                    )) : (
+                      <p className="text-gray-500 text-sm">No carriers used yet</p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
             <CardFooter className="bg-gray-50 rounded-b-lg">
               <Button variant="ghost" onClick={() => navigate('/dashboard?tab=history')} className="w-full">

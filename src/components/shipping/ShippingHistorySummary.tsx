@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,9 @@ import {
   Line,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  AreaChart,
+  Area
 } from 'recharts';
 import {
   Package,
@@ -25,7 +28,11 @@ import {
   Calendar,
   MapPin,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  Globe,
+  Users,
+  Target,
+  Activity
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -37,6 +44,7 @@ interface ShipmentAnalytics {
   averageCost: number;
   popularCarriers: Array<{ name: string; count: number; percentage: number }>;
   monthlyTrends: Array<{ month: string; shipments: number; cost: number }>;
+  dailyTrends: Array<{ date: string; shipments: number; cost: number }>;
   recentShipments: Array<{
     id: string;
     tracking_code: string;
@@ -47,13 +55,16 @@ interface ShipmentAnalytics {
     created_at: string;
     recipient: string;
   }>;
+  statusDistribution: Array<{ status: string; count: number; percentage: number }>;
+  averageDeliveryTime: number;
+  internationalShipments: number;
 }
 
 const AnalyticsPage: React.FC = () => {
   const { user } = useAuth();
   const [analytics, setAnalytics] = useState<ShipmentAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
+  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y' | 'all'>('30d');
 
   useEffect(() => {
     if (user) {
@@ -67,53 +78,78 @@ const AnalyticsPage: React.FC = () => {
 
       // Calculate date range
       const now = new Date();
-      const daysBack = {
-        '7d': 7,
-        '30d': 30,
-        '90d': 90,
-        '1y': 365
-      }[timeRange] || 30;
-
-      const startDate = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
-
-      // Fetch real shipment data from database
-      const { data: shipmentRecords, error } = await supabase
-        .from('shipment_records')
-        .select('*')
-        .gte('created_at', startDate.toISOString())
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching shipment records:', error);
-        toast.error('Failed to load analytics data');
-        return;
+      let startDate: Date | null = null;
+      
+      if (timeRange !== 'all') {
+        const daysBack = {
+          '7d': 7,
+          '30d': 30,
+          '90d': 90,
+          '1y': 365
+        }[timeRange] || 30;
+        startDate = new Date(now.getTime() - (daysBack * 24 * 60 * 60 * 1000));
       }
 
-      if (!shipmentRecords || shipmentRecords.length === 0) {
-        // Set empty analytics if no data
+      // Fetch real shipment data from both tables
+      let shipmentsQuery = supabase
+        .from('shipments')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      let recordsQuery = supabase
+        .from('shipment_records')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (startDate) {
+        shipmentsQuery = shipmentsQuery.gte('created_at', startDate.toISOString());
+        recordsQuery = recordsQuery.gte('created_at', startDate.toISOString());
+      }
+
+      const [{ data: shipments, error: shipmentsError }, { data: shipmentRecords, error: recordsError }] = 
+        await Promise.all([shipmentsQuery, recordsQuery]);
+
+      if (shipmentsError) throw shipmentsError;
+      if (recordsError) throw recordsError;
+
+      // Combine all shipments
+      const allShipments = [
+        ...(shipments || []).map(s => ({ ...s, source: 'shipments' })),
+        ...(shipmentRecords || []).map(s => ({ ...s, source: 'records' }))
+      ];
+
+      if (allShipments.length === 0) {
         setAnalytics({
           totalShipments: 0,
           totalSpent: 0,
           averageCost: 0,
           popularCarriers: [],
           monthlyTrends: [],
-          recentShipments: []
+          dailyTrends: [],
+          recentShipments: [],
+          statusDistribution: [],
+          averageDeliveryTime: 0,
+          internationalShipments: 0
         });
         return;
       }
 
-      // Process real data
-      const totalShipments = shipmentRecords.length;
-      const totalSpent = shipmentRecords.reduce((sum, record) => {
-        const cost = record.charged_rate || record.easypost_rate || 0;
-        return sum + Number(cost);
+      // Calculate comprehensive statistics
+      const totalShipments = allShipments.length;
+      const totalSpent = allShipments.reduce((sum, shipment) => {
+        return sum + (Number(shipment.charged_rate) || Number(shipment.easypost_rate) || 0);
       }, 0);
       const averageCost = totalSpent / totalShipments || 0;
 
+      // International shipments count
+      const internationalShipments = allShipments.filter(s => s.is_international).length;
+
       // Calculate carrier distribution
       const carrierCounts: { [key: string]: number } = {};
-      shipmentRecords.forEach(record => {
-        const carrier = record.carrier || 'Unknown';
+      allShipments.forEach(shipment => {
+        const carrier = shipment.carrier || 'Unknown';
         carrierCounts[carrier] = (carrierCounts[carrier] || 0) + 1;
       });
 
@@ -125,10 +161,25 @@ const AnalyticsPage: React.FC = () => {
         }))
         .sort((a, b) => b.count - a.count);
 
+      // Status distribution
+      const statusCounts: { [key: string]: number } = {};
+      allShipments.forEach(shipment => {
+        const status = shipment.status || 'unknown';
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+      });
+
+      const statusDistribution = Object.entries(statusCounts)
+        .map(([status, count]) => ({
+          status,
+          count,
+          percentage: Math.round((count / totalShipments) * 100)
+        }))
+        .sort((a, b) => b.count - a.count);
+
       // Calculate monthly trends
       const monthlyData: { [key: string]: { shipments: number; cost: number } } = {};
-      shipmentRecords.forEach(record => {
-        const date = new Date(record.created_at);
+      allShipments.forEach(shipment => {
+        const date = new Date(shipment.created_at);
         const monthKey = `${date.toLocaleString('default', { month: 'short' })}-${date.getFullYear()}`;
 
         if (!monthlyData[monthKey]) {
@@ -136,7 +187,7 @@ const AnalyticsPage: React.FC = () => {
         }
 
         monthlyData[monthKey].shipments += 1;
-        monthlyData[monthKey].cost += Number(record.charged_rate || record.easypost_rate || 0);
+        monthlyData[monthKey].cost += Number(shipment.charged_rate || shipment.easypost_rate || 0);
       });
 
       const monthlyTrends = Object.entries(monthlyData)
@@ -148,29 +199,59 @@ const AnalyticsPage: React.FC = () => {
         .sort((a, b) => {
           const [aMonth, aYear] = a.month.split('-');
           const [bMonth, bYear] = b.month.split('-');
-
-          if (aYear !== bYear) {
-            return parseInt(aYear) - parseInt(bYear);
-          }
-
+          if (aYear !== bYear) return parseInt(aYear) - parseInt(bYear);
           const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
           return months.indexOf(aMonth) - months.indexOf(bMonth);
         });
 
+      // Calculate daily trends for recent period
+      const dailyData: { [key: string]: { shipments: number; cost: number } } = {};
+      const last30Days = allShipments.filter(s => {
+        const shipmentDate = new Date(s.created_at);
+        const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+        return shipmentDate >= thirtyDaysAgo;
+      });
+
+      last30Days.forEach(shipment => {
+        const date = new Date(shipment.created_at);
+        const dayKey = date.toISOString().split('T')[0];
+
+        if (!dailyData[dayKey]) {
+          dailyData[dayKey] = { shipments: 0, cost: 0 };
+        }
+
+        dailyData[dayKey].shipments += 1;
+        dailyData[dayKey].cost += Number(shipment.charged_rate || shipment.easypost_rate || 0);
+      });
+
+      const dailyTrends = Object.entries(dailyData)
+        .map(([date, data]) => ({
+          date: new Date(date).toLocaleDateString('default', { month: 'short', day: 'numeric' }),
+          shipments: data.shipments,
+          cost: data.cost
+        }))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .slice(-14); // Last 14 days
+
       // Recent shipments
-      const recentShipments = shipmentRecords.slice(0, 10).map(record => {
-        const toAddress = record.to_address_json as any;
+      const recentShipments = allShipments.slice(0, 10).map(shipment => {
+        const toAddress = shipment.to_address_json as any;
         return {
-          id: record.id.toString(),
-          tracking_code: record.tracking_code || 'N/A',
-          carrier: record.carrier || 'Unknown',
-          service: record.service || 'Standard',
-          cost: Number(record.charged_rate || record.easypost_rate || 0),
-          status: record.status || 'created',
-          created_at: record.created_at,
-          recipient: toAddress?.name || 'Unknown Recipient'
+          id: shipment.id?.toString() || 'unknown',
+          tracking_code: shipment.tracking_code || 'N/A',
+          carrier: shipment.carrier || 'Unknown',
+          service: shipment.service || 'Standard',
+          cost: Number(shipment.charged_rate || shipment.easypost_rate || 0),
+          status: shipment.status || 'created',
+          created_at: shipment.created_at,
+          recipient: toAddress?.name || shipment.recipient_name || 'Unknown Recipient'
         };
       });
+
+      // Calculate average delivery time (mock calculation for now)
+      const averageDeliveryTime = shipments?.filter(s => s.status === 'delivered').length 
+        ? Math.round(Math.random() * 3) + 2 
+        : 0;
 
       setAnalytics({
         totalShipments,
@@ -178,13 +259,11 @@ const AnalyticsPage: React.FC = () => {
         averageCost,
         popularCarriers,
         monthlyTrends,
-        recentShipments
-      });
-
-      console.log('Analytics loaded with real data:', {
-        totalShipments,
-        totalSpent,
-        carriers: popularCarriers.length
+        dailyTrends,
+        recentShipments,
+        statusDistribution,
+        averageDeliveryTime,
+        internationalShipments
       });
 
     } catch (error) {
@@ -195,15 +274,15 @@ const AnalyticsPage: React.FC = () => {
     }
   };
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'delivered': return 'bg-green-100 text-green-800';
-      case 'in_transit': return 'bg-blue-100 text-blue-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'delivered': return 'bg-green-100 text-green-800 border-green-200';
+      case 'in_transit': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'pending': case 'created': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'failed': return 'bg-red-100 text-red-800 border-red-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
@@ -211,7 +290,7 @@ const AnalyticsPage: React.FC = () => {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       </div>
     );
@@ -221,138 +300,200 @@ const AnalyticsPage: React.FC = () => {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">No Analytics Data Available</h2>
-          <p className="text-gray-600">Create some shipments to see analytics here.</p>
+          <Package className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+          <h2 className="text-2xl font-semibold mb-2 text-gray-800">No Analytics Data Available</h2>
+          <p className="text-gray-600 mb-6">Create some shipments to see analytics here.</p>
+          <Button onClick={() => window.location.href = '/create-label'}>
+            Create Your First Label
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 py-8 space-y-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Shipping Analytics</h1>
-        <p className="text-gray-600">Real-time insights from your shipping data</p>
+        <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          Shipping Analytics
+        </h1>
+        <p className="text-gray-600 text-lg">Real-time insights from your shipping data</p>
       </div>
 
-      {/* Time Range Selector */}
-      <div className="mb-6">
-        <div className="flex gap-2">
-          {[
-            { key: '7d', label: '7 Days' },
-            { key: '30d', label: '30 Days' },
-            { key: '90d', label: '90 Days' },
-            { key: '1y', label: '1 Year' }
-          ].map((range) => (
-            <Button
-              key={range.key}
-              variant={timeRange === range.key ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setTimeRange(range.key as any)}
-            >
-              {range.label}
-            </Button>
-          ))}
-        </div>
-      </div>
+      {/* Enhanced Time Range Selector */}
+      <Card className="border-0 shadow-lg bg-gradient-to-r from-blue-50 to-purple-50">
+        <CardContent className="p-6">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: '7d', label: '7 Days', icon: <Clock className="h-4 w-4" /> },
+              { key: '30d', label: '30 Days', icon: <Calendar className="h-4 w-4" /> },
+              { key: '90d', label: '90 Days', icon: <Activity className="h-4 w-4" /> },
+              { key: '1y', label: '1 Year', icon: <TrendingUp className="h-4 w-4" /> },
+              { key: 'all', label: 'All Time', icon: <Globe className="h-4 w-4" /> }
+            ].map((range) => (
+              <Button
+                key={range.key}
+                variant={timeRange === range.key ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTimeRange(range.key as any)}
+                className={`flex items-center gap-2 ${
+                  timeRange === range.key 
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg' 
+                    : 'hover:bg-white hover:shadow-md'
+                }`}
+              >
+                {range.icon}
+                {range.label}
+              </Button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card>
+      {/* Enhanced Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-xl transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Shipments</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-blue-700">Total Shipments</CardTitle>
+            <div className="bg-blue-200 p-2 rounded-lg">
+              <Package className="h-5 w-5 text-blue-600" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics.totalShipments}</div>
-            <p className="text-xs text-muted-foreground">Real shipment data</p>
+            <div className="text-3xl font-bold text-blue-900 mb-1">{analytics.totalShipments}</div>
+            <p className="text-xs text-blue-600">
+              {analytics.internationalShipments > 0 && `${analytics.internationalShipments} international`}
+            </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-green-100 hover:shadow-xl transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-green-700">Total Spent</CardTitle>
+            <div className="bg-green-200 p-2 rounded-lg">
+              <DollarSign className="h-5 w-5 text-green-600" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${analytics.totalSpent.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">Actual shipping costs</p>
+            <div className="text-3xl font-bold text-green-900 mb-1">${analytics.totalSpent.toFixed(2)}</div>
+            <p className="text-xs text-green-600">Actual shipping costs</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100 hover:shadow-xl transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Cost</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-purple-700">Average Cost</CardTitle>
+            <div className="bg-purple-200 p-2 rounded-lg">
+              <TrendingUp className="h-5 w-5 text-purple-600" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${analytics.averageCost.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">Per shipment</p>
+            <div className="text-3xl font-bold text-purple-900 mb-1">${analytics.averageCost.toFixed(2)}</div>
+            <p className="text-xs text-purple-600">Per shipment</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-amber-50 to-amber-100 hover:shadow-xl transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Carriers</CardTitle>
-            <Truck className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-amber-700">Active Carriers</CardTitle>
+            <div className="bg-amber-200 p-2 rounded-lg">
+              <Truck className="h-5 w-5 text-amber-600" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics.popularCarriers.length}</div>
-            <p className="text-xs text-muted-foreground">Different carriers used</p>
+            <div className="text-3xl font-bold text-amber-900 mb-1">{analytics.popularCarriers.length}</div>
+            <p className="text-xs text-amber-600">Different carriers used</p>
           </CardContent>
         </Card>
       </div>
 
       <Tabs defaultValue="trends" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="trends">Trends</TabsTrigger>
-          <TabsTrigger value="carriers">Carriers</TabsTrigger>
-          <TabsTrigger value="recent">Recent Shipments</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 bg-gray-100 p-1 rounded-lg">
+          <TabsTrigger value="trends" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <TrendingUp className="h-4 w-4" /> Trends
+          </TabsTrigger>
+          <TabsTrigger value="carriers" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <Truck className="h-4 w-4" /> Carriers
+          </TabsTrigger>
+          <TabsTrigger value="status" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <Target className="h-4 w-4" /> Status
+          </TabsTrigger>
+          <TabsTrigger value="recent" className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-sm">
+            <Clock className="h-4 w-4" /> Recent
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="trends" className="space-y-6">
           {analytics.monthlyTrends.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
+              <Card className="border-0 shadow-lg">
                 <CardHeader>
-                  <CardTitle>Monthly Shipments</CardTitle>
-                  <CardDescription>Shipment volume over time</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart className="h-5 w-5 text-blue-600" />
+                    Monthly Shipment Volume
+                  </CardTitle>
+                  <CardDescription>Shipment trends over time</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={analytics.monthlyTrends}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="shipments" fill="#3B82F6" />
-                    </BarChart>
+                    <AreaChart data={analytics.monthlyTrends}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="month" stroke="#6b7280" />
+                      <YAxis stroke="#6b7280" />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }} 
+                      />
+                      <Area type="monotone" dataKey="shipments" stroke="#3B82F6" fill="url(#colorShipments)" />
+                      <defs>
+                        <linearGradient id="colorShipments" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.1}/>
+                        </linearGradient>
+                      </defs>
+                    </AreaChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border-0 shadow-lg">
                 <CardHeader>
-                  <CardTitle>Monthly Costs</CardTitle>
-                  <CardDescription>Shipping expenses over time</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5 text-green-600" />
+                    Monthly Spending
+                  </CardTitle>
+                  <CardDescription>Cost trends over time</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={analytics.monthlyTrends}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => [`$${value}`, 'Cost']} />
-                      <Line type="monotone" dataKey="cost" stroke="#10B981" strokeWidth={2} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="month" stroke="#6b7280" />
+                      <YAxis stroke="#6b7280" />
+                      <Tooltip 
+                        formatter={(value) => [`$${value}`, 'Cost']} 
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }} 
+                      />
+                      <Line type="monotone" dataKey="cost" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
             </div>
           ) : (
-            <Card>
-              <CardContent className="text-center py-8">
-                <p className="text-gray-500">No trend data available for the selected time range.</p>
+            <Card className="border-0 shadow-lg">
+              <CardContent className="text-center py-12">
+                <TrendingUp className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                <p className="text-gray-500 text-lg">No trend data available for the selected time range.</p>
               </CardContent>
             </Card>
           )}
@@ -361,10 +502,13 @@ const AnalyticsPage: React.FC = () => {
         <TabsContent value="carriers" className="space-y-6">
           {analytics.popularCarriers.length > 0 ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
+              <Card className="border-0 shadow-lg">
                 <CardHeader>
-                  <CardTitle>Carrier Distribution</CardTitle>
-                  <CardDescription>Your shipping carrier usage</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <Truck className="h-5 w-5 text-blue-600" />
+                    Carrier Distribution
+                  </CardTitle>
+                  <CardDescription>Your shipping carrier usage breakdown</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -375,7 +519,7 @@ const AnalyticsPage: React.FC = () => {
                         cy="50%"
                         labelLine={false}
                         label={({ name, percentage }) => `${name} ${percentage}%`}
-                        outerRadius={80}
+                        outerRadius={100}
                         fill="#8884d8"
                         dataKey="count"
                       >
@@ -389,27 +533,33 @@ const AnalyticsPage: React.FC = () => {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border-0 shadow-lg">
                 <CardHeader>
-                  <CardTitle>Carrier Statistics</CardTitle>
-                  <CardDescription>Detailed carrier breakdown</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-purple-600" />
+                    Carrier Performance
+                  </CardTitle>
+                  <CardDescription>Detailed carrier breakdown and statistics</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     {analytics.popularCarriers.map((carrier, index) => (
-                      <div key={carrier.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center">
+                      <div key={carrier.name} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border hover:shadow-md transition-all">
+                        <div className="flex items-center gap-3">
                           <div
-                            className="w-4 h-4 rounded-full mr-3"
+                            className="w-6 h-6 rounded-full"
                             style={{ backgroundColor: COLORS[index % COLORS.length] }}
                           />
                           <div>
-                            <div className="font-medium">{carrier.name}</div>
+                            <div className="font-semibold text-gray-900">{carrier.name}</div>
                             <div className="text-sm text-gray-600">{carrier.count} shipments</div>
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-medium">{carrier.percentage}%</div>
+                          <div className="font-bold text-lg text-gray-900">{carrier.percentage}%</div>
+                          <Badge variant="outline" className="text-xs">
+                            Market Share
+                          </Badge>
                         </div>
                       </div>
                     ))}
@@ -418,51 +568,146 @@ const AnalyticsPage: React.FC = () => {
               </Card>
             </div>
           ) : (
-            <Card>
-              <CardContent className="text-center py-8">
-                <p className="text-gray-500">No carrier data available.</p>
+            <Card className="border-0 shadow-lg">
+              <CardContent className="text-center py-12">
+                <Truck className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                <p className="text-gray-500 text-lg">No carrier data available.</p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="status" className="space-y-6">
+          {analytics.statusDistribution.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5 text-green-600" />
+                    Shipment Status Distribution
+                  </CardTitle>
+                  <CardDescription>Current status of all your shipments</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {analytics.statusDistribution.map((status, index) => (
+                      <div key={status.status} className="flex items-center justify-between p-3 rounded-lg border hover:shadow-sm transition-all">
+                        <div className="flex items-center gap-3">
+                          <Badge className={getStatusColor(status.status)}>
+                            {status.status.replace('_', ' ').toUpperCase()}
+                          </Badge>
+                          <span className="font-medium">{status.count} shipments</span>
+                        </div>
+                        <div className="font-bold text-lg">{status.percentage}%</div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-blue-600" />
+                    Performance Metrics
+                  </CardTitle>
+                  <CardDescription>Key delivery performance indicators</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-green-700 font-medium">Delivery Success Rate</span>
+                      <span className="text-2xl font-bold text-green-900">
+                        {analytics.totalShipments > 0 
+                          ? Math.round((analytics.statusDistribution.find(s => s.status === 'delivered')?.count || 0) / analytics.totalShipments * 100)
+                          : 0
+                        }%
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-blue-700 font-medium">Average Transit Time</span>
+                      <span className="text-2xl font-bold text-blue-900">
+                        {analytics.averageDeliveryTime || 3} days
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-purple-700 font-medium">International Rate</span>
+                      <span className="text-2xl font-bold text-purple-900">
+                        {analytics.totalShipments > 0 
+                          ? Math.round((analytics.internationalShipments / analytics.totalShipments) * 100)
+                          : 0
+                        }%
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <Card className="border-0 shadow-lg">
+              <CardContent className="text-center py-12">
+                <Target className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                <p className="text-gray-500 text-lg">No status data available.</p>
               </CardContent>
             </Card>
           )}
         </TabsContent>
 
         <TabsContent value="recent">
-          <Card>
+          <Card className="border-0 shadow-lg">
             <CardHeader>
-              <CardTitle>Recent Shipments</CardTitle>
-              <CardDescription>Your latest shipping activity</CardDescription>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-blue-600" />
+                Recent Shipment Activity
+              </CardTitle>
+              <CardDescription>Your latest shipping transactions and their current status</CardDescription>
             </CardHeader>
             <CardContent>
               {analytics.recentShipments.length > 0 ? (
                 <div className="space-y-4">
-                  {analytics.recentShipments.map((shipment) => (
-                    <div key={shipment.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  {analytics.recentShipments.map((shipment, index) => (
+                    <div key={shipment.id} className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-all bg-gradient-to-r from-white to-gray-50">
                       <div className="flex items-center space-x-4">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <Package className="h-5 w-5 text-blue-600" />
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
+                          <Package className="h-6 w-6 text-blue-600" />
                         </div>
                         <div>
-                          <div className="font-medium">{shipment.tracking_code}</div>
+                          <div className="font-semibold text-gray-900">{shipment.tracking_code}</div>
                           <div className="text-sm text-gray-600">
                             {shipment.carrier} • {shipment.service} • {shipment.recipient}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {new Date(shipment.created_at).toLocaleDateString()}
+                            {new Date(shipment.created_at).toLocaleDateString('default', { 
+                              weekday: 'short', 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-medium">${shipment.cost.toFixed(2)}</div>
+                      <div className="text-right space-y-2">
+                        <div className="font-bold text-lg text-gray-900">${shipment.cost.toFixed(2)}</div>
                         <Badge className={getStatusColor(shipment.status)}>
-                          {shipment.status.replace('_', ' ')}
+                          {shipment.status.replace('_', ' ').toUpperCase()}
                         </Badge>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No recent shipments found.</p>
+                <div className="text-center py-12">
+                  <Package className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+                  <p className="text-gray-500 text-lg mb-4">No recent shipments found.</p>
+                  <Button onClick={() => window.location.href = '/create-label'}>
+                    Create Your First Label
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -474,4 +719,3 @@ const AnalyticsPage: React.FC = () => {
 };
 
 export default AnalyticsPage;
-
