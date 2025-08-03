@@ -253,8 +253,8 @@ const AnalyticsPage: React.FC = () => {
         if (shipment.source === 'records' && (shipment as any).to_address_json) {
           const toAddress = (shipment as any).to_address_json as any;
           recipient = toAddress?.name || 'Unknown Recipient';
-        } else if (shipment.source === 'shipments' && shipment.recipient_name) {
-          recipient = shipment.recipient_name;
+        } else if (shipment.source === 'shipments' && (shipment as any).recipient_name) {
+          recipient = (shipment as any).recipient_name;
         }
 
         return {
