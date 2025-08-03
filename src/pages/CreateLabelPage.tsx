@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
@@ -11,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 
 const CreateLabelPage = () => {
+  // Move ALL hooks to the top before any conditional logic
   const { user } = useAuth();
   const {
     rates,
@@ -19,15 +21,11 @@ const CreateLabelPage = () => {
     uniqueCarriers,
     activeCarrierFilter
   } = useShippingRates();
+  
   const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [selectedRate, setSelectedRate] = useState<any>(null);
-
-  // Redirect to auth if not logged in
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
 
   // Auto-show AI panel when rates are available
   useEffect(() => {
@@ -38,6 +36,11 @@ const CreateLabelPage = () => {
       }
     }
   }, [rates, showAIPanel, selectedRate]);
+
+  // NOW we can do the conditional redirect after all hooks are called
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
 
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
