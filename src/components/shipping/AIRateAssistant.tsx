@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -33,14 +32,22 @@ const AIRateAssistant: React.FC<AIRateAssistantProps> = ({
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<Array<{type: 'user' | 'ai', message: string}>>([]);
 
-  const sortOptions = [
-    { value: 'fastest', label: 'Fastest Delivery', icon: '⚡' },
-    { value: 'cheapest', label: 'Cheapest Price', icon: '💰' },
-    { value: 'reliable', label: 'Most Reliable', icon: '🛡️' },
-    { value: 'eco-friendly', label: 'Eco-Friendly', icon: '🌱' },
-    { value: 'premium', label: 'Premium Service', icon: '⭐' },
-    { value: 'balanced', label: 'Best Value', icon: '⚖️' }
-  ];
+  const sortOptions = [{
+    value: 'fastest',
+    label: 'Fastest Delivery'
+  }, {
+    value: 'cheapest',
+    label: 'Cheapest Price'
+  }, {
+    value: 'reliable',
+    label: 'Most Reliable'
+  }, {
+    value: 'insurance',
+    label: 'Best Insurance Value'
+  }, {
+    value: 'value',
+    label: 'Best Overall Value'
+  }];
 
   const carrierLogos: Record<string, string> = {
     'ups': '🚚',
@@ -73,22 +80,19 @@ const AIRateAssistant: React.FC<AIRateAssistantProps> = ({
           return reliabilityScore(a.carrier) - reliabilityScore(b.carrier);
         });
         break;
-      case 'eco-friendly':
-        // Prioritize ground services
+      case 'insurance':
+        // Sort by best insurance value (comprehensive coverage + reasonable cost)
         sortedRates.sort((a, b) => {
-          const ecoScore = (service: string) => {
-            if (service.toLowerCase().includes('ground')) return 1;
-            if (service.toLowerCase().includes('standard')) return 2;
-            return 3;
+          const insuranceScore = (service: string, rate: string) => {
+            const cost = parseFloat(rate);
+            if (service.toLowerCase().includes('priority') || service.toLowerCase().includes('express')) return cost * 0.8; // Better insurance coverage
+            return cost;
           };
-          return ecoScore(a.service) - ecoScore(b.service);
+          return insuranceScore(a.service, a.rate) - insuranceScore(b.service, b.rate);
         });
         break;
-      case 'premium':
-        sortedRates.sort((a, b) => parseFloat(b.rate) - parseFloat(a.rate));
-        break;
-      case 'balanced':
-        // Balance of price and speed
+      case 'value':
+        // Balance of price, speed, and reliability
         sortedRates.sort((a, b) => {
           const scoreA = (parseFloat(a.rate) / 10) + (a.delivery_days || 5);
           const scoreB = (parseFloat(b.rate) / 10) + (b.delivery_days || 5);
@@ -112,30 +116,38 @@ const AIRateAssistant: React.FC<AIRateAssistantProps> = ({
     setChatMessages(prev => [...prev, { type: 'user', message: userMessage }]);
     setChatInput('');
 
-    // Simple AI responses based on keywords
+    // Enhanced AI responses with carrier selection capability
     let aiResponse = '';
     const lowerInput = userMessage.toLowerCase();
 
     if (lowerInput.includes('fastest') || lowerInput.includes('quick')) {
-      aiResponse = 'I\'ll sort the rates by fastest delivery for you!';
+      aiResponse = 'I\'ll sort the rates by fastest delivery and suggest the best carrier for speed!';
       handleSortSelection('fastest');
     } else if (lowerInput.includes('cheap') || lowerInput.includes('lowest')) {
-      aiResponse = 'I\'ll show you the cheapest options first!';
+      aiResponse = 'I\'ll show you the cheapest options and highlight the most cost-effective carrier!';
       handleSortSelection('cheapest');
     } else if (lowerInput.includes('reliable') || lowerInput.includes('trusted')) {
-      aiResponse = 'I\'ll prioritize the most reliable carriers for you!';
+      aiResponse = 'I\'ll prioritize the most reliable carriers with best delivery success rates!';
       handleSortSelection('reliable');
+    } else if (lowerInput.includes('insurance') || lowerInput.includes('coverage')) {
+      aiResponse = 'I\'ll sort by best insurance value, showing carriers with comprehensive coverage!';
+      handleSortSelection('insurance');
     } else if (lowerInput.includes('ups')) {
-      aiResponse = 'UPS offers reliable ground and express services with excellent tracking. Filtering to show UPS options!';
+      aiResponse = 'UPS offers reliable ground and express services with excellent tracking. Great for business deliveries! Filtering to show UPS options.';
       handleCarrierSelection('ups');
     } else if (lowerInput.includes('fedex')) {
-      aiResponse = 'FedEx is known for fast express delivery and premium services. Showing FedEx options!';
+      aiResponse = 'FedEx excels in fast express delivery and premium services. Perfect for time-sensitive shipments! Showing FedEx options.';
       handleCarrierSelection('fedex');
     } else if (lowerInput.includes('usps')) {
-      aiResponse = 'USPS provides cost-effective shipping with good coverage. Filtering to USPS options!';
+      aiResponse = 'USPS provides cost-effective shipping with excellent rural coverage. Best value for residential deliveries! Filtering to USPS options.';
       handleCarrierSelection('usps');
+    } else if (lowerInput.includes('dhl')) {
+      aiResponse = 'DHL specializes in international express delivery with premium service. Showing DHL options!';
+      handleCarrierSelection('dhl');
+    } else if (lowerInput.includes('carrier') || lowerInput.includes('choose') || lowerInput.includes('select')) {
+      aiResponse = 'I can help you choose the best carrier based on Price, Speed, Reliability, and Insurance criteria. Each carrier has strengths:\n\n📮 USPS: Best value, great rural coverage\n🚚 UPS: Reliable tracking, business-focused\n📦 FedEx: Premium speed, express services\n✈️ DHL: International specialists\n\nWhich criteria matters most to you?';
     } else {
-      aiResponse = 'I can help you find the best shipping option! Try asking about fastest, cheapest, or most reliable options, or specific carriers like UPS, FedEx, or USPS.';
+      aiResponse = 'I can help you optimize rates using Price, Speed, Reliability, and Insurance criteria. I can also filter by specific carriers (UPS, USPS, FedEx, DHL) or sort by your preferences. What would you like to prioritize?';
     }
 
     setTimeout(() => {
@@ -180,9 +192,7 @@ const AIRateAssistant: React.FC<AIRateAssistantProps> = ({
               <SelectContent>
                 {sortOptions.map(option => (
                   <SelectItem key={option.value} value={option.value}>
-                    <span className="flex items-center gap-2">
-                      {option.icon} {option.label}
-                    </span>
+                    {option.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -194,7 +204,7 @@ const AIRateAssistant: React.FC<AIRateAssistantProps> = ({
         <div>
           <label className="text-sm font-medium text-gray-700 mb-2 block">
             <Sparkles className="w-4 h-4 inline mr-1" />
-            AI Shipping Assistant
+            AI Shipping Assistant - Price • Speed • Reliability • Insurance
           </label>
           
           {/* Chat Messages */}
@@ -217,7 +227,7 @@ const AIRateAssistant: React.FC<AIRateAssistantProps> = ({
             <Input
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Ask about rates, carriers, or shipping options..."
+              placeholder="Ask about carriers, rates, insurance, or shipping criteria..."
               className="bg-white text-sm"
               onKeyPress={(e) => e.key === 'Enter' && handleChatSubmit()}
             />
@@ -227,7 +237,7 @@ const AIRateAssistant: React.FC<AIRateAssistantProps> = ({
           </div>
           
           <p className="text-xs text-gray-500 mt-1">
-            💡 TIPS: Ask "show fastest", "cheapest option", or about specific carriers
+            💡 Ask "fastest option", "cheapest UPS", "reliable carrier", or "best insurance coverage"
           </p>
         </div>
       </div>
