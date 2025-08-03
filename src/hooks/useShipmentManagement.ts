@@ -20,9 +20,7 @@ export const useShipmentManagement = (
       shipment => shipment.id !== shipmentId
     );
     
-    const newTotalCost = updatedShipments.reduce((total, shipment) => {
-      return total + (shipment.rate || 0);
-    }, 0);
+    const newTotalCost = calculateTotalCost(updatedShipments);
     
     updateResults({
       ...results,
@@ -33,6 +31,14 @@ export const useShipmentManagement = (
     toast.success('Shipment removed');
   };
 
+  const calculateTotalCost = (shipments: BulkShipment[]): number => {
+    return shipments.reduce((total, shipment) => {
+      const shippingCost = shipment.rate || 0;
+      const insuranceCost = 2.00; // Fixed insurance cost per shipment
+      return total + shippingCost + insuranceCost;
+    }, 0);
+  };
+
   const handleEditShipment = (shipment: BulkShipment) => {
     if (!results) return;
     
@@ -40,9 +46,7 @@ export const useShipmentManagement = (
       return s.id === shipment.id ? shipment : s;
     });
     
-    const newTotalCost = updatedShipments.reduce((total, s) => {
-      return total + (s.rate || 0);
-    }, 0);
+    const newTotalCost = calculateTotalCost(updatedShipments);
     
     updateResults({
       ...results,
@@ -51,6 +55,76 @@ export const useShipmentManagement = (
     });
     
     toast.success('Shipment updated');
+  };
+
+  const handleRateChange = async (shipmentId: string, newRateId: string) => {
+    if (!results) return;
+
+    // Find the shipment
+    const shipment = results.processedShipments.find(s => s.id === shipmentId);
+    if (!shipment) return;
+
+    try {
+      // Re-fetch all rates for this shipment with any updated details
+      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
+        body: {
+          fromAddress: results.pickupAddress,
+          toAddress: {
+            name: shipment.details?.name,
+            company: shipment.details?.company,
+            street1: shipment.details?.street1,
+            street2: shipment.details?.street2,
+            city: shipment.details?.city,
+            state: shipment.details?.state,
+            zip: shipment.details?.zip,
+            country: shipment.details?.country,
+            phone: shipment.details?.phone,
+          },
+          parcel: {
+            length: shipment.details?.parcel_length || 8,
+            width: shipment.details?.parcel_width || 6,
+            height: shipment.details?.parcel_height || 4,
+            weight: shipment.details?.parcel_weight || 16,
+          }
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data && data.rates) {
+        // Update the shipment with new rates and selected rate
+        const selectedRate = data.rates.find((rate: any) => rate.id === newRateId) || data.rates[0];
+        
+        const updatedShipments = results.processedShipments.map(s => {
+          if (s.id === shipmentId) {
+            return {
+              ...s,
+              availableRates: data.rates,
+              selectedRateId: selectedRate.id,
+              carrier: selectedRate.carrier,
+              service: selectedRate.service,
+              rate: parseFloat(selectedRate.rate),
+            };
+          }
+          return s;
+        });
+
+        const newTotalCost = calculateTotalCost(updatedShipments);
+        
+        updateResults({
+          ...results,
+          processedShipments: updatedShipments,
+          totalCost: newTotalCost,
+        });
+        
+        toast.success('Rates updated and applied');
+      }
+    } catch (error) {
+      console.error('Error updating rates:', error);
+      toast.error('Failed to update rates');
+    }
   };
 
   const handleProceedToPayment = async () => {
@@ -69,11 +143,16 @@ export const useShipmentManagement = (
         throw new Error(`${missingRates.length} shipments are missing selected rates`);
       }
       
-      // Process payment via Edge Function (similar to international shipping)
+      // Calculate total including insurance
+      const totalWithInsurance = calculateTotalCost(results.processedShipments);
+      
+      // Process payment via Edge Function
       const { data, error } = await supabase.functions.invoke('create-bulk-checkout', {
         body: { 
           shipments: results.processedShipments,
           pickupAddress: results.pickupAddress,
+          totalAmount: totalWithInsurance,
+          includeInsurance: true,
           paymentMethod: 'bulk_processing'
         }
       });
@@ -82,14 +161,17 @@ export const useShipmentManagement = (
         throw error;
       }
       
-      // Update state with result
+      // Update state with payment success
       updateResults({
         ...results,
-        ...data,
+        totalCost: totalWithInsurance,
         uploadStatus: 'success'
       });
       
-      toast.success('Payment processed successfully');
+      // Automatically start label creation after payment
+      await handleCreateLabels();
+      
+      toast.success(`Payment processed successfully for $${totalWithInsurance.toFixed(2)}`);
     } catch (error) {
       console.error('Payment error:', error);
       toast.error('Payment failed: ' + (error as Error).message);
@@ -107,12 +189,13 @@ export const useShipmentManagement = (
     setIsCreatingLabels(true);
     
     try {
-      // Create labels using the same format as international shipping
+      // Create labels using the enhanced batch processing
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: { 
           shipments: results.processedShipments,
           pickupAddress: results.pickupAddress,
-          labelOptions: labelOptions || { format: 'PDF', size: '4x6' }
+          labelOptions: labelOptions || { format: 'PDF', size: '4x6' },
+          includeInsurance: true
         }
       });
       
@@ -147,7 +230,7 @@ export const useShipmentManagement = (
       return;
     }
     
-    // Download all existing labels (same as international shipping)
+    // Download all existing labels
     results.processedShipments.forEach(shipment => {
       if (shipment.label_url) {
         window.open(shipment.label_url, '_blank');
@@ -203,12 +286,13 @@ export const useShipmentManagement = (
     setIsCreatingLabels(true);
     
     try {
-      // Send email via Edge Function (same as international shipping)
+      // Send email via Edge Function
       const { data, error } = await supabase.functions.invoke('email-labels', {
         body: { 
           shipments: results.processedShipments,
           email,
-          type: 'bulk_domestic'
+          type: 'bulk_domestic',
+          includeInsurance: true
         }
       });
       
@@ -233,6 +317,7 @@ export const useShipmentManagement = (
     downloadFormat,
     handleRemoveShipment,
     handleEditShipment,
+    handleRateChange,
     handleProceedToPayment,
     handleCreateLabels,
     handleDownloadAllLabels,
