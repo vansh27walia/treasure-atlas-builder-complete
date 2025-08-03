@@ -191,7 +191,12 @@ const Index: React.FC = () => {
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Complete shipping management with real-time data, advanced analytics, and intelligent automation
           </p>
-          {user}
+          {user && <div className="flex justify-center gap-4">
+              <Button onClick={handleDownloadAnalytics} variant="outline" className="bg-white/80 backdrop-blur-sm border-purple-200 hover:bg-purple-50">
+                <Download className="mr-2 h-4 w-4" />
+                Download Analytics
+              </Button>
+            </div>}
         </div>
 
         {/* Quick Actions */}
