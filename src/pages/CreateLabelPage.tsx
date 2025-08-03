@@ -42,6 +42,11 @@ const CreateLabelPage = () => {
     return <Navigate to="/auth" replace />;
   }
 
+  const handleRatesReceived = (data: any) => {
+    console.log('Rates received:', data);
+    // Handle the rates data here
+  };
+
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
     setSelectedRate(rate);
@@ -140,7 +145,7 @@ const CreateLabelPage = () => {
 
             {/* Main Form Section */}
             <div className="bg-white rounded-xl shadow-lg border mb-8">
-              <EnhancedShippingForm />
+              <EnhancedShippingForm onRatesReceived={handleRatesReceived} />
             </div>
 
             {/* Rate Filter - Only show the filter dropdown, no carrier selection buttons */}

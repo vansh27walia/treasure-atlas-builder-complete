@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -120,8 +121,6 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onRatesRece
             <AddressSelector
               type="from"
               onAddressSelect={handleFromAddressSelect}
-              selectedAddress={formData.fromAddress}
-              showSaveOptions={true}
             />
           </div>
 
@@ -134,8 +133,6 @@ const EnhancedShippingForm: React.FC<EnhancedShippingFormProps> = ({ onRatesRece
             <AddressSelector
               type="to"
               onAddressSelect={handleToAddressSelect}
-              selectedAddress={formData.toAddress}
-              showSaveOptions={false}
             />
           </div>
         </div>
