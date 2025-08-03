@@ -33,22 +33,12 @@ const UniversalShippingChatbot: React.FC<UniversalShippingChatbotProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const criteria = mode === 'normal' 
-    ? ['Price', 'Speed', 'Reliability', 'Insurance'] 
+    ? ['Price', 'Speed', 'Reliability'] 
     : ['Price', 'Speed', 'Reliability', 'Bulk Efficiency'];
 
   const initialMessage: Message = {
     id: '1',
-    text: `Hello! I'm your comprehensive AI shipping assistant with full access to all ShipAI features. I can help you with:
-
-🚚 **Shipping & Labels**: Create labels, compare rates, track packages
-📊 **Analytics**: Download shipping data, analyze costs and performance  
-📋 **Bulk Processing**: Upload CSV files, process multiple shipments
-🔍 **Rate Analysis**: Find best rates using ${criteria.join(', ')} criteria
-📦 **Carrier Selection**: Choose between UPS, USPS, FedEx based on your needs
-💰 **Cost Optimization**: Insurance calculations, delivery time estimates
-📈 **Historical Data**: Access your shipping history and trends
-
-What can I help you with today? You can ask me to analyze rates, upload files, or perform any shipping task!`,
+    text: `Hello! I'm your AI shipping assistant. I analyze shipping options based on ${criteria.length} key criteria: ${criteria.join(', ')}. How can I help you optimize your shipping today?`,
     sender: 'bot',
     timestamp: new Date()
   };
@@ -86,45 +76,38 @@ What can I help you with today? You can ask me to analyze rates, upload files, o
   const generateBotResponse = (userMessage: string): string => {
     const lowerMessage = userMessage.toLowerCase();
     
-    // CSV and file upload responses
-    if (lowerMessage.includes('csv') || lowerMessage.includes('upload') || lowerMessage.includes('file')) {
-      return 'I can help you process CSV files for bulk shipping! Upload your CSV file and I\'ll analyze the addresses, suggest rate optimizations, and help create multiple labels efficiently. I can also map CSV headers automatically and validate address data.';
-    }
-    
-    // Analytics and download responses
-    if (lowerMessage.includes('analytics') || lowerMessage.includes('download') || lowerMessage.includes('report')) {
-      return 'I can help you access and download your shipping analytics! You can find detailed reports in the Settings → Analytics section, or I can help you export specific data like shipping costs, delivery performance, and carrier comparisons in CSV format.';
-    }
-    
-    // Carrier selection responses
-    if (lowerMessage.includes('carrier') || lowerMessage.includes('ups') || lowerMessage.includes('usps') || lowerMessage.includes('fedex')) {
-      return `I can help you choose the best carrier! Based on the ${criteria.join(', ')} criteria:\n\n📦 **UPS**: Best for business deliveries, excellent tracking\n📮 **USPS**: Most cost-effective for residential, good rural coverage\n✈️ **FedEx**: Fastest for express, reliable for time-sensitive shipments\n\nI can filter and compare rates from all carriers to find your optimal choice!`;
-    }
-    
-    // Rate and pricing responses
-    if (lowerMessage.includes('price') || lowerMessage.includes('cheap') || lowerMessage.includes('cost') || lowerMessage.includes('rate')) {
+    // Smart responses based on keywords
+    if (lowerMessage.includes('price') || lowerMessage.includes('cheap') || lowerMessage.includes('cost')) {
       return mode === 'bulk' 
-        ? `For bulk shipping cost optimization, I recommend:\n\n💰 **Volume Discounts**: Consolidate to fewer carriers\n🏠 **Residential vs Commercial**: USPS for homes, UPS/FedEx for businesses\n📍 **Zone Optimization**: Group shipments by destination zones\n🛡️ **Insurance Balance**: Optimal coverage without overpaying\n\nI can analyze your current rates and suggest 15-30% cost savings!`
-        : `For the best rates, I analyze ${criteria.join(', ')} to recommend:\n\n🥇 **Best Value**: Usually USPS Priority Mail (2-3 days)\n💨 **Fastest**: FedEx Priority Overnight or UPS Next Day Air\n💰 **Cheapest**: USPS Ground Advantage for non-urgent items\n🛡️ **With Insurance**: Consider coverage for valuable items\n\nShall I help you compare current rates?`;
+        ? 'For bulk shipping, I recommend focusing on volume discounts. USPS typically offers the best rates for bulk residential deliveries, while UPS/FedEx excel for commercial addresses. Would you like me to analyze your current selection for cost optimization?'
+        : 'Based on price analysis, USPS Ground Advantage usually offers the best value for standard delivery. For urgent shipments, UPS 3-Day Select provides good speed-to-cost ratio. Should I help you compare current rates?';
     }
     
-    // Speed and delivery responses
-    if (lowerMessage.includes('fast') || lowerMessage.includes('quick') || lowerMessage.includes('speed') || lowerMessage.includes('overnight')) {
-      return 'For fastest delivery:\n\n⚡ **Same Day**: Available in major cities via FedEx SameDay\n🌅 **Overnight**: FedEx Priority (10:30 AM) or UPS Next Day Air\n📦 **2-Day**: FedEx 2Day or UPS 2nd Day Air\n🚚 **Express**: 1-3 business days with premium services\n\nI can filter rates to show only express options!';
+    if (lowerMessage.includes('fast') || lowerMessage.includes('quick') || lowerMessage.includes('speed')) {
+      return 'For fastest delivery, I recommend FedEx Priority Overnight or UPS Next Day Air. FedEx typically delivers by 10:30 AM, while UPS offers end-of-day delivery at a lower cost. Both have excellent reliability scores.';
     }
     
-    // Insurance responses
-    if (lowerMessage.includes('insurance') || lowerMessage.includes('coverage')) {
-      return 'I can help optimize your insurance coverage:\n\n🛡️ **Standard Coverage**: $100 included with most services\n💎 **High Value**: Declare actual value for expensive items\n💰 **Cost**: ~$2.50 per $100 of declared value\n📋 **Recommendations**: Based on item value and carrier reliability\n\nShall I calculate optimal insurance for your shipments?';
+    if (lowerMessage.includes('reliable') || lowerMessage.includes('trust') || lowerMessage.includes('safe')) {
+      return 'Based on reliability metrics, UPS and USPS have the highest delivery success rates (98.5% and 97.8% respectively). UPS excels in tracking accuracy, while USPS has better coverage for rural areas.';
     }
     
-    // Tracking responses
-    if (lowerMessage.includes('track') || lowerMessage.includes('tracking')) {
-      return 'I can help you track shipments and analyze delivery performance:\n\n📍 **Real-time Updates**: Monitor all your packages in one place\n📊 **Delivery Analytics**: Success rates, average transit times\n🔔 **Notifications**: Get alerts for delays or delivery issues\n📈 **Performance Reports**: Compare carrier reliability\n\nWould you like me to check specific tracking numbers?';
+    if (lowerMessage.includes('bulk') && mode === 'bulk') {
+      return 'For bulk efficiency, consider: 1) Consolidating to fewer carriers for volume discounts, 2) Using USPS for residential (better rates), 3) UPS/FedEx for commercial (faster processing), 4) Grouping by delivery zones to optimize costs.';
     }
-
-    // General help response
-    return `I'm your comprehensive ShipAI assistant with full access to all features! I can help with:\n\n🚚 **Shipping Tasks**: Create labels, compare rates, track packages\n📊 **Data Analysis**: Export analytics, optimize costs\n📋 **Bulk Operations**: Process CSV files, multiple shipments\n🎯 **Smart Recommendations**: ${criteria.join(', ')} optimization\n\nJust tell me what you need - I have access to everything and can help with any shipping task!`;
+    
+    if (lowerMessage.includes('recommend') || lowerMessage.includes('suggest') || lowerMessage.includes('best')) {
+      return mode === 'bulk'
+        ? `Analyzing your bulk shipment criteria (${criteria.join(', ')}), I recommend: 70% USPS for residential addresses (cost-effective), 30% UPS for commercial (reliable tracking). This balance optimizes both cost and delivery success.`
+        : `Based on the 3 criteria analysis (${criteria.join(', ')}), I recommend USPS Priority Mail for the best overall value - it offers good speed (2-3 days), competitive pricing, and reliable tracking.`;
+    }
+    
+    if (lowerMessage.includes('tracking') || lowerMessage.includes('track')) {
+      return 'All major carriers provide real-time tracking. FedEx has the most detailed updates, UPS offers the most accurate delivery windows, and USPS provides good basic tracking with recent improvements in scan frequency.';
+    }
+    
+    return mode === 'bulk' 
+      ? `I analyze bulk shipments using 4 criteria: ${criteria.join(', ')}. I can help you optimize carrier selection, identify cost savings opportunities, suggest delivery zone groupings, or explain bulk shipping best practices. What specific aspect would you like to explore?`
+      : `I'm here to help with shipping optimization using ${criteria.join(', ')} analysis. You can ask me about carrier recommendations, cost comparisons, delivery speed options, or reliability insights. What would you like to know?`;
   };
 
   const handleSendMessage = async () => {
@@ -183,9 +166,9 @@ What can I help you with today? You can ask me to analyze rates, upload files, o
         <div className="flex items-center justify-between p-4 border-b border-purple-200 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-t-lg">
           <div className="flex items-center space-x-2">
             <Bot className="h-5 w-5" />
-            <span className="font-semibold">ShipAI Assistant</span>
+            <span className="font-semibold">AI Shipping Assistant</span>
             <Badge className="bg-white text-purple-600 text-xs">
-              Full Access
+              {criteria.length} Criteria
             </Badge>
           </div>
           <div className="flex items-center space-x-2">
@@ -234,7 +217,7 @@ What can I help you with today? You can ask me to analyze rates, upload files, o
                         {message.sender === 'bot' ? 'AI Assistant' : 'You'}
                       </span>
                     </div>
-                    <p className="text-sm whitespace-pre-line">{message.text}</p>
+                    <p className="text-sm">{message.text}</p>
                   </div>
                 </div>
               ))}
@@ -263,7 +246,7 @@ What can I help you with today? You can ask me to analyze rates, upload files, o
                 <Input
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Ask about shipping, rates, analytics, CSV uploads..."
+                  placeholder={`Ask about ${criteria.join(', ').toLowerCase()}...`}
                   className="flex-1 border-purple-200 focus:border-purple-400"
                   onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 />
@@ -277,7 +260,7 @@ What can I help you with today? You can ask me to analyze rates, upload files, o
               </div>
               <div className="text-xs text-gray-500 mt-2 flex items-center gap-1">
                 <Sparkles className="h-3 w-3" />
-                Full Access AI • {criteria.join(' • ')}
+                Analyzing: {criteria.join(' • ')}
               </div>
             </div>
           </>

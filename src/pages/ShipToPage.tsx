@@ -270,12 +270,6 @@ ${toAddress.country}`,
       setIsLoading(false);
     }
   };
-
-  // Add handler for rates received from EnhancedShippingForm
-  const handleRatesReceived = (data: any) => {
-    console.log('Rates received from EnhancedShippingForm:', data);
-    // The form will handle its own rate display, so we don't need to do anything here
-  };
   
   // Saved addresses for quick selection
   const [savedAddresses, setSavedAddresses] = useState([
@@ -433,7 +427,7 @@ ${toAddress.country}`,
               </Button>
             </div>
             
-            <EnhancedShippingForm onRatesReceived={handleRatesReceived} />
+            <EnhancedShippingForm />
           </div>
         </Card>
       )}
