@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -114,10 +113,22 @@ const AnalyticsPage: React.FC = () => {
       if (shipmentsError) throw shipmentsError;
       if (recordsError) throw recordsError;
 
-      // Combine all shipments
+      // Combine all shipments with safe property access
       const allShipments = [
-        ...(shipments || []).map(s => ({ ...s, source: 'shipments' })),
-        ...(shipmentRecords || []).map(s => ({ ...s, source: 'records' }))
+        ...(shipments || []).map(s => ({ 
+          ...s, 
+          source: 'shipments',
+          // Safe property access for shipments table
+          cost: 0, // shipments table doesn't have cost info
+          is_international: false // default value
+        })),
+        ...(shipmentRecords || []).map(s => ({ 
+          ...s, 
+          source: 'records',
+          // Safe property access for shipment_records table  
+          cost: Number(s.charged_rate || s.easypost_rate || 0),
+          is_international: s.is_international || false
+        }))
       ];
 
       if (allShipments.length === 0) {
@@ -139,7 +150,8 @@ const AnalyticsPage: React.FC = () => {
       // Calculate comprehensive statistics
       const totalShipments = allShipments.length;
       const totalSpent = allShipments.reduce((sum, shipment) => {
-        return sum + (Number(shipment.charged_rate) || Number(shipment.easypost_rate) || 0);
+        // Only count costs from shipment_records which have cost data
+        return shipment.source === 'records' ? sum + shipment.cost : sum;
       }, 0);
       const averageCost = totalSpent / totalShipments || 0;
 
@@ -187,7 +199,7 @@ const AnalyticsPage: React.FC = () => {
         }
 
         monthlyData[monthKey].shipments += 1;
-        monthlyData[monthKey].cost += Number(shipment.charged_rate || shipment.easypost_rate || 0);
+        monthlyData[monthKey].cost += shipment.cost || 0;
       });
 
       const monthlyTrends = Object.entries(monthlyData)
@@ -221,7 +233,7 @@ const AnalyticsPage: React.FC = () => {
         }
 
         dailyData[dayKey].shipments += 1;
-        dailyData[dayKey].cost += Number(shipment.charged_rate || shipment.easypost_rate || 0);
+        dailyData[dayKey].cost += shipment.cost || 0;
       });
 
       const dailyTrends = Object.entries(dailyData)
@@ -233,23 +245,33 @@ const AnalyticsPage: React.FC = () => {
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
         .slice(-14); // Last 14 days
 
-      // Recent shipments
+      // Recent shipments with safe property access
       const recentShipments = allShipments.slice(0, 10).map(shipment => {
-        const toAddress = shipment.to_address_json as any;
+        let recipient = 'Unknown Recipient';
+        
+        // Safe access to recipient information based on source
+        if (shipment.source === 'records' && (shipment as any).to_address_json) {
+          const toAddress = (shipment as any).to_address_json as any;
+          recipient = toAddress?.name || 'Unknown Recipient';
+        } else if (shipment.source === 'shipments' && shipment.recipient_name) {
+          recipient = shipment.recipient_name;
+        }
+
         return {
           id: shipment.id?.toString() || 'unknown',
           tracking_code: shipment.tracking_code || 'N/A',
           carrier: shipment.carrier || 'Unknown',
           service: shipment.service || 'Standard',
-          cost: Number(shipment.charged_rate || shipment.easypost_rate || 0),
+          cost: shipment.cost || 0,
           status: shipment.status || 'created',
           created_at: shipment.created_at,
-          recipient: toAddress?.name || shipment.recipient_name || 'Unknown Recipient'
+          recipient
         };
       });
 
       // Calculate average delivery time (mock calculation for now)
-      const averageDeliveryTime = shipments?.filter(s => s.status === 'delivered').length 
+      const deliveredShipments = allShipments.filter(s => s.status === 'delivered');
+      const averageDeliveryTime = deliveredShipments.length > 0 
         ? Math.round(Math.random() * 3) + 2 
         : 0;
 
