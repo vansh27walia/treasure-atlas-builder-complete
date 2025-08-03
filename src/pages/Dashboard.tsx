@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -114,9 +113,9 @@ const Dashboard: React.FC = () => {
         cost: data.cost
       })).slice(-6); // Last 6 months
 
-      // Recent activity from real data
+      // Recent activity from real data - fix the id type issue
       const recentActivity = allRecords.slice(-10).map(record => ({
-        id: record.id,
+        id: record.id.toString(), // Convert to string to match interface
         action: `Shipment ${record.tracking_code || record.shipment_id || 'created'}`,
         date: new Date(record.created_at).toLocaleDateString(),
         status: record.status || 'pending'
