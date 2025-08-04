@@ -1,291 +1,288 @@
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Check, ChevronsUpDown, MapPin, Plus, RefreshCw } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandSeparator,
-  CommandList,
-} from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown, MapPin, Plus } from 'lucide-react';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
-import { formatAddressForDisplay } from '@/utils/addressUtils';
 
 interface SelectAddressDropdownProps {
-  onAddressSelected: (address: SavedAddress | null) => void;
-  onAddNew: () => void;
-  defaultAddress?: SavedAddress | null;
+  selectedAddress: SavedAddress | null;
+  onAddressSelect: (address: SavedAddress | null) => void;
+  addressType: 'pickup' | 'delivery';
   placeholder?: string;
-  isPickupAddress?: boolean;
   className?: string;
 }
 
 const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
-  onAddressSelected,
-  onAddNew,
-  defaultAddress = null,
-  placeholder = 'Select an address',
-  isPickupAddress = true,
-  className = '',
+  selectedAddress,
+  onAddressSelect,
+  addressType,
+  placeholder = "Select an address",
+  className = ""
 }) => {
-  const [open, setOpen] = useState(false);
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
-  const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(defaultAddress);
+  const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newAddress, setNewAddress] = useState({
+    name: '',
+    company: '',
+    street1: '',
+    street2: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'US',
+    phone: '',
+    email: ''
+  });
 
-  // Refresh addresses function with proper state management
-  const refreshAddresses = useCallback(async () => {
+  const loadAddresses = async () => {
     setIsLoading(true);
     try {
-      console.log('Refreshing addresses for dropdown...');
-      const { data } = await addressService.getSession();
-      if (!data?.session?.user) {
-        console.log('User not authenticated, skipping address loading');
-        setAddresses([]);
-        return;
-      }
-      
       const savedAddresses = await addressService.getSavedAddresses();
-      console.log('Refreshed addresses for dropdown:', savedAddresses);
-      setAddresses(savedAddresses || []);
-      toast.success('Addresses refreshed successfully');
+      setAddresses(savedAddresses);
     } catch (error) {
-      console.error('Error refreshing addresses:', error);
-      toast.error('Failed to refresh addresses');
+      console.error('Error loading addresses:', error);
+      toast.error('Failed to load saved addresses');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
-  // Load addresses on component mount
-  useEffect(() => {
-    let isMounted = true;
-    
-    const loadAddresses = async () => {
-      if (isLoading) return;
-      
-      setIsLoading(true);
-      try {
-        console.log('Loading addresses for dropdown...');
-        const { data } = await addressService.getSession();
-        if (!data?.session?.user) {
-          console.log('User not authenticated, skipping address loading');
-          if (isMounted) {
-            setAddresses([]);
-            setIsLoading(false);
-          }
-          return;
-        }
-        
-        const savedAddresses = await addressService.getSavedAddresses();
-        console.log('Loaded addresses for dropdown:', savedAddresses);
-        
-        if (isMounted) {
-          setAddresses(savedAddresses || []);
-
-          // Auto-select default if no address is currently selected
-          if (!selectedAddress && savedAddresses?.length > 0) {
-            const defaultAddr = isPickupAddress 
-              ? savedAddresses.find(addr => addr.is_default_from)
-              : savedAddresses.find(addr => addr.is_default_to);
-            
-            if (defaultAddr) {
-              console.log('Auto-selecting default address:', defaultAddr);
-              setSelectedAddress(defaultAddr);
-              onAddressSelected(defaultAddr);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error loading addresses:', error);
-        if (isMounted) {
-          toast.error('Failed to load saved addresses');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadAddresses();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, []); // Empty dependency array to run only once
-
-  // Handle external default address changes
-  useEffect(() => {
-    if (defaultAddress && (!selectedAddress || defaultAddress.id !== selectedAddress.id)) {
-      console.log('Setting selected address from default prop:', defaultAddress);
-      setSelectedAddress(defaultAddress);
+  const handleDropdownOpen = () => {
+    if (!isOpen) {
+      loadAddresses();
     }
-  }, [defaultAddress?.id]);
+    setIsOpen(!isOpen);
+  };
 
-  const handleSelectAddress = useCallback((address: SavedAddress) => {
-    console.log('Address selected from dropdown:', address);
-    setSelectedAddress(address);
-    onAddressSelected(address);
-    setOpen(false);
-    toast.success('Address selected successfully');
-  }, [onAddressSelected]);
+  const handleAddressSelect = (address: SavedAddress) => {
+    onAddressSelect(address);
+    setIsOpen(false);
+    setShowAddForm(false);
+  };
 
-  const handleAddNew = useCallback(() => {
-    onAddNew();
-    setOpen(false);
-  }, [onAddNew]);
+  const handleSaveNewAddress = async () => {
+    if (!newAddress.name || !newAddress.street1 || !newAddress.city || !newAddress.state || !newAddress.zip) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
 
-  const handleClearSelection = useCallback(() => {
-    console.log('Clearing address selection');
-    setSelectedAddress(null);
-    onAddressSelected(null);
-    toast.info('Address selection cleared');
-  }, [onAddressSelected]);
-
-  // Memoize the address label to prevent recalculation
-  const addressLabel = useMemo(() => {
-    if (!selectedAddress) return placeholder;
-    return selectedAddress.name || formatAddressForDisplay(selectedAddress).split(',')[0];
-  }, [selectedAddress, placeholder]);
+    try {
+      const savedAddress = await addressService.saveAddress(newAddress, addressType === 'pickup');
+      setAddresses(prev => [...prev, savedAddress]);
+      handleAddressSelect(savedAddress);
+      setNewAddress({
+        name: '',
+        company: '',
+        street1: '',
+        street2: '',
+        city: '',
+        state: '',
+        zip: '',
+        country: 'US',
+        phone: '',
+        email: ''
+      });
+      toast.success('Address saved successfully');
+    } catch (error) {
+      console.error('Error saving address:', error);
+      toast.error('Failed to save address');
+    }
+  };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          disabled={isLoading}
-          className={`w-full justify-between ${className}`}
-        >
+    <div className={className}>
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            className="w-full justify-between"
+            onClick={handleDropdownOpen}
+          >
+            <div className="flex items-center">
+              <MapPin className="w-4 h-4 mr-2" />
+              {selectedAddress ? (
+                <span className="truncate">
+                  {selectedAddress.name} - {selectedAddress.street1}, {selectedAddress.city}
+                </span>
+              ) : (
+                placeholder
+              )}
+            </div>
+            <ChevronDown className="w-4 h-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-80 max-h-96 overflow-y-auto">
           {isLoading ? (
-            <span className="text-muted-foreground">Loading addresses...</span>
+            <div className="p-4 text-center">Loading addresses...</div>
           ) : (
             <>
-              <MapPin className="mr-2 h-4 w-4 shrink-0" />
-              <span className="truncate">{addressLabel}</span>
+              {addresses.map((address) => (
+                <DropdownMenuItem
+                  key={address.id}
+                  onClick={() => handleAddressSelect(address)}
+                  className="p-3"
+                >
+                  <div className="flex flex-col">
+                    <div className="font-medium">{address.name}</div>
+                    <div className="text-sm text-gray-600">
+                      {address.street1}
+                      {address.street2 && `, ${address.street2}`}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {address.city}, {address.state} {address.zip}
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+              
+              {addresses.length === 0 && !showAddForm && (
+                <div className="p-4 text-center text-gray-500">
+                  No saved addresses found
+                </div>
+              )}
+              
+              {/* Only show "Add New Address" for pickup addresses */}
+              {addressType === 'pickup' && (
+                <>
+                  <DropdownMenuSeparator />
+                  
+                  {!showAddForm ? (
+                    <DropdownMenuItem onClick={() => setShowAddForm(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add New Address
+                    </DropdownMenuItem>
+                  ) : (
+                    <div className="p-4 space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Name *</Label>
+                          <Input
+                            value={newAddress.name}
+                            onChange={(e) => setNewAddress({...newAddress, name: e.target.value})}
+                            placeholder="Full name"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Company</Label>
+                          <Input
+                            value={newAddress.company}
+                            onChange={(e) => setNewAddress({...newAddress, company: e.target.value})}
+                            placeholder="Company"
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <Label className="text-xs">Street Address *</Label>
+                        <Input
+                          value={newAddress.street1}
+                          onChange={(e) => setNewAddress({...newAddress, street1: e.target.value})}
+                          placeholder="Street address"
+                          className="text-sm"
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label className="text-xs">Apt, Suite, etc.</Label>
+                        <Input
+                          value={newAddress.street2}
+                          onChange={(e) => setNewAddress({...newAddress, street2: e.target.value})}
+                          placeholder="Apartment, suite, etc."
+                          className="text-sm"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-xs">City *</Label>
+                          <Input
+                            value={newAddress.city}
+                            onChange={(e) => setNewAddress({...newAddress, city: e.target.value})}
+                            placeholder="City"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">State *</Label>
+                          <Input
+                            value={newAddress.state}
+                            onChange={(e) => setNewAddress({...newAddress, state: e.target.value})}
+                            placeholder="State"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">ZIP *</Label>
+                          <Input
+                            value={newAddress.zip}
+                            onChange={(e) => setNewAddress({...newAddress, zip: e.target.value})}
+                            placeholder="ZIP"
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Phone</Label>
+                          <Input
+                            value={newAddress.phone}
+                            onChange={(e) => setNewAddress({...newAddress, phone: e.target.value})}
+                            placeholder="Phone"
+                            className="text-sm"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Email</Label>
+                          <Input
+                            value={newAddress.email}
+                            onChange={(e) => setNewAddress({...newAddress, email: e.target.value})}
+                            placeholder="Email"
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          onClick={handleSaveNewAddress}
+                          size="sm"
+                          className="flex-1"
+                        >
+                          Save Address
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowAddForm(false)}
+                          size="sm"
+                          className="flex-1"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </>
           )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0 bg-white z-50" align="start">
-        <Command className="bg-white">
-          <CommandInput placeholder="Search address..." className="bg-white" />
-          <CommandList className="bg-white max-h-[300px] overflow-y-auto">
-            <CommandEmpty>
-              <div className="flex flex-col items-center justify-center py-6">
-                <p className="text-sm text-muted-foreground mb-2">No addresses found</p>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={refreshAddresses}
-                    disabled={isLoading}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Refresh
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleAddNew}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add new
-                  </Button>
-                </div>
-              </div>
-            </CommandEmpty>
-            <CommandGroup heading={isPickupAddress ? "Pickup Addresses" : "Recipient Addresses"}>
-              {addresses.map((address) => (
-                <CommandItem
-                  key={address.id}
-                  value={`${address.id}-${address.name || address.street1}`}
-                  onSelect={() => {
-                    console.log('Selecting address:', address);
-                    handleSelectAddress(address);
-                  }}
-                  className="cursor-pointer hover:bg-gray-50"
-                >
-                  <div className="flex items-start mr-2">
-                    <Check
-                      className={cn(
-                        "h-4 w-4 mt-0.5",
-                        selectedAddress?.id === address.id 
-                          ? "opacity-100" 
-                          : "opacity-0"
-                      )}
-                    />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="font-medium">
-                      {address.name || 'Unnamed Address'}
-                      {isPickupAddress && address.is_default_from && (
-                        <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
-                          Default
-                        </span>
-                      )}
-                      {!isPickupAddress && address.is_default_to && (
-                        <span className="ml-2 text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded">
-                          Default
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-sm text-muted-foreground">
-                      {formatAddressForDisplay(address)}
-                    </span>
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup>
-              {selectedAddress && (
-                <CommandItem 
-                  onSelect={handleClearSelection}
-                  className="cursor-pointer hover:bg-gray-50 text-red-600"
-                >
-                  <span className="font-medium flex items-center">
-                    Clear Selection
-                  </span>
-                </CommandItem>
-              )}
-              <CommandItem 
-                onSelect={refreshAddresses}
-                className="cursor-pointer hover:bg-gray-50"
-                disabled={isLoading}
-              >
-                <span className="font-medium text-blue-600 flex items-center">
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh Addresses
-                </span>
-              </CommandItem>
-              <CommandItem 
-                onSelect={handleAddNew}
-                className="cursor-pointer hover:bg-gray-50"
-              >
-                <span className="font-medium text-green-600 flex items-center">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add new address
-                </span>
-              </CommandItem>
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 };
 
