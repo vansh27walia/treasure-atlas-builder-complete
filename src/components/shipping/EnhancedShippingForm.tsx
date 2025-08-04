@@ -18,6 +18,8 @@ import LabelCreationModal from './LabelCreationModal';
 import PackageTypeSelector from './PackageTypeSelector';
 import InsuranceCalculator from './InsuranceCalculator';
 import HazmatSelector from './HazmatSelector';
+import CarrierSelector from './CarrierSelector';
+
 const shippingFormSchema = z.object({
   packageType: z.string().min(1, "Please select a package type"),
   weightValue: z.coerce.number().min(0, "Weight must be greater than 0"),
@@ -31,7 +33,9 @@ const shippingFormSchema = z.object({
   hazmatType: z.string().optional(),
   carriers: z.array(z.string()).default(['usps', 'ups', 'fedex', 'dhl'])
 });
+
 type ShippingFormValues = z.infer<typeof shippingFormSchema>;
+
 const EnhancedShippingForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [fromAddress, setFromAddress] = useState<SavedAddress | null>(null);
@@ -40,8 +44,10 @@ const EnhancedShippingForm: React.FC = () => {
   const [customsInfo, setCustomsInfo] = useState<any>(null);
   const [showLabelCreationModal, setShowLabelCreationModal] = useState(false);
   const [labelCreationData, setLabelCreationData] = useState<any>(null);
+
   const handleFromAddressSelect = createAddressSelectHandler(setFromAddress);
   const handleToAddressSelect = createAddressSelectHandler(setToAddress);
+
   const form = useForm<ShippingFormValues>({
     resolver: zodResolver(shippingFormSchema),
     defaultValues: {
@@ -58,6 +64,7 @@ const EnhancedShippingForm: React.FC = () => {
       carriers: ['usps', 'ups', 'fedex', 'dhl']
     }
   });
+
   const watchPackageType = form.watch("packageType");
   const watchInsurance = form.watch("insurance");
   const watchDeclaredValue = form.watch("declaredValue");
@@ -73,15 +80,18 @@ const EnhancedShippingForm: React.FC = () => {
       setShowCustomsModal(true);
     }
   }, [isInternational, customsInfo, toAddress, fromAddress]);
+
   const handleCustomsSubmit = (customs: any) => {
     setCustomsInfo(customs);
     setShowCustomsModal(false);
     toast.success("Customs documentation saved successfully");
   };
+
   const handleInsuranceChange = (enabled: boolean, amount: number) => {
     form.setValue('insurance', enabled);
     form.setValue('declaredValue', amount);
   };
+
   const handleGetRates = async (values: ShippingFormValues) => {
     if (!fromAddress || !toAddress) {
       toast.error("Please provide both origin and destination addresses");
@@ -94,6 +104,7 @@ const EnhancedShippingForm: React.FC = () => {
       setShowCustomsModal(true);
       return;
     }
+
     setIsLoading(true);
     try {
       // Convert weight to ounces for backend processing
@@ -208,6 +219,7 @@ const EnhancedShippingForm: React.FC = () => {
     document.addEventListener('label-created', handleLabelCreated);
     return () => document.removeEventListener('label-created', handleLabelCreated);
   }, [fromAddress, toAddress, isInternational, customsInfo]);
+
   return <div className="w-full">
       <Card className="border shadow-sm">
         <Form {...form}>
@@ -304,7 +316,15 @@ const EnhancedShippingForm: React.FC = () => {
               <div className="mb-4">
                 <FormField control={form.control} name="carriers" render={({
                 field
-              }) => {}} />
+              }) => (
+                <FormItem>
+                  <CarrierSelector 
+                    selectedCarriers={field.value || []} 
+                    onCarrierChange={field.onChange} 
+                  />
+                  <FormMessage />
+                </FormItem>
+              )} />
               </div>
             </div>
 
@@ -385,4 +405,5 @@ const EnhancedShippingForm: React.FC = () => {
       <LabelCreationModal isOpen={showLabelCreationModal} onClose={() => setShowLabelCreationModal(false)} labelData={labelCreationData} />
     </div>;
 };
+
 export default EnhancedShippingForm;
