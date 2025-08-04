@@ -1,27 +1,35 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ArrowRight, Package, Calculator, CheckCircle, AlertCircle } from 'lucide-react';
-import OriginDestinationForm from './OriginDestinationForm';
+import SimplifiedOriginDestinationForm from './SimplifiedOriginDestinationForm';
 import LoadDetailsForm from './LoadDetailsForm';
 import FreightRatesDisplay from './FreightRatesDisplay';
-import { FreightFormData, FreightRate } from '@/types/freight';
+import { FreightLoadDetails } from '@/types/freight';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+interface SimplifiedLocationData {
+  portName: string;
+  country: string;
+}
+
+interface SimplifiedFormData {
+  origin: SimplifiedLocationData;
+  destination: SimplifiedLocationData;
+  loadDetails: FreightLoadDetails;
+}
+
 const FreightForwardingForm: React.FC = () => {
-  const [formData, setFormData] = useState<FreightFormData>({
+  const [formData, setFormData] = useState<SimplifiedFormData>({
     origin: {
-      locationType: '',
-      country: '',
-      address: ''
+      portName: '',
+      country: ''
     },
     destination: {
-      locationType: '',
-      country: '',
-      address: ''
+      portName: '',
+      country: ''
     },
     loadDetails: {
       type: 'loose-cargo',
@@ -35,45 +43,7 @@ const FreightForwardingForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [requestParams, setRequestParams] = useState<any>(null);
 
-  // Helper function to get UN location code from address
-  const getUnLocationCode = (address: string, country: string): string => {
-    // This is a simplified mapping - in production you'd use a proper location service
-    const locationMappings: { [key: string]: string } = {
-      'new york': 'USNYC',
-      'los angeles': 'USLAX',
-      'shanghai': 'CNSHA',
-      'hamburg': 'DEHAM',
-      'london': 'GBLON',
-      'tokyo': 'JPNRT',
-      'singapore': 'SGSIN',
-      'dubai': 'AEDXB',
-      'mumbai': 'INBOM',
-      'delhi': 'INDEL'
-    };
-
-    const addressLower = address.toLowerCase();
-    for (const [city, code] of Object.entries(locationMappings)) {
-      if (addressLower.includes(city)) {
-        return code;
-      }
-    }
-
-    // Default fallback based on country
-    const countryDefaults: { [key: string]: string } = {
-      'US': 'USNYC',
-      'CN': 'CNSHA',
-      'DE': 'DEHAM',
-      'GB': 'GBLON',
-      'JP': 'JPNRT',
-      'SG': 'SGSIN',
-      'AE': 'AEDXB',
-      'IN': 'INBOM'
-    };
-
-    return countryDefaults[country] || 'USNYC';
-  };
-
-  const updateFormData = (section: keyof FreightFormData, data: any) => {
+  const updateFormData = (section: keyof SimplifiedFormData, data: any) => {
     setFormData(prev => ({
       ...prev,
       [section]: data
@@ -82,16 +52,16 @@ const FreightForwardingForm: React.FC = () => {
     // Show load details when both origin and destination are complete
     if (section === 'origin' || section === 'destination') {
       const updatedData = { ...formData, [section]: data };
-      const originComplete = updatedData.origin.locationType && updatedData.origin.country && updatedData.origin.address;
-      const destinationComplete = updatedData.destination.locationType && updatedData.destination.country && updatedData.destination.address;
+      const originComplete = updatedData.origin.portName && updatedData.origin.country;
+      const destinationComplete = updatedData.destination.portName && updatedData.destination.country;
       setShowLoadDetails(Boolean(originComplete && destinationComplete));
     }
   };
 
   const isFormComplete = () => {
     const { origin, destination, loadDetails } = formData;
-    return origin.locationType && origin.country && origin.address &&
-           destination.locationType && destination.country && destination.address &&
+    return origin.portName && origin.country &&
+           destination.portName && destination.country &&
            loadDetails.loads.length > 0;
   };
 
@@ -106,13 +76,13 @@ const FreightForwardingForm: React.FC = () => {
     setRates([]);
     
     try {
-      // Transform the form data to match the required API structure
+      // Transform the form data to match the new API structure
       const transformedPayload = {
         origin: {
-          unLocationCode: getUnLocationCode(formData.origin.address, formData.origin.country)
+          portName: formData.origin.portName
         },
         destination: {
-          unLocationCode: getUnLocationCode(formData.destination.address, formData.destination.country)
+          portName: formData.destination.portName
         },
         loadDetails: {
           loads: formData.loadDetails.loads.map((load: any) => {
@@ -157,6 +127,9 @@ const FreightForwardingForm: React.FC = () => {
         if (error.message?.includes('credentials not configured')) {
           setError('Freightos API credentials are not configured. Please contact support to set up API access for real freight rates.');
           toast.error('API setup required for real freight rates');
+        } else if (error.message?.includes('Invalid origin port') || error.message?.includes('Invalid destination port')) {
+          setError(error.message);
+          toast.error('Please select valid ports from the dropdown');
         } else {
           setError(`Failed to get freight rates: ${error.message || 'Unknown error'}`);
           toast.error('Failed to get freight rates. Please try again.');
@@ -175,10 +148,9 @@ const FreightForwardingForm: React.FC = () => {
       if (data?.rates && data.rates.length > 0) {
         setRates(data.rates);
         setRequestParams({
-          origin: formData.origin.address,
-          destination: formData.destination.address,
-          originCode: transformedPayload.origin.unLocationCode,
-          destinationCode: transformedPayload.destination.unLocationCode
+          origin: formData.origin.portName,
+          destination: formData.destination.portName,
+          routeInfo: data.routeInfo
         });
         setError(null);
         toast.success(`✅ Found ${data.rates.length} freight rate estimate${data.rates.length !== 1 ? 's' : ''} from Freightos API!`);
@@ -228,7 +200,7 @@ const FreightForwardingForm: React.FC = () => {
           <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-medium">
             1
           </div>
-          <span className="ml-2 text-sm font-medium text-gray-900">Route</span>
+          <span className="ml-2 text-sm font-medium text-gray-900">Select Ports</span>
         </div>
         <ArrowRight className="w-4 h-4 text-gray-400" />
         <div className="flex items-center">
@@ -254,8 +226,8 @@ const FreightForwardingForm: React.FC = () => {
         </div>
       </div>
 
-      {/* Origin & Destination */}
-      <OriginDestinationForm
+      {/* Simplified Origin & Destination */}
+      <SimplifiedOriginDestinationForm
         originData={formData.origin}
         destinationData={formData.destination}
         onOriginChange={(data) => updateFormData('origin', data)}
@@ -324,8 +296,8 @@ const FreightForwardingForm: React.FC = () => {
           <FreightRatesDisplay 
             rates={rates} 
             onBooking={handleBooking}
-            originData={formData.origin}
-            destinationData={formData.destination}
+            originData={{ address: formData.origin.portName }}
+            destinationData={{ address: formData.destination.portName }}
             loadDetails={formData.loadDetails}
             requestParams={requestParams}
           />

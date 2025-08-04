@@ -7,6 +7,81 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Port/Airport to UN/LOCODE mapping
+const portLocationMapping: { [key: string]: string } = {
+  // Major US Ports
+  'Los Angeles': 'USLAX',
+  'Long Beach': 'USLGB',
+  'New York': 'USNYC',
+  'Newark': 'USEWR',
+  'Savannah': 'USSAV',
+  'Houston': 'USHOU',
+  'Seattle': 'USSEA',
+  'Oakland': 'USOAK',
+  'Miami': 'USMIA',
+  'Charleston': 'USCHS',
+  
+  // Major International Ports
+  'Shanghai': 'CNSHA',
+  'Singapore': 'SGSIN',
+  'Rotterdam': 'NLRTM',
+  'Hamburg': 'DEHAM',
+  'Antwerp': 'BEANR',
+  'Hong Kong': 'HKHKG',
+  'Busan': 'KRPUS',
+  'Dubai': 'AEDXB',
+  'London': 'GBLON',
+  'Tokyo': 'JPNRT',
+  'Mumbai': 'INBOM',
+  'Delhi': 'INDEL',
+  'Chennai': 'INMAA',
+  'Kolkata': 'INCCU',
+  'Le Havre': 'FRLEH',
+  'Felixstowe': 'GBFXT',
+  'Barcelona': 'ESBCN',
+  'Genoa': 'ITGOA',
+  'Valencia': 'ESVLC',
+  
+  // Major Airports
+  'Los Angeles International Airport': 'USLAX',
+  'John F. Kennedy International Airport': 'USNYC',
+  'Chicago O\'Hare International Airport': 'USCHI',
+  'Miami International Airport': 'USMIA',
+  'Shanghai Pudong International Airport': 'CNSHA',
+  'Singapore Changi Airport': 'SGSIN',
+  'Frankfurt Airport': 'DEFRA',
+  'Amsterdam Schiphol Airport': 'NLAMS',
+  'London Heathrow Airport': 'GBLON',
+  'Tokyo Narita International Airport': 'JPNRT',
+  'Dubai International Airport': 'AEDXB',
+  'Hong Kong International Airport': 'HKHKG',
+  'Seoul Incheon International Airport': 'KRPUS',
+};
+
+function getUnLocationCode(portName: string): string | null {
+  // Direct lookup
+  if (portLocationMapping[portName]) {
+    return portLocationMapping[portName];
+  }
+  
+  // Try case-insensitive lookup
+  const portNameLower = portName.toLowerCase();
+  for (const [key, value] of Object.entries(portLocationMapping)) {
+    if (key.toLowerCase() === portNameLower) {
+      return value;
+    }
+  }
+  
+  // Try partial match for airports/ports
+  for (const [key, value] of Object.entries(portLocationMapping)) {
+    if (key.toLowerCase().includes(portNameLower) || portNameLower.includes(key.toLowerCase())) {
+      return value;
+    }
+  }
+  
+  return null;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -45,6 +120,30 @@ serve(async (req) => {
 
     console.log('Freight forwarding request:', { origin, destination, loadDetails });
 
+    // Convert port names to UN/LOCODEs
+    const originCode = getUnLocationCode(origin.portName);
+    const destinationCode = getUnLocationCode(destination.portName);
+
+    if (!originCode) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid origin port',
+          message: `Port "${origin.portName}" is not supported. Please select from the available ports.`
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
+    if (!destinationCode) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid destination port',
+          message: `Port "${destination.portName}" is not supported. Please select from the available ports.`
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      );
+    }
+
     // Get Freightos API credentials from Supabase secrets
     const freightApiKey = Deno.env.get('FREIGHTOS_API_KEY');
 
@@ -74,15 +173,19 @@ serve(async (req) => {
       })),
       legs: [{
         origin: {
-          unLocationCode: origin.unLocationCode,
+          unLocationCode: originCode,
         },
         destination: {
-          unLocationCode: destination.unLocationCode,
+          unLocationCode: destinationCode,
         },
       }],
     };
 
     console.log('Calling Freightos API with payload:', freightosPayload);
+    console.log('Converted ports:', { 
+      origin: `${origin.portName} -> ${originCode}`, 
+      destination: `${destination.portName} -> ${destinationCode}` 
+    });
 
     // Call Freightos API
     const freightosResponse = await fetch('https://api.freightos.com/api/v1/freightEstimates', {
@@ -115,7 +218,7 @@ serve(async (req) => {
     const freightosData = await freightosResponse.json();
     console.log('Freightos API response:', freightosData);
 
-    // Transform Freightos response to our format. The new API response format is different from the old one.
+    // Transform Freightos response to our format
     const rates = Object.keys(freightosData).flatMap(mode => {
       return freightosData[mode].priceEstimates ? [{
         mode,
@@ -123,6 +226,8 @@ serve(async (req) => {
         maxPrice: freightosData[mode].priceEstimates.max,
         minTransitTime: freightosData[mode].transitTime.min,
         maxTransitTime: freightosData[mode].transitTime.max,
+        originPort: origin.portName,
+        destinationPort: destination.portName,
       }] : [];
     });
 
@@ -144,7 +249,11 @@ serve(async (req) => {
       JSON.stringify({ 
         rates,
         message: `Found ${rates.length} freight rate(s)`,
-        source: 'freightos_api'
+        source: 'freightos_api',
+        routeInfo: {
+          origin: `${origin.portName} (${originCode})`,
+          destination: `${destination.portName} (${destinationCode})`
+        }
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
