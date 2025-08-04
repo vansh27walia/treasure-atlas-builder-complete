@@ -40,31 +40,6 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
 
   const totalAmount = rate ? (rate.total_cost || parseFloat(rate.rate)) : 0;
 
-  // Handle return from Stripe
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentSuccess = urlParams.get('payment_success');
-    const redirectStatus = urlParams.get('redirect_status');
-    
-    if (paymentSuccess === 'true' || redirectStatus === 'succeeded') {
-      // Clear URL parameters
-      window.history.replaceState({}, document.title, window.location.pathname);
-      
-      // Auto-refresh once to update payment methods display
-      const hasRefreshed = sessionStorage.getItem('stripe_return_refreshed');
-      if (!hasRefreshed) {
-        sessionStorage.setItem('stripe_return_refreshed', 'true');
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      } else {
-        sessionStorage.removeItem('stripe_return_refreshed');
-        toast.success('Payment completed! Your label is being created...');
-        onPaymentSuccess();
-      }
-    }
-  }, [onPaymentSuccess]);
-
   const handlePaymentMethodChange = (paymentMethodId: string) => {
     console.log('Selected payment method:', paymentMethodId);
     setSelectedPaymentMethod(paymentMethodId);
@@ -74,10 +49,6 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
     if (success) {
       console.log('Payment completed successfully');
       toast.success('Payment completed successfully!');
-      
-      // Set flag for auto-refresh handling
-      sessionStorage.setItem('payment_completed', 'true');
-      
       onPaymentSuccess();
       onClose();
     } else {
@@ -103,8 +74,7 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
           paymentMethodId: selectedPaymentMethod,
           shipmentId: shipmentId,
           rateId: rate?.id,
-          description: `Shipping Label - ${rate?.carrier} ${rate?.service}`,
-          returnUrl: `${window.location.origin}${window.location.pathname}?payment_success=true`
+          description: `Shipping Label - ${rate?.carrier} ${rate?.service}`
         }
       });
 
@@ -114,17 +84,9 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
 
       if (data?.success) {
         console.log('Payment processed successfully:', data);
-        
-        // Set session flag for refresh handling
-        sessionStorage.setItem('payment_completed', 'true');
-        
         toast.success('Payment completed successfully!');
         onPaymentSuccess();
         onClose();
-      } else if (data?.requires_action && data?.client_secret) {
-        // Handle 3D Secure or other required actions
-        toast.info('Additional authentication required...');
-        // The payment method selector should handle this
       } else {
         throw new Error(data?.message || 'Payment processing failed');
       }
@@ -171,12 +133,6 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
                 <span>Delivery</span>
                 <span>{rate.delivery_days} business days</span>
               </div>
-              {rate.insurance_cost && rate.insurance_cost > 0 && (
-                <div className="flex justify-between">
-                  <span>Insurance</span>
-                  <span>${rate.insurance_cost.toFixed(2)}</span>
-                </div>
-              )}
               <div className="flex justify-between font-semibold border-t pt-1">
                 <span>Total</span>
                 <span>${totalAmount.toFixed(2)}</span>

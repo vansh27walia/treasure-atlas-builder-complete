@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -29,47 +29,9 @@ export const useShipmentManagement = (
   };
 
   // Load default pickup address on initialization
-  useEffect(() => {
+  useState(() => {
     loadDefaultPickupAddress();
-  }, []);
-
-  // Auto-refresh detection from Stripe
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentSuccess = urlParams.get('payment_success');
-    const redirectStatus = urlParams.get('redirect_status');
-    
-    if (paymentSuccess === 'true' || redirectStatus === 'succeeded') {
-      // Clear URL parameters
-      window.history.replaceState({}, document.title, window.location.pathname);
-      
-      // Auto-refresh once to show updated payment methods
-      const hasRefreshed = sessionStorage.getItem('stripe_return_refreshed');
-      if (!hasRefreshed) {
-        sessionStorage.setItem('stripe_return_refreshed', 'true');
-        window.location.reload();
-      } else {
-        sessionStorage.removeItem('stripe_return_refreshed');
-        // Auto-redirect to label creation
-        handleCreateLabels();
-      }
-    }
-  }, []);
-
-  const calculateRowTotal = (shipment: BulkShipment): number => {
-    const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-    const shippingCost = selectedRate ? parseFloat(selectedRate.rate.toString()) : 0;
-    const insuranceCost = shipment.insurance_amount || 0;
-    return shippingCost + insuranceCost;
-  };
-
-  const calculateGrandTotal = (): number => {
-    if (!initialResults) return 0;
-    
-    return initialResults.processedShipments.reduce((grandTotal, shipment) => {
-      return grandTotal + calculateRowTotal(shipment);
-    }, 0);
-  };
+  });
 
   const handleRemoveShipment = (shipmentId: string) => {
     if (!initialResults) return;
@@ -78,8 +40,15 @@ export const useShipmentManagement = (
       shipment => shipment.id !== shipmentId
     );
     
-    // Recalculate totals
-    const totalCost = calculateGrandTotal();
+    // Recalculate totals including insurance
+    const totalCost = updatedShipments.reduce((sum, shipment) => {
+      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
+      const shippingCost = selectedRate?.rate || 0;
+      const insuranceCost = shipment.insurance_amount || 0;
+      return sum + shippingCost + insuranceCost;
+    }, 0);
+    
+    // Calculate separate insurance total
     const totalInsurance = updatedShipments.reduce((sum, shipment) => {
       return sum + (shipment.insurance_amount || 0);
     }, 0);
@@ -113,17 +82,9 @@ export const useShipmentManagement = (
       return shipment;
     });
     
-    // Recalculate totals
-    const totalCost = calculateGrandTotal();
-    const totalInsurance = updatedShipments.reduce((sum, shipment) => {
-      return sum + (shipment.insurance_amount || 0);
-    }, 0);
-    
     updateResults({
       ...initialResults,
-      processedShipments: updatedShipments,
-      totalCost,
-      totalInsurance
+      processedShipments: updatedShipments
     });
     
     // Re-fetch rates after editing
@@ -168,7 +129,11 @@ export const useShipmentManagement = (
       });
       
       // Recalculate totals
-      const totalCost = calculateGrandTotal();
+      const totalCost = updatedShipments.reduce((sum, shipment) => {
+        const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
+        return sum + (selectedRate?.rate || 0);
+      }, 0);
+      
       const totalInsurance = updatedShipments.reduce((sum, shipment) => {
         return sum + (shipment.insurance_amount || 0);
       }, 0);
@@ -202,21 +167,31 @@ export const useShipmentManagement = (
     setIsPaying(true);
     
     try {
-      // Calculate grand total (sum of all row totals: shipping + insurance per row)
-      const grandTotal = calculateGrandTotal();
-      const amountInCents = Math.round(grandTotal * 100);
+      // Calculate total including insurance
+      const shippingCost = initialResults.processedShipments.reduce((sum, shipment) => {
+        const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
+        return sum + (selectedRate?.rate || 0);
+      }, 0);
+      
+      const insuranceCost = initialResults.processedShipments.reduce((sum, shipment) => {
+        return sum + (shipment.insurance_amount || 0);
+      }, 0);
+      
+      const totalAmount = shippingCost + insuranceCost;
+      const amountInCents = Math.round(totalAmount * 100);
       
       // Create checkout session with Stripe
       const { data, error } = await supabase.functions.invoke('create-bulk-checkout', {
         body: { 
           amount: amountInCents,
           quantity: initialResults.successful,
-          description: `Bulk Shipping - ${initialResults.successful} labels (shipping + insurance per label)`,
+          description: `Bulk Shipping - ${initialResults.successful} labels (including insurance)`,
           metadata: {
             shipment_ids: initialResults.processedShipments.map(s => s.id).join(','),
             pickup_address_id: pickupAddress?.id,
-            grand_total: grandTotal,
-            calculation_method: 'row_by_row_with_insurance'
+            shipping_cost: shippingCost,
+            insurance_cost: insuranceCost,
+            total_cost: totalAmount
           }
         }
       });
@@ -224,7 +199,7 @@ export const useShipmentManagement = (
       if (error) throw new Error(error.message);
       
       toast("Redirecting to payment...", {
-        description: `Processing payment for $${grandTotal.toFixed(2)}`
+        description: `Processing payment for $${totalAmount.toFixed(2)}`
       });
       
       // Redirect to Stripe checkout
@@ -253,10 +228,6 @@ export const useShipmentManagement = (
       // Process each shipment to create labels
       const updatedShipments = [...initialResults.processedShipments];
       let successCount = 0;
-      
-      toast("Creating labels...", {
-        description: `Processing ${updatedShipments.length} labels`
-      });
       
       for (const shipment of updatedShipments) {
         if (!shipment.selectedRateId) continue;
@@ -296,15 +267,21 @@ export const useShipmentManagement = (
       // Update results with labels
       updateResults({
         ...initialResults,
-        processedShipments: updatedShipments,
-        successful: successCount,
-        failed: initialResults.processedShipments.length - successCount,
-        uploadStatus: 'success'
+        processedShipments: updatedShipments
       });
       
       if (successCount > 0) {
         toast("Label generation complete", {
-          description: `Generated ${successCount} shipping labels successfully`
+          description: `Generated ${successCount} shipping labels`
+        });
+        
+        // Set status to success for the BulkUpload component to show success view
+        updateResults({
+          ...initialResults,
+          processedShipments: updatedShipments,
+          successful: successCount,
+          failed: initialResults.processedShipments.length - successCount,
+          uploadStatus: 'success'
         });
       } else {
         toast("Label generation failed", {
@@ -339,7 +316,7 @@ export const useShipmentManagement = (
     setShowLabelOptions(false);
     
     if (format === 'zip') {
-      // Handle ZIP download
+      // Handle ZIP download - in a real app this would call a backend endpoint
       toast("Preparing ZIP file", {
         description: `Creating ZIP archive with ${initialResults.processedShipments.length} labels`
       });
@@ -413,8 +390,6 @@ export const useShipmentManagement = (
     showLabelOptions,
     downloadFormat,
     pickupAddress,
-    calculateRowTotal,
-    calculateGrandTotal,
     handleRemoveShipment,
     handleEditShipment,
     handleRefreshRates,

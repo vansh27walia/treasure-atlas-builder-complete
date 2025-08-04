@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Card,
@@ -188,12 +189,13 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
           </span>
         </div>
         
-        {/* Address selector dropdown - fix the prop names */}
+        {/* Address selector dropdown */}
         <SelectAddressDropdown
-          onAddressSelect={handleSavedAddressSelected}
-          selectedAddress={selectedSavedAddress}
-          addressType={type === 'from' ? 'pickup' : 'delivery'}
+          onAddressSelected={handleSavedAddressSelected}
+          onAddNew={handleAddNewAddress}
+          defaultAddress={defaultAddress}
           placeholder={type === 'from' ? 'Select pickup address' : 'Select delivery address'}
+          isPickupAddress={type === 'from'}
         />
       </div>
       
