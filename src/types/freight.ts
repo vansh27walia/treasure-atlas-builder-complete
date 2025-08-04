@@ -42,11 +42,11 @@ export interface FreightFormData {
 }
 
 export interface FreightRate {
-  carrier: string;
-  serviceType: string;
-  serviceLevel?: string;
-  transitTime: string;
-  totalCost: number;
-  currency: string;
-  notes?: string;
+  mode: string;
+  minPrice: number;
+  maxPrice: number;
+  minTransitTime: number;
+  maxTransitTime: number;
+  originPort?: string;
+  destinationPort?: string;
 }
