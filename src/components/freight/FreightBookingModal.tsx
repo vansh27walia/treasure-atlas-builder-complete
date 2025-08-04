@@ -79,6 +79,11 @@ const FreightBookingModal: React.FC<FreightBookingModalProps> = ({
 
   if (!rate) return null;
 
+  // Calculate derived values from the new rate structure
+  const averagePrice = Math.round((rate.minPrice + rate.maxPrice) / 2);
+  const transitTimeRange = `${rate.minTransitTime}-${rate.maxTransitTime} days`;
+  const priceRange = `$${rate.minPrice.toLocaleString()} - $${rate.maxPrice.toLocaleString()}`;
+
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -119,9 +124,9 @@ const FreightBookingModal: React.FC<FreightBookingModalProps> = ({
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  <span>{rate.carrier}</span>
-                  <Badge variant={rate.serviceType === 'express' ? 'default' : 'secondary'}>
-                    {rate.serviceType}
+                  <span>{rate.mode} Freight</span>
+                  <Badge variant="secondary">
+                    {rate.mode.toLowerCase()}
                   </Badge>
                 </CardTitle>
               </CardHeader>
@@ -131,15 +136,15 @@ const FreightBookingModal: React.FC<FreightBookingModalProps> = ({
                     <Clock className="w-4 h-4 mr-2 text-gray-400" />
                     <div>
                       <p className="text-sm text-gray-500">Transit Time</p>
-                      <p className="font-medium">{rate.transitTime}</p>
+                      <p className="font-medium">{transitTimeRange}</p>
                     </div>
                   </div>
                   
                   <div className="flex items-center">
                     <DollarSign className="w-4 h-4 mr-2 text-gray-400" />
                     <div>
-                      <p className="text-sm text-gray-500">Total Cost</p>
-                      <p className="font-medium text-lg">${rate.totalCost.toLocaleString()}</p>
+                      <p className="text-sm text-gray-500">Price Range</p>
+                      <p className="font-medium text-lg">{priceRange}</p>
                     </div>
                   </div>
                   
@@ -147,7 +152,7 @@ const FreightBookingModal: React.FC<FreightBookingModalProps> = ({
                     <div className="w-4 h-4 mr-2" />
                     <div>
                       <p className="text-sm text-gray-500">Service Level</p>
-                      <p className="font-medium capitalize">{rate.serviceLevel || 'Standard'}</p>
+                      <p className="font-medium capitalize">Standard</p>
                     </div>
                   </div>
                 </div>
@@ -167,7 +172,7 @@ const FreightBookingModal: React.FC<FreightBookingModalProps> = ({
                   <div>
                     <h4 className="font-medium text-green-700 mb-2">Origin</h4>
                     <p className="text-sm">
-                      {originData.locationType} - {originData.country}
+                      {originData.portName || originData.locationType} - {originData.country}
                     </p>
                     <p className="text-sm text-gray-600">{originData.address}</p>
                   </div>
@@ -183,7 +188,7 @@ const FreightBookingModal: React.FC<FreightBookingModalProps> = ({
                   <div>
                     <h4 className="font-medium text-red-700 mb-2">Destination</h4>
                     <p className="text-sm">
-                      {destinationData.locationType} - {destinationData.country}
+                      {destinationData.portName || destinationData.locationType} - {destinationData.country}
                     </p>
                     <p className="text-sm text-gray-600">{destinationData.address}</p>
                   </div>
@@ -200,11 +205,6 @@ const FreightBookingModal: React.FC<FreightBookingModalProps> = ({
                 <div className="space-y-2">
                   <p><span className="font-medium">Type:</span> {loadDetails.type === 'loose-cargo' ? 'Loose Cargo' : 'Container'}</p>
                   <p><span className="font-medium">Number of Items:</span> {loadDetails.loads?.length || 0}</p>
-                  {rate.notes && (
-                    <div className="mt-4 p-3 bg-gray-50 rounded-md">
-                      <p className="text-sm text-gray-600">{rate.notes}</p>
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>
@@ -227,7 +227,7 @@ const FreightBookingModal: React.FC<FreightBookingModalProps> = ({
                     Processing...
                   </>
                 ) : (
-                  `Confirm Booking - $${rate.totalCost.toLocaleString()}`
+                  `Confirm Booking - ${priceRange}`
                 )}
               </Button>
             </div>
