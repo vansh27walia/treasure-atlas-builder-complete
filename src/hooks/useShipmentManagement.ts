@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
@@ -15,7 +14,7 @@ export const useShipmentManagement = (
 
   const calculateRowTotal = (shipment: BulkShipment): number => {
     const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-    const shippingCost = selectedRate ? parseFloat(selectedRate.rate) : 0;
+    const shippingCost = selectedRate ? parseFloat(selectedRate.rate.toString()) : 0;
     const insuranceCost = shipment.insurance_amount || 0;
     return shippingCost + insuranceCost;
   };
