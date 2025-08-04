@@ -272,15 +272,18 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
                   Refresh Addresses
                 </span>
               </CommandItem>
-              <CommandItem 
-                onSelect={handleAddNew}
-                className="cursor-pointer hover:bg-gray-50"
-              >
-                <span className="font-medium text-green-600 flex items-center">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add new address
-                </span>
-              </CommandItem>
+              {/* Only show "Add new" option for pickup addresses, not drop-off */}
+              {isPickupAddress && (
+                <CommandItem 
+                  onSelect={handleAddNew}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
+                  <span className="font-medium text-green-600 flex items-center">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add new address
+                  </span>
+                </CommandItem>
+              )}
             </CommandGroup>
           </CommandList>
         </Command>
