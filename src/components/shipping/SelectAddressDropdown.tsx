@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Check, ChevronsUpDown, MapPin, Plus, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -43,7 +42,11 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
   const [selectedAddress, setSelectedAddress] = useState<SavedAddress | null>(defaultAddress);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Refresh addresses function with proper state management
+  // If this is not a pickup address (i.e., it's a drop-off address), don't show saved addresses
+  if (!isPickupAddress) {
+    return null;
+  }
+
   const refreshAddresses = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -67,7 +70,6 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     }
   }, []);
 
-  // Load addresses on component mount
   useEffect(() => {
     let isMounted = true;
     
@@ -123,9 +125,8 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     return () => {
       isMounted = false;
     };
-  }, []); // Empty dependency array to run only once
+  }, []);
 
-  // Handle external default address changes
   useEffect(() => {
     if (defaultAddress && (!selectedAddress || defaultAddress.id !== selectedAddress.id)) {
       console.log('Setting selected address from default prop:', defaultAddress);
@@ -153,7 +154,6 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     toast.info('Address selection cleared');
   }, [onAddressSelected]);
 
-  // Memoize the address label to prevent recalculation
   const addressLabel = useMemo(() => {
     if (!selectedAddress) return placeholder;
     return selectedAddress.name || formatAddressForDisplay(selectedAddress).split(',')[0];
