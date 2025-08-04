@@ -79,22 +79,39 @@ const SelectAddressDropdown: React.FC<SelectAddressDropdownProps> = ({
     }
 
     try {
-      const savedAddress = await addressService.saveAddress(newAddress, addressType === 'pickup');
-      setAddresses(prev => [...prev, savedAddress]);
-      handleAddressSelect(savedAddress);
-      setNewAddress({
-        name: '',
-        company: '',
-        street1: '',
-        street2: '',
-        city: '',
-        state: '',
-        zip: '',
-        country: 'US',
-        phone: '',
-        email: ''
-      });
-      toast.success('Address saved successfully');
+      // Fix: Use createAddress instead of saveAddress
+      const addressData = {
+        name: newAddress.name,
+        company: newAddress.company,
+        street1: newAddress.street1,
+        street2: newAddress.street2,
+        city: newAddress.city,
+        state: newAddress.state,
+        zip: newAddress.zip,
+        country: newAddress.country,
+        phone: newAddress.phone,
+        is_default_from: addressType === 'pickup',
+        is_default_to: addressType === 'delivery'
+      };
+      
+      const savedAddress = await addressService.createAddress(addressData);
+      if (savedAddress) {
+        setAddresses(prev => [...prev, savedAddress]);
+        handleAddressSelect(savedAddress);
+        setNewAddress({
+          name: '',
+          company: '',
+          street1: '',
+          street2: '',
+          city: '',
+          state: '',
+          zip: '',
+          country: 'US',
+          phone: '',
+          email: ''
+        });
+        toast.success('Address saved successfully');
+      }
     } catch (error) {
       console.error('Error saving address:', error);
       toast.error('Failed to save address');
