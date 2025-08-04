@@ -1,11 +1,11 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -27,7 +27,7 @@ serve(async (req) => {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    )
+    );
 
     // Verify the JWT token
     const jwt = authHeader.replace('Bearer ', '');
@@ -41,92 +41,62 @@ serve(async (req) => {
     }
 
     // Get the request body
-    const { origin, destination, loadDetails } = await req.json()
+    const { origin, destination, loadDetails } = await req.json();
 
-    console.log('Freight forwarding request:', { origin, destination, loadDetails })
+    console.log('Freight forwarding request:', { origin, destination, loadDetails });
 
     // Get Freightos API credentials from Supabase secrets
-    const freightApiKey = Deno.env.get('FREIGHTOS_API_KEY')
-    const freightApiSecret = Deno.env.get('FREIGHTOS_API_SECRET')
+    const freightApiKey = Deno.env.get('FREIGHTOS_API_KEY');
 
-    if (!freightApiKey || !freightApiSecret) {
-      console.error('Missing Freightos API credentials in Supabase secrets')
+    if (!freightApiKey) {
+      console.error('Missing Freightos API key in Supabase secrets');
       
       return new Response(
         JSON.stringify({ 
           error: 'API credentials not configured',
-          message: 'Freightos API credentials are required to get real freight rates. Please contact support to configure your API access.',
+          message: 'Freightos API key is required to get freight rates.',
           requiresSetup: true
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 400 
         }
-      )
+      );
     }
 
-    // Transform load details for Freightos API
-    const firstLoad = loadDetails.loads[0];
-    let weight = 100; // default weight in kg
-    let length = 120; // default dimensions in cm
-    let width = 80;
-    let height = 100;
-    let loadType = 'boxes';
-    let quantity = 1;
+    // Prepare payload for Freightos API based on documentation
+    const freightosPayload = {
+      load: loadDetails.loads.map((load: any) => ({
+        quantity: load.quantity,
+        unitType: load.unitType,
+        unitWeightKg: load.weight,
+        unitVolumeCBM: load.totalVolume,
+      })),
+      legs: [{
+        origin: {
+          unLocationCode: origin.unLocationCode,
+        },
+        destination: {
+          unLocationCode: destination.unLocationCode,
+        },
+      }],
+    };
 
-    if (loadDetails.type === 'loose-cargo' && firstLoad) {
-      // Convert weight to kg if needed
-      if (firstLoad.weight) {
-        weight = firstLoad.weight.unit === 'lbs' ? firstLoad.weight.value * 0.453592 : firstLoad.weight.value;
-      }
-      
-      // Convert dimensions to cm if needed
-      if (firstLoad.dimensions) {
-        const conversionFactor = firstLoad.dimensions.unit === 'in' ? 2.54 : 1;
-        length = firstLoad.dimensions.length * conversionFactor;
-        width = firstLoad.dimensions.width * conversionFactor;
-        height = firstLoad.dimensions.height * conversionFactor;
-      }
-      
-      quantity = firstLoad.quantity || 1;
-      loadType = firstLoad.unitType === 'pallets' ? 'pallets' : 'boxes';
-    } else if (loadDetails.type === 'containers' && firstLoad) {
-      loadType = firstLoad.containerSize === '20ft' ? 'container20' : 'container40';
-      quantity = firstLoad.quantity || 1;
-      // For containers, use standard weights and dimensions
-      weight = firstLoad.containerSize === '20ft' ? 15000 : 25000; // kg
-      length = firstLoad.containerSize === '20ft' ? 590 : 1200; // cm
-      width = 235; // cm
-      height = 239; // cm
-    }
-
-    // Build the Freightos API URL with query parameters
-    const freightosUrl = new URL('https://ship.freightos.com/api/shippingCalculator');
-    freightosUrl.searchParams.set('apiKey', freightApiKey);
-    freightosUrl.searchParams.set('origin', origin.address);
-    freightosUrl.searchParams.set('destination', destination.address);
-    freightosUrl.searchParams.set('weight', weight.toString());
-    freightosUrl.searchParams.set('length', length.toString());
-    freightosUrl.searchParams.set('width', width.toString());
-    freightosUrl.searchParams.set('height', height.toString());
-    freightosUrl.searchParams.set('loadType', loadType);
-    freightosUrl.searchParams.set('quantity', quantity.toString());
-
-    console.log('Calling Freightos API with URL:', freightosUrl.toString());
+    console.log('Calling Freightos API with payload:', freightosPayload);
 
     // Call Freightos API
-    const freightosResponse = await fetch(freightosUrl.toString(), {
-      method: 'GET',
+    const freightosResponse = await fetch('https://api.freightos.com/api/v1/freightEstimates', {
+      method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': freightApiKey,
-        'x-api-secret': freightApiSecret
-      }
-    })
+        'x-apikey': freightApiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(freightosPayload)
+    });
 
     if (!freightosResponse.ok) {
-      const errorText = await freightosResponse.text()
-      console.error('Freightos API error:', freightosResponse.status, freightosResponse.statusText, errorText)
+      const errorText = await freightosResponse.text();
+      console.error('Freightos API error:', freightosResponse.status, freightosResponse.statusText, errorText);
       
       return new Response(
         JSON.stringify({ 
@@ -139,49 +109,22 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 502
         }
-      )
+      );
     }
 
-    const freightosData = await freightosResponse.json()
-    console.log('Freightos API response:', freightosData)
+    const freightosData = await freightosResponse.json();
+    console.log('Freightos API response:', freightosData);
 
-    // Transform Freightos response to our format
-    let rates = [];
-    
-    if (freightosData.rates && Array.isArray(freightosData.rates)) {
-      rates = freightosData.rates.map((rate: any) => ({
-        carrier: rate.carrier || rate.carrierName || 'Unknown Carrier',
-        serviceType: rate.service || rate.serviceType || 'Standard',
-        serviceLevel: rate.serviceLevel || 'Standard',
-        transitTime: rate.transitTime || rate.transitTimeDays ? `${rate.transitTimeDays} days` : 'TBD',
-        totalCost: rate.price || rate.totalCost || rate.cost || 0,
-        currency: rate.currency || 'USD',
-        notes: rate.notes || rate.description
-      }));
-    } else if (freightosData.quotes && Array.isArray(freightosData.quotes)) {
-      // Alternative response format
-      rates = freightosData.quotes.map((quote: any) => ({
-        carrier: quote.carrier_name || quote.carrier || 'Unknown Carrier',
-        serviceType: quote.service_type || quote.service || 'Standard',
-        serviceLevel: quote.service_level || 'Standard',
-        transitTime: quote.transit_time || quote.transitTimeDays ? `${quote.transitTimeDays} days` : 'TBD',
-        totalCost: quote.total_cost || quote.price || quote.cost || 0,
-        currency: quote.currency || 'USD',
-        notes: quote.notes || quote.description
-      }));
-    } else {
-      // If no structured rates, create a sample response to show API is working
-      console.log('No structured rates found in response, using fallback format');
-      rates = [{
-        carrier: 'Freightos Network',
-        serviceType: 'Ocean Freight',
-        serviceLevel: 'Standard',
-        transitTime: '14-21 days',
-        totalCost: 1500 + Math.floor(Math.random() * 1000), // Add some variation
-        currency: 'USD',
-        notes: 'Rate estimate via Freightos API'
-      }];
-    }
+    // Transform Freightos response to our format. The new API response format is different from the old one.
+    const rates = Object.keys(freightosData).flatMap(mode => {
+      return freightosData[mode].priceEstimates ? [{
+        mode,
+        minPrice: freightosData[mode].priceEstimates.min,
+        maxPrice: freightosData[mode].priceEstimates.max,
+        minTransitTime: freightosData[mode].transitTime.min,
+        maxTransitTime: freightosData[mode].transitTime.max,
+      }] : [];
+    });
 
     if (rates.length === 0) {
       return new Response(
@@ -194,31 +137,23 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200
         }
-      )
+      );
     }
 
     return new Response(
       JSON.stringify({ 
         rates,
-        message: `Found ${rates.length} freight rate(s) from Freightos API`,
-        source: 'freightos_api',
-        requestParams: {
-          origin: origin.address,
-          destination: destination.address,
-          weight: `${weight}kg`,
-          dimensions: `${length}x${width}x${height}cm`,
-          loadType,
-          quantity
-        }
+        message: `Found ${rates.length} freight rate(s)`,
+        source: 'freightos_api'
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200 
       }
-    )
+    );
 
   } catch (error) {
-    console.error('Error in freight forwarding function:', error)
+    console.error('Error in freight forwarding function:', error);
     
     return new Response(
       JSON.stringify({ 
@@ -230,6 +165,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500 
       }
-    )
+    );
   }
-})
+});
