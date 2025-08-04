@@ -49,12 +49,6 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
     if (success) {
       console.log('Payment completed successfully');
       toast.success('Payment completed successfully!');
-      
-      // Auto-refresh the page after successful payment
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
-      
       onPaymentSuccess();
       onClose();
     } else {
@@ -91,12 +85,6 @@ const StripePaymentModal: React.FC<StripePaymentModalProps> = ({
       if (data?.success) {
         console.log('Payment processed successfully:', data);
         toast.success('Payment completed successfully!');
-        
-        // Auto-refresh the page after successful payment
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-        
         onPaymentSuccess();
         onClose();
       } else {

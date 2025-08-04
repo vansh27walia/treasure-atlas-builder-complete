@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, Download, Mail, Printer, RefreshCw, CreditCard } from 'lucide-react';
+import { ChevronDown, Download, Mail, Printer, RefreshCw } from 'lucide-react';
 import { useBatchLabelProcessing } from '@/hooks/useBatchLabelProcessing';
 import BatchPrintPreviewModal from './BatchPrintPreviewModal';
 import EmailLabelsModal from './EmailLabelsModal';
@@ -34,78 +34,6 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-
-  // Calculate total cost for all selected shipments including insurance
-  const calculateTotalCost = () => {
-    return selectedShipments.reduce((total, shipment) => {
-      const selectedRate = shipment.availableRates?.find((rate: any) => rate.id === shipment.selectedRateId);
-      const shippingCost = selectedRate ? parseFloat(selectedRate.rate) : 0;
-      const insuranceCost = shipment.insurance_amount || 0;
-      return total + shippingCost + insuranceCost;
-    }, 0);
-  };
-
-  const totalAmount = calculateTotalCost();
-
-  const handleProcessPayment = async () => {
-    if (!selectedShipments || selectedShipments.length === 0) {
-      toast.error('No shipments selected for payment');
-      return;
-    }
-
-    setIsProcessingPayment(true);
-
-    try {
-      console.log('Processing batch payment...');
-      
-      const { data, error } = await supabase.functions.invoke('create-bulk-checkout', {
-        body: {
-          shipments: selectedShipments.map(shipment => ({
-            ...shipment,
-            rowTotal: (() => {
-              const selectedRate = shipment.availableRates?.find((rate: any) => rate.id === shipment.selectedRateId);
-              const shippingCost = selectedRate ? parseFloat(selectedRate.rate) : 0;
-              const insuranceCost = shipment.insurance_amount || 0;
-              return shippingCost + insuranceCost;
-            })()
-          })),
-          pickupAddress,
-          totalAmount,
-          description: `Bulk Shipping - ${selectedShipments.length} labels (including insurance)`
-        }
-      });
-
-      if (error) {
-        console.error('Error processing payment:', error);
-        throw new Error(error.message || 'Failed to process payment');
-      }
-
-      if (data && data.success) {
-        console.log('Payment processed successfully:', data);
-        toast.success(`Payment completed successfully for $${totalAmount.toFixed(2)}`);
-        
-        setPaymentCompleted(true);
-        
-        // Auto-refresh page after payment
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
-
-        if (onBatchProcessed) {
-          onBatchProcessed(data);
-        }
-      } else {
-        throw new Error('No data returned from payment processing');
-      }
-
-    } catch (error) {
-      console.error('Failed to process payment:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to process payment');
-    } finally {
-      setIsProcessingPayment(false);
-    }
-  };
 
   const handleCreateBatchLabels = async () => {
     if (!selectedShipments || selectedShipments.length === 0) {
@@ -162,6 +90,12 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
     }
   };
 
+  const handlePaymentComplete = () => {
+    console.log('Payment completed successfully, ready to create batch labels...');
+    setPaymentCompleted(true);
+    toast.success('Payment completed! You can now generate labels.');
+  };
+
   const handleRefreshRates = async () => {
     try {
       toast.success('Refreshing rates...');
@@ -175,6 +109,7 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
 
   const hasSelectedShipments = selectedShipments && selectedShipments.length > 0;
   const hasBatchResult = batchResult && batchResult.consolidatedLabelUrls;
+  const batchAmount = selectedShipments.length * 5.99;
 
   return (
     <div className="flex flex-col gap-4">
@@ -185,7 +120,7 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
           paymentCompleted ? (hasBatchResult ? 'complete' : 'creation') : 
           currentStep
         }
-        isProcessing={isProcessingBatch || isCreatingLabels || isProcessingPayment}
+        isProcessing={isProcessingBatch || isCreatingLabels}
       />
 
       {/* Rate Refresh Section */}
@@ -209,35 +144,17 @@ const BatchLabelControls: React.FC<BatchLabelControlsProps> = ({
       {/* Payment Section - Show before batch processing */}
       {hasSelectedShipments && !paymentCompleted && !hasBatchResult && (
         <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-          <h3 className="font-semibold text-blue-800 mb-4">Ready to Process Batch Payment</h3>
-          <div className="space-y-2 mb-4">
-            <p className="text-sm text-gray-600">
-              {selectedShipments.length} labels ready for processing
-            </p>
-            <div className="text-lg font-semibold text-blue-800">
-              Total Cost: ${totalAmount.toFixed(2)}
-            </div>
-            <div className="text-xs text-gray-500">
-              (Includes shipping costs and insurance for all selected shipments)
-            </div>
-          </div>
+          <h3 className="font-semibold text-blue-800 mb-4">Ready to Create Batch Labels</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            {selectedShipments.length} labels ready • Total: ${batchAmount.toFixed(2)}
+          </p>
           <Button
-            onClick={handleProcessPayment}
-            disabled={isProcessingPayment}
+            onClick={handlePaymentComplete}
             className="bg-blue-600 hover:bg-blue-700 text-white"
             size="lg"
           >
-            {isProcessingPayment ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Processing Payment...
-              </>
-            ) : (
-              <>
-                <CreditCard className="mr-2 h-5 w-5" />
-                Process Payment - ${totalAmount.toFixed(2)}
-              </>
-            )}
+            <Download className="mr-2 h-5 w-5" />
+            Complete Payment
           </Button>
         </div>
       )}

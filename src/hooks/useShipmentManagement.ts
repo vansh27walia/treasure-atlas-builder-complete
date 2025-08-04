@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
@@ -12,21 +13,6 @@ export const useShipmentManagement = (
   const [showLabelOptions, setShowLabelOptions] = useState(false);
   const [downloadFormat, setDownloadFormat] = useState('PDF');
 
-  const calculateRowTotal = (shipment: BulkShipment): number => {
-    const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-    const shippingCost = selectedRate ? parseFloat(selectedRate.rate.toString()) : 0;
-    const insuranceCost = shipment.insurance_amount || 0;
-    return shippingCost + insuranceCost;
-  };
-
-  const calculateGrandTotal = (): number => {
-    if (!results) return 0;
-    
-    return results.processedShipments.reduce((total, shipment) => {
-      return total + calculateRowTotal(shipment);
-    }, 0);
-  };
-
   const handleRemoveShipment = (shipmentId: string) => {
     if (!results) return;
     
@@ -35,7 +21,7 @@ export const useShipmentManagement = (
     );
     
     const newTotalCost = updatedShipments.reduce((total, shipment) => {
-      return total + calculateRowTotal(shipment);
+      return total + (shipment.rate || 0);
     }, 0);
     
     updateResults({
@@ -55,7 +41,7 @@ export const useShipmentManagement = (
     });
     
     const newTotalCost = updatedShipments.reduce((total, s) => {
-      return total + calculateRowTotal(s);
+      return total + (s.rate || 0);
     }, 0);
     
     updateResults({
@@ -83,19 +69,12 @@ export const useShipmentManagement = (
         throw new Error(`${missingRates.length} shipments are missing selected rates`);
       }
       
-      // Calculate total cost including insurance for each shipment
-      const totalAmount = calculateGrandTotal();
-      
-      // Process payment via Edge Function
+      // Process payment via Edge Function (similar to international shipping)
       const { data, error } = await supabase.functions.invoke('create-bulk-checkout', {
         body: { 
-          shipments: results.processedShipments.map(shipment => ({
-            ...shipment,
-            rowTotal: calculateRowTotal(shipment)
-          })),
+          shipments: results.processedShipments,
           pickupAddress: results.pickupAddress,
-          paymentMethod: 'bulk_processing',
-          totalAmount: totalAmount
+          paymentMethod: 'bulk_processing'
         }
       });
       
@@ -103,20 +82,14 @@ export const useShipmentManagement = (
         throw error;
       }
       
-      // Update state with result and automatically proceed to label creation
+      // Update state with result
       updateResults({
         ...results,
         ...data,
         uploadStatus: 'success'
       });
       
-      toast.success(`Payment processed successfully for $${totalAmount.toFixed(2)}`);
-      
-      // Automatically start label creation after successful payment
-      setTimeout(() => {
-        handleCreateLabels();
-      }, 1000);
-      
+      toast.success('Payment processed successfully');
     } catch (error) {
       console.error('Payment error:', error);
       toast.error('Payment failed: ' + (error as Error).message);
@@ -134,7 +107,7 @@ export const useShipmentManagement = (
     setIsCreatingLabels(true);
     
     try {
-      // Create labels using the batch processing function
+      // Create labels using the same format as international shipping
       const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
         body: { 
           shipments: results.processedShipments,
@@ -174,7 +147,7 @@ export const useShipmentManagement = (
       return;
     }
     
-    // Download all existing labels
+    // Download all existing labels (same as international shipping)
     results.processedShipments.forEach(shipment => {
       if (shipment.label_url) {
         window.open(shipment.label_url, '_blank');
@@ -230,7 +203,7 @@ export const useShipmentManagement = (
     setIsCreatingLabels(true);
     
     try {
-      // Send email via Edge Function
+      // Send email via Edge Function (same as international shipping)
       const { data, error } = await supabase.functions.invoke('email-labels', {
         body: { 
           shipments: results.processedShipments,
@@ -258,8 +231,6 @@ export const useShipmentManagement = (
     isCreatingLabels,
     showLabelOptions,
     downloadFormat,
-    calculateRowTotal,
-    calculateGrandTotal,
     handleRemoveShipment,
     handleEditShipment,
     handleProceedToPayment,
