@@ -59,11 +59,11 @@ const UniversalAIChatbot: React.FC<UniversalAIChatbotProps> = ({
     }
     
     if (lowerMessage.includes('fast') || lowerMessage.includes('quick') || lowerMessage.includes('speed') || lowerMessage.includes('urgent')) {
-      return 'For fastest delivery, I recommend FedEx Priority Overnight (delivers by 10:30 AM) or UPS Next Day Air. Both services have excellent reliability. Express Mail from USPS is also a good option for urgent shipments. What's your destination and timing requirements?';
+      return 'For fastest delivery, I recommend FedEx Priority Overnight (delivers by 10:30 AM) or UPS Next Day Air. Both services have excellent reliability. Express Mail from USPS is also a good option for urgent shipments. What are your destination and timing requirements?';
     }
     
     if (lowerMessage.includes('track') || lowerMessage.includes('where is my')) {
-      return 'I can help you track your shipments! You can use our tracking page to monitor your packages. All major carriers (USPS, UPS, FedEx) provide real-time tracking updates. Do you have a tracking number you'd like me to help you with?';
+      return 'I can help you track your shipments! You can use our tracking page to monitor your packages. All major carriers (USPS, UPS, FedEx) provide real-time tracking updates. Do you have a tracking number you would like me to help you with?';
     }
     
     if (lowerMessage.includes('label') || lowerMessage.includes('print')) {
@@ -71,11 +71,11 @@ const UniversalAIChatbot: React.FC<UniversalAIChatbotProps> = ({
     }
     
     if (lowerMessage.includes('bulk') || lowerMessage.includes('multiple') || lowerMessage.includes('batch')) {
-      return 'Our bulk shipping feature allows you to process multiple shipments efficiently! You can upload a CSV file with your shipment details, and we'll help you create labels in batch. This is perfect for businesses with high shipping volumes. Would you like guidance on the bulk upload process?';
+      return 'Our bulk shipping feature allows you to process multiple shipments efficiently! You can upload a CSV file with your shipment details, and we will help you create labels in batch. This is perfect for businesses with high shipping volumes. Would you like guidance on the bulk upload process?';
     }
     
     if (lowerMessage.includes('international')) {
-      return 'For international shipping, I recommend using USPS Priority Mail International or FedEx/UPS international services. You'll need to complete customs forms and declare the contents and value. Our platform handles all the necessary documentation. What country are you shipping to?';
+      return 'For international shipping, I recommend using USPS Priority Mail International or FedEx/UPS international services. You will need to complete customs forms and declare the contents and value. Our platform handles all the necessary documentation. What country are you shipping to?';
     }
     
     if (lowerMessage.includes('insurance')) {
@@ -87,14 +87,14 @@ const UniversalAIChatbot: React.FC<UniversalAIChatbotProps> = ({
     }
     
     if (lowerMessage.includes('calculator') || lowerMessage.includes('rate')) {
-      return 'Our shipping calculator helps you compare rates across all major carriers instantly! Just enter your package details and addresses, and we'll show you all available options with prices and delivery times. It's the fastest way to find the best shipping option for your needs.';
+      return 'Our shipping calculator helps you compare rates across all major carriers instantly! Just enter your package details and addresses, and we will show you all available options with prices and delivery times. It is the fastest way to find the best shipping option for your needs.';
     }
     
     if (lowerMessage.includes('help') || lowerMessage.includes('how')) {
-      return 'I'm here to help with all aspects of shipping! I can assist with: rate calculations, label creation, tracking shipments, bulk processing, international shipping, insurance options, pickup scheduling, and general shipping advice. What specific area would you like help with?';
+      return 'I am here to help with all aspects of shipping! I can assist with: rate calculations, label creation, tracking shipments, bulk processing, international shipping, insurance options, pickup scheduling, and general shipping advice. What specific area would you like help with?';
     }
     
-    return 'I'm your AI shipping assistant, ready to help with rates, labels, tracking, bulk shipping, and more! You can ask me about specific carriers, shipping methods, costs, or any shipping-related questions. How can I assist you today?';
+    return 'I am your AI shipping assistant, ready to help with rates, labels, tracking, bulk shipping, and more! You can ask me about specific carriers, shipping methods, costs, or any shipping-related questions. How can I assist you today?';
   };
 
   const handleSendMessage = async () => {
