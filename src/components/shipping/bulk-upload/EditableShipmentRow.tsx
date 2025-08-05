@@ -1,11 +1,10 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Save, X, Trash2, FileText } from 'lucide-react';
-import { BulkShipment } from '@/types/shipping';
+import { BulkShipment, CustomsInfo } from '@/types/shipping';
 import RateDisplay from './RateDisplay';
 import InsuranceOptions from './InsuranceOptions';
 import AIRatePicker from './AIRatePicker';
@@ -121,10 +120,16 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
   const handleCustomsSubmit = (customsInfo: LocalCustomsInfo) => {
     console.log('Saving customs info for shipment:', shipment.id, customsInfo);
     
-    // Convert to the format expected by the shipment details
-    const convertedCustomsInfo = {
-      ...customsInfo,
-      contents_type: customsInfo.contents_type as any, // Cast to allow the conversion
+    // Convert to the format expected by the shipment details with proper type mapping
+    const convertedCustomsInfo: CustomsInfo = {
+      contents_type: customsInfo.contents_type as CustomsInfo['contents_type'],
+      contents_explanation: customsInfo.contents_explanation,
+      customs_certify: customsInfo.customs_certify,
+      customs_signer: customsInfo.customs_signer,
+      non_delivery_option: customsInfo.non_delivery_option as CustomsInfo['non_delivery_option'],
+      restriction_type: (customsInfo.restriction_type as CustomsInfo['restriction_type']) || 'none',
+      restriction_comments: customsInfo.restriction_comments,
+      eel_pfc: customsInfo.eel_pfc,
       customs_items: customsInfo.customs_items || []
     };
     
