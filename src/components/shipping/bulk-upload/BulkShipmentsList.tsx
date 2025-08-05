@@ -50,7 +50,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       if (shipment) {
         // Convert the modal's customs data to our shipping type format
         const customsInfo: CustomsInfo = {
-          contents_type: customsData.contents_type || 'merchandise',
+          contents_type: (customsData.contents_type as CustomsInfo['contents_type']) || 'merchandise',
           customs_certify: customsData.customs_certify || true,
           customs_signer: customsData.customs_signer || '',
           non_delivery_option: customsData.non_delivery_option || 'return',
@@ -90,6 +90,21 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     return 'US';
   };
 
+  // Convert the existing customs info to the modal format for editing
+  const getModalCustomsData = (customsInfo?: CustomsInfo) => {
+    if (!customsInfo) return undefined;
+    
+    return {
+      contents_type: customsInfo.contents_type || 'merchandise',
+      customs_certify: customsInfo.customs_certify || true,
+      customs_signer: customsInfo.customs_signer || '',
+      non_delivery_option: customsInfo.non_delivery_option || 'return',
+      restriction_type: customsInfo.restriction_type,
+      customs_items: customsInfo.customs_items || [],
+      eel_pfc: customsInfo.eel_pfc
+    };
+  };
+
   return (
     <>
       <Card className="overflow-hidden">
@@ -127,7 +142,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
           onSubmit={handleCustomsSubmit}
           fromCountry={pickupCountry}
           toCountry={getDropoffCountry(selectedShipment)}
-          initialData={selectedShipment.details?.customs_info}
+          initialData={getModalCustomsData(selectedShipment.details?.customs_info)}
         />
       )}
     </>
