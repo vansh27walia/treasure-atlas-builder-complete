@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -64,10 +63,16 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
   const handleCustomsSubmit = (customsInfo: any) => {
     if (selectedShipmentIndex !== null && onShipmentUpdate) {
+      // Ensure contents_type has a default value
+      const customsInfoWithDefaults = {
+        ...customsInfo,
+        contents_type: customsInfo.contents_type || 'merchandise'
+      };
+      
       onShipmentUpdate(selectedShipmentIndex, {
         details: {
           ...shipments[selectedShipmentIndex].details,
-          customs_info: customsInfo
+          customs_info: customsInfoWithDefaults
         }
       });
       setCustomsModalOpen(false);

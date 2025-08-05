@@ -3,18 +3,22 @@ import React, { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Upload } from 'lucide-react';
 
-const CSVUploader: React.FC = () => {
+interface CSVUploaderProps {
+  onUpload: (file: File) => Promise<void>;
+}
+
+const CSVUploader: React.FC<CSVUploaderProps> = ({ onUpload }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Handle file upload logic here
       console.log('File selected:', file.name);
+      await onUpload(file);
     }
   };
 
