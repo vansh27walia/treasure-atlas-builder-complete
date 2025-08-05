@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -84,56 +85,56 @@ export interface AddressDetails {
 }
 
 export interface ShipmentDetails {
-  from_address?: AddressDetails;
+  from_address?: AddressDetails; // Optional if using saved pickup
   to_address: AddressDetails;
   parcel: ParcelDetails;
-  customs_info?: CustomsInfo;
+  customs_info?: CustomsInfo; // For international
   options?: Record<string, any>; 
-  [key: string]: any;
+  [key: string]: any; // Allow other fields like to_name, to_company, etc.
 }
 
 export interface Rate {
-  id: string;
-  easypost_rate_id?: string;
+  id: string; // Corresponds to selectedRateId in BulkShipment
+  easypost_rate_id?: string; // EasyPost specific rate ID
   carrier: string;
   service: string;
   rate: number;
   formattedRate?: string;
   delivery_days?: number | null;
   est_delivery_days?: number | null;
-  shipment_id?: string;
+  shipment_id?: string; // EasyPost shipment ID this rate belongs to
   carrier_account_id?: string;
   retail_rate?: string;
   list_rate?: string;
-  [key: string]: any;
+  [key: string]: any; // For any other properties from the API
 }
 
 export interface CustomsItem {
   description: string;
   quantity: number;
   value: number;
-  weight: number;
+  weight: number; // Weight in ounces
   hs_tariff_number?: string;
   origin_country?: string;
 }
 
 export interface CustomsInfo {
-  eel_pfc?: string;
+  eel_pfc?: string; // E.g., "NOEEI 30.37(a)"
   customs_certify?: boolean;
   customs_signer?: string;
   contents_type?: 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other';
-  contents_explanation?: string;
+  contents_explanation?: string; // Required when contents_type is 'other'
   restriction_type?: 'none' | 'other' | 'quarantine' | 'sanitary_phytosanitary_inspection';
-  restriction_comments?: string;
+  restriction_comments?: string; // Required when restriction_type is not 'none'
   non_delivery_option?: 'return' | 'abandon';
   customs_items: CustomsItem[];
 }
 
 export interface BulkShipment {
-  id: string;
-  row?: number;
-  easypost_id?: string;
-  recipient?: string;
+  id: string; // Unique ID for this row/entry in the bulk upload
+  row?: number; // Original row number from CSV
+  easypost_id?: string; // EasyPost shipment ID, populated after rate fetching
+  recipient?: string; // For display
   customer_name?: string;
   customer_address?: string;
   customer_phone?: string;
@@ -146,41 +147,40 @@ export interface BulkShipment {
   error?: string | null;
   tracking_code?: string;
   tracking_number?: string;
-  label_url?: string;
-  label_urls?: {
+  label_url?: string; // Primary PNG URL
+  label_urls?: { // All available individual label URLs
     png?: string;
     pdf?: string;
     zpl?: string;
   };
-  rate?: number;
-  carrier?: string;
-  service?: string;
-  customs_info?: CustomsInfo;
-  is_international?: boolean;
-  [key: string]: any;
+  rate?: number; // Populated after rate selection
+  carrier?: string; // Populated after rate selection
+  service?: string; // Populated after rate selection
+  [key: string]: any; // Allow other dynamic fields
 }
 
 export interface ConsolidatedLabelUrls {
-  pdf?: string;
-  png?: string;
-  zpl?: string;
-  epl?: string;
-  pdfZip?: string;
-  zplZip?: string;
-  eplZip?: string;
+  pdf?: string;       // Direct URL to consolidated PDF
+  png?: string;       // Direct URL to consolidated PNG
+  zpl?: string;       // Direct URL to consolidated ZPL
+  epl?: string;       // Direct URL to consolidated EPL
+  pdfZip?: string;    // URL to ZIP of PDFs (legacy or alternative)
+  zplZip?: string;    // URL to ZIP of ZPLs (legacy or alternative)
+  eplZip?: string;    // URL to ZIP of EPLs (new)
 }
 
 export interface BatchResult {
   batchId: string;
   consolidatedLabelUrls: ConsolidatedLabelUrls;
   scanFormUrl: string | null;
+  // Potentially other batch-related info like number of labels in batch, etc.
 }
 
 export interface FailedShipmentInfo {
-  shipmentId: string;
+  shipmentId: string; // original shipment ID that failed
   row?: number;
   error: string;
-  details?: string;
+  details?: string; // more detailed error or context
 }
 
 export interface BulkUploadResult {
@@ -189,10 +189,11 @@ export interface BulkUploadResult {
   failed: number;
   totalCost?: number;
   processedShipments: BulkShipment[];
-  failedShipments?: FailedShipmentInfo[];
+  failedShipments?: FailedShipmentInfo[]; // More structured info for failed ones
   uploadStatus?: 'idle' | 'uploading' | 'editing' | 'rates_fetching' | 'rate_selection' | 'paying' | 'creating-labels' | 'success' | 'error';
-  pickupAddress?: any;
+  pickupAddress?: any; // Consider using SavedAddress type
   batchResult?: BatchResult | null;
+  // Deprecated fields, prefer them inside batchResult or processedShipments
   bulk_label_png_url?: string | null;
   bulk_label_pdf_url?: string | null; 
 }

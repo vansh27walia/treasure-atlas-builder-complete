@@ -58,7 +58,7 @@ serve(async (req) => {
 
     // Parse the request body
     const requestData = await req.json();
-    const { shipmentId, rateId, customsInfo, options = {} } = requestData;
+    const { shipmentId, rateId, options = {} } = requestData;
     
     if (!shipmentId || !rateId) {
       console.error('Missing required parameters', { shipmentId, rateId });
@@ -69,52 +69,6 @@ serve(async (req) => {
     }
 
     console.log(`Creating international label for shipment ${shipmentId} with rate ${rateId}`);
-
-    // If customs information is provided, update the shipment first
-    if (customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0) {
-      console.log('Adding customs information to shipment');
-      
-      const customsData = {
-        customs_info: {
-          eel_pfc: customsInfo.eel_pfc || "NOEEI 30.37(a)",
-          customs_certify: customsInfo.customs_certify !== false,
-          customs_signer: customsInfo.customs_signer,
-          contents_type: customsInfo.contents_type || 'merchandise',
-          contents_explanation: customsInfo.contents_explanation || '',
-          restriction_type: customsInfo.restriction_type || 'none',
-          restriction_comments: customsInfo.restriction_comments || '',
-          non_delivery_option: customsInfo.non_delivery_option || 'return',
-          customs_items: customsInfo.customs_items.map((item: any) => ({
-            description: item.description,
-            quantity: item.quantity || 1,
-            value: item.value,
-            weight: item.weight,
-            hs_tariff_number: item.hs_tariff_number || '',
-            origin_country: item.origin_country || 'US'
-          }))
-        }
-      };
-
-      const updateResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(customsData)
-      });
-
-      if (!updateResponse.ok) {
-        const errorData = await updateResponse.json();
-        console.error('Failed to update shipment with customs info:', errorData);
-        return new Response(
-          JSON.stringify({ error: 'Failed to add customs information', details: errorData }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: updateResponse.status }
-        );
-      }
-
-      console.log('✅ Successfully added customs information to shipment');
-    }
 
     // Buy the label with EasyPost API
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
@@ -193,10 +147,6 @@ serve(async (req) => {
       label_format: options.label_format || "PDF",
       label_size: options.label_size || "4x6",
       is_international: true,
-      customs_items_json: customsInfo?.customs_items || null,
-      customs_signer: customsInfo?.customs_signer || null,
-      contents_type: customsInfo?.contents_type || null,
-      non_delivery_option: customsInfo?.non_delivery_option || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
