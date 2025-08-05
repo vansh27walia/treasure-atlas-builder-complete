@@ -3,11 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Edit, Save, X, Trash2 } from 'lucide-react';
+import { Edit, Save, X, Trash2, FileText } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import RateDisplay from './RateDisplay';
 import InsuranceOptions from './InsuranceOptions';
 import AIRatePicker from './AIRatePicker';
+import CustomsDocumentationModal from '../CustomsDocumentationModal';
 import { displayWeightInPounds, parseWeightInput } from '@/utils/weightConversion';
 
 interface EditableShipmentRowProps {
@@ -15,15 +16,18 @@ interface EditableShipmentRowProps {
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRemoveShipment: (shipmentId: string) => void;
   onEditShipment: (shipmentId: string, updates: Partial<BulkShipment>) => void;
+  pickupAddress?: any;
 }
 
 const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
   shipment,
   onSelectRate,
   onRemoveShipment,
-  onEditShipment
+  onEditShipment,
+  pickupAddress
 }) => {
   const [isEditing, setIsEditing] = useState(false);
+  const [showCustomsModal, setShowCustomsModal] = useState(false);
   const [editData, setEditData] = useState({
     customer_name: shipment.customer_name || shipment.recipient,
     weight: shipment.details?.weight || 1,
@@ -79,151 +83,207 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
     return '';
   };
 
+  // Check if this is an international shipment
+  const isInternational = () => {
+    const pickupCountry = pickupAddress?.country || 'US';
+    const dropoffCountry = shipment.details?.to_address?.country || 'US';
+    return pickupCountry !== dropoffCountry;
+  };
+
+  // Handle customs documentation submission
+  const handleCustomsSubmit = (customsInfo: any) => {
+    console.log('Saving customs info for shipment:', shipment.id, customsInfo);
+    
+    // Update the shipment with customs information
+    onEditShipment(shipment.id, {
+      details: {
+        ...shipment.details,
+        customs_info: customsInfo
+      }
+    });
+    
+    setShowCustomsModal(false);
+  };
+
+  // Check if customs info is saved
+  const hasCustomsInfo = shipment.details?.customs_info && 
+    shipment.details.customs_info.customs_items && 
+    shipment.details.customs_info.customs_items.length > 0;
+
   return (
-    <TableRow>
-      <TableCell>
-        {isEditing ? (
-          <Input
-            value={editData.customer_name}
-            onChange={(e) => setEditData(prev => ({ ...prev, customer_name: e.target.value }))}
-            className="w-full"
-          />
-        ) : (
-          <div>
-            <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
-            <div className="text-sm text-gray-500">{getStreetAddress()}</div>
-          </div>
-        )}
-      </TableCell>
-      
-      <TableCell>
-        {isEditing ? (
-          <div className="space-y-2">
-            <Input
-              type="number"
-              value={editData.weight}
-              onChange={(e) => setEditData(prev => ({ ...prev, weight: Number(e.target.value) }))}
-              placeholder="Weight (lb)"
-              step="0.1"
-            />
-            <div className="grid grid-cols-3 gap-1">
-              <Input
-                type="number"
-                value={editData.length}
-                onChange={(e) => setEditData(prev => ({ ...prev, length: Number(e.target.value) }))}
-                placeholder="L"
-                step="0.1"
-              />
-              <Input
-                type="number"
-                value={editData.width}
-                onChange={(e) => setEditData(prev => ({ ...prev, width: Number(e.target.value) }))}
-                placeholder="W"
-                step="0.1"
-              />
-              <Input
-                type="number"
-                value={editData.height}
-                onChange={(e) => setEditData(prev => ({ ...prev, height: Number(e.target.value) }))}
-                placeholder="H"
-                step="0.1"
-              />
-            </div>
-          </div>
-        ) : (
-          <div>
-            <div className="font-medium">{displayWeightInPounds(shipment.details?.weight || 1)}</div>
-            <div className="text-sm text-gray-500">
-              {shipment.details?.length || 1}" × {shipment.details?.width || 1}" × {shipment.details?.height || 1}"
-            </div>
-          </div>
-        )}
-      </TableCell>
-      
-      <TableCell>
-        {shipment.availableRates && shipment.availableRates.length > 0 ? (
-          <div className="space-y-2">
-            {shipment.selectedRateId ? (
-              (() => {
-                const selectedRate = shipment.availableRates.find(r => r.id === shipment.selectedRateId);
-                return selectedRate ? (
-                  <RateDisplay
-                    actualRate={selectedRate.rate}
-                    carrier={selectedRate.carrier}
-                    service={selectedRate.service}
-                    deliveryDays={selectedRate.delivery_days}
-                  />
-                ) : (
-                  <Badge variant="outline">No rate selected</Badge>
-                );
-              })()
-            ) : (
-              <Badge variant="outline">No rate selected</Badge>
-            )}
-          </div>
-        ) : (
-          <Badge variant="secondary">Loading rates...</Badge>
-        )}
-      </TableCell>
-      
-      <TableCell>
-        <InsuranceOptions
-          shipmentId={shipment.id}
-          insuranceEnabled={shipment.details?.insurance_enabled !== false}
-          declaredValue={editData.declared_value}
-          onInsuranceToggle={(id, enabled) => {
-            onEditShipment(id, {
-              details: { ...shipment.details, insurance_enabled: enabled }
-            });
-          }}
-          onDeclaredValueChange={(id, value) => {
-            setEditData(prev => ({ ...prev, declared_value: value }));
-            onEditShipment(id, {
-              details: { ...shipment.details, declared_value: value }
-            });
-          }}
-        />
-      </TableCell>
-      
-      <TableCell>
-        <div className="flex items-center space-x-2">
+    <>
+      <TableRow>
+        <TableCell>
           {isEditing ? (
-            <>
+            <Input
+              value={editData.customer_name}
+              onChange={(e) => setEditData(prev => ({ ...prev, customer_name: e.target.value }))}
+              className="w-full"
+            />
+          ) : (
+            <div>
+              <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
+              <div className="text-sm text-gray-500">{getStreetAddress()}</div>
+              {isInternational() && hasCustomsInfo && (
+                <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 mt-1">
+                  ✅ Custom Info Saved
+                </Badge>
+              )}
+            </div>
+          )}
+        </TableCell>
+        
+        <TableCell>
+          {isEditing ? (
+            <div className="space-y-2">
+              <Input
+                type="number"
+                value={editData.weight}
+                onChange={(e) => setEditData(prev => ({ ...prev, weight: Number(e.target.value) }))}
+                placeholder="Weight (lb)"
+                step="0.1"
+              />
+              <div className="grid grid-cols-3 gap-1">
+                <Input
+                  type="number"
+                  value={editData.length}
+                  onChange={(e) => setEditData(prev => ({ ...prev, length: Number(e.target.value) }))}
+                  placeholder="L"
+                  step="0.1"
+                />
+                <Input
+                  type="number"
+                  value={editData.width}
+                  onChange={(e) => setEditData(prev => ({ ...prev, width: Number(e.target.value) }))}
+                  placeholder="W"
+                  step="0.1"
+                />
+                <Input
+                  type="number"
+                  value={editData.height}
+                  onChange={(e) => setEditData(prev => ({ ...prev, height: Number(e.target.value) }))}
+                  placeholder="H"
+                  step="0.1"
+                />
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="font-medium">{displayWeightInPounds(shipment.details?.weight || 1)}</div>
+              <div className="text-sm text-gray-500">
+                {shipment.details?.length || 1}" × {shipment.details?.width || 1}" × {shipment.details?.height || 1}"
+              </div>
+            </div>
+          )}
+        </TableCell>
+        
+        <TableCell>
+          {shipment.availableRates && shipment.availableRates.length > 0 ? (
+            <div className="space-y-2">
+              {shipment.selectedRateId ? (
+                (() => {
+                  const selectedRate = shipment.availableRates.find(r => r.id === shipment.selectedRateId);
+                  return selectedRate ? (
+                    <RateDisplay
+                      actualRate={selectedRate.rate}
+                      carrier={selectedRate.carrier}
+                      service={selectedRate.service}
+                      deliveryDays={selectedRate.delivery_days}
+                    />
+                  ) : (
+                    <Badge variant="outline">No rate selected</Badge>
+                  );
+                })()
+              ) : (
+                <Badge variant="outline">No rate selected</Badge>
+              )}
+            </div>
+          ) : (
+            <Badge variant="secondary">Loading rates...</Badge>
+          )}
+        </TableCell>
+        
+        <TableCell>
+          <InsuranceOptions
+            shipmentId={shipment.id}
+            insuranceEnabled={shipment.details?.insurance_enabled !== false}
+            declaredValue={editData.declared_value}
+            onInsuranceToggle={(id, enabled) => {
+              onEditShipment(id, {
+                details: { ...shipment.details, insurance_enabled: enabled }
+              });
+            }}
+            onDeclaredValueChange={(id, value) => {
+              setEditData(prev => ({ ...prev, declared_value: value }));
+              onEditShipment(id, {
+                details: { ...shipment.details, declared_value: value }
+              });
+            }}
+          />
+        </TableCell>
+        
+        <TableCell>
+          <div className="flex items-center space-x-2">
+            {/* Show Custom Documents button only for international shipments */}
+            {isInternational() && (
               <Button
-                onClick={handleSave}
+                onClick={() => setShowCustomsModal(true)}
                 size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
+                variant={hasCustomsInfo ? "default" : "outline"}
+                className={hasCustomsInfo ? "bg-green-600 hover:bg-green-700 text-white" : ""}
               >
-                <Save className="h-4 w-4" />
+                <FileText className="h-4 w-4" />
               </Button>
+            )}
+            
+            {isEditing ? (
+              <>
+                <Button
+                  onClick={handleSave}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <Save className="h-4 w-4" />
+                </Button>
+                <Button
+                  onClick={handleCancel}
+                  size="sm"
+                  variant="outline"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </>
+            ) : (
               <Button
-                onClick={handleCancel}
+                onClick={handleEdit}
                 size="sm"
                 variant="outline"
               >
-                <X className="h-4 w-4" />
+                <Edit className="h-4 w-4" />
               </Button>
-            </>
-          ) : (
+            )}
             <Button
-              onClick={handleEdit}
+              onClick={() => onRemoveShipment(shipment.id)}
               size="sm"
               variant="outline"
+              className="text-red-600 hover:text-red-700"
             >
-              <Edit className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" />
             </Button>
-          )}
-          <Button
-            onClick={() => onRemoveShipment(shipment.id)}
-            size="sm"
-            variant="outline"
-            className="text-red-600 hover:text-red-700"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
+          </div>
+        </TableCell>
+      </TableRow>
+
+      {/* Customs Documentation Modal */}
+      <CustomsDocumentationModal
+        isOpen={showCustomsModal}
+        onClose={() => setShowCustomsModal(false)}
+        onSubmit={handleCustomsSubmit}
+        fromCountry={pickupAddress?.country || 'US'}
+        toCountry={shipment.details?.to_address?.country || 'US'}
+        initialData={shipment.details?.customs_info}
+      />
+    </>
   );
 };
 
