@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -123,9 +122,7 @@ export interface CustomsInfo {
   customs_certify?: boolean;
   customs_signer?: string;
   contents_type?: 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other';
-  contents_explanation?: string; // Required when contents_type is 'other'
   restriction_type?: 'none' | 'other' | 'quarantine' | 'sanitary_phytosanitary_inspection';
-  restriction_comments?: string; // Required when restriction_type is not 'none'
   non_delivery_option?: 'return' | 'abandon';
   customs_items: CustomsItem[];
 }
