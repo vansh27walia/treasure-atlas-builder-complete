@@ -1,12 +1,12 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, CheckCircle2, Package, Truck, Edit, FileText } from 'lucide-react';
-import { BulkShipment, Rate } from '@/types/shipping';
+import { BulkShipment, Rate, CustomsInfo } from '@/types/shipping';
 import CustomsDocumentationModal from '../CustomsDocumentationModal';
-import type { CustomsInfo } from '@/types/shipping';
 
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
@@ -20,6 +20,7 @@ interface BulkShipmentsListProps {
   onShipmentSelect?: (shipmentId: string, selected: boolean) => void;
   onSelectAll?: (selected: boolean) => void;
   filters?: any;
+  onCustomsUpdate?: (shipmentId: string, customsInfo: CustomsInfo) => void;
 }
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
@@ -33,7 +34,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   selectedShipments,
   onShipmentSelect,
   onSelectAll,
-  filters
+  filters,
+  onCustomsUpdate
 }) => {
   const [customsModalOpen, setCustomsModalOpen] = useState(false);
   const [selectedShipmentForCustoms, setSelectedShipmentForCustoms] = useState<string | null>(null);
@@ -81,18 +83,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   };
 
   const handleCustomsSubmit = (customsData: CustomsInfo) => {
-    if (selectedShipmentForCustoms) {
-      // Update the shipment with customs information
-      const shipmentIndex = shipments.findIndex(s => s.id === selectedShipmentForCustoms);
-      if (shipmentIndex >= 0) {
-        const updatedShipments = [...shipments];
-        updatedShipments[shipmentIndex] = {
-          ...updatedShipments[shipmentIndex],
-          customs_info: customsData
-        };
-        // Note: You may need to pass this update back to parent component
-        // For now, we'll just close the modal
-      }
+    if (selectedShipmentForCustoms && onCustomsUpdate) {
+      onCustomsUpdate(selectedShipmentForCustoms, customsData);
     }
     setCustomsModalOpen(false);
     setSelectedShipmentForCustoms(null);
@@ -237,7 +229,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                             </span>
                           </div>
                           <div className="text-right">
-                            <span className="font-medium">${parseFloat(rate.rate).toFixed(2)}</span>
+                            <span className="font-medium">${parseFloat(rate.rate.toString()).toFixed(2)}</span>
                             {rate.delivery_days && (
                               <div className="text-xs text-gray-500">
                                 {rate.delivery_days} days
@@ -267,7 +259,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         )}
                       </div>
                       <span className="font-medium text-blue-600">
-                        ${parseFloat(selectedRate.rate).toFixed(2)}
+                        ${parseFloat(selectedRate.rate.toString()).toFixed(2)}
                       </span>
                     </div>
                   ) : null;

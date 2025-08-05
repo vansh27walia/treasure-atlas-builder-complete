@@ -267,8 +267,8 @@ export const useBulkUpload = () => {
     );
   }, []);
 
-  const handleEditShipment = useCallback((shipment: BulkShipment) => {
-    console.log('Editing shipment:', shipment);
+  const handleEditShipment = useCallback((shipmentId: string, shipment: BulkShipment) => {
+    console.log('Editing shipment:', shipmentId, shipment);
   }, []);
 
   const handleRefreshRates = useCallback((shipmentId: string) => {
