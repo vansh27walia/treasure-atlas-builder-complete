@@ -14,15 +14,12 @@ import { useBulkUpload } from './useBulkUpload';
 const BulkUploadView: React.FC = () => {
   const {
     uploadStatus,
-    shipments,
-    updateShipment,
-    processCSV,
-    fetchRates,
-    selectRate,
-    createLabels,
     results,
-    error,
-    pickupAddress
+    handleUpload,
+    handleEditShipment,
+    handleCreateLabels,
+    pickupAddress,
+    handleSelectRate
   } = useBulkUpload();
 
   const [selectedShipments, setSelectedShipments] = useState<number[]>([]);
@@ -36,11 +33,11 @@ const BulkUploadView: React.FC = () => {
   }, []);
 
   const handleBulkAction = useCallback((action: string) => {
-    if (action === 'ready' && selectedShipments.length > 0) {
-      const selectedShipmentData = selectedShipments.map(index => shipments[index]);
-      createLabels(selectedShipmentData);
+    if (action === 'ready' && selectedShipments.length > 0 && results?.processedShipments) {
+      const selectedShipmentData = selectedShipments.map(index => results.processedShipments[index]);
+      handleCreateLabels();
     }
-  }, [selectedShipments, shipments, createLabels]);
+  }, [selectedShipments, results, handleCreateLabels]);
 
   const renderContent = () => {
     switch (uploadStatus) {
@@ -52,7 +49,7 @@ const BulkUploadView: React.FC = () => {
             <p className="text-gray-600 mb-6">
               Upload a CSV file with your shipping data to get started with bulk label creation.
             </p>
-            <CSVUploader onUpload={processCSV} />
+            <CSVUploader />
           </div>
         );
 
@@ -75,29 +72,18 @@ const BulkUploadView: React.FC = () => {
                 <p className="text-blue-700 text-sm">Review and edit your shipments before fetching rates</p>
               </div>
             </div>
-            <CsvHeaderMapper onMappingComplete={fetchRates} />
+            
+            {results?.processedShipments && (
+              <BulkShipmentsList
+                shipments={results.processedShipments}
+                onShipmentUpdate={handleEditShipment}
+                onShipmentSelect={handleShipmentSelect}
+                selectedShipments={selectedShipments}
+                onBulkAction={handleBulkAction}
+                pickupAddress={pickupAddress}
+              />
+            )}
           </div>
-        );
-
-      case 'rates_fetching':
-        return (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Fetching Shipping Rates</h3>
-            <p className="text-gray-600">Getting the best rates for your shipments...</p>
-          </div>
-        );
-
-      case 'rate_selection':
-        return (
-          <BulkShipmentsList
-            shipments={shipments}
-            onShipmentUpdate={updateShipment}
-            onShipmentSelect={handleShipmentSelect}
-            selectedShipments={selectedShipments}
-            onBulkAction={handleBulkAction}
-            pickupAddress={pickupAddress}
-          />
         );
 
       case 'creating-labels':
@@ -117,7 +103,7 @@ const BulkUploadView: React.FC = () => {
           <Alert className="border-red-200 bg-red-50">
             <AlertCircle className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-red-800">
-              {error || 'An error occurred during bulk upload processing'}
+              An error occurred during bulk upload processing
             </AlertDescription>
           </Alert>
         );
@@ -129,7 +115,7 @@ const BulkUploadView: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <BulkUploadHeader currentStep={uploadStatus} />
+      <BulkUploadHeader />
       
       <Card className="mt-6 p-6">
         {renderContent()}
