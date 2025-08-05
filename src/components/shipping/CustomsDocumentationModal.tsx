@@ -7,27 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { X, FileText, Package } from 'lucide-react';
-
-interface CustomsItem {
-  description: string;
-  quantity: number;
-  value: number;
-  weight: number;
-  hs_tariff_number?: string;
-  origin_country: string;
-}
-
-interface CustomsInfo {
-  contents_type: string;
-  contents_explanation?: string;
-  customs_certify: boolean;
-  customs_signer: string;
-  non_delivery_option: string;
-  restriction_type?: string;
-  restriction_comments?: string;
-  customs_items: CustomsItem[];
-  eel_pfc?: string;
-}
+import { CustomsInfo, CustomsItem } from '@/types/shipping';
 
 interface CustomsDocumentationModalProps {
   isOpen: boolean;
@@ -68,7 +48,24 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
   // Initialize with existing data when modal opens
   useEffect(() => {
     if (isOpen && initialData) {
-      setCustomsData(initialData);
+      setCustomsData({
+        contents_type: initialData.contents_type || 'merchandise',
+        contents_explanation: initialData.contents_explanation || '',
+        customs_certify: initialData.customs_certify ?? true,
+        customs_signer: initialData.customs_signer || '',
+        non_delivery_option: initialData.non_delivery_option || 'return',
+        restriction_type: initialData.restriction_type || 'none',
+        restriction_comments: initialData.restriction_comments || '',
+        customs_items: initialData.customs_items || [{
+          description: '',
+          quantity: 1,
+          value: 0,
+          weight: 0,
+          hs_tariff_number: '',
+          origin_country: fromCountry || 'US'
+        }],
+        eel_pfc: initialData.eel_pfc || ''
+      });
     } else if (isOpen && !initialData) {
       // Reset to default when opening without initial data
       setCustomsData({
@@ -185,7 +182,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
               <Label className="text-sm font-medium">Contents Type</Label>
               <Select 
                 value={customsData.contents_type} 
-                onValueChange={(value) => setCustomsData(prev => ({ ...prev, contents_type: value }))}
+                onValueChange={(value: 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other') => setCustomsData(prev => ({ ...prev, contents_type: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -205,7 +202,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
               <Label className="text-sm font-medium">Non-Delivery Option</Label>
               <Select 
                 value={customsData.non_delivery_option} 
-                onValueChange={(value) => setCustomsData(prev => ({ ...prev, non_delivery_option: value }))}
+                onValueChange={(value: 'return' | 'abandon') => setCustomsData(prev => ({ ...prev, non_delivery_option: value }))}
               >
                 <SelectTrigger>
                   <SelectValue />

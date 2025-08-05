@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -245,3 +244,5 @@ export const CARRIER_OPTIONS = [
     ]
   }
 ];
+
+export type SortField = 'recipient' | 'rate' | 'carrier' | 'customer_address' | 'status';
