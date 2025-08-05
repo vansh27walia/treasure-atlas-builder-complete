@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,17 +40,23 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     setCustomsModalOpen(true);
   };
 
-  const handleCustomsSubmit = (customsData: CustomsInfo) => {
+  const handleCustomsSubmit = (customs: CustomsInfo) => {
     if (selectedShipmentForCustoms) {
       const shipment = shipments.find(s => s.id === selectedShipmentForCustoms);
       if (shipment) {
         const updatedShipment = {
           ...shipment,
-          customs_info: customsData,
+          customs_info: {
+            ...customs,
+            contents_type: customs.contents_type || 'merchandise'
+          } as CustomsInfo,
           is_international: true,
           details: {
             ...shipment.details,
-            customs_info: customsData
+            customs_info: {
+              ...customs,
+              contents_type: customs.contents_type || 'merchandise'
+            } as CustomsInfo
           }
         };
         onEditShipment(updatedShipment);
@@ -65,7 +70,10 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     const firstInternationalShipment = shipments.find(s => isInternational(s) && s.customs_info);
     if (!firstInternationalShipment?.customs_info) return;
 
-    const customsData = firstInternationalShipment.customs_info;
+    const customsData = {
+      ...firstInternationalShipment.customs_info,
+      contents_type: firstInternationalShipment.customs_info.contents_type || 'merchandise'
+    } as CustomsInfo;
     
     shipments.forEach(shipment => {
       if (isInternational(shipment)) {
@@ -132,7 +140,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 {editingShipment === shipment.id ? (
                   <EditableShipmentRow
                     shipment={shipment}
-                    onSave={(updates) => {
+                    onSaveShipment={(updates) => {
                       onEditShipment({ ...shipment, ...updates });
                       setEditingShipment(null);
                     }}

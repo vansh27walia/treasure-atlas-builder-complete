@@ -1,368 +1,374 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useBulkUpload } from './bulk-upload/useBulkUpload';
-import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
-import BulkUploadForm from './bulk-upload/BulkUploadForm';
-import SuccessNotification from './bulk-upload/SuccessNotification';
-import UploadError from './bulk-upload/UploadError';
-import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
-import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
-import BulkUploadProgressBar, { BulkUploadStep } from './bulk-upload/BulkUploadProgressBar';
-import LabelCreationOverlay from './LabelCreationOverlay';
-import PaymentDropdown from '../payment/PaymentDropdown';
-import BulkAIOverviewPanel from './bulk-upload/BulkAIOverviewPanel';
-import BulkShippingChatbot from './bulk-upload/BulkShippingChatbot';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { FileText, UploadCloud, AlertCircle, Download, PrinterIcon, Sparkles, MessageCircle } from 'lucide-react';
-import { SavedAddress } from '@/services/AddressService';
+import { FileInput } from '@/components/ui/file-input';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Upload, XCircle, Package, Download, Loader2, Eye, Mail } from 'lucide-react';
+import { BulkUploadResult, BulkShipment } from '@/types/shipping';
+import { useBulkUpload } from './bulk-upload/useBulkUpload';
+import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/sonner';
-import { BulkShipment } from '@/types/shipping';
-import PrintPreview from '@/components/shipping/PrintPreview';
-const BulkUpload: React.FC = () => {
-  const lastToastRef = useRef<number>(0);
-  const [showPrintPreview, setShowPrintPreview] = useState(false);
-  const [aiPanelOpen, setAiPanelOpen] = useState(false);
-  const [chatbotOpen, setChatbotOpen] = useState(false);
-  const [selectedShipmentForAI, setSelectedShipmentForAI] = useState<any>(null);
-  const [labelProgress, setLabelProgress] = useState({
-    isCreating: false,
-    progress: 0,
-    currentStep: '',
-    completed: 0,
-    failed: 0
-  });
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { BatchPrintPreviewModal } from './bulk-upload/BatchPrintPreviewModal';
+import { DataTable } from '@/components/ui/data-table';
+import { columns } from './bulk-upload/bulk-upload-table-columns';
+import { DataTableViewOptions } from '@/components/ui/data-table-view-options';
+import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { CARRIER_OPTIONS } from '@/types/shipping';
+import { Heading } from '@/components/ui/heading';
+
+export default function BulkUpload() {
   const {
     file,
     isUploading,
-    isPaying,
-    isCreatingLabels,
-    isFetchingRates,
     uploadStatus,
     results,
     progress,
+    isFetchingRates,
+    isPaying,
+    isCreatingLabels,
     searchTerm,
     sortField,
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
     pickupAddress,
+    batchError,
     setPickupAddress,
+    handleFileChange,
     handleUpload,
-    handleCreateLabels,
-    handleDownloadAllLabels,
-    handleDownloadLabelsWithFormat,
-    handleDownloadSingleLabel,
-    handleEmailLabels,
-    handleDownloadTemplate,
     handleSelectRate,
     handleRemoveShipment,
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
+    handleCreateLabels,
+    handleOpenBatchPrintPreview,
+    handleClearBatchError,
+    batchPrintPreviewModalOpen,
+    setBatchPrintPreviewModalOpen,
+    handleDownloadAllLabels,
+    handleDownloadLabelsWithFormat,
+    handleDownloadSingleLabel,
+    handleEmailLabels,
+    handleDownloadTemplate,
     setSearchTerm,
     setSortField,
     setSortDirection,
-    setSelectedCarrierFilter
+    setSelectedCarrierFilter,
+    labelGenerationProgress,
+    handlePaymentSuccess
   } = useBulkUpload();
 
-  // Determine current step and completed steps
-  const getCurrentStep = (): BulkUploadStep => {
-    if (uploadStatus === 'success') return 'labels';
-    if (uploadStatus === 'editing') return 'rates';
-    if (uploadStatus === 'uploading') return 'mapping';
-    return 'upload';
-  };
-  const getCompletedSteps = (): BulkUploadStep[] => {
-    const completed: BulkUploadStep[] = [];
-    if (uploadStatus !== 'idle') completed.push('upload');
-    if (uploadStatus === 'editing' || uploadStatus === 'success') completed.push('mapping');
-    if (uploadStatus === 'success') completed.push('rates');
-    return completed;
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleProceedToSettings = () => {
+    navigate('/settings');
   };
 
-  // Handle AI panel events
-  const handleAIAnalysis = (shipment?: any) => {
-    setSelectedShipmentForAI(shipment || null);
-    setAiPanelOpen(true);
-  };
-  const handleAIOptimizationChange = (filter: string, shipmentId?: string) => {
-    if (shipmentId) {
-      // Apply optimization to specific shipment
-      const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
-      if (shipment && shipment.availableRates) {
-        let selectedRate = null;
-        switch (filter) {
-          case 'cheapest':
-            selectedRate = shipment.availableRates.reduce((min, rate) => parseFloat(rate.rate.toString()) < parseFloat(min.rate.toString()) ? rate : min);
-            break;
-          case 'fastest':
-            selectedRate = shipment.availableRates.reduce((fastest, rate) => (rate.delivery_days || 99) < (fastest.delivery_days || 99) ? rate : fastest);
-            break;
-          case 'balanced':
-            selectedRate = shipment.availableRates.reduce((best, rate) => {
-              const rateScore = 1 / parseFloat(rate.rate.toString()) + 1 / (rate.delivery_days || 5);
-              const bestScore = 1 / parseFloat(best.rate.toString()) + 1 / (best.delivery_days || 5);
-              return rateScore > bestScore ? rate : best;
-            });
-            break;
-          default:
-            selectedRate = shipment.availableRates[0];
-        }
-        if (selectedRate) {
-          handleSelectRate(shipmentId, selectedRate.id);
-        }
-      }
-    } else {
-      // Apply to all shipments
-      handleBulkApplyCarrier(filter);
-    }
-  };
-
-  // Listen for payment events to auto-close AI panel
-  useEffect(() => {
-    const handlePaymentStart = () => setAiPanelOpen(false);
-    const handlePaymentSuccess = () => setAiPanelOpen(false);
-    const handlePaymentCancel = () => setAiPanelOpen(false);
-    document.addEventListener('payment-start', handlePaymentStart);
-    document.addEventListener('payment-success', handlePaymentSuccess);
-    document.addEventListener('payment-cancel', handlePaymentCancel);
-    return () => {
-      document.removeEventListener('payment-start', handlePaymentStart);
-      document.removeEventListener('payment-success', handlePaymentSuccess);
-      document.removeEventListener('payment-cancel', handlePaymentCancel);
-    };
-  }, []);
-  useEffect(() => {
-    console.log("Current pickup address in BulkUpload:", pickupAddress);
-  }, [pickupAddress?.id]);
-  const handlePickupAddressSelect = (address: SavedAddress | null) => {
-    if (address && address.id !== pickupAddress?.id) {
-      console.log("Selected pickup address in BulkUpload:", address);
-      setPickupAddress(address);
-      const now = Date.now();
-      if (now - lastToastRef.current > 2000) {
-        toast.success(`Selected pickup address: ${address.name || address.street1}`);
-        lastToastRef.current = now;
-      }
-    }
-  };
-  const handleUploadSuccess = (uploadResults: any) => {
-    console.log("Upload success in BulkUpload component:", uploadResults);
-  };
-  const handleUploadFail = (error: string) => {
-    console.error("Upload failed in BulkUpload component:", error);
-  };
-  const processedShipmentsCount = results?.processedShipments?.length || 0;
-  const handleDownloadLabelsClick = async () => {
-    if (!results?.processedShipments?.length) {
-      toast.error('No shipments available for label creation');
-      return;
-    }
-    setLabelProgress({
-      isCreating: true,
-      progress: 0,
-      currentStep: 'Initializing label creation...',
-      completed: 0,
-      failed: 0
-    });
-    try {
-      const totalShipments = results.processedShipments.length;
-      const updateProgress = (step: string, progress: number, completed: number, failed: number = 0) => {
-        setLabelProgress({
-          isCreating: true,
-          progress,
-          currentStep: step,
-          completed,
-          failed
-        });
-      };
-      updateProgress('Creating shipments...', 20, 0);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      updateProgress('Generating labels...', 40, 0);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      updateProgress('Converting to PDF...', 60, Math.floor(totalShipments * 0.6));
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      updateProgress('Creating batch files...', 80, Math.floor(totalShipments * 0.8));
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      updateProgress('Finalizing downloads...', 95, totalShipments - 1);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      await handleCreateLabels();
-      updateProgress('Download complete!', 100, totalShipments, 0);
-      setTimeout(() => {
-        setLabelProgress(prev => ({
-          ...prev,
-          isCreating: false
-        }));
-        toast.success('All labels downloaded successfully!');
-      }, 2000);
-    } catch (error) {
-      console.error('Error creating labels:', error);
-      setLabelProgress(prev => ({
-        ...prev,
-        isCreating: false,
-        currentStep: 'Error occurred during label creation',
-        failed: prev.failed + 1
-      }));
-      toast.error('Failed to create labels');
-    }
-  };
-  const handlePaymentSuccess = () => {
-    toast.success('Payment successful! Labels are now available for download.');
-  };
-  return <>
-      <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-96' : ''}`}>
-        {/* Progress Bar */}
-        <div className="bg-white shadow-sm border-b rounded-3xl">
-          <BulkUploadProgressBar currentStep={getCurrentStep()} completedSteps={getCompletedSteps()} />
-        </div>
-
-        <div className="container mx-auto px-4 py-8">
-          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-            <CardContent className="p-8 rounded-xl">
-              {(uploadStatus === 'idle' || uploadStatus === 'uploading') && <div className="space-y-6">
-                  {uploadStatus === 'idle' && <div className="text-center py-0">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                        <UploadCloud className="w-8 h-8 text-blue-600" />
-                      </div>
-                      <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                        Upload Your CSV File
-                      </h2>
-                      <p className="text-gray-600 mb-6">
-                        Get started by uploading your CSV file. Our AI will handle the rest!
-                      </p>
-                    </div>}
-                  
-                  <BulkUploadForm onUploadSuccess={handleUploadSuccess} onUploadFail={handleUploadFail} onPickupAddressSelect={handlePickupAddressSelect} isUploading={isUploading} progress={progress} handleUpload={handleUpload} />
-                </div>}
-              
-              {uploadStatus === 'editing' && results && <div className="space-y-8">
-                  <div className="text-center py-0">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                      <Sparkles className="w-8 h-8 text-green-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                      Review Your Shipments
-                    </h2>
-                    <p className="text-gray-600">
-                      Select carrier and service options for each shipment before generating labels
-                    </p>
-                  </div>
-                  
-                  <Alert className="border-blue-200 bg-blue-50">
-                    <AlertCircle className="h-4 w-4 text-blue-600" />
-                    <AlertTitle className="text-blue-800">Review Required</AlertTitle>
-                    <AlertDescription className="text-blue-700">
-                      Please review carrier selections and rates below. You can edit addresses or remove shipments if needed.
-                    </AlertDescription>
-                  </Alert>
-                  
-                  <div className="bg-white rounded-xl border shadow-sm">
-                    <div className="p-6 border-b">
-                      <BulkShipmentFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} sortField={sortField} sortDirection={sortDirection} onSortChange={(field, direction) => {
-                    setSortField(field as any);
-                    setSortDirection(direction as any);
-                  }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
-                    </div>
-                    
-                    <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, details: any) => {
-                  const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
-                  if (shipment) {
-                    handleEditShipment(shipment);
-                  }
-                }} onRefreshRates={handleRefreshRates} onAIAnalysis={handleAIAnalysis} />
-                  </div>
-                  
-                  {processedShipmentsCount > 0 && <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
-                      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-                        <div className="space-y-2">
-                          <h3 className="text-xl font-bold text-gray-900">Order Summary</h3>
-                          <div className="flex items-center space-x-4 text-sm text-gray-600">
-                            <span className="flex items-center">
-                              <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                              {processedShipmentsCount} shipments
-                            </span>
-                            <span className="flex items-center">
-                              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                              ${results.totalCost?.toFixed(2) || '0.00'} total
-                            </span>
-                          </div>
-                          {pickupAddress && <p className="text-sm text-blue-600 font-medium">
-                              📍 From: {pickupAddress.name || pickupAddress.street1}
-                            </p>}
-                        </div>
-                        
-                        <div className="flex flex-col gap-4 w-full lg:w-auto">
-                          <Button onClick={handleDownloadLabelsClick} disabled={isPaying || isCreatingLabels || processedShipmentsCount === 0 || !pickupAddress} className="w-full lg:w-64 h-12 bg-green-600 hover:bg-green-700 shadow-lg hover:shadow-xl transition-all duration-200" size="lg">
-                            <Download className="mr-2 h-5 w-5" />
-                            {isCreatingLabels ? 'Creating...' : 'Generate Labels'}
-                          </Button>
-                          
-                          <PaymentDropdown amount={results.totalCost || 0} description={`Bulk Shipping (${processedShipmentsCount} shipments)`} shippingDetails={{
-                      shipmentCount: processedShipmentsCount,
-                      pickupAddress: pickupAddress,
-                      shipments: results.processedShipments
-                    }} onPaymentSuccess={handlePaymentSuccess} disabled={isPaying || processedShipmentsCount === 0 || !pickupAddress} className="w-full lg:w-64" />
-                        </div>
-                      </div>
-                    </div>}
-                </div>}
-              
-              {uploadStatus === 'success' && results && <div className="space-y-6">
-                  {results.bulk_label_pdf_url && <div className="flex justify-center mb-6">
-                      <Button onClick={() => setShowPrintPreview(true)} variant="outline" className="shadow-md hover:shadow-lg transition-all duration-200">
-                        <PrinterIcon className="mr-2 h-4 w-4" />
-                        Preview All Labels
-                      </Button>
-                    </div>}
-                  
-                  <SuccessNotification results={results} onDownloadAllLabels={handleDownloadAllLabels} onDownloadSingleLabel={handleDownloadSingleLabel} onCreateLabels={handleCreateLabels} isPaying={isPaying} isCreatingLabels={isCreatingLabels} />
-                </div>}
-              
-              {uploadStatus === 'error' && <div className="space-y-6">
-                  <div className="text-center py-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
-                      <AlertCircle className="w-8 h-8 text-red-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                      Upload Failed
-                    </h2>
-                    <p className="text-gray-600">
-                      There was an issue with your file. Please try again.
-                    </p>
-                  </div>
-                  
-                  <UploadError onRetry={() => window.location.reload()} onSelectNewFile={() => {
-                const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-                if (fileInput) {
-                  fileInput.click();
-                }
-              }} errorMessage="Upload failed. Please check your file format and try again." />
-                </div>}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Chatbot Toggle Button */}
-        {uploadStatus === 'editing'}
+  return (
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <Heading>Bulk Upload Shipments</Heading>
+        <Button variant="outline" onClick={handleDownloadTemplate}>
+          <Download className="w-4 h-4 mr-2" />
+          Download Template
+        </Button>
       </div>
 
-      {/* AI Overview Panel */}
-      <BulkAIOverviewPanel selectedShipment={selectedShipmentForAI} allShipments={filteredShipments || []} isOpen={aiPanelOpen} onClose={() => {
-      setAiPanelOpen(false);
-      setSelectedShipmentForAI(null);
-    }} onRateChange={handleSelectRate} onOptimizationChange={handleAIOptimizationChange} />
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload Shipments</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {pickupAddress ? (
+            <>
+              <FileInput
+                id="shipment-file"
+                title="Select CSV File"
+                description="Upload a CSV file containing shipment details."
+                onChange={handleFileChange}
+                disabled={isUploading}
+              />
 
-      {/* Bulk Shipping Chatbot */}
-      <BulkShippingChatbot isOpen={chatbotOpen} onClose={() => setChatbotOpen(false)} shipments={filteredShipments || []} />
+              {file && (
+                <div className="mt-4 flex items-center justify-between">
+                  <p className="text-sm text-gray-500">
+                    Selected File: {file.name}
+                  </p>
+                  <Button
+                    onClick={() => handleUpload(file)}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
 
-      {/* Modals and Overlays */}
-      <LabelCreationOverlay isVisible={labelProgress.isCreating} progress={labelProgress.progress} currentStep={labelProgress.currentStep} totalLabels={processedShipmentsCount} completedLabels={labelProgress.completed} failedLabels={labelProgress.failed} onClose={() => setLabelProgress(prev => ({
-      ...prev,
-      isCreating: false
-    }))} />
+              {progress > 0 && (
+                <div className="mt-4">
+                  <Progress value={progress} />
+                  <p className="text-sm text-gray-500 mt-1 text-right">
+                    {progress}%
+                  </p>
+                </div>
+              )}
 
-      {results?.bulk_label_pdf_url && results.batchResult && <PrintPreview isOpenProp={showPrintPreview} onOpenChangeProp={setShowPrintPreview} labelUrl={results.bulk_label_pdf_url} trackingCode={null} isBatchPreview={true} batchResult={results.batchResult} />}
-    </>;
-};
-export default BulkUpload;
+              {uploadStatus === 'error' && results?.failedShipments && (
+                <Alert variant="destructive">
+                  <XCircle className="h-4 w-4" />
+                  <AlertTitle>Upload Failed</AlertTitle>
+                  <AlertDescription>
+                    {results.failedShipments.length} shipments failed to upload.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </>
+          ) : (
+            <Alert variant="destructive">
+              <XCircle className="h-4 w-4" />
+              <AlertTitle>Pickup Address Required</AlertTitle>
+              <AlertDescription>
+                A pickup address is required to upload shipments.
+                <Button variant="link" onClick={handleProceedToSettings}>
+                  Add Pickup Address
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {results && results.processedShipments && results.processedShipments.length > 0 && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Filters</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+                <div>
+                  <Label htmlFor="search">Search</Label>
+                  <Input
+                    type="search"
+                    id="search"
+                    placeholder="Search recipients..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="carrier-filter">Carrier</Label>
+                  <Select value={selectedCarrierFilter} onValueChange={setSelectedCarrierFilter}>
+                    <SelectTrigger id="carrier-filter">
+                      <SelectValue placeholder="All Carriers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Carriers</SelectItem>
+                      {CARRIER_OPTIONS.map((carrier) => (
+                        <SelectItem key={carrier.id} value={carrier.id}>{carrier.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="sort-field">Sort By</Label>
+                  <Select value={sortField} onValueChange={setSortField}>
+                    <SelectTrigger id="sort-field">
+                      <SelectValue placeholder="Recipient" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="recipient">Recipient</SelectItem>
+                      <SelectItem value="customer_address">Address</SelectItem>
+                      <SelectItem value="status">Status</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="sort-direction">Sort Direction</Label>
+                  <Select value={sortDirection} onValueChange={setSortDirection}>
+                    <SelectTrigger id="sort-direction">
+                      <SelectValue placeholder="Ascending" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="asc">Ascending</SelectItem>
+                      <SelectItem value="desc">Descending</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {batchError && (
+            <Alert variant="destructive">
+              <AlertTitle>Batch Processing Halted</AlertTitle>
+              <AlertDescription>
+                There was an error processing package #{batchError.packageNumber}: {batchError.error}
+                <Button variant="link" onClick={handleClearBatchError}>Clear Error</Button>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <BulkShipmentsList
+            shipments={filteredShipments}
+            onSelectRate={handleSelectRate}
+            onRemoveShipment={handleRemoveShipment}
+            onEditShipment={(shipment) => handleEditShipment(shipment.id, shipment)}
+            onRefreshRates={handleRefreshRates}
+            pickupAddress={pickupAddress}
+          />
+
+          <div className="flex justify-between items-center">
+            <div className="flex gap-2">
+              <Button
+                onClick={handleBulkApplyCarrier}
+                variant="outline"
+                disabled={isFetchingRates || !filteredShipments.length}
+              >
+                {isFetchingRates ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Fetching Rates...
+                  </>
+                ) : (
+                  <>
+                    <Package className="w-4 h-4 mr-2" />
+                    Get All Rates
+                  </>
+                )}
+              </Button>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                onClick={handleProceedToPayment}
+                disabled={isPaying || !filteredShipments.length}
+              >
+                {isPaying ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing Payment...
+                  </>
+                ) : (
+                  'Proceed to Payment'
+                )}
+              </Button>
+
+              <Button
+                onClick={handleCreateLabels}
+                disabled={isCreatingLabels || !filteredShipments.length}
+              >
+                {isCreatingLabels ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Labels...
+                  </>
+                ) : (
+                  'Create Labels'
+                )}
+              </Button>
+            </div>
+          </div>
+
+          <Accordion type="single" collapsible>
+            <AccordionItem value="item-1">
+              <AccordionTrigger>Label Generation Progress</AccordionTrigger>
+              <AccordionContent>
+                {labelGenerationProgress.isGenerating ? (
+                  <div className="space-y-4">
+                    <p>
+                      <strong>Step:</strong> {labelGenerationProgress.currentStep}
+                    </p>
+                    <Progress value={(labelGenerationProgress.processedShipments / labelGenerationProgress.totalShipments) * 100} />
+                    <p className="text-sm text-gray-500">
+                      Processed: {labelGenerationProgress.processedShipments} / {labelGenerationProgress.totalShipments}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Successful: {labelGenerationProgress.successfulShipments}, Failed: {labelGenerationProgress.failedShipments}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Estimated time remaining: {labelGenerationProgress.estimatedTimeRemaining} seconds
+                    </p>
+                  </div>
+                ) : (
+                  <p>Label generation is not currently in progress.</p>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
+          <div className="flex justify-between items-center">
+            <div>
+              {results.batchResult && (
+                <Button variant="outline" onClick={handleOpenBatchPrintPreview}>
+                  <Eye className="w-4 h-4 mr-2" />
+                  Preview Batch Print
+                </Button>
+              )}
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleDownloadAllLabels}>
+                <Download className="w-4 h-4 mr-2" />
+                Download All Labels
+              </Button>
+
+              <Button variant="outline" onClick={handleEmailLabels}>
+                <Mail className="w-4 h-4 mr-2" />
+                Email All Labels
+              </Button>
+            </div>
+          </div>
+
+          <BatchPrintPreviewModal
+            isOpen={batchPrintPreviewModalOpen}
+            onClose={() => setBatchPrintPreviewModalOpen(false)}
+            batchResult={results.batchResult}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
