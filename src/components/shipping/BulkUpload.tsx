@@ -8,7 +8,7 @@ import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import BulkLabelDownloadOptions from './bulk-upload/BulkLabelDownloadOptions';
 import LabelGenerationProgress from './bulk-upload/LabelGenerationProgress';
-import { useBulkUpload } from './bulk-upload/useBulkUpload';
+import { useBulkUpload } from '@/hooks/useBulkUpload';
 
 export const BulkUpload = () => {
   const {
@@ -60,27 +60,27 @@ export const BulkUpload = () => {
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       <BulkUploadHeader 
-        results={results}
         onDownloadTemplate={handleDownloadTemplate}
       />
 
       <div className="space-y-8">
         {uploadStatus === 'idle' && (
           <BulkUploadForm
-            onUpload={handleUpload}
             onAddressChange={setPickupAddress}
+            handleUpload={handleUpload}
           />
         )}
 
         {uploadStatus === 'uploading' && (
-          <BulkUploadProgressBar />
+          <BulkUploadProgressBar 
+            currentStep="Processing file..."
+            completedSteps={['File Upload']}
+          />
         )}
 
         {(uploadStatus === 'editing' || uploadStatus === 'success') && results && (
           <>
             <OrderSummary
-              onCreateLabels={handleCreateLabels}
-              isCreatingLabels={isCreatingLabels}
               onPaymentSuccess={handlePaymentSuccess}
             />
 
@@ -88,7 +88,7 @@ export const BulkUpload = () => {
               searchTerm={searchTerm}
               sortField={sortField as 'recipient' | 'carrier' | 'rate'}
               sortDirection={sortDirection}
-              selectedCarrierFilter={selectedCarrierFilter}
+              selectedCarrier={selectedCarrierFilter}
               onSearchChange={setSearchTerm}
               onSortChange={(field: 'recipient' | 'carrier' | 'rate', direction) => {
                 setSortField(field);
@@ -103,7 +103,7 @@ export const BulkUpload = () => {
               shipments={filteredShipments}
               onSelectRate={handleSelectRate}
               onRemoveShipment={handleRemoveShipment}
-              onEditShipment={(shipmentId: string, details: any) => handleEditShipment(shipmentId, details)}
+              onEditShipment={handleEditShipment}
               pickupCountry={pickupAddress?.country || 'US'}
             />
           </>
@@ -112,13 +112,13 @@ export const BulkUpload = () => {
         {results && results.batchResult && (
           <BulkLabelDownloadOptions
             batchResult={results.batchResult}
-            onDownloadLabels={handleDownloadLabelsWithFormat}
-            onEmailLabels={() => handleEmailLabels('admin@example.com')}
+            onDownloadLabelsWithFormat={handleDownloadLabelsWithFormat}
+            onEmailLabels={handleEmailLabels}
           />
         )}
       </div>
 
-      {isCreatingLabels && (
+      {isCreatingLabels && labelGenerationProgress && (
         <LabelGenerationProgress 
           isGenerating={labelGenerationProgress.isGenerating}
           totalShipments={labelGenerationProgress.totalShipments}
