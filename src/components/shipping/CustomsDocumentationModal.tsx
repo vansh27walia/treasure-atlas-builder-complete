@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -10,27 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { X, FileText, Package, Plus, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-
-interface CustomsItem {
-  description: string;
-  quantity: number;
-  value: number;
-  weight: number;
-  hs_tariff_number?: string;
-  origin_country: string;
-}
-
-interface CustomsInfo {
-  contents_type: string;
-  contents_explanation?: string;
-  customs_certify: boolean;
-  customs_signer: string;
-  non_delivery_option: string;
-  restriction_type?: string;
-  restriction_comments?: string;
-  customs_items: CustomsItem[];
-  eel_pfc?: string;
-}
+import { CustomsItem, CustomsInfo } from '@/types/shipping';
 
 interface CustomsDocumentationModalProps {
   isOpen: boolean;
@@ -231,7 +210,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
               <Label className="text-sm font-medium">Contents Type *</Label>
               <Select 
                 value={customsData.contents_type} 
-                onValueChange={(value) => setCustomsData(prev => ({ ...prev, contents_type: value }))}
+                onValueChange={(value) => setCustomsData(prev => ({ ...prev, contents_type: value as any }))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -251,7 +230,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
               <Label className="text-sm font-medium">Non-Delivery Option *</Label>
               <RadioGroup
                 value={customsData.non_delivery_option}
-                onValueChange={(value) => setCustomsData(prev => ({ ...prev, non_delivery_option: value }))}
+                onValueChange={(value) => setCustomsData(prev => ({ ...prev, non_delivery_option: value as any }))}
                 className="flex space-x-4 mt-2"
               >
                 <div className="flex items-center space-x-2">
