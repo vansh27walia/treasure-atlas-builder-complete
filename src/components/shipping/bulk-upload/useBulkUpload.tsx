@@ -147,34 +147,6 @@ export const useBulkUpload = () => {
       return;
     }
 
-    // Check for international shipments without customs info
-    const pickupCountry = pickupAddress?.country || 'US';
-    const internationalShipmentsWithoutCustoms = shipmentsToProcess.filter(shipment => {
-      const dropoffCountry = shipment.details?.to_address?.country || 'US';
-      const isInternational = pickupCountry !== dropoffCountry;
-      const hasCustomsInfo = shipment.details?.customs_info && 
-        shipment.details.customs_info.customs_items && 
-        shipment.details.customs_info.customs_items.length > 0;
-      
-      return isInternational && !hasCustomsInfo;
-    });
-
-    if (internationalShipmentsWithoutCustoms.length > 0) {
-      const recipientNames = internationalShipmentsWithoutCustoms
-        .map(s => s.customer_name || s.recipient)
-        .slice(0, 3)
-        .join(', ');
-      
-      const moreCount = internationalShipmentsWithoutCustoms.length - 3;
-      const suffix = moreCount > 0 ? ` and ${moreCount} more` : '';
-      
-      toast.error(
-        `Custom documents required for international shipments: ${recipientNames}${suffix}. Please fill out customs information before generating labels.`,
-        { duration: 8000 }
-      );
-      return;
-    }
-
     const totalShipments = shipmentsArray.length;
     const shipmentsWithRates = shipmentsToProcess.length;
     
