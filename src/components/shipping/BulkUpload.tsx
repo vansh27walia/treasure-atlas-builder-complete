@@ -227,15 +227,15 @@ export default function BulkUpload() {
                   <Label htmlFor="sort-field">Sort By</Label>
                   <Select 
                     value={sortField} 
-                    onValueChange={(value) => setSortField(value as "recipient" | "customer_address" | "status")}
+                    onValueChange={(value) => setSortField(value as "recipient" | "rate" | "carrier")}
                   >
                     <SelectTrigger id="sort-field">
                       <SelectValue placeholder="Recipient" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="recipient">Recipient</SelectItem>
-                      <SelectItem value="customer_address">Address</SelectItem>
-                      <SelectItem value="status">Status</SelectItem>
+                      <SelectItem value="rate">Rate</SelectItem>
+                      <SelectItem value="carrier">Carrier</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -280,7 +280,7 @@ export default function BulkUpload() {
           <div className="flex justify-between items-center">
             <div className="flex gap-2">
               <Button
-                onClick={() => handleBulkApplyCarrier()}
+                onClick={() => handleBulkApplyCarrier("")}
                 variant="outline"
                 disabled={isFetchingRates || !filteredShipments.length}
               >
@@ -358,7 +358,7 @@ export default function BulkUpload() {
                 Download All Labels
               </Button>
 
-              <Button variant="outline" onClick={() => handleEmailLabels()}>
+              <Button variant="outline" onClick={() => handleEmailLabels("")}>
                 <Mail className="w-4 h-4 mr-2" />
                 Email All Labels
               </Button>

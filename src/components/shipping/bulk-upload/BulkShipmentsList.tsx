@@ -41,7 +41,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     setCustomsModalOpen(true);
   };
 
-  const handleCustomsSubmit = (customs: any) => {
+  const handleCustomsSubmit = (customs: ShippingCustomsInfo) => {
     if (selectedShipmentForCustoms) {
       const shipment = shipments.find(s => s.id === selectedShipmentForCustoms);
       if (shipment) {
@@ -140,7 +140,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 {editingShipment === shipment.id ? (
                   <EditableShipmentRow
                     shipment={shipment}
-                    onSaveShipment={(updates) => {
+                    onSave={(updates) => {
                       onEditShipment({ ...shipment, ...updates });
                       setEditingShipment(null);
                     }}
