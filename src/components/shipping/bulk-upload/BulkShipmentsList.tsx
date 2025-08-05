@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Trash2, FileText, Globe } from 'lucide-react';
-import { BulkShipment, CustomsInfo as ShippingCustomsInfo } from '@/types/shipping';
+import { BulkShipment, CustomsInfo } from '@/types/shipping';
 import EditableShipmentRow from './EditableShipmentRow';
 import CustomsDocumentationModal from '../CustomsDocumentationModal';
 
@@ -41,11 +41,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     setCustomsModalOpen(true);
   };
 
-  const handleCustomsSubmit = (customs: ShippingCustomsInfo) => {
+  const handleCustomsSubmit = (customs: CustomsInfo) => {
     if (selectedShipmentForCustoms) {
       const shipment = shipments.find(s => s.id === selectedShipmentForCustoms);
       if (shipment) {
-        const customsInfo: ShippingCustomsInfo = {
+        const customsInfo: CustomsInfo = {
           ...customs,
           contents_type: (customs.contents_type || 'merchandise') as 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other'
         };
@@ -70,7 +70,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     const firstInternationalShipment = shipments.find(s => isInternational(s) && s.customs_info);
     if (!firstInternationalShipment?.customs_info) return;
 
-    const customsData: ShippingCustomsInfo = {
+    const customsData: CustomsInfo = {
       ...firstInternationalShipment.customs_info,
       contents_type: (firstInternationalShipment.customs_info.contents_type || 'merchandise') as 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other'
     };

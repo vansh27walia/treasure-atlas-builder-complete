@@ -100,6 +100,12 @@ export default function BulkUpload() {
     }
   };
 
+  const handleUploadClick = () => {
+    if (file) {
+      handleUpload(file);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -139,7 +145,7 @@ export default function BulkUpload() {
                     Selected File: {file.name}
                   </p>
                   <Button
-                    onClick={() => handleUpload(file)}
+                    onClick={handleUploadClick}
                     disabled={isUploading}
                   >
                     {isUploading ? (
