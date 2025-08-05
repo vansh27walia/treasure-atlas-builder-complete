@@ -123,7 +123,6 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
     // Convert to the format expected by the shipment details with proper type mapping
     const convertedCustomsInfo: CustomsInfo = {
       contents_type: customsInfo.contents_type as CustomsInfo['contents_type'],
-      contents_explanation: customsInfo.contents_explanation,
       customs_certify: customsInfo.customs_certify,
       customs_signer: customsInfo.customs_signer,
       non_delivery_option: customsInfo.non_delivery_option as CustomsInfo['non_delivery_option'],
