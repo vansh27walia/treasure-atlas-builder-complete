@@ -271,9 +271,8 @@ const BulkUpload: React.FC = () => {
                         if (shipment) {
                           handleEditShipment(shipment);
                         }
-                      }} 
-                      onRefreshRates={handleRefreshRates} 
-                      onAIAnalysis={handleAIAnalysis} 
+                      }}
+                      pickupCountry={pickupAddress?.country}
                     />
                   </div>
                   
@@ -348,7 +347,15 @@ const BulkUpload: React.FC = () => {
         </div>
 
         {/* Chatbot Toggle Button */}
-        {uploadStatus === 'editing'}
+        {uploadStatus === 'editing' && (
+          <button
+            className="fixed bottom-8 right-8 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition duration-300 ease-in-out"
+            onClick={() => setChatbotOpen(!chatbotOpen)}
+            aria-label="Open Chatbot"
+          >
+            <MessageCircle className="h-6 w-6" />
+          </button>
+        )}
       </div>
 
       {/* AI Overview Panel */}
@@ -369,4 +376,5 @@ const BulkUpload: React.FC = () => {
       {results?.bulk_label_pdf_url && results.batchResult && <PrintPreview isOpenProp={showPrintPreview} onOpenChangeProp={setShowPrintPreview} labelUrl={results.bulk_label_pdf_url} trackingCode={null} isBatchPreview={true} batchResult={results.batchResult} />}
     </>;
 };
+
 export default BulkUpload;
