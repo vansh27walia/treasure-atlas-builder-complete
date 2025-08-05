@@ -122,9 +122,7 @@ export interface CustomsInfo {
   customs_certify?: boolean;
   customs_signer?: string;
   contents_type?: 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other';
-  contents_explanation?: string;
   restriction_type?: 'none' | 'other' | 'quarantine' | 'sanitary_phytosanitary_inspection';
-  restriction_comments?: string;
   non_delivery_option?: 'return' | 'abandon';
   customs_items: CustomsItem[];
 }
@@ -155,8 +153,6 @@ export interface BulkShipment {
   rate?: number; // Populated after rate selection
   carrier?: string; // Populated after rate selection
   service?: string; // Populated after rate selection
-  customs_info?: CustomsInfo; // Store customs data for international shipments
-  is_international?: boolean; // Flag to indicate if shipment is international
   [key: string]: any; // Allow other dynamic fields
 }
 
@@ -244,5 +240,3 @@ export const CARRIER_OPTIONS = [
     ]
   }
 ];
-
-export type SortField = 'recipient' | 'rate' | 'carrier' | 'customer_address' | 'status';
