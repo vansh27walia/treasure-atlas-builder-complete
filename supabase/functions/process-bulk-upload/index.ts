@@ -1,191 +1,92 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface ShipmentResult {
-  id: string;
-  easypost_id: string;
-  tracking_code: string;
-  label_url: string;
-  status: "pending" | "processing" | "error" | "completed";
-  row: number;
-  recipient: string;
-  carrier: string;
-  service: string;
-  rate: number;
-  availableRates: ShippingRate[];
-  selectedRateId: string;
-  details: {
-    to_name: string;
-    to_company?: string;
-    to_street1: string;
-    to_street2?: string;
-    to_city: string;
-    to_state: string;
-    to_zip: string;
-    to_country: string;
-    to_phone?: string;
-    to_email?: string;
-    weight: number;
-    length: number;
-    width: number;
-    height: number;
-    reference?: string;
-  };
-  customer_name?: string;
-  customer_address?: string;
-  customer_phone?: string;
-  customer_email?: string;
-  customer_company?: string;
+interface ParsedShipmentData {
+  to_name: string;
+  to_company?: string;
+  to_street1: string;
+  to_street2?: string;
+  to_city: string;
+  to_state: string;
+  to_zip: string;
+  to_country: string;
+  to_phone?: string;
+  to_email?: string;
+  weight: number;
+  length: number;
+  width: number;
+  height: number;
+  reference?: string;
 }
 
-interface ShippingRate {
-  id: string;
-  carrier: string;
-  service: string;
-  rate: string;
-  currency: string;
-  delivery_days: number;
-  delivery_date: string | null;
-  shipment_id: string;
-  carrier_account_id?: string;
-  list_rate?: string;
-  retail_rate?: string;
-}
-
-interface ProcessingError {
-  row: number;
-  error: string;
-  details: string;
-}
-
-// Parse CSV content following EasyPost format
-const parseCSV = (csvContent: string): string[][] => {
-  const lines = csvContent.split('\n').filter(line => line.trim() !== '');
-  const result: string[][] = [];
-  
-  for (const line of lines) {
-    const fields: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        fields.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    
-    fields.push(current.trim());
-    result.push(fields);
-  }
-  
-  return result;
+const isInternational = (fromCountry: string, toCountry: string): boolean => {
+  return fromCountry !== toCountry;
 };
 
-// Create EasyPost shipment and fetch live rates with enhanced carrier information
-const createShipmentAndFetchRates = async (fromAddress: any, toAddress: any, parcel: any, reference?: string): Promise<{ shipment: any, rates: ShippingRate[] }> => {
-  try {
-    console.log('Creating EasyPost shipment for live rate fetching');
-    
-    const apiKey = Deno.env.get('EASYPOST_API_KEY');
-    if (!apiKey) {
-      throw new Error('EasyPost API key not configured');
-    }
-
-    // Create shipment via EasyPost API
-    const shipmentData = {
-      shipment: {
-        to_address: {
-          name: toAddress.to_name,
-          company: toAddress.to_company || '',
-          street1: toAddress.to_street1,
-          street2: toAddress.to_street2 || '',
-          city: toAddress.to_city,
-          state: toAddress.to_state,
-          zip: toAddress.to_zip,
-          country: toAddress.to_country,
-          phone: toAddress.to_phone || '',
-          email: toAddress.to_email || '',
-        },
-        from_address: {
-          name: fromAddress.name || fromAddress.street1,
-          company: fromAddress.company || '',
-          street1: fromAddress.street1,
-          street2: fromAddress.street2 || '',
-          city: fromAddress.city,
-          state: fromAddress.state,
-          zip: fromAddress.zip,
-          country: fromAddress.country,
-          phone: fromAddress.phone || '',
-        },
-        parcel: {
-          length: parcel.length,
-          width: parcel.width,
-          height: parcel.height,
-          weight: parcel.weight,
-        },
-        reference: reference || ''
-      }
-    };
-
-    console.log('Sending shipment request to EasyPost:', JSON.stringify(shipmentData));
-
-    const response = await fetch('https://api.easypost.com/v2/shipments', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(shipmentData),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('EasyPost API error:', response.status, errorText);
-      throw new Error(`EasyPost API error: ${response.status} - ${errorText}`);
-    }
-
-    const shipment = await response.json();
-    console.log('EasyPost shipment created with ID:', shipment.id);
-    console.log('Available live rates count:', shipment.rates?.length || 0);
-    
-    if (!shipment.rates || shipment.rates.length === 0) {
-      throw new Error('No live rates returned from EasyPost API');
-    }
-    
-    // Convert EasyPost rates to our format with enhanced carrier information
-    const rates: ShippingRate[] = shipment.rates.map((rate: any) => ({
-      id: rate.id,
-      carrier: rate.carrier,
-      service: rate.service,
-      rate: parseFloat(rate.rate).toFixed(2),
-      currency: rate.currency,
-      delivery_days: rate.delivery_days || 3,
-      delivery_date: rate.delivery_date,
-      shipment_id: shipment.id,
-      carrier_account_id: rate.carrier_account_id,
-      list_rate: rate.list_rate ? parseFloat(rate.list_rate).toFixed(2) : undefined,
-      retail_rate: rate.retail_rate ? parseFloat(rate.retail_rate).toFixed(2) : undefined,
-    }));
-
-    console.log(`Successfully created shipment and fetched ${rates.length} live rates with full carrier details`);
-    return { shipment, rates };
-
-  } catch (error) {
-    console.error('Error creating shipment and fetching live rates:', error);
-    throw error;
+const createEasyPostShipment = async (shipmentData: ParsedShipmentData, fromAddress: any, includeCustoms: boolean = false) => {
+  const apiKey = Deno.env.get('EASYPOST_API_KEY');
+  if (!apiKey) {
+    throw new Error('EasyPost API key not configured');
   }
+
+  const shipmentRequest: any = {
+    shipment: {
+      to_address: {
+        name: shipmentData.to_name,
+        company: shipmentData.to_company || '',
+        street1: shipmentData.to_street1,
+        street2: shipmentData.to_street2 || '',
+        city: shipmentData.to_city,
+        state: shipmentData.to_state,
+        zip: shipmentData.to_zip,
+        country: shipmentData.to_country,
+        phone: shipmentData.to_phone || '',
+        email: shipmentData.to_email || '',
+      },
+      from_address: {
+        name: fromAddress.name,
+        company: fromAddress.company || '',
+        street1: fromAddress.street1,
+        street2: fromAddress.street2 || '',
+        city: fromAddress.city,
+        state: fromAddress.state,
+        zip: fromAddress.zip,
+        country: fromAddress.country,
+        phone: fromAddress.phone || '',
+      },
+      parcel: {
+        length: shipmentData.length,
+        width: shipmentData.width,
+        height: shipmentData.height,
+        weight: shipmentData.weight,
+      },
+      reference: shipmentData.reference || ''
+    }
+  };
+
+  const response = await fetch('https://api.easypost.com/v2/shipments', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(shipmentRequest),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    console.error('EasyPost shipment creation error:', errorData);
+    throw new Error(`EasyPost API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+  }
+
+  const data = await response.json();
+  return data;
 };
 
 serve(async (req) => {
@@ -194,225 +95,206 @@ serve(async (req) => {
   }
 
   try {
-    const requestBody = await req.json();
-    console.log('Request body keys:', Object.keys(requestBody));
-    
-    const { csvContent, pickupAddress } = requestBody;
-    
-    if (!csvContent) {
-      return new Response(
-        JSON.stringify({ error: 'Missing CSV content' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'No authorization header' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401
+      });
     }
 
-    if (!pickupAddress) {
-      return new Response(
-        JSON.stringify({ error: 'Missing pickup address. Please set a pickup address in your settings.' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
-
-    console.log("Processing EasyPost bulk upload with pickup address:", pickupAddress.name);
-    console.log("CSV content length:", csvContent.length);
-
-    // Parse the CSV content following EasyPost format
-    const rows = parseCSV(csvContent);
-    
-    if (rows.length < 2) {
-      return new Response(
-        JSON.stringify({ error: 'CSV file must have at least one data row after the header' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
-
-    // Get headers - EasyPost format
-    const headers = rows[0].map(h => h.toLowerCase().trim());
-    console.log('CSV headers:', headers);
-    
-    // Validate required headers for EasyPost format
-    const requiredFields = ['to_name', 'to_street1', 'to_city', 'to_state', 'to_zip', 'to_country', 'weight', 'length', 'width', 'height'];
-    const missingFields = requiredFields.filter(field => !headers.includes(field));
-    
-    if (missingFields.length > 0) {
-      return new Response(
-        JSON.stringify({ error: `CSV is missing required EasyPost fields: ${missingFields.join(', ')}` }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
-    }
-    
-    // Get field indexes for EasyPost format
-    const getFieldIndex = (fieldName: string) => headers.indexOf(fieldName);
-    
-    const fieldIndexes = {
-      to_name: getFieldIndex('to_name'),
-      to_company: getFieldIndex('to_company'),
-      to_street1: getFieldIndex('to_street1'),
-      to_street2: getFieldIndex('to_street2'),
-      to_city: getFieldIndex('to_city'),
-      to_state: getFieldIndex('to_state'),
-      to_zip: getFieldIndex('to_zip'),
-      to_country: getFieldIndex('to_country'),
-      to_phone: getFieldIndex('to_phone'),
-      to_email: getFieldIndex('to_email'),
-      weight: getFieldIndex('weight'),
-      length: getFieldIndex('length'),
-      width: getFieldIndex('width'),
-      height: getFieldIndex('height'),
-      reference: getFieldIndex('reference'),
-    };
-    
-    console.log('EasyPost field indexes:', fieldIndexes);
-    
-    const total = rows.length - 1;
-    const processedShipments: ShipmentResult[] = [];
-    const failedShipments: ProcessingError[] = [];
-    
-    // Process each row following EasyPost workflow
-    for (let i = 1; i < rows.length; i++) {
-      const rowData = rows[i];
-      
-      // Skip empty rows
-      if (!rowData || rowData.join('').trim() === '') {
-        console.log(`Skipping empty row ${i}`);
-        continue;
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
       }
+    );
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      console.error('User authentication failed:', userError?.message);
+      return new Response(JSON.stringify({ error: 'User not authenticated' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401
+      });
+    }
+
+    const { fileName, fileContent, pickupAddress } = await req.json();
+
+    if (!fileContent || !pickupAddress) {
+      return new Response(JSON.stringify({ 
+        error: 'File content and pickup address are required' 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
+    }
+
+    console.log(`Processing bulk upload for user: ${user.id}, file: ${fileName}`);
+
+    // Parse CSV content
+    const lines = fileContent.split('\n').filter((line: string) => line.trim() !== '');
+    if (lines.length < 2) {
+      throw new Error('CSV file must contain headers and at least one data row');
+    }
+
+    const headers = lines[0].split(',').map((h: string) => h.trim().replace(/"/g, ''));
+    console.log('CSV headers:', headers);
+
+    const processedShipments = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    // Process each row
+    for (let i = 1; i < lines.length; i++) {
+      const row = lines[i].split(',').map((cell: string) => cell.trim().replace(/"/g, ''));
       
       try {
-        console.log(`Processing EasyPost row ${i}:`, rowData);
-        
-        // Extract recipient details safely following EasyPost format
-        const getValue = (index: number) => index >= 0 && index < rowData.length ? rowData[index]?.trim() : '';
-        
-        const toAddress = {
-          to_name: getValue(fieldIndexes.to_name),
-          to_company: getValue(fieldIndexes.to_company),
-          to_street1: getValue(fieldIndexes.to_street1),
-          to_street2: getValue(fieldIndexes.to_street2),
-          to_city: getValue(fieldIndexes.to_city),
-          to_state: getValue(fieldIndexes.to_state),
-          to_zip: getValue(fieldIndexes.to_zip),
-          to_country: getValue(fieldIndexes.to_country) || 'US',
-          to_phone: getValue(fieldIndexes.to_phone),
-          to_email: getValue(fieldIndexes.to_email),
+        console.log(`Processing row ${i}:`, row);
+
+        const shipmentData: ParsedShipmentData = {
+          to_name: row[headers.indexOf('to_name')] || row[headers.indexOf('name')] || '',
+          to_company: row[headers.indexOf('to_company')] || row[headers.indexOf('company')] || '',
+          to_street1: row[headers.indexOf('to_street1')] || row[headers.indexOf('street1')] || row[headers.indexOf('address')] || '',
+          to_street2: row[headers.indexOf('to_street2')] || row[headers.indexOf('street2')] || '',
+          to_city: row[headers.indexOf('to_city')] || row[headers.indexOf('city')] || '',
+          to_state: row[headers.indexOf('to_state')] || row[headers.indexOf('state')] || '',
+          to_zip: row[headers.indexOf('to_zip')] || row[headers.indexOf('zip')] || row[headers.indexOf('postal_code')] || '',
+          to_country: row[headers.indexOf('to_country')] || row[headers.indexOf('country')] || 'US',
+          to_phone: row[headers.indexOf('to_phone')] || row[headers.indexOf('phone')] || '',
+          to_email: row[headers.indexOf('to_email')] || row[headers.indexOf('email')] || '',
+          weight: parseFloat(row[headers.indexOf('weight')]) || 1.0,
+          length: parseFloat(row[headers.indexOf('length')]) || 12,
+          width: parseFloat(row[headers.indexOf('width')]) || 8,
+          height: parseFloat(row[headers.indexOf('height')]) || 4,
+          reference: row[headers.indexOf('reference')] || '',
         };
 
-        const parcel = {
-          weight: parseFloat(getValue(fieldIndexes.weight)) || 1.0,
-          length: parseFloat(getValue(fieldIndexes.length)) || 12,
-          width: parseFloat(getValue(fieldIndexes.width)) || 8,
-          height: parseFloat(getValue(fieldIndexes.height)) || 4,
-        };
+        // Validate required fields
+        if (!shipmentData.to_name || !shipmentData.to_street1 || !shipmentData.to_city || !shipmentData.to_zip) {
+          throw new Error(`Missing required address fields for row ${i}`);
+        }
 
-        const reference = getValue(fieldIndexes.reference);
-        
-        console.log(`Row ${i} to_address:`, toAddress);
-        console.log(`Row ${i} parcel:`, parcel);
-        
-        // Validate required address fields
-        if (!toAddress.to_name || !toAddress.to_street1 || !toAddress.to_city || 
-            !toAddress.to_state || !toAddress.to_zip) {
-          throw new Error(`Missing required fields in row ${i}: to_name, to_street1, to_city, to_state, to_zip are required`);
-        }
-        
-        // Create EasyPost shipment and fetch live rates
-        console.log(`Creating EasyPost shipment for row ${i}`);
-        const { shipment, rates } = await createShipmentAndFetchRates(
-          pickupAddress,
-          toAddress,
-          parcel,
-          reference
-        );
-        
-        console.log(`Created shipment ${shipment.id} with ${rates.length} live rates for row ${i}`);
-        
-        // Select cheapest rate by default
-        const selectedRate = rates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate))[0];
-        
-        if (!selectedRate) {
-          throw new Error(`No shipping rates available for row ${i}`);
-        }
-        
-        // Create shipment result with proper customer details
-        const shipmentResult: ShipmentResult = {
-          id: `ship_${crypto.randomUUID().substring(0, 8)}`,
-          easypost_id: shipment.id,
-          tracking_code: '',
-          label_url: '',
-          status: "completed",
+        // Check if international
+        const international = isInternational(pickupAddress.country, shipmentData.to_country);
+        console.log(`Shipment ${i} is ${international ? 'international' : 'domestic'} (${pickupAddress.country} -> ${shipmentData.to_country})`);
+
+        // Create EasyPost shipment
+        const easypostShipment = await createEasyPostShipment(shipmentData, pickupAddress, international);
+        console.log(`Created EasyPost shipment ${easypostShipment.id} for row ${i}`);
+
+        // Process rates
+        const rates = (easypostShipment.rates || []).map((rate: any) => ({
+          id: rate.id,
+          easypost_rate_id: rate.id,
+          carrier: rate.carrier,
+          service: rate.service,
+          rate: parseFloat(rate.rate),
+          formattedRate: `$${parseFloat(rate.rate).toFixed(2)}`,
+          delivery_days: rate.delivery_days,
+          est_delivery_days: rate.est_delivery_days,
+          shipment_id: easypostShipment.id,
+          carrier_account_id: rate.carrier_account_id,
+          retail_rate: rate.retail_rate,
+          list_rate: rate.list_rate
+        }));
+
+        const processedShipment = {
+          id: `bulk_${crypto.randomUUID()}`,
           row: i,
-          recipient: toAddress.to_name,
-          carrier: selectedRate.carrier,
-          service: selectedRate.service,
-          rate: parseFloat(selectedRate.rate),
-          availableRates: rates,
-          selectedRateId: selectedRate.id,
+          easypost_id: easypostShipment.id,
+          recipient: shipmentData.to_name,
+          customer_name: shipmentData.to_name,
+          customer_address: `${shipmentData.to_street1}, ${shipmentData.to_city}, ${shipmentData.to_state} ${shipmentData.to_zip}`,
+          customer_phone: shipmentData.to_phone,
+          customer_email: shipmentData.to_email,
+          customer_company: shipmentData.to_company,
           details: {
-            to_name: toAddress.to_name,
-            to_company: toAddress.to_company,
-            to_street1: toAddress.to_street1,
-            to_street2: toAddress.to_street2,
-            to_city: toAddress.to_city,
-            to_state: toAddress.to_state,
-            to_zip: toAddress.to_zip,
-            to_country: toAddress.to_country,
-            to_phone: toAddress.to_phone,
-            to_email: toAddress.to_email,
-            weight: parcel.weight,
-            length: parcel.length,
-            width: parcel.width,
-            height: parcel.height,
-            reference
+            from_address: pickupAddress,
+            to_address: {
+              name: shipmentData.to_name,
+              company: shipmentData.to_company,
+              street1: shipmentData.to_street1,
+              street2: shipmentData.to_street2,
+              city: shipmentData.to_city,
+              state: shipmentData.to_state,
+              zip: shipmentData.to_zip,
+              country: shipmentData.to_country,
+              phone: shipmentData.to_phone,
+              email: shipmentData.to_email,
+              is_residential: true
+            },
+            parcel: {
+              length: shipmentData.length,
+              width: shipmentData.width,
+              height: shipmentData.height,
+              weight: shipmentData.weight
+            }
           },
-          customer_name: toAddress.to_name,
-          customer_address: `${toAddress.to_street1}, ${toAddress.to_city}, ${toAddress.to_state} ${toAddress.to_zip}`,
-          customer_phone: toAddress.to_phone,
-          customer_email: toAddress.to_email,
-          customer_company: toAddress.to_company,
+          availableRates: rates,
+          selectedRateId: rates.length > 0 ? rates[0].id : null,
+          status: rates.length > 0 ? 'rates_fetched' : 'error',
+          error: rates.length === 0 ? 'No rates available' : null,
+          rate: rates.length > 0 ? rates[0].rate : 0,
+          carrier: rates.length > 0 ? rates[0].carrier : null,
+          service: rates.length > 0 ? rates[0].service : null,
+          is_international: international,
+          customs_info: international ? null : undefined // Will be set later via UI
         };
-        
-        processedShipments.push(shipmentResult);
-        console.log(`Successfully processed EasyPost row ${i}`);
-        
+
+        processedShipments.push(processedShipment);
+        successCount++;
+        console.log(`✅ Successfully processed shipment ${i}: ${shipmentData.to_name}`);
+
       } catch (error) {
-        console.error(`Error processing row ${i}:`, error);
-        failedShipments.push({
+        console.error(`❌ Error processing row ${i}:`, error);
+        
+        const failedShipment = {
+          id: `bulk_${crypto.randomUUID()}`,
           row: i,
-          error: 'EasyPost Processing Error',
-          details: error instanceof Error ? error.message : 'Unknown error occurred'
-        });
+          recipient: 'Error',
+          status: 'error',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          details: {},
+          availableRates: [],
+          rate: 0
+        };
+
+        processedShipments.push(failedShipment);
+        failCount++;
       }
     }
-    
-    const successful = processedShipments.length;
-    const failed = failedShipments.length;
-    const totalCost = processedShipments.reduce((sum, shipment) => sum + shipment.rate, 0);
-    
-    console.log(`EasyPost processing complete: ${successful} successful, ${failed} failed, total cost: $${totalCost}`);
-    
-    return new Response(
-      JSON.stringify({ 
-        total,
-        successful,
-        failed,
-        totalCost,
-        processedShipments,
-        failedShipments,
-        message: `Processed ${successful} out of ${total} shipments using live EasyPost API with full carrier details`,
-        pickupAddress: pickupAddress.name
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-    );
-    
+
+    const totalCost = processedShipments
+      .filter(s => s.status === 'rates_fetched')
+      .reduce((sum, s) => sum + (s.rate || 0), 0);
+
+    console.log(`✅ Bulk processing complete: ${successCount} successful, ${failCount} failed, total cost: $${totalCost.toFixed(2)}`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      total: processedShipments.length,
+      successful: successCount,
+      failed: failCount,
+      totalCost: Number(totalCost.toFixed(2)),
+      processedShipments,
+      uploadStatus: 'editing',
+      message: `Successfully processed ${successCount} out of ${processedShipments.length} shipments`
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
   } catch (error) {
-    console.error('Error in EasyPost process-bulk-upload function:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'EasyPost Processing Error', 
-        message: error instanceof Error ? error.message : 'Unknown error',
-        details: 'Please check your CSV format follows EasyPost structure and ensure all required fields are present'
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    console.error('Error in process-bulk-upload function:', error);
+    return new Response(JSON.stringify({
+      error: 'Internal Server Error',
+      message: error instanceof Error ? error.message : 'Unknown error occurred'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500
+    });
   }
 });

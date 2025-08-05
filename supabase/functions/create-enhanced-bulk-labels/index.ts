@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument } from "npm:pdf-lib";
@@ -165,13 +164,60 @@ const convertPngToPdfLocally = async (pngBytes: Uint8Array): Promise<Uint8Array>
   }
 };
 
-const purchaseEasyPostLabel = async (shipmentId: string, rateId: string): Promise<any> => {
+const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, customsInfo?: any): Promise<any> => {
   const apiKey = Deno.env.get('EASYPOST_API_KEY');
   if (!apiKey) {
     throw new Error('EasyPost API key not configured');
   }
+  
   try {
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
+    
+    // First, if customs info is provided, we need to update the shipment with customs information
+    if (customsInfo) {
+      console.log(`Adding customs information to shipment ${shipmentId}`);
+      
+      const customsData = {
+        customs_info: {
+          eel_pfc: customsInfo.eel_pfc || "NOEEI 30.37(a)",
+          customs_certify: customsInfo.customs_certify || true,
+          customs_signer: customsInfo.customs_signer,
+          contents_type: customsInfo.contents_type || 'merchandise',
+          contents_explanation: customsInfo.contents_explanation || '',
+          restriction_type: customsInfo.restriction_type || 'none',
+          restriction_comments: customsInfo.restriction_comments || '',
+          non_delivery_option: customsInfo.non_delivery_option || 'return',
+          customs_items: (customsInfo.customs_items || []).map((item: any) => ({
+            description: item.description,
+            quantity: item.quantity || 1,
+            value: item.value,
+            weight: item.weight,
+            hs_tariff_number: item.hs_tariff_number || '',
+            origin_country: item.origin_country || 'US'
+          }))
+        }
+      };
+
+      // Update the shipment with customs information
+      const updateResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(customsData)
+      });
+
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json();
+        console.error(`Failed to update shipment with customs info:`, errorData);
+        throw new Error(`Customs update error: ${errorData.error?.message || 'Unknown error'}`);
+      }
+
+      console.log(`✅ Successfully added customs information to shipment ${shipmentId}`);
+    }
+
+    // Now purchase the label
     const buyResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
       method: 'POST',
       headers: {
@@ -203,6 +249,7 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string): Promis
       }
       throw new Error(`EasyPost purchase error: ${errorData.error?.message || 'Unknown error'}`);
     }
+    
     const boughtShipment = await buyResponse.json();
     console.log(`Successfully purchased label for shipment ${shipmentId}. Tracking: ${boughtShipment.tracking_code}`);
     return boughtShipment;
@@ -519,7 +566,18 @@ serve(async (req: Request) => {
           throw new Error('Missing EasyPost shipment ID or rate ID for label generation');
         }
 
-        const easypostLabelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId);
+        // Check if shipment has customs info and include it in label creation
+        const customsInfo = shipment.is_international ? shipment.customs_info : null;
+        if (customsInfo) {
+          console.log(`Including customs information for international shipment ${shipment.id}`);
+        }
+
+        const easypostLabelData = await purchaseEasyPostLabel(
+          shipment.easypost_id, 
+          shipment.selectedRateId, 
+          customsInfo
+        );
+        
         const labelWithStoredUrls = await processAndStoreLabel(easypostLabelData);
 
         const shipmentRecord = {
@@ -537,7 +595,11 @@ serve(async (req: Request) => {
           currency: labelWithStoredUrls.selected_rate?.currency || 'USD',
           label_format: labelOptions.label_format || (labelWithStoredUrls.label_urls['pdf'] ? "PDF" : (labelWithStoredUrls.label_urls['png'] ? "PNG" : "UNKNOWN")),
           label_size: labelOptions.label_size || "4x6",
-          is_international: false,
+          is_international: shipment.is_international || false,
+          customs_items_json: customsInfo?.customs_items || null,
+          customs_signer: customsInfo?.customs_signer || null,
+          contents_type: customsInfo?.contents_type || null,
+          non_delivery_option: customsInfo?.non_delivery_option || null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -605,7 +667,7 @@ serve(async (req: Request) => {
       total: shipments.length,
       successful: processedLabels.length,
       failed: failedLabels.length,
-      message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with Supabase Storage and tracking. Check 'batchResult' for consolidated labels if requested.`
+      message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with Supabase Storage and tracking. International shipments include customs documentation.`
     }), {
       headers: {
         ...corsHeaders,
