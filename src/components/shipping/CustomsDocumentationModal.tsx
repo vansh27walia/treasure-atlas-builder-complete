@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -264,7 +265,9 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
               <Label className="text-sm font-medium">Restriction Type</Label>
               <Select 
                 value={customsData.restriction_type} 
-                onValueChange={(value) => setCustomsData(prev => ({ ...prev, restriction_type: value }))}
+                onValueChange={(value: 'none' | 'other' | 'quarantine' | 'sanitary_phytosanitary_inspection') => 
+                  setCustomsData(prev => ({ ...prev, restriction_type: value }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
