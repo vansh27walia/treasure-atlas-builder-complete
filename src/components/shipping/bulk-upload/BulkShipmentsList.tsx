@@ -55,7 +55,14 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
           customs_signer: customsData.customs_signer || '',
           non_delivery_option: customsData.non_delivery_option || 'return',
           restriction_type: customsData.restriction_type,
-          customs_items: customsData.customs_items || [],
+          customs_items: (customsData.customs_items || []).map((item: any) => ({
+            description: item.description,
+            quantity: item.quantity,
+            value: item.value,
+            weight: item.weight,
+            hs_tariff_number: item.hs_tariff_number,
+            origin_country: item.origin_country || pickupCountry || 'US'
+          })),
           eel_pfc: customsData.eel_pfc
         };
         
@@ -100,7 +107,14 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       customs_signer: customsInfo.customs_signer || '',
       non_delivery_option: customsInfo.non_delivery_option || 'return',
       restriction_type: customsInfo.restriction_type,
-      customs_items: customsInfo.customs_items || [],
+      customs_items: (customsInfo.customs_items || []).map(item => ({
+        description: item.description,
+        quantity: item.quantity,
+        value: item.value,
+        weight: item.weight,
+        hs_tariff_number: item.hs_tariff_number,
+        origin_country: item.origin_country || pickupCountry || 'US'
+      })),
       eel_pfc: customsInfo.eel_pfc
     };
   };
