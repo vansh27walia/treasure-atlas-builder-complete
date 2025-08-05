@@ -1,8 +1,8 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { FileInput } from '@/components/ui/file-input';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Upload, XCircle, Package, Download, Loader2, Eye, Mail } from 'lucide-react';
@@ -23,10 +23,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { BatchPrintPreviewModal } from './bulk-upload/BatchPrintPreviewModal';
-import { DataTable } from '@/components/ui/data-table';
-import { columns } from './bulk-upload/bulk-upload-table-columns';
-import { DataTableViewOptions } from '@/components/ui/data-table-view-options';
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Accordion,
@@ -97,6 +93,13 @@ export default function BulkUpload() {
     navigate('/settings');
   };
 
+  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile) {
+      handleFileChange(selectedFile);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -114,13 +117,21 @@ export default function BulkUpload() {
         <CardContent>
           {pickupAddress ? (
             <>
-              <FileInput
-                id="shipment-file"
-                title="Select CSV File"
-                description="Upload a CSV file containing shipment details."
-                onChange={handleFileChange}
-                disabled={isUploading}
-              />
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="shipment-file">Select CSV File</Label>
+                  <Input
+                    id="shipment-file"
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileInputChange}
+                    disabled={isUploading}
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Upload a CSV file containing shipment details.
+                  </p>
+                </div>
+              </div>
 
               {file && (
                 <div className="mt-4 flex items-center justify-between">
@@ -214,7 +225,10 @@ export default function BulkUpload() {
                 </div>
                 <div>
                   <Label htmlFor="sort-field">Sort By</Label>
-                  <Select value={sortField} onValueChange={setSortField}>
+                  <Select 
+                    value={sortField} 
+                    onValueChange={(value) => setSortField(value as "recipient" | "customer_address" | "status")}
+                  >
                     <SelectTrigger id="sort-field">
                       <SelectValue placeholder="Recipient" />
                     </SelectTrigger>
@@ -227,7 +241,10 @@ export default function BulkUpload() {
                 </div>
                 <div>
                   <Label htmlFor="sort-direction">Sort Direction</Label>
-                  <Select value={sortDirection} onValueChange={setSortDirection}>
+                  <Select 
+                    value={sortDirection} 
+                    onValueChange={(value) => setSortDirection(value as "asc" | "desc")}
+                  >
                     <SelectTrigger id="sort-direction">
                       <SelectValue placeholder="Ascending" />
                     </SelectTrigger>
@@ -255,7 +272,7 @@ export default function BulkUpload() {
             shipments={filteredShipments}
             onSelectRate={handleSelectRate}
             onRemoveShipment={handleRemoveShipment}
-            onEditShipment={(shipment) => handleEditShipment(shipment.id, shipment)}
+            onEditShipment={handleEditShipment}
             onRefreshRates={handleRefreshRates}
             pickupAddress={pickupAddress}
           />
@@ -263,7 +280,7 @@ export default function BulkUpload() {
           <div className="flex justify-between items-center">
             <div className="flex gap-2">
               <Button
-                onClick={handleBulkApplyCarrier}
+                onClick={() => handleBulkApplyCarrier()}
                 variant="outline"
                 disabled={isFetchingRates || !filteredShipments.length}
               >
@@ -283,22 +300,8 @@ export default function BulkUpload() {
 
             <div className="flex gap-2">
               <Button
-                onClick={handleProceedToPayment}
-                disabled={isPaying || !filteredShipments.length}
-              >
-                {isPaying ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing Payment...
-                  </>
-                ) : (
-                  'Proceed to Payment'
-                )}
-              </Button>
-
-              <Button
                 onClick={handleCreateLabels}
-                disabled={isCreatingLabels || !filteredShipments.length}
+                disabled={isPaying || isCreatingLabels || !filteredShipments.length}
               >
                 {isCreatingLabels ? (
                   <>
@@ -355,18 +358,44 @@ export default function BulkUpload() {
                 Download All Labels
               </Button>
 
-              <Button variant="outline" onClick={handleEmailLabels}>
+              <Button variant="outline" onClick={() => handleEmailLabels()}>
                 <Mail className="w-4 h-4 mr-2" />
                 Email All Labels
               </Button>
             </div>
           </div>
 
-          <BatchPrintPreviewModal
-            isOpen={batchPrintPreviewModalOpen}
-            onClose={() => setBatchPrintPreviewModalOpen(false)}
-            batchResult={results.batchResult}
-          />
+          {batchPrintPreviewModalOpen && results.batchResult && (
+            <Dialog open={batchPrintPreviewModalOpen} onOpenChange={setBatchPrintPreviewModalOpen}>
+              <DialogContent className="max-w-4xl">
+                <DialogHeader>
+                  <DialogTitle>Batch Print Preview</DialogTitle>
+                  <DialogDescription>
+                    Preview and download your batch labels
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <p>Batch ID: {results.batchResult.batchId}</p>
+                  <div className="flex gap-2">
+                    {results.batchResult.consolidatedLabelUrls?.pdf && (
+                      <Button asChild>
+                        <a href={results.batchResult.consolidatedLabelUrls.pdf} target="_blank" rel="noopener noreferrer">
+                          Download PDF
+                        </a>
+                      </Button>
+                    )}
+                    {results.batchResult.consolidatedLabelUrls?.zpl && (
+                      <Button asChild variant="outline">
+                        <a href={results.batchResult.consolidatedLabelUrls.zpl} target="_blank" rel="noopener noreferrer">
+                          Download ZPL
+                        </a>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       )}
     </div>
