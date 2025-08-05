@@ -67,12 +67,15 @@ export const BulkUpload = () => {
         {uploadStatus === 'idle' && (
           <BulkUploadForm
             handleUpload={handleUpload}
+            onUploadSuccess={() => {}}
+            onUploadFail={() => {}}
+            onPickupAddressSelect={setPickupAddress}
           />
         )}
 
         {uploadStatus === 'uploading' && (
           <BulkUploadProgressBar 
-            currentStep="uploading"
+            currentStep="upload"
             completedSteps={[]}
           />
         )}
@@ -100,7 +103,6 @@ export const BulkUpload = () => {
                 setSortDirection(direction);
               }}
               onCarrierFilterChange={setSelectedCarrierFilter}
-              shipments={results.processedShipments}
             />
 
             <BulkShipmentsList

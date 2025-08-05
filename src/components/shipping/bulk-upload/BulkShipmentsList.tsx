@@ -29,7 +29,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
   // Check if shipment is international
   const isInternational = (shipment: BulkShipment): boolean => {
-    const destinationCountry = shipment.details?.to_country || 'US';
+    const destinationCountry = shipment.details?.to_address?.country || 'US';
     const pickup = pickupCountry || 'US';
     return pickup.toUpperCase() !== destinationCountry.toUpperCase();
   };
@@ -144,7 +144,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
         }}
         onSubmit={handleCustomsSubmit}
         fromCountry={pickupCountry || 'US'}
-        toCountry={selectedShipmentForCustoms?.details?.to_country || 'US'}
+        toCountry={selectedShipmentForCustoms?.details?.to_address?.country || 'US'}
         initialData={selectedShipmentForCustoms?.customsInfo}
       />
     </div>
