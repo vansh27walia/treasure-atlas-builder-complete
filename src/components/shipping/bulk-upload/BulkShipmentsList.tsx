@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Edit, Trash2, RefreshCw, Sparkles, FileText } from 'lucide-react';
+import { Edit, Trash2, RefreshCw, Sparkles, FileText, Users } from 'lucide-react';
 import { BulkShipment, Rate, CustomsInfo } from '@/types/shipping';
 import CustomsDocumentationModal from '../CustomsDocumentationModal';
 
@@ -33,11 +33,16 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   const [editData, setEditData] = useState<{ [key: string]: any }>({});
   const [customsModalOpen, setCustomsModalOpen] = useState(false);
   const [selectedShipmentForCustoms, setSelectedShipmentForCustoms] = useState<string | null>(null);
+  const [bulkCustomsModalOpen, setBulkCustomsModalOpen] = useState(false);
 
-  // Check if shipment is international (destination country is not US)
+  // Check if shipment is international (destination country is not US) with null safety
   const isInternationalShipment = (shipment: BulkShipment) => {
-    return shipment.details.to_address.country !== 'US';
+    return shipment.details?.to_address?.country !== 'US' || shipment.is_international === true;
   };
+
+  // Count international shipments
+  const internationalShipments = shipments.filter(isInternationalShipment);
+  const hasInternationalShipments = internationalShipments.length > 0;
 
   const handleEditToggle = (shipmentId: string) => {
     setEditingShipments(prev => {
@@ -76,6 +81,10 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     setCustomsModalOpen(true);
   };
 
+  const handleBulkCustomsClick = () => {
+    setBulkCustomsModalOpen(true);
+  };
+
   const handleCustomsSubmit = (customsData: CustomsInfo) => {
     if (selectedShipmentForCustoms) {
       // Find the shipment and update it with customs data
@@ -99,6 +108,24 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     setSelectedShipmentForCustoms(null);
   };
 
+  const handleBulkCustomsSubmit = (customsData: CustomsInfo) => {
+    // Apply customs data to all international shipments
+    internationalShipments.forEach(shipment => {
+      const updatedShipment = {
+        ...shipment,
+        customs_info: customsData,
+        details: {
+          ...shipment.details,
+          customs_info: customsData
+        }
+      };
+      
+      onEditShipment(shipment.id, updatedShipment.details);
+    });
+
+    setBulkCustomsModalOpen(false);
+  };
+
   const getSelectedShipmentForCustomsModal = () => {
     if (!selectedShipmentForCustoms) return null;
     return shipments.find(s => s.id === selectedShipmentForCustoms);
@@ -115,6 +142,33 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   return (
     <>
       <div className="space-y-4">
+        {/* Bulk Customs Button */}
+        {hasInternationalShipments && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Users className="w-5 h-5 text-blue-600" />
+                <div>
+                  <h3 className="font-medium text-blue-900">
+                    International Shipments Detected
+                  </h3>
+                  <p className="text-sm text-blue-700">
+                    {internationalShipments.length} shipment{internationalShipments.length !== 1 ? 's' : ''} require{internationalShipments.length === 1 ? 's' : ''} customs documentation
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={handleBulkCustomsClick}
+                className="bg-blue-600 hover:bg-blue-700"
+                size="sm"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Bulk Apply Customs
+              </Button>
+            </div>
+          </div>
+        )}
+
         {shipments.map((shipment) => {
           const isEditing = editingShipments[shipment.id];
           const currentData = isEditing ? editData[shipment.id] : shipment.details;
@@ -149,7 +203,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         className="flex items-center gap-2"
                       >
                         <FileText className="w-4 h-4" />
-                        {hasCustomsData ? 'Edit Customs' : 'Customs'}
+                        {hasCustomsData ? 'Edit Clearance' : 'Clearance'}
                       </Button>
                     )}
                     <Button
@@ -252,10 +306,10 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                       </div>
                     ) : (
                       <div className="text-sm text-gray-600">
-                        <p>{currentData.to_name}</p>
-                        <p>{currentData.to_street1}</p>
-                        <p>{currentData.to_city}, {currentData.to_state} {currentData.to_zip}</p>
-                        <p>{currentData.to_country}</p>
+                        <p>{currentData?.to_name || 'No name'}</p>
+                        <p>{currentData?.to_street1 || 'No street'}</p>
+                        <p>{currentData?.to_city || 'No city'}, {currentData?.to_state || 'No state'} {currentData?.to_zip || 'No zip'}</p>
+                        <p>{currentData?.to_country || 'No country'}</p>
                       </div>
                     )}
                   </div>
@@ -312,8 +366,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                       </div>
                     ) : (
                       <div className="text-sm text-gray-600">
-                        <p>Weight: {currentData.weight} lbs</p>
-                        <p>Dimensions: {currentData.length} × {currentData.width} × {currentData.height} in</p>
+                        <p>Weight: {currentData?.weight || 0} lbs</p>
+                        <p>Dimensions: {currentData?.length || 0} × {currentData?.width || 0} × {currentData?.height || 0} in</p>
                       </div>
                     )}
                   </div>
@@ -374,7 +428,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
         })}
       </div>
 
-      {/* Customs Documentation Modal */}
+      {/* Individual Customs Documentation Modal */}
       <CustomsDocumentationModal
         isOpen={customsModalOpen}
         onClose={() => {
@@ -383,8 +437,18 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
         }}
         onSubmit={handleCustomsSubmit}
         fromCountry="US"
-        toCountry={getSelectedShipmentForCustomsModal()?.details.to_address.country || 'US'}
+        toCountry={getSelectedShipmentForCustomsModal()?.details?.to_address?.country || 'US'}
         initialData={getSelectedShipmentForCustomsModal()?.customs_info}
+      />
+
+      {/* Bulk Customs Documentation Modal */}
+      <CustomsDocumentationModal
+        isOpen={bulkCustomsModalOpen}
+        onClose={() => setBulkCustomsModalOpen(false)}
+        onSubmit={handleBulkCustomsSubmit}
+        fromCountry="US"
+        toCountry="Various"
+        initialData={undefined}
       />
     </>
   );

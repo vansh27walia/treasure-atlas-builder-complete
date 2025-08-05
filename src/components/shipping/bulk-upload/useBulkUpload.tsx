@@ -59,6 +59,15 @@ export const useBulkUpload = () => {
       }
 
       console.log('Upload successful:', data);
+      
+      // Mark international shipments
+      if (data.processedShipments) {
+        data.processedShipments = data.processedShipments.map((shipment: BulkShipment) => ({
+          ...shipment,
+          is_international: shipment.details?.to_address?.country !== 'US'
+        }));
+      }
+      
       setResults(data);
       setUploadStatus('editing');
       setProgress(100);

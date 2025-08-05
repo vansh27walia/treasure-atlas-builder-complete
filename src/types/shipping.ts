@@ -1,3 +1,4 @@
+
 import { z } from "zod";
 
 export type ShippingAddressType = "from" | "to";
@@ -156,6 +157,7 @@ export interface BulkShipment {
   carrier?: string; // Populated after rate selection
   service?: string; // Populated after rate selection
   customs_info?: CustomsInfo; // Store customs data for international shipments
+  is_international?: boolean; // Flag to indicate if shipment is international
   [key: string]: any; // Allow other dynamic fields
 }
 
