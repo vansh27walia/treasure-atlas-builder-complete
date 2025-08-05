@@ -11,18 +11,30 @@ import CustomsDocumentationModal from '../CustomsDocumentationModal';
 
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
-  onShipmentUpdate: (index: number, updates: Partial<BulkShipment>) => void;
-  onShipmentSelect: (index: number, selected: boolean) => void;
-  selectedShipments: number[];
+  isFetchingRates: boolean;
+  onSelectRate: (shipmentId: string, rateId: string) => void;
+  onRemoveShipment: (shipmentId: string) => void;
+  onEditShipment: (shipmentId: string, details: any) => void;
+  onRefreshRates: (shipmentId: string) => Promise<void>;
+  onAIAnalysis: (shipment?: any) => void;
+  onShipmentUpdate?: (index: number, updates: Partial<BulkShipment>) => void;
+  onShipmentSelect?: (index: number, selected: boolean) => void;
+  selectedShipments?: number[];
   onBulkAction?: (action: string) => void;
   pickupAddress?: any;
 }
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   shipments,
+  isFetchingRates,
+  onSelectRate,
+  onRemoveShipment,
+  onEditShipment,
+  onRefreshRates,
+  onAIAnalysis,
   onShipmentUpdate,
   onShipmentSelect,
-  selectedShipments,
+  selectedShipments = [],
   onBulkAction,
   pickupAddress
 }) => {
@@ -51,7 +63,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   };
 
   const handleCustomsSubmit = (customsInfo: any) => {
-    if (selectedShipmentIndex !== null) {
+    if (selectedShipmentIndex !== null && onShipmentUpdate) {
       onShipmentUpdate(selectedShipmentIndex, {
         details: {
           ...shipments[selectedShipmentIndex].details,
@@ -113,7 +125,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
             <div className="flex items-start space-x-3">
               <Checkbox
                 checked={selectedShipments.includes(index)}
-                onCheckedChange={(checked) => onShipmentSelect(index, !!checked)}
+                onCheckedChange={(checked) => onShipmentSelect?.(index, !!checked)}
                 className="mt-1"
               />
               
@@ -131,8 +143,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 
                 <EditableShipmentRow
                   shipment={shipment}
-                  index={index}
-                  onUpdate={(updates) => onShipmentUpdate(index, updates)}
+                  onUpdate={(updates) => onShipmentUpdate?.(index, updates)}
                 />
                 
                 {shipment.error && (

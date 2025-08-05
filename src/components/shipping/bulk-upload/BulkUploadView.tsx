@@ -19,7 +19,10 @@ const BulkUploadView: React.FC = () => {
     handleEditShipment,
     handleCreateLabels,
     pickupAddress,
-    handleSelectRate
+    handleSelectRate,
+    isFetchingRates,
+    handleRemoveShipment,
+    handleRefreshRates
   } = useBulkUpload();
 
   const [selectedShipments, setSelectedShipments] = useState<number[]>([]);
@@ -31,6 +34,13 @@ const BulkUploadView: React.FC = () => {
         : prev.filter(i => i !== index)
     );
   }, []);
+
+  const handleShipmentUpdate = useCallback((index: number, updates: Partial<BulkShipment>) => {
+    if (results?.processedShipments) {
+      const updatedShipment = { ...results.processedShipments[index], ...updates };
+      handleEditShipment(updatedShipment);
+    }
+  }, [results, handleEditShipment]);
 
   const handleBulkAction = useCallback((action: string) => {
     if (action === 'ready' && selectedShipments.length > 0 && results?.processedShipments) {
@@ -49,7 +59,7 @@ const BulkUploadView: React.FC = () => {
             <p className="text-gray-600 mb-6">
               Upload a CSV file with your shipping data to get started with bulk label creation.
             </p>
-            <CSVUploader />
+            <CSVUploader onUpload={handleUpload} />
           </div>
         );
 
@@ -76,7 +86,18 @@ const BulkUploadView: React.FC = () => {
             {results?.processedShipments && (
               <BulkShipmentsList
                 shipments={results.processedShipments}
-                onShipmentUpdate={handleEditShipment}
+                isFetchingRates={isFetchingRates}
+                onSelectRate={handleSelectRate}
+                onRemoveShipment={handleRemoveShipment}
+                onEditShipment={(shipmentId: string, details: any) => {
+                  const shipmentIndex = results.processedShipments.findIndex(s => s.id === shipmentId);
+                  if (shipmentIndex !== -1) {
+                    handleShipmentUpdate(shipmentIndex, details);
+                  }
+                }}
+                onRefreshRates={handleRefreshRates}
+                onAIAnalysis={() => {}}
+                onShipmentUpdate={handleShipmentUpdate}
                 onShipmentSelect={handleShipmentSelect}
                 selectedShipments={selectedShipments}
                 onBulkAction={handleBulkAction}
