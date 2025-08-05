@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -57,7 +58,7 @@ serve(async (req) => {
 
     // Parse the request body
     const requestData = await req.json();
-    const { shipmentId, rateId, options = {}, customsInfo } = requestData;
+    const { shipmentId, rateId, options = {} } = requestData;
     
     if (!shipmentId || !rateId) {
       console.error('Missing required parameters', { shipmentId, rateId });
@@ -68,36 +69,6 @@ serve(async (req) => {
     }
 
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
-    if (customsInfo) {
-      console.log('Customs info provided for international shipment');
-    }
-
-    // Build the buy request
-    const buyRequest: any = {
-      rate: { id: rateId }
-    };
-
-    // Add customs info if provided (for international shipments)
-    if (customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0) {
-      console.log('Adding customs info to label creation request');
-      
-      buyRequest.customs_info = {
-        eel_pfc: customsInfo.eel_pfc || "NOEEI 30.37(a)",
-        customs_certify: customsInfo.customs_certify || true,
-        customs_signer: customsInfo.customs_signer,
-        contents_type: customsInfo.contents_type || "merchandise",
-        restriction_type: customsInfo.restriction_type || "none",
-        non_delivery_option: customsInfo.non_delivery_option || "return",
-        customs_items: customsInfo.customs_items.map((item: any) => ({
-          description: item.description,
-          quantity: item.quantity,
-          value: item.value,
-          weight: item.weight,
-          hs_tariff_number: item.hs_tariff_number || "",
-          origin_country: item.origin_country || "US"
-        }))
-      };
-    }
 
     // Buy the label with EasyPost API
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
@@ -106,7 +77,9 @@ serve(async (req) => {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(buyRequest),
+      body: JSON.stringify({
+        rate: { id: rateId }
+      }),
     });
 
     const data = await response.json();
@@ -157,7 +130,7 @@ serve(async (req) => {
       }
     }
 
-    // Save the shipping record in the database with user_id and customs info
+    // Save the shipping record in the database with user_id
     const shipmentRecord = {
       user_id: user.id,
       shipment_id: shipmentId,
@@ -173,8 +146,7 @@ serve(async (req) => {
       currency: data.selected_rate?.currency || 'USD',
       label_format: options.label_format || "PDF",
       label_size: options.label_size || "4x6",
-      is_international: !!(customsInfo),
-      customs_info: customsInfo ? JSON.stringify(customsInfo) : null,
+      is_international: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
