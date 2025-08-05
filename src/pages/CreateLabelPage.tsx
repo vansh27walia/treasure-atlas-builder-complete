@@ -1,76 +1,187 @@
 
-import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Package, Truck, Clock, Shield } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import ShippingRates from '@/components/ShippingRates';
+import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
 import EnhancedShippingForm from '@/components/shipping/EnhancedShippingForm';
-import UniversalAIChatbot from '@/components/shipping/UniversalAIChatbot';
+import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
+import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
+import RateFilter from '@/components/shipping/RateFilter';
+import AIRateAnalysisPanel from '@/components/shipping/AIRateAnalysisPanel';
+import { useShippingRates } from '@/hooks/useShippingRates';
+import { useAuth } from '@/contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 
 const CreateLabelPage = () => {
+  // Move ALL hooks to the top before any conditional logic
+  const { user } = useAuth();
+  const {
+    rates,
+    handleSelectRate,
+    handleFilterByCarrier,
+    uniqueCarriers,
+    activeCarrierFilter
+  } = useShippingRates();
+  
+  const [isRateCalculatorOpen, setIsRateCalculatorOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string>('all');
+  const [showAIPanel, setShowAIPanel] = useState(false);
+  const [selectedRate, setSelectedRate] = useState<any>(null);
+
+  // Auto-show AI panel when rates are available
+  useEffect(() => {
+    if (rates && rates.length > 0 && !showAIPanel) {
+      setShowAIPanel(true);
+      if (rates[0] && !selectedRate) {
+        setSelectedRate(rates[0]);
+      }
+    }
+  }, [rates, showAIPanel, selectedRate]);
+
+  // NOW we can do the conditional redirect after all hooks are called
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  const handleRateSelected = (rate: any) => {
+    console.log('Rate selected in CreateLabelPage:', rate);
+    setSelectedRate(rate);
+    setShowAIPanel(true);
+    handleSelectRate(rate.id);
+  };
+
+  const handleFilterChange = (filter: string) => {
+    setActiveFilter(filter);
+    handleFilterByCarrier(filter);
+  };
+
+  const handleOptimizationChange = (filter: string) => {
+    console.log('Optimization changed:', filter);
+    
+    // Apply optimization logic here
+    let sortedRates = [...(rates || [])];
+    
+    switch (filter) {
+      case 'cheapest':
+        sortedRates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
+        break;
+      case 'fastest':
+        sortedRates.sort((a, b) => (a.delivery_days || 999) - (b.delivery_days || 999));
+        break;
+      case 'balanced':
+      case 'most-efficient':
+        // Balance between price and speed
+        sortedRates.sort((a, b) => {
+          const scoreA = (parseFloat(a.rate) / 10) + (a.delivery_days || 999);
+          const scoreB = (parseFloat(b.rate) / 10) + (b.delivery_days || 999);
+          return scoreA - scoreB;
+        });
+        break;
+      case 'most-reliable':
+        // Sort by carrier reliability (USPS first, then UPS, FedEx, DHL)
+        sortedRates.sort((a, b) => {
+          const reliabilityOrder = { 'USPS': 1, 'UPS': 2, 'FedEx': 3, 'DHL': 4 };
+          const scoreA = reliabilityOrder[a.carrier.toUpperCase()] || 999;
+          const scoreB = reliabilityOrder[b.carrier.toUpperCase()] || 999;
+          return scoreA - scoreB;
+        });
+        break;
+      default:
+        // Keep current order
+        break;
+    }
+    
+    // Update the rates order and select the first one
+    if (sortedRates.length > 0) {
+      setSelectedRate(sortedRates[0]);
+      handleSelectRate(sortedRates[0].id);
+      
+      // Trigger a re-render of the ShippingRates component with new order
+      document.dispatchEvent(new CustomEvent('rates-reordered', { 
+        detail: { rates: sortedRates } 
+      }));
+    }
+  };
+
+  const handleOpenRateCalculator = () => {
+    setIsRateCalculatorOpen(true);
+  };
+
+  const handleCloseSidebar = () => {
+    setShowAIPanel(false);
+  };
+
+  // Sort rates to ensure USPS is first, then by price
+  const sortedRates = rates ? [...rates].sort((a, b) => {
+    if (a.carrier.toLowerCase().includes('usps') && !b.carrier.toLowerCase().includes('usps')) return -1;
+    if (!a.carrier.toLowerCase().includes('usps') && b.carrier.toLowerCase().includes('usps')) return 1;
+    if (a.isAIRecommended && !b.isAIRecommended) return -1;
+    if (!a.isAIRecommended && b.isAIRecommended) return 1;
+    return parseFloat(a.rate) - parseFloat(b.rate);
+  }) : [];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <Package className="h-8 w-8 text-blue-600" />
-                Create Shipping Label
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Compare rates and create labels across all major carriers
+    <div className="min-h-screen bg-background relative">
+      {/* Sticky Workflow Tracker */}
+      <div className="sticky top-0 z-40 bg-transparent">
+        <EnhancedWorkflowTracker currentStep="package" />
+      </div>
+      
+      {/* Main Content - Adjust width when sidebar is open (narrower now) */}
+      <div className={`transition-all duration-300 ${showAIPanel ? 'pr-80' : ''}`}>
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-7xl mx-auto">
+            {/* Header Section */}
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-foreground mb-4">Create Shipping Label</h1>
+              <p className="text-muted-foreground text-lg max-w-3xl mx-auto">
+                Get competitive rates from multiple carriers and create professional shipping labels with AI-powered assistance.
               </p>
             </div>
-            <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-              <Shield className="h-3 w-3 mr-1" />
-              Secure & Fast
-            </Badge>
-          </div>
-        </div>
-      </div>
 
-      {/* Benefits Bar */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-4">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-wrap justify-center gap-8 text-sm">
-            <div className="flex items-center gap-2">
-              <Package className="h-4 w-4" />
-              Save up to 89% on shipping
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Labels ready in 30 seconds
-            </div>
-            <div className="flex items-center gap-2">
-              <Truck className="h-4 w-4" />
-              All major carriers supported
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-t-lg">
-              <CardTitle className="text-xl font-semibold text-gray-900">
-                Shipping Information
-              </CardTitle>
-              <CardDescription className="text-gray-600">
-                Enter your shipping details to compare rates and create labels
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-6">
+            {/* Main Form Section */}
+            <div className="bg-white rounded-xl shadow-lg border mb-8">
               <EnhancedShippingForm />
-            </CardContent>
-          </Card>
+            </div>
+
+            {/* Rate Filter - Only show the filter dropdown, no carrier selection buttons */}
+            <div className="mb-6 flex gap-4">
+              <RateFilter 
+                activeFilter={activeFilter} 
+                onFilterChange={handleFilterChange} 
+              />
+            </div>
+            
+            {/* Shipping Rates Section */}
+            <div id="shipping-rates-section">
+              <ShippingRates 
+                rates={sortedRates || []} 
+                onRateSelected={handleRateSelected} 
+                loading={false} 
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Universal AI Chatbot */}
-      <UniversalAIChatbot />
+      {/* Single AI Analysis Panel - Narrower width */}
+      {showAIPanel && selectedRate && (
+        <AIRateAnalysisPanel
+          selectedRate={selectedRate}
+          allRates={sortedRates || []}
+          isOpen={showAIPanel}
+          onClose={handleCloseSidebar}
+          onOptimizationChange={handleOptimizationChange}
+        />
+      )}
+
+      {/* Rate Calculator Modal */}
+      <RateCalculatorModal 
+        isOpen={isRateCalculatorOpen} 
+        onClose={() => setIsRateCalculatorOpen(false)} 
+      />
+
+      {/* ShipAI Chatbot */}
+      <ShipAIChatbot onClose={() => {}} />
     </div>
   );
 };
