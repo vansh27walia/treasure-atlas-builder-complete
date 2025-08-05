@@ -66,22 +66,27 @@ export const BulkUpload = () => {
       <div className="space-y-8">
         {uploadStatus === 'idle' && (
           <BulkUploadForm
-            onAddressChange={setPickupAddress}
             handleUpload={handleUpload}
           />
         )}
 
         {uploadStatus === 'uploading' && (
           <BulkUploadProgressBar 
-            currentStep="Processing file..."
-            completedSteps={['File Upload']}
+            currentStep="uploading"
+            completedSteps={[]}
           />
         )}
 
         {(uploadStatus === 'editing' || uploadStatus === 'success') && results && (
           <>
             <OrderSummary
-              onPaymentSuccess={handlePaymentSuccess}
+              successfulCount={results.processedShipments.length}
+              totalCost={results.totalCost}
+              totalInsurance={0}
+              onDownloadAllLabels={handleDownloadAllLabels}
+              onProceedToPayment={handlePaymentSuccess}
+              isPaying={isPaying}
+              isCreatingLabels={isCreatingLabels}
             />
 
             <BulkShipmentFilters
@@ -91,11 +96,10 @@ export const BulkUpload = () => {
               selectedCarrier={selectedCarrierFilter}
               onSearchChange={setSearchTerm}
               onSortChange={(field: 'recipient' | 'carrier' | 'rate', direction) => {
-                setSortField(field);
+                setSortField(field as any);
                 setSortDirection(direction);
               }}
               onCarrierFilterChange={setSelectedCarrierFilter}
-              onBulkApply={handleBulkApplyCarrier}
               shipments={results.processedShipments}
             />
 
@@ -103,7 +107,7 @@ export const BulkUpload = () => {
               shipments={filteredShipments}
               onSelectRate={handleSelectRate}
               onRemoveShipment={handleRemoveShipment}
-              onEditShipment={handleEditShipment}
+              onEditShipment={(shipmentId: string, details: any) => handleEditShipment({ id: shipmentId, ...details })}
               pickupCountry={pickupAddress?.country || 'US'}
             />
           </>
@@ -113,7 +117,7 @@ export const BulkUpload = () => {
           <BulkLabelDownloadOptions
             batchResult={results.batchResult}
             onDownloadLabelsWithFormat={handleDownloadLabelsWithFormat}
-            onEmailLabels={handleEmailLabels}
+            onEmailLabels={() => handleEmailLabels('admin@example.com')}
           />
         )}
       </div>

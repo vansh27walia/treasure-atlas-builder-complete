@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
-import { BulkShipment } from '@/types/shipping';
-import { CustomsInfo } from '@/types/shipping';
+import { BulkShipment, CustomsInfo } from '@/types/shipping';
 import EditableShipmentRow from './EditableShipmentRow';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,8 +52,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   };
 
   // Handle customs submission
-  const handleCustomsSubmit = (customsData: CustomsInfo) => {
-    // Convert the customs data to ensure proper typing
+  const handleCustomsSubmit = (customsData: any) => {
+    // Ensure proper typing for contents_type
     const customs: CustomsInfo = {
       ...customsData,
       contents_type: customsData.contents_type as "merchandise" | "documents" | "gift" | "returned_goods" | "sample" | "other"
