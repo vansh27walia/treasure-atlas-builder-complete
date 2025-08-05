@@ -127,7 +127,6 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
       customs_signer: customsInfo.customs_signer,
       non_delivery_option: customsInfo.non_delivery_option as CustomsInfo['non_delivery_option'],
       restriction_type: (customsInfo.restriction_type as CustomsInfo['restriction_type']) || 'none',
-      restriction_comments: customsInfo.restriction_comments,
       eel_pfc: customsInfo.eel_pfc,
       customs_items: customsInfo.customs_items || []
     };
