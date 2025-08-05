@@ -52,20 +52,20 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   };
 
   // Handle customs submission
-  const handleCustomsSubmit = (customsData: CustomsInfo) => {
+  const handleCustomsSubmit = (customs: CustomsInfo) => {
     if (bulkCustomsMode) {
       // Apply to all international shipments
       internationalShipments.forEach(shipment => {
         onEditShipment(shipment.id, {
           ...shipment,
-          customsInfo: customsData
+          customsInfo: customs
         });
       });
     } else if (selectedShipmentForCustoms) {
       // Apply to selected shipment only
       onEditShipment(selectedShipmentForCustoms.id, {
         ...selectedShipmentForCustoms,
-        customsInfo: customsData
+        customsInfo: customs
       });
     }
     setCustomsModalOpen(false);
@@ -120,7 +120,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
               index={index}
               onSelectRate={onSelectRate}
               onRemove={onRemoveShipment}
-              onEdit={onEditShipment}
+              onEdit={(shipmentId: string, details: any) => onEditShipment(shipmentId, details)}
               showCustomsButton={isInternational(shipment)}
               onCustomsClick={() => handleCustomsClick(shipment)}
               hasCustomsData={!!shipment.customsInfo}
@@ -137,7 +137,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
           setSelectedShipmentForCustoms(null);
         }}
         onSubmit={handleCustomsSubmit}
-        fromCountry={pickupAddress?.country || 'US'}
+        fromCountry={pickupCountry || 'US'}
         toCountry={selectedShipmentForCustoms?.details?.to_country || 'US'}
         initialData={selectedShipmentForCustoms?.customsInfo}
       />
