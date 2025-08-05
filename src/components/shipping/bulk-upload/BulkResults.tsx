@@ -34,6 +34,13 @@ const BulkResults: React.FC<BulkResultsProps> = ({ results, onRateChange }) => {
     }
   };
 
+  // Add safe access with default values
+  const totalCost = results.totalCost || 0;
+  const total = results.total || 0;
+  const successful = results.successful || 0;
+  const failed = results.failed || 0;
+  const processedShipments = results.processedShipments || [];
+
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
@@ -43,7 +50,7 @@ const BulkResults: React.FC<BulkResultsProps> = ({ results, onRateChange }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Shipments</p>
-                <p className="text-2xl font-bold">{results.total}</p>
+                <p className="text-2xl font-bold">{total}</p>
               </div>
               <Package className="h-8 w-8 text-blue-500" />
             </div>
@@ -55,7 +62,7 @@ const BulkResults: React.FC<BulkResultsProps> = ({ results, onRateChange }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Successful</p>
-                <p className="text-2xl font-bold text-green-600">{results.successful}</p>
+                <p className="text-2xl font-bold text-green-600">{successful}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-500" />
             </div>
@@ -67,7 +74,7 @@ const BulkResults: React.FC<BulkResultsProps> = ({ results, onRateChange }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Failed</p>
-                <p className="text-2xl font-bold text-red-600">{results.failed}</p>
+                <p className="text-2xl font-bold text-red-600">{failed}</p>
               </div>
               <XCircle className="h-8 w-8 text-red-500" />
             </div>
@@ -79,7 +86,7 @@ const BulkResults: React.FC<BulkResultsProps> = ({ results, onRateChange }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Total Cost</p>
-                <p className="text-2xl font-bold text-blue-600">${results.totalCost.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-blue-600">${totalCost.toFixed(2)}</p>
               </div>
               <DollarSign className="h-8 w-8 text-blue-500" />
             </div>
@@ -94,80 +101,89 @@ const BulkResults: React.FC<BulkResultsProps> = ({ results, onRateChange }) => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {results.processedShipments.map((shipment, index) => (
-              <div key={shipment.id} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(shipment.status)}
-                    <div>
-                      <h4 className="font-medium">
-                        {shipment.shipment_data?.to_name || `Shipment ${index + 1}`}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {shipment.shipment_data?.to_city}, {shipment.shipment_data?.to_state}
+            {processedShipments.map((shipment, index) => {
+              // Add safe access for shipment properties
+              const shipmentTotalCost = shipment.total_cost || 0;
+              const shipmentRates = shipment.rates || [];
+              const shipmentStatus = shipment.status || 'pending';
+              
+              return (
+                <div key={shipment.id} className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      {getStatusIcon(shipmentStatus)}
+                      <div>
+                        <h4 className="font-medium">
+                          {shipment.shipment_data?.to_name || `Shipment ${index + 1}`}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {shipment.shipment_data?.to_city}, {shipment.shipment_data?.to_state}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(shipmentStatus)}
+                      <span className="font-medium">${shipmentTotalCost.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  {shipmentStatus === 'error' && (
+                    <div className="bg-red-50 p-3 rounded-md">
+                      <p className="text-sm text-red-600">
+                        Error: {shipment.error_message}
                       </p>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(shipment.status)}
-                    <span className="font-medium">${shipment.total_cost.toFixed(2)}</span>
-                  </div>
-                </div>
+                  )}
 
-                {shipment.status === 'error' && (
-                  <div className="bg-red-50 p-3 rounded-md">
-                    <p className="text-sm text-red-600">
-                      Error: {shipment.error_message}
-                    </p>
-                  </div>
-                )}
-
-                {shipment.status === 'rates_fetched' && shipment.rates.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Truck className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium">Available Rates:</span>
-                    </div>
-                    
-                    <Select
-                      value={shipment.selected_rate_id || ''}
-                      onValueChange={(value) => onRateChange(shipment.id, value)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a shipping rate" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {shipment.rates.map((rate) => (
-                          <SelectItem key={rate.id} value={rate.id}>
-                            <div className="flex items-center justify-between w-full">
-                              <div>
-                                <span className="font-medium">{rate.carrier}</span>
-                                <span className="text-sm text-gray-600 ml-2">
-                                  {rate.service}
-                                </span>
-                              </div>
-                              <div className="text-right">
-                                <span className="font-medium">${rate.total_cost?.toFixed(2) || rate.rate}</span>
-                                <div className="text-xs text-gray-500">
-                                  {rate.delivery_days} days
+                  {shipmentStatus === 'rates_fetched' && shipmentRates.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm font-medium">Available Rates:</span>
+                      </div>
+                      
+                      <Select
+                        value={shipment.selected_rate_id || ''}
+                        onValueChange={(value) => onRateChange(shipment.id, value)}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a shipping rate" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {shipmentRates.map((rate) => (
+                            <SelectItem key={rate.id} value={rate.id}>
+                              <div className="flex items-center justify-between w-full">
+                                <div>
+                                  <span className="font-medium">{rate.carrier}</span>
+                                  <span className="text-sm text-gray-600 ml-2">
+                                    {rate.service}
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="font-medium">
+                                    ${(rate.total_cost || parseFloat(rate.rate?.toString() || '0')).toFixed(2)}
+                                  </span>
+                                  <div className="text-xs text-gray-500">
+                                    {rate.delivery_days} days
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
 
-                    {shipment.insurance_amount && shipment.insurance_amount > 0 && (
-                      <div className="text-sm text-gray-600">
-                        Insurance: ${shipment.insurance_cost?.toFixed(2)} 
-                        (${shipment.insurance_amount} declared value)
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
+                      {shipment.insurance_amount && shipment.insurance_amount > 0 && (
+                        <div className="text-sm text-gray-600">
+                          Insurance: ${(shipment.insurance_cost || 0).toFixed(2)} 
+                          (${shipment.insurance_amount} declared value)
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
