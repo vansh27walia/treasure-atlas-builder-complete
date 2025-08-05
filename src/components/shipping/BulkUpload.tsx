@@ -1,18 +1,18 @@
+
 import React from 'react';
-import { BulkUploadHeader } from './bulk-upload/BulkUploadHeader';
-import { BulkUploadForm } from './bulk-upload/BulkUploadForm';
-import { BulkUploadProgressBar } from './bulk-upload/BulkUploadProgressBar';
-import { OrderSummary } from './bulk-upload/OrderSummary';
-import { BulkShipmentFilters } from './bulk-upload/BulkShipmentFilters';
+import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
+import BulkUploadForm from './bulk-upload/BulkUploadForm';
+import BulkUploadProgressBar from './bulk-upload/BulkUploadProgressBar';
+import OrderSummary from './bulk-upload/OrderSummary';
+import BulkShipmentFilters from './bulk-upload/BulkShipmentFilters';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
-import { BulkLabelDownloadOptions } from './bulk-upload/BulkLabelDownloadOptions';
-import { BatchPrintPreviewModal } from './bulk-upload/BatchPrintPreviewModal';
-import { LabelGenerationProgress } from './bulk-upload/LabelGenerationProgress';
+import BulkLabelDownloadOptions from './bulk-upload/BulkLabelDownloadOptions';
+import LabelGenerationProgress from './bulk-upload/LabelGenerationProgress';
 import { useBulkUpload } from '@/hooks/useBulkUpload';
 
 export const BulkUpload = () => {
   const {
-    file,
+    // Upload state
     isUploading,
     isPaying,
     isCreatingLabels,
@@ -20,22 +20,25 @@ export const BulkUpload = () => {
     uploadStatus,
     results,
     progress,
+    
+    // Filters and sorting
     searchTerm,
     sortField,
     sortDirection,
     selectedCarrierFilter,
     filteredShipments,
+    
+    // Address
     pickupAddress,
-    batchError,
-    labelGenerationProgress,
-    batchPrintPreviewModalOpen,
-    setBatchPrintPreviewModalOpen,
+    
+    // Setters
     setPickupAddress,
     setSearchTerm,
     setSortField,
     setSortDirection,
     setSelectedCarrierFilter,
-    handleFileChange,
+    
+    // Handlers
     handleUpload,
     handleCreateLabels,
     handleDownloadAllLabels,
@@ -48,8 +51,6 @@ export const BulkUpload = () => {
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
-    handleClearBatchError,
-    handleOpenBatchPrintPreview,
     handlePaymentSuccess
   } = useBulkUpload();
 
@@ -64,9 +65,7 @@ export const BulkUpload = () => {
       <div className="space-y-8">
         {uploadStatus === 'idle' && (
           <BulkUploadForm
-            file={file}
             pickupAddress={pickupAddress}
-            onFileChange={handleFileChange}
             onUpload={handleUpload}
             onAddressChange={setPickupAddress}
           />
@@ -76,7 +75,7 @@ export const BulkUpload = () => {
           <BulkUploadProgressBar progress={progress} />
         )}
 
-        {(uploadStatus === 'editing' || uploadStatus === 'creating-labels' || uploadStatus === 'success') && results && (
+        {(uploadStatus === 'editing' || uploadStatus === 'success') && results && (
           <>
             <OrderSummary
               results={results}
@@ -116,21 +115,15 @@ export const BulkUpload = () => {
             batchResult={results.batchResult}
             onDownloadLabels={handleDownloadLabelsWithFormat}
             onEmailLabels={handleEmailLabels}
-            onOpenPrintPreview={handleOpenBatchPrintPreview}
           />
         )}
       </div>
 
-      <BatchPrintPreviewModal
-        isOpen={batchPrintPreviewModalOpen}
-        onClose={() => setBatchPrintPreviewModalOpen(false)}
-        labelUrls={results?.processedShipments?.map(s => s.label_url).filter(Boolean) || []}
-        batchResult={results?.batchResult}
-      />
-
-      {labelGenerationProgress.isGenerating && (
-        <LabelGenerationProgress progress={labelGenerationProgress} />
+      {isCreatingLabels && (
+        <LabelGenerationProgress />
       )}
     </div>
   );
 };
+
+export default BulkUpload;

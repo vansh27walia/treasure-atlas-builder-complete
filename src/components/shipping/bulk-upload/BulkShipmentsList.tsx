@@ -137,7 +137,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
           setSelectedShipmentForCustoms(null);
         }}
         onSubmit={handleCustomsSubmit}
-        fromCountry={pickupCountry || 'US'}
+        fromCountry={pickupAddress?.country || 'US'}
         toCountry={selectedShipmentForCustoms?.details?.to_country || 'US'}
         initialData={selectedShipmentForCustoms?.customsInfo}
       />

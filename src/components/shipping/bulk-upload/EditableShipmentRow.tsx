@@ -144,7 +144,7 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
                   <SelectItem key={rate.id} value={rate.id}>
                     <div className="flex items-center justify-between w-full">
                       <span className="font-medium">{rate.carrier} - {rate.service}</span>
-                      <span className="ml-2 font-semibold">${parseFloat(rate.rate).toFixed(2)}</span>
+                      <span className="ml-2 font-semibold">${parseFloat(rate.rate.toString()).toFixed(2)}</span>
                       {rate.delivery_days && (
                         <span className="ml-2 text-sm text-gray-500">
                           ({rate.delivery_days} day{rate.delivery_days !== 1 ? 's' : ''})

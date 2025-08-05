@@ -1,11 +1,10 @@
 
 import { useState, useEffect } from 'react';
 import { useShipmentUpload } from './useShipmentUpload';
-import { useShipmentManagement } from './useShipmentManagement';
 import { BulkShipment, BulkUploadResult } from '@/types/shipping';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 
 export const useBulkUpload = () => {
   const {
@@ -29,18 +28,6 @@ export const useBulkUpload = () => {
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
-  const [batchError, setBatchError] = useState<{ packageNumber: number; error: string } | null>(null);
-  const [labelGenerationProgress, setLabelGenerationProgress] = useState({
-    isGenerating: false,
-    totalShipments: 0,
-    processedShipments: 0,
-    successfulShipments: 0,
-    failedShipments: 0,
-    currentStep: '',
-    estimatedTimeRemaining: 0
-  });
-  const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
-  const [paymentCompleted, setPaymentCompleted] = useState(false);
 
   // Load default pickup address
   useEffect(() => {
@@ -57,20 +44,11 @@ export const useBulkUpload = () => {
     loadDefaultAddress();
   }, []);
 
-  // Auto-trigger label creation after payment completion
-  useEffect(() => {
-    if (paymentCompleted && !isCreatingLabels && results && results.processedShipments.length > 0) {
-      console.log('Payment completed, auto-starting label creation...');
-      handleCreateLabels();
-      setPaymentCompleted(false); // Reset flag
-    }
-  }, [paymentCompleted, isCreatingLabels, results]);
-
   // Filter and sort shipments
   const filteredShipments = results?.processedShipments.filter(shipment => {
     const matchesSearch = !searchTerm || 
-      shipment.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      shipment.carrier.toLowerCase().includes(searchTerm.toLowerCase());
+      shipment.recipient?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      shipment.carrier?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesCarrier = !selectedCarrierFilter || 
       shipment.carrier === selectedCarrierFilter;
@@ -81,16 +59,16 @@ export const useBulkUpload = () => {
     
     switch (sortField) {
       case 'recipient':
-        aValue = a.recipient;
-        bValue = b.recipient;
+        aValue = a.recipient || '';
+        bValue = b.recipient || '';
         break;
       case 'carrier':
-        aValue = a.carrier;
-        bValue = b.carrier;
+        aValue = a.carrier || '';
+        bValue = b.carrier || '';
         break;
       case 'rate':
-        aValue = a.rate;
-        bValue = b.rate;
+        aValue = a.rate || 0;
+        bValue = b.rate || 0;
         break;
       default:
         return 0;
@@ -115,7 +93,7 @@ export const useBulkUpload = () => {
             selectedRateId: rateId,
             carrier: selectedRate.carrier,
             service: selectedRate.service,
-            rate: parseFloat(selectedRate.rate)
+            rate: parseFloat(selectedRate.rate.toString())
           };
         }
       }
@@ -125,7 +103,7 @@ export const useBulkUpload = () => {
     // Recalculate total cost
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
+      return sum + (selectedRate ? parseFloat(selectedRate.rate.toString()) : 0);
     }, 0);
     
     setResults({
@@ -144,7 +122,7 @@ export const useBulkUpload = () => {
     
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
+      return sum + (selectedRate ? parseFloat(selectedRate.rate.toString()) : 0);
     }, 0);
     
     setResults({
@@ -190,7 +168,7 @@ export const useBulkUpload = () => {
           selectedRateId: carrierRate.id,
           carrier: carrierRate.carrier,
           service: carrierRate.service,
-          rate: parseFloat(carrierRate.rate)
+          rate: parseFloat(carrierRate.rate.toString())
         };
       }
       return shipment;
@@ -198,7 +176,7 @@ export const useBulkUpload = () => {
     
     const totalCost = updatedShipments.reduce((sum, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return sum + (selectedRate ? parseFloat(selectedRate.rate) : 0);
+      return sum + (selectedRate ? parseFloat(selectedRate.rate.toString()) : 0);
     }, 0);
     
     setResults({
@@ -210,23 +188,12 @@ export const useBulkUpload = () => {
     toast.success(`Applied ${carrier} to all applicable shipments`);
   };
 
-  const handleClearBatchError = () => {
-    setBatchError(null);
-  };
-
-  const handleOpenBatchPrintPreview = () => {
-    setBatchPrintPreviewModalOpen(true);
-  };
-
-  // Enhanced payment success handler
   const handlePaymentSuccess = () => {
     console.log('Payment successful, triggering label creation...');
     setIsPaying(false);
-    setPaymentCompleted(true);
     toast.success('Payment successful! Creating labels automatically...');
   };
 
-  // Direct label creation without payment prompts
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -234,20 +201,11 @@ export const useBulkUpload = () => {
     }
     
     setIsCreatingLabels(true);
-    setLabelGenerationProgress({
-      isGenerating: true,
-      totalShipments: results.processedShipments.length,
-      processedShipments: 0,
-      successfulShipments: 0,
-      failedShipments: 0,
-      currentStep: 'Starting label generation...',
-      estimatedTimeRemaining: 0
-    });
     
     try {
       console.log('Creating labels for shipments:', results.processedShipments);
       
-      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
+      const { data, error } = await supabase.functions.invoke('create-enhanced-bulk-labels', {
         body: {
           shipments: results.processedShipments,
           pickupAddress,
@@ -270,8 +228,6 @@ export const useBulkUpload = () => {
           ...results,
           processedShipments: data.processedLabels,
           batchResult: data.batchResult,
-          bulk_label_pdf_url: data.batchResult?.consolidatedLabelUrls?.pdf,
-          bulk_label_png_url: data.batchResult?.consolidatedLabelUrls?.png,
         });
 
         setUploadStatus('success');
@@ -290,15 +246,6 @@ export const useBulkUpload = () => {
       toast.error(error instanceof Error ? error.message : 'Failed to create labels');
     } finally {
       setIsCreatingLabels(false);
-      setLabelGenerationProgress({
-        isGenerating: false,
-        totalShipments: 0,
-        processedShipments: 0,
-        successfulShipments: 0,
-        failedShipments: 0,
-        currentStep: '',
-        estimatedTimeRemaining: 0
-      });
     }
   };
 
@@ -315,7 +262,9 @@ export const useBulkUpload = () => {
     // Download each label individually with staggered timing
     labelsWithUrls.forEach((shipment, index) => {
       setTimeout(() => {
-        handleDownloadSingleLabel(shipment.label_url!, 'png');
+        if (shipment.label_url) {
+          handleDownloadSingleLabel(shipment.label_url, 'png');
+        }
       }, index * 300);
     });
     
@@ -325,13 +274,6 @@ export const useBulkUpload = () => {
   const handleDownloadLabelsWithFormat = async (format: 'pdf' | 'png' | 'zpl' | 'zip') => {
     if (!results) return;
     
-    if (format === 'pdf' && results.bulk_label_pdf_url) {
-      // Download bulk PDF
-      handleDownloadSingleLabel(results.bulk_label_pdf_url, 'pdf');
-      toast.success('Downloaded bulk PDF label');
-      return;
-    }
-    
     const labelsWithUrls = results.processedShipments.filter(s => s.label_url);
     
     if (labelsWithUrls.length === 0) {
@@ -339,26 +281,15 @@ export const useBulkUpload = () => {
       return;
     }
 
-    if (format === 'zip') {
-      toast.loading('Preparing ZIP download...');
-      
-      labelsWithUrls.forEach((shipment, index) => {
-        setTimeout(() => {
-          handleDownloadSingleLabel(shipment.label_url!, 'png');
-        }, index * 300);
-      });
-      
-      toast.dismiss();
-      toast.success(`Started download of ${labelsWithUrls.length} labels`);
-    } else {
-      labelsWithUrls.forEach((shipment, index) => {
-        setTimeout(() => {
-          handleDownloadSingleLabel(shipment.label_url!, format);
-        }, index * 300);
-      });
-      
-      toast.success(`Started download of ${labelsWithUrls.length} ${format.toUpperCase()} labels`);
-    }
+    labelsWithUrls.forEach((shipment, index) => {
+      setTimeout(() => {
+        if (shipment.label_url) {
+          handleDownloadSingleLabel(shipment.label_url, format);
+        }
+      }, index * 300);
+    });
+    
+    toast.success(`Started download of ${labelsWithUrls.length} ${format.toUpperCase()} labels`);
   };
 
   const handleDownloadSingleLabel = (labelUrl: string, format: string = 'png') => {
@@ -403,14 +334,6 @@ export const useBulkUpload = () => {
     // Address
     pickupAddress,
     
-    // Error handling
-    batchError,
-    labelGenerationProgress,
-    
-    // Modal states
-    batchPrintPreviewModalOpen,
-    setBatchPrintPreviewModalOpen,
-    
     // Setters
     setPickupAddress,
     setSearchTerm,
@@ -432,8 +355,6 @@ export const useBulkUpload = () => {
     handleEditShipment,
     handleRefreshRates,
     handleBulkApplyCarrier,
-    handleClearBatchError,
-    handleOpenBatchPrintPreview,
-    handlePaymentSuccess // Add this missing function
+    handlePaymentSuccess
   };
 };
