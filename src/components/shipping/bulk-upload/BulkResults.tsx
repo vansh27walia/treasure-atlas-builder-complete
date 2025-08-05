@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CheckCircle, AlertCircle, Package } from 'lucide-react';
 import EditableShipmentRow from './EditableShipmentRow';
-import { BulkUploadResult } from '@/types/shipping';
+import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 
 interface BulkResultsProps {
   results: BulkUploadResult;
@@ -24,9 +24,22 @@ const BulkResults: React.FC<BulkResultsProps> = ({
     return null;
   }
 
-  const shipments = Array.isArray(results.processedShipments) 
-    ? results.processedShipments 
-    : Object.values(results.processedShipments).filter(Boolean);
+  // Properly filter and type the shipments
+  const shipments: BulkShipment[] = Array.isArray(results.processedShipments) 
+    ? results.processedShipments.filter((shipment): shipment is BulkShipment => {
+        return shipment && 
+               typeof shipment === 'object' && 
+               'id' in shipment && 
+               'details' in shipment && 
+               'status' in shipment;
+      })
+    : Object.values(results.processedShipments).filter((shipment): shipment is BulkShipment => {
+        return shipment && 
+               typeof shipment === 'object' && 
+               'id' in shipment && 
+               'details' in shipment && 
+               'status' in shipment;
+      });
 
   return (
     <div className="space-y-6">
