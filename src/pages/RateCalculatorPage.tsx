@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import IndependentRateCalculator from '@/components/shipping/IndependentRateCalculator';
+import UniversalAIChatbot from '@/components/shipping/UniversalAIChatbot';
 
 const RateCalculatorPage = () => {
   const navigate = useNavigate();
@@ -37,6 +38,9 @@ const RateCalculatorPage = () => {
           <IndependentRateCalculator />
         </div>
       </div>
+
+      {/* Add AI Chatbot */}
+      <UniversalAIChatbot />
     </div>
   );
 };

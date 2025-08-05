@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Package, Truck, ChartBar, Upload, CreditCard, TrendingUp, MapPin, Clock, Users, Calculator, FileText, Plane, Container, Settings, Download, BarChart3, DollarSign } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import UniversalAIChatbot from '@/components/shipping/UniversalAIChatbot';
 
 const Index: React.FC = () => {
   const navigate = useNavigate();
@@ -193,7 +193,7 @@ const Index: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 relative">
       <div className="p-8 space-y-8">
         {/* Enhanced Header Section */}
         <div className="text-center space-y-6">
@@ -465,6 +465,9 @@ const Index: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Add AI Chatbot */}
+      <UniversalAIChatbot />
     </div>
   );
 };
