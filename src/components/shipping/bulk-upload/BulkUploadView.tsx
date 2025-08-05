@@ -120,30 +120,6 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
     }
   };
 
-  const handleShipmentEdit = (shipmentId: string, updates: any) => {
-    if (results?.processedShipments) {
-      const updatedShipments = results.processedShipments.map((shipment: any) => {
-        if (shipment.id === shipmentId) {
-          return { ...shipment, ...updates };
-        }
-        return shipment;
-      });
-      setResults({ ...results, processedShipments: updatedShipments });
-    }
-  };
-
-  const handleShipmentRemove = (shipmentId: string) => {
-    if (results?.processedShipments) {
-      const updatedShipments = results.processedShipments.filter((shipment: any) => shipment.id !== shipmentId);
-      setResults({ 
-        ...results, 
-        processedShipments: updatedShipments,
-        total: updatedShipments.length,
-        successful: updatedShipments.length
-      });
-    }
-  };
-
   const handleOptimizationChange = (filter: string) => {
     // Apply optimization logic similar to the main page
     let sortedRates = [...allRates];
@@ -331,12 +307,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
               )}
 
               {/* Detailed Results */}
-              <BulkResults 
-                results={results} 
-                onSelectRate={handleRateChange}
-                onRemoveShipment={handleShipmentRemove}
-                onEditShipment={handleShipmentEdit}
-              />
+              <BulkResults results={results} onRateChange={handleRateChange} />
             </div>
           )}
         </div>

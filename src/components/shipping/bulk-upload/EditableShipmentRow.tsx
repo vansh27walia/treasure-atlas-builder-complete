@@ -1,15 +1,13 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Save, X, Trash2 } from 'lucide-react';
-import { BulkShipment, CustomsInfo } from '@/types/shipping';
+import { BulkShipment } from '@/types/shipping';
 import RateDisplay from './RateDisplay';
 import InsuranceOptions from './InsuranceOptions';
 import AIRatePicker from './AIRatePicker';
-import CustomsCheckbox from './CustomsCheckbox';
 import { displayWeightInPounds, parseWeightInput } from '@/utils/weightConversion';
 
 interface EditableShipmentRowProps {
@@ -17,19 +15,13 @@ interface EditableShipmentRowProps {
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRemoveShipment: (shipmentId: string) => void;
   onEditShipment: (shipmentId: string, updates: Partial<BulkShipment>) => void;
-  onCustomsToggle: (shipmentId: string, enabled: boolean) => void;
-  onCustomsEdit: (shipmentId: string) => void;
-  pickupCountry?: string;
 }
 
 const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
   shipment,
   onSelectRate,
   onRemoveShipment,
-  onEditShipment,
-  onCustomsToggle,
-  onCustomsEdit,
-  pickupCountry = 'US'
+  onEditShipment
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
@@ -86,20 +78,6 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
     }
     return '';
   };
-
-  // Determine if shipment is international
-  const getDropoffCountry = () => {
-    if (shipment.details?.to_address?.country) {
-      return shipment.details.to_address.country;
-    }
-    // Try to extract from customer_address if it's an object
-    if (shipment.customer_address && typeof shipment.customer_address === 'object') {
-      return (shipment.customer_address as any).country || 'US';
-    }
-    return 'US'; // Default to US
-  };
-
-  const isInternational = pickupCountry !== getDropoffCountry();
 
   return (
     <TableRow>
@@ -208,50 +186,41 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
       </TableCell>
       
       <TableCell>
-        <div className="space-y-2">
-          <CustomsCheckbox
-            shipment={shipment}
-            onCustomsToggle={onCustomsToggle}
-            onCustomsEdit={onCustomsEdit}
-            isInternational={isInternational}
-          />
-          
-          <div className="flex items-center space-x-2">
-            {isEditing ? (
-              <>
-                <Button
-                  onClick={handleSave}
-                  size="sm"
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                >
-                  <Save className="h-4 w-4" />
-                </Button>
-                <Button
-                  onClick={handleCancel}
-                  size="sm"
-                  variant="outline"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </>
-            ) : (
+        <div className="flex items-center space-x-2">
+          {isEditing ? (
+            <>
               <Button
-                onClick={handleEdit}
+                onClick={handleSave}
+                size="sm"
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Save className="h-4 w-4" />
+              </Button>
+              <Button
+                onClick={handleCancel}
                 size="sm"
                 variant="outline"
               >
-                <Edit className="h-4 w-4" />
+                <X className="h-4 w-4" />
               </Button>
-            )}
+            </>
+          ) : (
             <Button
-              onClick={() => onRemoveShipment(shipment.id)}
+              onClick={handleEdit}
               size="sm"
               variant="outline"
-              className="text-red-600 hover:text-red-700"
             >
-              <Trash2 className="h-4 w-4" />
+              <Edit className="h-4 w-4" />
             </Button>
-          </div>
+          )}
+          <Button
+            onClick={() => onRemoveShipment(shipment.id)}
+            size="sm"
+            variant="outline"
+            className="text-red-600 hover:text-red-700"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </TableCell>
     </TableRow>
