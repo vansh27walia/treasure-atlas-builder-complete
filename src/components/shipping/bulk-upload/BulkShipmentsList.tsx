@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,7 +28,6 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   const [customsModalOpen, setCustomsModalOpen] = useState(false);
   const [selectedShipmentForCustoms, setSelectedShipmentForCustoms] = useState<string | null>(null);
 
-  // Check if shipment is international
   const isInternational = (shipment: BulkShipment) => {
     const fromCountry = pickupAddress?.country || 'US';
     const toCountry = shipment.details?.to_address?.country || 'US';
@@ -46,8 +44,15 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       const shipment = shipments.find(s => s.id === selectedShipmentForCustoms);
       if (shipment) {
         const customsInfo: CustomsInfo = {
-          ...customs,
-          contents_type: (customs.contents_type || 'merchandise') as 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other'
+          eel_pfc: customs.eel_pfc,
+          customs_certify: customs.customs_certify || false,
+          customs_signer: customs.customs_signer || '',
+          contents_type: (customs.contents_type || 'merchandise') as 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other',
+          contents_explanation: customs.contents_explanation,
+          restriction_type: customs.restriction_type || 'none',
+          restriction_comments: customs.restriction_comments,
+          non_delivery_option: customs.non_delivery_option || 'return',
+          customs_items: customs.customs_items || []
         };
         
         const updatedShipment = {
@@ -71,8 +76,15 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     if (!firstInternationalShipment?.customs_info) return;
 
     const customsData: CustomsInfo = {
-      ...firstInternationalShipment.customs_info,
-      contents_type: (firstInternationalShipment.customs_info.contents_type || 'merchandise') as 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other'
+      eel_pfc: firstInternationalShipment.customs_info.eel_pfc,
+      customs_certify: firstInternationalShipment.customs_info.customs_certify || false,
+      customs_signer: firstInternationalShipment.customs_info.customs_signer || '',
+      contents_type: (firstInternationalShipment.customs_info.contents_type || 'merchandise') as 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other',
+      contents_explanation: firstInternationalShipment.customs_info.contents_explanation,
+      restriction_type: firstInternationalShipment.customs_info.restriction_type || 'none',
+      restriction_comments: firstInternationalShipment.customs_info.restriction_comments,
+      non_delivery_option: firstInternationalShipment.customs_info.non_delivery_option || 'return',
+      customs_items: firstInternationalShipment.customs_info.customs_items || []
     };
     
     shipments.forEach(shipment => {
