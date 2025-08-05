@@ -179,7 +179,7 @@ export const useBulkUpload = () => {
         }));
       }, 1000);
 
-      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
+      const { data, error } = await supabase.functions.invoke('create-enhanced-bulk-labels', {
         body: {
           shipments: shipmentsToProcess,
           pickupAddress,
@@ -228,7 +228,7 @@ export const useBulkUpload = () => {
         throw new Error(error.message || 'Unknown error from label generation function.');
       }
 
-      console.log('Raw label creation response from create-bulk-labels:', data);
+      console.log('Raw label creation response from create-enhanced-bulk-labels:', data);
 
       if (data && data.processedLabels && Array.isArray(data.processedLabels)) {
         const expectedLabels = shipmentsToProcess.length;
