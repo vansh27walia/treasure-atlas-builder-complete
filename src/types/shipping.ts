@@ -153,6 +153,7 @@ export interface BulkShipment {
   rate?: number; // Populated after rate selection
   carrier?: string; // Populated after rate selection
   service?: string; // Populated after rate selection
+  customs_info?: CustomsInfo; // Add customs information for international shipments
   [key: string]: any; // Allow other dynamic fields
 }
 

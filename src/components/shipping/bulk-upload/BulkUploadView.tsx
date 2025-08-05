@@ -1,327 +1,362 @@
-
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Upload, FileText, Loader2, CheckCircle, AlertCircle, Brain, Zap } from 'lucide-react';
-import { toast } from '@/components/ui/sonner';
-import BulkUploadForm from './BulkUploadForm';
-import BulkResults from './BulkResults';
-import AdvancedProgressTracker from './AdvancedProgressTracker';
-import AIRateAnalysisPanel from '../AIRateAnalysisPanel';
-import CarrierLogo from '../CarrierLogo';
-import { useShipmentUpload } from '@/hooks/useShipmentUpload';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { UploadCloud } from 'lucide-react';
+import Papa from 'papaparse';
+import { BulkShipment, CustomsInfo, ShippingAddress } from '@/types/shipping';
+import { useToast } from "@/components/ui/use-toast"
+import { generateUUID } from '@/lib/utils';
+import BulkShipmentsList from './BulkShipmentsList';
+import { useBulkShippingProcessor } from '@/hooks/useBulkShippingProcessor';
+import { ShippingAddressForm } from '../address/ShippingAddressForm';
+import { useSettings } from '@/hooks/useSettings';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { countries } from 'countries-list';
+import { CountryDropdown } from '../address/CountryDropdown';
+import { PackageDetailsForm } from '../package/PackageDetailsForm';
+import { Package } from 'lucide-react';
+import { BulkResults } from './BulkResults';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface BulkUploadViewProps {
-  onUploadComplete?: (results: any) => void;
+  onComplete: (shipments: BulkShipment[]) => void;
+  onCancel: () => void;
 }
 
-const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => {
+type UploadStep = 'upload' | 'editing' | 'rates' | 'complete';
+
+const BulkUploadView: React.FC<BulkUploadViewProps> = ({ 
+  onComplete,
+  onCancel
+}) => {
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [shipments, setShipments] = useState<BulkShipment[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState<UploadStep>('upload');
+  const [pickupAddress, setPickupAddress] = useState<ShippingAddress | null>(null);
+  const [isPickupAddressValid, setIsPickupAddressValid] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [results, setResults] = useState<any>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [currentStep, setCurrentStep] = useState<string>('upload');
-  const [showAIPanel, setShowAIPanel] = useState(false);
-  const [selectedRate, setSelectedRate] = useState<any>(null);
-  const [allRates, setAllRates] = useState<any[]>([]);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'editing' | 'success' | 'error'>('idle');
-  const [isUploading, setIsUploading] = useState(false);
-  const [isFetchingRates, setIsFetchingRates] = useState(false);
-  const [isCreatingLabels, setIsCreatingLabels] = useState(false);
-  const [selectedPickupAddress, setSelectedPickupAddress] = useState<any>(null);
+  const [sortField, setSortField] = useState<string>('recipient');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [selectedShipments, setSelectedShipments] = useState<string[]>([]);
+  const [filters, setFilters] = useState<{ status: string }>({ status: 'all' });
+  const { settings } = useSettings();
+  const { toast } = useToast();
 
-  const { handleUpload } = useShipmentUpload();
+  const {
+    results,
+    processShipments,
+    updateShipmentRate,
+    uploadStatus
+  } = useBulkShippingProcessor(shipments, pickupAddress);
 
-  const handleUploadStart = () => {
-    setIsProcessing(true);
-    setIsUploading(true);
-    setUploadStatus('uploading');
-    setUploadProgress(0);
-    setCurrentStep('processing');
-  };
-
-  const handleUploadProgress = (progress: number) => {
-    setUploadProgress(progress);
-  };
-
-  const handleUploadSuccess = (uploadResults: any) => {
-    setResults(uploadResults);
-    setIsProcessing(false);
-    setIsUploading(false);
-    setUploadStatus('success');
-    setCurrentStep('complete');
-    
-    // Extract rates from results for AI analysis
-    if (uploadResults?.shipments) {
-      const extractedRates = uploadResults.shipments
-        .filter((shipment: any) => shipment.rates && shipment.rates.length > 0)
-        .flatMap((shipment: any) => shipment.rates);
-      
-      setAllRates(extractedRates);
-      
-      // Auto-select first rate for analysis
-      if (extractedRates.length > 0) {
-        setSelectedRate(extractedRates[0]);
-        setShowAIPanel(true);
-      }
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files && event.target.files[0];
+    if (file) {
+      setCsvFile(file);
+      setUploadError(null);
     }
-    
-    if (onUploadComplete) {
-      onUploadComplete(uploadResults);
-    }
-    
-    toast.success('Bulk upload completed successfully!');
   };
 
-  const handleUploadFail = (error: string) => {
-    setIsProcessing(false);
-    setIsUploading(false);
-    setUploadStatus('error');
-    setCurrentStep('upload');
-    toast.error(`Upload failed: ${error}`);
-  };
-
-  const handlePickupAddressSelect = (address: any) => {
-    setSelectedPickupAddress(address);
-  };
-
-  const handleFileUpload = async (file: File) => {
-    if (!selectedPickupAddress) {
-      toast.error('Please select a pickup address first');
+  const parseCSV = useCallback(() => {
+    if (!csvFile) {
+      setUploadError('Please select a CSV file.');
       return;
     }
 
-    try {
-      handleUploadStart();
-      await handleUpload(file, selectedPickupAddress);
-      handleUploadSuccess({ shipments: [], total: 0, successful: 0, failed: 0 });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
-      handleUploadFail(errorMessage);
+    setIsProcessing(true);
+    Papa.parse(csvFile, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        setIsProcessing(false);
+        if (results.errors.length > 0) {
+          setUploadError(`CSV Parsing Error: ${results.errors[0].message}`);
+          return;
+        }
+
+        const parsedData = results.data;
+        if (!Array.isArray(parsedData)) {
+          setUploadError('Failed to parse CSV data.');
+          return;
+        }
+
+        const newShipments: BulkShipment[] = parsedData.map((row: any, index: number) => {
+          const shipmentId = generateUUID();
+          const toAddress = {
+            name: row.to_name || '',
+            company: row.to_company || '',
+            street1: row.to_street1 || '',
+            street2: row.to_street2 || '',
+            city: row.to_city || '',
+            state: row.to_state || '',
+            zip: row.to_zip || '',
+            country: row.to_country || 'US',
+            phone: row.to_phone || '',
+            email: row.to_email || '',
+            is_residential: row.to_residential === 'true'
+          };
+
+          const parcel = {
+            length: parseFloat(row.parcel_length) || 9,
+            width: parseFloat(row.parcel_width) || 6,
+            height: parseFloat(row.parcel_height) || 1,
+            weight: parseFloat(row.parcel_weight) || 8,
+            predefined_package: row.parcel_predefined_package || null
+          };
+
+          return {
+            id: shipmentId,
+            row: index + 1,
+            recipient: row.to_name || 'Recipient',
+            customer_name: row.customer_name || '',
+            customer_address: row.customer_address || '',
+            customer_phone: row.customer_phone || '',
+            customer_email: row.customer_email || '',
+            customer_company: row.customer_company || '',
+            details: {
+              to_address: toAddress,
+              parcel: parcel
+            },
+            status: 'pending_rates',
+            rate: 0,
+            total_cost: 0,
+            rates: [],
+            insurance_amount: parseFloat(row.insurance_amount) || 0,
+            insurance_cost: 0,
+            selected_rate_id: null,
+            shipment_data: row
+          };
+        });
+
+        setShipments(newShipments);
+        setCurrentStep('editing');
+      },
+      error: (error) => {
+        setIsProcessing(false);
+        setUploadError(`CSV Parsing Error: ${error.message}`);
+      }
+    });
+  }, [csvFile, setShipments, setUploadError, setCurrentStep, setIsProcessing]);
+
+  const handlePickupAddressChange = (address: ShippingAddress, isValid: boolean) => {
+    setPickupAddress(address);
+    setIsPickupAddressValid(isValid);
+  };
+
+  const handleStartRateFetching = async () => {
+    if (!pickupAddress) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid pickup address.",
+        variant: "destructive",
+      })
+      return;
+    }
+
+    if (!isPickupAddressValid) {
+       toast({
+        title: "Error",
+        description: "Please ensure the pickup address is valid.",
+        variant: "destructive",
+      })
+      return;
+    }
+
+    if (!shipments || shipments.length === 0) {
+      toast({
+        title: "Error",
+        description: "No shipments to process. Please upload a CSV file.",
+        variant: "destructive",
+      })
+      return;
+    }
+
+    setCurrentStep('rates');
+    processShipments(pickupAddress);
+  };
+
+  const handleSort = (field: string) => {
+    if (field === sortField) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
     }
   };
 
-  const handleRateSelected = (rate: any) => {
-    setSelectedRate(rate);
-    setShowAIPanel(true);
+  const handleShipmentSelect = (shipmentId: string) => {
+    setSelectedShipments(prev => {
+      if (prev.includes(shipmentId)) {
+        return prev.filter(id => id !== shipmentId);
+      } else {
+        return [...prev, shipmentId];
+      }
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedShipments.length === shipments.length) {
+      setSelectedShipments([]);
+    } else {
+      setSelectedShipments(shipments.map(shipment => shipment.id));
+    }
   };
 
   const handleRateChange = (shipmentId: string, rateId: string) => {
-    // Handle rate change logic
-    if (results?.shipments) {
-      const updatedShipments = results.shipments.map((shipment: any) => {
-        if (shipment.id === shipmentId) {
-          const selectedRate = shipment.rates?.find((rate: any) => rate.id === rateId);
-          return { ...shipment, selectedRate };
-        }
-        return shipment;
-      });
-      setResults({ ...results, shipments: updatedShipments });
-    }
+    updateShipmentRate(shipmentId, rateId);
   };
 
-  const handleOptimizationChange = (filter: string) => {
-    // Apply optimization logic similar to the main page
-    let sortedRates = [...allRates];
-    
-    switch (filter) {
-      case 'cheapest':
-        sortedRates.sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
-        break;
-      case 'fastest':
-        sortedRates.sort((a, b) => (a.delivery_days || 999) - (b.delivery_days || 999));
-        break;
-      case 'balanced':
-        sortedRates.sort((a, b) => {
-          const scoreA = (parseFloat(a.rate) / 10) + (a.delivery_days || 999);
-          const scoreB = (parseFloat(b.rate) / 10) + (b.delivery_days || 999);
-          return scoreA - scoreB;
-        });
-        break;
-      default:
-        break;
-    }
-    
-    setAllRates(sortedRates);
-    if (sortedRates.length > 0) {
-      setSelectedRate(sortedRates[0]);
-    }
-    
-    toast.success(`Applied ${filter} optimization to bulk rates`);
+  const handleCustomsUpdate = (shipmentId: string, customsInfo: CustomsInfo) => {
+    // Update the shipment with customs information
+    // This function should be passed down from the parent component that manages the shipments
+    // For now, we'll just log it
+    console.log('Customs updated for shipment:', shipmentId, customsInfo);
   };
+
+  const handleEditShipment = (shipmentId: string) => {
+    // Implement edit shipment logic here
+    console.log('Editing shipment:', shipmentId);
+  };
+
+  const handleStatusFilterChange = (status: string) => {
+    setFilters({ status });
+  };
+
+  const getFilteredShipments = useMemo(() => {
+    let filtered = [...shipments];
+
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(shipment => shipment.status === filters.status);
+    }
+
+    return filtered.sort((a, b) => {
+      const aValue = a[sortField] || '';
+      const bValue = b[sortField] || '';
+
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+
+      const stringA = String(aValue).toUpperCase();
+      const stringB = String(bValue).toUpperCase();
+
+      if (stringA < stringB) {
+        return sortDirection === 'asc' ? -1 : 1;
+      }
+      if (stringA > stringB) {
+        return sortDirection === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+  }, [shipments, sortField, sortDirection, filters]);
 
   return (
-    <div className={`transition-all duration-300 ${showAIPanel ? 'pr-80' : ''}`}>
-      <div className="space-y-6">
-        {/* Enhanced Header */}
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Bulk Label Creation</h1>
-          <p className="text-gray-600 max-w-2xl mx-auto">
-            Upload your CSV file to create multiple shipping labels at once with AI-powered rate optimization.
-          </p>
-        </div>
-
-        {/* Progress Tracker */}
-        {isProcessing && (
-          <AdvancedProgressTracker 
-            uploadStatus={uploadStatus}
-            isUploading={isUploading}
-            isFetchingRates={isFetchingRates}
-            isCreatingLabels={isCreatingLabels}
-            progress={uploadProgress}
-            totalShipments={results?.shipments?.length || 0}
-            processedShipments={results?.processedShipments?.length || 0}
-          />
-        )}
-
-        {/* Main Content */}
-        <div className="grid grid-cols-1 gap-6">
-          {/* Upload Form */}
-          {!results && (
-            <Card className="shadow-lg border-2">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 border-b">
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="w-5 h-5 text-blue-600" />
-                  Upload Shipments
-                  <Badge className="bg-blue-100 text-blue-800">CSV Format</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6">
-                <BulkUploadForm
-                  onUploadSuccess={handleUploadSuccess}
-                  onUploadFail={handleUploadFail}
-                  onPickupAddressSelect={handlePickupAddressSelect}
-                  isUploading={isUploading}
-                  progress={uploadProgress}
-                  handleUpload={handleFileUpload}
-                />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Results Display */}
-          {results && (
-            <div className="space-y-6">
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="border-green-200 bg-green-50">
-                  <CardContent className="p-4 text-center">
-                    <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-600" />
-                    <div className="text-2xl font-bold text-green-800">
-                      {results.successfulShipments?.length || 0}
-                    </div>
-                    <div className="text-sm text-green-600">Successful</div>
-                  </CardContent>
-                </Card>
-                
-                <Card className="border-red-200 bg-red-50">
-                  <CardContent className="p-4 text-center">
-                    <AlertCircle className="w-8 h-8 mx-auto mb-2 text-red-600" />
-                    <div className="text-2xl font-bold text-red-800">
-                      {results.failedShipments?.length || 0}
-                    </div>
-                    <div className="text-sm text-red-600">Failed</div>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-blue-200 bg-blue-50">
-                  <CardContent className="p-4 text-center">
-                    <Brain className="w-8 h-8 mx-auto mb-2 text-blue-600" />
-                    <div className="text-2xl font-bold text-blue-800">
-                      {allRates.length}
-                    </div>
-                    <div className="text-sm text-blue-600">Total Rates</div>
-                  </CardContent>
-                </Card>
+    <div className="space-y-6">
+      {currentStep === 'upload' && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center p-8">
+            <UploadCloud className="h-12 w-12 text-gray-500 mb-4" />
+            <h2 className="text-2xl font-semibold mb-2">Upload CSV File</h2>
+            <p className="text-gray-500 mb-4">
+              Select a CSV file containing shipment details to get started.
+            </p>
+            <Label htmlFor="csv-upload" className="cursor-pointer bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 transition-colors duration-200">
+              {csvFile ? `File Selected: ${csvFile.name}` : 'Select CSV File'}
+            </Label>
+            <Input
+              type="file"
+              id="csv-upload"
+              className="hidden"
+              accept=".csv"
+              onChange={handleFileChange}
+            />
+            {uploadError && (
+              <Alert variant="destructive" className="mt-4">
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{uploadError}</AlertDescription>
+              </Alert>
+            )}
+            {isProcessing && (
+              <div className="mt-4">
+                <p className="text-gray-500">Processing CSV file...</p>
+                <Skeleton className="w-[300px] h-[20px] mt-2" />
               </div>
+            )}
+            <Button onClick={parseCSV} disabled={!csvFile || isProcessing} className="mt-4">
+              Parse CSV
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
-              {/* AI Insights Section */}
-              {allRates.length > 0 && (
-                <Card className="border-2 border-blue-200 bg-blue-50/30">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-blue-800">
-                      <Brain className="w-5 h-5" />
-                      AI Rate Insights
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowAIPanel(!showAIPanel)}
-                        className="ml-auto"
-                      >
-                        <Zap className="w-4 h-4 mr-1" />
-                        {showAIPanel ? 'Hide' : 'Show'} AI Analysis
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                      <div className="text-center p-3 bg-white rounded-lg border">
-                        <div className="font-bold text-green-600">
-                          ${Math.min(...allRates.map(r => parseFloat(r.rate))).toFixed(2)}
-                        </div>
-                        <div className="text-xs text-gray-600">Cheapest Rate</div>
-                      </div>
-                      <div className="text-center p-3 bg-white rounded-lg border">
-                        <div className="font-bold text-blue-600">
-                          ${Math.max(...allRates.map(r => parseFloat(r.rate))).toFixed(2)}
-                        </div>
-                        <div className="text-xs text-gray-600">Highest Rate</div>
-                      </div>
-                      <div className="text-center p-3 bg-white rounded-lg border">
-                        <div className="font-bold text-purple-600">
-                          {Math.min(...allRates.map(r => r.delivery_days || 999))} days
-                        </div>
-                        <div className="text-xs text-gray-600">Fastest Delivery</div>
-                      </div>
-                      <div className="text-center p-3 bg-white rounded-lg border">
-                        <div className="font-bold text-orange-600">
-                          ${(allRates.reduce((sum, r) => sum + parseFloat(r.rate), 0) / allRates.length).toFixed(2)}
-                        </div>
-                        <div className="text-xs text-gray-600">Average Cost</div>
-                      </div>
-                    </div>
+      {currentStep === 'editing' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="text-xl font-semibold mb-4">Enter Pickup Address</h3>
+                {settings?.default_shipping_country && (
+                  <ShippingAddressForm
+                    defaultCountry={settings?.default_shipping_country}
+                    onChange={handlePickupAddressChange}
+                  />
+                )}
+                {!settings?.default_shipping_country && (
+                  <ShippingAddressForm
+                    onChange={handlePickupAddressChange}
+                  />
+                )}
+            </CardContent>
+          </Card>
 
-                    {/* Sample Rates with Carrier Logos */}
-                    <div className="space-y-2">
-                      <h4 className="font-medium text-gray-800">Sample Rates Available:</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        {allRates.slice(0, 4).map((rate, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center gap-3 p-2 bg-white rounded border cursor-pointer hover:bg-gray-50"
-                            onClick={() => handleRateSelected(rate)}
-                          >
-                            <CarrierLogo carrier={rate.carrier} className="w-6 h-6" />
-                            <div className="flex-1">
-                              <div className="font-medium text-sm">{rate.carrier} {rate.service}</div>
-                              <div className="text-xs text-gray-600">
-                                ${parseFloat(rate.rate).toFixed(2)} - {rate.delivery_days} days
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+          <Card>
+            <CardContent>
+              <h3 className="text-lg font-semibold mb-2">Shipments</h3>
+              <p className="text-sm text-gray-500">Review and edit the shipments you want to process.</p>
+              <BulkShipmentsList
+                shipments={shipments}
+                onRateSelect={handleRateChange}
+                onEditShipment={handleEditShipment}
+                pickupAddress={pickupAddress}
+                sortField={sortField}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+                selectedShipments={selectedShipments}
+                onShipmentSelect={handleShipmentSelect}
+                onSelectAll={handleSelectAll}
+                filters={filters}
+                onCustomsUpdate={handleCustomsUpdate}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-              {/* Detailed Results */}
-              <BulkResults results={results} onRateChange={handleRateChange} />
-            </div>
+      {currentStep === 'rates' && (
+        <>
+          <BulkResults results={results} onRateChange={handleRateChange} />
+        </>
+      )}
+
+      {(currentStep === 'editing' || currentStep === 'rates') && (
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          {currentStep === 'editing' && (
+            <Button onClick={handleStartRateFetching} disabled={!isPickupAddressValid}>
+              Fetch Rates
+            </Button>
+          )}
+          {currentStep === 'rates' && (
+            <Button onClick={() => onComplete(shipments)} disabled={uploadStatus === 'creating-labels'}>
+              {uploadStatus === 'creating-labels' ? 'Creating Labels...' : 'Create Labels'}
+            </Button>
           )}
         </div>
-      </div>
-
-      {/* AI Analysis Panel for Bulk Upload */}
-      {showAIPanel && selectedRate && allRates.length > 0 && (
-        <AIRateAnalysisPanel
-          selectedRate={selectedRate}
-          allRates={allRates}
-          isOpen={showAIPanel}
-          onClose={() => setShowAIPanel(false)}
-          onOptimizationChange={handleOptimizationChange}
-        />
       )}
     </div>
   );
