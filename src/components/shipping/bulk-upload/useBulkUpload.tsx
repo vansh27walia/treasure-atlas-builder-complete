@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
@@ -19,7 +20,7 @@ export const useBulkUpload = () => {
     handleDownloadTemplate
   } = useShipmentUpload();
 
-  const { pickupAddress, setPickupAddress: setPickupAddressContext } = usePickupAddresses();
+  const { selectedAddress: pickupAddress, setSelectedAddress: setPickupAddress } = usePickupAddresses();
   const [isFetchingRates, setIsFetchingRates] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
@@ -222,7 +223,7 @@ export const useBulkUpload = () => {
     filteredShipments,
     pickupAddress,
     batchError,
-    setPickupAddress: setPickupAddressContext,
+    setPickupAddress,
     handleFileChange,
     handleUpload,
     handleSelectRate,
