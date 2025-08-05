@@ -103,6 +103,7 @@ export const BulkUpload = () => {
                 setSortDirection(direction);
               }}
               onCarrierFilterChange={setSelectedCarrierFilter}
+              onApplyCarrierToAll={handleBulkApplyCarrier}
             />
 
             <BulkShipmentsList
@@ -118,7 +119,11 @@ export const BulkUpload = () => {
         {results && results.batchResult && (
           <BulkLabelDownloadOptions
             batchResult={results.batchResult}
-            onDownloadLabelsWithFormat={handleDownloadLabelsWithFormat}
+            processedLabels={results.processedShipments || []}
+            onDownloadBatch={(format: string, url: string) => window.open(url, '_blank')}
+            onDownloadManifest={(url: string) => window.open(url, '_blank')}
+            onDownloadIndividual={(labelUrl: string) => window.open(labelUrl, '_blank')}
+            onPrintPreview={() => {}}
             onEmailLabels={() => handleEmailLabels('admin@example.com')}
           />
         )}
