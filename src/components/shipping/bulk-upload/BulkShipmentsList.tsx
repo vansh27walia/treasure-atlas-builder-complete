@@ -41,7 +41,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     setCustomsModalOpen(true);
   };
 
-  const handleCustomsSubmit = (customs: CustomsInfo) => {
+  const handleCustomsSubmit = (customs: any) => {
     if (selectedShipmentForCustoms) {
       const shipment = shipments.find(s => s.id === selectedShipmentForCustoms);
       if (shipment) {

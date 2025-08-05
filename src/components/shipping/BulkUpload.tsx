@@ -94,10 +94,7 @@ export default function BulkUpload() {
   };
 
   const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0];
-    if (selectedFile) {
-      handleFileChange(selectedFile);
-    }
+    handleFileChange(event);
   };
 
   const handleUploadClick = () => {
@@ -233,7 +230,7 @@ export default function BulkUpload() {
                   <Label htmlFor="sort-field">Sort By</Label>
                   <Select 
                     value={sortField} 
-                    onValueChange={(value) => setSortField(value as "recipient" | "rate" | "carrier")}
+                    onValueChange={(value) => setSortField(value as "recipient" | "rate" | "carrier" | "customer_address" | "status")}
                   >
                     <SelectTrigger id="sort-field">
                       <SelectValue placeholder="Recipient" />
@@ -242,6 +239,8 @@ export default function BulkUpload() {
                       <SelectItem value="recipient">Recipient</SelectItem>
                       <SelectItem value="rate">Rate</SelectItem>
                       <SelectItem value="carrier">Carrier</SelectItem>
+                      <SelectItem value="customer_address">Address</SelectItem>
+                      <SelectItem value="status">Status</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
