@@ -44,10 +44,23 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     setCustomsModalOpen(true);
   };
 
-  const handleCustomsSubmit = (customsInfo: CustomsInfo) => {
+  const handleCustomsSubmit = (customsData: any) => {
     if (selectedShipmentForCustoms) {
       const shipment = shipments.find(s => s.id === selectedShipmentForCustoms);
       if (shipment) {
+        // Convert the modal's customs data to our shipping type format
+        const customsInfo: CustomsInfo = {
+          contents_type: customsData.contents_type || 'merchandise',
+          contents_explanation: customsData.contents_explanation,
+          customs_certify: customsData.customs_certify || true,
+          customs_signer: customsData.customs_signer || '',
+          non_delivery_option: customsData.non_delivery_option || 'return',
+          restriction_type: customsData.restriction_type,
+          restriction_comments: customsData.restriction_comments,
+          customs_items: customsData.customs_items || [],
+          eel_pfc: customsData.eel_pfc
+        };
+        
         onEditShipment(selectedShipmentForCustoms, {
           details: {
             ...shipment.details,
