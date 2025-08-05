@@ -58,7 +58,7 @@ serve(async (req) => {
 
     // Parse the request body
     const requestData = await req.json();
-    const { shipmentId, rateId, options = {}, customsInfo = null } = requestData;
+    const { shipmentId, rateId, options = {} } = requestData;
     
     if (!shipmentId || !rateId) {
       console.error('Missing required parameters', { shipmentId, rateId });
@@ -69,36 +69,6 @@ serve(async (req) => {
     }
 
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
-    if (customsInfo) {
-      console.log(`Including customs information for international shipment`);
-    }
-
-    // Prepare the request body for EasyPost
-    const requestBody: any = {
-      rate: { id: rateId }
-    };
-
-    // Add customs information if provided (for international shipments)
-    if (customsInfo) {
-      requestBody.customs_info = {
-        contents_type: customsInfo.contents_type,
-        contents_explanation: customsInfo.contents_explanation || '',
-        customs_certify: customsInfo.customs_certify,
-        customs_signer: customsInfo.customs_signer,
-        non_delivery_option: customsInfo.non_delivery_option,
-        restriction_type: customsInfo.restriction_type || 'none',
-        restriction_comments: customsInfo.restriction_comments || '',
-        eel_pfc: customsInfo.eel_pfc || '',
-        customs_items: customsInfo.customs_items.map((item: any) => ({
-          description: item.description,
-          quantity: item.quantity,
-          value: item.value,
-          weight: item.weight,
-          hs_tariff_number: item.hs_tariff_number || '',
-          origin_country: item.origin_country || 'US'
-        }))
-      };
-    }
 
     // Buy the label with EasyPost API
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
@@ -107,7 +77,9 @@ serve(async (req) => {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({
+        rate: { id: rateId }
+      }),
     });
 
     const data = await response.json();
@@ -174,8 +146,7 @@ serve(async (req) => {
       currency: data.selected_rate?.currency || 'USD',
       label_format: options.label_format || "PDF",
       label_size: options.label_size || "4x6",
-      is_international: !!customsInfo,
-      customs_data: customsInfo ? JSON.stringify(customsInfo) : null,
+      is_international: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
