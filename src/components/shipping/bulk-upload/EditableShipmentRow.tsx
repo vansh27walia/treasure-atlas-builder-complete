@@ -1,13 +1,13 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { TableRow, TableCell } from '@/components/ui/table';
+import { TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Edit, Save, X, Trash2 } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import RateDisplay from './RateDisplay';
 import InsuranceOptions from './InsuranceOptions';
-import AIRatePicker from './AIRatePicker';
 import { displayWeightInPounds, parseWeightInput } from '@/utils/weightConversion';
 
 interface EditableShipmentRowProps {
@@ -38,7 +38,6 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
   };
 
   const handleSave = () => {
-    // Apply the changes to the shipment
     const updates = {
       customer_name: editData.customer_name,
       recipient: editData.customer_name,
@@ -68,7 +67,6 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
     setIsEditing(false);
   };
 
-  // Get street address safely
   const getStreetAddress = () => {
     if (typeof shipment.customer_address === 'string') {
       return shipment.customer_address;
@@ -80,7 +78,7 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
   };
 
   return (
-    <TableRow>
+    <>
       <TableCell>
         {isEditing ? (
           <Input
@@ -223,7 +221,7 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
           </Button>
         </div>
       </TableCell>
-    </TableRow>
+    </>
   );
 };
 

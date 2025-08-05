@@ -165,24 +165,52 @@ const convertPngToPdfLocally = async (pngBytes: Uint8Array): Promise<Uint8Array>
   }
 };
 
-const purchaseEasyPostLabel = async (shipmentId: string, rateId: string): Promise<any> => {
+const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, customsInfo?: any): Promise<any> => {
   const apiKey = Deno.env.get('EASYPOST_API_KEY');
   if (!apiKey) {
     throw new Error('EasyPost API key not configured');
   }
+  
   try {
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
+    
+    // Prepare the request body
+    const requestBody: any = {
+      rate: {
+        id: rateId
+      }
+    };
+
+    // Add customs information if provided (for international shipments)
+    if (customsInfo) {
+      console.log(`Adding customs information for international shipment ${shipmentId}`);
+      requestBody.customs_info = {
+        contents_type: customsInfo.contents_type,
+        contents_explanation: customsInfo.contents_explanation || '',
+        customs_certify: customsInfo.customs_certify,
+        customs_signer: customsInfo.customs_signer,
+        non_delivery_option: customsInfo.non_delivery_option,
+        restriction_type: customsInfo.restriction_type || 'none',
+        restriction_comments: customsInfo.restriction_comments || '',
+        eel_pfc: customsInfo.eel_pfc || '',
+        customs_items: customsInfo.customs_items.map((item: any) => ({
+          description: item.description,
+          quantity: item.quantity,
+          value: item.value,
+          weight: item.weight,
+          hs_tariff_number: item.hs_tariff_number || '',
+          origin_country: item.origin_country || 'US'
+        }))
+      };
+    }
+
     const buyResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        rate: {
-          id: rateId
-        }
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!buyResponse.ok) {
@@ -203,6 +231,7 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string): Promis
       }
       throw new Error(`EasyPost purchase error: ${errorData.error?.message || 'Unknown error'}`);
     }
+    
     const boughtShipment = await buyResponse.json();
     console.log(`Successfully purchased label for shipment ${shipmentId}. Tracking: ${boughtShipment.tracking_code}`);
     return boughtShipment;
@@ -519,7 +548,17 @@ serve(async (req: Request) => {
           throw new Error('Missing EasyPost shipment ID or rate ID for label generation');
         }
 
-        const easypostLabelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId);
+        // Check if shipment has customs info (for international shipments)
+        const customsInfo = shipment.details?.customs_info || null;
+        if (customsInfo) {
+          console.log(`International shipment detected for ${shipment.id}, including customs information`);
+        }
+
+        const easypostLabelData = await purchaseEasyPostLabel(
+          shipment.easypost_id, 
+          shipment.selectedRateId,
+          customsInfo
+        );
         const labelWithStoredUrls = await processAndStoreLabel(easypostLabelData);
 
         const shipmentRecord = {
@@ -537,7 +576,8 @@ serve(async (req: Request) => {
           currency: labelWithStoredUrls.selected_rate?.currency || 'USD',
           label_format: labelOptions.label_format || (labelWithStoredUrls.label_urls['pdf'] ? "PDF" : (labelWithStoredUrls.label_urls['png'] ? "PNG" : "UNKNOWN")),
           label_size: labelOptions.label_size || "4x6",
-          is_international: false,
+          is_international: !!customsInfo,
+          customs_data: customsInfo ? JSON.stringify(customsInfo) : null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -605,7 +645,7 @@ serve(async (req: Request) => {
       total: shipments.length,
       successful: processedLabels.length,
       failed: failedLabels.length,
-      message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with Supabase Storage and tracking. Check 'batchResult' for consolidated labels if requested.`
+      message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with customs clearance support. Check 'batchResult' for consolidated labels if requested.`
     }), {
       headers: {
         ...corsHeaders,
