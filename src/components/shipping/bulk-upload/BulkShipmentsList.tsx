@@ -7,7 +7,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Package, PackageCheck, Edit, RefreshCcw, X, FileText, Truck, ArrowUp, ArrowDown, Check, Shield, DollarSign, ChevronDown, Brain, Zap, Star } from 'lucide-react';
+import { Package, PackageCheck, Edit, RefreshCcw, X, FileText, Truck, ArrowUp, ArrowDown, Check, Shield, DollarSign, ChevronDown, Brain, Zap, Star, Globe } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
@@ -20,6 +20,7 @@ import RateDisplay from './RateDisplay';
 import CarrierLogo from '../CarrierLogo';
 import { toast } from '@/components/ui/sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import CustomsDocumentationModal from '../CustomsDocumentationModal';
 
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
@@ -41,6 +42,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   onAIAnalysis
 }) => {
   const [openDialogs, setOpenDialogs] = useState<Record<string, boolean>>({});
+  const [customsDialogs, setCustomsDialogs] = useState<Record<string, boolean>>({});
+  const [customsInfo, setCustomsInfo] = useState<Record<string, any>>({});
   const [insuranceSettings, setInsuranceSettings] = useState<Record<string, {
     enabled: boolean;
     value: number;
@@ -67,6 +70,35 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       ...openDialogs,
       [shipmentId]: false
     });
+  };
+
+  const handleOpenCustomsDialog = (shipmentId: string) => {
+    setCustomsDialogs({
+      ...customsDialogs,
+      [shipmentId]: true
+    });
+  };
+
+  const handleCloseCustomsDialog = (shipmentId: string) => {
+    setCustomsDialogs({
+      ...customsDialogs,
+      [shipmentId]: false
+    });
+  };
+
+  const handleCustomsInfoSave = (shipmentId: string, info: any) => {
+    setCustomsInfo({
+      ...customsInfo,
+      [shipmentId]: info
+    });
+    handleCloseCustomsDialog(shipmentId);
+    toast.success('Customs information saved successfully');
+  };
+
+  // Check if shipment is international (non-US)
+  const isInternationalShipment = (shipment: BulkShipment): boolean => {
+    const country = shipment.details.to_country?.toUpperCase();
+    return country !== 'US' && country !== 'USA' && country !== 'UNITED STATES';
   };
 
   const handleInsuranceToggle = (shipmentId: string, enabled: boolean) => {
@@ -458,6 +490,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   <TableHead className="w-2/12 font-semibold text-blue-900">Insurance</TableHead>
                   <TableHead className="w-1/12 font-semibold text-blue-900">Rate</TableHead>
                   <TableHead className="w-1/12 font-semibold text-blue-900">Status</TableHead>
+                  <TableHead className="w-1/12 font-semibold text-blue-900">Custom Clearance</TableHead>
                   <TableHead className="w-1/12 text-right font-semibold text-blue-900">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -469,6 +502,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   const shippingCost = selectedRate ? parseFloat(formatRate(selectedRate.rate)) : 0;
                   const totalCost = shippingCost + insuranceCost;
                   const isEditing = editingShipments.has(shipment.id);
+                  const isInternational = isInternationalShipment(shipment);
+                  const hasCustomsInfo = customsInfo[shipment.id];
                   
                   return (
                     <TableRow 
@@ -514,7 +549,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                           <div className="text-sm text-gray-700">
                             {shipment.details.to_city}, {shipment.details.to_state} {shipment.details.to_zip}
                           </div>
-                          <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded inline-block">
+                          <div className={`text-xs px-2 py-1 rounded inline-block ${isInternational ? 'text-orange-600 bg-orange-100' : 'text-gray-500 bg-gray-100'}`}>
+                            {isInternational && <Globe className="w-3 h-3 inline mr-1" />}
                             {shipment.details.to_country}
                           </div>
                           <div className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded inline-block mt-1">
@@ -717,6 +753,49 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                             Error
                           </Badge>
                         )}
+                      </TableCell>
+
+                      <TableCell>
+                        <div className="flex justify-center">
+                          <Dialog open={customsDialogs[shipment.id]} onOpenChange={(open) => {
+                            if (open) {
+                              handleOpenCustomsDialog(shipment.id);
+                            } else {
+                              handleCloseCustomsDialog(shipment.id);
+                            }
+                          }}>
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={!isInternational}
+                                className={`w-full transition-all duration-200 ${
+                                  isInternational
+                                    ? hasCustomsInfo
+                                      ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'
+                                      : 'bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-200'
+                                    : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-50 blur-sm'
+                                }`}
+                              >
+                                <Globe className="w-4 h-4 mr-2" />
+                                {!isInternational ? 'Domestic' : hasCustomsInfo ? 'Completed' : 'Required'}
+                              </Button>
+                            </DialogTrigger>
+                            {isInternational && (
+                              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                                <DialogHeader>
+                                  <DialogTitle>Custom Clearance Documentation</DialogTitle>
+                                </DialogHeader>
+                                <CustomsDocumentationModal
+                                  isOpen={true}
+                                  onClose={() => handleCloseCustomsDialog(shipment.id)}
+                                  onSave={(info) => handleCustomsInfoSave(shipment.id, info)}
+                                  initialData={customsInfo[shipment.id]}
+                                />
+                              </DialogContent>
+                            )}
+                          </Dialog>
+                        </div>
                       </TableCell>
                       
                       <TableCell className="text-right">
