@@ -28,15 +28,9 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
   const [isCreatingLabelState, setIsCreatingLabelState] = useState(false);
 
-  // Calculate final price with 5% markup
-  const actualRate = parseFloat(selectedRate.rate);
-  const shippingCost = actualRate * 1.05; // Apply 5% markup
-  const insuranceCost = 2.00;
+  const shippingCost = parseFloat(selectedRate.rate);
+  const insuranceCost = 2.00; // Fixed $2 insurance cost
   const totalCost = shippingCost + insuranceCost;
-  
-  // Calculate retail savings if available
-  const retailRate = selectedRate.retail_rate ? parseFloat(selectedRate.retail_rate) : null;
-  const retailSavings = retailRate ? retailRate - shippingCost : 0;
 
   // Auto-scroll to payment section when it appears
   useEffect(() => {
@@ -90,6 +84,7 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
       
       toast.success('Payment successful! Label created.');
       
+      // Pass the label data to the parent component
       onPaymentSuccess({
         labelUrl: data.labelUrl,
         trackingCode: data.trackingCode,
@@ -134,23 +129,6 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
           
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <span className="text-gray-700">EasyPost Rate:</span>
-              <span className="text-sm">${actualRate.toFixed(2)}</span>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <span className="text-gray-700">Processing Fee (5%):</span>
-              <span className="text-sm">${(actualRate * 0.05).toFixed(2)}</span>
-            </div>
-            
-            {retailRate && retailSavings > 0 && (
-              <div className="flex justify-between items-center text-green-700">
-                <span className="text-sm">Retail Price Savings:</span>
-                <span className="text-sm">-${retailSavings.toFixed(2)}</span>
-              </div>
-            )}
-            
-            <div className="flex justify-between items-center">
               <span className="text-gray-700">
                 {selectedRate.carrier} {selectedRate.service}
               </span>
@@ -171,12 +149,6 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
               <span>Total</span>
               <span>${totalCost.toFixed(2)}</span>
             </div>
-            
-            {retailSavings > 0 && (
-              <div className="text-center text-green-600 text-sm">
-                You saved ${retailSavings.toFixed(2)} vs retail pricing!
-              </div>
-            )}
           </div>
         </div>
 
@@ -208,6 +180,7 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
           </div>
         )}
 
+        {/* Create Label Button - Always visible after payment method selection */}
         {selectedPaymentMethod && !isProcessing && !isCreatingLabelState && (
           <div className="mt-6 p-4 bg-green-50 border border-green-300 rounded-lg">
             <div className="flex items-center justify-between">
@@ -226,6 +199,7 @@ const InlinePaymentSection: React.FC<InlinePaymentSectionProps> = ({
           </div>
         )}
 
+        {/* Security Notice */}
         <div className="mt-4 text-xs text-gray-500 text-center">
           Your payment information is secured with 256-bit SSL encryption
         </div>

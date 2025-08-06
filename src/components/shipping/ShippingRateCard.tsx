@@ -56,14 +56,11 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
   const deliveryDays = rate.delivery_days || rate.est_delivery_days;
   const deliveryEstimate = deliveryDays === 1 ? 'Next day' : deliveryDays ? `${deliveryDays} days` : 'N/A';
   
-  // Calculate final price with 5% markup
-  const actualRate = parseFloat(rate.rate);
-  const finalPrice = actualRate * 1.05;
-  
-  // Get retail rate for savings calculation
-  const retailRate = rate.retail_rate ? parseFloat(rate.retail_rate) : null;
-  const savings = retailRate ? retailRate - finalPrice : 0;
-  const savingsPercent = retailRate ? Math.round((savings / retailRate) * 100) : 0;
+  // Calculate discount percentage if available
+  const originalRate = rate.original_rate || rate.list_rate || rate.retail_rate;
+  const hasDiscount = showDiscount && originalRate && Number(originalRate) > Number(rate.rate);
+  const discountPercent = hasDiscount ? 
+    Math.round((1 - (Number(rate.rate) / Number(originalRate))) * 100) : 0;
   
   // Get carrier logo with fallback
   const carrierLogo = getCarrierLogoUrl(rate.carrier);
@@ -99,7 +96,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         onPaymentSuccess={handlePaymentSuccess}
-        amount={finalPrice}
+        amount={parseFloat(rate.rate)}
         description={`${getCarrierDisplayName(rate.carrier)} ${rate.service} shipping`}
         shippingDetails={shippingDetails}
       />
@@ -122,6 +119,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
                 alt={`${rate.carrier} logo`} 
                 className="h-8 w-auto object-contain"
                 onError={(e) => {
+                  // If image fails to load, hide the image container
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
               />
@@ -145,18 +143,18 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
           )}
           <div className="text-right">
             <div className="flex items-center justify-end space-x-2">
-              {retailRate && (
+              {hasDiscount && (
                 <span className="text-sm text-gray-500 line-through">
-                  ${retailRate.toFixed(2)}
+                  ${parseFloat(originalRate).toFixed(2)}
                 </span>
               )}
               <span className="font-bold text-lg">
-                ${finalPrice.toFixed(2)}
+                ${parseFloat(rate.rate).toFixed(2)}
               </span>
             </div>
-            {savings > 0 && (
+            {hasDiscount && (
               <span className="text-xs font-medium text-green-600">
-                Save ${savings.toFixed(2)} ({savingsPercent}%)
+                Save {discountPercent}%
               </span>
             )}
           </div>
@@ -197,7 +195,7 @@ const ShippingRateCard: React.FC<ShippingRateCardProps> = ({
             onClick={handlePayClick}
             className="w-full bg-blue-600 hover:bg-blue-700"
           >
-            Pay ${finalPrice.toFixed(2)} & Create Label
+            Pay ${parseFloat(rate.rate).toFixed(2)} & Create Label
           </Button>
         </div>
       )}
