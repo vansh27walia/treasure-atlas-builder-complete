@@ -6,6 +6,7 @@ import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 import RateFilter from '@/components/shipping/RateFilter';
 import AIRateAnalysisPanel from '@/components/shipping/AIRateAnalysisPanel';
+import CustomsInfoPopout from '@/components/shipping/CustomsInfoPopout';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
