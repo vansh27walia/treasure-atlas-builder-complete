@@ -48,24 +48,28 @@ interface EditShipmentData {
 
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
+  isFetchingRates?: boolean;
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRemoveShipment: (shipmentId: string) => void;
   onEditShipment: (shipmentId: string, updates: Partial<BulkShipment>) => void;
-  onRefreshRates: (shipmentId: string) => void;
-  onBulkApplyCarrier: (carrier: string) => void;
-  shipmentCustomsInfo: Record<string, LocalCustomsInfo>;
-  onSaveCustomsInfo: (shipmentId: string, customsInfo: LocalCustomsInfo) => void;
+  onRefreshRates: (shipmentId: string) => void | Promise<void>;
+  onBulkApplyCarrier?: (carrier: string) => void;
+  onAIAnalysis?: (shipment?: any) => void;
+  shipmentCustomsInfo?: Record<string, LocalCustomsInfo>;
+  onSaveCustomsInfo?: (shipmentId: string, customsInfo: LocalCustomsInfo) => void;
 }
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   shipments,
+  isFetchingRates = false,
   onSelectRate,
   onRemoveShipment,
   onEditShipment,
   onRefreshRates,
   onBulkApplyCarrier,
-  shipmentCustomsInfo,
-  onSaveCustomsInfo
+  onAIAnalysis,
+  shipmentCustomsInfo = {},
+  onSaveCustomsInfo = () => {}
 }) => {
   const [editingShipment, setEditingShipment] = useState<string | null>(null);
   const [editData, setEditData] = useState<EditShipmentData>({
@@ -170,7 +174,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   return (
     <div className="space-y-6">
       {/* Bulk Actions */}
-      {carriers.length > 0 && (
+      {carriers.length > 0 && onBulkApplyCarrier && (
         <Card className="p-4">
           <div className="flex items-center gap-4">
             <Label className="text-sm font-medium whitespace-nowrap">Apply to all:</Label>
