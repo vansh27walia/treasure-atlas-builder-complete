@@ -17,8 +17,19 @@ const CustomsClearanceButton: React.FC<CustomsClearanceButtonProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [hasCustomsData, setHasCustomsData] = useState(!!shipment.details?.customs_info);
 
-  const handleCustomsSubmit = (customs: CustomsInfo) => {
-    onCustomsUpdate(shipment.id, customs);
+  const handleCustomsSubmit = (customs: any) => {
+    // Convert the modal's customs format to our shipping CustomsInfo format
+    const customsInfo: CustomsInfo = {
+      eel_pfc: customs.eel_pfc,
+      customs_certify: customs.customs_certify,
+      customs_signer: customs.customs_signer,
+      contents_type: customs.contents_type as 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other',
+      restriction_type: customs.restriction_type as 'none' | 'other' | 'quarantine' | 'sanitary_phytosanitary_inspection',
+      non_delivery_option: customs.non_delivery_option as 'return' | 'abandon',
+      customs_items: customs.customs_items
+    };
+    
+    onCustomsUpdate(shipment.id, customsInfo);
     setHasCustomsData(true);
     setIsModalOpen(false);
   };
@@ -51,7 +62,13 @@ const CustomsClearanceButton: React.FC<CustomsClearanceButtonProps> = ({
         onSubmit={handleCustomsSubmit}
         fromCountry="US"
         toCountry={shipment.details?.to_address?.country || ""}
-        initialData={shipment.details?.customs_info}
+        initialData={shipment.details?.customs_info ? {
+          contents_type: shipment.details.customs_info.contents_type || 'merchandise',
+          customs_certify: shipment.details.customs_info.customs_certify || true,
+          customs_signer: shipment.details.customs_info.customs_signer || '',
+          non_delivery_option: shipment.details.customs_info.non_delivery_option || 'return',
+          customs_items: shipment.details.customs_info.customs_items || []
+        } : undefined}
       />
     </>
   );

@@ -13,20 +13,26 @@ import { displayWeightInPounds } from '@/utils/weightConversion';
 
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
+  isFetchingRates?: boolean;
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRemoveShipment: (shipmentId: string) => void;
   onEditShipment: (shipmentId: string, updates: Partial<BulkShipment>) => void;
   onDownloadSingleLabel: (shipment: BulkShipment) => void;
   onEmailLabels: (shipments: BulkShipment[]) => void;
+  onRefreshRates?: (shipmentId: string) => Promise<void>;
+  onAIAnalysis?: (shipment?: any) => void;
 }
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   shipments,
+  isFetchingRates,
   onSelectRate,
   onRemoveShipment,
   onEditShipment,
   onDownloadSingleLabel,
-  onEmailLabels
+  onEmailLabels,
+  onRefreshRates,
+  onAIAnalysis
 }) => {
   const handleCustomsUpdate = (shipmentId: string, customsInfo: any) => {
     onEditShipment(shipmentId, {
