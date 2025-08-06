@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -20,7 +19,6 @@ import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
-
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
@@ -34,7 +32,6 @@ const BulkUpload: React.FC = () => {
     completed: 0,
     failed: 0
   });
-
   const {
     file,
     isUploading,
@@ -157,7 +154,6 @@ const BulkUpload: React.FC = () => {
     console.error("Upload failed in BulkUpload component:", error);
   };
   const processedShipmentsCount = results?.processedShipments?.length || 0;
-
   const handleDownloadLabelsClick = async () => {
     if (!results?.processedShipments?.length) {
       toast.error('No shipments available for label creation');
@@ -211,26 +207,9 @@ const BulkUpload: React.FC = () => {
       toast.error('Failed to create labels');
     }
   };
-
   const handlePaymentSuccess = () => {
     toast.success('Payment successful! Labels are now available for download.');
   };
-
-  // Wrapper functions to match expected signatures
-  const handleSingleLabelDownload = (shipment: BulkShipment) => {
-    handleDownloadSingleLabel(shipment.id);
-  };
-
-  const handleBulkEmailLabels = (shipments: BulkShipment[]) => {
-    // For now, we'll use the first shipment's email if available
-    const email = shipments[0]?.customer_email || '';
-    if (email) {
-      handleEmailLabels(email);
-    } else {
-      toast.error('No email address found for selected shipments');
-    }
-  };
-
   return <>
       <div className={`min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 transition-all duration-300 ${aiPanelOpen ? 'mr-96' : ''}`}>
         {/* Progress Bar */}
@@ -286,22 +265,12 @@ const BulkUpload: React.FC = () => {
                   }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
                     </div>
                     
-                    <BulkShipmentsList 
-                      shipments={filteredShipments} 
-                      isFetchingRates={isFetchingRates} 
-                      onSelectRate={handleSelectRate} 
-                      onRemoveShipment={handleRemoveShipment} 
-                      onEditShipment={(shipmentId: string, details: any) => {
-                        const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
-                        if (shipment) {
-                          handleEditShipment(shipment);
-                        }
-                      }} 
-                      onRefreshRates={handleRefreshRates} 
-                      onAIAnalysis={handleAIAnalysis}
-                      onDownloadSingleLabel={handleSingleLabelDownload}
-                      onEmailLabels={handleBulkEmailLabels}
-                    />
+                    <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, details: any) => {
+                  const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+                  if (shipment) {
+                    handleEditShipment(shipment);
+                  }
+                }} onRefreshRates={handleRefreshRates} onAIAnalysis={handleAIAnalysis} />
                   </div>
                   
                   {processedShipmentsCount > 0 && <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
@@ -396,5 +365,4 @@ const BulkUpload: React.FC = () => {
       {results?.bulk_label_pdf_url && results.batchResult && <PrintPreview isOpenProp={showPrintPreview} onOpenChangeProp={setShowPrintPreview} labelUrl={results.bulk_label_pdf_url} trackingCode={null} isBatchPreview={true} batchResult={results.batchResult} />}
     </>;
 };
-
 export default BulkUpload;
