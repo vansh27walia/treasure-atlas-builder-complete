@@ -22,7 +22,7 @@ interface LocalCustomsInfo {
     hs_tariff_number?: string;
     origin_country: string;
   }>;
-  eel_pfc?: string;
+  eel_pfc: string; // Made required to match CustomsData
   phone_number: string; // Added required phone_number field
 }
 

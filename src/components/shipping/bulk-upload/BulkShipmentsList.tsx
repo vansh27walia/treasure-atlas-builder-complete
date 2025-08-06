@@ -39,6 +39,7 @@ interface LocalCustomsInfo {
     origin_country: string;
   }>;
   eel_pfc?: string;
+  phone_number: string; // Added required phone_number field
 }
 
 interface BulkShipmentsListProps {
