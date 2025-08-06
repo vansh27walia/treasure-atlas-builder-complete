@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -217,7 +218,7 @@ const BulkUpload: React.FC = () => {
 
   // Wrapper functions to match expected signatures
   const handleSingleLabelDownload = (shipment: BulkShipment) => {
-    handleDownloadSingleLabel(shipment);
+    handleDownloadSingleLabel(shipment.id);
   };
 
   const handleBulkEmailLabels = (shipments: BulkShipment[]) => {
