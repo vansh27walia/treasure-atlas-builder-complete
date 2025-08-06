@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument } from "npm:pdf-lib";
@@ -165,12 +164,71 @@ const convertPngToPdfLocally = async (pngBytes: Uint8Array): Promise<Uint8Array>
   }
 };
 
-const purchaseEasyPostLabel = async (shipmentId: string, rateId: string): Promise<any> => {
+const attachCustomsInfoToShipment = async (shipmentId: string, customsInfo: any): Promise<void> => {
   const apiKey = Deno.env.get('EASYPOST_API_KEY');
   if (!apiKey) {
     throw new Error('EasyPost API key not configured');
   }
+
   try {
+    console.log(`Attaching customs info to shipment ${shipmentId}`);
+    
+    // Create customs_info object according to EasyPost format
+    const customsInfoPayload = {
+      customs_info: {
+        contents_type: customsInfo.contents_type || 'merchandise',
+        contents_explanation: customsInfo.contents_explanation || '',
+        customs_certify: customsInfo.customs_certify || true,
+        customs_signer: customsInfo.customs_signer || 'Shipper',
+        non_delivery_option: customsInfo.non_delivery_option || 'return',
+        restriction_type: customsInfo.restriction_type || 'none',
+        restriction_comments: customsInfo.restriction_comments || '',
+        eel_pfc: customsInfo.eel_pfc || '',
+        customs_items: customsInfo.customs_items?.map((item: any) => ({
+          description: item.description,
+          quantity: item.quantity,
+          value: item.value,
+          weight: item.weight,
+          hs_tariff_number: item.hs_tariff_number || '',
+          origin_country: item.origin_country || 'US'
+        })) || []
+      }
+    };
+
+    const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(customsInfoPayload)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error(`Failed to attach customs info to shipment ${shipmentId}:`, errorData);
+      throw new Error(`Customs info attachment failed: ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    console.log(`✅ Successfully attached customs info to shipment ${shipmentId}`);
+  } catch (error) {
+    console.error(`Error attaching customs info to shipment ${shipmentId}:`, error);
+    throw error;
+  }
+};
+
+const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, customsInfo?: any): Promise<any> => {
+  const apiKey = Deno.env.get('EASYPOST_API_KEY');
+  if (!apiKey) {
+    throw new Error('EasyPost API key not configured');
+  }
+
+  try {
+    // If customs info is provided, attach it to the shipment first
+    if (customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0) {
+      await attachCustomsInfoToShipment(shipmentId, customsInfo);
+    }
+
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
     const buyResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
       method: 'POST',
@@ -519,7 +577,19 @@ serve(async (req: Request) => {
           throw new Error('Missing EasyPost shipment ID or rate ID for label generation');
         }
 
-        const easypostLabelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId);
+        // Check if shipment is international and has customs info
+        const isInternational = shipment.details?.to_country && 
+          shipment.details.to_country.toUpperCase() !== 'US' && 
+          shipment.details.to_country.toUpperCase() !== 'USA' && 
+          shipment.details.to_country.toUpperCase() !== 'UNITED STATES';
+
+        let customsInfo = null;
+        if (isInternational && shipment.customsInfo) {
+          customsInfo = shipment.customsInfo;
+          console.log(`Using customs info for international shipment ${shipment.id} to ${shipment.details.to_country}`);
+        }
+
+        const easypostLabelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId, customsInfo);
         const labelWithStoredUrls = await processAndStoreLabel(easypostLabelData);
 
         const shipmentRecord = {
@@ -537,7 +607,7 @@ serve(async (req: Request) => {
           currency: labelWithStoredUrls.selected_rate?.currency || 'USD',
           label_format: labelOptions.label_format || (labelWithStoredUrls.label_urls['pdf'] ? "PDF" : (labelWithStoredUrls.label_urls['png'] ? "PNG" : "UNKNOWN")),
           label_size: labelOptions.label_size || "4x6",
-          is_international: false,
+          is_international: isInternational,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };

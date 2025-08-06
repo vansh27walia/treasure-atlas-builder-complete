@@ -8,6 +8,59 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const attachCustomsInfoToShipment = async (shipmentId: string, customsInfo: any): Promise<void> => {
+  const apiKey = Deno.env.get('EASYPOST_API_KEY');
+  if (!apiKey) {
+    throw new Error('EasyPost API key not configured');
+  }
+
+  try {
+    console.log(`Attaching customs info to shipment ${shipmentId}`);
+    
+    // Create customs_info object according to EasyPost format
+    const customsInfoPayload = {
+      customs_info: {
+        contents_type: customsInfo.contents_type || 'merchandise',
+        contents_explanation: customsInfo.contents_explanation || '',
+        customs_certify: customsInfo.customs_certify || true,
+        customs_signer: customsInfo.customs_signer || 'Shipper',
+        non_delivery_option: customsInfo.non_delivery_option || 'return',
+        restriction_type: customsInfo.restriction_type || 'none',
+        restriction_comments: customsInfo.restriction_comments || '',
+        eel_pfc: customsInfo.eel_pfc || '',
+        customs_items: customsInfo.customs_items?.map((item: any) => ({
+          description: item.description,
+          quantity: item.quantity,
+          value: item.value,
+          weight: item.weight,
+          hs_tariff_number: item.hs_tariff_number || '',
+          origin_country: item.origin_country || 'US'
+        })) || []
+      }
+    };
+
+    const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(customsInfoPayload)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error(`Failed to attach customs info to shipment ${shipmentId}:`, errorData);
+      throw new Error(`Customs info attachment failed: ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    console.log(`✅ Successfully attached customs info to shipment ${shipmentId}`);
+  } catch (error) {
+    console.error(`Error attaching customs info to shipment ${shipmentId}:`, error);
+    throw error;
+  }
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -58,7 +111,7 @@ serve(async (req) => {
 
     // Parse the request body
     const requestData = await req.json();
-    const { shipmentId, rateId, options = {} } = requestData;
+    const { shipmentId, rateId, options = {}, customsInfo } = requestData;
     
     if (!shipmentId || !rateId) {
       console.error('Missing required parameters', { shipmentId, rateId });
@@ -69,6 +122,19 @@ serve(async (req) => {
     }
 
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
+
+    // If customs info is provided, attach it to the shipment first
+    if (customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0) {
+      try {
+        await attachCustomsInfoToShipment(shipmentId, customsInfo);
+      } catch (customsError) {
+        console.error('Failed to attach customs info:', customsError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to attach customs information', details: customsError.message }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        );
+      }
+    }
 
     // Buy the label with EasyPost API
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}/buy`, {
@@ -130,6 +196,9 @@ serve(async (req) => {
       }
     }
 
+    // Determine if shipment is international
+    const isInternational = customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0;
+
     // Save the shipping record in the database with user_id
     const shipmentRecord = {
       user_id: user.id,
@@ -146,7 +215,7 @@ serve(async (req) => {
       currency: data.selected_rate?.currency || 'USD',
       label_format: options.label_format || "PDF",
       label_size: options.label_size || "4x6",
-      is_international: false,
+      is_international: isInternational,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
