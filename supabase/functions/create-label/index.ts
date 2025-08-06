@@ -2,10 +2,107 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
+const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 10, etc.
+
 // Set up CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// Apply configurable markup to rates
+const applyRateMarkup = (originalRate: number): number => {
+  const markupAmount = originalRate * (RATE_MARKUP_PERCENTAGE / 100);
+  const finalRate = originalRate + markupAmount;
+  
+  console.log(`Rate markup applied: Original: $${originalRate.toFixed(2)}, Markup (${RATE_MARKUP_PERCENTAGE}%): $${markupAmount.toFixed(2)}, Final: $${finalRate.toFixed(2)}`);
+  
+  return finalRate;
+};
+
+// Validate and set defaults for customs data
+const validateCustomsData = (customsData: any) => {
+  if (!customsData || !customsData.customs_items || customsData.customs_items.length === 0) {
+    throw new Error('Customs items are required for international shipments');
+  }
+
+  // Set defaults for required fields
+  const validatedCustomsData = {
+    contents_type: customsData.contents_type || 'merchandise',
+    contents_explanation: customsData.contents_explanation || '',
+    customs_certify: customsData.customs_certify !== false, // default to true
+    customs_signer: customsData.customs_signer || 'Shipper',
+    non_delivery_option: customsData.non_delivery_option || 'return',
+    restriction_type: customsData.restriction_type || 'none',
+    restriction_comments: customsData.restriction_comments || '',
+    eel_pfc: customsData.eel_pfc || 'NOEEI 30.37(a)',
+    phone_number: customsData.phone_number || '',
+    customs_items: customsData.customs_items.map((item: any) => ({
+      description: item.description || 'Item',
+      quantity: parseInt(item.quantity) || 1,
+      weight: parseFloat(item.weight) || 1,
+      value: parseFloat(item.value) || 1,
+      hs_tariff_number: item.hs_tariff_number || '',
+      origin_country: item.origin_country || 'US'
+    }))
+  };
+
+  // Validate required fields
+  validatedCustomsData.customs_items.forEach((item, index) => {
+    if (!item.description || item.description.trim() === '') {
+      throw new Error(`Item ${index + 1}: Description is required`);
+    }
+    if (item.value <= 0) {
+      throw new Error(`Item ${index + 1}: Value must be greater than 0`);
+    }
+    if (item.weight <= 0) {
+      throw new Error(`Item ${index + 1}: Weight must be greater than 0`);
+    }
+  });
+
+  if (!validatedCustomsData.customs_signer || validatedCustomsData.customs_signer.trim() === '') {
+    throw new Error('Customs signer name is required');
+  }
+
+  if (!validatedCustomsData.phone_number || validatedCustomsData.phone_number.trim() === '') {
+    throw new Error('Phone number is required for international shipments');
+  }
+
+  return validatedCustomsData;
+};
+
+// Validate that return address has phone number for international shipments
+const validateReturnAddressPhone = async (shipmentId: string) => {
+  const apiKey = Deno.env.get('EASYPOST_API_KEY');
+  if (!apiKey) {
+    throw new Error('EasyPost API key not configured');
+  }
+
+  try {
+    // Get shipment details to check from_address
+    const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to retrieve shipment details');
+    }
+
+    const shipment = await response.json();
+    
+    if (!shipment.from_address || !shipment.from_address.phone) {
+      throw new Error('Sender phone number is required for international shipments. Please add a phone number to your return address.');
+    }
+
+    console.log(`✅ Return address phone validation passed for shipment ${shipmentId}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Return address phone validation failed for shipment ${shipmentId}:`, error);
+    throw error;
+  }
 };
 
 // Create CustomsInfo Object in EasyPost
@@ -16,27 +113,13 @@ const createCustomsInfoInEasyPost = async (customsData: any): Promise<string> =>
   }
 
   try {
-    console.log('Creating CustomsInfo object in EasyPost:', JSON.stringify(customsData, null, 2));
+    // Validate and set defaults for customs data
+    const validatedCustomsData = validateCustomsData(customsData);
+    
+    console.log('Creating CustomsInfo object in EasyPost with validated data:', JSON.stringify(validatedCustomsData, null, 2));
     
     const customsInfoPayload = {
-      customs_info: {
-        customs_certify: customsData.customs_certify !== false,
-        customs_signer: customsData.customs_signer || 'Shipper',
-        contents_type: customsData.contents_type || 'merchandise',
-        contents_explanation: customsData.contents_explanation || '',
-        eel_pfc: customsData.eel_pfc || 'NOEEI 30.37(a)',
-        non_delivery_option: customsData.non_delivery_option || 'return',
-        restriction_type: customsData.restriction_type || 'none',
-        restriction_comments: customsData.restriction_comments || '',
-        customs_items: customsData.customs_items?.map((item: any) => ({
-          description: item.description || 'Item',
-          quantity: parseInt(item.quantity) || 1,
-          weight: parseFloat(item.weight) || 1,
-          value: parseFloat(item.value) || 1,
-          hs_tariff_number: item.hs_tariff_number || '',
-          origin_country: item.origin_country || 'US'
-        })) || []
-      }
+      customs_info: validatedCustomsData
     };
 
     console.log('Sending CustomsInfo payload to EasyPost:', JSON.stringify(customsInfoPayload, null, 2));
@@ -75,17 +158,19 @@ const attachCustomsInfoToShipment = async (shipmentId: string, customsInfoId: st
   try {
     console.log(`Attaching CustomsInfo ${customsInfoId} to shipment ${shipmentId}`);
     
+    const shipmentUpdatePayload = {
+      customs_info: {
+        id: customsInfoId
+      }
+    };
+
     const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        customs_info: {
-          id: customsInfoId
-        }
-      })
+      body: JSON.stringify(shipmentUpdatePayload)
     });
 
     if (!response.ok) {
@@ -103,6 +188,28 @@ const attachCustomsInfoToShipment = async (shipmentId: string, customsInfoId: st
   }
 };
 
+// Main customs processing workflow
+const processCustomsForInternationalShipment = async (shipmentId: string, customsData: any) => {
+  try {
+    console.log(`🌍 Starting international customs processing for shipment ${shipmentId}`);
+    
+    // Step 1: Validate return address has phone number
+    await validateReturnAddressPhone(shipmentId);
+    
+    // Step 2: Create CustomsInfo object with validated data
+    const customsInfoId = await createCustomsInfoInEasyPost(customsData);
+    
+    // Step 3: Attach CustomsInfo to shipment
+    await attachCustomsInfoToShipment(shipmentId, customsInfoId);
+    
+    console.log(`✅ International customs processing completed for shipment ${shipmentId}`);
+    return { success: true, customsInfoId };
+  } catch (error) {
+    console.error(`❌ International customs processing failed for shipment ${shipmentId}:`, error);
+    throw error;
+  }
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -110,6 +217,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log(`🎛️ Using rate markup: ${RATE_MARKUP_PERCENTAGE}%`);
+
     // Get the user's JWT token from the Authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -169,9 +278,7 @@ serve(async (req) => {
     if (customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0) {
       try {
         console.log(`🌍 Processing international customs for shipment ${shipmentId}`);
-        const customsInfoId = await createCustomsInfoInEasyPost(customsInfo);
-        await attachCustomsInfoToShipment(shipmentId, customsInfoId);
-        console.log(`✅ Successfully processed customs for shipment ${shipmentId}`);
+        await processCustomsForInternationalShipment(shipmentId, customsInfo);
       } catch (customsError) {
         console.error('❌ Failed to process international customs:', customsError);
         return new Response(
@@ -206,6 +313,10 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: response.status }
       );
     }
+
+    // Apply markup to the charged rate for billing purposes
+    const originalRate = parseFloat(data.selected_rate?.rate || '0');
+    const markedUpRate = applyRateMarkup(originalRate);
 
     // Save label to Supabase Storage
     let storedLabelUrl = data.postage_label?.label_url;
@@ -247,7 +358,7 @@ serve(async (req) => {
     // Determine if shipment is international
     const isInternational = customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0;
 
-    // Save the shipping record in the database with user_id
+    // Save the shipping record in the database with user_id and marked up rate
     const shipmentRecord = {
       user_id: user.id,
       shipment_id: shipmentId,
@@ -258,12 +369,13 @@ serve(async (req) => {
       carrier: data.selected_rate?.carrier,
       service: data.selected_rate?.service,
       delivery_days: data.selected_rate?.delivery_days || null,
-      charged_rate: data.selected_rate?.rate || null,
-      easypost_rate: data.selected_rate?.rate || null,
+      charged_rate: markedUpRate.toFixed(2), // Use marked up rate for billing
+      easypost_rate: originalRate.toFixed(2), // Store original EasyPost rate for reference
       currency: data.selected_rate?.currency || 'USD',
       label_format: options.label_format || "PDF",
       label_size: options.label_size || "4x6",
       is_international: isInternational,
+      markup_percentage: RATE_MARKUP_PERCENTAGE,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -276,7 +388,7 @@ serve(async (req) => {
       console.error('Error saving shipment record:', dbError);
       // Continue anyway as we already have the label
     } else {
-      console.log('Successfully saved tracking record for user:', user.id);
+      console.log(`Successfully saved tracking record for user: ${user.id} with ${RATE_MARKUP_PERCENTAGE}% markup`);
     }
 
     // Also save to tracking_records table
@@ -305,12 +417,15 @@ serve(async (req) => {
       }
     }
 
-    // Return the label information with Supabase URL
+    // Return the label information with Supabase URL and markup info
     return new Response(
       JSON.stringify({
         labelUrl: storedLabelUrl,
         trackingCode: data.tracking_code,
         shipmentId: data.id,
+        chargedRate: markedUpRate.toFixed(2),
+        originalRate: originalRate.toFixed(2),
+        markupApplied: `${RATE_MARKUP_PERCENTAGE}%`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

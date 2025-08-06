@@ -2,9 +2,22 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument } from "npm:pdf-lib";
 
+// 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
+const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 10, etc.
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+};
+
+// Apply configurable markup to rates
+const applyRateMarkup = (originalRate: number): number => {
+  const markupAmount = originalRate * (RATE_MARKUP_PERCENTAGE / 100);
+  const finalRate = originalRate + markupAmount;
+  
+  console.log(`Rate markup applied: Original: $${originalRate.toFixed(2)}, Markup (${RATE_MARKUP_PERCENTAGE}%): $${markupAmount.toFixed(2)}, Final: $${finalRate.toFixed(2)}`);
+  
+  return finalRate;
 };
 
 // Validate and set defaults for customs data
@@ -23,6 +36,7 @@ const validateCustomsData = (customsData: any) => {
     restriction_type: customsData.restriction_type || 'none',
     restriction_comments: customsData.restriction_comments || '',
     eel_pfc: customsData.eel_pfc || 'NOEEI 30.37(a)',
+    phone_number: customsData.phone_number || '',
     customs_items: customsData.customs_items.map((item: any) => ({
       description: item.description || 'Item',
       quantity: parseInt(item.quantity) || 1,
@@ -48,6 +62,10 @@ const validateCustomsData = (customsData: any) => {
 
   if (!validatedCustomsData.customs_signer || validatedCustomsData.customs_signer.trim() === '') {
     throw new Error('Customs signer name is required');
+  }
+
+  if (!validatedCustomsData.phone_number || validatedCustomsData.phone_number.trim() === '') {
+    throw new Error('Phone number is required for international shipments');
   }
 
   return validatedCustomsData;
@@ -644,6 +662,8 @@ serve(async (req: Request) => {
   }
 
   try {
+    console.log(`🎛️ Using rate markup: ${RATE_MARKUP_PERCENTAGE}%`);
+
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({
@@ -695,7 +715,7 @@ serve(async (req: Request) => {
       });
     }
 
-    console.log(`Processing ${shipments.length} shipments for label creation for user: ${user.id}`);
+    console.log(`Processing ${shipments.length} shipments for label creation with ${RATE_MARKUP_PERCENTAGE}% markup for user: ${user.id}`);
 
     const processedLabels: any[] = [];
     const failedLabels: any[] = [];
@@ -724,6 +744,10 @@ serve(async (req: Request) => {
         const easypostLabelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId, customsInfo);
         const labelWithStoredUrls = await processAndStoreLabel(easypostLabelData);
 
+        // Apply markup to the rate for billing
+        const originalRate = parseFloat(labelWithStoredUrls.selected_rate?.rate || '0');
+        const markedUpRate = applyRateMarkup(originalRate);
+
         const shipmentRecord = {
           user_id: user.id,
           shipment_id: shipment.easypost_id,
@@ -734,12 +758,13 @@ serve(async (req: Request) => {
           carrier: labelWithStoredUrls.selected_rate?.carrier,
           service: labelWithStoredUrls.selected_rate?.service,
           delivery_days: labelWithStoredUrls.selected_rate?.delivery_days || null,
-          charged_rate: labelWithStoredUrls.selected_rate?.rate || null,
-          easypost_rate: labelWithStoredUrls.selected_rate?.rate || null,
+          charged_rate: markedUpRate.toFixed(2), // Use marked up rate for billing
+          easypost_rate: originalRate.toFixed(2), // Store original EasyPost rate for reference
           currency: labelWithStoredUrls.selected_rate?.currency || 'USD',
           label_format: labelOptions.label_format || (labelWithStoredUrls.label_urls['pdf'] ? "PDF" : (labelWithStoredUrls.label_urls['png'] ? "PNG" : "UNKNOWN")),
           label_size: labelOptions.label_size || "4x6",
           is_international: isInternational,
+          markup_percentage: RATE_MARKUP_PERCENTAGE,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
@@ -755,7 +780,7 @@ serve(async (req: Request) => {
           });
           continue;
         } else {
-          console.log(`Successfully saved tracking record for shipment ${shipment.id} to DB.`);
+          console.log(`Successfully saved tracking record for shipment ${shipment.id} with ${RATE_MARKUP_PERCENTAGE}% markup to DB.`);
         }
 
         const processedLabel = {
@@ -765,10 +790,13 @@ serve(async (req: Request) => {
           customer_name: labelWithStoredUrls.to_address?.name || shipment.details?.to_name || shipment.recipient,
           customer_address: `${labelWithStoredUrls.to_address?.street1 || shipment.details?.to_street1}, ${labelWithStoredUrls.to_address?.city || shipment.details?.to_city}, ${labelWithStoredUrls.to_address?.state || shipment.details?.to_state} ${labelWithStoredUrls.to_address?.zip || shipment.details?.to_zip}`,
           stored_label_url: labelWithStoredUrls.stored_label_url,
+          charged_rate: markedUpRate.toFixed(2),
+          original_rate: originalRate.toFixed(2),
+          markup_applied: `${RATE_MARKUP_PERCENTAGE}%`
         };
         processedLabels.push(processedLabel);
 
-        console.log(`✅ Successfully processed shipment ${shipmentIndex}/${shipments.length}: ${shipment.id}`);
+        console.log(`✅ Successfully processed shipment ${shipmentIndex}/${shipments.length}: ${shipment.id} with ${RATE_MARKUP_PERCENTAGE}% markup`);
 
         if (i < shipments.length - 1) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -797,7 +825,7 @@ serve(async (req: Request) => {
       }
     }
 
-    console.log(`✅ Bulk processing complete for user ${user.id}: ${processedLabels.length} successful, ${failedLabels.length} failed out of ${shipments.length} total`);
+    console.log(`✅ Bulk processing complete for user ${user.id} with ${RATE_MARKUP_PERCENTAGE}% markup: ${processedLabels.length} successful, ${failedLabels.length} failed out of ${shipments.length} total`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -807,7 +835,8 @@ serve(async (req: Request) => {
       total: shipments.length,
       successful: processedLabels.length,
       failed: failedLabels.length,
-      message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with Supabase Storage and tracking. Check 'batchResult' for consolidated labels if requested.`
+      markupApplied: `${RATE_MARKUP_PERCENTAGE}%`,
+      message: `Successfully created ${processedLabels.length} out of ${shipments.length} labels with ${RATE_MARKUP_PERCENTAGE}% markup and Supabase Storage tracking. Check 'batchResult' for consolidated labels if requested.`
     }), {
       headers: {
         ...corsHeaders,

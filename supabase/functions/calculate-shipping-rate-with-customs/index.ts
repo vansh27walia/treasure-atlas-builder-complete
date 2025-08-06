@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
-const RATE_MARKUP_PERCENTAGE = 0.05; // 5% markup - You can change this to 0.06 (6%) or any other percentage
+const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 10, etc.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,10 +23,11 @@ interface CustomsData {
   customs_certify: boolean;
   customs_signer: string;
   contents_type: string;
+  contents_explanation?: string;
   eel_pfc: string;
   non_delivery_option: string;
   restriction_type: string;
-  restriction_comments?: string;
+  restriction_comments: string;
   customs_items: CustomsItem[];
   phone_number: string;
 }
@@ -40,10 +41,10 @@ interface ShippingRequest {
 
 // Apply configurable markup to rates - internal billing logic
 const applyRateMarkup = (originalRate: number): number => {
-  const markupAmount = originalRate * RATE_MARKUP_PERCENTAGE;
+  const markupAmount = originalRate * (RATE_MARKUP_PERCENTAGE / 100);
   const finalRate = originalRate + markupAmount;
   
-  console.log(`Rate markup applied: Original: $${originalRate.toFixed(2)}, Markup (${(RATE_MARKUP_PERCENTAGE * 100)}%): $${markupAmount.toFixed(2)}, Final: $${finalRate.toFixed(2)}`);
+  console.log(`Rate markup applied: Original: $${originalRate.toFixed(2)}, Markup (${RATE_MARKUP_PERCENTAGE}%): $${markupAmount.toFixed(2)}, Final: $${finalRate.toFixed(2)}`);
   
   return finalRate;
 };
@@ -77,6 +78,14 @@ const validateCustomsData = (customsData: CustomsData) => {
         errors.push(`Item ${index + 1}: Quantity must be greater than 0`);
       }
     });
+  }
+
+  if (customsData.contents_type === 'other' && !customsData.contents_explanation?.trim()) {
+    errors.push('Contents explanation is required when contents type is "other"');
+  }
+
+  if (customsData.restriction_type !== 'none' && !customsData.restriction_comments?.trim()) {
+    errors.push('Restriction comments are required when restriction type is not "none"');
   }
 
   return errors;
@@ -159,7 +168,7 @@ const fetchShippingRates = async (requestData: ShippingRequest) => {
         list_rate: rate.list_rate, // Keep original list rate for discount calculation
         retail_rate: rate.retail_rate, // Keep original retail rate
         shipment_id: shipmentData.id,
-        markup_percentage: RATE_MARKUP_PERCENTAGE * 100 // Include markup info for transparency
+        markup_percentage: RATE_MARKUP_PERCENTAGE // Include markup info for transparency
       };
     }) || [];
 
@@ -167,7 +176,7 @@ const fetchShippingRates = async (requestData: ShippingRequest) => {
       rates: processedRates,
       shipment_id: shipmentData.id,
       customs_validated: !!requestData.customsData,
-      markup_applied: `${(RATE_MARKUP_PERCENTAGE * 100).toFixed(1)}%`
+      markup_applied: `${RATE_MARKUP_PERCENTAGE}%`
     };
 
   } catch (error) {
@@ -183,7 +192,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log(`🎛️ Using rate markup: ${(RATE_MARKUP_PERCENTAGE * 100)}%`);
+    console.log(`🎛️ Using rate markup: ${RATE_MARKUP_PERCENTAGE}%`);
 
     // Get the user's JWT token from the Authorization header
     const authHeader = req.headers.get('Authorization');
@@ -238,12 +247,12 @@ serve(async (req) => {
     // Fetch shipping rates with markup applied
     const rateData = await fetchShippingRates(requestData);
 
-    console.log(`Successfully processed ${rateData.rates.length} rates with ${(RATE_MARKUP_PERCENTAGE * 100)}% markup for user ${user.id}`);
+    console.log(`Successfully processed ${rateData.rates.length} rates with ${RATE_MARKUP_PERCENTAGE}% markup for user ${user.id}`);
 
     return new Response(JSON.stringify({
       success: true,
       ...rateData,
-      message: `Shipping rates calculated successfully with ${(RATE_MARKUP_PERCENTAGE * 100)}% markup applied`
+      message: `Shipping rates calculated successfully with ${RATE_MARKUP_PERCENTAGE}% markup applied`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

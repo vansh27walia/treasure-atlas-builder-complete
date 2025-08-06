@@ -114,18 +114,16 @@ export interface CustomsItem {
   value: number;
   weight: number; // Weight in ounces
   hs_tariff_number?: string;
-  origin_country: string;
+  origin_country?: string;
 }
 
 export interface CustomsInfo {
-  customs_certify: boolean;
-  customs_signer: string;
-  contents_type: 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other';
-  contents_explanation?: string;
-  eel_pfc: string;
-  non_delivery_option: 'return' | 'abandon';
-  restriction_type: 'none' | 'other' | 'quantitative' | 'unconditional';
-  restriction_comments?: string;
+  eel_pfc?: string; // E.g., "NOEEI 30.37(a)"
+  customs_certify?: boolean;
+  customs_signer?: string;
+  contents_type?: 'merchandise' | 'documents' | 'gift' | 'returned_goods' | 'sample' | 'other';
+  restriction_type?: 'none' | 'other' | 'quarantine' | 'sanitary_phytosanitary_inspection';
+  non_delivery_option?: 'return' | 'abandon';
   customs_items: CustomsItem[];
 }
 
@@ -155,7 +153,6 @@ export interface BulkShipment {
   rate?: number; // Populated after rate selection
   carrier?: string; // Populated after rate selection
   service?: string; // Populated after rate selection
-  customs_info?: CustomsInfo; // Add customs info for international shipments
   [key: string]: any; // Allow other dynamic fields
 }
 
