@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
+import { BulkUploadResult, BulkShipment, BatchResult, CustomsInfo } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
@@ -124,6 +124,33 @@ export const useBulkUpload = () => {
     toast.success('Payment successful! Creating labels automatically...');
   };
 
+  // Add customs save handler
+  const handleCustomsSave = (shipmentId: string, customsInfo: CustomsInfo) => {
+    if (!results) return;
+
+    const updatedShipments = results.processedShipments.map(shipment => {
+      if (shipment.id === shipmentId) {
+        return {
+          ...shipment,
+          customs_info: customsInfo,
+          details: {
+            ...shipment.details,
+            customs_info: customsInfo
+          }
+        };
+      }
+      return shipment;
+    });
+
+    const updatedResults = {
+      ...results,
+      processedShipments: updatedShipments
+    };
+
+    updateResults(updatedResults);
+    toast.success('Customs information saved successfully');
+  };
+
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
       toast.error('Missing shipments or pickup address');
@@ -144,6 +171,18 @@ export const useBulkUpload = () => {
     
     if (shipmentsToProcess.length === 0) {
       toast.error('No shipments with selected rates found');
+      return;
+    }
+
+    // Check for international shipments without customs info
+    const internationalShipments = shipmentsToProcess.filter(s => 
+      s.details?.to_address?.country && s.details.to_address.country.toUpperCase() !== 'US'
+    );
+    
+    const missingCustoms = internationalShipments.filter(s => !s.customs_info);
+    
+    if (missingCustoms.length > 0) {
+      toast.error(`${missingCustoms.length} international shipment(s) are missing customs information. Please fill out customs details for all international shipments.`);
       return;
     }
 
@@ -402,6 +441,7 @@ export const useBulkUpload = () => {
     handleRefreshRates,
     handleBulkApplyCarrier,
     handleCreateLabels,
+    handleCustomsSave,
     handleOpenBatchPrintPreview,
     handleClearBatchError,
     batchPrintPreviewModalOpen,
