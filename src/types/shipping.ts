@@ -125,7 +125,6 @@ export interface CustomsInfo {
   restriction_type?: 'none' | 'other' | 'quarantine' | 'sanitary_phytosanitary_inspection';
   non_delivery_option?: 'return' | 'abandon';
   customs_items: CustomsItem[];
-  contents_explanation?: string;
 }
 
 export interface BulkShipment {
@@ -154,7 +153,6 @@ export interface BulkShipment {
   rate?: number; // Populated after rate selection
   carrier?: string; // Populated after rate selection
   service?: string; // Populated after rate selection
-  customs_info?: CustomsInfo; // Add customs info to bulk shipments
   [key: string]: any; // Allow other dynamic fields
 }
 
