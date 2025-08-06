@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -125,7 +124,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
         // Calculate new total cost
         const newTotalCost = updatedShipments.reduce((total, s) => {
           const selectedRate = s.availableRates?.find(rate => rate.id === s.selectedRateId);
-          return total + (parseFloat(selectedRate?.rate || '0') || 0);
+          return total + (parseFloat(selectedRate?.rate?.toString() || '0') || 0);
         }, 0);
 
         updateResults({
@@ -308,9 +307,9 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   </p>
                 </div>
                 <CustomsClearanceButton
-                  shipmentId={shipment.id}
-                  onCustomsInfoUpdate={(customsInfo) => handleCustomsInfoUpdate(shipment.id, customsInfo)}
-                  existingCustomsInfo={shipment.customsInfo}
+                  shipment={shipment}
+                  customsInfo={shipment.customsInfo}
+                  onCustomsInfoSave={(customsInfo) => handleCustomsInfoUpdate(shipment.id, customsInfo)}
                 />
               </div>
             ))}

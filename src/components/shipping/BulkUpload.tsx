@@ -265,12 +265,13 @@ const BulkUpload: React.FC = () => {
                   }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
                     </div>
                     
-                    <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, details: any) => {
-                  const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
-                  if (shipment) {
-                    handleEditShipment(shipment);
-                  }
-                }} onRefreshRates={handleRefreshRates} onAIAnalysis={handleAIAnalysis} />
+                    <BulkShipmentsList 
+                      results={results}
+                      updateResults={(newResults) => {
+                        // Update the results state
+                        // This will be handled by the parent component's state management
+                      }}
+                    />
                   </div>
                   
                   {processedShipmentsCount > 0 && <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
