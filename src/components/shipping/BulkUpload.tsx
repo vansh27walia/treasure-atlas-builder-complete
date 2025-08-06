@@ -156,6 +156,7 @@ const BulkUpload: React.FC = () => {
     console.error("Upload failed in BulkUpload component:", error);
   };
   const processedShipmentsCount = results?.processedShipments?.length || 0;
+
   const handleDownloadLabelsClick = async () => {
     if (!results?.processedShipments?.length) {
       toast.error('No shipments available for label creation');
@@ -209,8 +210,24 @@ const BulkUpload: React.FC = () => {
       toast.error('Failed to create labels');
     }
   };
+
   const handlePaymentSuccess = () => {
     toast.success('Payment successful! Labels are now available for download.');
+  };
+
+  // Wrapper functions to match expected signatures
+  const handleSingleLabelDownload = (shipment: BulkShipment) => {
+    handleDownloadSingleLabel(shipment);
+  };
+
+  const handleBulkEmailLabels = (shipments: BulkShipment[]) => {
+    // For now, we'll use the first shipment's email if available
+    const email = shipments[0]?.customer_email || '';
+    if (email) {
+      handleEmailLabels(email);
+    } else {
+      toast.error('No email address found for selected shipments');
+    }
   };
 
   return <>
@@ -281,8 +298,8 @@ const BulkUpload: React.FC = () => {
                       }} 
                       onRefreshRates={handleRefreshRates} 
                       onAIAnalysis={handleAIAnalysis}
-                      onDownloadSingleLabel={handleDownloadSingleLabel}
-                      onEmailLabels={handleEmailLabels}
+                      onDownloadSingleLabel={handleSingleLabelDownload}
+                      onEmailLabels={handleBulkEmailLabels}
                     />
                   </div>
                   
