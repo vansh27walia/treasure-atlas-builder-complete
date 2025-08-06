@@ -4,11 +4,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, RefreshCw, Trash2, Edit, FileText, AlertCircle } from 'lucide-react';
-import { BulkShipment } from '@/types/shipping';
+import { BulkShipment, CustomsInfo } from '@/types/shipping';
 import RateDisplay from './RateDisplay';
 import EditableShipmentRow from './EditableShipmentRow';
 import CustomsDocumentationModal from '../CustomsDocumentationModal';
-import { CustomsInfo } from '@/types/shipping';
 
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
@@ -78,8 +77,12 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
             {editingShipment === shipment.id ? (
               <EditableShipmentRow
                 shipment={shipment}
-                onSave={(updatedData) => handleSaveEdit(shipment.id, updatedData)}
-                onCancel={handleCancelEdit}
+                onSelectRate={onSelectRate}
+                onRemoveShipment={onRemoveShipment}
+                onEditShipment={(id, updates) => {
+                  onEditShipment(id);
+                  setEditingShipment(null);
+                }}
               />
             ) : (
               <div className="space-y-4">
@@ -134,13 +137,18 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 </div>
 
                 {/* Rates */}
-                {shipment.availableRates && shipment.availableRates.length > 0 && (
-                  <RateDisplay
-                    rates={shipment.availableRates}
-                    selectedRateId={shipment.selectedRateId}
-                    onSelectRate={(rateId) => onSelectRate(shipment.id, rateId)}
-                    isFetching={isFetchingRates}
-                  />
+                {shipment.availableRates && shipment.availableRates.length > 0 && shipment.selectedRateId && (
+                  (() => {
+                    const selectedRate = shipment.availableRates.find(r => r.id === shipment.selectedRateId);
+                    return selectedRate ? (
+                      <RateDisplay
+                        actualRate={selectedRate.rate}
+                        carrier={selectedRate.carrier}
+                        service={selectedRate.service}
+                        deliveryDays={selectedRate.delivery_days}
+                      />
+                    ) : null;
+                  })()
                 )}
 
                 {/* Error Display */}
