@@ -45,13 +45,17 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRateId, setSelectedRateId] = useState<string>('');
 
-  // 5 criteria instead of 3
   const optimizationFilters = [
     { id: 'cheapest', label: 'Cheapest', icon: '💰', color: 'bg-green-100 text-green-800' },
     { id: 'fastest', label: 'Fastest', icon: '⚡', color: 'bg-yellow-100 text-yellow-800' },
     { id: 'balanced', label: 'Most Efficient', icon: '✅', color: 'bg-blue-100 text-blue-800' },
+    { id: 'door-delivery', label: 'Door Delivery', icon: '📦', color: 'bg-purple-100 text-purple-800' },
+    { id: 'po-box', label: 'PO Box Delivery', icon: '📫', color: 'bg-indigo-100 text-indigo-800' },
+    { id: 'eco-friendly', label: 'Eco Friendly', icon: '🌱', color: 'bg-green-100 text-green-800' },
+    { id: '2-day', label: '2-Day Delivery', icon: '🕓', color: 'bg-orange-100 text-orange-800' },
+    { id: 'express', label: 'Express Delivery', icon: '🚀', color: 'bg-red-100 text-red-800' },
     { id: 'most-reliable', label: 'Most Reliable', icon: '🛡️', color: 'bg-gray-100 text-gray-800' },
-    { id: 'best-tracking', label: 'Best Tracking', icon: '📍', color: 'bg-purple-100 text-purple-800' },
+    { id: 'ai-recommended', label: 'AI Recommended', icon: '🧠', color: 'bg-pink-100 text-pink-800' }
   ];
 
   const analyzeRate = async () => {
@@ -76,52 +80,17 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
 
       if (error) {
         console.error('Error analyzing rate:', error);
-        // Create fallback analysis if AI fails
-        setAnalysis(createFallbackAnalysis(selectedRate, allRates));
+        toast.error('Failed to analyze rate');
         return;
       }
 
       setAnalysis(data);
     } catch (error) {
       console.error('Error:', error);
-      // Create fallback analysis
-      setAnalysis(createFallbackAnalysis(selectedRate, allRates));
+      toast.error('Failed to analyze rate');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Create fallback analysis when AI is unavailable
-  const createFallbackAnalysis = (rate: any, rates: any[]): AIAnalysis => {
-    const ratePrice = parseFloat(rate.rate);
-    const allPrices = rates.map(r => parseFloat(r.rate));
-    const minPrice = Math.min(...allPrices);
-    const maxPrice = Math.max(...allPrices);
-    
-    const isCheapest = ratePrice === minPrice;
-    const isFastest = rate.delivery_days === Math.min(...rates.map(r => r.delivery_days || 999));
-    
-    // Calculate scores based on position in price/speed ranges
-    const costScore = Math.round(((maxPrice - ratePrice) / (maxPrice - minPrice)) * 100) || 75;
-    const speedScore = Math.round((1 - (rate.delivery_days - 1) / 7) * 100) || 75;
-    const reliabilityScore = rate.carrier === 'USPS' ? 95 : rate.carrier === 'UPS' ? 90 : 85;
-    
-    return {
-      overallScore: Math.round((costScore + speedScore + reliabilityScore) / 3),
-      reliabilityScore,
-      speedScore,
-      costScore,
-      serviceQualityScore: 80,
-      trackingScore: rate.carrier === 'FedEx' ? 95 : 85,
-      recommendation: `This ${rate.carrier} ${rate.service} option offers ${isCheapest ? 'the best price' : 'good value'} with ${rate.delivery_days}-day delivery.`,
-      labels: {
-        isCheapest,
-        isFastest,
-        isMostReliable: rate.carrier === 'USPS',
-        isMostEfficient: !isCheapest && !isFastest && ratePrice < (minPrice + maxPrice) / 2,
-        isAIRecommended: true
-      }
-    };
   };
 
   const handleRateChange = (rateId: string) => {
@@ -139,38 +108,24 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
     toast.success(`Applied ${filterId} optimization`);
   };
 
-  // Enhanced close behavior
+  // Listen for payment or close events to auto-close sidebar
   useEffect(() => {
-    const handlePaymentStart = () => {
-      console.log('Payment started, closing AI panel');
-      onClose();
-    };
-
     const handlePaymentSuccess = () => {
-      console.log('Payment completed, closing AI panel');
       onClose();
     };
 
-    const handlePaymentCancel = () => {
-      console.log('Payment cancelled, keeping AI panel closed');
-      // Don't reopen automatically on cancel
+    const handlePaymentStart = () => {
+      onClose();
     };
 
-    // Listen for various payment events
-    document.addEventListener('payment-start', handlePaymentStart);
     document.addEventListener('payment-success', handlePaymentSuccess);
-    document.addEventListener('payment-complete', handlePaymentSuccess);
-    document.addEventListener('payment-cancel', handlePaymentCancel);
-    document.addEventListener('payment-cancelled', handlePaymentCancel);
-    document.addEventListener('stripe-payment-start', handlePaymentStart);
+    document.addEventListener('payment-start', handlePaymentStart);
+    document.addEventListener('payment-cancel', handlePaymentSuccess);
 
     return () => {
-      document.removeEventListener('payment-start', handlePaymentStart);
       document.removeEventListener('payment-success', handlePaymentSuccess);
-      document.removeEventListener('payment-complete', handlePaymentSuccess);
-      document.removeEventListener('payment-cancel', handlePaymentCancel);
-      document.removeEventListener('payment-cancelled', handlePaymentCancel);
-      document.removeEventListener('stripe-payment-start', handlePaymentStart);
+      document.removeEventListener('payment-start', handlePaymentStart);
+      document.removeEventListener('payment-cancel', handlePaymentSuccess);
     };
   }, [onClose]);
 
@@ -277,7 +232,7 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                 )}
               </div>
 
-              {/* Detailed Scores - Now 5 criteria */}
+              {/* Detailed Scores */}
               <div className="space-y-2 p-2 bg-gray-50 rounded-lg border">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">
@@ -300,20 +255,6 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                   </div>
                   <span className="font-semibold text-xs">{analysis.costScore}/100</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3 h-3 text-orange-600" />
-                    <span className="text-xs">Service Quality</span>
-                  </div>
-                  <span className="font-semibold text-xs">{analysis.serviceQualityScore}/100</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-red-600" />
-                    <span className="text-xs">Tracking</span>
-                  </div>
-                  <span className="font-semibold text-xs">{analysis.trackingScore}/100</span>
-                </div>
               </div>
 
               {/* AI Recommendation */}
@@ -327,15 +268,16 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
             </div>
           ) : null}
 
-          {/* Quick Change Guide - 5 options */}
+          {/* Quick Change Guide */}
           <div className="space-y-3 border border-gray-200 rounded-lg p-3">
             <h3 className="font-semibold text-gray-900 flex items-center gap-1 text-sm">
               <Zap className="w-3 h-3 text-yellow-500" />
-              Quick Optimization
+              Quick Changes
             </h3>
             
+            {/* Top 3 Quick Change Options */}
             <div className="grid grid-cols-1 gap-1">
-              {optimizationFilters.map((filter) => (
+              {optimizationFilters.slice(0, 3).map((filter) => (
                 <Button
                   key={filter.id}
                   variant="outline"
@@ -347,6 +289,26 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
                 </Button>
               ))}
             </div>
+
+            {/* Expandable More Options */}
+            <details className="group">
+              <summary className="cursor-pointer text-blue-600 font-medium hover:text-blue-800 text-xs">
+                Show More ({optimizationFilters.length - 3} more)
+              </summary>
+              <div className="mt-2 grid grid-cols-1 gap-1">
+                {optimizationFilters.slice(3).map((filter) => (
+                  <Button
+                    key={filter.id}
+                    variant="outline"
+                    className="justify-start h-auto p-2 text-xs border hover:bg-gray-50"
+                    onClick={() => handleQuickChange(filter.id)}
+                  >
+                    <span className="mr-1">{filter.icon}</span>
+                    {filter.label}
+                  </Button>
+                ))}
+              </div>
+            </details>
           </div>
         </CardContent>
       </Card>
