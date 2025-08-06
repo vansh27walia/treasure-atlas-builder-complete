@@ -43,12 +43,13 @@ const BulkUpload = () => {
           onEditShipment={(shipmentId: string, details: any) => {
             if (!results) return;
             
-            const updatedShipments = results.processedShipments.map(s => {
-              return s.id === shipmentId ? { ...s, ...details } : s;
-            });
+            const updatedShipment = {
+              ...results.processedShipments.find(s => s.id === shipmentId),
+              ...details
+            };
             
             // Update results through the hook's update mechanism
-            handleEditShipment(shipmentId, details);
+            handleEditShipment(updatedShipment);
           }}
           onRefreshRates={handleRefreshRates}
           onAIAnalysis={handleCreateLabels}
