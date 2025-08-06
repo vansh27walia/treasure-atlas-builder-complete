@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
+import { BulkUploadResult, BulkShipment, BatchResult, CustomsInfo } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
@@ -42,7 +42,6 @@ export const useBulkUpload = () => {
     setResults(newResults);
     
     if (newResults.uploadStatus && newResults.uploadStatus !== uploadStatus) {
-      // Only update status if it's one of the types compatible with useShipmentUpload's state
       const compatibleStatuses = ['idle', 'uploading', 'success', 'error', 'editing', 'creating-labels'];
       if (compatibleStatuses.includes(newResults.uploadStatus)) {
         setUploadStatus(newResults.uploadStatus as 'idle' | 'uploading' | 'success' | 'error' | 'editing' | 'creating-labels');
@@ -108,20 +107,45 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // Auto-trigger label creation after payment completion
   useEffect(() => {
     if (paymentCompleted && !isCreatingLabels && results && results.processedShipments.length > 0) {
       console.log('Payment completed, auto-starting label creation...');
       handleCreateLabels();
-      setPaymentCompleted(false); // Reset flag
+      setPaymentCompleted(false);
     }
   }, [paymentCompleted, isCreatingLabels, results]);
 
-  // Enhanced payment success handler
   const handlePaymentSuccess = () => {
     console.log('Payment successful, triggering label creation...');
     setPaymentCompleted(true);
     toast.success('Payment successful! Creating labels automatically...');
+  };
+
+  // Handle customs information updates
+  const handleCustomsUpdate = (shipmentId: string, customsInfo: CustomsInfo) => {
+    if (!results) return;
+
+    const updatedShipments = results.processedShipments.map(shipment => {
+      if (shipment.id === shipmentId) {
+        return {
+          ...shipment,
+          customs_info: customsInfo,
+          details: {
+            ...shipment.details,
+            customs_info: customsInfo
+          }
+        };
+      }
+      return shipment;
+    });
+
+    const updatedResults = {
+      ...results,
+      processedShipments: updatedShipments
+    };
+
+    updateResults(updatedResults);
+    console.log(`Updated customs info for shipment ${shipmentId}:`, customsInfo);
   };
 
   const handleCreateLabels = async () => {
@@ -130,7 +154,6 @@ export const useBulkUpload = () => {
       return;
     }
     
-    // Clear any previous batch errors
     setBatchError(null);
     
     let shipmentsArray = [];
@@ -144,6 +167,19 @@ export const useBulkUpload = () => {
     
     if (shipmentsToProcess.length === 0) {
       toast.error('No shipments with selected rates found');
+      return;
+    }
+
+    // Check for international shipments without customs info
+    const internationalShipmentsWithoutCustoms = shipmentsToProcess.filter(shipment => {
+      const fromCountry = pickupAddress?.country || 'US';
+      const toCountry = shipment.details?.to_address?.country || 'US';
+      const isInternational = fromCountry.toUpperCase() !== toCountry.toUpperCase();
+      return isInternational && !shipment.customs_info;
+    });
+
+    if (internationalShipmentsWithoutCustoms.length > 0) {
+      toast.error(`${internationalShipmentsWithoutCustoms.length} international shipment(s) missing customs information. Please add customs details before creating labels.`);
       return;
     }
 
@@ -196,7 +232,6 @@ export const useBulkUpload = () => {
       if (error) {
         console.error('Label creation error from Supabase function:', error);
         
-        // Check if this is a batch halt error
         if (error.message && error.message.includes('Batch halted')) {
           const errorMatch = error.message.match(/Package #(\d+)/);
           const packageNumber = errorMatch ? parseInt(errorMatch[1]) : 1;
@@ -282,7 +317,6 @@ export const useBulkUpload = () => {
 
         const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
         
-        // Process batch result properly
         let frontendBatchResult: BatchResult | null = null;
         if (data.batchResult && data.batchResult.batchId) {
             console.log('Processing batch result:', data.batchResult);
@@ -416,6 +450,7 @@ export const useBulkUpload = () => {
     setSortDirection,
     setSelectedCarrierFilter,
     labelGenerationProgress,
-    handlePaymentSuccess
+    handlePaymentSuccess,
+    handleCustomsUpdate
   };
 };
