@@ -164,39 +164,41 @@ const convertPngToPdfLocally = async (pngBytes: Uint8Array): Promise<Uint8Array>
   }
 };
 
-const attachCustomsInfoToShipment = async (shipmentId: string, customsInfo: any): Promise<void> => {
+// Step 3: Create CustomsInfo Object in EasyPost
+const createCustomsInfoInEasyPost = async (customsData: any): Promise<string> => {
   const apiKey = Deno.env.get('EASYPOST_API_KEY');
   if (!apiKey) {
     throw new Error('EasyPost API key not configured');
   }
 
   try {
-    console.log(`Attaching customs info to shipment ${shipmentId}`);
+    console.log('Creating CustomsInfo object in EasyPost with data:', JSON.stringify(customsData, null, 2));
     
-    // Create customs_info object according to EasyPost format
     const customsInfoPayload = {
       customs_info: {
-        contents_type: customsInfo.contents_type || 'merchandise',
-        contents_explanation: customsInfo.contents_explanation || '',
-        customs_certify: customsInfo.customs_certify || true,
-        customs_signer: customsInfo.customs_signer || 'Shipper',
-        non_delivery_option: customsInfo.non_delivery_option || 'return',
-        restriction_type: customsInfo.restriction_type || 'none',
-        restriction_comments: customsInfo.restriction_comments || '',
-        eel_pfc: customsInfo.eel_pfc || '',
-        customs_items: customsInfo.customs_items?.map((item: any) => ({
+        contents_type: customsData.contents_type || 'merchandise',
+        contents_explanation: customsData.contents_explanation || '',
+        customs_certify: customsData.customs_certify || true,
+        customs_signer: customsData.customs_signer || 'Shipper',
+        non_delivery_option: customsData.non_delivery_option || 'return',
+        restriction_type: customsData.restriction_type || 'none',
+        restriction_comments: customsData.restriction_comments || '',
+        eel_pfc: customsData.eel_pfc || 'NOEEI 30.37(a)',
+        customs_items: customsData.customs_items?.map((item: any) => ({
           description: item.description,
-          quantity: item.quantity,
-          value: item.value,
-          weight: item.weight,
+          quantity: parseInt(item.quantity) || 1,
+          weight: parseFloat(item.weight) || 1,
+          value: parseFloat(item.value) || 1,
           hs_tariff_number: item.hs_tariff_number || '',
           origin_country: item.origin_country || 'US'
         })) || []
       }
     };
 
-    const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
-      method: 'PUT',
+    console.log('Sending CustomsInfo payload to EasyPost:', JSON.stringify(customsInfoPayload, null, 2));
+
+    const response = await fetch('https://api.easypost.com/v2/customs_infos', {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
@@ -206,13 +208,55 @@ const attachCustomsInfoToShipment = async (shipmentId: string, customsInfo: any)
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error(`Failed to attach customs info to shipment ${shipmentId}:`, errorData);
-      throw new Error(`Customs info attachment failed: ${errorData.error?.message || 'Unknown error'}`);
+      console.error('Failed to create CustomsInfo in EasyPost:', errorData);
+      throw new Error(`CustomsInfo creation failed: ${errorData.error?.message || 'Unknown error'}`);
     }
 
-    console.log(`✅ Successfully attached customs info to shipment ${shipmentId}`);
+    const customsInfoResponse = await response.json();
+    console.log('✅ Successfully created CustomsInfo in EasyPost with ID:', customsInfoResponse.id);
+    return customsInfoResponse.id;
   } catch (error) {
-    console.error(`Error attaching customs info to shipment ${shipmentId}:`, error);
+    console.error('Error creating CustomsInfo in EasyPost:', error);
+    throw error;
+  }
+};
+
+// Step 4: Create Shipment with CustomsInfo
+const createShipmentWithCustomsInfo = async (shipmentId: string, customsInfoId: string): Promise<any> => {
+  const apiKey = Deno.env.get('EASYPOST_API_KEY');
+  if (!apiKey) {
+    throw new Error('EasyPost API key not configured');
+  }
+
+  try {
+    console.log(`Updating shipment ${shipmentId} with CustomsInfo ${customsInfoId}`);
+    
+    const shipmentUpdatePayload = {
+      customs_info: {
+        id: customsInfoId
+      }
+    };
+
+    const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(shipmentUpdatePayload)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error(`Failed to update shipment ${shipmentId} with CustomsInfo:`, errorData);
+      throw new Error(`Shipment update with CustomsInfo failed: ${errorData.error?.message || 'Unknown error'}`);
+    }
+
+    const updatedShipment = await response.json();
+    console.log(`✅ Successfully updated shipment ${shipmentId} with CustomsInfo`);
+    return updatedShipment;
+  } catch (error) {
+    console.error(`Error updating shipment ${shipmentId} with CustomsInfo:`, error);
     throw error;
   }
 };
@@ -224,9 +268,15 @@ const purchaseEasyPostLabel = async (shipmentId: string, rateId: string, customs
   }
 
   try {
-    // If customs info is provided, attach it to the shipment first
+    // Step 3 & 4: If customs info is provided, create CustomsInfo object and attach to shipment
     if (customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0) {
-      await attachCustomsInfoToShipment(shipmentId, customsInfo);
+      console.log(`Processing customs info for shipment ${shipmentId}`);
+      
+      // Create CustomsInfo object in EasyPost
+      const customsInfoId = await createCustomsInfoInEasyPost(customsInfo);
+      
+      // Update shipment with CustomsInfo
+      await createShipmentWithCustomsInfo(shipmentId, customsInfoId);
     }
 
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
@@ -586,7 +636,7 @@ serve(async (req: Request) => {
         let customsInfo = null;
         if (isInternational && shipment.customsInfo) {
           customsInfo = shipment.customsInfo;
-          console.log(`Using customs info for international shipment ${shipment.id} to ${shipment.details.to_country}`);
+          console.log(`Using customs info for international shipment ${shipment.id} to ${shipment.details.to_country}:`, JSON.stringify(customsInfo, null, 2));
         }
 
         const easypostLabelData = await purchaseEasyPostLabel(shipment.easypost_id, shipment.selectedRateId, customsInfo);
