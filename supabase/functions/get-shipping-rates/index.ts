@@ -2,23 +2,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
-const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 10, etc.
-
 // Set up CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Apply configurable markup to rates
-const applyRateMarkup = (originalRate: number): number => {
-  const markupAmount = originalRate * (RATE_MARKUP_PERCENTAGE / 100);
-  const finalRate = originalRate + markupAmount;
-  
-  console.log(`Rate markup applied: Original: $${originalRate.toFixed(2)}, Markup (${RATE_MARKUP_PERCENTAGE}%): $${markupAmount.toFixed(2)}, Final: $${finalRate.toFixed(2)}`);
-  
-  return finalRate;
 };
 
 // Carrier-specific discount configurations
@@ -58,27 +45,22 @@ const applyCarrierDiscounts = (rates) => {
   return rates.map((rate) => {
     const config = getCarrierDiscountConfig(rate.carrier, rate.service);
     
-    // Apply our markup first to the actual rate
-    const actualRate = parseFloat(rate.rate);
-    const markedUpRate = applyRateMarkup(actualRate);
-    
     // Generate discount percentage within carrier-specific range
     const discountPercentage = Math.random() * (config.maxDiscount - config.minDiscount) + config.minDiscount;
     
-    // Calculate inflated rate based on marked up rate and discount
-    const inflatedRate = markedUpRate / (1 - (discountPercentage / 100));
+    // Calculate inflated rate based on actual rate and discount
+    const actualRate = parseFloat(rate.rate);
+    const inflatedRate = actualRate / (1 - (discountPercentage / 100));
     
     // Calculate estimated delivery date
     const estimatedDeliveryDate = calculateEstimatedDelivery(rate.delivery_days || 3);
     
     return {
       ...rate,
-      rate: markedUpRate.toFixed(2), // Show the marked up rate as the actual rate
-      original_rate: inflatedRate.toFixed(2), // Show inflated rate as "original"
+      original_rate: inflatedRate.toFixed(2),
       discount_percentage: Math.round(discountPercentage),
       estimated_delivery_date: estimatedDeliveryDate,
-      isPremium: rate.delivery_days <= 2 || markedUpRate > 25,
-      markup_percentage: RATE_MARKUP_PERCENTAGE
+      isPremium: rate.delivery_days <= 2 || actualRate > 25
     };
   });
 };
@@ -124,7 +106,6 @@ serve(async (req) => {
   }
 
   try {
-    console.log(`🎛️ Using rate markup: ${RATE_MARKUP_PERCENTAGE}%`);
     console.log('Rate fetching request received');
     
     const apiKey = Deno.env.get('EASYPOST_API_KEY');
@@ -224,16 +205,15 @@ serve(async (req) => {
       });
     }
 
-    // Apply carrier-specific discounts and organize rates with markup
+    // Apply carrier-specific discounts and organize rates
     const processedRates = applyCarrierDiscounts(rates);
     const organizedRates = organizeRatesByCarrier(processedRates);
 
-    console.log(`Returning ${organizedRates.length} processed rates with ${RATE_MARKUP_PERCENTAGE}% markup and carrier-specific discounts`);
+    console.log(`Returning ${organizedRates.length} processed rates with carrier-specific discounts`);
 
     return new Response(JSON.stringify({
       rates: organizedRates,
-      shipmentId: data.id,
-      markup_applied: `${RATE_MARKUP_PERCENTAGE}%`
+      shipmentId: data.id
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

@@ -14,7 +14,7 @@ interface CustomsItem {
   quantity: number;
   weight: number;
   value: number;
-  hs_tariff_number: string;
+  hs_tariff_number?: string;
   origin_country: string;
 }
 
@@ -26,9 +26,8 @@ interface CustomsData {
   eel_pfc: string;
   non_delivery_option: string;
   restriction_type: string;
-  restriction_comments: string;
+  restriction_comments?: string;
   customs_items: CustomsItem[];
-  phone_number: string;
 }
 
 interface CustomsDocumentationModalProps {
@@ -65,8 +64,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
         value: 1,
         hs_tariff_number: '',
         origin_country: fromCountry || 'US'
-      }],
-      phone_number: ''
+      }]
     }
   );
 
@@ -76,23 +74,6 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
     // Validate required fields
     if (!customsData.customs_signer.trim()) {
       toast.error('Customs signer name is required');
-      return;
-    }
-    
-    if (!customsData.phone_number.trim()) {
-      toast.error('Phone number is required');
-      return;
-    }
-    
-    // Validate contents explanation if type is "other"
-    if (customsData.contents_type === 'other' && !customsData.contents_explanation?.trim()) {
-      toast.error('Contents explanation is required when contents type is "other"');
-      return;
-    }
-    
-    // Validate restriction comments if type is not "none"
-    if (customsData.restriction_type !== 'none' && !customsData.restriction_comments.trim()) {
-      toast.error('Restriction comments are required when restriction type is not "none"');
       return;
     }
     
@@ -115,6 +96,18 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
         toast.error(`Item ${i + 1}: Quantity must be greater than 0`);
         return;
       }
+    }
+
+    // Validate contents_explanation if contents_type is 'other'
+    if (customsData.contents_type === 'other' && !customsData.contents_explanation?.trim()) {
+      toast.error('Contents explanation is required when contents type is "other"');
+      return;
+    }
+
+    // Validate restriction_comments if restriction_type is not 'none'
+    if (customsData.restriction_type !== 'none' && !customsData.restriction_comments?.trim()) {
+      toast.error('Restriction comments are required when restriction type is not "none"');
+      return;
     }
     
     onSubmit(customsData);
@@ -180,22 +173,6 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
             />
           </div>
 
-          {/* Phone Number - REQUIRED FIELD */}
-          <div className="space-y-2">
-            <Label htmlFor="phone_number">Phone Number *</Label>
-            <Input
-              id="phone_number"
-              type="tel"
-              value={customsData.phone_number}
-              onChange={(e) => setCustomsData(prev => ({ ...prev, phone_number: e.target.value }))}
-              placeholder="+14155552671"
-              required
-            />
-            <p className="text-sm text-muted-foreground">
-              Required for customs processing and carrier contact
-            </p>
-          </div>
-
           {/* Contents Type */}
           <div className="space-y-2">
             <Label htmlFor="contents_type">Contents Type *</Label>
@@ -217,7 +194,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
             </Select>
           </div>
 
-          {/* Contents Explanation - Conditional */}
+          {/* Contents Explanation - Required if contents_type is 'other' */}
           {customsData.contents_type === 'other' && (
             <div className="space-y-2">
               <Label htmlFor="contents_explanation">Contents Explanation *</Label>
@@ -234,19 +211,13 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
           {/* EEL/PFC */}
           <div className="space-y-2">
             <Label htmlFor="eel_pfc">EEL/PFC Code *</Label>
-            <Select 
-              value={customsData.eel_pfc} 
-              onValueChange={(value) => setCustomsData(prev => ({ ...prev, eel_pfc: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NOEEI 30.37(a)">NOEEI 30.37(a)</SelectItem>
-                <SelectItem value="NOEEI 30.36">NOEEI 30.36</SelectItem>
-                <SelectItem value="NOEEI 30.37(b)">NOEEI 30.37(b)</SelectItem>
-              </SelectContent>
-            </Select>
+            <Input
+              id="eel_pfc"
+              value={customsData.eel_pfc}
+              onChange={(e) => setCustomsData(prev => ({ ...prev, eel_pfc: e.target.value }))}
+              placeholder="NOEEI 30.37(a)"
+              required
+            />
           </div>
 
           {/* Non Delivery Option */}
@@ -285,15 +256,15 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
             </Select>
           </div>
 
-          {/* Restriction Comments - Conditional */}
+          {/* Restriction Comments - Required if restriction_type is not 'none' */}
           {customsData.restriction_type !== 'none' && (
             <div className="space-y-2">
               <Label htmlFor="restriction_comments">Restriction Comments *</Label>
               <Textarea
                 id="restriction_comments"
-                value={customsData.restriction_comments}
+                value={customsData.restriction_comments || ''}
                 onChange={(e) => setCustomsData(prev => ({ ...prev, restriction_comments: e.target.value }))}
-                placeholder="Describe any restrictions or special handling requirements"
+                placeholder="Describe the restrictions or special handling requirements"
                 required
               />
             </div>
@@ -356,7 +327,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
                       min="0.1"
                       step="0.1"
                       value={item.weight}
-                      onChange={(e) => updateCustomsItem(index, 'weight', parseFloat(e.target.value) || 1)}
+                      onChange={(e) => updateCustomsItem(index, 'weight', parseFloat(e.target.value) || 0.1)}
                       required
                     />
                   </div>
@@ -378,9 +349,9 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
                     <Label htmlFor={`hs_tariff_number_${index}`}>HS Tariff Number</Label>
                     <Input
                       id={`hs_tariff_number_${index}`}
-                      value={item.hs_tariff_number}
+                      value={item.hs_tariff_number || ''}
                       onChange={(e) => updateCustomsItem(index, 'hs_tariff_number', e.target.value)}
-                      placeholder="Harmonized System code"
+                      placeholder="Harmonized System code (optional)"
                     />
                   </div>
                   
@@ -404,6 +375,9 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
                         <SelectItem value="IT">Italy</SelectItem>
                         <SelectItem value="JP">Japan</SelectItem>
                         <SelectItem value="KR">South Korea</SelectItem>
+                        <SelectItem value="IN">India</SelectItem>
+                        <SelectItem value="AU">Australia</SelectItem>
+                        <SelectItem value="BR">Brazil</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -429,7 +403,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
             <Button type="button" onClick={onClose} variant="outline">
               Cancel
             </Button>
-            <Button type="submit">
+            <Button type="submit" disabled={!customsData.customs_certify}>
               Complete Customs Documentation
             </Button>
           </div>

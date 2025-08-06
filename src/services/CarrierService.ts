@@ -33,7 +33,6 @@ export interface ShippingOption {
   shipment_id?: string;
   original_carrier?: string; // Keep track of original carrier name for API calls
   markup_percentage?: number; // Include markup info
-  original_rate?: string; // Store original rate before markup
 }
 
 export interface ShippingRequestData {
@@ -72,7 +71,7 @@ const standardizeCarrierName = (carrierName: string): string => {
 // Common carrier service interface
 class CarrierService {
   /**
-   * Fetches shipping rates with markup applied from backend
+   * Fetches shipping rates from EasyPost, UPS and DHL and combines them
    */
   public async getShippingRates(requestData: ShippingRequestData): Promise<ShippingOption[]> {
     try {
@@ -85,66 +84,35 @@ class CarrierService {
         }
       };
 
-      console.log('Fetching shipping rates with markup applied...');
-
-      // Get rates with markup applied from backend
-      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: enhancedRequestData
-      });
-
-      if (error) {
-        console.error('Error fetching shipping rates:', error);
-        throw new Error(`Error fetching shipping rates: ${error.message}`);
+      // First get EasyPost rates
+      const easyPostRates = await this.getEasyPostRates(enhancedRequestData);
+      
+      // Try to get UPS rates if available
+      let upsRates: ShippingOption[] = [];
+      try {
+        upsRates = await this.getUPSRates(enhancedRequestData);
+      } catch (error) {
+        console.log('UPS API may not be configured yet:', error);
       }
-
-      console.log(`Received ${data.rates?.length || 0} rates with markup applied:`, data.markup_applied);
-
-      // Process and standardize all rates (rates already have markup applied from backend)
-      const allRates = (data.rates || []).map(rate => ({
+      
+      // Try to get DHL rates if available
+      let dhlRates: ShippingOption[] = [];
+      try {
+        dhlRates = await this.getDHLRates(enhancedRequestData);
+      } catch (error) {
+        console.log('DHL API may not be configured yet:', error);
+      }
+      
+      // Process and standardize all rates
+      const allRates = [...easyPostRates, ...upsRates, ...dhlRates];
+      return allRates.map(rate => ({
         ...rate,
         carrier: standardizeCarrierName(rate.carrier),
-        original_carrier: rate.carrier, // Keep original for API compatibility
-        // Rate and original_rate are already set by backend with markup
-        markup_percentage: rate.markup_percentage || 0
+        original_carrier: rate.carrier // Keep original for API compatibility
       }));
-
-      return allRates;
     } catch (error) {
       console.error('Error fetching shipping rates:', error);
       throw new Error('Failed to get shipping rates');
-    }
-  }
-  
-  /**
-   * Fetches shipping rates with customs validation for international shipments
-   */
-  public async getShippingRatesWithCustoms(requestData: ShippingRequestData, customsData?: any): Promise<ShippingOption[]> {
-    try {
-      console.log('Fetching shipping rates with customs validation and markup...');
-
-      const { data, error } = await supabase.functions.invoke('calculate-shipping-rate-with-customs', {
-        body: {
-          ...requestData,
-          customsData
-        }
-      });
-
-      if (error) {
-        console.error('Error fetching shipping rates with customs:', error);
-        throw new Error(`Error fetching shipping rates: ${error.message}`);
-      }
-
-      console.log(`Received ${data.rates?.length || 0} rates with customs validation and markup:`, data.markup_applied);
-
-      // Rates already have markup applied from backend
-      return data.rates.map(rate => ({
-        ...rate,
-        carrier: standardizeCarrierName(rate.carrier),
-        original_carrier: rate.original_carrier || rate.carrier
-      }));
-    } catch (error) {
-      console.error('Error fetching shipping rates with customs:', error);
-      throw new Error('Failed to get shipping rates with customs validation');
     }
   }
   
@@ -211,30 +179,20 @@ class CarrierService {
   }
   
   /**
-   * Creates a shipping label with customs info and automatically saves tracking data with user association
+   * Creates a shipping label and automatically saves tracking data with user association
    */
-  public async createLabel(shipmentId: string, rateId: string, customsInfo?: any, carrier: CarrierType = 'easypost'): Promise<{
+  public async createLabel(shipmentId: string, rateId: string, carrier: CarrierType = 'easypost'): Promise<{
     labelUrl: string;
     trackingCode: string;
-    chargedRate?: string;
-    originalRate?: string;
-    markupApplied?: string;
   }> {
     try {
       // Dispatch payment start event to close AI panel
       document.dispatchEvent(new CustomEvent('payment-start'));
 
-      console.log('Creating label with markup applied to billing...');
-
-      // Handle different carrier APIs with customs support
+      // Handle different carrier APIs
       if (carrier === 'easypost') {
         const { data, error } = await supabase.functions.invoke('create-label', {
-          body: { 
-            shipmentId, 
-            rateId, 
-            carrier: 'easypost',
-            customsInfo 
-          }
+          body: { shipmentId, rateId, carrier: 'easypost' }
         });
 
         if (error) {
@@ -242,17 +200,11 @@ class CarrierService {
           throw new Error(`Error creating label: ${error.message}`);
         }
 
-        // The edge function handles saving the tracking record with user_id and markup
+        // The edge function should handle saving the tracking record with user_id
         document.dispatchEvent(new CustomEvent('payment-complete'));
-        
-        console.log('Label created successfully with markup:', data.markupApplied);
-        
         return {
           labelUrl: data.labelUrl,
-          trackingCode: data.trackingCode,
-          chargedRate: data.chargedRate,
-          originalRate: data.originalRate,
-          markupApplied: data.markupApplied
+          trackingCode: data.trackingCode
         };
       } else if (carrier === 'ups') {
         const { data, error } = await supabase.functions.invoke('create-label', {
@@ -293,32 +245,6 @@ class CarrierService {
       console.error('Error creating label:', error);
       document.dispatchEvent(new CustomEvent('payment-cancelled'));
       throw new Error('Failed to generate shipping label');
-    }
-  }
-  
-  /**
-   * Creates bulk labels with customs info
-   */
-  public async createBulkLabels(shipments: any[], labelOptions?: any): Promise<any> {
-    try {
-      console.log('Creating bulk labels with markup applied...');
-
-      const { data, error } = await supabase.functions.invoke('create-enhanced-bulk-labels', {
-        body: { 
-          shipments, 
-          labelOptions 
-        }
-      });
-
-      if (error) {
-        throw new Error(`Error creating bulk labels: ${error.message}`);
-      }
-
-      console.log('Bulk labels created successfully with markup:', data.markupApplied);
-      return data;
-    } catch (error) {
-      console.error('Error creating bulk labels:', error);
-      throw new Error('Failed to create bulk labels');
     }
   }
   
