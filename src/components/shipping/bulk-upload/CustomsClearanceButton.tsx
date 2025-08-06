@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -19,7 +20,7 @@ interface LocalCustomsInfo {
     quantity: number;
     value: number;
     weight: number;
-    hs_tariff_number?: string;
+    hs_tariff_number: string; // Made required to match CustomsItem
     origin_country: string;
   }>;
   eel_pfc: string; // Made required to match CustomsData
