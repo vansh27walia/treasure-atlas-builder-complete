@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -14,7 +13,7 @@ interface LocalCustomsInfo {
   customs_signer: string;
   non_delivery_option: string;
   restriction_type: string; // Made required to match CustomsData
-  restriction_comments?: string;
+  restriction_comments: string; // Made required to match CustomsData
   customs_items: Array<{
     description: string;
     quantity: number;
