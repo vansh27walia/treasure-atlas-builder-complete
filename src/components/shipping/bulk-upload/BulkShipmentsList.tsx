@@ -134,15 +134,24 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     return country !== 'US' && country !== 'USA' && country !== 'UNITED STATES';
                   };
 
+                  // Safe address extraction
+                  const getAddressString = () => {
+                    if (typeof shipment.customer_address === 'string') {
+                      return shipment.customer_address;
+                    }
+                    if (shipment.customer_address && typeof shipment.customer_address === 'object') {
+                      return shipment.customer_address.street1 || '';
+                    }
+                    return shipment.details?.to_address?.street1 || '';
+                  };
+
                   return (
                     <TableRow key={shipment.id}>
                       <TableCell>
                         <div>
                           <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
                           <div className="text-sm text-gray-500">
-                            {typeof shipment.customer_address === 'string' 
-                              ? shipment.customer_address 
-                              : shipment.customer_address?.street1 || ''}
+                            {getAddressString()}
                           </div>
                         </div>
                       </TableCell>
@@ -150,10 +159,10 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                       <TableCell>
                         <div>
                           <div className="font-medium">
-                            {shipment.details?.weight || 1} oz
+                            {shipment.details?.parcel?.weight || shipment.details?.weight || 1} oz
                           </div>
                           <div className="text-sm text-gray-500">
-                            {shipment.details?.length || 1}" × {shipment.details?.width || 1}" × {shipment.details?.height || 1}"
+                            {shipment.details?.parcel?.length || shipment.details?.length || 1}" × {shipment.details?.parcel?.width || shipment.details?.width || 1}" × {shipment.details?.parcel?.height || shipment.details?.height || 1}"
                           </div>
                         </div>
                       </TableCell>
@@ -214,10 +223,15 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         <Badge 
                           variant={
                             shipment.status === 'completed' || shipment.status === 'label_purchased' 
-                              ? 'success' 
+                              ? 'default' // Changed from 'success' to 'default' with green styling
                               : shipment.status === 'error' || shipment.status === 'failed'
                               ? 'destructive'
                               : 'secondary'
+                          }
+                          className={
+                            shipment.status === 'completed' || shipment.status === 'label_purchased' 
+                              ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                              : ''
                           }
                         >
                           {shipment.status === 'pending_rates' ? 'Fetching Rates' :
