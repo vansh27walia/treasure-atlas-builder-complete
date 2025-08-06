@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -32,7 +33,6 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
     customs_signer: '',
     non_delivery_option: 'return',
     restriction_type: 'none',
-    restriction_comments: '',
     customs_items: [{
       description: '',
       quantity: 1,
@@ -57,7 +57,6 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
         customs_signer: '',
         non_delivery_option: 'return',
         restriction_type: 'none',
-        restriction_comments: '',
         customs_items: [{
           description: '',
           quantity: 1,
@@ -76,7 +75,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
     e.stopPropagation();
     
     // Validate required fields
-    if (!customsData.customs_signer.trim()) {
+    if (!customsData.customs_signer?.trim()) {
       alert('Please enter the customs signer name');
       return;
     }
@@ -213,7 +212,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
           <div>
             <Label className="text-sm font-medium">Customs Signer *</Label>
             <Input
-              value={customsData.customs_signer}
+              value={customsData.customs_signer || ''}
               onChange={(e) => setCustomsData(prev => ({ ...prev, customs_signer: e.target.value }))}
               placeholder="Full name of person signing customs declaration"
               required
