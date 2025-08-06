@@ -6,29 +6,31 @@ import { Globe, Check } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import CustomsDocumentationModal from '../CustomsDocumentationModal';
 
-interface CustomsInfo {
-  customs_certify: boolean;
-  customs_signer: string;
+// Local interface to match what we need
+interface LocalCustomsInfo {
   contents_type: string;
   contents_explanation?: string;
-  eel_pfc: string;
+  customs_certify: boolean;
+  customs_signer: string;
   non_delivery_option: string;
-  restriction_type: string;
-  restriction_comments?: string;
+  restriction_type: string; // Made required to match CustomsData
+  restriction_comments: string; // Made required to match CustomsData
   customs_items: Array<{
     description: string;
     quantity: number;
     value: number;
     weight: number;
-    hs_tariff_number?: string;
+    hs_tariff_number: string; // Made required to match CustomsItem
     origin_country: string;
   }>;
+  eel_pfc: string; // Made required to match CustomsData
+  phone_number: string; // Added required phone_number field
 }
 
 interface CustomsClearanceButtonProps {
   shipment: BulkShipment;
-  customsInfo?: CustomsInfo;
-  onCustomsInfoSave: (info: CustomsInfo) => void;
+  customsInfo?: LocalCustomsInfo;
+  onCustomsInfoSave: (info: LocalCustomsInfo) => void;
 }
 
 const CustomsClearanceButton: React.FC<CustomsClearanceButtonProps> = ({
@@ -40,12 +42,11 @@ const CustomsClearanceButton: React.FC<CustomsClearanceButtonProps> = ({
 
   // Check if shipment is international (non-US)
   const isInternational = () => {
-    const toCountry = shipment.details?.to_address?.country || shipment.details?.to_country;
-    const country = toCountry?.toUpperCase();
+    const country = shipment.details.to_country?.toUpperCase();
     return country !== 'US' && country !== 'USA' && country !== 'UNITED STATES';
   };
 
-  const handleSave = (info: CustomsInfo) => {
+  const handleSave = (info: LocalCustomsInfo) => {
     onCustomsInfoSave(info);
     setIsOpen(false);
   };
@@ -83,7 +84,7 @@ const CustomsClearanceButton: React.FC<CustomsClearanceButtonProps> = ({
             onClose={() => setIsOpen(false)}
             onSubmit={handleSave}
             fromCountry="US"
-            toCountry={shipment.details?.to_address?.country || shipment.details?.to_country || ""}
+            toCountry={shipment.details.to_country || ""}
             initialData={customsInfo}
           />
         </DialogContent>
