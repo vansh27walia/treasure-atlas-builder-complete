@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useShipmentUpload } from './useShipmentUpload';
 import { useShipmentManagement } from './useShipmentManagement';
@@ -6,6 +5,26 @@ import { BulkShipment, BulkUploadResult } from '@/types/shipping';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
+
+// Local customs info interface to match what we need
+interface LocalCustomsInfo {
+  contents_type: string;
+  contents_explanation?: string;
+  customs_certify: boolean;
+  customs_signer: string;
+  non_delivery_option: string;
+  restriction_type?: string;
+  restriction_comments?: string;
+  customs_items: Array<{
+    description: string;
+    quantity: number;
+    value: number;
+    weight: number;
+    hs_tariff_number?: string;
+    origin_country: string;
+  }>;
+  eel_pfc?: string;
+}
 
 export const useBulkUpload = () => {
   const {
@@ -41,6 +60,9 @@ export const useBulkUpload = () => {
   });
   const [batchPrintPreviewModalOpen, setBatchPrintPreviewModalOpen] = useState(false);
   const [paymentCompleted, setPaymentCompleted] = useState(false);
+
+  // Store customs information for each shipment
+  const [shipmentCustomsInfo, setShipmentCustomsInfo] = useState<Record<string, LocalCustomsInfo>>({});
 
   // Load default pickup address
   useEffect(() => {
@@ -154,6 +176,13 @@ export const useBulkUpload = () => {
       totalCost
     });
     
+    // Remove customs info for this shipment
+    setShipmentCustomsInfo(prev => {
+      const updated = { ...prev };
+      delete updated[shipmentId];
+      return updated;
+    });
+    
     toast.success('Shipment removed from list');
   };
 
@@ -226,6 +255,17 @@ export const useBulkUpload = () => {
     toast.success('Payment successful! Creating labels automatically...');
   };
 
+  // Function to save customs info for a shipment
+  const handleSaveCustomsInfo = (shipmentId: string, customsInfo: LocalCustomsInfo) => {
+    setShipmentCustomsInfo(prev => ({
+      ...prev,
+      [shipmentId]: customsInfo
+    }));
+    
+    console.log(`Customs info saved for shipment ${shipmentId}:`, customsInfo);
+    toast.success('Customs information saved');
+  };
+
   // Direct label creation without payment prompts
   const handleCreateLabels = async () => {
     if (!results || !pickupAddress) {
@@ -247,9 +287,18 @@ export const useBulkUpload = () => {
     try {
       console.log('Creating labels for shipments:', results.processedShipments);
       
-      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
+      // Add customs info to shipments that need it
+      const shipmentsWithCustoms = results.processedShipments.map(shipment => {
+        const customsInfo = shipmentCustomsInfo[shipment.id];
+        return {
+          ...shipment,
+          customsInfo: customsInfo || null
+        };
+      });
+
+      const { data, error } = await supabase.functions.invoke('create-enhanced-bulk-labels', {
         body: {
-          shipments: results.processedShipments,
+          shipments: shipmentsWithCustoms,
           pickupAddress,
           labelOptions: {
             format: 'PDF',
@@ -403,6 +452,9 @@ export const useBulkUpload = () => {
     // Address
     pickupAddress,
     
+    // Customs info
+    shipmentCustomsInfo,
+    
     // Error handling
     batchError,
     labelGenerationProgress,
@@ -434,6 +486,7 @@ export const useBulkUpload = () => {
     handleBulkApplyCarrier,
     handleClearBatchError,
     handleOpenBatchPrintPreview,
-    handlePaymentSuccess // Add this missing function
+    handlePaymentSuccess,
+    handleSaveCustomsInfo
   };
 };
