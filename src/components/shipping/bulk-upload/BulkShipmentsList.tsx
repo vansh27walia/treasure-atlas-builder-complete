@@ -8,7 +8,6 @@ import { Trash2, Edit, Download, Mail, ExternalLink, AlertCircle } from 'lucide-
 import { BulkShipment, Rate } from '@/types/shipping';
 import RateDisplay from './RateDisplay';
 import InsuranceOptions from './InsuranceOptions';
-import AIRatePicker from './AIRatePicker';
 import CustomsClearanceButton from './CustomsClearanceButton';
 import { displayWeightInPounds } from '@/utils/weightConversion';
 
@@ -36,6 +35,10 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
         customs_info: customsInfo
       }
     });
+  };
+
+  const handleRateSelect = (shipmentId: string, rateId: string) => {
+    onSelectRate(shipmentId, rateId);
   };
 
   if (!shipments || shipments.length === 0) {
@@ -70,7 +73,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   <div className="text-sm text-gray-500">
                     {typeof shipment.customer_address === 'string' 
                       ? shipment.customer_address
-                      : shipment.customer_address?.street1 || shipment.details?.to_address?.street1 || ''
+                      : (shipment.customer_address as any)?.street1 || shipment.details?.to_address?.street1 || ''
                     }
                   </div>
                 </div>
@@ -105,11 +108,21 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         return <span className="text-gray-500">No rate selected</span>;
                       })()
                     ) : (
-                      // Show rate selection
-                      <AIRatePicker
-                        shipment={shipment}
-                        onSelectRate={onSelectRate}
-                      />
+                      // Show rate selection options
+                      <div className="space-y-1">
+                        {shipment.availableRates.slice(0, 3).map((rate) => (
+                          <Button
+                            key={rate.id}
+                            onClick={() => handleRateSelect(shipment.id, rate.id)}
+                            variant="outline"
+                            size="sm"
+                            className="w-full justify-between text-xs"
+                          >
+                            <span>{rate.carrier} {rate.service}</span>
+                            <span>${typeof rate.rate === 'string' ? parseFloat(rate.rate).toFixed(2) : rate.rate.toFixed(2)}</span>
+                          </Button>
+                        ))}
+                      </div>
                     )}
                   </div>
                 ) : (

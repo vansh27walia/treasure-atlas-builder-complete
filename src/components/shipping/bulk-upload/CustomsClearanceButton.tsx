@@ -17,8 +17,8 @@ const CustomsClearanceButton: React.FC<CustomsClearanceButtonProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [hasCustomsData, setHasCustomsData] = useState(!!shipment.details?.customs_info);
 
-  const handleCustomsSubmit = (customsInfo: CustomsInfo) => {
-    onCustomsUpdate(shipment.id, customsInfo);
+  const handleCustomsSubmit = (customs: CustomsInfo) => {
+    onCustomsUpdate(shipment.id, customs);
     setHasCustomsData(true);
     setIsModalOpen(false);
   };
