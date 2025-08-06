@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -124,7 +125,9 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
         // Calculate new total cost
         const newTotalCost = updatedShipments.reduce((total, s) => {
           const selectedRate = s.availableRates?.find(rate => rate.id === s.selectedRateId);
-          return total + (parseFloat(selectedRate?.rate?.toString() || '0') || 0);
+          const rateValue = selectedRate?.rate;
+          // Ensure we convert to string before parseFloat
+          return total + (parseFloat(String(rateValue || '0')) || 0);
         }, 0);
 
         updateResults({
@@ -171,7 +174,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     const updatedShipments = results.processedShipments.filter(s => s.id !== shipmentId);
     const newTotalCost = updatedShipments.reduce((total, shipment) => {
       const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-      return total + (parseFloat(selectedRate?.rate || '0') || 0);
+      const rateValue = selectedRate?.rate;
+      return total + (parseFloat(String(rateValue || '0')) || 0);
     }, 0);
     
     updateResults({
