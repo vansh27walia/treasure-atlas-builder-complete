@@ -75,6 +75,24 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   const completedShipments = results.processedShipments.filter(s => s.status === 'completed' || s.status === 'label_purchased');
   const progressPercentage = (completedShipments.length / results.processedShipments.length) * 100;
 
+  // Helper function to safely get address string
+  const getAddressString = (shipment: BulkShipment): string => {
+    if (typeof shipment.customer_address === 'string') {
+      return shipment.customer_address;
+    }
+    
+    if (shipment.customer_address && typeof shipment.customer_address === 'object') {
+      const addr = shipment.customer_address as any;
+      return addr.street1 || '';
+    }
+    
+    if (shipment.details?.to_address) {
+      return shipment.details.to_address.street1 || '';
+    }
+    
+    return '';
+  };
+
   return (
     <div className="space-y-6">
       {/* Progress Summary */}
@@ -134,24 +152,13 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     return country !== 'US' && country !== 'USA' && country !== 'UNITED STATES';
                   };
 
-                  // Safe address extraction
-                  const getAddressString = () => {
-                    if (typeof shipment.customer_address === 'string') {
-                      return shipment.customer_address;
-                    }
-                    if (shipment.customer_address && typeof shipment.customer_address === 'object') {
-                      return shipment.customer_address.street1 || '';
-                    }
-                    return shipment.details?.to_address?.street1 || '';
-                  };
-
                   return (
                     <TableRow key={shipment.id}>
                       <TableCell>
                         <div>
                           <div className="font-medium">{shipment.customer_name || shipment.recipient}</div>
                           <div className="text-sm text-gray-500">
-                            {getAddressString()}
+                            {getAddressString(shipment)}
                           </div>
                         </div>
                       </TableCell>
@@ -223,7 +230,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         <Badge 
                           variant={
                             shipment.status === 'completed' || shipment.status === 'label_purchased' 
-                              ? 'default' // Changed from 'success' to 'default' with green styling
+                              ? 'default'
                               : shipment.status === 'error' || shipment.status === 'failed'
                               ? 'destructive'
                               : 'secondary'

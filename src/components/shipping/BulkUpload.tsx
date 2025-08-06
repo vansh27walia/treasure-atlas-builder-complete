@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { useBulkUpload } from '@/hooks/useBulkUpload';
-import BulkUploadHeader from './BulkUploadHeader';
-import BulkUploadProgressBar from './BulkUploadProgressBar';
+import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
+import BulkUploadProgressBar from './bulk-upload/BulkUploadProgressBar';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 
 const BulkUpload = () => {
@@ -17,7 +18,8 @@ const BulkUpload = () => {
     handleRefreshRates,
     pickupAddress,
     setPickupAddress,
-    handleCreateLabels
+    handleCreateLabels,
+    setResults
   } = useBulkUpload();
 
   return (
