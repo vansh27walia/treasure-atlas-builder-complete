@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ interface CustomsItem {
   quantity: number;
   weight: number;
   value: number;
-  hs_tariff_number: string;
+  hs_tariff_number?: string;
   origin_country: string;
 }
 
@@ -21,12 +22,12 @@ interface CustomsData {
   customs_certify: boolean;
   customs_signer: string;
   contents_type: string;
+  contents_explanation?: string;
   eel_pfc: string;
   non_delivery_option: string;
   restriction_type: string;
-  restriction_comments: string;
+  restriction_comments?: string;
   customs_items: CustomsItem[];
-  phone_number: string;
 }
 
 interface CustomsDocumentationModalProps {
@@ -51,6 +52,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
       customs_certify: true,
       customs_signer: '',
       contents_type: 'merchandise',
+      contents_explanation: '',
       eel_pfc: 'NOEEI 30.37(a)',
       non_delivery_option: 'return',
       restriction_type: 'none',
@@ -62,8 +64,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
         value: 1,
         hs_tariff_number: '',
         origin_country: fromCountry || 'US'
-      }],
-      phone_number: ''
+      }]
     }
   );
 
@@ -73,11 +74,6 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
     // Validate required fields
     if (!customsData.customs_signer.trim()) {
       toast.error('Customs signer name is required');
-      return;
-    }
-    
-    if (!customsData.phone_number.trim()) {
-      toast.error('Phone number is required');
       return;
     }
     
@@ -96,6 +92,22 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
         toast.error(`Item ${i + 1}: Weight must be greater than 0`);
         return;
       }
+      if (item.quantity <= 0) {
+        toast.error(`Item ${i + 1}: Quantity must be greater than 0`);
+        return;
+      }
+    }
+
+    // Validate contents_explanation if contents_type is 'other'
+    if (customsData.contents_type === 'other' && !customsData.contents_explanation?.trim()) {
+      toast.error('Contents explanation is required when contents type is "other"');
+      return;
+    }
+
+    // Validate restriction_comments if restriction_type is not 'none'
+    if (customsData.restriction_type !== 'none' && !customsData.restriction_comments?.trim()) {
+      toast.error('Restriction comments are required when restriction type is not "none"');
+      return;
     }
     
     onSubmit(customsData);
@@ -161,25 +173,9 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
             />
           </div>
 
-          {/* Phone Number - NEW REQUIRED FIELD */}
-          <div className="space-y-2">
-            <Label htmlFor="phone_number">Phone Number *</Label>
-            <Input
-              id="phone_number"
-              type="tel"
-              value={customsData.phone_number}
-              onChange={(e) => setCustomsData(prev => ({ ...prev, phone_number: e.target.value }))}
-              placeholder="+14155552671"
-              required
-            />
-            <p className="text-sm text-muted-foreground">
-              Required for customs processing and carrier contact
-            </p>
-          </div>
-
           {/* Contents Type */}
           <div className="space-y-2">
-            <Label htmlFor="contents_type">Contents Type</Label>
+            <Label htmlFor="contents_type">Contents Type *</Label>
             <Select 
               value={customsData.contents_type} 
               onValueChange={(value) => setCustomsData(prev => ({ ...prev, contents_type: value }))}
@@ -189,8 +185,8 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="merchandise">Merchandise</SelectItem>
-                <SelectItem value="gift">Gift</SelectItem>
                 <SelectItem value="documents">Documents</SelectItem>
+                <SelectItem value="gift">Gift</SelectItem>
                 <SelectItem value="returned_goods">Returned Goods</SelectItem>
                 <SelectItem value="sample">Sample</SelectItem>
                 <SelectItem value="other">Other</SelectItem>
@@ -198,20 +194,35 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
             </Select>
           </div>
 
+          {/* Contents Explanation - Required if contents_type is 'other' */}
+          {customsData.contents_type === 'other' && (
+            <div className="space-y-2">
+              <Label htmlFor="contents_explanation">Contents Explanation *</Label>
+              <Input
+                id="contents_explanation"
+                value={customsData.contents_explanation || ''}
+                onChange={(e) => setCustomsData(prev => ({ ...prev, contents_explanation: e.target.value }))}
+                placeholder="Explain the contents"
+                required
+              />
+            </div>
+          )}
+
           {/* EEL/PFC */}
           <div className="space-y-2">
-            <Label htmlFor="eel_pfc">EEL/PFC Code</Label>
+            <Label htmlFor="eel_pfc">EEL/PFC Code *</Label>
             <Input
               id="eel_pfc"
               value={customsData.eel_pfc}
               onChange={(e) => setCustomsData(prev => ({ ...prev, eel_pfc: e.target.value }))}
               placeholder="NOEEI 30.37(a)"
+              required
             />
           </div>
 
           {/* Non Delivery Option */}
           <div className="space-y-2">
-            <Label htmlFor="non_delivery_option">Non-Delivery Option</Label>
+            <Label htmlFor="non_delivery_option">Non-Delivery Option *</Label>
             <Select 
               value={customsData.non_delivery_option} 
               onValueChange={(value) => setCustomsData(prev => ({ ...prev, non_delivery_option: value }))}
@@ -228,7 +239,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
 
           {/* Restriction Type */}
           <div className="space-y-2">
-            <Label htmlFor="restriction_type">Restriction Type</Label>
+            <Label htmlFor="restriction_type">Restriction Type *</Label>
             <Select 
               value={customsData.restriction_type} 
               onValueChange={(value) => setCustomsData(prev => ({ ...prev, restriction_type: value }))}
@@ -239,21 +250,22 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
               <SelectContent>
                 <SelectItem value="none">None</SelectItem>
                 <SelectItem value="other">Other</SelectItem>
-                <SelectItem value="quarantine">Quarantine</SelectItem>
-                <SelectItem value="sanitary_phytosanitary_inspection">Sanitary/Phytosanitary Inspection</SelectItem>
+                <SelectItem value="quantitative">Quantitative</SelectItem>
+                <SelectItem value="unconditional">Unconditional</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Restriction Comments */}
+          {/* Restriction Comments - Required if restriction_type is not 'none' */}
           {customsData.restriction_type !== 'none' && (
             <div className="space-y-2">
-              <Label htmlFor="restriction_comments">Restriction Comments</Label>
+              <Label htmlFor="restriction_comments">Restriction Comments *</Label>
               <Textarea
                 id="restriction_comments"
-                value={customsData.restriction_comments}
+                value={customsData.restriction_comments || ''}
                 onChange={(e) => setCustomsData(prev => ({ ...prev, restriction_comments: e.target.value }))}
-                placeholder="Describe any restrictions or special handling requirements"
+                placeholder="Describe the restrictions or special handling requirements"
+                required
               />
             </div>
           )}
@@ -261,7 +273,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
           {/* Customs Items */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label className="text-base font-medium">Customs Items</Label>
+              <Label className="text-base font-medium">Customs Items *</Label>
               <Button type="button" onClick={addCustomsItem} variant="outline" size="sm">
                 Add Item
               </Button>
@@ -308,13 +320,14 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor={`weight_${index}`}>Weight (grams) *</Label>
+                    <Label htmlFor={`weight_${index}`}>Weight (ounces) *</Label>
                     <Input
                       id={`weight_${index}`}
                       type="number"
-                      min="1"
+                      min="0.1"
+                      step="0.1"
                       value={item.weight}
-                      onChange={(e) => updateCustomsItem(index, 'weight', parseFloat(e.target.value) || 1)}
+                      onChange={(e) => updateCustomsItem(index, 'weight', parseFloat(e.target.value) || 0.1)}
                       required
                     />
                   </div>
@@ -336,14 +349,14 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
                     <Label htmlFor={`hs_tariff_number_${index}`}>HS Tariff Number</Label>
                     <Input
                       id={`hs_tariff_number_${index}`}
-                      value={item.hs_tariff_number}
+                      value={item.hs_tariff_number || ''}
                       onChange={(e) => updateCustomsItem(index, 'hs_tariff_number', e.target.value)}
-                      placeholder="Harmonized System code"
+                      placeholder="Harmonized System code (optional)"
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor={`origin_country_${index}`}>Origin Country</Label>
+                    <Label htmlFor={`origin_country_${index}`}>Origin Country *</Label>
                     <Select 
                       value={item.origin_country} 
                       onValueChange={(value) => updateCustomsItem(index, 'origin_country', value)}
@@ -362,6 +375,9 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
                         <SelectItem value="IT">Italy</SelectItem>
                         <SelectItem value="JP">Japan</SelectItem>
                         <SelectItem value="KR">South Korea</SelectItem>
+                        <SelectItem value="IN">India</SelectItem>
+                        <SelectItem value="AU">Australia</SelectItem>
+                        <SelectItem value="BR">Brazil</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -378,7 +394,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
               onCheckedChange={(checked) => setCustomsData(prev => ({ ...prev, customs_certify: checked as boolean }))}
             />
             <Label htmlFor="customs_certify">
-              I certify that the information given is correct and that this shipment complies with all applicable laws and regulations.
+              I certify that the information given is correct and that this shipment complies with all applicable laws and regulations. *
             </Label>
           </div>
 
@@ -387,7 +403,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
             <Button type="button" onClick={onClose} variant="outline">
               Cancel
             </Button>
-            <Button type="submit">
+            <Button type="submit" disabled={!customsData.customs_certify}>
               Complete Customs Documentation
             </Button>
           </div>
