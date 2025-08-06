@@ -2,10 +2,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
+const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 10, etc.
+
 // Set up CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+// Apply configurable markup to rates
+const applyRateMarkup = (originalRate: number): number => {
+  const markupAmount = originalRate * (RATE_MARKUP_PERCENTAGE / 100);
+  const finalRate = originalRate + markupAmount;
+  
+  console.log(`Rate markup applied: Original: $${originalRate.toFixed(2)}, Markup (${RATE_MARKUP_PERCENTAGE}%): $${markupAmount.toFixed(2)}, Final: $${finalRate.toFixed(2)}`);
+  
+  return finalRate;
 };
 
 // Validate and set defaults for customs data
@@ -24,6 +37,7 @@ const validateCustomsData = (customsData: any) => {
     restriction_type: customsData.restriction_type || 'none',
     restriction_comments: customsData.restriction_comments || '',
     eel_pfc: customsData.eel_pfc || 'NOEEI 30.37(a)',
+    phone_number: customsData.phone_number || '',
     customs_items: customsData.customs_items.map((item: any) => ({
       description: item.description || 'Item',
       quantity: parseInt(item.quantity) || 1,
@@ -49,6 +63,10 @@ const validateCustomsData = (customsData: any) => {
 
   if (!validatedCustomsData.customs_signer || validatedCustomsData.customs_signer.trim() === '') {
     throw new Error('Customs signer name is required');
+  }
+
+  if (!validatedCustomsData.phone_number || validatedCustomsData.phone_number.trim() === '') {
+    throw new Error('Phone number is required for international shipments');
   }
 
   return validatedCustomsData;
@@ -199,6 +217,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log(`🎛️ Using rate markup: ${RATE_MARKUP_PERCENTAGE}%`);
+
     // Get the user's JWT token from the Authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -294,6 +314,10 @@ serve(async (req) => {
       );
     }
 
+    // Apply markup to the charged rate for billing purposes
+    const originalRate = parseFloat(data.selected_rate?.rate || '0');
+    const markedUpRate = applyRateMarkup(originalRate);
+
     // Save label to Supabase Storage
     let storedLabelUrl = data.postage_label?.label_url;
     
@@ -334,7 +358,7 @@ serve(async (req) => {
     // Determine if shipment is international
     const isInternational = customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0;
 
-    // Save the shipping record in the database with user_id
+    // Save the shipping record in the database with user_id and marked up rate
     const shipmentRecord = {
       user_id: user.id,
       shipment_id: shipmentId,
@@ -345,12 +369,13 @@ serve(async (req) => {
       carrier: data.selected_rate?.carrier,
       service: data.selected_rate?.service,
       delivery_days: data.selected_rate?.delivery_days || null,
-      charged_rate: data.selected_rate?.rate || null,
-      easypost_rate: data.selected_rate?.rate || null,
+      charged_rate: markedUpRate.toFixed(2), // Use marked up rate for billing
+      easypost_rate: originalRate.toFixed(2), // Store original EasyPost rate for reference
       currency: data.selected_rate?.currency || 'USD',
       label_format: options.label_format || "PDF",
       label_size: options.label_size || "4x6",
       is_international: isInternational,
+      markup_percentage: RATE_MARKUP_PERCENTAGE,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -363,7 +388,7 @@ serve(async (req) => {
       console.error('Error saving shipment record:', dbError);
       // Continue anyway as we already have the label
     } else {
-      console.log('Successfully saved tracking record for user:', user.id);
+      console.log(`Successfully saved tracking record for user: ${user.id} with ${RATE_MARKUP_PERCENTAGE}% markup`);
     }
 
     // Also save to tracking_records table
@@ -392,12 +417,15 @@ serve(async (req) => {
       }
     }
 
-    // Return the label information with Supabase URL
+    // Return the label information with Supabase URL and markup info
     return new Response(
       JSON.stringify({
         labelUrl: storedLabelUrl,
         trackingCode: data.tracking_code,
         shipmentId: data.id,
+        chargedRate: markedUpRate.toFixed(2),
+        originalRate: originalRate.toFixed(2),
+        markupApplied: `${RATE_MARKUP_PERCENTAGE}%`,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
