@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useBulkUpload } from '@/hooks/useBulkUpload';
+import { useBulkUpload } from '@/components/shipping/bulk-upload/useBulkUpload';
 import BulkUploadHeader from './bulk-upload/BulkUploadHeader';
 import BulkUploadProgressBar from './bulk-upload/BulkUploadProgressBar';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
@@ -18,22 +18,20 @@ const BulkUpload = () => {
     handleRefreshRates,
     pickupAddress,
     setPickupAddress,
-    handleCreateLabels,
-    setResults
+    handleCreateLabels
   } = useBulkUpload();
 
   return (
     <div className="container mx-auto p-6 space-y-6">
       <BulkUploadHeader 
         onDownloadTemplate={handleDownloadTemplate}
-        onFileSelect={handleUpload}
-        isUploading={isUploading}
-        pickupAddress={pickupAddress}
-        setPickupAddress={setPickupAddress}
       />
 
       {isUploading && (
-        <BulkUploadProgressBar progress={progress} />
+        <BulkUploadProgressBar 
+          currentStep="upload"
+          completedSteps={[]}
+        />
       )}
 
       {results && (
@@ -49,10 +47,8 @@ const BulkUpload = () => {
               return s.id === shipmentId ? { ...s, ...details } : s;
             });
             
-            setResults({
-              ...results,
-              processedShipments: updatedShipments
-            });
+            // Update results through the hook's update mechanism
+            handleEditShipment(shipmentId, details);
           }}
           onRefreshRates={handleRefreshRates}
           onAIAnalysis={handleCreateLabels}
