@@ -67,7 +67,10 @@ const CustomsClearanceButton: React.FC<CustomsClearanceButtonProps> = ({
           customs_certify: shipment.details.customs_info.customs_certify || true,
           customs_signer: shipment.details.customs_info.customs_signer || '',
           non_delivery_option: shipment.details.customs_info.non_delivery_option || 'return',
-          customs_items: shipment.details.customs_info.customs_items || []
+          customs_items: (shipment.details.customs_info.customs_items || []).map(item => ({
+            ...item,
+            origin_country: item.origin_country || 'US'
+          }))
         } : undefined}
       />
     </>
