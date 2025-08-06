@@ -10,8 +10,12 @@ import CustomsDocumentationModal from '../CustomsDocumentationModal';
 
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
-  onRateSelect: (shipmentId: string, rateId: string) => void;
+  isFetchingRates?: boolean;
+  onSelectRate: (shipmentId: string, rateId: string) => void;
+  onRemoveShipment: (shipmentId: string) => void;
   onEditShipment?: (shipmentId: string) => void;
+  onRefreshRates?: (shipmentId: string) => void;
+  onAIAnalysis?: (shipment?: any) => void;
   pickupAddress?: any;
   sortField?: string;
   sortDirection?: 'asc' | 'desc';
@@ -25,8 +29,12 @@ interface BulkShipmentsListProps {
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   shipments,
-  onRateSelect,
+  isFetchingRates,
+  onSelectRate,
+  onRemoveShipment,
   onEditShipment,
+  onRefreshRates,
+  onAIAnalysis,
   pickupAddress,
   sortField,
   sortDirection,
@@ -172,15 +180,17 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
               <div className="flex items-center gap-2">
                 {getStatusBadge(shipment.status)}
                 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onEditShipment?.(shipment.id)}
-                  className="flex items-center gap-1"
-                >
-                  <Edit className="h-3 w-3" />
-                  Edit
-                </Button>
+                {onEditShipment && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onEditShipment(shipment.id)}
+                    className="flex items-center gap-1"
+                  >
+                    <Edit className="h-3 w-3" />
+                    Edit
+                  </Button>
+                )}
 
                 {isInternationalShipment(shipment, getFromCountry()) && (
                   <Button
@@ -213,7 +223,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 
                 <Select
                   value={shipment.selectedRateId || ''}
-                  onValueChange={(value) => onRateSelect(shipment.id, value)}
+                  onValueChange={(value) => onSelectRate(shipment.id, value)}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a shipping rate" />
