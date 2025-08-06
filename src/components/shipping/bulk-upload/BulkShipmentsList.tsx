@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { BulkShipment } from '@/types/shipping';
 import { Button } from '@/components/ui/button';
@@ -28,7 +29,7 @@ interface LocalCustomsInfo {
   customs_certify: boolean;
   customs_signer: string;
   non_delivery_option: string;
-  restriction_type?: string;
+  restriction_type: string; // Made required to match CustomsData
   restriction_comments?: string;
   customs_items: Array<{
     description: string;
@@ -38,7 +39,7 @@ interface LocalCustomsInfo {
     hs_tariff_number?: string;
     origin_country: string;
   }>;
-  eel_pfc?: string;
+  eel_pfc: string; // Made required to match CustomsData
   phone_number: string; // Added required phone_number field
 }
 
