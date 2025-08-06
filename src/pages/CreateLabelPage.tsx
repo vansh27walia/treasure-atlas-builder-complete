@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
@@ -27,6 +26,9 @@ const CreateLabelPage = () => {
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [selectedRate, setSelectedRate] = useState<any>(null);
   const [isPaymentInProgress, setIsPaymentInProgress] = useState(false);
+  const [customsInfo, setCustomsInfo] = useState<any>(null);
+  const [showCustomsPopout, setShowCustomsPopout] = useState(false);
+  const [selectedRateForCustoms, setSelectedRateForCustoms] = useState<any>(null);
 
   // Auto-show AI panel when rates are available
   useEffect(() => {
@@ -53,11 +55,13 @@ const CreateLabelPage = () => {
     document.addEventListener('payment-start', handlePaymentStart);
     document.addEventListener('payment-complete', handlePaymentEnd);
     document.addEventListener('payment-cancelled', handlePaymentEnd);
+    document.addEventListener('payment-success', handlePaymentEnd);
 
     return () => {
       document.removeEventListener('payment-start', handlePaymentStart);
       document.removeEventListener('payment-complete', handlePaymentEnd);
       document.removeEventListener('payment-cancelled', handlePaymentEnd);
+      document.removeEventListener('payment-success', handlePaymentEnd);
     };
   }, []);
 
@@ -69,10 +73,33 @@ const CreateLabelPage = () => {
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
     setSelectedRate(rate);
+    
+    // Check if this is an international shipment that needs customs info
+    const isInternational = rate.isInternational || false; // You may need to determine this based on addresses
+    
+    if (isInternational && !customsInfo) {
+      setSelectedRateForCustoms(rate);
+      setShowCustomsPopout(true);
+      return;
+    }
+    
     if (!isPaymentInProgress) {
       setShowAIPanel(true);
     }
     handleSelectRate(rate.id);
+  };
+
+  const handleCustomsInfoSubmit = (customs: any) => {
+    setCustomsInfo(customs);
+    setShowCustomsPopout(false);
+    
+    // Now proceed with the rate selection
+    if (selectedRateForCustoms) {
+      if (!isPaymentInProgress) {
+        setShowAIPanel(true);
+      }
+      handleSelectRate(selectedRateForCustoms.id);
+    }
   };
 
   const handleFilterChange = (filter: string) => {
@@ -220,6 +247,15 @@ const CreateLabelPage = () => {
           onOptimizationChange={handleOptimizationChange}
         />
       )}
+
+      {/* Customs Info Popout */}
+      <CustomsInfoPopout
+        isOpen={showCustomsPopout}
+        onClose={() => setShowCustomsPopout(false)}
+        onSubmit={handleCustomsInfoSubmit}
+        fromCountry="US"
+        toCountry="International"
+      />
 
       {/* Rate Calculator Modal */}
       <RateCalculatorModal 
