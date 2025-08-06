@@ -8,15 +8,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const createCustomsInfo = async (customsInfo: any): Promise<string | null> => {
+const attachCustomsInfoToShipment = async (shipmentId: string, customsInfo: any): Promise<void> => {
   const apiKey = Deno.env.get('EASYPOST_API_KEY');
   if (!apiKey) {
     throw new Error('EasyPost API key not configured');
   }
 
   try {
-    console.log('Creating customs info with EasyPost API');
+    console.log(`Attaching customs info to shipment ${shipmentId}`);
     
+    // Create customs_info object according to EasyPost format
     const customsInfoPayload = {
       customs_info: {
         contents_type: customsInfo.contents_type || 'merchandise',
@@ -30,7 +31,7 @@ const createCustomsInfo = async (customsInfo: any): Promise<string | null> => {
         customs_items: customsInfo.customs_items?.map((item: any) => ({
           description: item.description,
           quantity: item.quantity,
-          value: parseFloat(item.value).toString(),
+          value: item.value,
           weight: item.weight,
           hs_tariff_number: item.hs_tariff_number || '',
           origin_country: item.origin_country || 'US'
@@ -38,10 +39,8 @@ const createCustomsInfo = async (customsInfo: any): Promise<string | null> => {
       }
     };
 
-    console.log('Customs info payload:', JSON.stringify(customsInfoPayload, null, 2));
-
-    const response = await fetch('https://api.easypost.com/v2/customs_infos', {
-      method: 'POST',
+    const response = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
+      method: 'PUT',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
@@ -51,15 +50,13 @@ const createCustomsInfo = async (customsInfo: any): Promise<string | null> => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('Failed to create customs info:', errorData);
-      throw new Error(`Customs info creation failed: ${errorData.error?.message || 'Unknown error'}`);
+      console.error(`Failed to attach customs info to shipment ${shipmentId}:`, errorData);
+      throw new Error(`Customs info attachment failed: ${errorData.error?.message || 'Unknown error'}`);
     }
 
-    const customsData = await response.json();
-    console.log('✅ Successfully created customs info:', customsData.id);
-    return customsData.id;
+    console.log(`✅ Successfully attached customs info to shipment ${shipmentId}`);
   } catch (error) {
-    console.error('Error creating customs info:', error);
+    console.error(`Error attaching customs info to shipment ${shipmentId}:`, error);
     throw error;
   }
 };
@@ -126,55 +123,14 @@ serve(async (req) => {
 
     console.log(`Creating label for shipment ${shipmentId} with rate ${rateId}`);
 
-    let customsInfoId = null;
-    
-    // Create customs info first if provided
+    // If customs info is provided, attach it to the shipment first
     if (customsInfo && customsInfo.customs_items && customsInfo.customs_items.length > 0) {
       try {
-        console.log(`Creating customs info for shipment ${shipmentId}`);
-        customsInfoId = await createCustomsInfo(customsInfo);
+        await attachCustomsInfoToShipment(shipmentId, customsInfo);
       } catch (customsError) {
-        console.error('Failed to create customs info:', customsError);
+        console.error('Failed to attach customs info:', customsError);
         return new Response(
-          JSON.stringify({ error: 'Failed to create customs information', details: customsError.message }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-        );
-      }
-    }
-
-    // Update shipment with customs info if created
-    if (customsInfoId) {
-      try {
-        console.log(`Updating shipment ${shipmentId} with customs info ${customsInfoId}`);
-        const updateResponse = await fetch(`https://api.easypost.com/v2/shipments/${shipmentId}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            shipment: {
-              customs_info: {
-                id: customsInfoId
-              }
-            }
-          })
-        });
-
-        if (!updateResponse.ok) {
-          const errorData = await updateResponse.json();
-          console.error(`Failed to update shipment with customs info:`, errorData);
-          return new Response(
-            JSON.stringify({ error: 'Failed to update shipment with customs information', details: errorData }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-          );
-        }
-        
-        console.log(`✅ Successfully updated shipment ${shipmentId} with customs info`);
-      } catch (updateError) {
-        console.error('Failed to update shipment with customs info:', updateError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to update shipment with customs information', details: updateError.message }),
+          JSON.stringify({ error: 'Failed to attach customs information', details: customsError.message }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
         );
       }
