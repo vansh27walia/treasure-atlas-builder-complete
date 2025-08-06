@@ -2,6 +2,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
+const RATE_MARKUP_PERCENTAGE = 0.05; // 5% markup - You can change this to 0.06 (6%) or any other percentage
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -35,10 +38,14 @@ interface ShippingRequest {
   customsData?: CustomsData;
 }
 
-// Apply 5% markup to rates - internal billing logic
+// Apply configurable markup to rates - internal billing logic
 const applyRateMarkup = (originalRate: number): number => {
-  const markupPercentage = 0.05; // 5%
-  return originalRate + (originalRate * markupPercentage);
+  const markupAmount = originalRate * RATE_MARKUP_PERCENTAGE;
+  const finalRate = originalRate + markupAmount;
+  
+  console.log(`Rate markup applied: Original: $${originalRate.toFixed(2)}, Markup (${(RATE_MARKUP_PERCENTAGE * 100)}%): $${markupAmount.toFixed(2)}, Final: $${finalRate.toFixed(2)}`);
+  
+  return finalRate;
 };
 
 // Validate customs data structure
@@ -75,6 +82,17 @@ const validateCustomsData = (customsData: CustomsData) => {
   return errors;
 };
 
+// Standardize carrier names for consistent display
+const standardizeCarrierName = (carrierName: string): string => {
+  const name = carrierName.toUpperCase();
+  if (name.includes('USPS')) return 'USPS';
+  if (name.includes('UPS')) return 'UPS';
+  if (name.includes('FEDEX')) return 'FedEx';
+  if (name.includes('DHL')) return 'DHL';
+  if (name.includes('CANADA POST') || name.includes('CANADAPOST')) return 'Canada Post';
+  return carrierName; // Return original if no match
+};
+
 // Get shipping rates from EasyPost
 const fetchShippingRates = async (requestData: ShippingRequest) => {
   const apiKey = Deno.env.get('EASYPOST_API_KEY');
@@ -83,16 +101,22 @@ const fetchShippingRates = async (requestData: ShippingRequest) => {
   }
 
   try {
+    // Ensure from_address has phone number for international shipments
+    const enhancedFromAddress = {
+      ...requestData.fromAddress,
+      phone: requestData.fromAddress.phone || '+1-555-555-5555' // Fallback phone if missing
+    };
+
     // Create shipment to get rates
     const shipmentPayload = {
       shipment: {
         to_address: requestData.toAddress,
-        from_address: requestData.fromAddress,
+        from_address: enhancedFromAddress,
         parcel: requestData.parcel
       }
     };
 
-    console.log('Creating shipment for rates:', JSON.stringify(shipmentPayload, null, 2));
+    console.log('Creating shipment for rates with phone validation:', JSON.stringify(shipmentPayload, null, 2));
 
     const response = await fetch('https://api.easypost.com/v2/shipments', {
       method: 'POST',
@@ -112,16 +136,18 @@ const fetchShippingRates = async (requestData: ShippingRequest) => {
     const shipmentData = await response.json();
     console.log('Shipment created successfully:', shipmentData.id);
 
-    // Process and markup rates
+    // Process and markup rates with standardized carrier names
     const processedRates = shipmentData.rates?.map((rate: any) => {
       const originalRate = parseFloat(rate.rate);
       const markedUpRate = applyRateMarkup(originalRate);
+      const standardizedCarrier = standardizeCarrierName(rate.carrier);
       
-      console.log(`Rate processing - Original: $${originalRate.toFixed(2)}, Marked up: $${markedUpRate.toFixed(2)}`);
+      console.log(`Processing rate - Carrier: ${rate.carrier} -> ${standardizedCarrier}, Original: $${originalRate.toFixed(2)}, Marked up: $${markedUpRate.toFixed(2)}`);
       
       return {
         id: rate.id,
-        carrier: rate.carrier,
+        carrier: standardizedCarrier, // Use standardized name
+        original_carrier: rate.carrier, // Keep original for API calls
         service: rate.service,
         rate: markedUpRate.toFixed(2), // Return marked up rate
         original_rate: originalRate.toFixed(2), // Store original for reference
@@ -130,16 +156,18 @@ const fetchShippingRates = async (requestData: ShippingRequest) => {
         delivery_date: rate.delivery_date,
         delivery_date_guaranteed: rate.delivery_date_guaranteed,
         est_delivery_days: rate.est_delivery_days,
-        list_rate: rate.list_rate,
-        retail_rate: rate.retail_rate,
-        shipment_id: shipmentData.id
+        list_rate: rate.list_rate, // Keep original list rate for discount calculation
+        retail_rate: rate.retail_rate, // Keep original retail rate
+        shipment_id: shipmentData.id,
+        markup_percentage: RATE_MARKUP_PERCENTAGE * 100 // Include markup info for transparency
       };
     }) || [];
 
     return {
       rates: processedRates,
       shipment_id: shipmentData.id,
-      customs_validated: !!requestData.customsData
+      customs_validated: !!requestData.customsData,
+      markup_applied: `${(RATE_MARKUP_PERCENTAGE * 100).toFixed(1)}%`
     };
 
   } catch (error) {
@@ -155,6 +183,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log(`🎛️ Using rate markup: ${(RATE_MARKUP_PERCENTAGE * 100)}%`);
+
     // Get the user's JWT token from the Authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -208,12 +238,12 @@ serve(async (req) => {
     // Fetch shipping rates with markup applied
     const rateData = await fetchShippingRates(requestData);
 
-    console.log(`Successfully processed ${rateData.rates.length} rates with 5% markup for user ${user.id}`);
+    console.log(`Successfully processed ${rateData.rates.length} rates with ${(RATE_MARKUP_PERCENTAGE * 100)}% markup for user ${user.id}`);
 
     return new Response(JSON.stringify({
       success: true,
       ...rateData,
-      message: 'Shipping rates calculated successfully with markup applied'
+      message: `Shipping rates calculated successfully with ${(RATE_MARKUP_PERCENTAGE * 100)}% markup applied`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

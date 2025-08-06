@@ -31,6 +31,8 @@ export interface ShippingOption {
   retail_rate?: string;
   est_delivery_days?: number;
   shipment_id?: string;
+  original_carrier?: string; // Keep track of original carrier name for API calls
+  markup_percentage?: number; // Include markup info
 }
 
 export interface ShippingRequestData {
@@ -55,6 +57,17 @@ export interface PickupRequestData {
 
 export type CarrierType = 'easypost' | 'ups' | 'dhl';
 
+// Standardize carrier names for consistent display across the application
+const standardizeCarrierName = (carrierName: string): string => {
+  const name = carrierName.toUpperCase();
+  if (name.includes('USPS')) return 'USPS';
+  if (name.includes('UPS')) return 'UPS';
+  if (name.includes('FEDEX')) return 'FedEx';
+  if (name.includes('DHL')) return 'DHL';
+  if (name.includes('CANADA POST') || name.includes('CANADAPOST')) return 'Canada Post';
+  return carrierName; // Return original if no match
+};
+
 // Common carrier service interface
 class CarrierService {
   /**
@@ -62,13 +75,22 @@ class CarrierService {
    */
   public async getShippingRates(requestData: ShippingRequestData): Promise<ShippingOption[]> {
     try {
+      // Ensure from address has phone number for international shipments
+      const enhancedRequestData = {
+        ...requestData,
+        fromAddress: {
+          ...requestData.fromAddress,
+          phone: requestData.fromAddress.phone || '+1-555-555-5555' // Fallback if missing
+        }
+      };
+
       // First get EasyPost rates
-      const easyPostRates = await this.getEasyPostRates(requestData);
+      const easyPostRates = await this.getEasyPostRates(enhancedRequestData);
       
       // Try to get UPS rates if available
       let upsRates: ShippingOption[] = [];
       try {
-        upsRates = await this.getUPSRates(requestData);
+        upsRates = await this.getUPSRates(enhancedRequestData);
       } catch (error) {
         console.log('UPS API may not be configured yet:', error);
       }
@@ -76,13 +98,18 @@ class CarrierService {
       // Try to get DHL rates if available
       let dhlRates: ShippingOption[] = [];
       try {
-        dhlRates = await this.getDHLRates(requestData);
+        dhlRates = await this.getDHLRates(enhancedRequestData);
       } catch (error) {
         console.log('DHL API may not be configured yet:', error);
       }
       
-      // Return combined rates
-      return [...easyPostRates, ...upsRates, ...dhlRates];
+      // Process and standardize all rates
+      const allRates = [...easyPostRates, ...upsRates, ...dhlRates];
+      return allRates.map(rate => ({
+        ...rate,
+        carrier: standardizeCarrierName(rate.carrier),
+        original_carrier: rate.carrier // Keep original for API compatibility
+      }));
     } catch (error) {
       console.error('Error fetching shipping rates:', error);
       throw new Error('Failed to get shipping rates');
@@ -159,6 +186,9 @@ class CarrierService {
     trackingCode: string;
   }> {
     try {
+      // Dispatch payment start event to close AI panel
+      document.dispatchEvent(new CustomEvent('payment-start'));
+
       // Handle different carrier APIs
       if (carrier === 'easypost') {
         const { data, error } = await supabase.functions.invoke('create-label', {
@@ -166,10 +196,12 @@ class CarrierService {
         });
 
         if (error) {
+          document.dispatchEvent(new CustomEvent('payment-cancelled'));
           throw new Error(`Error creating label: ${error.message}`);
         }
 
         // The edge function should handle saving the tracking record with user_id
+        document.dispatchEvent(new CustomEvent('payment-complete'));
         return {
           labelUrl: data.labelUrl,
           trackingCode: data.trackingCode
@@ -180,9 +212,11 @@ class CarrierService {
         });
 
         if (error) {
+          document.dispatchEvent(new CustomEvent('payment-cancelled'));
           throw new Error(`Error creating UPS label: ${error.message}`);
         }
 
+        document.dispatchEvent(new CustomEvent('payment-complete'));
         return {
           labelUrl: data.labelUrl,
           trackingCode: data.trackingCode
@@ -193,9 +227,11 @@ class CarrierService {
         });
 
         if (error) {
+          document.dispatchEvent(new CustomEvent('payment-cancelled'));
           throw new Error(`Error creating DHL label: ${error.message}`);
         }
 
+        document.dispatchEvent(new CustomEvent('payment-complete'));
         return {
           labelUrl: data.labelUrl,
           trackingCode: data.trackingCode
@@ -203,9 +239,11 @@ class CarrierService {
       }
       
       // Fallback for unsupported carrier
+      document.dispatchEvent(new CustomEvent('payment-cancelled'));
       throw new Error('Selected carrier is not supported yet');
     } catch (error) {
       console.error('Error creating label:', error);
+      document.dispatchEvent(new CustomEvent('payment-cancelled'));
       throw new Error('Failed to generate shipping label');
     }
   }

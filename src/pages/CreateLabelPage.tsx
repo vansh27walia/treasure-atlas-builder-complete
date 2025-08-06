@@ -26,16 +26,40 @@ const CreateLabelPage = () => {
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [selectedRate, setSelectedRate] = useState<any>(null);
+  const [isPaymentInProgress, setIsPaymentInProgress] = useState(false);
 
   // Auto-show AI panel when rates are available
   useEffect(() => {
-    if (rates && rates.length > 0 && !showAIPanel) {
+    if (rates && rates.length > 0 && !showAIPanel && !isPaymentInProgress) {
       setShowAIPanel(true);
       if (rates[0] && !selectedRate) {
         setSelectedRate(rates[0]);
       }
     }
-  }, [rates, showAIPanel, selectedRate]);
+  }, [rates, showAIPanel, selectedRate, isPaymentInProgress]);
+
+  // Listen for payment events to close AI panel
+  useEffect(() => {
+    const handlePaymentStart = () => {
+      setIsPaymentInProgress(true);
+      setShowAIPanel(false);
+    };
+
+    const handlePaymentEnd = () => {
+      setIsPaymentInProgress(false);
+    };
+
+    // Listen for payment-related events
+    document.addEventListener('payment-start', handlePaymentStart);
+    document.addEventListener('payment-complete', handlePaymentEnd);
+    document.addEventListener('payment-cancelled', handlePaymentEnd);
+
+    return () => {
+      document.removeEventListener('payment-start', handlePaymentStart);
+      document.removeEventListener('payment-complete', handlePaymentEnd);
+      document.removeEventListener('payment-cancelled', handlePaymentEnd);
+    };
+  }, []);
 
   // NOW we can do the conditional redirect after all hooks are called
   if (!user) {
@@ -45,7 +69,9 @@ const CreateLabelPage = () => {
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
     setSelectedRate(rate);
-    setShowAIPanel(true);
+    if (!isPaymentInProgress) {
+      setShowAIPanel(true);
+    }
     handleSelectRate(rate.id);
   };
 
@@ -110,10 +136,31 @@ const CreateLabelPage = () => {
     setShowAIPanel(false);
   };
 
+  // Enhanced rate processing with proper carrier name standardization
+  const processRatesForDisplay = (ratesList: any[]) => {
+    return ratesList.map(rate => ({
+      ...rate,
+      // Standardize carrier names for display
+      displayCarrier: getStandardizedCarrierName(rate.carrier),
+      // Ensure we have the list rate for proper discount display
+      list_rate: rate.list_rate || rate.retail_rate
+    }));
+  };
+
+  const getStandardizedCarrierName = (carrierName: string) => {
+    const name = carrierName.toUpperCase();
+    if (name.includes('USPS')) return 'USPS';
+    if (name.includes('UPS')) return 'UPS';
+    if (name.includes('FEDEX')) return 'FedEx';
+    if (name.includes('DHL')) return 'DHL';
+    if (name.includes('CANADA POST') || name.includes('CANADAPOST')) return 'Canada Post';
+    return carrierName;
+  };
+
   // Sort rates to ensure USPS is first, then by price
-  const sortedRates = rates ? [...rates].sort((a, b) => {
-    if (a.carrier.toLowerCase().includes('usps') && !b.carrier.toLowerCase().includes('usps')) return -1;
-    if (!a.carrier.toLowerCase().includes('usps') && b.carrier.toLowerCase().includes('usps')) return 1;
+  const sortedRates = rates ? processRatesForDisplay([...rates]).sort((a, b) => {
+    if (a.displayCarrier === 'USPS' && b.displayCarrier !== 'USPS') return -1;
+    if (a.displayCarrier !== 'USPS' && b.displayCarrier === 'USPS') return 1;
     if (a.isAIRecommended && !b.isAIRecommended) return -1;
     if (!a.isAIRecommended && b.isAIRecommended) return 1;
     return parseFloat(a.rate) - parseFloat(b.rate);
@@ -126,8 +173,8 @@ const CreateLabelPage = () => {
         <EnhancedWorkflowTracker currentStep="package" />
       </div>
       
-      {/* Main Content - Adjust width when sidebar is open (narrower now) */}
-      <div className={`transition-all duration-300 ${showAIPanel ? 'pr-80' : ''}`}>
+      {/* Main Content - Adjust width when sidebar is open and not in payment */}
+      <div className={`transition-all duration-300 ${showAIPanel && !isPaymentInProgress ? 'pr-80' : ''}`}>
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-7xl mx-auto">
             {/* Header Section */}
@@ -163,8 +210,8 @@ const CreateLabelPage = () => {
         </div>
       </div>
 
-      {/* Single AI Analysis Panel - Narrower width */}
-      {showAIPanel && selectedRate && (
+      {/* AI Analysis Panel - Only show when not in payment flow */}
+      {showAIPanel && selectedRate && !isPaymentInProgress && (
         <AIRateAnalysisPanel
           selectedRate={selectedRate}
           allRates={sortedRates || []}
