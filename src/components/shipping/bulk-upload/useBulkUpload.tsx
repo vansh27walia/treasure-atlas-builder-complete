@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BulkUploadResult, BulkShipment, BatchResult, CustomsInfo } from '@/types/shipping';
+import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
 import { useShipmentManagement } from '@/hooks/useShipmentManagement';
@@ -83,32 +83,6 @@ export const useBulkUpload = () => {
     setSelectedCarrierFilter
   } = useShipmentFiltering(results);
 
-  // Handle customs information updates
-  const handleCustomsUpdate = (shipmentId: string, customsInfo: CustomsInfo) => {
-    if (!results) return;
-
-    const updatedShipments = results.processedShipments.map(shipment => {
-      if (shipment.id === shipmentId) {
-        return {
-          ...shipment,
-          customs_info: customsInfo,
-          details: {
-            ...shipment.details,
-            customs_info: customsInfo
-          }
-        };
-      }
-      return shipment;
-    });
-
-    updateResults({
-      ...results,
-      processedShipments: updatedShipments
-    });
-
-    toast.success('Customs information saved successfully');
-  };
-
   useEffect(() => {
     const loadDefaultPickupAddress = async () => {
       try {
@@ -170,18 +144,6 @@ export const useBulkUpload = () => {
     
     if (shipmentsToProcess.length === 0) {
       toast.error('No shipments with selected rates found');
-      return;
-    }
-
-    // Check for international shipments missing customs info
-    const internationalShipments = shipmentsToProcess.filter(s => {
-      const destCountry = s.details?.to_address?.country || 'US';
-      return destCountry.toUpperCase() !== 'US';
-    });
-
-    const missingCustoms = internationalShipments.filter(s => !s.customs_info || !s.customs_info.customs_signer);
-    if (missingCustoms.length > 0) {
-      toast.error(`${missingCustoms.length} international shipment(s) require customs information before label creation.`);
       return;
     }
 
@@ -306,7 +268,6 @@ export const useBulkUpload = () => {
             details: originalShipment?.details || {},
             availableRates: originalShipment?.availableRates || [],
             selectedRateId: originalShipment?.selectedRateId,
-            customs_info: originalShipment?.customs_info, // Preserve customs info
           };
         });
         
@@ -441,7 +402,6 @@ export const useBulkUpload = () => {
     handleRefreshRates,
     handleBulkApplyCarrier,
     handleCreateLabels,
-    handleCustomsUpdate,
     handleOpenBatchPrintPreview,
     handleClearBatchError,
     batchPrintPreviewModalOpen,
