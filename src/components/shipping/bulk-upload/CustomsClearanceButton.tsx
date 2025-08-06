@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -24,6 +23,7 @@ interface LocalCustomsInfo {
     origin_country: string;
   }>;
   eel_pfc?: string;
+  phone_number: string; // Added required phone_number field
 }
 
 interface CustomsClearanceButtonProps {
