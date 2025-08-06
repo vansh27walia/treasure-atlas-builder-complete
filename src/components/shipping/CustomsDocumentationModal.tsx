@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -34,31 +33,39 @@ interface CustomsDocumentationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (customsData: CustomsData) => void;
+  fromCountry?: string;
+  toCountry?: string;
+  initialData?: CustomsData;
 }
 
 const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
   isOpen,
   onClose,
-  onSubmit
+  onSubmit,
+  fromCountry,
+  toCountry,
+  initialData
 }) => {
-  const [customsData, setCustomsData] = useState<CustomsData>({
-    customs_certify: true,
-    customs_signer: '',
-    contents_type: 'merchandise',
-    eel_pfc: 'NOEEI 30.37(a)',
-    non_delivery_option: 'return',
-    restriction_type: 'none',
-    restriction_comments: '',
-    customs_items: [{
-      description: '',
-      quantity: 1,
-      weight: 1,
-      value: 1,
-      hs_tariff_number: '',
-      origin_country: 'US'
-    }],
-    phone_number: ''
-  });
+  const [customsData, setCustomsData] = useState<CustomsData>(
+    initialData || {
+      customs_certify: true,
+      customs_signer: '',
+      contents_type: 'merchandise',
+      eel_pfc: 'NOEEI 30.37(a)',
+      non_delivery_option: 'return',
+      restriction_type: 'none',
+      restriction_comments: '',
+      customs_items: [{
+        description: '',
+        quantity: 1,
+        weight: 1,
+        value: 1,
+        hs_tariff_number: '',
+        origin_country: fromCountry || 'US'
+      }],
+      phone_number: ''
+    }
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +111,7 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
         weight: 1,
         value: 1,
         hs_tariff_number: '',
-        origin_country: 'US'
+        origin_country: fromCountry || 'US'
       }]
     }));
   };
@@ -131,7 +138,14 @@ const CustomsDocumentationModal: React.FC<CustomsDocumentationModalProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>International Customs Documentation</DialogTitle>
+          <DialogTitle>
+            International Customs Documentation
+            {fromCountry && toCountry && (
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                ({fromCountry} → {toCountry})
+              </span>
+            )}
+          </DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
