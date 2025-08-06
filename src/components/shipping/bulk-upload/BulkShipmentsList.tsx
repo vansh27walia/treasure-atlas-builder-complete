@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Trash2, Edit, Download, Mail, ExternalLink, AlertCircle } from 'lucide-react';
 import { BulkShipment, Rate } from '@/types/shipping';
-import BulkRateDisplay from './BulkRateDisplay';
+import RateDisplay from './RateDisplay';
 import InsuranceOptions from './InsuranceOptions';
 import AIRatePicker from './AIRatePicker';
 import CustomsClearanceButton from './CustomsClearanceButton';
@@ -70,7 +70,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   <div className="text-sm text-gray-500">
                     {typeof shipment.customer_address === 'string' 
                       ? shipment.customer_address
-                      : shipment.customer_address?.street1 || ''
+                      : shipment.customer_address?.street1 || shipment.details?.to_address?.street1 || ''
                     }
                   </div>
                 </div>
@@ -78,18 +78,43 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
               <TableCell>
                 <div>
-                  <div className="font-medium">{displayWeightInPounds(shipment.details?.weight || 1)}</div>
+                  <div className="font-medium">{displayWeightInPounds(shipment.details?.parcel?.weight || 1)}</div>
                   <div className="text-sm text-gray-500">
-                    {shipment.details?.length || 1}" × {shipment.details?.width || 1}" × {shipment.details?.height || 1}"
+                    {shipment.details?.parcel?.length || 1}" × {shipment.details?.parcel?.width || 1}" × {shipment.details?.parcel?.height || 1}"
                   </div>
                 </div>
               </TableCell>
 
               <TableCell>
-                <BulkRateDisplay
-                  shipment={shipment}
-                  onSelectRate={onSelectRate}
-                />
+                {shipment.availableRates && shipment.availableRates.length > 0 ? (
+                  <div className="space-y-2">
+                    {shipment.selectedRateId ? (
+                      // Show selected rate
+                      (() => {
+                        const selectedRate = shipment.availableRates.find(r => r.id === shipment.selectedRateId);
+                        if (selectedRate) {
+                          return (
+                            <RateDisplay
+                              actualRate={selectedRate.rate}
+                              carrier={selectedRate.carrier}
+                              service={selectedRate.service}
+                              deliveryDays={selectedRate.delivery_days || selectedRate.est_delivery_days}
+                            />
+                          );
+                        }
+                        return <span className="text-gray-500">No rate selected</span>;
+                      })()
+                    ) : (
+                      // Show rate selection
+                      <AIRatePicker
+                        shipment={shipment}
+                        onSelectRate={onSelectRate}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-gray-500">Loading rates...</div>
+                )}
               </TableCell>
 
               <TableCell>
