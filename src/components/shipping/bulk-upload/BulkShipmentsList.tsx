@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { BulkShipment } from '@/types/shipping';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,27 @@ import RateDisplay from './RateDisplay';
 import CarrierLogo from '../CarrierLogo';
 import { toast } from '@/components/ui/sonner';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import CustomsDocumentationModal from '../CustomsDocumentationModal';
+import CustomsClearanceButton from './CustomsClearanceButton';
+
+// Local interface for customs info to avoid conflicts
+interface LocalCustomsInfo {
+  contents_type: string;
+  contents_explanation?: string;
+  customs_certify: boolean;
+  customs_signer: string;
+  non_delivery_option: string;
+  restriction_type?: string;
+  restriction_comments?: string;
+  customs_items: Array<{
+    description: string;
+    quantity: number;
+    value: number;
+    weight: number;
+    hs_tariff_number?: string;
+    origin_country: string;
+  }>;
+  eel_pfc?: string;
+}
 
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
@@ -42,8 +61,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   onAIAnalysis
 }) => {
   const [openDialogs, setOpenDialogs] = useState<Record<string, boolean>>({});
-  const [customsDialogs, setCustomsDialogs] = useState<Record<string, boolean>>({});
-  const [customsInfo, setCustomsInfo] = useState<Record<string, any>>({});
+  const [customsInfo, setCustomsInfo] = useState<Record<string, LocalCustomsInfo>>({});
   const [insuranceSettings, setInsuranceSettings] = useState<Record<string, {
     enabled: boolean;
     value: number;
@@ -72,26 +90,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     });
   };
 
-  const handleOpenCustomsDialog = (shipmentId: string) => {
-    setCustomsDialogs({
-      ...customsDialogs,
-      [shipmentId]: true
-    });
-  };
-
-  const handleCloseCustomsDialog = (shipmentId: string) => {
-    setCustomsDialogs({
-      ...customsDialogs,
-      [shipmentId]: false
-    });
-  };
-
-  const handleCustomsInfoSave = (shipmentId: string, info: any) => {
+  const handleCustomsInfoSave = (shipmentId: string, info: LocalCustomsInfo) => {
     setCustomsInfo({
       ...customsInfo,
       [shipmentId]: info
     });
-    handleCloseCustomsDialog(shipmentId);
     toast.success('Customs information saved successfully');
   };
 
@@ -756,46 +759,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                       </TableCell>
 
                       <TableCell>
-                        <div className="flex justify-center">
-                          <Dialog open={customsDialogs[shipment.id]} onOpenChange={(open) => {
-                            if (open) {
-                              handleOpenCustomsDialog(shipment.id);
-                            } else {
-                              handleCloseCustomsDialog(shipment.id);
-                            }
-                          }}>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={!isInternational}
-                                className={`w-full transition-all duration-200 ${
-                                  isInternational
-                                    ? hasCustomsInfo
-                                      ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200'
-                                      : 'bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-200'
-                                    : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-50 blur-sm'
-                                }`}
-                              >
-                                <Globe className="w-4 h-4 mr-2" />
-                                {!isInternational ? 'Domestic' : hasCustomsInfo ? 'Completed' : 'Required'}
-                              </Button>
-                            </DialogTrigger>
-                            {isInternational && (
-                              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                                <DialogHeader>
-                                  <DialogTitle>Custom Clearance Documentation</DialogTitle>
-                                </DialogHeader>
-                                <CustomsDocumentationModal
-                                  isOpen={true}
-                                  onClose={() => handleCloseCustomsDialog(shipment.id)}
-                                  onSave={(info) => handleCustomsInfoSave(shipment.id, info)}
-                                  initialData={customsInfo[shipment.id]}
-                                />
-                              </DialogContent>
-                            )}
-                          </Dialog>
-                        </div>
+                        <CustomsClearanceButton
+                          shipment={shipment}
+                          customsInfo={customsInfo[shipment.id]}
+                          onCustomsInfoSave={(info) => handleCustomsInfoSave(shipment.id, info)}
+                        />
                       </TableCell>
                       
                       <TableCell className="text-right">

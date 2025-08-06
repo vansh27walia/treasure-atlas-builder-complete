@@ -3,13 +3,33 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Globe, Check } from 'lucide-react';
-import { BulkShipment, CustomsInfo } from '@/types/shipping';
+import { BulkShipment } from '@/types/shipping';
 import CustomsDocumentationModal from '../CustomsDocumentationModal';
+
+// Local interface to match what we need
+interface LocalCustomsInfo {
+  contents_type: string;
+  contents_explanation?: string;
+  customs_certify: boolean;
+  customs_signer: string;
+  non_delivery_option: string;
+  restriction_type?: string;
+  restriction_comments?: string;
+  customs_items: Array<{
+    description: string;
+    quantity: number;
+    value: number;
+    weight: number;
+    hs_tariff_number?: string;
+    origin_country: string;
+  }>;
+  eel_pfc?: string;
+}
 
 interface CustomsClearanceButtonProps {
   shipment: BulkShipment;
-  customsInfo?: CustomsInfo;
-  onCustomsInfoSave: (info: CustomsInfo) => void;
+  customsInfo?: LocalCustomsInfo;
+  onCustomsInfoSave: (info: LocalCustomsInfo) => void;
 }
 
 const CustomsClearanceButton: React.FC<CustomsClearanceButtonProps> = ({
@@ -25,7 +45,7 @@ const CustomsClearanceButton: React.FC<CustomsClearanceButtonProps> = ({
     return country !== 'US' && country !== 'USA' && country !== 'UNITED STATES';
   };
 
-  const handleSave = (info: CustomsInfo) => {
+  const handleSave = (info: LocalCustomsInfo) => {
     onCustomsInfoSave(info);
     setIsOpen(false);
   };
@@ -61,7 +81,9 @@ const CustomsClearanceButton: React.FC<CustomsClearanceButtonProps> = ({
           <CustomsDocumentationModal
             isOpen={true}
             onClose={() => setIsOpen(false)}
-            onSave={handleSave}
+            onSubmit={handleSave}
+            fromCountry="US"
+            toCountry={shipment.details.to_country || ""}
             initialData={customsInfo}
           />
         </DialogContent>
