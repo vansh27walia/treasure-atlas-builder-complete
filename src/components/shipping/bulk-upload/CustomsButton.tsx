@@ -11,44 +11,45 @@ interface CustomsButtonProps {
 }
 
 const CustomsButton: React.FC<CustomsButtonProps> = ({ shipment, onCustomsSave }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showCustomsModal, setShowCustomsModal] = useState(false);
 
-  // Only show for international shipments (destination country not US)
+  // Only show for international shipments (non-US destinations)
   const isInternational = shipment.details?.to_address?.country && 
-                          shipment.details.to_address.country.toUpperCase() !== 'US';
+                         shipment.details.to_address.country !== 'US';
 
   if (!isInternational) {
     return null;
   }
 
   const handleCustomsSubmit = (customsInfo: CustomsInfo) => {
+    console.log('Saving customs info for shipment:', shipment.id, customsInfo);
     onCustomsSave(shipment.id, customsInfo);
-    setIsModalOpen(false);
+    setShowCustomsModal(false);
   };
-
-  const fromCountry = 'US'; // Assuming pickup is from US
-  const toCountry = shipment.details?.to_address?.country || 'Unknown';
 
   return (
     <>
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setIsModalOpen(true)}
-        className="h-8 px-2 text-xs"
+        onClick={() => setShowCustomsModal(true)}
+        className="h-8 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+        title="International customs information required"
       >
-        <FileText className="w-3 h-3 mr-1" />
-        Customs
+        <FileText className="w-4 h-4" />
+        <span className="ml-1 text-xs">Customs</span>
       </Button>
 
-      <CustomsDocumentationModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleCustomsSubmit}
-        fromCountry={fromCountry}
-        toCountry={toCountry}
-        initialData={shipment.customs_info}
-      />
+      {showCustomsModal && (
+        <CustomsDocumentationModal
+          isOpen={showCustomsModal}
+          onClose={() => setShowCustomsModal(false)}
+          onSubmit={handleCustomsSubmit}
+          fromCountry="US"
+          toCountry={shipment.details?.to_address?.country || ''}
+          initialData={shipment.customs_info}
+        />
+      )}
     </>
   );
 };

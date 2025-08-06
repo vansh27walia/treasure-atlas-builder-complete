@@ -4,9 +4,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Edit3, RefreshCw, Clock, CheckCircle, AlertCircle, Package } from 'lucide-react';
-import { BulkShipment, Rate, CustomsInfo } from '@/types/shipping';
+import { BulkShipment, CustomsInfo } from '@/types/shipping';
 import EditableShipmentRow from './EditableShipmentRow';
-import RateDisplay from './RateDisplay';
+import BulkRateDisplay from './BulkRateDisplay';
 import CustomsButton from './CustomsButton';
 
 interface BulkShipmentsListProps {
@@ -148,7 +148,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
                 {/* Rates Section */}
                 {shipment.availableRates && shipment.availableRates.length > 0 && (
-                  <RateDisplay
+                  <BulkRateDisplay
                     rates={shipment.availableRates}
                     selectedRateId={shipment.selectedRateId || ''}
                     onSelectRate={(rateId) => onSelectRate(shipment.id, rateId)}
