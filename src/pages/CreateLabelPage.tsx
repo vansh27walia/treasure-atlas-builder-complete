@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
@@ -6,12 +7,12 @@ import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 import RateFilter from '@/components/shipping/RateFilter';
 import AIRateAnalysisPanel from '@/components/shipping/AIRateAnalysisPanel';
-import CustomsInfoPopout from '@/components/shipping/CustomsInfoPopout';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 
 const CreateLabelPage = () => {
+  // Move ALL hooks to the top before any conditional logic
   const { user } = useAuth();
   const {
     rates,
@@ -37,7 +38,7 @@ const CreateLabelPage = () => {
     }
   }, [rates, showAIPanel, selectedRate, isPaymentInProgress]);
 
-  // Enhanced event listeners for proper AI panel closing
+  // Listen for payment events to close AI panel
   useEffect(() => {
     const handlePaymentStart = () => {
       setIsPaymentInProgress(true);
@@ -48,30 +49,15 @@ const CreateLabelPage = () => {
       setIsPaymentInProgress(false);
     };
 
-    // Enhanced close handler
-    const handleAIPanelClosed = () => {
-      setShowAIPanel(false);
-    };
-
-    const handleAIPanelForceClose = () => {
-      setShowAIPanel(false);
-    };
-
     // Listen for payment-related events
     document.addEventListener('payment-start', handlePaymentStart);
     document.addEventListener('payment-complete', handlePaymentEnd);
     document.addEventListener('payment-cancelled', handlePaymentEnd);
-    
-    // Listen for AI panel close events
-    document.addEventListener('ai-panel-closed', handleAIPanelClosed);
-    document.addEventListener('ai-panel-force-close', handleAIPanelForceClose);
 
     return () => {
       document.removeEventListener('payment-start', handlePaymentStart);
       document.removeEventListener('payment-complete', handlePaymentEnd);
       document.removeEventListener('payment-cancelled', handlePaymentEnd);
-      document.removeEventListener('ai-panel-closed', handleAIPanelClosed);
-      document.removeEventListener('ai-panel-force-close', handleAIPanelForceClose);
     };
   }, []);
 
@@ -146,9 +132,7 @@ const CreateLabelPage = () => {
     setIsRateCalculatorOpen(true);
   };
 
-  // Enhanced close handler to ensure proper state management
   const handleCloseSidebar = () => {
-    console.log('Closing sidebar from CreateLabelPage...');
     setShowAIPanel(false);
   };
 
