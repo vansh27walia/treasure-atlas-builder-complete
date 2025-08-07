@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -120,6 +119,10 @@ const BulkUpload: React.FC<BulkUploadProps> = ({ onUploadComplete }) => {
       setAllSelected(selectedShipments.length === results.processedShipments.length);
     }
   }, [selectedShipments, results]);
+
+  const handleCreateLabelsClick = () => {
+    handleCreateLabels();
+  };
 
   const getSelectedShipmentsData = () => {
     if (!results) return [];
@@ -245,7 +248,7 @@ const BulkUpload: React.FC<BulkUploadProps> = ({ onUploadComplete }) => {
                   
                   <Button 
                     variant="outline"
-                    onClick={handleCreateLabels}
+                    onClick={handleCreateLabelsClick}
                     disabled={isCreatingLabels}
                     className="w-full"
                   >
