@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Trash2, Edit3, Save, X, Package, MapPin, Clock, DollarSign } from 'lucide-react';
-import EditableShipmentRow from './EditableShipmentRow';
 import CarrierLogo from '@/components/shipping/CarrierLogo';
 import { standardizeCarrierName, standardizeServiceName } from '@/utils/carrierUtils';
 import { BulkShipment } from '@/types/shipping';
@@ -86,6 +85,98 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     return shipment.availableRates.find(rate => rate.id === shipment.selectedRateId);
   };
 
+  const EditableShipmentRow = ({ shipment, onChange }: { shipment: BulkShipment, onChange: (shipment: BulkShipment) => void }) => {
+    return (
+      <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Customer Name</label>
+            <Input
+              value={shipment.customer_name || ''}
+              onChange={(e) => onChange({ ...shipment, customer_name: e.target.value })}
+              placeholder="Customer Name"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Weight (oz)</label>
+            <Input
+              type="number"
+              value={shipment.details?.parcel?.weight || 1}
+              onChange={(e) => onChange({
+                ...shipment,
+                details: {
+                  ...shipment.details,
+                  parcel: {
+                    ...shipment.details?.parcel,
+                    weight: parseFloat(e.target.value)
+                  }
+                }
+              })}
+              placeholder="Weight"
+            />
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <label className="text-sm font-medium text-gray-700">Length</label>
+            <Input
+              type="number"
+              value={shipment.details?.parcel?.length || 1}
+              onChange={(e) => onChange({
+                ...shipment,
+                details: {
+                  ...shipment.details,
+                  parcel: {
+                    ...shipment.details?.parcel,
+                    length: parseFloat(e.target.value)
+                  }
+                }
+              })}
+              placeholder="L"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Width</label>
+            <Input
+              type="number"
+              value={shipment.details?.parcel?.width || 1}
+              onChange={(e) => onChange({
+                ...shipment,
+                details: {
+                  ...shipment.details,
+                  parcel: {
+                    ...shipment.details?.parcel,
+                    width: parseFloat(e.target.value)
+                  }
+                }
+              })}
+              placeholder="W"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Height</label>
+            <Input
+              type="number"
+              value={shipment.details?.parcel?.height || 1}
+              onChange={(e) => onChange({
+                ...shipment,
+                details: {
+                  ...shipment.details,
+                  parcel: {
+                    ...shipment.details?.parcel,
+                    height: parseFloat(e.target.value)
+                  }
+                }
+              })}
+              placeholder="H"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -118,12 +209,30 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
             }`}
           >
             {editingIndex === index ? (
-              <EditableShipmentRow
-                shipment={tempShipment!}
-                onSave={() => handleSave(index)}
-                onCancel={handleCancel}
-                onChange={setTempShipment}
-              />
+              <div className="space-y-4">
+                <EditableShipmentRow
+                  shipment={tempShipment!}
+                  onChange={setTempShipment}
+                />
+                <div className="flex justify-end space-x-2">
+                  <Button
+                    onClick={() => handleSave(index)}
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </Button>
+                  <Button
+                    onClick={handleCancel}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                </div>
+              </div>
             ) : (
               <div className="space-y-4">
                 {/* Header with checkbox and actions */}

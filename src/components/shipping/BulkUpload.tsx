@@ -21,6 +21,8 @@ const BulkUpload: React.FC<BulkUploadProps> = ({ onUploadComplete }) => {
   const [results, setResults] = useState<BulkUploadResult | null>(null);
   const [selectedShipments, setSelectedShipments] = useState<number[]>([]);
   const [allSelected, setAllSelected] = useState(false);
+  const [showLabelOptions, setShowLabelOptions] = useState(false);
+  const [downloadFormat, setDownloadFormat] = useState<'pdf' | 'png' | 'zpl' | 'zip'>('pdf');
 
   const {
     file,
@@ -35,8 +37,6 @@ const BulkUpload: React.FC<BulkUploadProps> = ({ onUploadComplete }) => {
   const {
     isPaying,
     isCreatingLabels,
-    showLabelOptions,
-    downloadFormat,
     handleRemoveShipment,
     handleEditShipment,
     handleProceedToPayment,
@@ -45,8 +45,6 @@ const BulkUpload: React.FC<BulkUploadProps> = ({ onUploadComplete }) => {
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
     handleEmailLabels,
-    setShowLabelOptions,
-    setDownloadFormat,
   } = useShipmentManagement(results, setResults);
 
   const handleUploadSuccess = (uploadResults: BulkUploadResult) => {
@@ -213,8 +211,13 @@ const BulkUpload: React.FC<BulkUploadProps> = ({ onUploadComplete }) => {
           {selectedShipments.length > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <OrderSummary 
-                shipments={selectedShipmentsData}
+                successfulCount={selectedShipments.length}
                 totalCost={selectedTotalCost}
+                totalInsurance={0}
+                onDownloadAllLabels={handleDownloadAllLabels}
+                onProceedToPayment={handleProceedToPayment}
+                isPaying={isPaying}
+                isCreatingLabels={isCreatingLabels}
               />
               
               <Card>
@@ -261,7 +264,7 @@ const BulkUpload: React.FC<BulkUploadProps> = ({ onUploadComplete }) => {
                   
                   <Button 
                     variant="outline"
-                    onClick={handleDownloadAllLabels}
+                    onClick={() => handleDownloadAllLabels()}
                     className="w-full"
                   >
                     <Download className="w-4 h-4 mr-2" />
@@ -282,15 +285,14 @@ const BulkUpload: React.FC<BulkUploadProps> = ({ onUploadComplete }) => {
           )}
 
           {/* Download Options Modal */}
-          {showLabelOptions && (
+          {showLabelOptions && results && (
             <BulkLabelDownloadOptions
-              isOpen={showLabelOptions}
-              onClose={() => setShowLabelOptions(false)}
-              onDownload={handleDownloadLabelsWithFormat}
-              onEmail={handleEmailLabels}
-              isProcessing={isCreatingLabels}
-              downloadFormat={downloadFormat}
-              onFormatChange={setDownloadFormat}
+              processedLabels={selectedShipmentsData}
+              onDownloadBatch={(format, url) => window.open(url, '_blank')}
+              onDownloadManifest={(url) => window.open(url, '_blank')}
+              onDownloadIndividual={handleDownloadSingleLabel}
+              onPrintPreview={() => console.log('Print preview')}
+              onEmailLabels={() => setShowLabelOptions(false)}
             />
           )}
         </div>
