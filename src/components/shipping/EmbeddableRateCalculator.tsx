@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -5,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calculator, Package } from 'lucide-react';
-import { geocodingService, GeneratedAddress } from '@/services/GeocodingService';
+import { GeocodingService, GeneratedAddress } from '@/services/GeocodingService';
 import useRateCalculator from '@/hooks/useRateCalculator';
 import countries from 'country-list';
 
@@ -35,8 +36,8 @@ const EmbeddableRateCalculator = () => {
 
     try {
       // Generate addresses using geocoding service
-      const fromAddress: GeneratedAddress = await geocodingService.generateAddressFromZipCountry(fromZip.trim(), fromCountry);
-      const toAddress: GeneratedAddress = await geocodingService.generateAddressFromZipCountry(toZip.trim(), toCountry);
+      const fromAddress: GeneratedAddress = await GeocodingService.generateAddressFromZip(fromZip.trim());
+      const toAddress: GeneratedAddress = await GeocodingService.generateAddressFromZip(toZip.trim());
 
       const parcelData = {
         weight: parseFloat(weight),
