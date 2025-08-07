@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,12 +19,13 @@ interface BulkShipmentsListProps {
   onEditShipment: (shipment: BulkShipment) => void;
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRefreshRates: (shipmentId: string) => void;
-  onBulkApplyCarrier: (carrierName: string) => void;
+  onBulkApplyCarrier?: (carrierName: string) => void;
   isFetchingRates: boolean;
-  searchTerm: string;
-  sortField: string;
-  sortDirection: 'asc' | 'desc';
-  selectedCarrierFilter: string;
+  searchTerm?: string;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+  selectedCarrierFilter?: string;
+  onAIAnalysis?: (shipment?: any) => void;
 }
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
@@ -36,10 +36,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   onRefreshRates,
   onBulkApplyCarrier,
   isFetchingRates,
-  searchTerm,
-  sortField,
-  sortDirection,
-  selectedCarrierFilter,
+  searchTerm = '',
+  sortField = '',
+  sortDirection = 'asc',
+  selectedCarrierFilter = 'all',
+  onAIAnalysis,
 }) => {
   const [editingShipment, setEditingShipment] = useState<BulkShipment | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -69,6 +70,19 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   const applyRateMarkup = (originalRate: number): number => {
     const markupAmount = originalRate * (RATE_MARKUP_PERCENTAGE / 100);
     return originalRate + markupAmount;
+  };
+
+  // Helper function to get discount percentage with proper fallbacks
+  const getDiscountPercentage = (rate: ShippingOption) => {
+    if (rate.original_rate && rate.rate) {
+      const originalRate = parseFloat(rate.original_rate.toString());
+      const discountedRate = parseFloat(rate.rate.toString());
+      if (originalRate > discountedRate) {
+        const discount = ((originalRate - discountedRate) / originalRate) * 100;
+        return Math.round(discount);
+      }
+    }
+    return rate.discount_percentage || 0;
   };
 
   // Handle post-payment refresh
@@ -185,16 +199,6 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
   });
 
-  const getDiscountPercentage = (rate: ShippingOption) => {
-    if (rate.original_rate && rate.rate) {
-      const originalRate = parseFloat(rate.original_rate.toString());
-      const discountedRate = parseFloat(rate.rate.toString());
-      const discount = ((originalRate - discountedRate) / originalRate) * 100;
-      return Math.round(discount);
-    }
-    return rate.discount_percentage || 0;
-  };
-
   if (sortedShipments.length === 0) {
     return (
       <div className="text-center py-8">
@@ -267,7 +271,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                       value={shipment.selectedRateId || ''}
                       onValueChange={(rateId) => handleRateSelect(shipment.id, rateId)}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full max-w-md">
                         <SelectValue placeholder="Select a rate">
                           {shipment.selectedRateId && (() => {
                             const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
@@ -299,7 +303,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                           })()}
                         </SelectValue>
                       </SelectTrigger>
-                      <SelectContent className="max-h-60 w-full">
+                      <SelectContent className="max-h-60 w-full min-w-[400px]">
                         {shipment.availableRates.map((rate) => {
                           const standardizedCarrier = standardizeCarrierName(rate.carrier);
                           const discountPercent = getDiscountPercentage(rate);
@@ -320,7 +324,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 </div>
                                 <div className="flex items-center space-x-2">
                                   {discountPercent > 0 && (
-                                    <span className="text-xs font-bold text-red-600">
+                                    <span className={`text-xs font-bold ${discountPercent >= 50 ? 'text-red-600' : 'text-orange-600'}`}>
                                       {discountPercent}% OFF
                                     </span>
                                   )}
@@ -355,7 +359,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     <Edit className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+                <DialogContent className="max-w-md max-h-[70vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Edit Shipment</DialogTitle>
                   </DialogHeader>

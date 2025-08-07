@@ -41,12 +41,14 @@ export interface ShippingOption {
   id: string;
   carrier: string;
   service: string;
-  rate: number;
-  currency: string;
-  delivery_days: number;
-  estimated_delivery_date?: string;
-  listRate?: number;
-  retailRate?: number;
+  rate: number | string;
+  delivery_days?: number;
+  currency?: string;
+  original_rate?: number | string;
+  discount_percentage?: number;
+  markup_percentage?: number;
+  original_carrier?: string;
+  original_service?: string;
 }
 
 export interface ShippingLabelFormat {
