@@ -120,14 +120,14 @@ export const useBulkUpload = () => {
 
       // Update the shipment in the results
       const updatedShipments = results.processedShipments.map(s => 
-        s.id === shipment.id ? { ...shipment, status: 'pending' as const } : s
+        s.id === shipment.id ? { ...shipment, status: 'rates_fetched' as const } : s
       );
 
       // Calculate new total cost including insurance
       const newTotalCost = updatedShipments.reduce((total, s) => {
         const selectedRate = s.availableRates?.find(rate => rate.id === s.selectedRateId);
-        const ratePrice = selectedRate ? parseFloat(selectedRate.rate) : 0;
-        const insuranceCost = s.details?.insurance_amount ? parseFloat(s.details.insurance_amount) * 0.01 : 0; // 1% of insured value
+        const ratePrice = selectedRate ? parseFloat(selectedRate.rate.toString()) : 0;
+        const insuranceCost = s.details?.insurance_amount ? parseFloat(s.details.insurance_amount.toString()) * 0.01 : 0; // 1% of insured value
         return total + ratePrice + insuranceCost;
       }, 0);
 

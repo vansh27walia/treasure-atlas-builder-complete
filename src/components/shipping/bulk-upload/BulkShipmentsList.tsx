@@ -53,8 +53,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   // Calculate discount percentage
   const calculateDiscount = (rate: any) => {
     if (rate.original_rate && rate.rate) {
-      const originalRate = parseFloat(rate.original_rate);
-      const currentRate = parseFloat(rate.rate);
+      const originalRate = parseFloat(rate.original_rate.toString());
+      const currentRate = parseFloat(rate.rate.toString());
       if (originalRate > currentRate) {
         return Math.round(((originalRate - currentRate) / originalRate) * 100);
       }
@@ -65,7 +65,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   // Check if rate is AI recommended
   const isAIRecommended = (rate: any, shipment: BulkShipment) => {
     // AI recommends rates that are balanced between price and speed
-    const ratePrice = parseFloat(rate.rate);
+    const ratePrice = parseFloat(rate.rate.toString());
     const deliveryDays = rate.delivery_days || 5;
     
     // AI logic: recommend rates under $25 with 3 days or less delivery
@@ -111,8 +111,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
   const calculateTotalCost = (shipment: BulkShipment) => {
     const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
-    const ratePrice = selectedRate ? parseFloat(selectedRate.rate) : 0;
-    const insuranceCost = shipment.details?.insurance_amount ? parseFloat(shipment.details.insurance_amount) * 0.01 : 0; // 1% of insured value
+    const ratePrice = selectedRate ? parseFloat(selectedRate.rate.toString()) : 0;
+    const insuranceCost = shipment.details?.insurance_amount ? parseFloat(shipment.details.insurance_amount.toString()) * 0.01 : 0; // 1% of insured value
     return ratePrice + insuranceCost;
   };
 
@@ -133,46 +133,50 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
         const totalCost = calculateTotalCost(shipment);
         
         return (
-          <Card key={shipment.id} className="border border-gray-200 hover:shadow-md transition-shadow duration-200">
-            <CardContent className="p-4">
+          <Card key={shipment.id} className="border border-gray-200 hover:shadow-md transition-shadow duration-200 max-w-4xl mx-auto">
+            <CardContent className="p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1 min-w-0 pr-4">
                   {/* Customer Name and Address */}
-                  <div className="mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                  <div className="mb-4">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
                       {shipment.details?.name || 'Unknown Recipient'}
                     </h3>
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <div>{shipment.details?.street1}</div>
-                      {shipment.details?.street2 && <div>{shipment.details.street2}</div>}
+                    <div className="text-sm text-gray-600 space-y-1 leading-relaxed">
+                      <div className="font-medium">{shipment.details?.street1}</div>
+                      {shipment.details?.street2 && <div className="text-gray-500">{shipment.details.street2}</div>}
                       <div>
                         {shipment.details?.city}, {shipment.details?.state} {shipment.details?.zip}
                       </div>
                       {shipment.details?.country && shipment.details.country !== 'US' && (
-                        <div>{shipment.details.country}</div>
+                        <div className="font-medium">{shipment.details.country}</div>
                       )}
                     </div>
                   </div>
 
                   {/* Package Dimensions */}
-                  <div className="mb-3 p-2 bg-gray-50 rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <Package className="w-4 h-4 text-gray-500 mr-2" />
-                      <span className="text-sm font-medium text-gray-700">Package Details</span>
+                  <div className="mb-4 p-4 bg-gray-50 rounded-lg border">
+                    <div className="flex items-center mb-3">
+                      <Package className="w-5 h-5 text-gray-600 mr-2" />
+                      <span className="text-base font-semibold text-gray-800">Package Details</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="font-medium">Dimensions:</span> {shipment.details?.parcel_length || 12}" × {shipment.details?.parcel_width || 8}" × {shipment.details?.parcel_height || 4}"
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div className="flex items-center justify-between p-2 bg-white rounded border">
+                        <span className="font-medium text-gray-700">Dimensions:</span> 
+                        <span className="text-gray-900 font-mono">
+                          {shipment.details?.parcel_length || 12}" × {shipment.details?.parcel_width || 8}" × {shipment.details?.parcel_height || 4}"
+                        </span>
                       </div>
-                      <div>
-                        <span className="font-medium">Weight:</span> {shipment.details?.parcel_weight || 16} lbs
+                      <div className="flex items-center justify-between p-2 bg-white rounded border">
+                        <span className="font-medium text-gray-700">Weight:</span> 
+                        <span className="text-gray-900 font-mono">{shipment.details?.parcel_weight || 16} lbs</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Rate Selection */}
-                  <div className="mb-3">
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  <div className="mb-4">
+                    <Label className="text-base font-semibold text-gray-800 mb-3 block">
                       Select Shipping Rate
                     </Label>
                     
@@ -181,30 +185,31 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                         value={shipment.selectedRateId || ''}
                         onValueChange={(value) => onSelectRate(shipment.id, value)}
                       >
-                        <SelectTrigger className="w-full h-12 bg-white border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500">
+                        <SelectTrigger className="w-full h-14 bg-white border-2 border-gray-200 hover:border-blue-300 focus:border-blue-500 text-left">
                           <SelectValue placeholder="Choose a shipping option">
                             {selectedRate && (
                               <div className="flex items-center justify-between w-full pr-4">
-                                <div className="flex items-center space-x-3">
+                                <div className="flex items-center space-x-4">
                                   <CarrierLogo 
                                     carrier={standardizeCarrierName(selectedRate.carrier)} 
-                                    className="w-8 h-8" 
+                                    className="w-10 h-10 flex-shrink-0" 
                                   />
                                   <div className="text-left">
-                                    <div className="font-semibold text-gray-900">
+                                    <div className="font-bold text-gray-900 text-base">
                                       {standardizeCarrierName(selectedRate.carrier)} - {selectedRate.service}
                                     </div>
-                                    <div className="text-sm text-gray-600">
+                                    <div className="text-sm text-gray-600 flex items-center gap-1">
+                                      <Clock className="w-4 h-4" />
                                       {selectedRate.delivery_days} business days
                                     </div>
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className="font-bold text-green-600">
-                                    ${parseFloat(selectedRate.rate).toFixed(2)}
+                                  <div className="font-bold text-green-600 text-lg">
+                                    ${parseFloat(selectedRate.rate.toString()).toFixed(2)}
                                   </div>
                                   {calculateDiscount(selectedRate) > 0 && (
-                                    <div className="text-xs text-green-600">
+                                    <div className="text-xs text-green-600 font-medium">
                                       {calculateDiscount(selectedRate)}% discount
                                     </div>
                                   )}
@@ -213,7 +218,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                             )}
                           </SelectValue>
                         </SelectTrigger>
-                        <SelectContent className="w-full max-w-none bg-white border border-gray-200 shadow-lg z-50">
+                        <SelectContent className="w-full max-w-4xl bg-white border border-gray-200 shadow-xl z-50">
                           {shipment.availableRates.map((rate) => {
                             const discount = calculateDiscount(rate);
                             const aiRecommended = isAIRecommended(rate, shipment);
@@ -224,45 +229,50 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 value={rate.id}
                                 className="p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                               >
-                                <div className="flex items-center justify-between w-full">
-                                  <div className="flex items-center space-x-3">
+                                <div className="flex items-center justify-between w-full min-w-[500px]">
+                                  <div className="flex items-center space-x-4">
                                     <CarrierLogo 
                                       carrier={standardizeCarrierName(rate.carrier)} 
-                                      className="w-10 h-10" 
+                                      className="w-12 h-12 flex-shrink-0" 
                                     />
                                     <div>
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-semibold text-gray-900">
+                                      <div className="flex items-center gap-3 mb-1">
+                                        <span className="font-bold text-gray-900 text-lg">
                                           {standardizeCarrierName(rate.carrier)}
                                         </span>
                                         {aiRecommended && (
-                                          <Badge className="bg-blue-100 text-blue-800 border border-blue-200 px-2 py-0.5 text-xs flex items-center gap-1">
+                                          <Badge className="bg-blue-100 text-blue-800 border border-blue-200 px-2 py-1 text-xs flex items-center gap-1">
                                             <Sparkles className="w-3 h-3" />
                                             AI Recommended
                                           </Badge>
                                         )}
+                                        {discount > 0 && (
+                                          <Badge className="bg-green-100 text-green-800 border border-green-200 px-2 py-1 text-xs">
+                                            {discount}% OFF
+                                          </Badge>
+                                        )}
                                       </div>
-                                      <div className="text-sm text-gray-600">
+                                      <div className="text-base text-gray-700 font-medium mb-1">
                                         {rate.service}
                                       </div>
                                       <div className="text-sm text-blue-600 flex items-center gap-1">
-                                        <Clock className="w-3 h-3" />
-                                        {rate.delivery_days} business days
+                                        <Clock className="w-4 h-4" />
+                                        {rate.delivery_days} business days delivery
                                       </div>
                                     </div>
                                   </div>
                                   <div className="text-right">
-                                    <div className="font-bold text-lg text-green-600">
-                                      ${parseFloat(rate.rate).toFixed(2)}
+                                    <div className="font-bold text-xl text-green-600 mb-1">
+                                      ${parseFloat(rate.rate.toString()).toFixed(2)}
                                     </div>
-                                    {discount > 0 && (
-                                      <div className="text-sm font-medium" style={{color: 'rgb(34, 197, 94)'}}>
-                                        {discount}% discount
+                                    {rate.original_rate && discount > 0 && (
+                                      <div className="text-sm text-gray-500 line-through">
+                                        Was ${parseFloat(rate.original_rate.toString()).toFixed(2)}
                                       </div>
                                     )}
-                                    {rate.original_rate && (
-                                      <div className="text-xs text-gray-500 line-through">
-                                        ${parseFloat(rate.original_rate).toFixed(2)}
+                                    {discount > 0 && (
+                                      <div className="text-xs font-bold text-green-600">
+                                        Save ${(parseFloat(rate.original_rate?.toString() || '0') - parseFloat(rate.rate.toString())).toFixed(2)}
                                       </div>
                                     )}
                                   </div>
@@ -283,16 +293,17 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   </div>
 
                   {/* Total Cost Display */}
-                  <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="mb-3 p-4 bg-green-50 border border-green-200 rounded-lg">
                     <div className="flex justify-between items-center">
-                      <span className="font-medium text-gray-700">Total Cost (Rate + Insurance):</span>
-                      <span className="text-lg font-bold text-green-600">
+                      <span className="font-semibold text-gray-800 text-base">Total Cost (Rate + Insurance):</span>
+                      <span className="text-xl font-bold text-green-600">
                         ${totalCost.toFixed(2)}
                       </span>
                     </div>
                     {shipment.details?.insurance_amount && (
-                      <div className="text-sm text-gray-600 mt-1">
-                        Insurance: ${(parseFloat(shipment.details.insurance_amount) * 0.01).toFixed(2)}
+                      <div className="text-sm text-gray-600 mt-2 flex justify-between">
+                        <span>Insurance (1% of ${parseFloat(shipment.details.insurance_amount.toString()).toFixed(2)}):</span>
+                        <span className="font-medium">${(parseFloat(shipment.details.insurance_amount.toString()) * 0.01).toFixed(2)}</span>
                       </div>
                     )}
                   </div>
