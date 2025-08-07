@@ -1,10 +1,9 @@
+
 import { useState, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { BulkUploadResult, BulkShipment } from '@/types/shipping';
-import { parseCsvFile } from '@/utils/csvParser';
-import { standardizeAddress } from '@/services/AddressService';
-import { SavedAddress } from '@/services/AddressService';
+import { addressService, SavedAddress } from '@/services/AddressService';
 
 interface UploadResults {
   total: number;
@@ -13,6 +12,55 @@ interface UploadResults {
   processedShipments: BulkShipment[];
   totalCost?: number;
 }
+
+// Helper function to parse CSV data
+const parseCsvFile = async (file: File, setProgress: (progress: number) => void): Promise<any[]> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split('\n');
+        const headers = lines[0].split(',').map(header => header.trim());
+        
+        const data = [];
+        for (let i = 1; i < lines.length; i++) {
+          if (lines[i].trim()) {
+            const values = lines[i].split(',').map(value => value.trim());
+            const row: any = {};
+            headers.forEach((header, index) => {
+              row[header] = values[index] || '';
+            });
+            data.push(row);
+          }
+          
+          // Update progress
+          setProgress(Math.round((i / lines.length) * 100));
+        }
+        
+        resolve(data);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsText(file);
+  });
+};
+
+// Helper function to standardize address
+const standardizeAddress = async (fullAddress: string, city: string, state: string, zip: string): Promise<any> => {
+  // Simple address object creation for now
+  return {
+    street1: fullAddress || '',
+    city: city || '',
+    state: state || '',
+    zip: zip || '',
+    country: 'US'
+  };
+};
 
 export const useBulkUpload = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -260,6 +308,17 @@ export const useBulkUpload = () => {
     }
   };
 
+  // Add handleRefreshRates function for individual shipment refreshing
+  const handleRefreshRates = async (shipmentId: string) => {
+    if (!results || !pickupAddress) return;
+    
+    const shipment = results.processedShipments.find(s => s.id === shipmentId);
+    if (!shipment) return;
+    
+    // For now, refresh all rates since individual refresh requires similar logic
+    await handleRefreshAllRates(results.processedShipments, pickupAddress);
+  };
+
   const handleBulkApplyCarrier = (carrierCode: string) => {
     if (!results) return;
 
@@ -357,14 +416,71 @@ export const useBulkUpload = () => {
     toast.success('Email functionality will be implemented soon');
   };
 
+  const handleCreateLabels = async () => {
+    if (!results || !pickupAddress) {
+      toast.error('Missing shipments or pickup address');
+      return;
+    }
+    
+    setIsCreatingLabels(true);
+    
+    try {
+      console.log('Creating labels for shipments:', results.processedShipments);
+      
+      const { data, error } = await supabase.functions.invoke('create-bulk-labels', {
+        body: {
+          shipments: results.processedShipments,
+          pickupAddress,
+          labelOptions: {
+            format: 'PDF',
+            size: '4x6',
+            generateBatch: true
+          }
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      console.log('Label creation response:', data);
+
+      if (data.processedLabels && data.processedLabels.length > 0) {
+        setResults({
+          ...results,
+          processedShipments: data.processedLabels,
+          batchResult: data.batchResult,
+          bulk_label_pdf_url: data.batchResult?.consolidatedLabelUrls?.pdf,
+          bulk_label_png_url: data.batchResult?.consolidatedLabelUrls?.png,
+        });
+
+        setUploadStatus('success');
+        toast.success(`Successfully created ${data.successful} shipping labels`);
+
+        if (data.failedLabels && data.failedLabels.length > 0) {
+          console.error('Failed labels:', data.failedLabels);
+          toast.error(`${data.failedLabels.length} labels failed to create. Check console for details.`);
+        }
+      } else {
+        throw new Error(data.message || 'No labels were created');
+      }
+
+    } catch (error) {
+      console.error('Error creating labels:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create labels');
+    } finally {
+      setIsCreatingLabels(false);
+    }
+  };
+
   const filteredShipments = results?.processedShipments?.filter(shipment => {
     const searchTermLower = searchTerm.toLowerCase();
     const matchesSearch =
       shipment.customer_name?.toLowerCase().includes(searchTermLower) ||
-      shipment.customer_address?.street1?.toLowerCase().includes(searchTermLower) ||
-      shipment.customer_address?.city?.toLowerCase().includes(searchTermLower) ||
-      shipment.customer_address?.state?.toLowerCase().includes(searchTermLower) ||
-      shipment.customer_address?.zip?.toLowerCase().includes(searchTermLower);
+      (typeof shipment.customer_address === 'object' && shipment.customer_address?.street1?.toLowerCase().includes(searchTermLower)) ||
+      (typeof shipment.customer_address === 'object' && shipment.customer_address?.city?.toLowerCase().includes(searchTermLower)) ||
+      (typeof shipment.customer_address === 'object' && shipment.customer_address?.state?.toLowerCase().includes(searchTermLower)) ||
+      (typeof shipment.customer_address === 'object' && shipment.customer_address?.zip?.toLowerCase().includes(searchTermLower));
 
     const matchesCarrier = selectedCarrierFilter === 'all' || shipment.availableRates?.some(rate => rate.carrier.toLowerCase().includes(selectedCarrierFilter));
 
@@ -404,12 +520,14 @@ export const useBulkUpload = () => {
     handleRemoveShipment,
     handleEditShipment,
     handleRefreshAllRates,
+    handleRefreshRates,
     handleBulkApplyCarrier,
     handleDownloadTemplate,
     handleDownloadAllLabels,
     handleDownloadLabelsWithFormat,
     handleDownloadSingleLabel,
     handleEmailLabels,
+    handleCreateLabels,
     setSearchTerm,
     setSortField,
     setSortDirection,
