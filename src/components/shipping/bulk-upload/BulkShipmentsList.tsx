@@ -10,52 +10,11 @@ import { Trash2, Edit3, Save, X, Package, MapPin, Clock, DollarSign } from 'luci
 import EditableShipmentRow from './EditableShipmentRow';
 import CarrierLogo from '@/components/shipping/CarrierLogo';
 import { standardizeCarrierName, standardizeServiceName } from '@/utils/carrierUtils';
-
-interface ShipmentData {
-  id: string;
-  fromAddress: {
-    name: string;
-    street1: string;
-    city: string;
-    state: string;
-    zip: string;
-    country: string;
-  };
-  toAddress: {
-    name: string;
-    street1: string;
-    city: string;
-    state: string;
-    zip: string;
-    country: string;
-  };
-  package: {
-    length: number;
-    width: number;
-    height: number;
-    weight: number;
-  };
-  selectedRate?: {
-    id: string;
-    carrier: string;
-    service: string;
-    rate: string;
-    delivery_days: number;
-  };
-  rates?: Array<{
-    id: string;
-    carrier: string;
-    service: string;
-    rate: string;
-    delivery_days: number;
-  }>;
-  error?: string;
-  status: 'pending' | 'processed' | 'error';
-}
+import { BulkShipment } from '@/types/shipping';
 
 interface BulkShipmentsListProps {
-  shipments: ShipmentData[];
-  onShipmentUpdate: (index: number, updatedShipment: ShipmentData) => void;
+  shipments: BulkShipment[];
+  onShipmentUpdate: (index: number, updatedShipment: BulkShipment) => void;
   onShipmentRemove: (index: number) => void;
   selectedShipments: number[];
   onShipmentToggle: (index: number) => void;
@@ -73,7 +32,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   allSelected
 }) => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [tempShipment, setTempShipment] = useState<ShipmentData | null>(null);
+  const [tempShipment, setTempShipment] = useState<BulkShipment | null>(null);
 
   const handleEdit = (index: number) => {
     setEditingIndex(index);
@@ -95,34 +54,36 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
   const handleRateSelection = (shipmentIndex: number, rateId: string) => {
     const shipment = shipments[shipmentIndex];
-    const selectedRate = shipment.rates?.find(rate => rate.id === rateId);
+    const selectedRate = shipment.availableRates?.find(rate => rate.id === rateId);
     
     if (selectedRate) {
       const updatedShipment = {
         ...shipment,
-        selectedRate: selectedRate
+        selectedRateId: selectedRate.id,
+        rate: parseFloat(selectedRate.rate.toString()),
+        carrier: selectedRate.carrier,
+        service: selectedRate.service
       };
       onShipmentUpdate(shipmentIndex, updatedShipment);
     }
   };
 
-  // Function to get the best rate (cheapest) for a shipment
-  const getBestRate = (rates: any[]) => {
-    if (!rates || rates.length === 0) return null;
-    return rates.reduce((best, current) => {
-      return parseFloat(current.rate) < parseFloat(best.rate) ? current : best;
-    });
-  };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'processed':
+      case 'completed':
+      case 'rates_fetched':
         return <Badge className="bg-green-100 text-green-800 border-green-300">Processed</Badge>;
       case 'error':
+      case 'failed':
         return <Badge className="bg-red-100 text-red-800 border-red-300">Error</Badge>;
       default:
         return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">Pending</Badge>;
     }
+  };
+
+  const getSelectedRate = (shipment: BulkShipment) => {
+    if (!shipment.availableRates || !shipment.selectedRateId) return null;
+    return shipment.availableRates.find(rate => rate.id === shipment.selectedRateId);
   };
 
   return (
@@ -200,17 +161,19 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
                 {/* Addresses and Package Info */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* From Address */}
+                  {/* From Address - using pickup address or first available */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-1 text-sm font-medium text-gray-700">
                       <MapPin className="w-4 h-4" />
                       From
                     </div>
                     <div className="text-sm text-gray-600">
-                      <div className="font-medium">{shipment.fromAddress.name}</div>
-                      <div>{shipment.fromAddress.street1}</div>
+                      <div className="font-medium">
+                        {shipment.details.from_address?.name || 'Pickup Address'}
+                      </div>
+                      <div>{shipment.details.from_address?.street1 || 'Default pickup location'}</div>
                       <div>
-                        {shipment.fromAddress.city}, {shipment.fromAddress.state} {shipment.fromAddress.zip}
+                        {shipment.details.from_address?.city || 'City'}, {shipment.details.from_address?.state || 'ST'} {shipment.details.from_address?.zip || '00000'}
                       </div>
                     </div>
                   </div>
@@ -222,10 +185,10 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                       To
                     </div>
                     <div className="text-sm text-gray-600">
-                      <div className="font-medium">{shipment.toAddress.name}</div>
-                      <div>{shipment.toAddress.street1}</div>
+                      <div className="font-medium">{shipment.details.to_address.name || shipment.customer_name || 'N/A'}</div>
+                      <div>{shipment.details.to_address.street1}</div>
                       <div>
-                        {shipment.toAddress.city}, {shipment.toAddress.state} {shipment.toAddress.zip}
+                        {shipment.details.to_address.city}, {shipment.details.to_address.state} {shipment.details.to_address.zip}
                       </div>
                     </div>
                   </div>
@@ -238,9 +201,9 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     </div>
                     <div className="text-sm text-gray-600">
                       <div>
-                        {shipment.package.length}"×{shipment.package.width}"×{shipment.package.height}"
+                        {shipment.details.parcel.length}"×{shipment.details.parcel.width}"×{shipment.details.parcel.height}"
                       </div>
-                      <div>{shipment.package.weight} oz</div>
+                      <div>{shipment.details.parcel.weight} oz</div>
                     </div>
                   </div>
                 </div>
@@ -253,7 +216,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 )}
 
                 {/* Rates Selection */}
-                {shipment.rates && shipment.rates.length > 0 && (
+                {shipment.availableRates && shipment.availableRates.length > 0 && (
                   <div className="space-y-3">
                     <div className="flex items-center gap-1 text-sm font-medium text-gray-700">
                       <DollarSign className="w-4 h-4" />
@@ -262,14 +225,14 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     
                     {/* Rate Selector */}
                     <Select 
-                      value={shipment.selectedRate?.id || ''} 
+                      value={shipment.selectedRateId || ''} 
                       onValueChange={(value) => handleRateSelection(index, value)}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a shipping rate" />
                       </SelectTrigger>
                       <SelectContent>
-                        {shipment.rates.map((rate) => {
+                        {shipment.availableRates.map((rate) => {
                           const standardizedCarrier = standardizeCarrierName(rate.carrier);
                           const standardizedService = standardizeServiceName(rate.service, standardizedCarrier);
                           const rateValue = typeof rate.rate === 'string' ? parseFloat(rate.rate) : rate.rate;
@@ -286,7 +249,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                   <div className="font-semibold text-sm">${rateValue.toFixed(2)}</div>
                                   <div className="text-xs text-gray-500 flex items-center gap-1">
                                     <Clock className="w-3 h-3" />
-                                    {rate.delivery_days} days
+                                    {rate.delivery_days || rate.est_delivery_days || 'N/A'} days
                                   </div>
                                 </div>
                               </div>
@@ -297,34 +260,42 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                     </Select>
 
                     {/* Selected Rate Display */}
-                    {shipment.selectedRate && (
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <CarrierLogo 
-                              carrier={standardizeCarrierName(shipment.selectedRate.carrier)} 
-                              className="w-8 h-8" 
-                            />
-                            <div>
-                              <div className="font-medium text-sm text-blue-900">
-                                {standardizeCarrierName(shipment.selectedRate.carrier)} - {standardizeServiceName(shipment.selectedRate.service, standardizeCarrierName(shipment.selectedRate.carrier))}
+                    {(() => {
+                      const selectedRate = getSelectedRate(shipment);
+                      if (selectedRate) {
+                        const standardizedCarrier = standardizeCarrierName(selectedRate.carrier);
+                        const standardizedService = standardizeServiceName(selectedRate.service, standardizedCarrier);
+                        const rateValue = typeof selectedRate.rate === 'string' ? parseFloat(selectedRate.rate) : selectedRate.rate;
+                        
+                        return (
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <CarrierLogo 
+                                  carrier={standardizedCarrier} 
+                                  className="w-8 h-8" 
+                                />
+                                <div>
+                                  <div className="font-medium text-sm text-blue-900">
+                                    {standardizedCarrier} - {standardizedService}
+                                  </div>
+                                  <div className="text-xs text-blue-700 flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {selectedRate.delivery_days || selectedRate.est_delivery_days || 'N/A'} days delivery
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-xs text-blue-700 flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {shipment.selectedRate.delivery_days} days delivery
+                              <div className="text-right">
+                                <div className="font-bold text-lg text-blue-900">
+                                  ${rateValue.toFixed(2)}
+                                </div>
                               </div>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-bold text-lg text-blue-900">
-                              ${typeof shipment.selectedRate.rate === 'string' 
-                                ? parseFloat(shipment.selectedRate.rate).toFixed(2) 
-                                : shipment.selectedRate.rate.toFixed(2)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 )}
               </div>
