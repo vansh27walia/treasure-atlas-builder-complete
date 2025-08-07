@@ -111,17 +111,38 @@ export const useBulkUpload = () => {
 
   const handleEditShipment = async (shipment: BulkShipment) => {
     try {
-      // First update the shipment details using the original function
-      await originalHandleEditShipment(shipment);
+      console.log('Editing shipment:', shipment.id, shipment);
       
-      // Then refresh rates for the updated shipment
-      console.log('Refreshing rates after shipment edit...');
-      await handleRefreshRatesAfterEdit(shipment.id);
+      if (!results) {
+        toast.error('No results available to update');
+        return;
+      }
+
+      // Update the shipment in the results
+      const updatedShipments = results.processedShipments.map(s => 
+        s.id === shipment.id ? { ...shipment, status: 'pending' as const } : s
+      );
+
+      // Calculate new total cost including insurance
+      const newTotalCost = updatedShipments.reduce((total, s) => {
+        const selectedRate = s.availableRates?.find(rate => rate.id === s.selectedRateId);
+        const ratePrice = selectedRate ? parseFloat(selectedRate.rate) : 0;
+        const insuranceCost = s.details?.insurance_amount ? parseFloat(s.details.insurance_amount) * 0.01 : 0; // 1% of insured value
+        return total + ratePrice + insuranceCost;
+      }, 0);
+
+      const updatedResults: BulkUploadResult = {
+        ...results,
+        processedShipments: updatedShipments,
+        totalCost: newTotalCost
+      };
+
+      updateResults(updatedResults);
       
-      toast.success('Shipment updated and rates refreshed successfully');
+      console.log('Shipment updated successfully with new total cost:', newTotalCost);
     } catch (error) {
-      console.error('Error updating shipment and refreshing rates:', error);
-      toast.error('Failed to update shipment or refresh rates');
+      console.error('Error updating shipment:', error);
+      toast.error('Failed to update shipment');
     }
   };
 
@@ -171,7 +192,15 @@ export const useBulkUpload = () => {
       return;
     }
     
-    console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with rates selected`);
+    // Calculate total cost with insurance
+    const totalCostWithInsurance = shipmentsToProcess.reduce((total, shipment) => {
+      const selectedRate = shipment.availableRates?.find(rate => rate.id === shipment.selectedRateId);
+      const ratePrice = selectedRate ? parseFloat(selectedRate.rate) : 0;
+      const insuranceCost = shipment.details?.insurance_amount ? parseFloat(shipment.details.insurance_amount) * 0.01 : 0;
+      return total + ratePrice + insuranceCost;
+    }, 0);
+    
+    console.log(`✅ Validation passed: Creating labels for ALL ${shipmentsToProcess.length} shipments with total cost including insurance: $${totalCostWithInsurance.toFixed(2)}`);
     
     setLabelGenerationProgress({
       isGenerating: true,
@@ -200,7 +229,8 @@ export const useBulkUpload = () => {
           labelOptions: {
             generateBatch: true,
             generateManifest: true,
-            haltOnFailure: true
+            haltOnFailure: true,
+            includeInsurance: true
           }
         }
       });
@@ -314,7 +344,7 @@ export const useBulkUpload = () => {
           total: data.total || shipmentsToProcess.length,
           successful: data.successful || transformedSuccessfulShipments.length,
           failed: data.failed || transformedFailedShipments.length,
-          totalCost: transformedSuccessfulShipments.reduce((sum, s) => sum + (s.rate || 0), 0),
+          totalCost: totalCostWithInsurance, // Use calculated cost with insurance
           processedShipments: allTransformedShipments,
           failedShipments: (data.failedLabels || []).map((f:any) => ({ shipmentId: f.shipmentId, error: f.error, row: shipmentsToProcess.find(s => s.id === f.shipmentId)?.row })),
           batchResult: frontendBatchResult,
@@ -323,8 +353,7 @@ export const useBulkUpload = () => {
           pickupAddress
         };
 
-        console.log(`✅ Label creation complete: ${updatedResults.processedShipments.length} total shipments (${updatedResults.successful} successful, ${updatedResults.failed} failed)`);
-        console.log('Final batch result being set:', updatedResults.batchResult);
+        console.log(`✅ Label creation complete with insurance: Total cost $${totalCostWithInsurance.toFixed(2)}`);
         updateResults(updatedResults);
         
         if (updatedResults.successful === expectedLabels && expectedLabels > 0) {
