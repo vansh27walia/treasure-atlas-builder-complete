@@ -1,517 +1,427 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calculator, Package, MapPin, DollarSign } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
+import { MapPin, Package, Search, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import CarrierLogo from './CarrierLogo';
-import { standardizeCarrierName } from '@/utils/carrierUtils';
+import { supabase } from "@/integrations/supabase/client";
 
-// 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
-const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 10, etc.
-
-// Full list of countries
-const COUNTRIES = [
-  { code: 'US', name: 'United States' },
-  { code: 'CA', name: 'Canada' },
-  { code: 'MX', name: 'Mexico' },
-  { code: 'GB', name: 'United Kingdom' },
-  { code: 'FR', name: 'France' },
-  { code: 'DE', name: 'Germany' },
-  { code: 'IT', name: 'Italy' },
-  { code: 'ES', name: 'Spain' },
-  { code: 'NL', name: 'Netherlands' },
-  { code: 'BE', name: 'Belgium' },
-  { code: 'CH', name: 'Switzerland' },
-  { code: 'AT', name: 'Austria' },
-  { code: 'SE', name: 'Sweden' },
-  { code: 'NO', name: 'Norway' },
-  { code: 'DK', name: 'Denmark' },
-  { code: 'FI', name: 'Finland' },
-  { code: 'IE', name: 'Ireland' },
-  { code: 'PT', name: 'Portugal' },
-  { code: 'GR', name: 'Greece' },
-  { code: 'PL', name: 'Poland' },
-  { code: 'CZ', name: 'Czech Republic' },
-  { code: 'HU', name: 'Hungary' },
-  { code: 'RO', name: 'Romania' },
-  { code: 'BG', name: 'Bulgaria' },
-  { code: 'HR', name: 'Croatia' },
-  { code: 'SI', name: 'Slovenia' },
-  { code: 'SK', name: 'Slovakia' },
-  { code: 'EE', name: 'Estonia' },
-  { code: 'LV', name: 'Latvia' },
-  { code: 'LT', name: 'Lithuania' },
-  { code: 'LU', name: 'Luxembourg' },
-  { code: 'MT', name: 'Malta' },
-  { code: 'CY', name: 'Cyprus' },
-  { code: 'IS', name: 'Iceland' },
-  { code: 'LI', name: 'Liechtenstein' },
-  { code: 'MC', name: 'Monaco' },
-  { code: 'SM', name: 'San Marino' },
-  { code: 'VA', name: 'Vatican City' },
-  { code: 'AD', name: 'Andorra' },
-  { code: 'RU', name: 'Russia' },
-  { code: 'UA', name: 'Ukraine' },
-  { code: 'BY', name: 'Belarus' },
-  { code: 'MD', name: 'Moldova' },
-  { code: 'JP', name: 'Japan' },
-  { code: 'CN', name: 'China' },
-  { code: 'KR', name: 'South Korea' },
-  { code: 'IN', name: 'India' },
-  { code: 'SG', name: 'Singapore' },
-  { code: 'MY', name: 'Malaysia' },
-  { code: 'TH', name: 'Thailand' },
-  { code: 'VN', name: 'Vietnam' },
-  { code: 'ID', name: 'Indonesia' },
-  { code: 'PH', name: 'Philippines' },
-  { code: 'TW', name: 'Taiwan' },
-  { code: 'HK', name: 'Hong Kong' },
-  { code: 'MO', name: 'Macau' },
-  { code: 'AU', name: 'Australia' },
-  { code: 'NZ', name: 'New Zealand' },
-  { code: 'BR', name: 'Brazil' },
-  { code: 'AR', name: 'Argentina' },
-  { code: 'CL', name: 'Chile' },
-  { code: 'PE', name: 'Peru' },
-  { code: 'CO', name: 'Colombia' },
-  { code: 'VE', name: 'Venezuela' },
-  { code: 'EC', name: 'Ecuador' },
-  { code: 'BO', name: 'Bolivia' },
-  { code: 'UY', name: 'Uruguay' },
-  { code: 'PY', name: 'Paraguay' },
-  { code: 'GY', name: 'Guyana' },
-  { code: 'SR', name: 'Suriname' },
-  { code: 'ZA', name: 'South Africa' },
-  { code: 'EG', name: 'Egypt' },
-  { code: 'MA', name: 'Morocco' },
-  { code: 'TN', name: 'Tunisia' },
-  { code: 'DZ', name: 'Algeria' },
-  { code: 'LY', name: 'Libya' },
-  { code: 'NG', name: 'Nigeria' },
-  { code: 'KE', name: 'Kenya' },
-  { code: 'GH', name: 'Ghana' },
-  { code: 'ET', name: 'Ethiopia' },
-  { code: 'TZ', name: 'Tanzania' },
-  { code: 'UG', name: 'Uganda' },
-  { code: 'ZW', name: 'Zimbabwe' },
-  { code: 'BW', name: 'Botswana' },
-  { code: 'ZM', name: 'Zambia' },
-  { code: 'MW', name: 'Malawi' },
-  { code: 'MZ', name: 'Mozambique' },
-  { code: 'MG', name: 'Madagascar' },
-  { code: 'MU', name: 'Mauritius' },
-  { code: 'SC', name: 'Seychelles' },
-  { code: 'IL', name: 'Israel' },
-  { code: 'TR', name: 'Turkey' },
-  { code: 'SA', name: 'Saudi Arabia' },
-  { code: 'AE', name: 'United Arab Emirates' },
-  { code: 'QA', name: 'Qatar' },
-  { code: 'KW', name: 'Kuwait' },
-  { code: 'BH', name: 'Bahrain' },
-  { code: 'OM', name: 'Oman' },
-  { code: 'JO', name: 'Jordan' },
-  { code: 'LB', name: 'Lebanon' },
-  { code: 'SY', name: 'Syria' },
-  { code: 'IQ', name: 'Iraq' },
-  { code: 'IR', name: 'Iran' },
-  { code: 'AF', name: 'Afghanistan' },
-  { code: 'PK', name: 'Pakistan' },
-  { code: 'BD', name: 'Bangladesh' },
-  { code: 'LK', name: 'Sri Lanka' },
-  { code: 'MV', name: 'Maldives' },
-  { code: 'NP', name: 'Nepal' },
-  { code: 'BT', name: 'Bhutan' },
-  { code: 'MM', name: 'Myanmar' },
-  { code: 'KH', name: 'Cambodia' },
-  { code: 'LA', name: 'Laos' },
-  { code: 'BN', name: 'Brunei' },
-  { code: 'TL', name: 'East Timor' },
-  { code: 'FJ', name: 'Fiji' },
-  { code: 'PG', name: 'Papua New Guinea' },
-  { code: 'SB', name: 'Solomon Islands' },
-  { code: 'VU', name: 'Vanuatu' },
-  { code: 'NC', name: 'New Caledonia' },
-  { code: 'PF', name: 'French Polynesia' },
-  { code: 'WS', name: 'Samoa' },
-  { code: 'TO', name: 'Tonga' },
-  { code: 'TV', name: 'Tuvalu' },
-  { code: 'KI', name: 'Kiribati' },
-  { code: 'NR', name: 'Nauru' },
-  { code: 'PW', name: 'Palau' },
-  { code: 'FM', name: 'Federated States of Micronesia' },
-  { code: 'MH', name: 'Marshall Islands' }
-].sort((a, b) => a.name.localeCompare(b.name));
-
-interface RateCalculatorProps {
-  onRatesCalculated?: (rates: any[]) => void;
+interface RateResult {
+  id: string;
+  carrier: string;
+  service: string;
+  rate: string;
+  delivery_days: number;
+  discount?: number;
 }
 
-const RateCalculator: React.FC<RateCalculatorProps> = ({ onRatesCalculated }) => {
-  const [fromAddress, setFromAddress] = useState({
-    name: '',
-    company: '',
-    street1: '',
-    street2: '',
-    city: '',
-    state: '',
-    zip: '',
-    country: 'US',
-    phone: ''
-  });
+const packageTypes = [
+  { value: 'box', label: 'Box', requiresHeight: true },
+  { value: 'envelope', label: 'Envelope', requiresHeight: false },
+  { value: 'FlatRateEnvelope', label: 'USPS - Flat Rate Envelope', requiresHeight: false },
+  { value: 'SmallFlatRateBox', label: 'USPS - Small Flat Rate Box', requiresHeight: false },
+  { value: 'MediumFlatRateBox', label: 'USPS - Medium Flat Rate Box', requiresHeight: false },
+  { value: 'LargeFlatRateBox', label: 'USPS - Large Flat Rate Box', requiresHeight: false },
+  { value: 'UPSLetter', label: 'UPS - Letter', requiresHeight: false },
+  { value: 'UPSExpressBox', label: 'UPS - Express Box', requiresHeight: false },
+  { value: 'FedExEnvelope', label: 'FedEx - Envelope', requiresHeight: false },
+  { value: 'FedExBox', label: 'FedEx - Box', requiresHeight: false },
+  { value: 'DHLExpressEnvelope', label: 'DHL - Express Envelope', requiresHeight: false },
+];
 
-  const [toAddress, setToAddress] = useState({
-    name: '',
-    company: '',
-    street1: '',
-    street2: '',
-    city: '',
-    state: '',
-    zip: '',
-    country: 'US',
-    phone: ''
+const RateCalculator: React.FC = () => {
+  const [fromZip, setFromZip] = useState('');
+  const [fromCountry, setFromCountry] = useState('US');
+  const [toZip, setToZip] = useState('');
+  const [toCountry, setToCountry] = useState('US');
+  const [packageType, setPackageType] = useState('box');
+  const [dimensions, setDimensions] = useState({
+    length: '',
+    width: '',
+    height: '',
+    weight: ''
   });
-
-  const [parcel, setParcel] = useState({
-    length: 12,
-    width: 8,
-    height: 4,
-    weight: 16
-  });
-
-  const [rates, setRates] = useState<any[]>([]);
+  const [weightUnit, setWeightUnit] = useState('lb');
   const [isLoading, setIsLoading] = useState(false);
+  const [rates, setRates] = useState<RateResult[]>([]);
+  const [resolvedAddresses, setResolvedAddresses] = useState<any>({});
 
-  // Apply configurable markup to rates
-  const applyRateMarkup = (originalRate: number): number => {
-    const markupAmount = originalRate * (RATE_MARKUP_PERCENTAGE / 100);
-    const finalRate = originalRate + markupAmount;
-    
-    console.log(`Rate markup applied: Original: $${originalRate.toFixed(2)}, Markup (${RATE_MARKUP_PERCENTAGE}%): $${markupAmount.toFixed(2)}, Final: $${finalRate.toFixed(2)}`);
-    
-    return finalRate;
+  const selectedPackage = packageTypes.find(p => p.value === packageType);
+  const showHeight = selectedPackage?.requiresHeight || false;
+  const isCustomPackage = ['box', 'envelope'].includes(packageType);
+
+  const resolveAddress = async (zip: string, country: string) => {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${zip},${country}&key=${process.env.GOOGLE_PLACES_API_KEY}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to resolve address');
+      }
+      
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        const result = data.results[0];
+        const components = result.address_components;
+        
+        const getComponent = (types: string[]) => {
+          const component = components.find((c: any) => 
+            types.some(type => c.types.includes(type))
+          );
+          return component?.long_name || component?.short_name || '';
+        };
+        
+        return {
+          street1: getComponent(['street_number', 'route']) || zip,
+          city: getComponent(['locality', 'administrative_area_level_2']),
+          state: getComponent(['administrative_area_level_1']),
+          zip: getComponent(['postal_code']) || zip,
+          country: country,
+          formatted_address: result.formatted_address
+        };
+      }
+      
+      // Fallback if geocoding fails
+      return {
+        street1: zip,
+        city: 'Unknown',
+        state: country === 'US' ? 'NY' : 'Unknown',
+        zip: zip,
+        country: country
+      };
+    } catch (error) {
+      console.error('Error resolving address:', error);
+      return {
+        street1: zip,
+        city: 'Unknown',
+        state: country === 'US' ? 'NY' : 'Unknown',
+        zip: zip,
+        country: country
+      };
+    }
   };
 
   const calculateRates = async () => {
+    if (!fromZip || !toZip) {
+      toast.error('Please enter both origin and destination zip codes');
+      return;
+    }
+
+    if (!dimensions.weight) {
+      toast.error('Please enter package weight');
+      return;
+    }
+
+    if (isCustomPackage && (!dimensions.length || !dimensions.width)) {
+      toast.error('Please enter package dimensions');
+      return;
+    }
+
     setIsLoading(true);
-    
     try {
-      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: {
-          fromAddress,
-          toAddress,
-          parcel
+      // Resolve addresses from zip codes
+      const [fromAddress, toAddress] = await Promise.all([
+        resolveAddress(fromZip, fromCountry),
+        resolveAddress(toZip, toCountry)
+      ]);
+
+      setResolvedAddresses({ from: fromAddress, to: toAddress });
+
+      // Convert weight to ounces
+      let weightOz = parseFloat(dimensions.weight);
+      if (weightUnit === 'kg') {
+        weightOz = weightOz * 35.274;
+      } else if (weightUnit === 'lb') {
+        weightOz = weightOz * 16;
+      }
+
+      // Build parcel object
+      let parcel: any = { weight: weightOz };
+      
+      if (isCustomPackage) {
+        parcel.length = parseFloat(dimensions.length);
+        parcel.width = parseFloat(dimensions.width);
+        if (showHeight && dimensions.height) {
+          parcel.height = parseFloat(dimensions.height);
         }
+      } else {
+        parcel.predefined_package = packageType;
+      }
+
+      const payload = {
+        fromAddress: {
+          name: 'Rate Calculator',
+          street1: fromAddress.street1,
+          city: fromAddress.city,
+          state: fromAddress.state,
+          zip: fromAddress.zip,
+          country: fromAddress.country,
+        },
+        toAddress: {
+          name: 'Recipient',
+          street1: toAddress.street1,
+          city: toAddress.city,
+          state: toAddress.state,
+          zip: toAddress.zip,
+          country: toAddress.country,
+        },
+        parcel,
+        carriers: ['usps', 'ups', 'fedex', 'dhl']
+      };
+
+      console.log('Rate calculator payload:', payload);
+
+      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
+        body: payload,
       });
 
       if (error) {
-        toast.error('Failed to calculate shipping rates');
-        console.error('Rate calculation error:', error);
-        return;
+        throw new Error(`Error fetching rates: ${error.message}`);
       }
 
-      if (data && data.rates) {
-        // Apply markup to rates
-        const processedRates = data.rates.map(rate => {
-          const originalRate = parseFloat(rate.rate);
-          const markedUpRate = applyRateMarkup(originalRate);
-          
-          return {
-            ...rate,
-            rate: markedUpRate.toFixed(2),
-            original_rate: originalRate.toFixed(2),
-            markup_percentage: RATE_MARKUP_PERCENTAGE,
-            carrier: standardizeCarrierName(rate.carrier)
-          };
-        });
-
-        setRates(processedRates);
-        
-        if (onRatesCalculated) {
-          onRatesCalculated(processedRates);
-        }
-        
-        toast.success(`Found ${processedRates.length} shipping rates with ${RATE_MARKUP_PERCENTAGE}% markup`);
+      if (data.rates && Array.isArray(data.rates)) {
+        setRates(data.rates);
+        toast.success(`Found ${data.rates.length} shipping options`);
+      } else {
+        setRates([]);
+        toast.info('No rates available for this route');
       }
     } catch (error) {
       console.error('Error calculating rates:', error);
-      toast.error('An error occurred while calculating rates');
+      toast.error(error instanceof Error ? error.message : 'Failed to calculate rates');
+      setRates([]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleShipWithRate = (rate: RateResult) => {
+    // Prepare data for the main shipping form
+    const shippingData = {
+      fromAddress: resolvedAddresses.from,
+      toAddress: resolvedAddresses.to,
+      parcel: {
+        type: packageType,
+        dimensions: dimensions,
+        weightUnit: weightUnit
+      },
+      selectedRate: rate
+    };
+
+    // Dispatch event to pre-fill main shipping form
+    document.dispatchEvent(new CustomEvent('prefill-shipping-form', {
+      detail: shippingData
+    }));
+
+    toast.success('Shipping form pre-filled with rate calculator data');
+    
+    // Navigate to main shipping form (if needed)
+    // You can add navigation logic here
+  };
+
   return (
     <div className="space-y-6">
+      {/* Address Input */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Calculator className="w-5 h-5" />
-            <span>Shipping Rate Calculator</span>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-blue-600" />
+            Shipping Addresses
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* From Address */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium flex items-center space-x-2">
-              <MapPin className="w-4 h-4" />
-              <span>From Address</span>
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="from-name">Name</Label>
-                <Input
-                  id="from-name"
-                  value={fromAddress.name}
-                  onChange={(e) => setFromAddress({...fromAddress, name: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="from-company">Company</Label>
-                <Input
-                  id="from-company"
-                  value={fromAddress.company}
-                  onChange={(e) => setFromAddress({...fromAddress, company: e.target.value})}
-                />
-              </div>
-            </div>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="from-street1">Street Address</Label>
-              <Input
-                id="from-street1"
-                value={fromAddress.street1}
-                onChange={(e) => setFromAddress({...fromAddress, street1: e.target.value})}
-              />
-            </div>
-            <div>
-              <Label htmlFor="from-street2">Apartment/Unit</Label>
-              <Input
-                id="from-street2"
-                value={fromAddress.street2}
-                onChange={(e) => setFromAddress({...fromAddress, street2: e.target.value})}
-              />
-            </div>
-            <div className="grid grid-cols-4 gap-4">
-              <div>
-                <Label htmlFor="from-city">City</Label>
+              <Label className="text-sm font-medium">From Zip Code</Label>
+              <div className="flex gap-2">
                 <Input
-                  id="from-city"
-                  value={fromAddress.city}
-                  onChange={(e) => setFromAddress({...fromAddress, city: e.target.value})}
+                  value={fromZip}
+                  onChange={(e) => setFromZip(e.target.value)}
+                  placeholder="Enter zip code"
+                  className="flex-1"
                 />
-              </div>
-              <div>
-                <Label htmlFor="from-state">State/Province</Label>
-                <Input
-                  id="from-state"
-                  value={fromAddress.state}
-                  onChange={(e) => setFromAddress({...fromAddress, state: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="from-zip">ZIP/Postal Code</Label>
-                <Input
-                  id="from-zip"
-                  value={fromAddress.zip}
-                  onChange={(e) => setFromAddress({...fromAddress, zip: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="from-country">Country</Label>
-                <Select value={fromAddress.country} onValueChange={(value) => setFromAddress({...fromAddress, country: value})}>
-                  <SelectTrigger>
+                <Select value={fromCountry} onValueChange={setFromCountry}>
+                  <SelectTrigger className="w-20">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {COUNTRIES.map((country) => (
-                      <SelectItem key={country.code} value={country.code}>
-                        {country.name}
-                      </SelectItem>
-                    ))}
+                  <SelectContent>
+                    <SelectItem value="US">US</SelectItem>
+                    <SelectItem value="CA">CA</SelectItem>
+                    <SelectItem value="GB">UK</SelectItem>
+                    <SelectItem value="DE">DE</SelectItem>
+                    <SelectItem value="FR">FR</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div>
+              <Label className="text-sm font-medium">To Zip Code</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={toZip}
+                  onChange={(e) => setToZip(e.target.value)}
+                  placeholder="Enter zip code"
+                  className="flex-1"
+                />
+                <Select value={toCountry} onValueChange={setToCountry}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="US">US</SelectItem>
+                    <SelectItem value="CA">CA</SelectItem>
+                    <SelectItem value="GB">UK</SelectItem>
+                    <SelectItem value="DE">DE</SelectItem>
+                    <SelectItem value="FR">FR</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* To Address */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium flex items-center space-x-2">
-              <MapPin className="w-4 h-4" />
-              <span>To Address</span>
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="to-name">Name</Label>
-                <Input
-                  id="to-name"
-                  value={toAddress.name}
-                  onChange={(e) => setToAddress({...toAddress, name: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="to-company">Company</Label>
-                <Input
-                  id="to-company"
-                  value={toAddress.company}
-                  onChange={(e) => setToAddress({...toAddress, company: e.target.value})}
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="to-street1">Street Address</Label>
-              <Input
-                id="to-street1"
-                value={toAddress.street1}
-                onChange={(e) => setToAddress({...toAddress, street1: e.target.value})}
-              />
-            </div>
-            <div>
-              <Label htmlFor="to-street2">Apartment/Unit</Label>
-              <Input
-                id="to-street2"
-                value={toAddress.street2}
-                onChange={(e) => setToAddress({...toAddress, street2: e.target.value})}
-              />
-            </div>
-            <div className="grid grid-cols-4 gap-4">
-              <div>
-                <Label htmlFor="to-city">City</Label>
-                <Input
-                  id="to-city"
-                  value={toAddress.city}
-                  onChange={(e) => setToAddress({...toAddress, city: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="to-state">State/Province</Label>
-                <Input
-                  id="to-state"
-                  value={toAddress.state}
-                  onChange={(e) => setToAddress({...toAddress, state: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="to-zip">ZIP/Postal Code</Label>
-                <Input
-                  id="to-zip"
-                  value={toAddress.zip}
-                  onChange={(e) => setToAddress({...toAddress, zip: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="to-country">Country</Label>
-                <Select value={toAddress.country} onValueChange={(value) => setToAddress({...toAddress, country: value})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {COUNTRIES.map((country) => (
-                      <SelectItem key={country.code} value={country.code}>
-                        {country.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+      {/* Package Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="w-5 h-5 text-green-600" />
+            Package Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium">Package Type</Label>
+            <Select value={packageType} onValueChange={setPackageType}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {packageTypes.map((pkg) => (
+                  <SelectItem key={pkg.value} value={pkg.value}>
+                    {pkg.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Package Details */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium flex items-center space-x-2">
-              <Package className="w-4 h-4" />
-              <span>Package Details</span>
-            </h3>
-            <div className="grid grid-cols-4 gap-4">
-              <div>
-                <Label htmlFor="length">Length (in)</Label>
+          {/* Dimensions */}
+          {isCustomPackage && (
+            <div>
+              <Label className="text-sm font-medium">Dimensions (inches)</Label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 <Input
-                  id="length"
                   type="number"
-                  value={parcel.length}
-                  onChange={(e) => setParcel({...parcel, length: parseFloat(e.target.value)})}
+                  placeholder="Length"
+                  value={dimensions.length}
+                  onChange={(e) => setDimensions(prev => ({ ...prev, length: e.target.value }))}
                 />
-              </div>
-              <div>
-                <Label htmlFor="width">Width (in)</Label>
                 <Input
-                  id="width"
                   type="number"
-                  value={parcel.width}
-                  onChange={(e) => setParcel({...parcel, width: parseFloat(e.target.value)})}
+                  placeholder="Width"
+                  value={dimensions.width}
+                  onChange={(e) => setDimensions(prev => ({ ...prev, width: e.target.value }))}
                 />
+                {showHeight && (
+                  <Input
+                    type="number"
+                    placeholder="Height"
+                    value={dimensions.height}
+                    onChange={(e) => setDimensions(prev => ({ ...prev, height: e.target.value }))}
+                  />
+                )}
               </div>
-              <div>
-                <Label htmlFor="height">Height (in)</Label>
-                <Input
-                  id="height"
-                  type="number"
-                  value={parcel.height}
-                  onChange={(e) => setParcel({...parcel, height: parseFloat(e.target.value)})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="weight">Weight (lbs)</Label>
-                <Input
-                  id="weight"
-                  type="number"
-                  value={parcel.weight}
-                  onChange={(e) => setParcel({...parcel, weight: parseFloat(e.target.value)})}
-                />
-              </div>
+            </div>
+          )}
+
+          {/* Weight */}
+          <div>
+            <Label className="text-sm font-medium">Weight</Label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                placeholder="Weight"
+                value={dimensions.weight}
+                onChange={(e) => setDimensions(prev => ({ ...prev, weight: e.target.value }))}
+                className="flex-1"
+              />
+              <Select value={weightUnit} onValueChange={setWeightUnit}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="oz">oz</SelectItem>
+                  <SelectItem value="lb">lb</SelectItem>
+                  <SelectItem value="kg">kg</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           <Button 
-            onClick={calculateRates} 
+            onClick={calculateRates}
             disabled={isLoading}
-            className="w-full"
+            className="w-full bg-blue-600 hover:bg-blue-700"
           >
-            {isLoading ? 'Calculating...' : 'Calculate Rates'}
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Calculating Rates...
+              </>
+            ) : (
+              <>
+                <Search className="w-4 h-4 mr-2" />
+                Get Shipping Rates
+              </>
+            )}
           </Button>
         </CardContent>
       </Card>
 
-      {/* Rates Display */}
+      {/* Results */}
       {rates.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <DollarSign className="w-5 h-5" />
-              <span>Available Rates (with {RATE_MARKUP_PERCENTAGE}% markup)</span>
-            </CardTitle>
+            <CardTitle>Available Shipping Options</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {rates.map((rate, index) => (
-                <div key={index} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                  <div className="flex items-center space-x-3">
-                    <CarrierLogo carrier={rate.carrier} className="w-10 h-10" />
+              {rates.map((rate) => (
+                <div
+                  key={rate.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <Badge variant="secondary">
+                      {rate.carrier.toUpperCase()}
+                    </Badge>
                     <div>
-                      <div className="font-semibold">{rate.carrier}</div>
-                      <div className="text-sm text-gray-600">{rate.service}</div>
-                      <div className="text-sm text-blue-600">
-                        {rate.delivery_days} business days
-                      </div>
+                      <p className="font-medium">{rate.service}</p>
+                      <p className="text-sm text-gray-600">
+                        {rate.delivery_days} business day{rate.delivery_days !== 1 ? 's' : ''}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-bold text-green-600">
-                      ${rate.rate}
-                    </div>
-                    {rate.original_rate && (
-                      <div className="text-sm text-gray-500">
-                        Original: <span className="line-through">${rate.original_rate}</span>
-                      </div>
-                    )}
-                    <div className="text-xs text-green-600">
-                      {RATE_MARKUP_PERCENTAGE}% markup included
-                    </div>
+                    <p className="text-lg font-bold text-green-600">
+                      ${parseFloat(rate.rate).toFixed(2)}
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => handleShipWithRate(rate)}
+                      className="mt-1"
+                    >
+                      <ExternalLink className="w-3 h-3 mr-1" />
+                      Ship This
+                    </Button>
                   </div>
                 </div>
               ))}
