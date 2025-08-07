@@ -35,11 +35,13 @@ const SettingsPage = () => {
     setSavedAddresses(prev => [...prev, newAddress]);
   };
 
-  const handleDeleteAddress = async (id: string) => {
+  const handleDeleteAddress = async (id: number) => {
     try {
-      await addressService.deleteAddress(id);
-      setSavedAddresses(prev => prev.filter(addr => addr.id !== id));
-      toast.success('Address deleted');
+      const success = await addressService.deleteAddress(id);
+      if (success) {
+        setSavedAddresses(prev => prev.filter(addr => addr.id !== id));
+        toast.success('Address deleted');
+      }
     } catch (error) {
       console.error('Error deleting address:', error);
       toast.error('Failed to delete address');
@@ -95,7 +97,10 @@ const SettingsPage = () => {
                         {address.label && (
                           <span className="text-blue-600 font-semibold">{address.label} - </span>
                         )}
-                        {address.firstName} {address.lastName}
+                        {address.firstName && address.lastName 
+                          ? `${address.firstName} ${address.lastName}` 
+                          : address.name
+                        }
                       </div>
                       {address.company && (
                         <div className="text-sm text-gray-600">{address.company}</div>

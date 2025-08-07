@@ -56,42 +56,46 @@ const QuickAddressModal: React.FC<QuickAddressModalProps> = ({
     try {
       // Create the address object
       const addressData = {
-        label: formData.label.trim() || null,
+        label: formData.label.trim() || undefined,
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
-        company: formData.company.trim() || null,
+        name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+        company: formData.company.trim() || undefined,
         street1: formData.addressAutocomplete.trim(),
-        street2: formData.addressLine2.trim() || null,
-        phone: formData.phone.trim() || null,
+        street2: formData.addressLine2.trim() || undefined,
+        phone: formData.phone.trim() || undefined,
         // Parse city, state, zip from address (simplified - would need Google Places integration for full parsing)
         city: '',
         state: '',
         zip: '',
         country: 'US',
-        isDefault: false
+        is_default_from: false,
+        is_default_to: false
       };
 
-      // Save the address
-      const savedAddress = await addressService.saveAddress(addressData);
+      // Save the address using createAddress method
+      const savedAddress = await addressService.createAddress(addressData);
       
-      // Call the callback to update the parent component
-      onAddressSaved(savedAddress);
-      
-      // Reset form
-      setFormData({
-        label: '',
-        firstName: '',
-        lastName: '',
-        company: '',
-        addressAutocomplete: '',
-        addressLine2: '',
-        phone: ''
-      });
-      
-      // Close modal
-      onOpenChange(false);
-      
-      toast.success('Address saved successfully');
+      if (savedAddress) {
+        // Call the callback to update the parent component
+        onAddressSaved(savedAddress);
+        
+        // Reset form
+        setFormData({
+          label: '',
+          firstName: '',
+          lastName: '',
+          company: '',
+          addressAutocomplete: '',
+          addressLine2: '',
+          phone: ''
+        });
+        
+        // Close modal
+        onOpenChange(false);
+        
+        toast.success('Address saved successfully');
+      }
       
     } catch (error) {
       console.error('Error saving address:', error);
