@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import ShippingRates from '@/components/ShippingRates';
 import EnhancedWorkflowTracker from '@/components/shipping/EnhancedWorkflowTracker';
@@ -6,7 +7,6 @@ import RateCalculatorModal from '@/components/shipping/RateCalculatorModal';
 import ShipAIChatbot from '@/components/shipping/ShipAIChatbot';
 import RateFilter from '@/components/shipping/RateFilter';
 import AIRateAnalysisPanel from '@/components/shipping/AIRateAnalysisPanel';
-import CustomsInfoPopout from '@/components/shipping/CustomsInfoPopout';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
@@ -27,11 +27,6 @@ const CreateLabelPage = () => {
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [selectedRate, setSelectedRate] = useState<any>(null);
   const [isPaymentInProgress, setIsPaymentInProgress] = useState(false);
-  const [customsInfo, setCustomsInfo] = useState<any>(null);
-  const [showCustomsPopout, setShowCustomsPopout] = useState(false);
-  const [selectedRateForCustoms, setSelectedRateForCustoms] = useState<any>(null);
-  const [fromAddress, setFromAddress] = useState<any>(null);
-  const [toAddress, setToAddress] = useState<any>(null);
 
   // Auto-show AI panel when rates are available
   useEffect(() => {
@@ -46,40 +41,23 @@ const CreateLabelPage = () => {
   // Listen for payment events to close AI panel
   useEffect(() => {
     const handlePaymentStart = () => {
-      console.log('Payment started - closing AI panel');
       setIsPaymentInProgress(true);
       setShowAIPanel(false);
     };
 
     const handlePaymentEnd = () => {
-      console.log('Payment ended - resetting state');
       setIsPaymentInProgress(false);
-    };
-
-    // Listen for address data updates
-    const handleAddressUpdate = (event: CustomEvent) => {
-      console.log('Address update received:', event.detail);
-      if (event.detail.fromAddress) {
-        setFromAddress(event.detail.fromAddress);
-      }
-      if (event.detail.toAddress) {
-        setToAddress(event.detail.toAddress);
-      }
     };
 
     // Listen for payment-related events
     document.addEventListener('payment-start', handlePaymentStart);
     document.addEventListener('payment-complete', handlePaymentEnd);
     document.addEventListener('payment-cancelled', handlePaymentEnd);
-    document.addEventListener('payment-success', handlePaymentEnd);
-    document.addEventListener('address-update', handleAddressUpdate as EventListener);
 
     return () => {
       document.removeEventListener('payment-start', handlePaymentStart);
       document.removeEventListener('payment-complete', handlePaymentEnd);
       document.removeEventListener('payment-cancelled', handlePaymentEnd);
-      document.removeEventListener('payment-success', handlePaymentEnd);
-      document.removeEventListener('address-update', handleAddressUpdate as EventListener);
     };
   }, []);
 
@@ -91,63 +69,10 @@ const CreateLabelPage = () => {
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
     setSelectedRate(rate);
-    
-    // Check if this is an international shipment that needs customs info
-    const isInternational = checkIfInternational(toAddress);
-    console.log('Is international shipment:', isInternational);
-    
-    if (isInternational && !customsInfo) {
-      console.log('Showing customs popout for international shipment');
-      setSelectedRateForCustoms(rate);
-      setShowCustomsPopout(true);
-      return;
-    }
-    
     if (!isPaymentInProgress) {
       setShowAIPanel(true);
     }
     handleSelectRate(rate.id);
-  };
-
-  const checkIfInternational = (address: any) => {
-    if (!address) return false;
-    const country = address.country?.toUpperCase();
-    return country !== 'US' && country !== 'USA' && country !== 'UNITED STATES';
-  };
-
-  const handleCustomsInfoSubmit = (customs: any) => {
-    console.log('Customs info submitted:', customs);
-    
-    // Validate customs data
-    if (!customs.customs_signer || !customs.pickup_phone || !customs.delivery_phone) {
-      console.error('Missing required customs fields');
-      return;
-    }
-
-    // Ensure customs items are valid
-    if (!customs.customs_items || customs.customs_items.length === 0) {
-      console.error('No customs items provided');
-      return;
-    }
-
-    // Validate each customs item
-    for (const item of customs.customs_items) {
-      if (!item.description || !item.value || !item.weight || !item.quantity) {
-        console.error('Invalid customs item:', item);
-        return;
-      }
-    }
-
-    setCustomsInfo(customs);
-    setShowCustomsPopout(false);
-    
-    // Now proceed with the rate selection
-    if (selectedRateForCustoms) {
-      if (!isPaymentInProgress) {
-        setShowAIPanel(true);
-      }
-      handleSelectRate(selectedRateForCustoms.id);
-    }
   };
 
   const handleFilterChange = (filter: string) => {
@@ -293,20 +218,8 @@ const CreateLabelPage = () => {
           isOpen={showAIPanel}
           onClose={handleCloseSidebar}
           onOptimizationChange={handleOptimizationChange}
-          customsInfo={customsInfo}
         />
       )}
-
-      {/* Customs Info Popout */}
-      <CustomsInfoPopout
-        isOpen={showCustomsPopout}
-        onClose={() => setShowCustomsPopout(false)}
-        onSubmit={handleCustomsInfoSubmit}
-        fromCountry="US"
-        toCountry={toAddress?.country || ""}
-        pickupAddress={fromAddress}
-        deliveryAddress={toAddress}
-      />
 
       {/* Rate Calculator Modal */}
       <RateCalculatorModal 
