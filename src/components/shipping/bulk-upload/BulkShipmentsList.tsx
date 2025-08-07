@@ -23,7 +23,7 @@ interface BulkShipmentsListProps {
 const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 10, 15, 20, etc.
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
-  shipments,
+  shipments = [], // Add default empty array
   isFetchingRates,
   onSelectRate,
   onRemoveShipment,
@@ -31,6 +31,21 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   onRefreshRates,
   onAIAnalysis
 }) => {
+  // Add early return if shipments is null or undefined
+  if (!shipments || !Array.isArray(shipments)) {
+    console.log('BulkShipmentsList: shipments is not a valid array:', shipments);
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Review Shipments (0)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-500">No shipments available to review.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const getAIRecommendedRate = (rates: Rate[]): Rate | null => {
     if (!rates || rates.length === 0) return null;
     

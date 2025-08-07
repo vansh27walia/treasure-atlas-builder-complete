@@ -18,6 +18,7 @@ const BulkUpload: React.FC = () => {
   const { toast } = useToast()
 
   const handleUploadSuccess = (results: any) => {
+    console.log('Upload success results:', results);
     setUploadResult(results);
     setCurrentStep('review');
     toast({
@@ -69,6 +70,7 @@ const BulkUpload: React.FC = () => {
       }
 
       const data = await response.json();
+      console.log('Upload response data:', data);
       setUploadResult(data);
       setCurrentStep('review');
     } catch (error: any) {
@@ -177,7 +179,7 @@ const BulkUpload: React.FC = () => {
       {currentStep === 'review' && uploadResult && (
         <div className="space-y-6">
           <BulkShipmentsList
-            shipments={uploadResult.processedShipments}
+            shipments={uploadResult.processedShipments || []}
             isFetchingRates={false}
             onSelectRate={handleSelectRate}
             onRemoveShipment={handleRemoveShipment}
@@ -187,10 +189,9 @@ const BulkUpload: React.FC = () => {
           
           <OrderSummary
             successfulCount={calculateTotals().successfulCount}
-            totalCost={calculateTotals().totalCost}
-            totalInsurance={calculateTotals().totalInsurance}
-            onDownloadAllLabels={handleDownloadAllLabels}
+            totalCost={calculateTotals().totalCost + calculateTotals().totalInsurance}
             onProceedToPayment={handleProceedToPayment}
+            onDownloadAllLabels={handleDownloadAllLabels}
             isPaying={isPaying}
             isCreatingLabels={isCreatingLabels}
           />
