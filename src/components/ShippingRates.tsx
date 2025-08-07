@@ -6,6 +6,7 @@ import { Clock, Truck, Shield, Star, CheckCircle, ChevronDown, ChevronUp } from 
 import { toast } from '@/components/ui/sonner';
 import InlinePaymentSection from './shipping/InlinePaymentSection';
 import CarrierLogo from './shipping/CarrierLogo';
+import { standardizeCarrierName } from '@/utils/carrierUtils';
 
 interface ShippingRate {
   id: string;
@@ -60,13 +61,19 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     return () => document.removeEventListener('rates-reordered', handleRatesReordered);
   }, []);
 
-  // Update display rates when rates prop changes
+  // Update display rates when rates prop changes and standardize carrier names
   useEffect(() => {
     if (rates && rates.length > 0) {
-      setDisplayRates(rates);
+      // Standardize carrier names
+      const standardizedRates = rates.map(rate => ({
+        ...rate,
+        carrier: standardizeCarrierName(rate.carrier)
+      }));
+      
+      setDisplayRates(standardizedRates);
       if (!selectedRate) {
-        const uspsRates = rates.filter(rate => rate.carrier.toLowerCase().includes('usps'));
-        const firstRate = uspsRates.length > 0 ? uspsRates[0] : rates[0];
+        const uspsRates = standardizedRates.filter(rate => rate.carrier.toLowerCase().includes('usps'));
+        const firstRate = uspsRates.length > 0 ? uspsRates[0] : standardizedRates[0];
         setSelectedRate(firstRate);
       }
     }
@@ -147,6 +154,13 @@ const ShippingRatesDisplay: React.FC<ShippingRatesProps> = ({
     console.log('Rate selected:', rate);
     setSelectedRate(rate);
     onRateSelected(rate);
+    
+    // Auto-open AI sidebar when rate is clicked
+    setTimeout(() => {
+      document.dispatchEvent(new CustomEvent('force-show-ai-panel', { 
+        detail: { selectedRate: rate } 
+      }));
+    }, 100);
   };
 
   const handlePaymentSuccess = async (paymentData: any) => {

@@ -10,6 +10,8 @@ import AIRateAnalysisPanel from '@/components/shipping/AIRateAnalysisPanel';
 import { useShippingRates } from '@/hooks/useShippingRates';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Brain } from 'lucide-react';
 
 const CreateLabelPage = () => {
   // Move ALL hooks to the top before any conditional logic
@@ -50,15 +52,27 @@ const CreateLabelPage = () => {
       setIsPaymentInProgress(false);
     };
 
+    // Listen for force show AI panel event (when rate is clicked)
+    const handleForceShowAIPanel = (event: CustomEvent) => {
+      console.log('Force show AI panel event received:', event.detail);
+      if (event.detail?.selectedRate) {
+        setSelectedRate(event.detail.selectedRate);
+        setShowAIPanel(true);
+        setAiPanelClosedManually(false); // Reset manual close flag
+      }
+    };
+
     // Listen for payment-related events
     document.addEventListener('payment-start', handlePaymentStart);
     document.addEventListener('payment-complete', handlePaymentEnd);
     document.addEventListener('payment-cancelled', handlePaymentEnd);
+    document.addEventListener('force-show-ai-panel', handleForceShowAIPanel as EventListener);
 
     return () => {
       document.removeEventListener('payment-start', handlePaymentStart);
       document.removeEventListener('payment-complete', handlePaymentEnd);
       document.removeEventListener('payment-cancelled', handlePaymentEnd);
+      document.removeEventListener('force-show-ai-panel', handleForceShowAIPanel as EventListener);
     };
   }, []);
 
@@ -139,6 +153,15 @@ const CreateLabelPage = () => {
     setAiPanelClosedManually(true); // Mark as manually closed
   };
 
+  const handleAIPoweredAnalysis = () => {
+    console.log('AI Powered Analysis button clicked');
+    if (rates && rates.length > 0) {
+      setSelectedRate(rates[0]);
+      setShowAIPanel(true);
+      setAiPanelClosedManually(false);
+    }
+  };
+
   // Enhanced rate processing with proper carrier name standardization
   const processRatesForDisplay = (ratesList: any[]) => {
     return ratesList.map(rate => ({
@@ -193,12 +216,20 @@ const CreateLabelPage = () => {
               <EnhancedShippingForm />
             </div>
 
-            {/* Rate Filter - Only show the filter dropdown, no carrier selection buttons */}
+            {/* Rate Filter with AI Powered Analysis Button */}
             <div className="mb-6 flex gap-4">
               <RateFilter 
                 activeFilter={activeFilter} 
                 onFilterChange={handleFilterChange} 
               />
+              <Button
+                onClick={handleAIPoweredAnalysis}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 flex items-center gap-2"
+                disabled={!rates || rates.length === 0}
+              >
+                <Brain className="w-4 h-4" />
+                AI Powered Analysis
+              </Button>
             </div>
             
             {/* Shipping Rates Section */}
