@@ -4,6 +4,30 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { BulkUploadResult, BulkShipment } from '@/types/shipping';
 
+// 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
+const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 10, etc.
+
+// Apply configurable markup to rates
+const applyRateMarkup = (originalRate: number): number => {
+  const markupAmount = originalRate * (RATE_MARKUP_PERCENTAGE / 100);
+  const finalRate = originalRate + markupAmount;
+  
+  console.log(`Bulk rate markup applied: Original: $${originalRate.toFixed(2)}, Markup (${RATE_MARKUP_PERCENTAGE}%): $${markupAmount.toFixed(2)}, Final: $${finalRate.toFixed(2)}`);
+  
+  return finalRate;
+};
+
+// Standardize carrier names for consistent display
+const standardizeCarrierName = (carrierName: string): string => {
+  const name = carrierName.toUpperCase();
+  if (name.includes('USPS')) return 'USPS';
+  if (name.includes('UPS')) return 'UPS';
+  if (name.includes('FEDEX')) return 'FedEx';
+  if (name.includes('DHL')) return 'DHL';
+  if (name.includes('CANADA POST') || name.includes('CANADAPOST')) return 'Canada Post';
+  return carrierName; // Return original if no match
+};
+
 export const useShipmentRates = (
   results: BulkUploadResult | null, 
   updateResults: (newResults: BulkUploadResult) => void
@@ -16,7 +40,7 @@ export const useShipmentRates = (
     setIsFetchingRates(true);
     
     try {
-      console.log('Fetching live rates for shipments...');
+      console.log(`Fetching live rates for shipments with ${RATE_MARKUP_PERCENTAGE}% markup...`);
       
       const updatedShipments = [...shipments];
       
@@ -62,14 +86,30 @@ export const useShipmentRates = (
             }
             
             if (data && data.rates) {
+              // Apply additional markup and standardize carrier names
+              const processedRates = data.rates.map(rate => {
+                const originalRate = parseFloat(rate.rate);
+                const markedUpRate = applyRateMarkup(originalRate);
+                const standardizedCarrier = standardizeCarrierName(rate.carrier);
+                
+                return {
+                  ...rate,
+                  carrier: standardizedCarrier,
+                  original_carrier: rate.carrier, // Keep original for API calls
+                  rate: markedUpRate.toFixed(2),
+                  original_rate: originalRate.toFixed(2),
+                  markup_percentage: RATE_MARKUP_PERCENTAGE
+                };
+              });
+              
               const actualIndex = i + index;
               updatedShipments[actualIndex] = {
                 ...shipment,
-                availableRates: data.rates,
-                selectedRateId: data.rates[0]?.id,
-                carrier: data.rates[0]?.carrier || shipment.carrier,
-                service: data.rates[0]?.service || shipment.service,
-                rate: parseFloat(data.rates[0]?.rate) || shipment.rate,
+                availableRates: processedRates,
+                selectedRateId: processedRates[0]?.id,
+                carrier: processedRates[0]?.carrier || shipment.carrier,
+                service: processedRates[0]?.service || shipment.service,
+                rate: parseFloat(processedRates[0]?.rate) || shipment.rate,
               };
             }
             
@@ -95,8 +135,8 @@ export const useShipmentRates = (
         totalCost: newTotalCost,
       });
       
-      console.log('Live rates fetched successfully');
-      toast.success('Live shipping rates updated');
+      console.log(`Live rates fetched successfully with ${RATE_MARKUP_PERCENTAGE}% markup`);
+      toast.success(`Live shipping rates updated with ${RATE_MARKUP_PERCENTAGE}% markup`);
       
     } catch (error) {
       console.error('Error fetching shipment rates:', error);
@@ -176,15 +216,31 @@ export const useShipmentRates = (
       }
       
       if (data && data.rates) {
+        // Apply markup and standardize carrier names for refreshed rates
+        const processedRates = data.rates.map(rate => {
+          const originalRate = parseFloat(rate.rate);
+          const markedUpRate = applyRateMarkup(originalRate);
+          const standardizedCarrier = standardizeCarrierName(rate.carrier);
+          
+          return {
+            ...rate,
+            carrier: standardizedCarrier,
+            original_carrier: rate.carrier,
+            rate: markedUpRate.toFixed(2),
+            original_rate: originalRate.toFixed(2),
+            markup_percentage: RATE_MARKUP_PERCENTAGE
+          };
+        });
+        
         const updatedShipments = results.processedShipments.map(s => {
           if (s.id === shipmentId) {
             return {
               ...s,
-              availableRates: data.rates,
-              selectedRateId: data.rates[0]?.id,
-              carrier: data.rates[0]?.carrier || s.carrier,
-              service: data.rates[0]?.service || s.service,
-              rate: parseFloat(data.rates[0]?.rate.toString()) || s.rate,
+              availableRates: processedRates,
+              selectedRateId: processedRates[0]?.id,
+              carrier: processedRates[0]?.carrier || s.carrier,
+              service: processedRates[0]?.service || s.service,
+              rate: parseFloat(processedRates[0]?.rate.toString()) || s.rate,
             };
           }
           return s;
@@ -200,7 +256,7 @@ export const useShipmentRates = (
           totalCost: newTotalCost,
         });
         
-        toast.success('Rates refreshed successfully');
+        toast.success(`Rates refreshed successfully with ${RATE_MARKUP_PERCENTAGE}% markup`);
       }
       
     } catch (error) {
@@ -242,7 +298,7 @@ export const useShipmentRates = (
       totalCost: newTotalCost,
     });
     
-    toast.success(`Applied ${carrierName} to all eligible shipments`);
+    toast.success(`Applied ${carrierName} to all eligible shipments with ${RATE_MARKUP_PERCENTAGE}% markup`);
   };
 
   return {

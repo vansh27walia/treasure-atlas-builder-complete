@@ -108,6 +108,11 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
     toast.success(`Applied ${filterId} optimization`);
   };
 
+  const handleClosePanel = () => {
+    console.log('AI Panel close button clicked');
+    onClose(); // This will call the parent's handleCloseSidebar function
+  };
+
   // Listen for payment or close events to auto-close sidebar
   useEffect(() => {
     const handlePaymentSuccess = () => {
@@ -147,7 +152,12 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
             AI Rate Analysis
             <Badge className="bg-white/20 text-white text-xs px-1">AI</Badge>
           </CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose} className="text-white hover:bg-white/20 h-6 w-6 p-0">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleClosePanel} 
+            className="text-white hover:bg-white/20 h-6 w-6 p-0"
+          >
             <X className="w-3 h-3" />
           </Button>
         </CardHeader>

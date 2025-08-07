@@ -27,16 +27,17 @@ const CreateLabelPage = () => {
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [selectedRate, setSelectedRate] = useState<any>(null);
   const [isPaymentInProgress, setIsPaymentInProgress] = useState(false);
+  const [aiPanelClosedManually, setAiPanelClosedManually] = useState(false);
 
-  // Auto-show AI panel when rates are available
+  // Auto-show AI panel when rates are available (but only if not manually closed)
   useEffect(() => {
-    if (rates && rates.length > 0 && !showAIPanel && !isPaymentInProgress) {
+    if (rates && rates.length > 0 && !showAIPanel && !isPaymentInProgress && !aiPanelClosedManually) {
       setShowAIPanel(true);
       if (rates[0] && !selectedRate) {
         setSelectedRate(rates[0]);
       }
     }
-  }, [rates, showAIPanel, selectedRate, isPaymentInProgress]);
+  }, [rates, showAIPanel, selectedRate, isPaymentInProgress, aiPanelClosedManually]);
 
   // Listen for payment events to close AI panel
   useEffect(() => {
@@ -69,7 +70,7 @@ const CreateLabelPage = () => {
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
     setSelectedRate(rate);
-    if (!isPaymentInProgress) {
+    if (!isPaymentInProgress && !aiPanelClosedManually) {
       setShowAIPanel(true);
     }
     handleSelectRate(rate.id);
@@ -133,7 +134,9 @@ const CreateLabelPage = () => {
   };
 
   const handleCloseSidebar = () => {
+    console.log('Closing AI sidebar manually');
     setShowAIPanel(false);
+    setAiPanelClosedManually(true); // Mark as manually closed
   };
 
   // Enhanced rate processing with proper carrier name standardization
@@ -210,7 +213,7 @@ const CreateLabelPage = () => {
         </div>
       </div>
 
-      {/* AI Analysis Panel - Only show when not in payment flow */}
+      {/* AI Analysis Panel - Only show when not in payment flow and not manually closed */}
       {showAIPanel && selectedRate && !isPaymentInProgress && (
         <AIRateAnalysisPanel
           selectedRate={selectedRate}
