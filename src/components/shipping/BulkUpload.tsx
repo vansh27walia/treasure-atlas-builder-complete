@@ -189,7 +189,8 @@ const BulkUpload: React.FC = () => {
           
           <OrderSummary
             successfulCount={calculateTotals().successfulCount}
-            totalCost={calculateTotals().totalCost + calculateTotals().totalInsurance}
+            totalCost={calculateTotals().totalCost}
+            totalInsurance={calculateTotals().totalInsurance}
             onProceedToPayment={handleProceedToPayment}
             onDownloadAllLabels={handleDownloadAllLabels}
             isPaying={isPaying}
