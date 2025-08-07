@@ -279,6 +279,8 @@ const BulkUpload: React.FC = () => {
               successful: uploadResults.successful,
               failed: uploadResults.failed,
               totalCost: totalCost,
+              success: uploadResults.successful > 0,
+              message: `Successfully processed ${uploadResults.successful} out of ${uploadResults.total} shipments`,
               processedShipments: uploadResults.processedShipments.map(shipment => ({
                 id: shipment.id,
                 status: shipment.status === 'completed' ? 'rates_fetched' : 'error',
