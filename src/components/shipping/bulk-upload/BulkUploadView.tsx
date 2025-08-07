@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -117,36 +118,6 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
       });
       setResults({ ...results, shipments: updatedShipments });
     }
-  };
-
-  const handleRefreshRates = async () => {
-    setIsFetchingRates(true);
-    // Simulate rate refresh
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsFetchingRates(false);
-    toast.success('Rates refreshed successfully');
-  };
-
-  const handleCreateLabels = async () => {
-    setIsCreatingLabels(true);
-    // Simulate label creation
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    setIsCreatingLabels(false);
-    toast.success('Labels created successfully');
-  };
-
-  const handleSelectRate = (shipmentId: string, rateId: string) => {
-    handleRateChange(shipmentId, rateId);
-  };
-
-  const handleRefreshSingleRate = async (shipmentId: string) => {
-    // Handle single shipment rate refresh
-    toast.success(`Refreshing rates for shipment ${shipmentId}`);
-  };
-
-  const handleBulkApplyCarrier = (carrierName: string) => {
-    // Handle bulk carrier application
-    toast.success(`Applied ${carrierName} to all applicable shipments`);
   };
 
   const handleOptimizationChange = (filter: string) => {
@@ -336,15 +307,7 @@ const BulkUploadView: React.FC<BulkUploadViewProps> = ({ onUploadComplete }) => 
               )}
 
               {/* Detailed Results */}
-              <BulkResults 
-                results={results} 
-                onRefreshRates={handleRefreshRates}
-                isRefreshing={isFetchingRates}
-                onCreateLabels={handleCreateLabels}
-                onSelectRate={handleSelectRate}
-                onRefreshSingleRate={handleRefreshSingleRate}
-                onBulkApplyCarrier={handleBulkApplyCarrier}
-              />
+              <BulkResults results={results} onRateChange={handleRateChange} />
             </div>
           )}
         </div>

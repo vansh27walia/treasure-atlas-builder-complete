@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -15,12 +14,11 @@ import BulkAIOverviewPanel from './bulk-upload/BulkAIOverviewPanel';
 import BulkShippingChatbot from './bulk-upload/BulkShippingChatbot';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { FileText, UploadCloud, AlertCircle, Download, PrinterIcon, Sparkles, MessageCircle, Brain, Zap } from 'lucide-react';
+import { FileText, UploadCloud, AlertCircle, Download, PrinterIcon, Sparkles, MessageCircle } from 'lucide-react';
 import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
-
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
@@ -112,7 +110,7 @@ const BulkUpload: React.FC = () => {
             selectedRate = shipment.availableRates[0];
         }
         if (selectedRate) {
-          handleSelectRate(shipmentId, selectedRate.id.toString());
+          handleSelectRate(shipmentId, selectedRate.id);
         }
       }
     } else {
@@ -259,19 +257,6 @@ const BulkUpload: React.FC = () => {
                     </AlertDescription>
                   </Alert>
                   
-                  {/* AI Powered Analysis Button */}
-                  <div className="flex justify-center mb-4">
-                    <Button 
-                      onClick={() => setAiPanelOpen(!aiPanelOpen)}
-                      variant="outline"
-                      className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 hover:bg-blue-100"
-                    >
-                      <Brain className="w-4 h-4 text-blue-600" />
-                      <Zap className="w-3 h-3 text-purple-600" />
-                      AI Powered Analysis
-                    </Button>
-                  </div>
-                  
                   <div className="bg-white rounded-xl border shadow-sm">
                     <div className="p-6 border-b">
                       <BulkShipmentFilters searchTerm={searchTerm} onSearchChange={setSearchTerm} sortField={sortField} sortDirection={sortDirection} onSortChange={(field, direction) => {
@@ -280,13 +265,12 @@ const BulkUpload: React.FC = () => {
                   }} selectedCarrier={selectedCarrierFilter} onCarrierFilterChange={setSelectedCarrierFilter} onApplyCarrierToAll={handleBulkApplyCarrier} />
                     </div>
                     
-                    <BulkShipmentsList 
-                      shipments={filteredShipments} 
-                      isFetchingRates={isFetchingRates}
-                      onSelectRate={handleSelectRate} 
-                      onRefreshRates={handleRefreshRates} 
-                      onBulkApplyCarrier={handleBulkApplyCarrier}
-                    />
+                    <BulkShipmentsList shipments={filteredShipments} isFetchingRates={isFetchingRates} onSelectRate={handleSelectRate} onRemoveShipment={handleRemoveShipment} onEditShipment={(shipmentId: string, details: any) => {
+                  const shipment = results?.processedShipments?.find(s => s.id === shipmentId);
+                  if (shipment) {
+                    handleEditShipment(shipment);
+                  }
+                }} onRefreshRates={handleRefreshRates} onAIAnalysis={handleAIAnalysis} />
                   </div>
                   
                   {processedShipmentsCount > 0 && <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">

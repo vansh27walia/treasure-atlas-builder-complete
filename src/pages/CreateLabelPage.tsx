@@ -74,11 +74,6 @@ const CreateLabelPage = () => {
       setShowAIPanel(true);
     }
     handleSelectRate(rate.id);
-    
-    // AUTO-CLOSE the AI panel after rate selection
-    setTimeout(() => {
-      setShowAIPanel(false);
-    }, 100);
   };
 
   const handleFilterChange = (filter: string) => {
@@ -132,9 +127,6 @@ const CreateLabelPage = () => {
         detail: { rates: sortedRates } 
       }));
     }
-    
-    // Close panel after optimization
-    setShowAIPanel(false);
   };
 
   const handleOpenRateCalculator = () => {
