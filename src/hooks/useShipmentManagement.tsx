@@ -32,14 +32,15 @@ export const useShipmentManagement = (
     toast.success('Shipment removed from list');
   };
 
-  const handleEditShipment = (shipmentId: string, updates: Partial<BulkShipment>) => {
+  // Updated to accept a single BulkShipment parameter to match BulkUpload expectation
+  const handleEditShipment = (shipment: BulkShipment) => {
     if (!results) return;
     
-    const updatedShipments = results.processedShipments.map(shipment => {
-      if (shipment.id === shipmentId) {
-        return { ...shipment, ...updates };
+    const updatedShipments = results.processedShipments.map(s => {
+      if (s.id === shipment.id) {
+        return { ...s, ...shipment };
       }
-      return shipment;
+      return s;
     });
     
     updateResults({

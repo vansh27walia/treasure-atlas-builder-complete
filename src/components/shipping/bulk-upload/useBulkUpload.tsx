@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { BulkUploadResult, BulkShipment, BatchResult } from '@/types/shipping';
 import { useShipmentUpload } from '@/hooks/useShipmentUpload';
@@ -110,15 +109,14 @@ export const useBulkUpload = () => {
     loadDefaultPickupAddress();
   }, []);
 
-  // Enhanced edit handler that refreshes rates after editing
-  const handleEditShipment = async (shipmentId: string, updatedDetails: any) => {
+  const handleEditShipment = async (shipment: BulkShipment) => {
     try {
-      // First update the shipment details
-      await originalHandleEditShipment(shipmentId, updatedDetails);
+      // First update the shipment details using the original function
+      await originalHandleEditShipment(shipment);
       
       // Then refresh rates for the updated shipment
       console.log('Refreshing rates after shipment edit...');
-      await handleRefreshRatesAfterEdit(shipmentId);
+      await handleRefreshRatesAfterEdit(shipment.id);
       
       toast.success('Shipment updated and rates refreshed successfully');
     } catch (error) {
@@ -127,16 +125,14 @@ export const useBulkUpload = () => {
     }
   };
 
-  // Auto-trigger label creation after payment completion
   useEffect(() => {
     if (paymentCompleted && !isCreatingLabels && results && results.processedShipments.length > 0) {
       console.log('Payment completed, auto-starting label creation...');
       handleCreateLabels();
-      setPaymentCompleted(false); // Reset flag
+      setPaymentCompleted(false);
     }
   }, [paymentCompleted, isCreatingLabels, results]);
 
-  // Enhanced payment success handler
   const handlePaymentSuccess = () => {
     console.log('Payment successful, triggering label creation...');
     setPaymentCompleted(true);
@@ -149,7 +145,6 @@ export const useBulkUpload = () => {
       return;
     }
     
-    // Clear any previous batch errors
     setBatchError(null);
     
     let shipmentsArray = [];
@@ -215,7 +210,6 @@ export const useBulkUpload = () => {
       if (error) {
         console.error('Label creation error from Supabase function:', error);
         
-        // Check if this is a batch halt error
         if (error.message && error.message.includes('Batch halted')) {
           const errorMatch = error.message.match(/Package #(\d+)/);
           const packageNumber = errorMatch ? parseInt(errorMatch[1]) : 1;
@@ -301,7 +295,6 @@ export const useBulkUpload = () => {
 
         const allTransformedShipments = [...transformedSuccessfulShipments, ...transformedFailedShipments];
         
-        // Process batch result properly
         let frontendBatchResult: BatchResult | null = null;
         if (data.batchResult && data.batchResult.batchId) {
             console.log('Processing batch result:', data.batchResult);
