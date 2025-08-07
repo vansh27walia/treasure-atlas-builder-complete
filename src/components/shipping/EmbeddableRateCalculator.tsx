@@ -9,6 +9,7 @@ import { Calculator, Package, MapPin, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { supabase } from '@/integrations/supabase/client';
 import CarrierLogo from './CarrierLogo';
+import { getNames } from 'country-list';
 
 interface RateResult {
   id: string;
@@ -24,11 +25,16 @@ const EmbeddableRateCalculator: React.FC = () => {
   const [formData, setFormData] = useState({
     fromZip: '',
     toZip: '',
+    fromCountry: 'US',
+    toCountry: 'US',
     weight: '',
     length: '',
     width: '',
     height: ''
   });
+
+  // Get country names mapping
+  const countryNames = getNames();
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -47,12 +53,12 @@ const EmbeddableRateCalculator: React.FC = () => {
       // Prepare addresses
       const fromAddress = {
         zip: formData.fromZip,
-        country: 'US'
+        country: formData.fromCountry
       };
       
       const toAddress = {
         zip: formData.toZip,
-        country: 'US'
+        country: formData.toCountry
       };
       
       const parcel = {
@@ -107,27 +113,55 @@ const EmbeddableRateCalculator: React.FC = () => {
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                From ZIP Code
+                From
               </Label>
-              <Input
-                placeholder="90210"
-                value={formData.fromZip}
-                onChange={(e) => handleInputChange('fromZip', e.target.value)}
-                maxLength={5}
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="90210"
+                  value={formData.fromZip}
+                  onChange={(e) => handleInputChange('fromZip', e.target.value)}
+                  maxLength={5}
+                />
+                <Select value={formData.fromCountry} onValueChange={(value) => handleInputChange('fromCountry', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(countryNames).map(([code, name]) => (
+                      <SelectItem key={code} value={code}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                To ZIP Code
+                To
               </Label>
-              <Input
-                placeholder="10001"
-                value={formData.toZip}
-                onChange={(e) => handleInputChange('toZip', e.target.value)}
-                maxLength={5}
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  placeholder="10001"
+                  value={formData.toZip}
+                  onChange={(e) => handleInputChange('toZip', e.target.value)}
+                  maxLength={5}
+                />
+                <Select value={formData.toCountry} onValueChange={(value) => handleInputChange('toCountry', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(countryNames).map(([code, name]) => (
+                      <SelectItem key={code} value={code}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
