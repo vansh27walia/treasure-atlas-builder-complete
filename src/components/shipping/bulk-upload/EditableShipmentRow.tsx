@@ -36,34 +36,55 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
   });
 
   const handleEdit = () => {
+    // Reset edit data to current shipment values when starting to edit
+    setEditData({
+      customer_name: shipment.customer_name || shipment.recipient,
+      weight: shipment.details?.weight || 1,
+      length: shipment.details?.length || 1,
+      width: shipment.details?.width || 1,
+      height: shipment.details?.height || 1,
+      declared_value: shipment.details?.declared_value || 200
+    });
     setIsEditing(true);
   };
 
   const handleSave = async () => {
-    // Apply the changes to the shipment
-    const updates = {
-      customer_name: editData.customer_name,
-      recipient: editData.customer_name,
-      details: {
-        ...shipment.details,
-        weight: parseWeightInput(editData.weight),
-        length: editData.length,
-        width: editData.width,
-        height: editData.height,
-        declared_value: editData.declared_value
-      }
-    };
-    
-    onEditShipment(shipment.id, updates);
-    setIsEditing(false);
-    
-    // Refresh rates after saving changes
-    if (onRefreshRates) {
-      onRefreshRates(shipment.id);
+    try {
+      console.log('Saving shipment edits:', editData);
+      
+      // Create the updates object with proper structure
+      const updates = {
+        customer_name: editData.customer_name,
+        recipient: editData.customer_name,
+        details: {
+          ...shipment.details,
+          weight: parseWeightInput(editData.weight),
+          length: editData.length,
+          width: editData.width,
+          height: editData.height,
+          declared_value: editData.declared_value
+        }
+      };
+      
+      // Apply the changes immediately
+      onEditShipment(shipment.id, updates);
+      setIsEditing(false);
+      
+      // Add a small delay to ensure the update is processed before refreshing rates
+      setTimeout(async () => {
+        if (onRefreshRates) {
+          console.log('Refreshing rates after edit for shipment:', shipment.id);
+          await onRefreshRates(shipment.id);
+        }
+      }, 500);
+      
+    } catch (error) {
+      console.error('Error saving shipment edits:', error);
     }
   };
 
   const handleCancel = () => {
+    // Reset to original values
     setEditData({
       customer_name: shipment.customer_name || shipment.recipient,
       weight: shipment.details?.weight || 1,

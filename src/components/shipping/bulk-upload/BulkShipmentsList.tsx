@@ -22,25 +22,67 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger, DropdownMenuIte
 import CustomsClearanceButton from './CustomsClearanceButton';
 import { standardizeCarrierName } from '@/utils/carrierUtils';
 
-// Local interface for customs info to avoid conflicts
+// Helper function to get carrier color styling (matching normal shipping)
+const getCarrierColor = (carrier: string) => {
+  switch (carrier?.toUpperCase()) {
+    case 'UPS':
+      return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    case 'FEDEX':
+      return 'bg-purple-100 text-purple-800 border-purple-200';
+    case 'USPS':
+      return 'bg-blue-100 text-blue-800 border-blue-200';
+    case 'DHL':
+      return 'bg-red-100 text-red-800 border-red-200';
+    default:
+      return 'bg-gray-100 text-gray-800 border-gray-200';
+  }
+};
+
+// Helper function to calculate dynamic discount percentage (matching normal shipping)
+const getDiscountPercentage = (rate: any): number => {
+  if (!rate) return 0;
+  const currentRate = typeof rate.rate === 'string' ? parseFloat(rate.rate) : rate.rate;
+  
+  // Dynamic discount calculation based on carrier and service (matching normal shipping logic)
+  let baseMultiplier = 2.2;
+  
+  // Adjust multiplier based on carrier
+  if (rate.carrier === 'USPS') baseMultiplier = 2.8;
+  else if (rate.carrier === 'UPS') baseMultiplier = 2.5;
+  else if (rate.carrier === 'FedEx') baseMultiplier = 2.6;
+  
+  // Adjust for service type
+  if (rate.service?.toLowerCase().includes('express')) baseMultiplier += 0.3;
+  else if (rate.service?.toLowerCase().includes('ground')) baseMultiplier -= 0.2;
+  else if (rate.service?.toLowerCase().includes('priority')) baseMultiplier += 0.1;
+  
+  // Add randomization for more realistic discounts
+  const randomFactor = 0.9 + Math.random() * 0.2; // 0.9 to 1.1
+  const finalMultiplier = baseMultiplier * randomFactor;
+  
+  const originalRate = currentRate * finalMultiplier;
+  return Math.min(85, Math.max(45, Math.round(((originalRate - currentRate) / originalRate) * 100)));
+};
+
+// Local interface for customs info
 interface LocalCustomsInfo {
   contents_type: string;
   contents_explanation?: string;
   customs_certify: boolean;
   customs_signer: string;
   non_delivery_option: string;
-  restriction_type: string; // Made required to match CustomsData
-  restriction_comments: string; // Made required to match CustomsData
+  restriction_type: string;
+  restriction_comments: string;
   customs_items: Array<{
     description: string;
     quantity: number;
     value: number;
     weight: number;
-    hs_tariff_number: string; // Made required to match CustomsItem
+    hs_tariff_number: string;
     origin_country: string;
   }>;
-  eel_pfc: string; // Made required to match CustomsData
-  phone_number: string; // Added required phone_number field
+  eel_pfc: string;
+  phone_number: string;
 }
 
 interface BulkShipmentsListProps {
@@ -48,13 +90,13 @@ interface BulkShipmentsListProps {
   isFetchingRates: boolean;
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRemoveShipment: (shipmentId: string) => void;
-  onEditShipment: (shipmentId: string, details: BulkShipment['details']) => void;
+  onEditShipment: (shipmentId: string, updates: Partial<BulkShipment>) => void;
   onRefreshRates: (shipmentId: string) => void;
   onAIAnalysis: (shipment?: any) => void;
 }
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
-  shipments,
+  shipments = [], // Default to empty array
   isFetchingRates,
   onSelectRate,
   onRemoveShipment,
@@ -70,22 +112,6 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   }>>({});
   const [editingShipments, setEditingShipments] = useState<Set<string>>(new Set());
 
-  // Helper function to get carrier color styling
-  const getCarrierColor = (carrier: string) => {
-    switch (carrier) {
-      case 'UPS':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'FedEx':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'USPS':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'DHL':
-        return 'bg-red-100 text-red-800 border-red-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
   // Handle post-payment refresh
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -93,6 +119,30 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       window.location.reload();
     }
   }, []);
+
+  // Helper function to safely format rate as number
+  const formatRate = (rate: string | number | undefined): string => {
+    if (!rate) return '0.00';
+    const numRate = typeof rate === 'string' ? parseFloat(rate) : rate;
+    return isNaN(numRate) ? '0.00' : numRate.toFixed(2);
+  };
+
+  // Helper function to get insurance settings with defaults
+  const getInsuranceSettings = (shipmentId: string) => {
+    return insuranceSettings[shipmentId] || {
+      enabled: true,
+      value: 100 // Default $100
+    };
+  };
+
+  // Helper function to calculate insurance cost - dynamic based on declared value
+  const calculateInsuranceCost = (declaredValue: number): number => {
+    if (declaredValue <= 50) return 1.50;
+    if (declaredValue <= 100) return 2.00;
+    if (declaredValue <= 200) return 3.50;
+    if (declaredValue <= 500) return 7.00;
+    return Math.max(7, declaredValue * 0.015); // 1.5% for higher values, minimum $7
+  };
 
   const handleOpenEditDialog = (shipmentId: string) => {
     setOpenDialogs({
@@ -118,7 +168,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
 
   // Check if shipment is international (non-US)
   const isInternationalShipment = (shipment: BulkShipment): boolean => {
-    const country = shipment.details.to_country?.toUpperCase();
+    const country = shipment.details?.to_country?.toUpperCase();
     return country !== 'US' && country !== 'USA' && country !== 'UNITED STATES';
   };
 
@@ -154,49 +204,6 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
     }
   };
 
-  // Enhanced AI analysis with 5 criteria
-  const calculateAIScore = (rate: any, allRates: any[]) => {
-    const scores = {
-      cost: 0,
-      speed: 0,
-      reliability: 0,
-      ecoFriendly: 0,
-      insurance: 0
-    };
-
-    if (allRates.length === 0) return scores;
-
-    // Cost score (30%)
-    const rates = allRates.map(r => parseFloat(r.rate || '0')).sort((a, b) => a - b);
-    const currentRate = parseFloat(rate.rate || '0');
-    const costPercentile = rates.indexOf(currentRate) / rates.length;
-    scores.cost = Math.max(1, Math.round((1 - costPercentile) * 5));
-
-    // Speed score (25%)
-    const deliveryDays = rate.delivery_days || 7;
-    scores.speed = deliveryDays <= 1 ? 5 : deliveryDays <= 2 ? 4 : deliveryDays <= 3 ? 3 : deliveryDays <= 5 ? 2 : 1;
-
-    // Reliability score (20%)
-    const reliabilityMap = {
-      'USPS': 4,
-      'UPS': 5,
-      'FedEx': 5,
-      'DHL': 4
-    };
-    scores.reliability = reliabilityMap[rate.carrier] || 3;
-
-    // Eco-friendly score (15%)
-    scores.ecoFriendly = rate.service.toLowerCase().includes('ground') ? 5 :
-                        rate.service.toLowerCase().includes('standard') ? 4 :
-                        rate.service.toLowerCase().includes('express') ? 2 : 3;
-
-    // Insurance coverage score (10%)
-    scores.insurance = rate.carrier === 'UPS' || rate.carrier === 'FedEx' ? 5 : 
-                      rate.carrier === 'USPS' ? 4 : 3;
-
-    return scores;
-  };
-
   const handleBulkOptimization = (type: string) => {
     let processedCount = 0;
     
@@ -225,26 +232,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                       rates[0];
             break;
           case 'eco_friendly':
-            bestRate = rates.find(r => r.service.toLowerCase().includes('ground')) || rates[0];
-            break;
-          case '2day':
-            bestRate = rates.find(rate => rate.delivery_days === 2) || 
-                      rates.reduce((prev, curr) => 
-                        Math.abs((curr.delivery_days || 999) - 2) < Math.abs((prev.delivery_days || 999) - 2) ? curr : prev
-                      );
-            break;
-          case '3day':
-            bestRate = rates.find(rate => rate.delivery_days === 3) || 
-                      rates.reduce((prev, curr) => 
-                        Math.abs((curr.delivery_days || 999) - 3) < Math.abs((prev.delivery_days || 999) - 3) ? curr : prev
-                      );
-            break;
-          case 'premium':
-            bestRate = rates.reduce((prev, curr) => {
-              const currRate = typeof curr.rate === 'string' ? parseFloat(curr.rate) : curr.rate;
-              const prevRate = typeof prev.rate === 'string' ? parseFloat(prev.rate) : prev.rate;
-              return currRate > prevRate ? curr : prev;
-            });
+            bestRate = rates.find(r => r.service?.toLowerCase().includes('ground')) || rates[0];
             break;
           case 'balanced':
             bestRate = rates.reduce((prev, curr) => {
@@ -271,71 +259,10 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
       'fastest': 'Fastest Delivery',
       'most_reliable': 'Most Reliable',
       'balanced': 'Balanced Choice',
-      'eco_friendly': 'Eco-Friendly',
-      '2day': '2-Day Delivery',
-      '3day': '3-Day Delivery',
-      'premium': 'Premium Service'
+      'eco_friendly': 'Eco-Friendly'
     };
 
     toast.success(`Applied ${optimizationLabels[type] || type} to ${processedCount} shipments`);
-  };
-
-  // Helper function to safely format rate as number
-  const formatRate = (rate: string | number | undefined): string => {
-    if (!rate) return '0.00';
-    const numRate = typeof rate === 'string' ? parseFloat(rate) : rate;
-    return isNaN(numRate) ? '0.00' : numRate.toFixed(2);
-  };
-
-  // Helper function to get insurance settings with defaults
-  const getInsuranceSettings = (shipmentId: string) => {
-    return insuranceSettings[shipmentId] || {
-      enabled: true,
-      value: 100 // Default $100
-    };
-  };
-
-  // Helper function to calculate insurance cost - dynamic based on declared value
-  const calculateInsuranceCost = (declaredValue: number): number => {
-    if (declaredValue <= 50) return 1.50;
-    if (declaredValue <= 100) return 2.00;
-    if (declaredValue <= 200) return 3.50;
-    if (declaredValue <= 500) return 7.00;
-    return Math.max(7, declaredValue * 0.015); // 1.5% for higher values, minimum $7
-  };
-
-  // Helper function to get dynamic discount percentage based on rate
-  const getDiscountPercentage = (rate: any): number => {
-    if (!rate) return 0;
-    const currentRate = typeof rate.rate === 'string' ? parseFloat(rate.rate) : rate.rate;
-    
-    // Dynamic discount calculation based on carrier and service
-    let baseMultiplier = 2.2; // Base markup for discount calculation
-    
-    // Adjust multiplier based on carrier
-    if (rate.carrier === 'USPS') baseMultiplier = 2.8;
-    else if (rate.carrier === 'UPS') baseMultiplier = 2.5;
-    else if (rate.carrier === 'FedEx') baseMultiplier = 2.6;
-    
-    // Adjust for service type
-    if (rate.service.toLowerCase().includes('express')) baseMultiplier += 0.3;
-    else if (rate.service.toLowerCase().includes('ground')) baseMultiplier -= 0.2;
-    else if (rate.service.toLowerCase().includes('priority')) baseMultiplier += 0.1;
-    
-    // Add randomization for more realistic discounts
-    const randomFactor = 0.9 + Math.random() * 0.2; // 0.9 to 1.1
-    const finalMultiplier = baseMultiplier * randomFactor;
-    
-    const originalRate = currentRate * finalMultiplier;
-    return Math.min(85, Math.max(45, Math.round(((originalRate - currentRate) / originalRate) * 100)));
-  };
-
-  // Helper function to get dynamic insurance discount
-  const getInsuranceDiscountPercentage = (declaredValue: number): number => {
-    const standardRate = declaredValue * 0.025; // Standard 2.5% rate
-    const ourRate = calculateInsuranceCost(declaredValue);
-    if (standardRate <= ourRate) return 0;
-    return Math.round(((standardRate - ourRate) / standardRate) * 100);
   };
 
   const handleEditSubmit = async (shipmentId: string, editedData: any) => {
@@ -372,7 +299,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
             return newSet;
           });
         }
-      }, 1000); // Increased delay to ensure data is saved first
+      }, 1000);
     } catch (error) {
       console.error('Error handling edit submission:', error);
       toast.error('Failed to update shipment');
@@ -457,36 +384,6 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                   </div>
                 </div>
               </DropdownMenuItem>
-
-              <DropdownMenuItem onClick={() => handleBulkOptimization('2day')} className="hover:bg-orange-50 cursor-pointer">
-                <div className="flex items-center space-x-3 w-full p-2">
-                  <Package className="w-5 h-5 text-orange-600" />
-                  <div>
-                    <div className="font-medium text-orange-800">2-Day Delivery</div>
-                    <div className="text-xs text-orange-600">Target 2-day shipping</div>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem onClick={() => handleBulkOptimization('3day')} className="hover:bg-indigo-50 cursor-pointer">
-                <div className="flex items-center space-x-3 w-full p-2">
-                  <Package className="w-5 h-5 text-indigo-600" />
-                  <div>
-                    <div className="font-medium text-indigo-800">3-Day Delivery</div>
-                    <div className="text-xs text-indigo-600">Target 3-day shipping</div>
-                  </div>
-                </div>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem onClick={() => handleBulkOptimization('premium')} className="hover:bg-yellow-50 cursor-pointer">
-                <div className="flex items-center space-x-3 w-full p-2">
-                  <Star className="w-5 h-5 text-yellow-600" />
-                  <div>
-                    <div className="font-medium text-yellow-800">Premium Service</div>
-                    <div className="text-xs text-yellow-600">Highest service level</div>
-                  </div>
-                </div>
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -546,19 +443,19 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                       
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-semibold text-gray-900">{shipment.details.to_name}</div>
-                          {shipment.details.to_company && (
+                          <div className="font-semibold text-gray-900">{shipment.details?.to_name}</div>
+                          {shipment.details?.to_company && (
                             <div className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
                               {shipment.details.to_company}
                             </div>
                           )}
-                          {shipment.details.to_phone && (
+                          {shipment.details?.to_phone && (
                             <div className="text-xs text-blue-600 font-medium">📞 {shipment.details.to_phone}</div>
                           )}
-                          {shipment.details.to_email && (
+                          {shipment.details?.to_email && (
                             <div className="text-xs text-green-600 font-medium">✉️ {shipment.details.to_email}</div>
                           )}
-                          {shipment.details.reference && (
+                          {shipment.details?.reference && (
                             <div className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
                               Ref: {shipment.details.reference}
                             </div>
@@ -568,19 +465,19 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                       
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-medium text-gray-900">{shipment.details.to_street1}</div>
-                          {shipment.details.to_street2 && (
+                          <div className="font-medium text-gray-900">{shipment.details?.to_street1}</div>
+                          {shipment.details?.to_street2 && (
                             <div className="text-sm text-gray-600">{shipment.details.to_street2}</div>
                           )}
                           <div className="text-sm text-gray-700">
-                            {shipment.details.to_city}, {shipment.details.to_state} {shipment.details.to_zip}
+                            {shipment.details?.to_city}, {shipment.details?.to_state} {shipment.details?.to_zip}
                           </div>
                           <div className={`text-xs px-2 py-1 rounded inline-block ${isInternational ? 'text-orange-600 bg-orange-100' : 'text-gray-500 bg-gray-100'}`}>
                             {isInternational && <Globe className="w-3 h-3 inline mr-1" />}
-                            {shipment.details.to_country}
+                            {shipment.details?.to_country}
                           </div>
                           <div className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded inline-block mt-1">
-                            📦 {formatWeightDisplay(shipment.details.weight || 16)} • {shipment.details.length}"×{shipment.details.width}"×{shipment.details.height}"
+                            📦 {formatWeightDisplay(shipment.details?.weight || 16)} • {shipment.details?.length}"×{shipment.details?.width}"×{shipment.details?.height}"
                           </div>
                         </div>
                       </TableCell>
@@ -723,7 +620,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-600">Standard: ${(insurance.value * 0.025).toFixed(2)}</span>
                                   <span className="text-xs text-green-600 font-semibold bg-green-100 px-2 py-1 rounded">
-                                    Save {getInsuranceDiscountPercentage(insurance.value)}%
+                                    Save {Math.round(((insurance.value * 0.025 - insuranceCost) / (insurance.value * 0.025)) * 100)}%
                                   </span>
                                 </div>
                               </div>
@@ -874,21 +771,21 @@ const ShipmentEditForm: React.FC<ShipmentEditFormProps> = ({
 }) => {
   const form = useForm({
     defaultValues: {
-      to_name: shipment.details.to_name,
-      to_company: shipment.details.to_company || '',
-      to_street1: shipment.details.to_street1,
-      to_street2: shipment.details.to_street2 || '',
-      to_city: shipment.details.to_city,
-      to_state: shipment.details.to_state,
-      to_zip: shipment.details.to_zip,
-      to_country: shipment.details.to_country,
-      to_phone: shipment.details.to_phone || '',
-      to_email: shipment.details.to_email || '',
-      weight: shipment.details.weight || 1,
-      length: shipment.details.length || 12,
-      width: shipment.details.width || 8,
-      height: shipment.details.height || 4,
-      reference: shipment.details.reference || ''
+      to_name: shipment.details?.to_name,
+      to_company: shipment.details?.to_company || '',
+      to_street1: shipment.details?.to_street1,
+      to_street2: shipment.details?.to_street2 || '',
+      to_city: shipment.details?.to_city,
+      to_state: shipment.details?.to_state,
+      to_zip: shipment.details?.to_zip,
+      to_country: shipment.details?.to_country,
+      to_phone: shipment.details?.to_phone || '',
+      to_email: shipment.details?.to_email || '',
+      weight: shipment.details?.weight || 1,
+      length: shipment.details?.length || 12,
+      width: shipment.details?.width || 8,
+      height: shipment.details?.height || 4,
+      reference: shipment.details?.reference || ''
     }
   });
 

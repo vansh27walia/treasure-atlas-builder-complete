@@ -22,7 +22,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   isPaying,
   isCreatingLabels
 }) => {
-  // Properly calculate the final total including both shipping and insurance
+  // Calculate the final total: shipping costs + insurance costs
   const shippingTotal = totalCost;
   const insuranceTotal = totalInsurance;
   const finalTotal = shippingTotal + insuranceTotal;
@@ -94,7 +94,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
             </p>
             {successfulCount > 0 && (
               <p className="text-xs text-green-500 mt-1">
-                Average: ${averageCostPerLabel.toFixed(2)} per label
+                Average: ${averageCostPerLabel.toFixed(2)} per label (shipping + insurance)
               </p>
             )}
           </div>
