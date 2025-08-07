@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useBulkUpload } from './bulk-upload/useBulkUpload';
@@ -20,8 +19,6 @@ import { SavedAddress } from '@/services/AddressService';
 import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
-
-type SortField = 'customer_name' | 'carrier' | 'rate';
 
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
@@ -277,7 +274,7 @@ const BulkUpload: React.FC = () => {
                       <BulkShipmentFilters 
                         searchTerm={searchTerm} 
                         onSearchChange={setSearchTerm} 
-                        sortField={sortField as 'customer_name' | 'carrier' | 'rate'} 
+                        sortField={sortField} 
                         sortDirection={sortDirection} 
                         onSortChange={(field, direction) => {
                           setSortField(field);

@@ -36,7 +36,7 @@ export const useBulkUpload = () => {
   const [results, setResults] = useState<BulkUploadResult | null>(null);
   const [progress, setProgress] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<string>('customer_name');
+  const [sortField, setSortField] = useState<'recipient' | 'carrier' | 'rate'>('recipient');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedCarrierFilter, setSelectedCarrierFilter] = useState<string>('all');
   const [pickupAddress, setPickupAddress] = useState<SavedAddress | null>(null);
@@ -69,19 +69,18 @@ export const useBulkUpload = () => {
                 length: parseFloat(item.length) || 1,
                 width: parseFloat(item.width) || 1,
                 height: parseFloat(item.height) || 1,
-                declared_value: parseFloat(item.declared_value) || 200,
-                insurance_enabled: item.insurance_enabled === 'true'
+                // Remove declared_value as it doesn't exist in ParcelDetails
               }
             };
 
             return {
               id: `shipment-${Date.now()}-${index}`,
               customer_name: item.customer_name || item.recipient,
-              customer_address: standardized,
+              customer_address: `${standardized.street1}, ${standardized.city}, ${standardized.state} ${standardized.zip}`,
               recipient: item.customer_name || item.recipient,
               email: item.customer_email,
               phone: item.customer_phone,
-              status: 'pending',
+              status: 'pending' as const,
               details: shipmentDetails
             } as BulkShipment;
           } catch (addressError) {
@@ -445,9 +444,17 @@ export const useBulkUpload = () => {
 
   const filteredShipments = results?.processedShipments?.filter(shipment => {
     const searchTermLower = searchTerm.toLowerCase();
-    const addressStr = shipment.customer_address && typeof shipment.customer_address === 'object' 
-      ? `${shipment.customer_address.street1 || ''} ${shipment.customer_address.city || ''} ${shipment.customer_address.state || ''} ${shipment.customer_address.zip || ''}`
-      : '';
+    
+    // Safe address string construction
+    let addressStr = '';
+    if (shipment.customer_address) {
+      if (typeof shipment.customer_address === 'string') {
+        addressStr = shipment.customer_address;
+      } else if (typeof shipment.customer_address === 'object') {
+        const addr = shipment.customer_address as any;
+        addressStr = `${addr.street1 || ''} ${addr.city || ''} ${addr.state || ''} ${addr.zip || ''}`;
+      }
+    }
     
     const matchesSearch =
       shipment.customer_name?.toLowerCase().includes(searchTermLower) ||
