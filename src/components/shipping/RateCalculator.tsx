@@ -1,260 +1,387 @@
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Package, MapPin, DollarSign, Clock, Truck } from 'lucide-react';
-import CountrySelector from './CountrySelector';
-import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { MapPin, Package, Search, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
-import CarrierLogo from './CarrierLogo';
-import { standardizeCarrierName } from '@/utils/carrierUtils';
+import { supabase } from "@/integrations/supabase/client";
 
-// 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
-const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 8, etc.
-
-interface RateCalculatorProps {
-  className?: string;
-}
-
-interface ShippingRate {
+interface RateResult {
   id: string;
   carrier: string;
   service: string;
   rate: string;
-  delivery_days?: number;
-  original_rate?: string;
-  discount_percentage?: number;
+  delivery_days: number;
+  discount?: number;
 }
 
-const RateCalculator: React.FC<RateCalculatorProps> = ({ className = '' }) => {
-  const [fromAddress, setFromAddress] = useState({
-    zip: '',
-    country: 'US'
-  });
-  
-  const [toAddress, setToAddress] = useState({
-    zip: '',
-    country: 'US'
-  });
-  
-  const [packageDetails, setPackageDetails] = useState({
-    weight: '',
+const packageTypes = [
+  { value: 'box', label: 'Box', requiresHeight: true },
+  { value: 'envelope', label: 'Envelope', requiresHeight: false },
+  { value: 'FlatRateEnvelope', label: 'USPS - Flat Rate Envelope', requiresHeight: false },
+  { value: 'SmallFlatRateBox', label: 'USPS - Small Flat Rate Box', requiresHeight: false },
+  { value: 'MediumFlatRateBox', label: 'USPS - Medium Flat Rate Box', requiresHeight: false },
+  { value: 'LargeFlatRateBox', label: 'USPS - Large Flat Rate Box', requiresHeight: false },
+  { value: 'UPSLetter', label: 'UPS - Letter', requiresHeight: false },
+  { value: 'UPSExpressBox', label: 'UPS - Express Box', requiresHeight: false },
+  { value: 'FedExEnvelope', label: 'FedEx - Envelope', requiresHeight: false },
+  { value: 'FedExBox', label: 'FedEx - Box', requiresHeight: false },
+  { value: 'DHLExpressEnvelope', label: 'DHL - Express Envelope', requiresHeight: false },
+];
+
+const RateCalculator: React.FC = () => {
+  const [fromZip, setFromZip] = useState('');
+  const [fromCountry, setFromCountry] = useState('US');
+  const [toZip, setToZip] = useState('');
+  const [toCountry, setToCountry] = useState('US');
+  const [packageType, setPackageType] = useState('box');
+  const [dimensions, setDimensions] = useState({
     length: '',
     width: '',
-    height: ''
+    height: '',
+    weight: ''
   });
-  
-  const [rates, setRates] = useState<ShippingRate[]>([]);
-  const [isCalculating, setIsCalculating] = useState(false);
+  const [weightUnit, setWeightUnit] = useState('lb');
+  const [isLoading, setIsLoading] = useState(false);
+  const [rates, setRates] = useState<RateResult[]>([]);
+  const [resolvedAddresses, setResolvedAddresses] = useState<any>({});
 
-  // Apply markup to rates
-  const applyRateMarkup = (originalRate: number): number => {
-    const markupAmount = originalRate * (RATE_MARKUP_PERCENTAGE / 100);
-    return originalRate + markupAmount;
+  const selectedPackage = packageTypes.find(p => p.value === packageType);
+  const showHeight = selectedPackage?.requiresHeight || false;
+  const isCustomPackage = ['box', 'envelope'].includes(packageType);
+
+  const resolveAddress = async (zip: string, country: string) => {
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${zip},${country}&key=${process.env.GOOGLE_PLACES_API_KEY}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to resolve address');
+      }
+      
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        const result = data.results[0];
+        const components = result.address_components;
+        
+        const getComponent = (types: string[]) => {
+          const component = components.find((c: any) => 
+            types.some(type => c.types.includes(type))
+          );
+          return component?.long_name || component?.short_name || '';
+        };
+        
+        return {
+          street1: getComponent(['street_number', 'route']) || zip,
+          city: getComponent(['locality', 'administrative_area_level_2']),
+          state: getComponent(['administrative_area_level_1']),
+          zip: getComponent(['postal_code']) || zip,
+          country: country,
+          formatted_address: result.formatted_address
+        };
+      }
+      
+      // Fallback if geocoding fails
+      return {
+        street1: zip,
+        city: 'Unknown',
+        state: country === 'US' ? 'NY' : 'Unknown',
+        zip: zip,
+        country: country
+      };
+    } catch (error) {
+      console.error('Error resolving address:', error);
+      return {
+        street1: zip,
+        city: 'Unknown',
+        state: country === 'US' ? 'NY' : 'Unknown',
+        zip: zip,
+        country: country
+      };
+    }
   };
 
-  const handleCalculateRates = async () => {
-    if (!fromAddress.zip || !toAddress.zip || !packageDetails.weight) {
-      toast.error('Please fill in all required fields');
+  const calculateRates = async () => {
+    if (!fromZip || !toZip) {
+      toast.error('Please enter both origin and destination zip codes');
       return;
     }
 
-    setIsCalculating(true);
-    
+    if (!dimensions.weight) {
+      toast.error('Please enter package weight');
+      return;
+    }
+
+    if (isCustomPackage && (!dimensions.length || !dimensions.width)) {
+      toast.error('Please enter package dimensions');
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
-        body: {
-          fromAddress: {
-            zip: fromAddress.zip,
-            country: fromAddress.country
-          },
-          toAddress: {
-            zip: toAddress.zip,
-            country: toAddress.country
-          },
-          parcel: {
-            weight: parseFloat(packageDetails.weight),
-            length: packageDetails.length ? parseFloat(packageDetails.length) : 8,
-            width: packageDetails.width ? parseFloat(packageDetails.width) : 6,
-            height: packageDetails.height ? parseFloat(packageDetails.height) : 4
-          }
+      // Resolve addresses from zip codes
+      const [fromAddress, toAddress] = await Promise.all([
+        resolveAddress(fromZip, fromCountry),
+        resolveAddress(toZip, toCountry)
+      ]);
+
+      setResolvedAddresses({ from: fromAddress, to: toAddress });
+
+      // Convert weight to ounces
+      let weightOz = parseFloat(dimensions.weight);
+      if (weightUnit === 'kg') {
+        weightOz = weightOz * 35.274;
+      } else if (weightUnit === 'lb') {
+        weightOz = weightOz * 16;
+      }
+
+      // Build parcel object
+      let parcel: any = { weight: weightOz };
+      
+      if (isCustomPackage) {
+        parcel.length = parseFloat(dimensions.length);
+        parcel.width = parseFloat(dimensions.width);
+        if (showHeight && dimensions.height) {
+          parcel.height = parseFloat(dimensions.height);
         }
+      } else {
+        parcel.predefined_package = packageType;
+      }
+
+      const payload = {
+        fromAddress: {
+          name: 'Rate Calculator',
+          street1: fromAddress.street1,
+          city: fromAddress.city,
+          state: fromAddress.state,
+          zip: fromAddress.zip,
+          country: fromAddress.country,
+        },
+        toAddress: {
+          name: 'Recipient',
+          street1: toAddress.street1,
+          city: toAddress.city,
+          state: toAddress.state,
+          zip: toAddress.zip,
+          country: toAddress.country,
+        },
+        parcel,
+        carriers: ['usps', 'ups', 'fedex', 'dhl']
+      };
+
+      console.log('Rate calculator payload:', payload);
+
+      const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
+        body: payload,
       });
 
       if (error) {
-        throw error;
+        throw new Error(`Error fetching rates: ${error.message}`);
       }
 
-      if (data?.rates) {
-        // Apply markup to rates
-        const processedRates = data.rates.map((rate: any) => {
-          const originalRate = parseFloat(rate.rate);
-          const markedUpRate = applyRateMarkup(originalRate);
-          
-          return {
-            ...rate,
-            rate: markedUpRate.toFixed(2),
-            original_rate: originalRate.toFixed(2),
-            markup_percentage: RATE_MARKUP_PERCENTAGE
-          };
-        });
-        
-        setRates(processedRates);
-        toast.success(`Found ${processedRates.length} shipping rates with ${RATE_MARKUP_PERCENTAGE}% markup`);
+      if (data.rates && Array.isArray(data.rates)) {
+        setRates(data.rates);
+        toast.success(`Found ${data.rates.length} shipping options`);
       } else {
         setRates([]);
-        toast.warning('No rates found for this shipment');
+        toast.info('No rates available for this route');
       }
-      
     } catch (error) {
       console.error('Error calculating rates:', error);
-      toast.error('Failed to calculate shipping rates');
+      toast.error(error instanceof Error ? error.message : 'Failed to calculate rates');
       setRates([]);
     } finally {
-      setIsCalculating(false);
+      setIsLoading(false);
     }
   };
 
-  const getDiscountPercentage = (rate: ShippingRate) => {
-    if (rate.original_rate && rate.rate) {
-      const originalRate = parseFloat(rate.original_rate);
-      const discountedRate = parseFloat(rate.rate);
-      const discount = ((originalRate - discountedRate) / originalRate) * 100;
-      return Math.round(discount);
-    }
-    return rate.discount_percentage || 0;
+  const handleShipWithRate = (rate: RateResult) => {
+    // Prepare data for the main shipping form
+    const shippingData = {
+      fromAddress: resolvedAddresses.from,
+      toAddress: resolvedAddresses.to,
+      parcel: {
+        type: packageType,
+        dimensions: dimensions,
+        weightUnit: weightUnit
+      },
+      selectedRate: rate
+    };
+
+    // Dispatch event to pre-fill main shipping form
+    document.dispatchEvent(new CustomEvent('prefill-shipping-form', {
+      detail: shippingData
+    }));
+
+    toast.success('Shipping form pre-filled with rate calculator data');
+    
+    // Navigate to main shipping form (if needed)
+    // You can add navigation logic here
   };
 
   return (
-    <div className={`space-y-6 ${className}`}>
+    <div className="space-y-6">
+      {/* Address Input */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center">
-            <Package className="h-5 w-5 mr-2" />
-            Rate Calculator
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-blue-600" />
+            Shipping Addresses
           </CardTitle>
-          <CardDescription>
-            Calculate shipping rates between any two locations with {RATE_MARKUP_PERCENTAGE}% markup included
-          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* From Address */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <MapPin className="h-4 w-4 text-blue-600" />
-              <Label className="text-sm font-medium">From Address</Label>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="fromZip">ZIP Code</Label>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm font-medium">From Zip Code</Label>
+              <div className="flex gap-2">
                 <Input
-                  id="fromZip"
-                  placeholder="Enter ZIP code"
-                  value={fromAddress.zip}
-                  onChange={(e) => setFromAddress(prev => ({ ...prev, zip: e.target.value }))}
+                  value={fromZip}
+                  onChange={(e) => setFromZip(e.target.value)}
+                  placeholder="Enter zip code"
+                  className="flex-1"
                 />
-              </div>
-              <div>
-                <Label htmlFor="fromCountry">Country</Label>
-                <CountrySelector
-                  value={fromAddress.country}
-                  onValueChange={(value) => setFromAddress(prev => ({ ...prev, country: value }))}
-                  placeholder="Select country"
-                />
+                <Select value={fromCountry} onValueChange={setFromCountry}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="US">US</SelectItem>
+                    <SelectItem value="CA">CA</SelectItem>
+                    <SelectItem value="GB">UK</SelectItem>
+                    <SelectItem value="DE">DE</SelectItem>
+                    <SelectItem value="FR">FR</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          </div>
-
-          <Separator />
-
-          {/* To Address */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <MapPin className="h-4 w-4 text-green-600" />
-              <Label className="text-sm font-medium">To Address</Label>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="toZip">ZIP Code</Label>
+            
+            <div>
+              <Label className="text-sm font-medium">To Zip Code</Label>
+              <div className="flex gap-2">
                 <Input
-                  id="toZip"
-                  placeholder="Enter ZIP code"
-                  value={toAddress.zip}
-                  onChange={(e) => setToAddress(prev => ({ ...prev, zip: e.target.value }))}
+                  value={toZip}
+                  onChange={(e) => setToZip(e.target.value)}
+                  placeholder="Enter zip code"
+                  className="flex-1"
                 />
-              </div>
-              <div>
-                <Label htmlFor="toCountry">Country</Label>
-                <CountrySelector
-                  value={toAddress.country}
-                  onValueChange={(value) => setToAddress(prev => ({ ...prev, country: value }))}
-                  placeholder="Select country"
-                />
+                <Select value={toCountry} onValueChange={setToCountry}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="US">US</SelectItem>
+                    <SelectItem value="CA">CA</SelectItem>
+                    <SelectItem value="GB">UK</SelectItem>
+                    <SelectItem value="DE">DE</SelectItem>
+                    <SelectItem value="FR">FR</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
 
-          <Separator />
+      {/* Package Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Package className="w-5 h-5 text-green-600" />
+            Package Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium">Package Type</Label>
+            <Select value={packageType} onValueChange={setPackageType}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {packageTypes.map((pkg) => (
+                  <SelectItem key={pkg.value} value={pkg.value}>
+                    {pkg.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          {/* Package Details */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <Package className="h-4 w-4 text-purple-600" />
-              <Label className="text-sm font-medium">Package Details</Label>
+          {/* Dimensions */}
+          {isCustomPackage && (
+            <div>
+              <Label className="text-sm font-medium">Dimensions (inches)</Label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                <Input
+                  type="number"
+                  placeholder="Length"
+                  value={dimensions.length}
+                  onChange={(e) => setDimensions(prev => ({ ...prev, length: e.target.value }))}
+                />
+                <Input
+                  type="number"
+                  placeholder="Width"
+                  value={dimensions.width}
+                  onChange={(e) => setDimensions(prev => ({ ...prev, width: e.target.value }))}
+                />
+                {showHeight && (
+                  <Input
+                    type="number"
+                    placeholder="Height"
+                    value={dimensions.height}
+                    onChange={(e) => setDimensions(prev => ({ ...prev, height: e.target.value }))}
+                  />
+                )}
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="weight">Weight (lbs) *</Label>
-                <Input
-                  id="weight"
-                  type="number"
-                  placeholder="Enter weight"
-                  value={packageDetails.weight}
-                  onChange={(e) => setPackageDetails(prev => ({ ...prev, weight: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="length">Length (inches)</Label>
-                <Input
-                  id="length"
-                  type="number"
-                  placeholder="8"
-                  value={packageDetails.length}
-                  onChange={(e) => setPackageDetails(prev => ({ ...prev, length: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="width">Width (inches)</Label>
-                <Input
-                  id="width"
-                  type="number"
-                  placeholder="6"
-                  value={packageDetails.width}
-                  onChange={(e) => setPackageDetails(prev => ({ ...prev, width: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="height">Height (inches)</Label>
-                <Input
-                  id="height"
-                  type="number"
-                  placeholder="4"
-                  value={packageDetails.height}
-                  onChange={(e) => setPackageDetails(prev => ({ ...prev, height: e.target.value }))}
-                />
-              </div>
+          )}
+
+          {/* Weight */}
+          <div>
+            <Label className="text-sm font-medium">Weight</Label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                placeholder="Weight"
+                value={dimensions.weight}
+                onChange={(e) => setDimensions(prev => ({ ...prev, weight: e.target.value }))}
+                className="flex-1"
+              />
+              <Select value={weightUnit} onValueChange={setWeightUnit}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="oz">oz</SelectItem>
+                  <SelectItem value="lb">lb</SelectItem>
+                  <SelectItem value="kg">kg</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
           <Button 
-            onClick={handleCalculateRates} 
-            disabled={isCalculating}
-            className="w-full"
+            onClick={calculateRates}
+            disabled={isLoading}
+            className="w-full bg-blue-600 hover:bg-blue-700"
           >
-            {isCalculating ? 'Calculating...' : 'Calculate Rates'}
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Calculating Rates...
+              </>
+            ) : (
+              <>
+                <Search className="w-4 h-4 mr-2" />
+                Get Shipping Rates
+              </>
+            )}
           </Button>
         </CardContent>
       </Card>
@@ -263,60 +390,41 @@ const RateCalculator: React.FC<RateCalculatorProps> = ({ className = '' }) => {
       {rates.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <DollarSign className="h-5 w-5 mr-2" />
-              Shipping Rates (with {RATE_MARKUP_PERCENTAGE}% markup)
-            </CardTitle>
-            <CardDescription>
-              Found {rates.length} available shipping options
-            </CardDescription>
+            <CardTitle>Available Shipping Options</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {rates.map((rate) => {
-                const standardizedCarrier = standardizeCarrierName(rate.carrier);
-                const discountPercent = getDiscountPercentage(rate);
-                
-                return (
-                  <div
-                    key={rate.id}
-                    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <CarrierLogo carrier={standardizedCarrier} className="w-8 h-8" />
-                      <div>
-                        <div className="font-semibold text-gray-900">
-                          {standardizedCarrier}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          {rate.service}
-                        </div>
-                        {rate.delivery_days && (
-                          <div className="flex items-center text-xs text-blue-600">
-                            <Clock className="h-3 w-3 mr-1" />
-                            {rate.delivery_days} business days
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      {discountPercent > 0 && (
-                        <div className="text-xs font-bold text-red-600 mb-1">
-                          {discountPercent}% OFF
-                        </div>
-                      )}
-                      <div className="text-lg font-bold text-green-600">
-                        ${rate.rate}
-                      </div>
-                      {rate.original_rate && parseFloat(rate.original_rate) > parseFloat(rate.rate) && (
-                        <div className="text-xs text-gray-500 line-through">
-                          ${rate.original_rate}
-                        </div>
-                      )}
+              {rates.map((rate) => (
+                <div
+                  key={rate.id}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                >
+                  <div className="flex items-center gap-3">
+                    <Badge variant="secondary">
+                      {rate.carrier.toUpperCase()}
+                    </Badge>
+                    <div>
+                      <p className="font-medium">{rate.service}</p>
+                      <p className="text-sm text-gray-600">
+                        {rate.delivery_days} business day{rate.delivery_days !== 1 ? 's' : ''}
+                      </p>
                     </div>
                   </div>
-                );
-              })}
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-green-600">
+                      ${parseFloat(rate.rate).toFixed(2)}
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => handleShipWithRate(rate)}
+                      className="mt-1"
+                    >
+                      <ExternalLink className="w-3 h-3 mr-1" />
+                      Ship This
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

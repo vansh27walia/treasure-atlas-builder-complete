@@ -142,13 +142,10 @@ export const useShipmentRates = (
   const handleSelectRate = (shipmentId: string, rateId: string) => {
     if (!results) return;
     
-    console.log('Selecting rate for shipment:', shipmentId, 'rateId:', rateId);
-    
     const updatedShipments = results.processedShipments.map(shipment => {
       if (shipment.id === shipmentId) {
         const selectedRate = shipment.availableRates?.find(rate => rate.id === rateId);
         if (selectedRate) {
-          console.log('Found selected rate:', selectedRate);
           return {
             ...shipment,
             selectedRateId: rateId,
@@ -171,8 +168,6 @@ export const useShipmentRates = (
       processedShipments: updatedShipments,
       totalCost: newTotalCost,
     });
-    
-    console.log('Rate selection updated, new total cost:', newTotalCost);
   };
 
   const handleRefreshRates = async (shipmentId: string) => {
@@ -186,20 +181,20 @@ export const useShipmentRates = (
         throw new Error('Shipment not found');
       }
       
-      console.log('Refreshing rates for shipment:', shipmentId, 'with details:', shipment.details);
+      console.log('Refreshing rates for shipment:', shipmentId);
       
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
         body: {
           fromAddress: results.pickupAddress,
           toAddress: {
-            name: shipment.details?.name || shipment.customer_name,
+            name: shipment.details?.name,
             company: shipment.details?.company,
             street1: shipment.details?.street1,
             street2: shipment.details?.street2,
             city: shipment.details?.city,
             state: shipment.details?.state,
             zip: shipment.details?.zip,
-            country: shipment.details?.country || 'US',
+            country: shipment.details?.country,
             phone: shipment.details?.phone,
           },
           parcel: {
@@ -212,13 +207,10 @@ export const useShipmentRates = (
       });
       
       if (error) {
-        console.error('Error refreshing rates:', error);
         throw error;
       }
       
       if (data && data.rates) {
-        console.log('Received refreshed rates:', data.rates);
-        
         // Apply markup and standardize carrier names for refreshed rates
         const processedRates = data.rates.map(rate => {
           const originalRate = parseFloat(rate.rate);
@@ -262,13 +254,12 @@ export const useShipmentRates = (
           totalCost: newTotalCost,
         });
         
-        console.log(`Rates refreshed successfully with ${RATE_MARKUP_PERCENTAGE}% markup for shipment:`, shipmentId);
         toast.success(`Rates refreshed successfully with ${RATE_MARKUP_PERCENTAGE}% markup`);
       }
       
     } catch (error) {
       console.error('Error refreshing rates:', error);
-      toast.error('Failed to refresh rates: ' + (error as Error).message);
+      toast.error('Failed to refresh rates');
     } finally {
       setIsFetchingRates(false);
     }
