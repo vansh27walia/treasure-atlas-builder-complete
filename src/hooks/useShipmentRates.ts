@@ -51,21 +51,21 @@ export const useShipmentRates = (
               body: {
                 fromAddress: results.pickupAddress,
                 toAddress: {
-                  name: shipment.details?.to_address?.name || shipment.customer_name,
-                  company: shipment.details?.to_address?.company,
-                  street1: shipment.details?.to_address?.street1,
-                  street2: shipment.details?.to_address?.street2,
-                  city: shipment.details?.to_address?.city,
-                  state: shipment.details?.to_address?.state,
-                  zip: shipment.details?.to_address?.zip,
-                  country: shipment.details?.to_address?.country || 'US',
-                  phone: shipment.details?.to_address?.phone,
+                  name: shipment.details?.name,
+                  company: shipment.details?.company,
+                  street1: shipment.details?.street1,
+                  street2: shipment.details?.street2,
+                  city: shipment.details?.city,
+                  state: shipment.details?.state,
+                  zip: shipment.details?.zip,
+                  country: shipment.details?.country,
+                  phone: shipment.details?.phone,
                 },
                 parcel: {
-                  length: shipment.details?.parcel?.length || 8,
-                  width: shipment.details?.parcel?.width || 6,
-                  height: shipment.details?.parcel?.height || 4,
-                  weight: shipment.details?.parcel?.weight || 16,
+                  length: shipment.details?.parcel_length || 8,
+                  width: shipment.details?.parcel_width || 6,
+                  height: shipment.details?.parcel_height || 4,
+                  weight: shipment.details?.parcel_weight || 16,
                 }
               }
             });
@@ -87,13 +87,11 @@ export const useShipmentRates = (
                   ...rate,
                   carrier: standardizedCarrier,
                   service: standardizedService,
-                  original_carrier: rate.carrier,
-                  original_service: rate.service,
+                  original_carrier: rate.carrier, // Keep original for API calls
+                  original_service: rate.service, // Keep original for API calls
                   rate: markedUpRate.toFixed(2),
                   original_rate: originalRate.toFixed(2),
-                  markup_percentage: RATE_MARKUP_PERCENTAGE,
-                  discount_percentage: RATE_MARKUP_PERCENTAGE,
-                  currency: rate.currency || 'USD'
+                  markup_percentage: RATE_MARKUP_PERCENTAGE
                 };
               });
               
@@ -119,13 +117,9 @@ export const useShipmentRates = (
         }
       }
       
-      // Calculate new total cost including insurance
+      // Calculate new total cost
       const newTotalCost = updatedShipments.reduce((total, shipment) => {
-        const rateAmount = shipment.rate || 0;
-        const insuranceCost = shipment.details?.insurance_enabled !== false 
-          ? (shipment.details?.declared_value || 200) * 0.01 
-          : 0;
-        return total + rateAmount + insuranceCost;
+        return total + (shipment.rate || 0);
       }, 0);
       
       updateResults({
@@ -164,13 +158,9 @@ export const useShipmentRates = (
       return shipment;
     });
     
-    // Calculate new total cost including insurance
+    // Calculate new total cost
     const newTotalCost = updatedShipments.reduce((total, shipment) => {
-      const rateAmount = shipment.rate || 0;
-      const insuranceCost = shipment.details?.insurance_enabled !== false 
-        ? (shipment.details?.declared_value || 200) * 0.01 
-        : 0;
-      return total + rateAmount + insuranceCost;
+      return total + (shipment.rate || 0);
     }, 0);
     
     updateResults({
@@ -197,21 +187,21 @@ export const useShipmentRates = (
         body: {
           fromAddress: results.pickupAddress,
           toAddress: {
-            name: shipment.details?.to_address?.name || shipment.customer_name,
-            company: shipment.details?.to_address?.company,
-            street1: shipment.details?.to_address?.street1,
-            street2: shipment.details?.to_address?.street2,
-            city: shipment.details?.to_address?.city,
-            state: shipment.details?.to_address?.state,
-            zip: shipment.details?.to_address?.zip,
-            country: shipment.details?.to_address?.country || 'US',
-            phone: shipment.details?.to_address?.phone,
+            name: shipment.details?.name,
+            company: shipment.details?.company,
+            street1: shipment.details?.street1,
+            street2: shipment.details?.street2,
+            city: shipment.details?.city,
+            state: shipment.details?.state,
+            zip: shipment.details?.zip,
+            country: shipment.details?.country,
+            phone: shipment.details?.phone,
           },
           parcel: {
-            length: shipment.details?.parcel?.length || 8,
-            width: shipment.details?.parcel?.width || 6,
-            height: shipment.details?.parcel?.height || 4,
-            weight: shipment.details?.parcel?.weight || 16,
+            length: shipment.details?.parcel_length || 8,
+            width: shipment.details?.parcel_width || 6,
+            height: shipment.details?.parcel_height || 4,
+            weight: shipment.details?.parcel_weight || 16,
           }
         }
       });
@@ -236,9 +226,7 @@ export const useShipmentRates = (
             original_service: rate.service,
             rate: markedUpRate.toFixed(2),
             original_rate: originalRate.toFixed(2),
-            markup_percentage: RATE_MARKUP_PERCENTAGE,
-            discount_percentage: RATE_MARKUP_PERCENTAGE,
-            currency: rate.currency || 'USD'
+            markup_percentage: RATE_MARKUP_PERCENTAGE
           };
         });
         
@@ -256,13 +244,8 @@ export const useShipmentRates = (
           return s;
         });
         
-        // Calculate new total cost including insurance
         const newTotalCost = updatedShipments.reduce((total, s) => {
-          const rateAmount = s.rate || 0;
-          const insuranceCost = s.details?.insurance_enabled !== false 
-            ? (s.details?.declared_value || 200) * 0.01 
-            : 0;
-          return total + rateAmount + insuranceCost;
+          return total + (s.rate || 0);
         }, 0);
         
         updateResults({
@@ -303,13 +286,8 @@ export const useShipmentRates = (
       return shipment;
     });
     
-    // Calculate new total cost including insurance
     const newTotalCost = updatedShipments.reduce((total, shipment) => {
-      const rateAmount = shipment.rate || 0;
-      const insuranceCost = shipment.details?.insurance_enabled !== false 
-        ? (shipment.details?.declared_value || 200) * 0.01 
-        : 0;
-      return total + rateAmount + insuranceCost;
+      return total + (shipment.rate || 0);
     }, 0);
     
     updateResults({

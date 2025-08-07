@@ -8,12 +8,13 @@ import { Edit, Save, X, Trash2 } from 'lucide-react';
 import { BulkShipment } from '@/types/shipping';
 import RateDisplay from './RateDisplay';
 import InsuranceOptions from './InsuranceOptions';
+import { displayWeightInPounds, parseWeightInput } from '@/utils/weightConversion';
 
 interface EditableShipmentRowProps {
   shipment: BulkShipment;
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRemoveShipment: (shipmentId: string) => void;
-  onEditShipment: (shipment: BulkShipment) => void;
+  onEditShipment: (shipmentId: string, updates: Partial<BulkShipment>) => void;
   onRefreshRates?: (shipmentId: string) => void;
 }
 
@@ -26,68 +27,49 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
-    customer_name: shipment.customer_name || shipment.recipient || '',
-    weight: shipment.details?.parcel?.weight || 1,
-    length: shipment.details?.parcel?.length || 1,
-    width: shipment.details?.parcel?.width || 1,
-    height: shipment.details?.parcel?.height || 1,
+    customer_name: shipment.customer_name || shipment.recipient,
+    weight: shipment.details?.weight || 1,
+    length: shipment.details?.length || 1,
+    width: shipment.details?.width || 1,
+    height: shipment.details?.height || 1,
     declared_value: shipment.details?.declared_value || 200
   });
 
   const handleEdit = () => {
     setIsEditing(true);
-    setEditData({
-      customer_name: shipment.customer_name || shipment.recipient || '',
-      weight: shipment.details?.parcel?.weight || 1,
-      length: shipment.details?.parcel?.length || 1,
-      width: shipment.details?.parcel?.width || 1,
-      height: shipment.details?.parcel?.height || 1,
-      declared_value: shipment.details?.declared_value || 200
-    });
   };
 
   const handleSave = async () => {
-    // Create updated shipment object
-    const updatedShipment: BulkShipment = {
-      ...shipment,
+    // Apply the changes to the shipment
+    const updates = {
       customer_name: editData.customer_name,
       recipient: editData.customer_name,
       details: {
         ...shipment.details,
-        parcel: {
-          ...shipment.details?.parcel,
-          weight: editData.weight,
-          length: editData.length,
-          width: editData.width,
-          height: editData.height,
-        },
-        declared_value: editData.declared_value,
-        parcel_weight: editData.weight,
-        parcel_length: editData.length,
-        parcel_width: editData.width,
-        parcel_height: editData.height,
+        weight: parseWeightInput(editData.weight),
+        length: editData.length,
+        width: editData.width,
+        height: editData.height,
+        declared_value: editData.declared_value
       }
     };
     
-    // Save the changes
-    onEditShipment(updatedShipment);
+    onEditShipment(shipment.id, updates);
     setIsEditing(false);
     
     // Refresh rates after saving changes
     if (onRefreshRates) {
-      setTimeout(() => {
-        onRefreshRates(shipment.id);
-      }, 100);
+      onRefreshRates(shipment.id);
     }
   };
 
   const handleCancel = () => {
     setEditData({
-      customer_name: shipment.customer_name || shipment.recipient || '',
-      weight: shipment.details?.parcel?.weight || 1,
-      length: shipment.details?.parcel?.length || 1,
-      width: shipment.details?.parcel?.width || 1,
-      height: shipment.details?.parcel?.height || 1,
+      customer_name: shipment.customer_name || shipment.recipient,
+      weight: shipment.details?.weight || 1,
+      length: shipment.details?.length || 1,
+      width: shipment.details?.width || 1,
+      height: shipment.details?.height || 1,
       declared_value: shipment.details?.declared_value || 200
     });
     setIsEditing(false);
@@ -101,7 +83,7 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
     if (shipment.customer_address && typeof shipment.customer_address === 'object') {
       return (shipment.customer_address as any).street1 || '';
     }
-    return shipment.details?.to_address?.street1 || '';
+    return '';
   };
 
   return (
@@ -112,7 +94,6 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
             value={editData.customer_name}
             onChange={(e) => setEditData(prev => ({ ...prev, customer_name: e.target.value }))}
             className="w-full"
-            placeholder="Customer Name"
           />
         ) : (
           <div>
@@ -125,17 +106,13 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
       <TableCell>
         {isEditing ? (
           <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <Input
-                type="number"
-                value={editData.weight}
-                onChange={(e) => setEditData(prev => ({ ...prev, weight: Number(e.target.value) }))}
-                placeholder="Weight"
-                step="0.1"
-                className="w-20"
-              />
-              <span className="text-sm text-gray-500">lbs</span>
-            </div>
+            <Input
+              type="number"
+              value={editData.weight}
+              onChange={(e) => setEditData(prev => ({ ...prev, weight: Number(e.target.value) }))}
+              placeholder="Weight (lb)"
+              step="0.1"
+            />
             <div className="grid grid-cols-3 gap-1">
               <Input
                 type="number"
@@ -143,7 +120,6 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
                 onChange={(e) => setEditData(prev => ({ ...prev, length: Number(e.target.value) }))}
                 placeholder="L"
                 step="0.1"
-                className="w-16"
               />
               <Input
                 type="number"
@@ -151,7 +127,6 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
                 onChange={(e) => setEditData(prev => ({ ...prev, width: Number(e.target.value) }))}
                 placeholder="W"
                 step="0.1"
-                className="w-16"
               />
               <Input
                 type="number"
@@ -159,15 +134,14 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
                 onChange={(e) => setEditData(prev => ({ ...prev, height: Number(e.target.value) }))}
                 placeholder="H"
                 step="0.1"
-                className="w-16"
               />
             </div>
           </div>
         ) : (
           <div>
-            <div className="font-medium">{shipment.details?.parcel?.weight || 1} lbs</div>
+            <div className="font-medium">{displayWeightInPounds(shipment.details?.weight || 1)}</div>
             <div className="text-sm text-gray-500">
-              {shipment.details?.parcel?.length || 1}" × {shipment.details?.parcel?.width || 1}" × {shipment.details?.parcel?.height || 1}"
+              {shipment.details?.length || 1}" × {shipment.details?.width || 1}" × {shipment.details?.height || 1}"
             </div>
           </div>
         )}
@@ -205,19 +179,15 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
           insuranceEnabled={shipment.details?.insurance_enabled !== false}
           declaredValue={editData.declared_value}
           onInsuranceToggle={(id, enabled) => {
-            const updatedShipment = {
-              ...shipment,
+            onEditShipment(id, {
               details: { ...shipment.details, insurance_enabled: enabled }
-            };
-            onEditShipment(updatedShipment);
+            });
           }}
           onDeclaredValueChange={(id, value) => {
             setEditData(prev => ({ ...prev, declared_value: value }));
-            const updatedShipment = {
-              ...shipment,
+            onEditShipment(id, {
               details: { ...shipment.details, declared_value: value }
-            };
-            onEditShipment(updatedShipment);
+            });
           }}
         />
       </TableCell>
