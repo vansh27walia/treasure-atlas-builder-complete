@@ -40,33 +40,26 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
   };
 
   const handleSave = async () => {
-    try {
-      // Apply the changes to the shipment
-      const updates = {
-        customer_name: editData.customer_name,
-        recipient: editData.customer_name,
-        details: {
-          ...shipment.details,
-          weight: parseWeightInput(editData.weight),
-          length: editData.length,
-          width: editData.width,
-          height: editData.height,
-          declared_value: editData.declared_value
-        }
-      };
-      
-      // Update the shipment data
-      onEditShipment(shipment.id, updates);
-      
-      setIsEditing(false);
-      
-      // Refresh rates after saving changes to get updated pricing
-      if (onRefreshRates) {
-        await onRefreshRates(shipment.id);
+    // Apply the changes to the shipment
+    const updates = {
+      customer_name: editData.customer_name,
+      recipient: editData.customer_name,
+      details: {
+        ...shipment.details,
+        weight: parseWeightInput(editData.weight),
+        length: editData.length,
+        width: editData.width,
+        height: editData.height,
+        declared_value: editData.declared_value
       }
-      
-    } catch (error) {
-      console.error('Error saving shipment changes:', error);
+    };
+    
+    onEditShipment(shipment.id, updates);
+    setIsEditing(false);
+    
+    // Refresh rates after saving changes
+    if (onRefreshRates) {
+      onRefreshRates(shipment.id);
     }
   };
 
@@ -91,15 +84,6 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
       return (shipment.customer_address as any).street1 || '';
     }
     return '';
-  };
-
-  // Calculate the total amount for this row (label + insurance)
-  const calculateRowTotal = () => {
-    const baseRate = shipment.rate || 0;
-    const insuranceCost = shipment.details?.insurance_enabled !== false 
-      ? (shipment.details?.declared_value || 0) * 0.01 // Assuming 1% insurance rate
-      : 0;
-    return baseRate + insuranceCost;
   };
 
   return (
@@ -169,19 +153,13 @@ const EditableShipmentRow: React.FC<EditableShipmentRowProps> = ({
             {shipment.selectedRateId ? (
               (() => {
                 const selectedRate = shipment.availableRates.find(r => r.id === shipment.selectedRateId);
-                const rowTotal = calculateRowTotal();
                 return selectedRate ? (
-                  <div>
-                    <RateDisplay
-                      actualRate={selectedRate.rate}
-                      carrier={selectedRate.carrier}
-                      service={selectedRate.service}
-                      deliveryDays={selectedRate.delivery_days}
-                    />
-                    <div className="mt-1 text-sm font-semibold text-green-600">
-                      Total: ${rowTotal.toFixed(2)}
-                    </div>
-                  </div>
+                  <RateDisplay
+                    actualRate={selectedRate.rate}
+                    carrier={selectedRate.carrier}
+                    service={selectedRate.service}
+                    deliveryDays={selectedRate.delivery_days}
+                  />
                 ) : (
                   <Badge variant="outline">No rate selected</Badge>
                 );
