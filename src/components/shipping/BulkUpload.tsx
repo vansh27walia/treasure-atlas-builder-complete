@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,11 +9,13 @@ import BulkUploadForm from './bulk-upload/BulkUploadForm';
 import BulkShipmentsList from './bulk-upload/BulkShipmentsList';
 import OrderSummary from './bulk-upload/OrderSummary';
 import { useShipmentRates } from '@/hooks/useShipmentRates';
+import { SavedAddress } from '@/services/AddressService';
 
 const BulkUpload: React.FC = () => {
   const [results, setResults] = useState<BulkUploadResult | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [isCreatingLabels, setIsCreatingLabels] = useState(false);
+  const [selectedPickupAddress, setSelectedPickupAddress] = useState<SavedAddress | null>(null);
 
   // Use the shipment rates hook
   const {
@@ -55,6 +56,15 @@ const BulkUpload: React.FC = () => {
     if (uploadResults.processedShipments.length > 0) {
       fetchAllShipmentRates(uploadResults.processedShipments);
     }
+  };
+
+  const handleUploadFail = (error: string) => {
+    console.error('Upload failed:', error);
+    toast.error(`Upload failed: ${error}`);
+  };
+
+  const handlePickupAddressSelect = (address: SavedAddress | null) => {
+    setSelectedPickupAddress(address);
   };
 
   const handleRemoveShipment = (shipmentId: string) => {
@@ -191,7 +201,11 @@ const BulkUpload: React.FC = () => {
 
       {/* Upload Form */}
       {!results && (
-        <BulkUploadForm onUploadSuccess={handleUploadSuccess} />
+        <BulkUploadForm 
+          onUploadSuccess={handleUploadSuccess}
+          onUploadFail={handleUploadFail}
+          onPickupAddressSelect={handlePickupAddressSelect}
+        />
       )}
 
       {/* Results Display */}
