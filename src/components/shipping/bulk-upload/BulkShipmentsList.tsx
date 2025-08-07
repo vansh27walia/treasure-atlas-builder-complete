@@ -11,6 +11,7 @@ import { standardizeCarrierName } from '@/utils/carrierUtils';
 
 interface BulkShipmentsListProps {
   shipments: BulkShipment[];
+  isFetchingRates?: boolean;
   onSelectRate: (shipmentId: string, rateId: string) => void;
   onRefreshRates: (shipmentId: string) => void;
   onBulkApplyCarrier: (carrierName: string) => void;
@@ -18,6 +19,7 @@ interface BulkShipmentsListProps {
 
 const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
   shipments,
+  isFetchingRates = false,
   onSelectRate,
   onRefreshRates,
   onBulkApplyCarrier
@@ -73,8 +75,8 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                 <CardTitle className="text-base flex items-center gap-2">
                   <Package className="w-4 h-4" />
                   Package #{index + 1}
-                  {shipment.status === 'processing' && (
-                    <Badge variant="secondary" className="text-xs">Processing...</Badge>
+                  {shipment.status === 'pending_rates' && (
+                    <Badge variant="secondary" className="text-xs">Loading Rates...</Badge>
                   )}
                   {shipment.status === 'error' && (
                     <Badge variant="destructive" className="text-xs">Error</Badge>
@@ -139,7 +141,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                               ? 'border-blue-500 bg-blue-50' 
                               : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                           }`}
-                          onClick={() => onSelectRate(shipment.id, rate.id)}
+                          onClick={() => onSelectRate(shipment.id, rate.id.toString())}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -156,11 +158,11 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
                             
                             <div className="text-right">
                               <p className="font-bold text-lg">
-                                ${parseFloat(rate.rate).toFixed(2)}
+                                ${parseFloat(rate.rate.toString()).toFixed(2)}
                               </p>
-                              {rate.original_rate && parseFloat(rate.original_rate) > parseFloat(rate.rate) && (
+                              {rate.original_rate && parseFloat(rate.original_rate.toString()) > parseFloat(rate.rate.toString()) && (
                                 <p className="text-xs text-gray-500 line-through">
-                                  ${parseFloat(rate.original_rate).toFixed(2)}
+                                  ${parseFloat(rate.original_rate.toString()).toFixed(2)}
                                 </p>
                               )}
                             </div>
@@ -173,7 +175,7 @@ const BulkShipmentsList: React.FC<BulkShipmentsListProps> = ({
               ) : (
                 <div className="text-center py-4">
                   <p className="text-gray-500">
-                    {shipment.status === 'processing' 
+                    {shipment.status === 'pending_rates' 
                       ? 'Loading rates...' 
                       : 'No rates available'
                     }

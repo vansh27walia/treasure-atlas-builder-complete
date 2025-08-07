@@ -35,7 +35,7 @@ const BulkResults: React.FC<BulkResultsProps> = ({
 
   const completedShipments = results.processedShipments?.filter(s => s.status === 'completed') || [];
   const failedShipments = results.processedShipments?.filter(s => s.status === 'error') || [];
-  const processingShipments = results.processedShipments?.filter(s => s.status === 'processing') || [];
+  const loadingShipments = results.processedShipments?.filter(s => s.status === 'pending_rates') || [];
 
   const totalCost = results.totalCost || 0;
 
@@ -45,7 +45,7 @@ const BulkResults: React.FC<BulkResultsProps> = ({
     
     // Find the shipment and selected rate
     const shipment = results.processedShipments.find(s => s.id === shipmentId);
-    const rate = shipment?.availableRates?.find(r => r.id === rateId);
+    const rate = shipment?.availableRates?.find(r => r.id.toString() === rateId);
     
     if (shipment && rate) {
       // Standardize the carrier name for display
@@ -127,8 +127,8 @@ const BulkResults: React.FC<BulkResultsProps> = ({
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-yellow-600" />
               <div>
-                <p className="text-sm text-gray-600">Processing</p>
-                <p className="text-xl font-bold text-yellow-600">{processingShipments.length}</p>
+                <p className="text-sm text-gray-600">Loading</p>
+                <p className="text-xl font-bold text-yellow-600">{loadingShipments.length}</p>
               </div>
             </div>
           </CardContent>
