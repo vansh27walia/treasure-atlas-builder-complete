@@ -21,6 +21,8 @@ import { toast } from '@/components/ui/sonner';
 import { BulkShipment } from '@/types/shipping';
 import PrintPreview from '@/components/shipping/PrintPreview';
 
+type SortField = 'customer_name' | 'carrier' | 'rate';
+
 const BulkUpload: React.FC = () => {
   const lastToastRef = useRef<number>(0);
   const [showPrintPreview, setShowPrintPreview] = useState(false);
@@ -36,6 +38,7 @@ const BulkUpload: React.FC = () => {
   });
 
   const {
+    file,
     isUploading,
     isPaying,
     isCreatingLabels,
@@ -274,7 +277,7 @@ const BulkUpload: React.FC = () => {
                       <BulkShipmentFilters 
                         searchTerm={searchTerm} 
                         onSearchChange={setSearchTerm} 
-                        sortField={sortField} 
+                        sortField={sortField as 'customer_name' | 'carrier' | 'rate'} 
                         sortDirection={sortDirection} 
                         onSortChange={(field, direction) => {
                           setSortField(field);

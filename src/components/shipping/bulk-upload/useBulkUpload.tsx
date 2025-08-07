@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
-import { BulkUploadResult, BulkShipment } from '@/types/shipping';
+import { BulkUploadResult, BulkShipment, ShipmentDetails, AddressDetails } from '@/types/shipping';
 import { addressService, SavedAddress } from '@/services/AddressService';
 import { parseCsvFile } from '@/utils/csvParser';
 
@@ -15,7 +15,7 @@ interface UploadResults {
 }
 
 // Helper function to standardize address
-const standardizeAddress = async (fullAddress: string, city: string, state: string, zip: string): Promise<any> => {
+const standardizeAddress = async (fullAddress: string, city: string, state: string, zip: string): Promise<AddressDetails> => {
   // Simple address object creation for now
   return {
     street1: fullAddress || '',
@@ -62,6 +62,18 @@ export const useBulkUpload = () => {
               item.customer_zip
             );
 
+            const shipmentDetails: ShipmentDetails = {
+              to_address: standardized,
+              parcel: {
+                weight: parseFloat(item.weight) || 1,
+                length: parseFloat(item.length) || 1,
+                width: parseFloat(item.width) || 1,
+                height: parseFloat(item.height) || 1,
+                declared_value: parseFloat(item.declared_value) || 200,
+                insurance_enabled: item.insurance_enabled === 'true'
+              }
+            };
+
             return {
               id: `shipment-${Date.now()}-${index}`,
               customer_name: item.customer_name || item.recipient,
@@ -70,14 +82,7 @@ export const useBulkUpload = () => {
               email: item.customer_email,
               phone: item.customer_phone,
               status: 'pending',
-              details: {
-                weight: parseFloat(item.weight) || 1,
-                length: parseFloat(item.length) || 1,
-                width: parseFloat(item.width) || 1,
-                height: parseFloat(item.height) || 1,
-                declared_value: parseFloat(item.declared_value) || 200,
-                insurance_enabled: item.insurance_enabled === 'true'
-              }
+              details: shipmentDetails
             } as BulkShipment;
           } catch (addressError) {
             console.error("Address standardization error:", addressError);
@@ -440,12 +445,13 @@ export const useBulkUpload = () => {
 
   const filteredShipments = results?.processedShipments?.filter(shipment => {
     const searchTermLower = searchTerm.toLowerCase();
+    const addressStr = shipment.customer_address && typeof shipment.customer_address === 'object' 
+      ? `${shipment.customer_address.street1 || ''} ${shipment.customer_address.city || ''} ${shipment.customer_address.state || ''} ${shipment.customer_address.zip || ''}`
+      : '';
+    
     const matchesSearch =
       shipment.customer_name?.toLowerCase().includes(searchTermLower) ||
-      (typeof shipment.customer_address === 'object' && shipment.customer_address?.street1?.toLowerCase().includes(searchTermLower)) ||
-      (typeof shipment.customer_address === 'object' && shipment.customer_address?.city?.toLowerCase().includes(searchTermLower)) ||
-      (typeof shipment.customer_address === 'object' && shipment.customer_address?.state?.toLowerCase().includes(searchTermLower)) ||
-      (typeof shipment.customer_address === 'object' && shipment.customer_address?.zip?.toLowerCase().includes(searchTermLower));
+      addressStr.toLowerCase().includes(searchTermLower);
 
     const matchesCarrier = selectedCarrierFilter === 'all' || shipment.availableRates?.some(rate => rate.carrier.toLowerCase().includes(selectedCarrierFilter));
 
