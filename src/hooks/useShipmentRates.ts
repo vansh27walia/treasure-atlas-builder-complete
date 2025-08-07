@@ -10,6 +10,12 @@ export const useShipmentRates = (
 ) => {
   const [isFetchingRates, setIsFetchingRates] = useState(false);
 
+  // Apply 5% markup to rates
+  const applyRateMarkup = (rate: number) => {
+    const markup = 0.05; // 5% markup
+    return Math.round((rate * (1 + markup)) * 100) / 100;
+  };
+
   const fetchAllShipmentRates = async (shipments: BulkShipment[]) => {
     if (!results) return;
     
@@ -62,14 +68,21 @@ export const useShipmentRates = (
             }
             
             if (data && data.rates) {
+              // Apply 5% markup to all rates
+              const ratesWithMarkup = data.rates.map(rate => ({
+                ...rate,
+                original_rate: rate.rate,
+                rate: applyRateMarkup(parseFloat(rate.rate)).toString()
+              }));
+
               const actualIndex = i + index;
               updatedShipments[actualIndex] = {
                 ...shipment,
-                availableRates: data.rates,
-                selectedRateId: data.rates[0]?.id,
-                carrier: data.rates[0]?.carrier || shipment.carrier,
-                service: data.rates[0]?.service || shipment.service,
-                rate: parseFloat(data.rates[0]?.rate) || shipment.rate,
+                availableRates: ratesWithMarkup,
+                selectedRateId: ratesWithMarkup[0]?.id,
+                carrier: ratesWithMarkup[0]?.carrier || shipment.carrier,
+                service: ratesWithMarkup[0]?.service || shipment.service,
+                rate: parseFloat(ratesWithMarkup[0]?.rate) || shipment.rate,
               };
             }
             
@@ -95,8 +108,8 @@ export const useShipmentRates = (
         totalCost: newTotalCost,
       });
       
-      console.log('Live rates fetched successfully');
-      toast.success('Live shipping rates updated');
+      console.log('Live rates fetched successfully with 5% markup applied');
+      toast.success('Live shipping rates updated with 5% markup');
       
     } catch (error) {
       console.error('Error fetching shipment rates:', error);
@@ -176,15 +189,22 @@ export const useShipmentRates = (
       }
       
       if (data && data.rates) {
+        // Apply 5% markup to all rates
+        const ratesWithMarkup = data.rates.map(rate => ({
+          ...rate,
+          original_rate: rate.rate,
+          rate: applyRateMarkup(parseFloat(rate.rate)).toString()
+        }));
+
         const updatedShipments = results.processedShipments.map(s => {
           if (s.id === shipmentId) {
             return {
               ...s,
-              availableRates: data.rates,
-              selectedRateId: data.rates[0]?.id,
-              carrier: data.rates[0]?.carrier || s.carrier,
-              service: data.rates[0]?.service || s.service,
-              rate: parseFloat(data.rates[0]?.rate.toString()) || s.rate,
+              availableRates: ratesWithMarkup,
+              selectedRateId: ratesWithMarkup[0]?.id,
+              carrier: ratesWithMarkup[0]?.carrier || s.carrier,
+              service: ratesWithMarkup[0]?.service || s.service,
+              rate: parseFloat(ratesWithMarkup[0]?.rate.toString()) || s.rate,
             };
           }
           return s;
@@ -200,7 +220,7 @@ export const useShipmentRates = (
           totalCost: newTotalCost,
         });
         
-        toast.success('Rates refreshed successfully');
+        toast.success('Rates refreshed successfully with 5% markup');
       }
       
     } catch (error) {
@@ -242,7 +262,7 @@ export const useShipmentRates = (
       totalCost: newTotalCost,
     });
     
-    toast.success(`Applied ${carrierName} to all eligible shipments`);
+    toast.success(`Applied ${carrierName} to all eligible shipments with 5% markup`);
   };
 
   return {
