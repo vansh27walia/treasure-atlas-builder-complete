@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -10,7 +11,7 @@ if (!apiKey) {
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS', // Add the necessary method(s)
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 interface CustomsData {
@@ -33,21 +34,6 @@ interface CustomsData {
   phone_number: string;
   pickup_phone: string;
   delivery_phone: string;
-}
-
-// Helper function to handle OPTIONS requests
-function handleOptions(req: Request): Response {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders,
-    });
-  } else {
-    return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
 }
 
 serve(async (req) => {
@@ -96,14 +82,68 @@ serve(async (req) => {
       insuranceValue 
     } = await req.json();
 
-    console.log('Creating label with customs data:', customsData ? 'Yes' : 'No');
+    console.log('Creating label request received:');
+    console.log('- Rate ID:', rateId);
+    console.log('- Shipment ID:', shipmentId);
+    console.log('- Has customs data:', !!customsData);
+    console.log('- From address phone:', fromAddress?.phone);
+    console.log('- To address phone:', toAddress?.phone);
 
     // Create customs info if provided
     let customsInfoId = null;
     if (customsData) {
-      console.log('Creating customs info...');
+      console.log('Creating customs info with data:', JSON.stringify(customsData, null, 2));
       
-      // Ensure pickup phone is used as primary phone for customs
+      // Validate required customs fields
+      if (!customsData.pickup_phone || !customsData.delivery_phone) {
+        console.error('Missing required phone numbers in customs data');
+        return new Response(JSON.stringify({ 
+          error: 'Phone numbers are required for international shipments',
+          details: 'Both pickup and delivery phone numbers must be provided for customs processing'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400
+        });
+      }
+
+      if (!customsData.customs_signer) {
+        console.error('Missing customs signer');
+        return new Response(JSON.stringify({ 
+          error: 'Customs signer name is required',
+          details: 'A person must be designated to sign the customs declaration'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400
+        });
+      }
+
+      if (!customsData.customs_items || customsData.customs_items.length === 0) {
+        console.error('Missing customs items');
+        return new Response(JSON.stringify({ 
+          error: 'Customs items are required',
+          details: 'At least one customs item must be declared for international shipments'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400
+        });
+      }
+
+      // Validate each customs item
+      for (let i = 0; i < customsData.customs_items.length; i++) {
+        const item = customsData.customs_items[i];
+        if (!item.description || !item.value || !item.weight || !item.quantity) {
+          console.error(`Invalid customs item at index ${i}:`, item);
+          return new Response(JSON.stringify({ 
+            error: `Customs item ${i + 1} is missing required information`,
+            details: 'Each customs item must have description, value, weight, and quantity'
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 400
+          });
+        }
+      }
+      
+      // Use pickup phone as primary phone for customs (EasyPost requirement)
       const customsPayload = {
         customs_certify: customsData.customs_certify,
         customs_signer: customsData.customs_signer,
@@ -113,9 +153,11 @@ serve(async (req) => {
         non_delivery_option: customsData.non_delivery_option,
         restriction_type: customsData.restriction_type,
         restriction_comments: customsData.restriction_comments,
-        phone_number: customsData.pickup_phone || customsData.phone_number,
+        phone_number: customsData.pickup_phone, // Use pickup phone as primary
         customs_items: customsData.customs_items
       };
+
+      console.log('Sending customs payload to EasyPost:', JSON.stringify(customsPayload, null, 2));
 
       const customsResponse = await fetch('https://api.easypost.com/v2/customs_infos', {
         method: 'POST',
@@ -128,16 +170,22 @@ serve(async (req) => {
 
       if (!customsResponse.ok) {
         const customsError = await customsResponse.json();
-        console.error('Customs creation error:', customsError);
-        throw new Error(`Customs creation failed: ${customsError.error?.message || 'Unknown error'}`);
+        console.error('Customs creation error:', JSON.stringify(customsError, null, 2));
+        return new Response(JSON.stringify({ 
+          error: `Customs creation failed: ${customsError.error?.message || 'Unknown error'}`,
+          details: customsError.error?.errors || []
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400
+        });
       }
 
       const customsResult = await customsResponse.json();
       customsInfoId = customsResult.id;
-      console.log('Customs info created:', customsInfoId);
+      console.log('Customs info created successfully:', customsInfoId);
     }
 
-    // Enhance addresses with phone numbers
+    // Enhance addresses with phone numbers - ensure they exist
     const enhancedToAddress = {
       ...toAddress,
       phone: customsData?.delivery_phone || toAddress.phone || '+1-555-000-0000'
@@ -148,19 +196,23 @@ serve(async (req) => {
       phone: customsData?.pickup_phone || fromAddress.phone || '+1-555-000-0000'
     };
 
-    // Use pickup address as return address with phone number
+    // CRITICAL: Use pickup address as return address with phone number
     const returnAddress = {
       ...enhancedFromAddress,
-      phone: customsData?.pickup_phone || enhancedFromAddress.phone
+      phone: customsData?.pickup_phone || enhancedFromAddress.phone || '+1-555-000-0000'
     };
 
-    console.log('Enhanced addresses with phones - From:', !!enhancedFromAddress.phone, 'To:', !!enhancedToAddress.phone, 'Return:', !!returnAddress.phone);
+    console.log('Enhanced addresses:');
+    console.log('- From address phone:', enhancedFromAddress.phone);
+    console.log('- To address phone:', enhancedToAddress.phone);
+    console.log('- Return address phone:', returnAddress.phone);
 
-    // Buy the label with enhanced addresses and customs info
+    // Buy the label with enhanced addresses, return address, and customs info
     const buyPayload = {
+      rate: { id: rateId },
       to_address: enhancedToAddress,
       from_address: enhancedFromAddress,
-      return_address: returnAddress,
+      return_address: returnAddress, // REQUIRED for international with customs
       insurance: insuranceValue ? insuranceValue.toString() : undefined,
       ...(customsInfoId && { customs_info: customsInfoId })
     };
@@ -173,16 +225,19 @@ serve(async (req) => {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        rate: { id: rateId },
-        ...buyPayload
-      })
+      body: JSON.stringify(buyPayload)
     });
 
     if (!buyResponse.ok) {
       const buyError = await buyResponse.json();
-      console.error('Label creation error:', buyError);
-      throw new Error(`Label creation failed: ${buyError.error?.message || 'Unknown error'}`);
+      console.error('Label creation error:', JSON.stringify(buyError, null, 2));
+      return new Response(JSON.stringify({ 
+        error: `Label creation failed: ${buyError.error?.message || 'Unknown error'}`,
+        details: buyError.error?.errors || []
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400
+      });
     }
 
     const labelData = await buyResponse.json();
@@ -204,10 +259,8 @@ serve(async (req) => {
 
     if (error) {
       console.error('Database save error:', error);
-      return new Response(JSON.stringify({ error: 'Failed to save label details' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
-      });
+      // Still return success since label was created, just log the DB error
+      console.warn('Label created but failed to save to database');
     }
 
     return new Response(

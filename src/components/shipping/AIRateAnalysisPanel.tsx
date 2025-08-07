@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
+import { X, Sparkles, TrendingUp, Clock, DollarSign, Shield, Leaf, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Brain, Star, Clock, DollarSign, Shield, Zap, Truck, Award, MapPin, Globe, Leaf } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Progress } from '@/components/ui/progress';
+import { carrierService } from '@/services/CarrierService';
 import { toast } from '@/components/ui/sonner';
-import CarrierLogo from './CarrierLogo';
 
 interface AIRateAnalysisPanelProps {
   selectedRate: any;
@@ -15,27 +15,7 @@ interface AIRateAnalysisPanelProps {
   isOpen: boolean;
   onClose: () => void;
   onOptimizationChange: (filter: string) => void;
-}
-
-interface AIAnalysis {
-  overallScore: number;
-  reliabilityScore: number;
-  speedScore: number;
-  costScore: number;
-  serviceQualityScore: number;
-  trackingScore: number;
-  carbonFootprintScore: number;
-  securityScore: number;
-  recommendation: string;
-  labels: {
-    isCheapest: boolean;
-    isFastest: boolean;
-    isMostReliable: boolean;
-    isMostEfficient: boolean;
-    isAIRecommended: boolean;
-    isEcoFriendly: boolean;
-    isMostSecure: boolean;
-  };
+  customsInfo?: any;
 }
 
 const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
@@ -43,321 +23,272 @@ const AIRateAnalysisPanel: React.FC<AIRateAnalysisPanelProps> = ({
   allRates,
   isOpen,
   onClose,
-  onOptimizationChange
+  onOptimizationChange,
+  customsInfo
 }) => {
-  const [analysis, setAnalysis] = useState<AIAnalysis | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isCreatingLabel, setIsCreatingLabel] = useState(false);
+  const [optimization, setOptimization] = useState('balanced');
 
-  const optimizationFilters = [
-    { id: 'cheapest', label: 'Cheapest', icon: '💰', color: 'bg-green-100 text-green-800' },
-    { id: 'fastest', label: 'Fastest', icon: '⚡', color: 'bg-yellow-100 text-yellow-800' },
-    { id: 'balanced', label: 'Most Efficient', icon: '✅', color: 'bg-blue-100 text-blue-800' },
-    { id: 'most-reliable', label: 'Most Reliable', icon: '🛡️', color: 'bg-gray-100 text-gray-800' },
-    { id: 'eco-friendly', label: 'Eco Friendly', icon: '🌱', color: 'bg-green-100 text-green-800' },
-    { id: 'most-secure', label: 'Most Secure', icon: '🔒', color: 'bg-red-100 text-red-800' },
-    { id: 'ai-recommended', label: 'AI Recommended', icon: '🧠', color: 'bg-pink-100 text-pink-800' }
-  ];
-
-  // Enhanced AI analysis with more scoring criteria
-  const analyzeRate = async () => {
-    if (!selectedRate || !allRates.length) return;
+  const handleCreateLabel = async () => {
+    if (!selectedRate) return;
     
-    setIsLoading(true);
+    setIsCreatingLabel(true);
     
     try {
-      // Enhanced scoring algorithm with 7 criteria
-      const price = parseFloat(selectedRate.rate);
-      const deliveryDays = selectedRate.delivery_days || 7;
+      console.log('Creating label with customs info:', customsInfo ? 'Yes' : 'No');
       
-      // Calculate scores out of 100 for each criterion
-      const minPrice = Math.min(...allRates.map(r => parseFloat(r.rate)));
-      const maxPrice = Math.max(...allRates.map(r => parseFloat(r.rate)));
-      const costScore = Math.round(((maxPrice - price) / (maxPrice - minPrice)) * 100) || 100;
+      const result = await carrierService.createLabel(
+        selectedRate.shipment_id, 
+        selectedRate.id,
+        customsInfo // Pass customs info to the backend
+      );
       
-      const minDays = Math.min(...allRates.map(r => r.delivery_days || 7));
-      const maxDays = Math.max(...allRates.map(r => r.delivery_days || 7));
-      const speedScore = Math.round(((maxDays - deliveryDays) / (maxDays - minDays)) * 100) || 100;
+      toast.success('Label created successfully!');
+      console.log('Label created:', result);
       
-      // Enhanced scoring for different criteria
-      const reliabilityScore = selectedRate.carrier === 'USPS' ? 98 : 
-                              selectedRate.carrier === 'UPS' ? 96 : 
-                              selectedRate.carrier === 'FedEx' ? 94 : 85;
-      
-      const serviceQualityScore = selectedRate.carrier === 'FedEx' ? 95 :
-                                 selectedRate.carrier === 'UPS' ? 92 :
-                                 selectedRate.carrier === 'USPS' ? 88 : 80;
-      
-      const trackingScore = selectedRate.carrier === 'FedEx' ? 98 :
-                           selectedRate.carrier === 'UPS' ? 96 :
-                           selectedRate.carrier === 'USPS' ? 85 : 80;
-      
-      // New scoring criteria
-      const carbonFootprintScore = selectedRate.carrier === 'USPS' ? 92 : // USPS has better carbon efficiency
-                                  selectedRate.service?.toLowerCase().includes('ground') ? 88 :
-                                  selectedRate.service?.toLowerCase().includes('overnight') ? 45 : 75;
-      
-      const securityScore = selectedRate.carrier === 'UPS' ? 96 :
-                           selectedRate.carrier === 'FedEx' ? 94 :
-                           selectedRate.carrier === 'USPS' ? 85 : 80;
-      
-      // Calculate overall score (weighted average)
-      const overallScore = Math.round((
-        costScore * 0.2 +
-        speedScore * 0.2 +
-        reliabilityScore * 0.15 +
-        serviceQualityScore * 0.15 +
-        trackingScore * 0.1 +
-        carbonFootprintScore * 0.1 +
-        securityScore * 0.1
-      ));
-      
-      // Determine labels
-      const isCheapest = price === minPrice;
-      const isFastest = deliveryDays === minDays;
-      const isMostReliable = reliabilityScore >= 95;
-      const isMostEfficient = overallScore >= 85;
-      const isAIRecommended = overallScore >= 80;
-      const isEcoFriendly = carbonFootprintScore >= 85;
-      const isMostSecure = securityScore >= 94;
-      
-      // Generate intelligent recommendation
-      let recommendation = '';
-      if (overallScore >= 90) {
-        recommendation = `Excellent choice! This rate offers outstanding value with a ${overallScore}/100 overall score. It provides great balance across all criteria including reliability, cost efficiency, and service quality.`;
-      } else if (overallScore >= 75) {
-        recommendation = `Good selection with a ${overallScore}/100 score. This rate offers solid performance across multiple criteria and represents good value for your shipping needs.`;
-      } else {
-        recommendation = `This rate scores ${overallScore}/100. While it may excel in specific areas, consider exploring other options for better overall value.`;
-      }
-      
-      const analysisResult: AIAnalysis = {
-        overallScore,
-        costScore,
-        speedScore,
-        reliabilityScore,
-        serviceQualityScore,
-        trackingScore,
-        carbonFootprintScore,
-        securityScore,
-        recommendation,
-        labels: {
-          isCheapest,
-          isFastest,
-          isMostReliable,
-          isMostEfficient,
-          isAIRecommended,
-          isEcoFriendly,
-          isMostSecure
-        }
-      };
-      
-      setAnalysis(analysisResult);
+      // Close the panel after successful creation
+      onClose();
       
     } catch (error) {
-      console.error('Error analyzing rate:', error);
-      toast.error('Failed to analyze rate');
+      console.error('Error creating label:', error);
+      toast.error('Failed to create label. Please try again.');
     } finally {
-      setIsLoading(false);
+      setIsCreatingLabel(false);
     }
   };
 
-  const handleOptimizationChange = (filter: string) => {
-    onOptimizationChange(filter);
-    toast.success(`Applied ${optimizationFilters.find(f => f.id === filter)?.label} optimization`);
+  const handleOptimizationChange = (value: string) => {
+    setOptimization(value);
+    onOptimizationChange(value);
   };
 
-  // Listen for payment events to auto-close panel
-  useEffect(() => {
-    const handlePaymentEvent = () => {
-      onClose();
-    };
+  // Enhanced AI analysis with 7 criteria
+  const getAIAnalysis = () => {
+    if (!selectedRate || !allRates.length) return null;
 
-    document.addEventListener('payment-start', handlePaymentEvent);
-    document.addEventListener('payment-success', handlePaymentEvent);
-    document.addEventListener('payment-cancel', handlePaymentEvent);
+    const rate = parseFloat(selectedRate.rate);
+    const deliveryDays = selectedRate.delivery_days || 7;
+    const carrier = selectedRate.carrier?.toUpperCase() || '';
+
+    // Calculate scores for 7 different criteria (0-100)
+    const reliability = getReliabilityScore(carrier);
+    const speed = getSpeedScore(deliveryDays);
+    const costValue = getCostValueScore(rate, allRates);
+    const serviceQuality = getServiceQualityScore(carrier);
+    const tracking = getTrackingScore(carrier);
+    const carbonImpact = getCarbonImpactScore(carrier, deliveryDays);
+    const security = getSecurityScore(carrier);
+
+    const overallScore = Math.round((reliability + speed + costValue + serviceQuality + tracking + carbonImpact + security) / 7);
+
+    return {
+      overallScore,
+      criteria: [
+        { name: 'Reliability', score: reliability, icon: Shield, color: 'text-green-600' },
+        { name: 'Speed', score: speed, icon: Clock, color: 'text-blue-600' },
+        { name: 'Cost Value', score: costValue, icon: DollarSign, color: 'text-yellow-600' },
+        { name: 'Service Quality', score: serviceQuality, icon: TrendingUp, color: 'text-purple-600' },
+        { name: 'Tracking', score: tracking, icon: AlertTriangle, color: 'text-red-600' },
+        { name: 'Carbon Impact', score: carbonImpact, icon: Leaf, color: 'text-green-500' },
+        { name: 'Security', score: security, icon: Shield, color: 'text-indigo-600' }
+      ],
+      recommendation: getRecommendation(overallScore, carrier, rate, deliveryDays)
+    };
+  };
+
+  const getReliabilityScore = (carrier: string) => {
+    const scores = { 'USPS': 85, 'UPS': 92, 'FEDEX': 88, 'DHL': 90 };
+    return scores[carrier] || 75;
+  };
+
+  const getSpeedScore = (days: number) => {
+    if (days <= 1) return 100;
+    if (days <= 2) return 90;
+    if (days <= 3) return 80;
+    if (days <= 5) return 70;
+    return 50;
+  };
+
+  const getCostValueScore = (rate: number, allRates: any[]) => {
+    const rates = allRates.map(r => parseFloat(r.rate)).filter(r => !isNaN(r));
+    if (rates.length === 0) return 75;
     
-    return () => {
-      document.removeEventListener('payment-start', handlePaymentEvent);
-      document.removeEventListener('payment-success', handlePaymentEvent);
-      document.removeEventListener('payment-cancel', handlePaymentEvent);
-    };
-  }, [onClose]);
+    const minRate = Math.min(...rates);
+    const maxRate = Math.max(...rates);
+    
+    if (maxRate === minRate) return 100;
+    
+    // Invert the score - lower cost = higher score
+    const normalizedScore = ((maxRate - rate) / (maxRate - minRate)) * 100;
+    return Math.round(normalizedScore);
+  };
 
-  useEffect(() => {
-    if (isOpen && selectedRate) {
-      analyzeRate();
-    }
-  }, [isOpen, selectedRate]);
+  const getServiceQualityScore = (carrier: string) => {
+    const scores = { 'USPS': 78, 'UPS': 95, 'FEDEX': 92, 'DHL': 88 };
+    return scores[carrier] || 70;
+  };
+
+  const getTrackingScore = (carrier: string) => {
+    const scores = { 'USPS': 80, 'UPS': 95, 'FEDEX': 90, 'DHL': 92 };
+    return scores[carrier] || 75;
+  };
+
+  const getCarbonImpactScore = (carrier: string, days: number) => {
+    // Longer delivery times generally mean more carbon-efficient transport
+    const baseScore = Math.min(days * 15, 100);
+    const carrierMultiplier = { 'USPS': 1.1, 'UPS': 0.9, 'FEDEX': 0.8, 'DHL': 0.85 };
+    return Math.round(baseScore * (carrierMultiplier[carrier] || 1));
+  };
+
+  const getSecurityScore = (carrier: string) => {
+    const scores = { 'USPS': 75, 'UPS': 90, 'FEDEX': 88, 'DHL': 85 };
+    return scores[carrier] || 70;
+  };
+
+  const getRecommendation = (score: number, carrier: string, rate: number, days: number) => {
+    if (score >= 90) return `Excellent choice! This ${carrier} option offers outstanding value with ${days}-day delivery for $${rate}.`;
+    if (score >= 80) return `Great option! This ${carrier} service provides good balance of speed and cost at $${rate}.`;
+    if (score >= 70) return `Solid choice. This ${carrier} option delivers in ${days} days for $${rate} - reliable but not the fastest.`;
+    return `Budget-friendly option. While not the fastest, this ${carrier} service offers good value at $${rate}.`;
+  };
+
+  const analysis = getAIAnalysis();
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed top-0 right-0 h-screen w-96 bg-white shadow-2xl z-50 border-l-4 border-blue-500 overflow-hidden flex flex-col">
-      <Card className="h-full rounded-none border-0 flex flex-col">
-        <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600 text-white z-10 flex-shrink-0">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Brain className="w-5 h-5 text-white" />
-            AI Rate Analysis
-            <Badge className="bg-white/20 text-white">7 Criteria</Badge>
-          </CardTitle>
-          <Button variant="ghost" size="sm" onClick={onClose} className="text-white hover:bg-white/20">
+    <div className="fixed right-0 top-0 h-full w-80 bg-white shadow-xl border-l z-50 overflow-y-auto">
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-purple-600" />
+            <h3 className="font-semibold text-lg">AI Rate Analysis</h3>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="w-4 h-4" />
           </Button>
-        </CardHeader>
-        
-        <CardContent className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Selected Rate Info */}
-          <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-            <div className="flex items-center gap-2 mb-2">
-              <CarrierLogo carrier={selectedRate.carrier} className="w-8 h-8" />
-              <h3 className="font-semibold text-blue-900">{selectedRate.carrier}</h3>
-            </div>
-            <p className="text-2xl font-bold text-blue-800">${parseFloat(selectedRate.rate || 0).toFixed(2)}</p>
-            <p className="text-sm text-blue-600">{selectedRate.service}</p>
-            <p className="text-xs text-blue-500">{selectedRate.delivery_days} days delivery</p>
-          </div>
+        </div>
 
-          {/* AI Analysis */}
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-3">AI analyzing 7 criteria...</span>
-            </div>
-          ) : analysis ? (
-            <div className="space-y-4">
-              {/* Overall Score */}
-              <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
-                <div className="text-3xl font-bold text-blue-800">{analysis.overallScore}/100</div>
-                <div className="text-sm text-gray-600">Overall AI Score</div>
-                <div className="text-sm text-blue-600 mt-1">✨ 7-Criteria Analysis</div>
-              </div>
+        {/* Optimization Selector */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium mb-2">Optimize for:</label>
+          <Select value={optimization} onValueChange={handleOptimizationChange}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cheapest">Lowest Cost</SelectItem>
+              <SelectItem value="fastest">Fastest Delivery</SelectItem>
+              <SelectItem value="balanced">Best Balance</SelectItem>
+              <SelectItem value="most-reliable">Most Reliable</SelectItem>
+              <SelectItem value="most-efficient">Most Efficient</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
-              {/* Labels */}
+        {/* Selected Rate Info */}
+        {selectedRate && (
+          <Card className="mb-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Selected Rate</CardTitle>
+            </CardHeader>
+            <CardContent>
               <div className="space-y-2">
-                {analysis.labels.isCheapest && (
-                  <Badge className="w-full justify-start bg-green-100 text-green-800 border-green-300">
-                    💰 Cheapest option
-                  </Badge>
-                )}
-                {analysis.labels.isFastest && (
-                  <Badge className="w-full justify-start bg-yellow-100 text-yellow-800 border-yellow-300">
-                    ⚡ Fastest delivery
-                  </Badge>
-                )}
-                {analysis.labels.isMostReliable && (
-                  <Badge className="w-full justify-start bg-blue-100 text-blue-800 border-blue-300">
-                    🛡️ Most reliable
-                  </Badge>
-                )}
-                {analysis.labels.isMostEfficient && (
-                  <Badge className="w-full justify-start bg-purple-100 text-purple-800 border-purple-300">
-                    ✅ Most efficient
-                  </Badge>
-                )}
-                {analysis.labels.isEcoFriendly && (
-                  <Badge className="w-full justify-start bg-green-100 text-green-800 border-green-300">
-                    🌱 Eco-friendly
-                  </Badge>
-                )}
-                {analysis.labels.isMostSecure && (
-                  <Badge className="w-full justify-start bg-red-100 text-red-800 border-red-300">
-                    🔒 Most secure
-                  </Badge>
-                )}
-                {analysis.labels.isAIRecommended && (
-                  <Badge className="w-full justify-start bg-pink-100 text-pink-800 border-pink-300">
-                    🧠 AI recommended
-                  </Badge>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Carrier:</span>
+                  <span className="font-medium">{selectedRate.carrier}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Service:</span>
+                  <span className="font-medium">{selectedRate.service}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Price:</span>
+                  <span className="font-semibold text-green-600">${selectedRate.rate}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Delivery:</span>
+                  <span className="font-medium">{selectedRate.delivery_days || 'N/A'} days</span>
+                </div>
+                {customsInfo && (
+                  <div className="pt-2 border-t">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        International
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">Customs info attached</span>
+                    </div>
+                  </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        )}
 
-              {/* Enhanced Detailed Scores - 7 Criteria */}
-              <div className="space-y-2 p-4 bg-gray-50 rounded-lg border">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-blue-600" />
-                    <span className="text-sm">Reliability</span>
-                  </div>
-                  <span className="font-semibold text-sm">{analysis.reliabilityScore}/100</span>
+        {/* AI Analysis */}
+        {analysis && (
+          <Card className="mb-6">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-purple-600" />
+                AI Score: {analysis.overallScore}/100
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Overall Progress */}
+                <div>
+                  <Progress value={analysis.overallScore} className="h-2 mb-2" />
+                  <p className="text-sm text-muted-foreground">{analysis.recommendation}</p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-green-600" />
-                    <span className="text-sm">Speed</span>
-                  </div>
-                  <span className="font-semibold text-sm">{analysis.speedScore}/100</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm">Cost Value</span>
-                  </div>
-                  <span className="font-semibold text-sm">{analysis.costScore}/100</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Star className="w-4 h-4 text-orange-600" />
-                    <span className="text-sm">Service Quality</span>
-                  </div>
-                  <span className="font-semibold text-sm">{analysis.serviceQualityScore}/100</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-red-600" />
-                    <span className="text-sm">Tracking</span>
-                  </div>
-                  <span className="font-semibold text-sm">{analysis.trackingScore}/100</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Leaf className="w-4 h-4 text-green-600" />
-                    <span className="text-sm">Carbon Impact</span>
-                  </div>
-                  <span className="font-semibold text-sm">{analysis.carbonFootprintScore}/100</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-gray-600" />
-                    <span className="text-sm">Security</span>
-                  </div>
-                  <span className="font-semibold text-sm">{analysis.securityScore}/100</span>
+
+                {/* Detailed Criteria */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-muted-foreground">Detailed Analysis</h4>
+                  {analysis.criteria.map((criterion, index) => {
+                    const Icon = criterion.icon;
+                    return (
+                      <div key={index} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Icon className={`w-4 h-4 ${criterion.color}`} />
+                          <span className="text-sm">{criterion.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                              style={{ width: `${criterion.score}%` }}
+                            />
+                          </div>
+                          <span className="text-sm font-medium w-8 text-right">{criterion.score}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        )}
 
-              {/* AI Recommendation */}
-              <div className="p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border">
-                <div className="flex items-center gap-2 mb-2">
-                  <Brain className="w-4 h-4 text-blue-600" />
-                  <span className="font-medium text-blue-900">AI Recommendation</span>
-                </div>
-                <p className="text-sm text-gray-700">{analysis.recommendation}</p>
-              </div>
-            </div>
-          ) : null}
+        {/* Create Label Button */}
+        <Button 
+          onClick={handleCreateLabel} 
+          disabled={!selectedRate || isCreatingLabel}
+          className="w-full"
+          size="lg"
+        >
+          {isCreatingLabel ? 'Creating Label...' : 'Create Shipping Label'}
+        </Button>
 
-          {/* Quick Optimization Options */}
-          <div className="space-y-4 border border-gray-200 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-yellow-500" />
-              Quick Optimizations
-            </h3>
-            
-            <div className="grid grid-cols-1 gap-2">
-              {optimizationFilters.map((filter) => (
-                <Button
-                  key={filter.id}
-                  variant="outline"
-                  className="justify-start h-auto p-3 border hover:bg-blue-50"
-                  onClick={() => handleOptimizationChange(filter.id)}
-                >
-                  <span className="mr-2">{filter.icon}</span>
-                  {filter.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Additional Info */}
+        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+          <p className="text-xs text-blue-700">
+            💡 AI analysis considers reliability, speed, cost-effectiveness, service quality, tracking capabilities, environmental impact, and security to help you make the best shipping decision.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
