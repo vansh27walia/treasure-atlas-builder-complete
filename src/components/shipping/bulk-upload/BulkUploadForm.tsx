@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,7 +32,7 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
 
   React.useEffect(() => {
     if (addresses.length > 0 && !selectedPickupAddress) {
-      const defaultAddress = addresses.find(addr => addr.is_default) || addresses[0];
+      const defaultAddress = addresses.find(addr => addr.is_default_to) || addresses[0];
       setSelectedPickupAddress(defaultAddress);
       onPickupAddressSelect(defaultAddress);
     }
