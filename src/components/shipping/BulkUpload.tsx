@@ -37,7 +37,7 @@ const BulkUpload: React.FC = () => {
         // Get the selected rate cost
         const selectedRate = shipment.availableRates?.find(r => r.id === shipment.selectedRateId);
         if (selectedRate) {
-          totalShippingCost += parseFloat(selectedRate.rate);
+          totalShippingCost += parseFloat(selectedRate.rate.toString());
         }
         
         // Calculate insurance cost if enabled
@@ -168,6 +168,7 @@ const BulkUpload: React.FC = () => {
     } catch (error) {
       console.error('Payment error:', error);
       toast.error('Failed to process payment. Please try again.');
+      setCurrentStep('review');
     } finally {
       setIsPaying(false);
     }
@@ -214,6 +215,7 @@ const BulkUpload: React.FC = () => {
     } catch (error) {
       console.error('Label creation error:', error);
       toast.error('Failed to create labels. Please try again.');
+      setCurrentStep('review');
     } finally {
       setIsCreatingLabels(false);
     }
@@ -228,7 +230,15 @@ const BulkUpload: React.FC = () => {
   if (!uploadResults) {
     return (
       <div className="space-y-6">
-        <AdvancedProgressTracker currentStep={currentStep} />
+        <AdvancedProgressTracker 
+          uploadStatus="idle"
+          isUploading={false}
+          isFetchingRates={false}
+          isCreatingLabels={false}
+          progress={0}
+          totalShipments={0}
+          processedShipments={0}
+        />
         
         <Card>
           <CardHeader>
@@ -251,17 +261,49 @@ const BulkUpload: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <AdvancedProgressTracker currentStep={currentStep} />
+      <AdvancedProgressTracker 
+        uploadStatus="editing"
+        isUploading={false}
+        isFetchingRates={false}
+        isCreatingLabels={isCreatingLabels}
+        progress={100}
+        totalShipments={uploadResults.total}
+        processedShipments={uploadResults.successful}
+      />
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <BulkResults
-            uploadResults={uploadResults}
-            shipments={shipments}
-            onSelectRate={handleSelectRate}
-            onRemoveShipment={handleRemoveShipment}
-            onEditShipment={handleEditShipment}
-            onStartOver={handleStartOver}
+            results={{
+              total: uploadResults.total,
+              successful: uploadResults.successful,
+              failed: uploadResults.failed,
+              totalCost: totalCost,
+              processedShipments: uploadResults.processedShipments.map(shipment => ({
+                id: shipment.id,
+                status: shipment.status === 'completed' ? 'rates_fetched' : 'error',
+                shipment_data: shipment.details?.to_address ? {
+                  to_name: shipment.details.to_address.name || '',
+                  to_city: shipment.details.to_address.city,
+                  to_state: shipment.details.to_address.state
+                } : undefined,
+                rates: shipment.availableRates?.map(rate => ({
+                  id: rate.id,
+                  carrier: rate.carrier,
+                  service: rate.service,
+                  rate: rate.rate.toString(),
+                  total_cost: rate.rate,
+                  delivery_days: rate.delivery_days?.toString() || '0'
+                })) || [],
+                selected_rate_id: shipment.selectedRateId || '',
+                total_cost: shipment.rate || 0,
+                error_message: shipment.error || '',
+                insurance_amount: shipment.details?.declared_value || 0,
+                insurance_cost: shipment.details?.insurance_enabled ? 
+                  Math.max((shipment.details.declared_value || 200) * 0.01, 2.50) : 0
+              }))
+            }}
+            onRateChange={handleSelectRate}
           />
         </div>
         
