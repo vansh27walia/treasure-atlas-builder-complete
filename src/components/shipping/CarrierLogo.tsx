@@ -1,58 +1,79 @@
 
 import React from 'react';
-import { Truck, Package, Plane, Ship } from 'lucide-react';
 
 interface CarrierLogoProps {
   carrier: string;
   className?: string;
 }
 
-const CarrierLogo: React.FC<CarrierLogoProps> = ({ carrier, className = "w-6 h-6" }) => {
-  const carrierName = carrier.toUpperCase();
+const CarrierLogo: React.FC<CarrierLogoProps> = ({ carrier, className = "w-8 h-8" }) => {
+  const getCarrierInfo = (carrierName: string) => {
+    const normalizedCarrier = carrierName.toLowerCase();
+    
+    if (normalizedCarrier.includes('usps')) {
+      return {
+        name: 'USPS',
+        logo: '/lovable-uploads/dd955829-1318-4987-97c1-3e2c13cce8bc.png',
+        color: 'bg-blue-600',
+        textColor: 'text-white'
+      };
+    } else if (normalizedCarrier.includes('ups')) {
+      return {
+        name: 'UPS',
+        logo: '/lovable-uploads/321101c1-be0c-4392-a060-180db437f38d.png',
+        color: 'bg-yellow-600',
+        textColor: 'text-white'
+      };
+    } else if (normalizedCarrier.includes('fedex')) {
+      return {
+        name: 'FedEx',
+        logo: '/lovable-uploads/b92bf2f4-d7b0-47a4-b30a-3097d19fdc40.png',
+        color: 'bg-purple-600',
+        textColor: 'text-white'
+      };
+    } else if (normalizedCarrier.includes('dhl')) {
+      return {
+        name: 'DHL',
+        logo: '/carriers/dhl-logo.png',
+        color: 'bg-red-600',
+        textColor: 'text-white'
+      };
+    } else {
+      return {
+        name: carrierName.toUpperCase(),
+        logo: null,
+        color: 'bg-gray-600',
+        textColor: 'text-white'
+      };
+    }
+  };
 
-  // Return appropriate logo/icon based on carrier
-  if (carrierName.includes('USPS')) {
-    return (
-      <div className={`${className} flex items-center justify-center bg-blue-600 text-white rounded text-xs font-bold`}>
-        USPS
+  const carrierInfo = getCarrierInfo(carrier);
+
+  return (
+    <div className={`${className} flex items-center justify-center rounded-md overflow-hidden`}>
+      {carrierInfo.logo ? (
+        <img 
+          src={carrierInfo.logo} 
+          alt={carrierInfo.name}
+          className={`${className} object-contain`}
+          onError={(e) => {
+            // Fallback to text if image fails to load
+            e.currentTarget.style.display = 'none';
+            if (e.currentTarget.nextSibling) {
+              (e.currentTarget.nextSibling as HTMLElement).style.display = 'flex';
+            }
+          }}
+        />
+      ) : null}
+      <div 
+        className={`${className} ${carrierInfo.color} ${carrierInfo.textColor} items-center justify-center text-xs font-bold rounded-md ${carrierInfo.logo ? 'hidden' : 'flex'}`}
+        style={{ display: carrierInfo.logo ? 'none' : 'flex' }}
+      >
+        {carrierInfo.name.slice(0, 3)}
       </div>
-    );
-  }
-
-  if (carrierName.includes('UPS')) {
-    return (
-      <div className={`${className} flex items-center justify-center bg-yellow-600 text-white rounded text-xs font-bold`}>
-        UPS
-      </div>
-    );
-  }
-
-  if (carrierName.includes('FEDEX')) {
-    return (
-      <div className={`${className} flex items-center justify-center bg-purple-600 text-white rounded text-xs font-bold`}>
-        FDX
-      </div>
-    );
-  }
-
-  if (carrierName.includes('DHL')) {
-    return (
-      <div className={`${className} flex items-center justify-center bg-red-600 text-white rounded text-xs font-bold`}>
-        DHL
-      </div>
-    );
-  }
-
-  if (carrierName.includes('CANADA POST') || carrierName.includes('CANADAPOST')) {
-    return (
-      <div className={`${className} flex items-center justify-center bg-red-700 text-white rounded text-xs font-bold`}>
-        CP
-      </div>
-    );
-  }
-
-  // Default fallback with appropriate icon
-  return <Truck className={`${className} text-gray-600`} />;
+    </div>
+  );
 };
 
 export default CarrierLogo;

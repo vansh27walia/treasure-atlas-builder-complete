@@ -27,24 +27,22 @@ const CreateLabelPage = () => {
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [selectedRate, setSelectedRate] = useState<any>(null);
   const [isPaymentInProgress, setIsPaymentInProgress] = useState(false);
-  const [aiPanelClosed, setAiPanelClosed] = useState(false);
 
   // Auto-show AI panel when rates are available
   useEffect(() => {
-    if (rates && rates.length > 0 && !showAIPanel && !isPaymentInProgress && !aiPanelClosed) {
+    if (rates && rates.length > 0 && !showAIPanel && !isPaymentInProgress) {
       setShowAIPanel(true);
       if (rates[0] && !selectedRate) {
         setSelectedRate(rates[0]);
       }
     }
-  }, [rates, showAIPanel, selectedRate, isPaymentInProgress, aiPanelClosed]);
+  }, [rates, showAIPanel, selectedRate, isPaymentInProgress]);
 
   // Listen for payment events to close AI panel
   useEffect(() => {
     const handlePaymentStart = () => {
       setIsPaymentInProgress(true);
       setShowAIPanel(false);
-      setAiPanelClosed(true);
     };
 
     const handlePaymentEnd = () => {
@@ -71,7 +69,7 @@ const CreateLabelPage = () => {
   const handleRateSelected = (rate: any) => {
     console.log('Rate selected in CreateLabelPage:', rate);
     setSelectedRate(rate);
-    if (!isPaymentInProgress && !aiPanelClosed) {
+    if (!isPaymentInProgress) {
       setShowAIPanel(true);
     }
     handleSelectRate(rate.id);
@@ -136,7 +134,6 @@ const CreateLabelPage = () => {
 
   const handleCloseSidebar = () => {
     setShowAIPanel(false);
-    setAiPanelClosed(true);
   };
 
   // Enhanced rate processing with proper carrier name standardization
@@ -177,7 +174,7 @@ const CreateLabelPage = () => {
       </div>
       
       {/* Main Content - Adjust width when sidebar is open and not in payment */}
-      <div className={`transition-all duration-300 ${showAIPanel && !isPaymentInProgress && !aiPanelClosed ? 'pr-80' : ''}`}>
+      <div className={`transition-all duration-300 ${showAIPanel && !isPaymentInProgress ? 'pr-80' : ''}`}>
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-7xl mx-auto">
             {/* Header Section */}
@@ -213,12 +210,12 @@ const CreateLabelPage = () => {
         </div>
       </div>
 
-      {/* AI Analysis Panel - Only show when not in payment flow and not manually closed */}
-      {showAIPanel && selectedRate && !isPaymentInProgress && !aiPanelClosed && (
+      {/* AI Analysis Panel - Only show when not in payment flow */}
+      {showAIPanel && selectedRate && !isPaymentInProgress && (
         <AIRateAnalysisPanel
           selectedRate={selectedRate}
           allRates={sortedRates || []}
-          isOpen={showAIPanel && !aiPanelClosed}
+          isOpen={showAIPanel}
           onClose={handleCloseSidebar}
           onOptimizationChange={handleOptimizationChange}
         />
