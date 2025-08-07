@@ -70,7 +70,8 @@ const BulkUploadForm: React.FC<BulkUploadFormProps> = ({
     }
   };
 
-  const handlePickupAddressChange = (addressId: string) => {
+  const handlePickupAddressChange = (addressIdString: string) => {
+    const addressId = parseInt(addressIdString, 10);
     const address = addresses.find(addr => addr.id === addressId);
     if (address) {
       setSelectedPickupAddress(address);
@@ -117,7 +118,7 @@ Jane Smith,456 Oak Ave,Apt 2B,Los Angeles,CA,90210,US,555-5678,jane@email.com,AB
               <Label htmlFor="pickup-address">Pickup Address *</Label>
               <div className="flex items-center space-x-2">
                 <Select
-                  value={selectedPickupAddress?.id || ''}
+                  value={selectedPickupAddress?.id.toString() || ''}
                   onValueChange={handlePickupAddressChange}
                   disabled={addressesLoading}
                 >
@@ -126,7 +127,7 @@ Jane Smith,456 Oak Ave,Apt 2B,Los Angeles,CA,90210,US,555-5678,jane@email.com,AB
                   </SelectTrigger>
                   <SelectContent>
                     {addresses.map((address) => (
-                      <SelectItem key={address.id} value={address.id}>
+                      <SelectItem key={address.id.toString()} value={address.id.toString()}>
                         <div className="flex flex-col">
                           <span className="font-medium">{address.name || 'Unnamed Address'}</span>
                           <span className="text-sm text-gray-500">
