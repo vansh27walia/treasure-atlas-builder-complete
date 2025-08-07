@@ -55,6 +55,7 @@ export const useBulkUpload = () => {
     fetchAllShipmentRates,
     handleSelectRate,
     handleRefreshRates,
+    handleRefreshRatesAfterEdit,
     handleBulkApplyCarrier
   } = useShipmentRates(results, updateResults);
 
@@ -62,7 +63,7 @@ export const useBulkUpload = () => {
     isPaying,
     isCreatingLabels,
     handleRemoveShipment,
-    handleEditShipment,
+    handleEditShipment: originalHandleEditShipment,
     handleProceedToPayment,
     handleCreateLabels: originalHandleCreateLabels,
     handleDownloadAllLabels,
@@ -107,6 +108,23 @@ export const useBulkUpload = () => {
     
     loadDefaultPickupAddress();
   }, []);
+
+  // Enhanced edit handler that refreshes rates after editing
+  const handleEditShipment = async (shipmentId: string, updatedDetails: any) => {
+    try {
+      // First update the shipment details
+      await originalHandleEditShipment(shipmentId, updatedDetails);
+      
+      // Then refresh rates for the updated shipment
+      console.log('Refreshing rates after shipment edit...');
+      await handleRefreshRatesAfterEdit(shipmentId);
+      
+      toast.success('Shipment updated and rates refreshed successfully');
+    } catch (error) {
+      console.error('Error updating shipment and refreshing rates:', error);
+      toast.error('Failed to update shipment or refresh rates');
+    }
+  };
 
   // Auto-trigger label creation after payment completion
   useEffect(() => {

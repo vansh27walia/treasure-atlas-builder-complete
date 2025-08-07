@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { standardizeCarrierName } from '@/utils/carrierUtils';
 
 interface CarrierLogoProps {
   carrier: string;
@@ -8,43 +9,51 @@ interface CarrierLogoProps {
 
 const CarrierLogo: React.FC<CarrierLogoProps> = ({ carrier, className = "w-8 h-8" }) => {
   const getCarrierInfo = (carrierName: string) => {
-    const normalizedCarrier = carrierName.toLowerCase();
+    const standardizedCarrier = standardizeCarrierName(carrierName);
     
-    if (normalizedCarrier.includes('usps')) {
-      return {
-        name: 'USPS',
-        logo: '/lovable-uploads/dd955829-1318-4987-97c1-3e2c13cce8bc.png',
-        color: 'bg-blue-600',
-        textColor: 'text-white'
-      };
-    } else if (normalizedCarrier.includes('ups')) {
-      return {
-        name: 'UPS',
-        logo: '/lovable-uploads/321101c1-be0c-4392-a060-180db437f38d.png',
-        color: 'bg-yellow-600',
-        textColor: 'text-white'
-      };
-    } else if (normalizedCarrier.includes('fedex')) {
-      return {
-        name: 'FedEx',
-        logo: '/lovable-uploads/b92bf2f4-d7b0-47a4-b30a-3097d19fdc40.png',
-        color: 'bg-purple-600',
-        textColor: 'text-white'
-      };
-    } else if (normalizedCarrier.includes('dhl')) {
-      return {
-        name: 'DHL',
-        logo: '/carriers/dhl-logo.png',
-        color: 'bg-red-600',
-        textColor: 'text-white'
-      };
-    } else {
-      return {
-        name: carrierName.toUpperCase(),
-        logo: null,
-        color: 'bg-gray-600',
-        textColor: 'text-white'
-      };
+    switch (standardizedCarrier) {
+      case 'USPS':
+        return {
+          name: 'USPS',
+          logo: '/lovable-uploads/dd955829-1318-4987-97c1-3e2c13cce8bc.png',
+          color: 'bg-blue-600',
+          textColor: 'text-white'
+        };
+      case 'UPS':
+        return {
+          name: 'UPS',
+          logo: '/lovable-uploads/321101c1-be0c-4392-a060-180db437f38d.png',
+          color: 'bg-yellow-600',
+          textColor: 'text-white'
+        };
+      case 'FedEx':
+        return {
+          name: 'FedEx',
+          logo: '/lovable-uploads/b92bf2f4-d7b0-47a4-b30a-3097d19fdc40.png',
+          color: 'bg-purple-600',
+          textColor: 'text-white'
+        };
+      case 'DHL':
+        return {
+          name: 'DHL',
+          logo: '/carriers/dhl-logo.png',
+          color: 'bg-red-600',
+          textColor: 'text-white'
+        };
+      case 'Canada Post':
+        return {
+          name: 'Canada Post',
+          logo: null,
+          color: 'bg-red-700',
+          textColor: 'text-white'
+        };
+      default:
+        return {
+          name: standardizedCarrier.toUpperCase(),
+          logo: null,
+          color: 'bg-gray-600',
+          textColor: 'text-white'
+        };
     }
   };
 

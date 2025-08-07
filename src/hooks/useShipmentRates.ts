@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/sonner';
 import { BulkUploadResult, BulkShipment } from '@/types/shipping';
+import { standardizeCarrierName, standardizeServiceName } from '@/utils/carrierUtils';
 
 // 🎛️ CONFIGURABLE MARKUP PERCENTAGE - Change this value to adjust profit margin
 const RATE_MARKUP_PERCENTAGE = 5; // 5% markup - You can change this to 6, 7, 10, etc.
@@ -15,17 +16,6 @@ const applyRateMarkup = (originalRate: number): number => {
   console.log(`Bulk rate markup applied: Original: $${originalRate.toFixed(2)}, Markup (${RATE_MARKUP_PERCENTAGE}%): $${markupAmount.toFixed(2)}, Final: $${finalRate.toFixed(2)}`);
   
   return finalRate;
-};
-
-// Standardize carrier names for consistent display
-const standardizeCarrierName = (carrierName: string): string => {
-  const name = carrierName.toUpperCase();
-  if (name.includes('USPS')) return 'USPS';
-  if (name.includes('UPS')) return 'UPS';
-  if (name.includes('FEDEX')) return 'FedEx';
-  if (name.includes('DHL')) return 'DHL';
-  if (name.includes('CANADA POST') || name.includes('CANADAPOST')) return 'Canada Post';
-  return carrierName; // Return original if no match
 };
 
 export const useShipmentRates = (
@@ -91,11 +81,14 @@ export const useShipmentRates = (
                 const originalRate = parseFloat(rate.rate);
                 const markedUpRate = applyRateMarkup(originalRate);
                 const standardizedCarrier = standardizeCarrierName(rate.carrier);
+                const standardizedService = standardizeServiceName(rate.service, standardizedCarrier);
                 
                 return {
                   ...rate,
                   carrier: standardizedCarrier,
+                  service: standardizedService,
                   original_carrier: rate.carrier, // Keep original for API calls
+                  original_service: rate.service, // Keep original for API calls
                   rate: markedUpRate.toFixed(2),
                   original_rate: originalRate.toFixed(2),
                   markup_percentage: RATE_MARKUP_PERCENTAGE
@@ -188,6 +181,8 @@ export const useShipmentRates = (
         throw new Error('Shipment not found');
       }
       
+      console.log('Refreshing rates for shipment:', shipmentId);
+      
       const { data, error } = await supabase.functions.invoke('get-shipping-rates', {
         body: {
           fromAddress: results.pickupAddress,
@@ -221,11 +216,14 @@ export const useShipmentRates = (
           const originalRate = parseFloat(rate.rate);
           const markedUpRate = applyRateMarkup(originalRate);
           const standardizedCarrier = standardizeCarrierName(rate.carrier);
+          const standardizedService = standardizeServiceName(rate.service, standardizedCarrier);
           
           return {
             ...rate,
             carrier: standardizedCarrier,
+            service: standardizedService,
             original_carrier: rate.carrier,
+            original_service: rate.service,
             rate: markedUpRate.toFixed(2),
             original_rate: originalRate.toFixed(2),
             markup_percentage: RATE_MARKUP_PERCENTAGE
@@ -301,11 +299,18 @@ export const useShipmentRates = (
     toast.success(`Applied ${carrierName} to all eligible shipments with ${RATE_MARKUP_PERCENTAGE}% markup`);
   };
 
+  // New function to refresh rates after edit
+  const handleRefreshRatesAfterEdit = async (shipmentId: string) => {
+    console.log('Refreshing rates after edit for shipment:', shipmentId);
+    await handleRefreshRates(shipmentId);
+  };
+
   return {
     isFetchingRates,
     fetchAllShipmentRates,
     handleSelectRate,
     handleRefreshRates,
+    handleRefreshRatesAfterEdit,
     handleBulkApplyCarrier,
   };
 };

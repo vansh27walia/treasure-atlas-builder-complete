@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from '@/components/ui/sonner';
 import { useNavigate } from 'react-router-dom';
+import { standardizeCarrierName, standardizeServiceName } from '@/utils/carrierUtils';
 
 export interface ShippingRate {
   id: string;
@@ -54,6 +55,10 @@ export const useShippingRates = () => {
   // Process and enhance rates with discount percentages and AI recommendations
   const processRates = (incomingRates: ShippingRate[]) => {
     return incomingRates.map((rate, index) => {
+      // Standardize carrier and service names
+      const standardizedCarrier = standardizeCarrierName(rate.carrier);
+      const standardizedService = standardizeServiceName(rate.service, standardizedCarrier);
+      
       // The discount percentage should already come from the backend
       // If not present, calculate it from original_rate and rate
       let discountPercentage = rate.discount_percentage || 0;
@@ -68,11 +73,11 @@ export const useShippingRates = () => {
       
       // Generate premium flag - typically express, overnight, or most expensive services
       const isPremium = 
-        rate.service.toLowerCase().includes('express') || 
-        rate.service.toLowerCase().includes('priority') || 
-        rate.service.toLowerCase().includes('overnight') ||
-        rate.service.toLowerCase().includes('next day') ||
-        rate.service.toLowerCase().includes('same day') ||
+        standardizedService.toLowerCase().includes('express') || 
+        standardizedService.toLowerCase().includes('priority') || 
+        standardizedService.toLowerCase().includes('overnight') ||
+        standardizedService.toLowerCase().includes('next day') ||
+        standardizedService.toLowerCase().includes('same day') ||
         (rate.delivery_days === 1) ||
         parseFloat(rate.rate) > 20; // If rate is above $20, consider it a premium service
       
@@ -80,11 +85,15 @@ export const useShippingRates = () => {
       const isAIRecommended = index === 0 || (
         rate.delivery_days <= 3 && 
         parseFloat(rate.rate) < 25 && 
-        !rate.service.toLowerCase().includes('ground')
+        !standardizedService.toLowerCase().includes('ground')
       );
       
       return {
         ...rate,
+        carrier: standardizedCarrier,
+        service: standardizedService,
+        original_carrier: rate.carrier, // Keep original for API calls
+        original_service: rate.service, // Keep original for API calls
         discount_percentage: discountPercentage,
         isPremium,
         isAIRecommended
